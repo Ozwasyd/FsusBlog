@@ -6,7 +6,7 @@ This source handoff does not qualify a backend, establish performance, accept an
 
 - Actual latest master fetched at task start: `b9c076e4b763130075218ff9d50f9a6c36784f59`.
 - Tested source: `f4836b86c3132a1b1f41518ff753d80cdc35bd15`, tree `60d9fd46d03b4eb1cf1898bb6255731e07deb3cd`.
-- Branch: `codex/mem-3460-3462-gpu`; narrow incremental source commits are published. No master push, force-push or merge.
+- Final candidate branch: `codex/mem-3460-3462-gpu-candidate`; narrow incremental source commits are published. The prior `codex/mem-3460-3462-gpu` branch is preserved, including evidence-only commit40e3f64fb with an invalid Refs footer. This new candidate copies those exact evidence bytes with a corrected footer; it does not rewrite published history. No master push, force-push or merge.
 - Seven prerequisite blobs match exact `089d95e466c23a7fc781d30b80157cb4dd199c10`, PR3845. No shared source was altered and no broad WIP merge occurred.
 - Distinct source scope: `Memory/Devices/Gpu*.cs`, `Memory/Platform/Gpu*.cs`, `tests/backend/Unit/Gpu*Tests.cs`. Auxiliary artifacts belong only to this partition. Full source diff is [source.patch](source.patch); all 29 source/test bytes are bound in [source-digests.sha256](source-digests.sha256).
 - Production remains inactive. The common governor, capability authority, ledger, residency publisher, eligibility/revocation, miss/fallback and inventory/oracle owners retain their responsibilities.
