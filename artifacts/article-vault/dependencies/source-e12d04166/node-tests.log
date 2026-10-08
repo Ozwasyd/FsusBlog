@@ -1,0 +1,16 @@
+✔ actual dependency adapters retain their source boundary (2.988367ms)
+✔ rejects remote-fetch in the adapter boundary (0.564271ms)
+✔ rejects direct-storage in the adapter boundary (0.121844ms)
+✔ rejects direct-ledger in the adapter boundary (0.08625ms)
+✔ rejects rendered-scan in the adapter boundary (0.090477ms)
+✔ rejects second-index in the adapter boundary (0.391731ms)
+✔ rejects string-target in the adapter boundary (0.092509ms)
+✔ canonical typed identities, local projections and digest comparisons remain allowed (0.275726ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 135.848605
