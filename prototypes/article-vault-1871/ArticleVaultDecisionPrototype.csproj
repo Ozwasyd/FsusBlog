@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <RestoreLockedMode>false</RestoreLockedMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../../src/shared/Contracts/ArticleVault/ArticleVaultManifestContracts.cs" Link="Canonical/ArticleVaultManifestContracts.cs" />
+    <Compile Include="../../src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs" Link="Canonical/ArticleVaultManifestCodec.cs" />
+    <Compile Include="../../src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanContracts.cs" Link="Canonical/ArticleVaultSyncPlanContracts.cs" />
+    <Compile Include="../../src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanner.cs" Link="Canonical/ArticleVaultSyncPlanner.cs" />
+    <Compile Include="../../src/shared/Contracts/BlockLinks/BlockAnchorContracts.cs" Link="Canonical/BlockAnchorContracts.cs" />
+    <Compile Include="../../src/shared/Contracts/BlockLinks/BlockAnchorContractValidator.cs" Link="Canonical/BlockAnchorContractValidator.cs" />
+    <Compile Include="../../src/shared/Contracts/BlockLinks/BlockAnchorContractDigest.cs" Link="Canonical/BlockAnchorContractDigest.cs" />
+    <Compile Include="../../src/shared/Contracts/BlockLinks/BlockAnchorCodec.cs" Link="Canonical/BlockAnchorCodec.cs" />
+    <Compile Include="../../src/shared/Contracts/BlockLinks/BlockAnchorMarkdown.cs" Link="Canonical/BlockAnchorMarkdown.cs" />
+    <Compile Include="../../src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs" Link="Canonical/ArticleEmbedContracts.cs" />
+    <Compile Include="../../src/shared/Contracts/ArticleEmbeds/ArticleEmbedTargetCodec.cs" Link="Canonical/ArticleEmbedTargetCodec.cs" />
+    <Compile Include="../../src/backend/Contracts/Assets/AssetId.cs" Link="Canonical/AssetId.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../src/shared/Contracts/ArticleVault/article-vault-root-manifest.schema.json" LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-root-manifest.schema.json" />
+    <EmbeddedResource Include="../../src/shared/Contracts/ArticleVault/article-vault-article-manifest.schema.json" LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-article-manifest.schema.json" />
+    <EmbeddedResource Include="../../src/shared/Contracts/ArticleVault/article-vault-metadata-manifest.schema.json" LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-metadata-manifest.schema.json" />
+    <EmbeddedResource Include="../../src/shared/Contracts/ArticleVault/article-vault-sync-plan.schema.json" LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-sync-plan.schema.json" />
+  </ItemGroup>
+</Project>
