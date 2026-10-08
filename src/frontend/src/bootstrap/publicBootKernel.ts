@@ -116,13 +116,14 @@ function failClosed(frontendBuildIdentity: string): void
     failClosedPublicBootNavigation(frontendBuildIdentity);
 }
 
-const config = readConfig();
-if (!config)
+const parsedConfig = readConfig();
+if (!parsedConfig)
 {
     failClosed('invalid-public-boot-config');
 }
 else
 {
+    const config = parsedConfig;
     let animationFrameHandle: number | null = null;
     let idleHandle: number | null = null;
     let fallbackTimer: number | null = null;

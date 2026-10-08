@@ -178,9 +178,9 @@ export function getPublicActivationOwner(): PublicActivationState['owner']
 }
 
 /** Idle FullApp core warming — no route URL, no navigation snapshot. */
-export function warmPublicFullAppCore(source = 'idle'): Promise<PublicCoreWarmResult>
+export function warmPublicFullAppCore(): Promise<PublicCoreWarmResult>
 {
-    return coordinator.warmCore(source);
+    return coordinator.warmCore();
 }
 
 /** Intent-targeted route preparation (pointerenter/focus). Does not commit FullApp. */
