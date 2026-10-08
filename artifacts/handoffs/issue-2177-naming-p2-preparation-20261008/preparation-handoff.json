@@ -1,0 +1,29 @@
+{
+  "purpose": "Exact naming P2 preparation only; current actual candidate metadata still fails",
+  "candidateSha": "c3155d51f27286d64fc8e18eeb759f3bd765315e",
+  "actualCandidateBase": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+  "observedFetchedMaster": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+  "independentReview": "Coordinator reports full18 source and actual original80 passed using SDK10.0.401 locked/audit; no independent receipt relabeled into own SDK10.0.302 logs",
+  "currentProposedTitle": "feat(backend): expose production shared comment policy inputs",
+  "proposedLabels": [
+    "release-note:internal"
+  ],
+  "metadataExpectedFailure": "External naming manifest paths must exactly match all changed registered naming surfaces",
+  "actualRequiredNamingPaths": 6,
+  "currentPolicyPaths": 5,
+  "currentLockManifestPaths": 1,
+  "actualMetadataExitCodes": [
+    1,
+    1
+  ],
+  "lockedIncrementMergeConfirmed": false,
+  "conditionalRemainingPaths": 5,
+  "conditionalExistingPolicyManifestAlreadyMatchesSet": true,
+  "trackedSourceChange": false,
+  "productionChange": false,
+  "refreeze": false,
+  "prMutation": false,
+  "priorC315EvidencePreserved": true,
+  "wholeAssignmentComplete": false,
+  "nextStep": "On coordinator-notified actual merged lock master, verify lock source/blobs, integrate real base, recompute registered paths, regenerate single selected policy manifest and run current-base SOURCE/range/proposed metadata gates; preserve all original assertions."
+}

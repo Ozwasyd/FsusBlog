@@ -1,0 +1,104 @@
+## Linked Issue
+
+Refs #2177
+
+Source consumers: [#1725 tracking](https://github.com/Ozwasyd/FsusBlog/issues/1725), [#2542](https://github.com/Ozwasyd/FsusBlog/issues/2542), [#2545](https://github.com/Ozwasyd/FsusBlog/issues/2545).
+
+## Scope Summary
+
+- Expose production-shared pure author-mode, article-policy, initial moderation and reply-recipient decisions with their original precedence and lazy configuration behavior retained.
+- Current exact candidate c3155d51f27286d64fc8e18eeb759f3bd765315e; actual base 7f128208dc59b408adda9089ff4e0a805ef2777d. Full18 paths disclosed in the published handoff; original frozen9 blobs unchanged. Canonical ea4e lock and canonical a95 four InlineData corrections plus six existing own compiler-prerequisite test files are included.
+- This draft is local metadata preparation only. Lock increment88eb has not been verified merged; no future base or16-path candidate is asserted. Production transactions/privacy/nullifier/native qualification remain open.
+
+## Change Classification
+
+- [x] Behavior change
+- [ ] Format-only
+- [ ] Naming-only
+- [ ] Generated output
+- [x] Public contract change
+- [x] External naming exception
+- Contract impact: compatible
+
+## Tests Run
+
+- [x] Targeted backend tests: actual original tests/backend/FsusBlog.Server.Tests.csproj on c315 passed80/80,0failed,0skipped using SDK10.0.302, audit-on strict locked restore, no harness substitution/compile-item exclusion/no-restore. Actual TRX finish2026-10-08T11:17:20.2616224+00:00.
+- [x] Other: actual c315 SOURCE integration and7f..c315 commit range both exit0; all18 source paths and frozen9 hashes are published.
+- [x] Other: coordinating parent reports the same independent reviewer passed full18 source review and actual original-project80/80 on c315 using SDK10.0.401 with locked/audit. That receipt is independent; own TRX remains bound to its original SDK/SHA.
+- [ ] Other: current proposed metadata naming gate expected to reject either existing single manifest because neither covers all6 registered paths; preserved as a real remaining P2.
+- [ ] Other: full backend suite, bootstrap runtime cases, held audits and remaining atomicity/privacy/nullifier/native qualification not run.
+
+## UI Evidence
+
+- [ ] Screenshots or video attached for UI changes
+- [ ] Mobile layout checked
+- [ ] Dark mode checked
+- [ ] Accessibility and reduced-motion impact considered
+
+## Coding Convention
+
+- [x] C# mother-style mapping checked
+- [x] Formatter/linter run
+- [x] No tool default overrides repository style
+- [x] Mechanical formatting separated from logic
+- [x] `.git-blame-ignore-revs` updated when applicable
+- Formatter identity: none
+- Formatter version: none
+- Formatter command: none
+- Formatter idempotence evidence: none
+- Blame-ignore revision: none
+
+## External Naming Exception
+
+- Exceptions manifest: artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json
+
+## Documentation / Intent
+
+- [x] Public API docs updated
+- [x] Ownership/security/performance intent updated
+- [x] Historical handoff archived or source-of-truth updated
+- [x] TODO/FIXME references valid issues
+
+## Compatibility And Risk
+
+- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer
+- [x] External wire / ABI / database / third-party names preserved or explicitly adapted
+- [x] Public API impact reviewed
+- [x] AEDS frame / binary contract impact reviewed
+- [x] Database migration impact reviewed
+- [x] Security, auth, moderation, PoW, or privacy impact reviewed
+- [x] Docs updated or a reason is recorded below
+- [x] Known limitations updated if applicable
+
+## Performance Claim
+
+- Claim level: none
+- Evidence path: none
+- Non-goals: no performance or runtime qualification claim.
+
+## Release Note
+
+- Audience: internal
+- Category: Internal/Tooling
+- Summary: expose production shared comment policy inputs
+
+## Generated Output
+
+- Generator source: none
+- Generated outputs: none
+- Digest/evidence: none
+- Automation identity: none
+
+## Rollout / Rollback
+
+- Rollout: draft source capability review and exact commit handoff only.
+- Rollback: revert the bounded API exposure increment on pure decision, precedence or configuration behavior regression.
+- Deferred work: remaining #2177 transaction/receipt/atomicity and original prerequisite admission. Independently published #2178/#2179 source APIs retain their own evidence and qualification limits.
+- Known limitations: EvaluateWrite is article policy only; actor admission must precede it. Region rejection precedes initial moderation. Pure APIs authenticate no actor, reserve no nullifier, allocate no persisted row and do not validate actual thread visibility.
+
+## Notes For Reviewers
+
+The bounded production-shared policy source and six own previously published compiler prerequisites were independently reviewed at the full18-file c315 candidate. This local proposed metadata is not a PR write or production acceptance. Single-manifest exact-set P2 is retained. Wait for the coordinator to identify the actual merged lock base before recalculating the remaining exact paths and regenerating the policy manifest. Existing frozen9 source and all original assertions are preserved.
+
+No deployment, merge, issue closure, generated-output repair, endpoint change, database migration or acceptance threshold change is performed. Non-applicable UI, formatter-only and generated fields are assessments. NU1903 SQLitePCLRaw.lib.e_sqlite3 2.1.11 remains disclosed with audit enabled.

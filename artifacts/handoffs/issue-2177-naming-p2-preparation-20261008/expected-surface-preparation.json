@@ -1,0 +1,126 @@
+{
+  "createdAtUtc": "2026-10-08T11:45:42.914924+00:00",
+  "stage": "preparation-only; no fabricated merged base or refreeze",
+  "existingCandidate": "c3155d51f27286d64fc8e18eeb759f3bd765315e",
+  "existingVerifiedBase": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+  "registryBlob": "f65a0111e707d3950b3f0b4bd8f24f0a8cba56fa",
+  "currentChangedPaths": [
+    "artifacts/change-contract/backend-existing-reader-lock-external-naming.json",
+    "artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json",
+    "docs/architecture/comment-command-boundary.md",
+    "src/backend/Services/ArticleCommentPolicyService.cs",
+    "src/backend/Services/CommentModerationService.cs",
+    "src/backend/Services/CommentService.cs",
+    "src/backend/Services/Security/AnonymousCommentPolicyService.cs",
+    "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+    "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+    "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+    "tests/backend/Unit/CommentModerationInitialStateTests.cs",
+    "tests/backend/Unit/CommentPurePolicyContractTests.cs",
+    "tests/backend/Unit/CommentServiceValidationTests.cs",
+    "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+    "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+    "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+    "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+    "tests/backend/packages.lock.json"
+  ],
+  "currentRegisteredNamingSurfaces": [
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "registeredIds": [
+        "content-doc-exactness-authority",
+        "css-like-contract"
+      ]
+    },
+    {
+      "path": "src/backend/Services/ArticleCommentPolicyService.cs",
+      "registeredIds": [
+        "environment-variable"
+      ]
+    },
+    {
+      "path": "src/backend/Services/CommentModerationService.cs",
+      "registeredIds": [
+        "environment-variable"
+      ]
+    },
+    {
+      "path": "src/backend/Services/CommentService.cs",
+      "registeredIds": [
+        "environment-variable"
+      ]
+    },
+    {
+      "path": "src/backend/Services/Security/AnonymousCommentPolicyService.cs",
+      "registeredIds": [
+        "environment-variable"
+      ]
+    },
+    {
+      "path": "tests/backend/packages.lock.json",
+      "registeredIds": [
+        "json-wire-key"
+      ]
+    }
+  ],
+  "currentPolicyManifestMissingPaths": [
+    "tests/backend/packages.lock.json"
+  ],
+  "hypotheticalCondition": "Only if real merged lock increment makes both exact lock paths leave candidate diff and the registry does not drift",
+  "conditionalRemainingChangedPaths": [
+    "artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json",
+    "docs/architecture/comment-command-boundary.md",
+    "src/backend/Services/ArticleCommentPolicyService.cs",
+    "src/backend/Services/CommentModerationService.cs",
+    "src/backend/Services/CommentService.cs",
+    "src/backend/Services/Security/AnonymousCommentPolicyService.cs",
+    "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+    "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+    "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+    "tests/backend/Unit/CommentModerationInitialStateTests.cs",
+    "tests/backend/Unit/CommentPurePolicyContractTests.cs",
+    "tests/backend/Unit/CommentServiceValidationTests.cs",
+    "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+    "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+    "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+    "tests/backend/Unit/TaxonomyExactMetadataTests.cs"
+  ],
+  "conditionalRemainingRegisteredNamingSurfaces": [
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "registeredIds": [
+        "content-doc-exactness-authority",
+        "css-like-contract"
+      ]
+    },
+    {
+      "path": "src/backend/Services/ArticleCommentPolicyService.cs",
+      "registeredIds": [
+        "environment-variable"
+      ]
+    },
+    {
+      "path": "src/backend/Services/CommentModerationService.cs",
+      "registeredIds": [
+        "environment-variable"
+      ]
+    },
+    {
+      "path": "src/backend/Services/CommentService.cs",
+      "registeredIds": [
+        "environment-variable"
+      ]
+    },
+    {
+      "path": "src/backend/Services/Security/AnonymousCommentPolicyService.cs",
+      "registeredIds": [
+        "environment-variable"
+      ]
+    }
+  ],
+  "conditionalExistingPolicyManifestMatchesExactSet": true,
+  "actualMergedBaseConfirmed": false,
+  "prContentMutation": false,
+  "productionChange": false,
+  "wholeIssueAccepted": false
+}

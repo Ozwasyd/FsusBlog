@@ -1,0 +1,35 @@
+{
+  "createdAtUtc": "2026-10-08T11:47:12.919Z",
+  "stage": "current actual18-path proposed metadata; expected rejection; no future base invented",
+  "base": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+  "head": "c3155d51f27286d64fc8e18eeb759f3bd765315e",
+  "authoritySha": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+  "changedFilesCount": 18,
+  "results": [
+    {
+      "manifest": "artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json",
+      "errors": [
+        "scope must be one of: admin, aeds, api, auth, backend, build, cache, ci, cmake, contracts, core, cpp, csharp, database, deployment, docs, frontend, governance, json, markdown, operations, performance, privacy, public, release, security, shared, shell, style, test, tooling, wasm, yaml, zk",
+        "release note Summary must exactly match the PR title summary used by GitHub release notes",
+        "PR must have exactly the release note label release-note:internal",
+        "External naming manifest paths must exactly match all changed registered naming surfaces"
+      ],
+      "exitCode": 1,
+      "bodySha256": "215b106ef397e04bfaa90ee4fd9b5e9198bb514e3990612118b08cbefd20b712"
+    },
+    {
+      "manifest": "artifacts/change-contract/backend-existing-reader-lock-external-naming.json",
+      "errors": [
+        "scope must be one of: admin, aeds, api, auth, backend, build, cache, ci, cmake, contracts, core, cpp, csharp, database, deployment, docs, frontend, governance, json, markdown, operations, performance, privacy, public, release, security, shared, shell, style, test, tooling, wasm, yaml, zk",
+        "release note Summary must exactly match the PR title summary used by GitHub release notes",
+        "PR must have exactly the release note label release-note:internal",
+        "External naming manifest paths must exactly match all changed registered naming surfaces"
+      ],
+      "exitCode": 1,
+      "bodySha256": "5548659a15f97dd3d1733b5535bdd6e04af16e8662cf74360684e941f79971df"
+    }
+  ],
+  "currentMetadataPassed": false,
+  "mergedLockIntegrationConfirmed": false,
+  "qualification": false
+}
