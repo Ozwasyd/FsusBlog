@@ -103,8 +103,11 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
             submission.value = state;
             if (state.phase === 'confirmed')
             {
-                selected.value = state.result;
-                void refresh();
+                const incoming = port.inspect(state.result);
+                const current = snapshots.value.find((snapshot) => port.inspect(snapshot).taskId === incoming.taskId);
+                selected.value = current && port.inspect(current).version > incoming.version ? current : state.result;
+                accept(selected.value);
+                void refresh(0);
             }
         }
     });
@@ -113,15 +116,26 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
     function schedulePoll(): void
     {
         stopPolling();
-        if (open.value && permitted.value && views.value.some((view) => [1, 2, 3, 4].includes(view.status)))
+        if (!open.value || !permitted.value)
         {
-            timer = setTimeout(() => void refresh(), 2000);
+            return;
+        }
+        const now = Date.now();
+        const expiries = views.value.map((view) => view.output && !view.output.deleted
+            ? Date.parse(view.output.expiresAt) - now : Number.NaN).filter((delay) => Number.isFinite(delay) && delay > 0);
+        const delay = Math.min(views.value.some((view) => [1, 2, 3, 4].includes(view.status)) ? 2000 : Infinity,
+            ...expiries);
+        if (Number.isFinite(delay))
+        {
+            // Observe the authority at its retention boundary. Never synthesize
+            // an expired/cleaned job locally when the timer fires.
+            timer = setTimeout(() => void refresh(), Math.max(1, Math.min(delay, 2147483647)));
         }
     }
 
     async function refresh(nextOffset = offset.value): Promise<void>
     {
-        if (!open.value || !permitted.value)
+        if (!open.value || !permitted.value || !Number.isSafeInteger(nextOffset) || nextOffset < 0)
         {
             return;
         }
@@ -259,7 +273,8 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
             return view.status === 6 && !view.diagnostic && output !== null && !output.deleted
                 && Date.parse(output.expiresAt) > Date.now();
         }
-        return name === 'status' || (name === 'delete' && view.output !== null && !view.output.deleted);
+        return name === 'status' || (name === 'delete'
+            && (view.status === 10 || (view.output !== null && !view.output.deleted)));
     }
 
     async function act(name: 'cancel' | 'retry' | 'download' | 'delete' | 'status', taskId: string): Promise<void>
