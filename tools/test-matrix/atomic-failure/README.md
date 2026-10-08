@@ -74,6 +74,66 @@ runtime admission and settled-reset postflight remain pending. Complete-vector
 domain outcome projection remains with each original owner. No synthetic fixture
 execution or original component control qualifies native/runtime/CI acceptance.
 
+## Prepare-only requests to the existing lane owners
+
+These are proposed exports, not currently callable capabilities. Add them in the
+existing owner modules by extracting their unchanged pre-executor checks; make
+each existing execute wrapper call its own preparation export before its one
+original executor call. Do not add another runner or reconstruct declarations.
+
+`prepareBackendAtomicBridge(binding, input, options)` belongs in
+`tools/test/backend-atomic-bridge.mjs`, inspected at
+`9690f0924509d665748afd5310c3b074ebcc03d6`. Its inputs are exactly those of
+`executeBackendAtomicBridge`: the original compiled binding; `input.plans`,
+`expectedPlanDigests`, `sourceRoot`, `matrix`, `authorities`; and the existing
+`options.expectedBindingDigest`, `context`, `profile`, `verifyAuthority`,
+`producerContexts`. Retain recompile/digest equality, current source/worktree/run
+and profile equality, each producer and Release prerequisite's exact envelope,
+replay and temporal refs, and the existing Release/perf-readiness environment
+requirements. Preparation must return the original validated contexts for those
+executable IDs. Capacity and finalizers remain caller-owned executor inputs.
+
+`prepareStaticAtomicCompilation(compilation, options)` belongs in
+`tools/test/static-atomic/compiler-bridge.mjs`, inspected at
+`ab9a2493c54e1357e4d2b3c74796cb657cd7c34f` and
+`fd7a8107062aeee52eb9663706bd44d694b6387e`. Inputs retain the existing
+`repositoryRoot`, `matrix`, `authorities`, `memberships`, `prerequisiteBindings`,
+`context`, `producerContexts`. Call the existing exact compilation verifier;
+retain all thirteen original cwd/environment checks, the network-baseline skip
+refusal, frozen environment copies and original `staticAtomicAuthorityVerifier`
+wrappers. Declared executable prerequisites must retain their supplied contexts;
+do not manufacture a prerequisite or turn a projection into an executable.
+
+Both proposed exports should return this private in-memory shape:
+
+```js
+{
+    compiled, // exact original verified fragment, including coordination steps
+    sourceBindingDigest, // binding.contentDigest or compilation.binding.contentDigest
+    producerIds, // sorted exact scoped executable IDs, including declared prerequisites
+    producerContexts, // only these IDs; original validated contexts/callbacks
+    context, // the unchanged original executor context
+    qualificationEligible: false
+}
+```
+
+The consumer already compares every owned fragment step with the canonical whole
+graph and retains the original global context, capacity and finalizers. Preparation
+must not execute, allocate attempts, publish receipts, perform terminal readback or
+claim qualification. The returned callbacks are private capabilities, not portable
+JSON evidence. A positive owner control should demonstrate the same original
+binding, scoped contexts and transformed static verifier/environment with zero
+executor invocations. Return an exact tested commit and exported API before this
+consumer can use the port; a proposed signature is not an available implementation.
+
+Backend property source `09a3951c90c662c4f80302a9f23fa335abce7edc` has the owner's
+real restore, Release/Debug compilation and four original property-test results;
+the earlier restore failure is not a blanket blocker. It adds no prepare-only
+bridge export. Static observation source
+`228670054f7cbff4548b2aa2e3fde7265d6745d4` retains seven genuine writer hooks;
+the other writer bindings and complete canonical membership remain owner work.
+Neither source needs a second journal or result runner in this partition.
+
 `projectCompiledAtomicRuntimeCiMaterial` extends the compiler/CI-plan projection
 with the original runtime state's catalogue and registry facts. Each original
 `stateAccessRef` must bind its catalogue digest and exact entry digest through
