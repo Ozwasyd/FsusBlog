@@ -1,0 +1,209 @@
+{
+  "issue": 3601,
+  "state": "OPEN/WIP; source fix and current ordinary controls verified; full acceptance blocked",
+  "assignmentExecution": [
+    3601
+  ],
+  "assignmentTracking": [],
+  "wholeAssignmentAccepted": false,
+  "createdAt": "2026-10-08T15:30:54.076640+00:00",
+  "source": {
+    "branch": "codex/chain-3601-bound-roster-fixture",
+    "sha": "562551892c9a0af87f1a9d2d77f8a2ddf4823362",
+    "remoteHeadReadbackVerified": true,
+    "integrationBase": "14ee98dd456920d9eb9936b4bca0ae4f505d5fac",
+    "aggregateBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "latestFetchedMaster": "85aa75af8949401ef9997c5042d22b1071414e0a",
+    "planningMaster": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "masterMerged": false,
+    "masterChangedSincePrior": "11 unrelated saved-view source/test paths; task paths checked unchanged since8a95130",
+    "sourceDelta": {
+      "files": 11,
+      "insertions": 428,
+      "deletions": 18
+    }
+  },
+  "increments": [
+    {
+      "sha": "f6589931023316b137cb65bf7b36ce8c25273f4b",
+      "scope": "only canonical migration-test import order; other two source files already whole-file equal40d supplier"
+    },
+    {
+      "sha": "69714f2081eb393b2570d57c7b7e3595bf87748c",
+      "scope": "own original-producer authority and two own candidate output bindings"
+    },
+    {
+      "sha": "107773dfeefa86e9052c1583eddde45345284760",
+      "scope": "aggregate catalog naming accounting only"
+    },
+    {
+      "sha": "562551892c9a0af87f1a9d2d77f8a2ddf4823362",
+      "scope": "complete registered canonical migration tooling naming accounting only"
+    }
+  ],
+  "supplier": {
+    "commit": "40d9774b3bab7e21b845984eff7e963d5c832c52",
+    "evidenceTree": "229b17c029474bd3118a5a1999ca6b85cd56b898",
+    "sourceFilesWholeFileEqual": true,
+    "entries": 226,
+    "all8CanonicalSourceDigestsMatch": true,
+    "completeRosterValidatorUnchanged": true,
+    "supplierOutputCopied": false,
+    "supplierReceiptIdentityCopied": false,
+    "formalCurrentEpochAdmissionClaimed": false
+  },
+  "ownAuthority": {
+    "output": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "sha256": "597f4118855beb4f28612a846e92ffae5f846b3b5aebadfa58e745a5e72d1ba4",
+    "supplierOutputSha256": "fdb76ed44cc10c1151ce700e89057d23363bea9971c0c66370c8ef91efd88e16",
+    "closureFiles": 1129,
+    "targets": 102,
+    "originalProducer": [
+      "node",
+      "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "actualTestedSha": "562551892c9a0af87f1a9d2d77f8a2ddf4823362",
+    "runId": "chain3601-publication-20261008T152350Z-d219565f47",
+    "producerExit": 0,
+    "fixedPoint": true,
+    "ownBindingsMatch": true,
+    "staticBoundaryErrors": [],
+    "qualification": false
+  },
+  "verification": {
+    "positiveAllowlist": "publication-candidate/positive-test-allowlist.json",
+    "expected": 51,
+    "observed": 51,
+    "passed": 51,
+    "failed": 0,
+    "groupCounts": {
+      "materializer": 18,
+      "assets": 7,
+      "caller": 10,
+      "roster": 7,
+      "sealedCli": 1,
+      "productionFinalizerUnitModel": 8
+    },
+    "exactAllowlistMatched": true,
+    "allRecordedFinalChecksExit0": true,
+    "records": "execution-scope-summary.json",
+    "sdk": "10.0.302 available; list-sdks only; build/native not run on this candidate",
+    "node": "24.16.0",
+    "npm": "11.13.0",
+    "markdownlint": "0.23.1 --no-globs docs/testing.md; one file,zeroissues",
+    "nativeQualification": false,
+    "fullSchedulerRun": false,
+    "broadSource93Run": false,
+    "heldAuditControlsRun": false,
+    "packagePublished": false
+  },
+  "preservedFreshFailure": {
+    "testedSha": "69714f2081eb393b2570d57c7b7e3595bf87748c",
+    "runId": "chain3601-bound-roster-20261008T145135Z-2ccf19cf8f",
+    "title": "runner accepts fresh, resume, and max-parallel flags while CI always executes fresh",
+    "exit": 1,
+    "diagnostic": "Linux cgroup memory invalid path: /..",
+    "location": "tests/tools/test-matrix-scheduler.test.mjs:4062",
+    "freshChildExit": 1,
+    "ciResumeStage": "NOT RUN; first fresh assertion stopped callback",
+    "initial52Results": "51pass/1fail; all52 exactselected,noneunexpected/missing",
+    "finalFreshRerun": false,
+    "runtimeTestsAuthorityByteIdenticalToFinal": true,
+    "unchangedAssertion": true,
+    "procMembership": "0::/",
+    "mountRoot": "/..",
+    "mountOptions": "ro,nosuid,nodev,noexec",
+    "memorySourceUnchangedFromAggregateBase": true
+  },
+  "acceptanceByCriterion": [
+    {
+      "criterion": "one canonical materializer with allowed roots/runtime preflight",
+      "state": "source verified; focused current executable positive/negative controls passed"
+    },
+    {
+      "criterion": "required assets present; missing/linked source refused despite existing fixture; assertions/isolation retained",
+      "state": "passed current ordinary51 exactcontrols including repeatedrefusal/recovery,realvalidator,cold/corruptcache,link/isolation/drift"
+    },
+    {
+      "criterion": "focused regressions,original governed output,source/layout,matrix,PR contract",
+      "state": "limited current controls/staticboundary/layout/declarations/prepared local PR passed; original fresh runtime blocked; full matrix/native held or unrun"
+    },
+    {
+      "criterion": "independent review,standard PR merge/current-master recheck before trusted/downstream use",
+      "state": "NOT SATISFIED; same-reviewer continuation pending; no merge/current-master runtime or trusted acceptance"
+    }
+  ],
+  "blockers": [
+    {
+      "owner": "execution environment/native runtime owner",
+      "need": "valid readable cgroup-v2 namespace/membership mapping and actual original resource delegation; run unchanged fresh thenCI-resume controls in isolated task runtime",
+      "status": "actual fresh exit1 at parent; unchanged on final; no resource override or procfs fabrication"
+    },
+    {
+      "owner": "canonical catalog owner3521/3520",
+      "need": "independent current-epoch generated-only formal catalog admission against actual unchanged8source inputs; output freshness and migration source edit do not provide provenance",
+      "status": "supplier explicitly reports open; locally catalog --check and226complete roster passed but no policy promotion"
+    },
+    {
+      "owner": "QPS history owner1851 via coordinating parent",
+      "need": "independent current-epoch exact Node history capability for real transition71932bb4333248ae82559fa1bf0983822086a766 and both exact original replacement rows; no BEFORE/index/path-policy rewrites",
+      "status": "both independent historical BEFORE refusals retained; held/unrun on this candidate",
+      "rows": [
+        {
+          "fullId": "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#backend-qps-lane-rejects-every-legacy-argument-before-ex-c81f0d3f88",
+          "compactId": "nTT8L0iC7qAAaKeBbEfQKA"
+        },
+        {
+          "fullId": "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#zero-argument-backend-qps-lane-delegates-only-to-the-cur-e536405a30",
+          "compactId": "RucB3cT1I8K_7XL8RV5EbA"
+        }
+      ],
+      "beforeBlob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+      "transitionParent": "ed65233111fe5c162d7fe23108382dd3d7327705",
+      "trustedAnchor": "d653afbde02b75814d8384777886b10419fb38a1"
+    },
+    {
+      "owner": "coordinator/independent reviewer",
+      "need": "review current source and preserve same-reviewer frozen documentation continuation; reconcile current master only in authorized later phase,thenstandard review/merge/current-master recheck",
+      "status": "notperformed; contentwritesqueued; globalbarrierpreserved"
+    }
+  ],
+  "frozenHeads": {
+    "source": "f50ad57f8e4e70c035e01661615daf61fbe333ec",
+    "documentation": "1d276775e43f0d3f3f1cea79b524e3ddba63286d",
+    "remoteReadbackVerified": true
+  },
+  "separateDiagnostic": "27346cc969c17d480263f4e0a397112a25f7edac; no debug/compiler/oracle acceptance imported",
+  "pr": {
+    "existing": {
+      "baseRefName": "master",
+      "headRefName": "codex/chain-3601-runtime-asset-owner",
+      "headRefOid": "84cfe5171f4772bf936f18789af236eaebf23345",
+      "isDraft": true,
+      "number": 3838,
+      "state": "OPEN",
+      "url": "https://github.com/Ozwasyd/FsusBlog/pull/3838"
+    },
+    "currentCandidateDraftRequest": "bound-roster-fixture-pr-request.json",
+    "currentCandidatePrCreated": false,
+    "contentApiWrites": "coordinator-only queue",
+    "preparedLocalAggregateContractExit": 0,
+    "actualGithubEventClaimed": false,
+    "exactQueuedPayloadValidatedExit": 0,
+    "sameFrozenDocumentationReviewer": "01a11b5c-e4f5-7766-8857-424457fa7008",
+    "reviewerRequest": "frozen-documentation-same-reviewer-request.json"
+  },
+  "prohibitionsPreserved": [
+    "no master push/merge/auto-merge/deploy/issue closure",
+    "no history/BEFORE/index/identity substitution or resource gate relaxation",
+    "no supplier output/receipt reuse",
+    "no broad later-filtered test suite; exactpositivecallbacks only",
+    "no native/product/release/cleanup/cohort qualification claim"
+  ],
+  "rollback": "Revert the exact fixture provisioning/refusal/source-binding changes together if silent asset omission,ambient adoption or source isolation regresses.",
+  "evidencePublication": {
+    "branch": "codex/chain-3601-bound-roster-fixture-evidence",
+    "sourceCandidateUnchanged": true,
+    "executionQualification": false
+  }
+}
