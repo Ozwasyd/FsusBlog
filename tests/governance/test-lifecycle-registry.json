@@ -5083,6 +5083,16 @@
             ]
         },
         {
+            "file": "tests/tools/linux-cgroup-membership-locator.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/linux-cgroup-membership-locator.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/tools/system-memory.test.mjs",
             "owner": "manual-diagnostic:tests/tools/system-memory.test.mjs",
             "executionCategory": "manual-diagnostic",
