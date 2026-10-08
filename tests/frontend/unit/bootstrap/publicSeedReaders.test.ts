@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import { PUBLIC_AOT_HYDRATION_MEDIA_TYPE } from '@/api/contracts'
@@ -188,6 +189,55 @@ describe('public seed readers', () => {
     expect(loader.hidden).toBe(true)
     expect(loader.getAttribute('aria-hidden')).toBe('true')
     expect(document.getElementById('app')?.hasAttribute('aria-busy')).toBe(false)
+  })
+
+  it('reuses the binary hydration script and cached snapshot without refetching', async () => {
+    vi.resetModules()
+    const payload = { pageKind: 'Home', routeKey: 'home', title: 'Binary hydration' }
+    const rawPayload = encodePublicAotPayload(payload)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const { readPublicHydrationPayloadAsync, replacePublicHydrationPayloadBinary } =
+      await import('@/bootstrap/publicHydrationBootstrap')
+    try {
+      const first = replacePublicHydrationPayloadBinary(rawPayload)
+      const script = document.getElementById('fsus-aot-hydration-props')
+      expect(script).toBeInstanceOf(HTMLScriptElement)
+      expect(script?.getAttribute('type')).toBe('application/octet-stream')
+      expect(script?.textContent).toBe(rawPayload)
+      expect(first).toEqual(payload)
+      expect(await readPublicHydrationPayloadAsync()).toBe(first)
+
+      replacePublicHydrationPayloadBinary(rawPayload)
+      expect(document.getElementById('fsus-aot-hydration-props')).toBe(script)
+      expect(fetchSpy).not.toHaveBeenCalled()
+
+      expect(replacePublicHydrationPayloadBinary(null)).toBeNull()
+      expect(document.getElementById('fsus-aot-hydration-props')).toBeNull()
+      expect(await readPublicHydrationPayloadAsync()).toBeNull()
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  it('rejects a non-script hydration carrier before changing the accepted snapshot', async () => {
+    vi.resetModules()
+    const payload = { pageKind: 'Home', routeKey: 'home', title: 'Accepted hydration' }
+    const rawPayload = encodePublicAotPayload(payload)
+    const { readPublicHydrationPayload, replacePublicHydrationPayloadBinary } =
+      await import('@/bootstrap/publicHydrationBootstrap')
+    const accepted = replacePublicHydrationPayloadBinary(rawPayload)
+    document.getElementById('fsus-aot-hydration-props')?.remove()
+    const carrier = document.createElement('div')
+    carrier.id = 'fsus-aot-hydration-props'
+    carrier.textContent = 'untrusted carrier'
+    document.body.appendChild(carrier)
+
+    expect(() => replacePublicHydrationPayloadBinary(encodePublicAotPayload({ ...payload, title: 'Rejected' })))
+      .toThrow('public_hydration_script_invalid')
+    expect(carrier.textContent).toBe('untrusted carrier')
+    expect(readPublicHydrationPayload()).toBe(accepted)
+    expect((window as PublicSeedWindow).__FSUS_PUBLIC_HYDRATION_RAW__).toBe(rawPayload)
   })
 
   it('fetches hydration payloads from an AEDS sidecar marker before falling back to inline text', async () => {
