@@ -1,3 +1,5 @@
+using Xunit.Abstractions;
+
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services;
@@ -83,5 +85,3 @@ public sealed class ArticleScaleBulkWriterInputTests(ITestOutputHelper output)
     private static ArticleScaleArtifactReference Reference(string schema, string authority, string shape)
         => new(schema, $"config/testing/{authority}", shape, "sha256:" + new string('1', 64));
 }
-using Xunit.Abstractions;
-
