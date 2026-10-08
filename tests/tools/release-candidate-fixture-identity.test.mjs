@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
-import { collectFixtureIdentity, verifyFixtureIdentity } from '../../tools/release-candidate/collect-fixture-identity.mjs';
-import { snapshotRepositorySourceIdentity } from '../../tools/test/repository-source-snapshot.mjs';
-import { plan } from '../../tools/test-fixtures/orchestrator.mjs';
-import { aggregateVerifiedFixtureReceipt, buildProducerReceipt, digestReceiptBody } from '../../tools/test-fixtures/receipt/index.mjs';
-import { readFixtureCatalogs, sealMatrixFixtureProfile, buildProducerFixtureVariantPlan } from '../../tools/testing/fixture-catalog.mjs';
+import { URL } from 'node:url';
 
 import { testDigest, otherDigest } from './release-candidate-test-support.mjs';
 import { gitFixture, sourcePolicy } from './repository-source-snapshot-test-support.mjs';
+
+const { collectFixtureIdentity, verifyFixtureIdentity } = await import(new URL('../../tools/release-candidate/collect-fixture-identity.mjs', import.meta.url));
+const { snapshotRepositorySourceIdentity } = await import(new URL('../../tools/test/repository-source-snapshot.mjs', import.meta.url));
+const { plan } = await import(new URL('../../tools/test-fixtures/orchestrator.mjs', import.meta.url));
+const { aggregateVerifiedFixtureReceipt, buildProducerReceipt, digestReceiptBody } = await import(new URL('../../tools/test-fixtures/receipt/index.mjs', import.meta.url));
+const { readFixtureCatalogs, sealMatrixFixtureProfile, buildProducerFixtureVariantPlan } = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 
 function fixtureInputs(t, profileId = 'none')
 {

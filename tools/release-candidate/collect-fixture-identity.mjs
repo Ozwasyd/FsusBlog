@@ -1,13 +1,13 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-import { canonicalJson, digestCanonical, sealContentDigest } from '../test/attempt-provenance.mjs';
-import { verifyRepositorySourceSnapshot } from '../test/repository-source-snapshot.mjs';
-import { buildProducerDag } from '../test-fixtures/dag.mjs';
-import { validateFixtureReceipt } from '../test-fixtures/receipt/index.mjs';
-import { resolveFixtureProfile } from '../testing/fixture-catalog.mjs';
+import { fileURLToPath, URL } from 'node:url';
 
 import { exactKeys, requireDigest } from './identity-contract.mjs';
+
+const { canonicalJson, digestCanonical, sealContentDigest } = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
+const { verifyRepositorySourceSnapshot } = await import(new URL('../test/repository-source-snapshot.mjs', import.meta.url));
+const { buildProducerDag } = await import(new URL('../test-fixtures/dag.mjs', import.meta.url));
+const { validateFixtureReceipt } = await import(new URL('../test-fixtures/receipt/index.mjs', import.meta.url));
+const { resolveFixtureProfile } = await import(new URL('../testing/fixture-catalog.mjs', import.meta.url));
 
 export const fixtureIdentitySchema = 'fsusblog.release-candidate-fixture-identity.v1';
 
