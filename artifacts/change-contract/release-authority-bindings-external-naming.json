@@ -6,6 +6,7 @@
             "paths": [
                 "config/testing/evidence-location-migration-ledger.json",
                 "config/testing/evidence-locator-registry.json",
+                "tools/release/publish-release-final-bindings.mjs",
                 "tools/release/test-evidence-receipts.mjs",
                 "tools/test/generate-evidence-location-governance.mjs"
             ],
@@ -30,6 +31,7 @@
                 "tools/operations/check-release-evidence-manifest.mjs",
                 "tools/release/browser-contract-receipt-contract.mjs",
                 "tools/release/check-release-final.mjs",
+                "tools/release/publish-release-final-bindings.mjs",
                 "tools/release/register-required-evidence-verifier-imports.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
                 "tools/release/required-evidence-binding.mjs",

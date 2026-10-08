@@ -15,12 +15,16 @@ const { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublicatio
 const { createRequiredEvidenceBinding } = await import(new URL('../../tools/release/required-evidence-binding.mjs', import.meta.url));
 const { createReleaseFinalVerifiedAuthorityBinding, verifyReleaseFinalVerifiedAuthorityBinding, assessReleaseFinalTerminalPrerequisites } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
 const { consumeReleaseFinalVerifiedBindings, assessReleaseFinalTerminalPrerequisites: assessFinalizerPrerequisites } = await import(new URL('../../tools/release/check-release-final.mjs', import.meta.url));
+const { publishReleaseFinalVerifiedAuthorityBinding, verifyPublishedReleaseFinalAuthorityBinding,
+    releaseFinalBindingOutputRegistration, runReleaseFinalBindingProducer } = await import(new URL('../../tools/release/publish-release-final-bindings.mjs', import.meta.url));
 
 const matrix = parseMatrix(fs.readFileSync(new URL('../../tests/matrix.yml', import.meta.url), 'utf8'));
+const rawDigest = (bytes) => `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+const finalOutputPath = 'artifacts/current-run/final-binding.reference.json';
 
 // Enumerates the real catalog with explicitly controlled owners. These model
 // fixtures prove consumer refusal/replay, never actual product qualification.
-async function finalFixture(t, { includeFinalizerInput = false } = {})
+async function finalFixture(t, { includeFinalizerInput = false, includeFinalOutput = false } = {})
 {
     const f = controlledRequiredEvidenceFixture(t, { preserveCanonicalVerifierRefs: true });
     if (includeFinalizerInput)
@@ -28,6 +32,11 @@ async function finalFixture(t, { includeFinalizerInput = false } = {})
         const canonical = JSON.parse(fs.readFileSync(new URL('../../config/testing/evidence-locator-registry.json', import.meta.url)));
         f.locatorRegistry.entries.push(canonical.entries.find((entry) =>
             entry.consumerId === 'evidence-consumer.release.check-release-final'));
+        f.locatorRegistry.contentDigest = governanceContentDigest(f.locatorRegistry);
+    }
+    if (includeFinalOutput)
+    {
+        f.locatorRegistry.entries.push(structuredClone(releaseFinalBindingOutputRegistration));
         f.locatorRegistry.contentDigest = governanceContentDigest(f.locatorRegistry);
     }
     const expectedPlanIdentity = { sourceCommit: f.context.sourceCommit,
@@ -63,6 +72,188 @@ async function finalFixture(t, { includeFinalizerInput = false } = {})
         repositoryRoot: f.repositoryRoot, verifierRegistry: f.verifierRegistry,
         expectedPlanIdentity, testPlan, bindingInputs };
 }
+
+test('actual final-binding producer publishes immutable v2 bytes through the registered owner and independently reads them back', async (t) =>
+{
+    const bindings = await finalFixture(t, { includeFinalOutput: true, includeFinalizerInput: true });
+    const result = await publishReleaseFinalVerifiedAuthorityBinding({ bindings, outputPath: finalOutputPath });
+    assert.equal(result.status, 'published-uncommitted');
+    assert.equal(result.qualificationEligible, false);
+    const wrapperBytes = fs.readFileSync(path.join(bindings.repositoryRoot, result.reference.path));
+    const wrapper = JSON.parse(wrapperBytes);
+    assert.equal(rawDigest(wrapperBytes), result.reference.objectDigest);
+    assert.equal(wrapper.authorityId, releaseFinalBindingOutputRegistration.authorityId);
+    assert.equal(wrapper.producerId, releaseFinalBindingOutputRegistration.producerId);
+    assert.equal(wrapper.payload.schema, 'fsusblog.release-final-test-evidence-binding.v2');
+    assert.equal(wrapper.payload.digest, result.payloadDigest);
+    assert.equal(path.basename(wrapper.payload.path), `release-final-bindings.${result.payloadDigest.slice(7)}.json`);
+    const verified = await verifyPublishedReleaseFinalAuthorityBinding({ bindings,
+        reference: result.reference, handoffReference: result.handoffReference });
+    assert.equal(verified.binding.authorities.length, bindings.catalog.entries.length);
+    assert.equal(verified.binding.contentDigest, result.bindingDigest);
+    assert.equal(verified.binding.status, 'verified-bindings-unpublished');
+    assert.equal(verified.qualificationEligible, false, 'publication is not scheduler or domain qualification');
+    for (const [index, entry] of bindings.catalog.entries.entries())
+    {
+        assert.deepEqual(verified.binding.authorities[index].verifiedBinding.idChecks.requiredTestIds.expected, entry.requiredTestIds);
+        assert.deepEqual(verified.binding.authorities[index].verifiedBinding.idChecks.requiredCoverageIds.expected, entry.requiredCoverageIds);
+        assert.deepEqual(verified.binding.authorities[index].verifiedBinding.idChecks.requiredArtifactIds.expected, entry.requiredArtifactIds);
+    }
+    assert.deepEqual(await verifyPublishedReleaseFinalAuthorityBinding({ bindings,
+        explicitInputs: [finalOutputPath], handoffReference: result.handoffReference }), verified);
+    await assert.rejects(publishReleaseFinalVerifiedAuthorityBinding({ bindings, outputPath: finalOutputPath }), /already has a final reference/u);
+    assert.deepEqual(fs.readFileSync(path.join(bindings.repositoryRoot, result.reference.path)), wrapperBytes);
+    assert.equal(bindings.locatorRegistry.entries.find((entry) =>
+        entry.consumerId === 'evidence-consumer.release.check-release-final').producerExecutable,
+    'bash tools/operations/collect-release-evidence.sh --require-ok');
+});
+
+test('missing final output registration refuses before creating any publication or output', async (t) =>
+{
+    const bindings = await finalFixture(t);
+    const before = fs.readdirSync(path.join(bindings.repositoryRoot, 'artifacts/current-run'));
+    await assert.rejects(publishReleaseFinalVerifiedAuthorityBinding({ bindings, outputPath: finalOutputPath }),
+        (error) => error.reasonCode === 'FINAL_OUTPUT_NOT_REGISTERED');
+    assert.deepEqual(fs.readdirSync(path.join(bindings.repositoryRoot, 'artifacts/current-run')), before);
+    bindings.locatorRegistry.entries.push({ ...releaseFinalBindingOutputRegistration, outputBindingKey: 'COLLECTOR_INPUT' });
+    bindings.locatorRegistry.contentDigest = governanceContentDigest(bindings.locatorRegistry);
+    await assert.rejects(publishReleaseFinalVerifiedAuthorityBinding({ bindings, outputPath: finalOutputPath }),
+        (error) => error.reasonCode === 'FINAL_OUTPUT_NOT_REGISTERED');
+    assert.deepEqual(fs.readdirSync(path.join(bindings.repositoryRoot, 'artifacts/current-run')), before);
+});
+
+test('final output generation refuses missing bindings and raw fallback without a publication or any producer process', async (t) =>
+{
+    const bindings = await finalFixture(t, { includeFinalOutput: true });
+    const before = fs.readdirSync(path.join(bindings.repositoryRoot, 'artifacts/current-run'));
+    let calls = 0;
+    const originals = new Map();
+    for (const key of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork'])
+    {
+        originals.set(key, childProcess[key]);
+        childProcess[key] = () =>
+        {
+            calls += 1;
+            throw new Error('producer execution forbidden');
+        };
+    }
+    syncBuiltinESMExports();
+    t.after(() =>
+    {
+        for (const [key, value] of originals)
+        {
+            childProcess[key] = value;
+        }
+        syncBuiltinESMExports();
+    });
+    await assert.rejects(publishReleaseFinalVerifiedAuthorityBinding({
+        bindings: { ...bindings, bindingInputs: bindings.bindingInputs.slice(1) }, outputPath: finalOutputPath }),
+    (error) => error.reasonCode === 'MISSING_BINDINGS'
+        && assert.deepEqual(error.localProducerCommands, [bindings.catalog.entries[0].localProducerCommand]) === undefined);
+    const bindingInputs = structuredClone(bindings.bindingInputs);
+    bindingInputs[0].explicitInputs = bindingInputs[0].verification.explicitInputs;
+    await assert.rejects(publishReleaseFinalVerifiedAuthorityBinding({
+        bindings: { ...bindings, bindingInputs }, outputPath: finalOutputPath }), /binding is not successful/u);
+    assert.equal(calls, 0);
+    assert.deepEqual(fs.readdirSync(path.join(bindings.repositoryRoot, 'artifacts/current-run')), before);
+});
+
+test('final output producer rejects escaping paths, prebuilt payloads and injected callbacks', async (t) =>
+{
+    const bindings = await finalFixture(t, { includeFinalOutput: true });
+    for (const outputPath of ['../final.json', '/tmp/final.json', 'artifacts/current-run/./final.json', 'tools/final.json'])
+    {
+        await assert.rejects(publishReleaseFinalVerifiedAuthorityBinding({ bindings, outputPath }),
+            (error) => error.reasonCode === 'OUTPUT_PATH_REJECTED');
+    }
+    for (const extra of [{ binding: {} }, { payload: {} }, { persist: () =>
+    {} }, { qualified: true }])
+    {
+        await assert.rejects(publishReleaseFinalVerifiedAuthorityBinding({ bindings, outputPath: finalOutputPath, ...extra }),
+            (error) => error.reasonCode === 'UNSUPPORTED_INPUT');
+    }
+    assert.equal(fs.existsSync(path.join(bindings.repositoryRoot, finalOutputPath)), false);
+});
+
+test('fresh final output readback rejects payload, wrapper, handoff and original authority changes', async (t) =>
+{
+    const bindings = await finalFixture(t, { includeFinalOutput: true });
+    const result = await publishReleaseFinalVerifiedAuthorityBinding({ bindings, outputPath: finalOutputPath });
+    const output = path.join(bindings.repositoryRoot, finalOutputPath);
+    const wrapper = JSON.parse(fs.readFileSync(output));
+    for (const relative of [wrapper.payload.path, finalOutputPath, result.handoffReference.path])
+    {
+        const file = path.join(bindings.repositoryRoot, relative);
+        const before = fs.readFileSync(file);
+        fs.appendFileSync(file, ' ');
+        await assert.rejects(verifyPublishedReleaseFinalAuthorityBinding({ bindings,
+            reference: result.reference, handoffReference: result.handoffReference }), /digest mismatch/u);
+        fs.writeFileSync(file, before);
+    }
+    await assert.rejects(verifyPublishedReleaseFinalAuthorityBinding({ bindings,
+        reference: result.reference, explicitInputs: [finalOutputPath], handoffReference: result.handoffReference }),
+    (error) => error.reasonCode === 'UNSUPPORTED_INPUT');
+    await assert.rejects(verifyPublishedReleaseFinalAuthorityBinding({ bindings,
+        reference: result.reference, handoffReference: { ...result.handoffReference, path: 'artifacts/current-run/other.json' } }),
+    (error) => error.reasonCode === 'HANDOFF_REJECTED');
+    const inputs = structuredClone(bindings.bindingInputs);
+    inputs[0].verification.expectedIdentity.policyIdentity = `sha256:${'0'.repeat(64)}`;
+    await assert.rejects(verifyPublishedReleaseFinalAuthorityBinding({ bindings: { ...bindings, bindingInputs: inputs },
+        reference: result.reference, handoffReference: result.handoffReference }), /mismatch/u);
+});
+
+test('ordinary payload write failure publishes no consumable reference or handoff', async (t) =>
+{
+    const bindings = await finalFixture(t, { includeFinalOutput: true });
+    const write = fs.writeFileSync;
+    fs.writeFileSync = (file, ...args) =>
+    {
+        if (/release-final-bindings\.[a-f0-9]{64}\.json$/u.test(String(file)))
+        {
+            throw new Error('task payload disk failure');
+        }
+        return write(file, ...args);
+    };
+    syncBuiltinESMExports();
+    try
+    {
+        await assert.rejects(publishReleaseFinalVerifiedAuthorityBinding({ bindings, outputPath: finalOutputPath }), /task payload disk failure/u);
+    }
+    finally
+    {
+        fs.writeFileSync = write;
+        syncBuiltinESMExports();
+    }
+    assert.equal(fs.existsSync(path.join(bindings.repositoryRoot, finalOutputPath)), false);
+    assert.equal(fs.existsSync(path.join(bindings.repositoryRoot, `${finalOutputPath}.handoff.json`)), false);
+    assert.equal(readCurrentRunEvidencePublication({ outputPath: finalOutputPath, repositoryRoot: bindings.repositoryRoot }).state.state, 'prepared');
+    await assert.rejects(verifyPublishedReleaseFinalAuthorityBinding({ bindings, explicitInputs: [finalOutputPath] }), /missing/u);
+});
+
+test('canonical CLI producer consumes explicit owned original inputs and refuses flags or digest substitution', async (t) =>
+{
+    const bindings = await finalFixture(t, { includeFinalOutput: true });
+    const registryPath = path.join(bindings.repositoryRoot, 'config/testing/evidence-locator-registry.json');
+    fs.mkdirSync(path.dirname(registryPath), { recursive: true });
+    fs.writeFileSync(registryPath, JSON.stringify(bindings.locatorRegistry));
+    const inputPath = 'artifacts/current-run/final-producer-inputs.json';
+    const inputs = Object.fromEntries(['context', 'expectedPlanIdentity', 'testPlan', 'bindingInputs'].map((key) => [key, bindings[key]]));
+    const bytes = Buffer.from(JSON.stringify(inputs));
+    fs.writeFileSync(path.join(bindings.repositoryRoot, inputPath), bytes);
+    const argv = ['--inputs', inputPath, '--inputs-digest', rawDigest(bytes), '--output', finalOutputPath];
+    const options = { repositoryRoot: bindings.repositoryRoot };
+    await assert.rejects(runReleaseFinalBindingProducer([...argv, '--qualified', 'true'], options), /unique/u);
+    await assert.rejects(runReleaseFinalBindingProducer([...argv, '--output', 'other'], options), /unique/u);
+    const badDigest = [...argv];
+    badDigest[3] = `sha256:${'0'.repeat(64)}`;
+    await assert.rejects(runReleaseFinalBindingProducer(badDigest, options), /input digest mismatch/u);
+    const result = await runReleaseFinalBindingProducer(argv, options);
+    assert.equal(result.status, 'published-uncommitted');
+    assert.equal(result.qualificationEligible, false);
+    assert.equal((await verifyPublishedReleaseFinalAuthorityBinding({ bindings,
+        reference: result.reference, handoffReference: result.handoffReference })).binding.authorities.length,
+    bindings.catalog.entries.length);
+});
 
 test('final-binding owner consumes every projected authority binding and independently replays complete records', async (t) =>
 {
