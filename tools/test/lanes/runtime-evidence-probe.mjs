@@ -600,6 +600,8 @@ function summarizeRouteContractProbe(samples, started, concurrency, requestBaseU
 
 export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sourceSha, transportPolicy, runBinding,
     requestBaseUrl = baseUrl, signal, onTransportObservation = () =>
+    {}, onMeasurementStart = () =>
+    {}, onMeasurementEnd = () =>
     {} })
 {
     validateLoadRouteStatisticsPolicy(routePolicy, schedule, safeBinaryRouteIds);
@@ -608,7 +610,8 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
         throw new Error('open-loop producer requires an explicit full source SHA before HTTP');
     }
     validateLoadTransportPolicy(transportPolicy);
-    if (schedule.policy.requestTimeoutMs > 60_000 || typeof onTransportObservation !== 'function')
+    if (schedule.policy.requestTimeoutMs > 60_000
+        || [onTransportObservation, onMeasurementStart, onMeasurementEnd].some((port) => typeof port !== 'function'))
     {
         throw new Error('open-loop transport requires its supported request timeout and synchronous collector port before HTTP');
     }
@@ -622,16 +625,30 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
         } });
     const started = performance.now();
     let result;
+    let measurementStart;
+    let measurementEnd;
     try
     {
-        result = await dispatchOpenLoopLoadSchedule(schedule, { signal, request: async (arrival, options) =>
-        {
-            const { transport: actualTransport, transportFailureStage, ...sample } = await transport.request(arrival, options);
-            requestTransports.push({ sampleId: arrival.sampleId, routeId: arrival.routeId,
-                transport: actualTransport, failureStage: transportFailureStage });
-            // The payload oracle remains its exact nine-field contract. Socket facts stay in a bound sidecar.
-            return sample;
-        } });
+        result = await dispatchOpenLoopLoadSchedule(schedule, { signal,
+            onMeasurementStart: (window) =>
+            {
+                measurementStart = window;
+                return onMeasurementStart(Object.freeze({ ...window, transportIdentity: transport.identity,
+                    transportSnapshot: transport.snapshot() }));
+            },
+            onMeasurementEnd: (window) =>
+            {
+                measurementEnd = window;
+                return onMeasurementEnd(Object.freeze({ ...window, transportIdentity: transport.identity,
+                    transportSnapshot: transport.snapshot() }));
+            }, request: async (arrival, options) =>
+            {
+                const { transport: actualTransport, transportFailureStage, ...sample } = await transport.request(arrival, options);
+                requestTransports.push({ sampleId: arrival.sampleId, routeId: arrival.routeId,
+                    transport: actualTransport, failureStage: transportFailureStage });
+                // The payload oracle remains its exact nine-field contract. Socket facts stay in a bound sidecar.
+                return sample;
+            } });
     }
     finally
     {
@@ -645,6 +662,8 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
     const transportEvidence = sealContentDigest({ schema: 'fsusblog.release-load-transport-evidence.v1',
         identity: transport.identity, observations, requestTransports: requestTransports.sort((left, right) => left.sampleId.localeCompare(right.sampleId)),
         finalSnapshot: transport.snapshot(), runtimeLeaseVerified: false, qualificationEligible: false });
+    const measurementWindow = sealContentDigest({ schema: 'fsusblog.release-load-source-window.v1',
+        ...measurementStart, ...measurementEnd, qualificationEligible: false });
     const samples = result.timeline.records.filter((record) => record.sample !== null).map((record) => record.sample);
     const inputs = { schedule, timeline: result.timeline, routePolicy, expectedRouteIds: safeBinaryRouteIds, sourceSha };
     const routeStatistics = buildOpenLoopLoadRouteStatistics(inputs);
@@ -655,11 +674,12 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
             routePolicyDigest: routeStatistics.routePolicyDigest, transportPolicyDigest: digestCanonical(transportPolicy) }),
         routeCatalogDigest: routeStatistics.routeCatalogDigest, scheduleDigest: schedule.contentDigest,
         timelineDigest: result.timeline.contentDigest,
+        measurementWindowDigest: measurementWindow.contentDigest,
         transportIdentityDigest: transport.identity.contentDigest, transportEvidenceDigest: transportEvidence.contentDigest,
         runtimeLeaseVerified: false, qualificationEligible: false });
     const probe = summarizeRouteContractProbe(samples, started, schedule.policy.maximumInFlight, requestBaseUrl);
     return { ...probe, status: probe.status === 'ok' && routeStatistics.passed ? 'ok' : 'failed',
-        openLoop: result, routeStatistics, transportEvidence, candidateBinding, candidateIdentity: candidateBinding.contentDigest,
+        openLoop: result, routeStatistics, transportEvidence, measurementWindow, candidateBinding, candidateIdentity: candidateBinding.contentDigest,
         qualificationEligible: false };
 }
 
@@ -4659,7 +4679,7 @@ async function loadProfile(profile, outFile)
         },
         ...(schedule ? { candidateIdentity: probe.candidateIdentity, qualificationEligible: false,
             routeStatistics: probe.routeStatistics, candidateBinding: probe.candidateBinding,
-            transportEvidence: probe.transportEvidence } : {}),
+            transportEvidence: probe.transportEvidence, measurementWindow: probe.measurementWindow } : {}),
         declared: policy.declared,
         effective: policy.effective,
         thresholds: policy.thresholds,

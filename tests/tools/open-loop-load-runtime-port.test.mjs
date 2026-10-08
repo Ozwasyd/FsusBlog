@@ -141,12 +141,14 @@ test('canonical open-loop callback gates route failure and propagates combined s
     });
     const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
     const collected = [];
+    const measured = [];
     const originalFetch = globalThis.fetch;
     globalThis.fetch = () => assert.fail('canonical open-loop used ambient fetch');
     t.after(() => globalThis.fetch = originalFetch);
     const probe = await runOpenLoopRouteContractProbe(schedule, { routePolicy, sourceSha, requestBaseUrl: fixture.baseUrl,
         transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(fixture.baseUrl),
-        onTransportObservation: (observation) => collected.push(observation) });
+        onTransportObservation: (observation) => collected.push(observation),
+        onMeasurementStart: (window) => measured.push(window), onMeasurementEnd: (window) => measured.push(window) });
     assert.equal(fixture.requestCount(), schedule.plannedCount);
     assert.equal(probe.failures.length, 0, 'all actual samples pass their unchanged payload oracle');
     assert.ok(probe.latencyMs.p99 < 3000, 'legacy global fixture budget passes');
@@ -156,6 +158,13 @@ test('canonical open-loop callback gates route failure and propagates combined s
     assert.equal(probe.candidateBinding.routeStatisticsIdentity, probe.routeStatistics.candidateIdentity);
     assert.equal(probe.candidateBinding.transportIdentityDigest, probe.transportEvidence.identity.contentDigest);
     assert.equal(probe.candidateBinding.transportEvidenceDigest, probe.transportEvidence.contentDigest);
+    assert.equal(probe.candidateBinding.measurementWindowDigest, probe.measurementWindow.contentDigest);
+    assert.equal(measured.length, 2);
+    assert.equal(measured[0].startedMonotonicMs, probe.measurementWindow.startedMonotonicMs);
+    assert.equal(measured[1].endedMonotonicMs, probe.measurementWindow.endedMonotonicMs);
+    assert.equal(probe.measurementWindow.observedActiveWindowMs, probe.openLoop.timeline.observedActiveWindowMs);
+    assert.equal(probe.measurementWindow.qualificationEligible, false);
+    assert.ok(measured.every((window) => window.transportIdentity.contentDigest === probe.transportEvidence.identity.contentDigest));
     assert.equal(probe.candidateBinding.policyDigest, digestCanonical({ arrivalPolicyDigest: schedule.policyDigest,
         routePolicyDigest: probe.routeStatistics.routePolicyDigest, transportPolicyDigest: digestCanonical(transportPolicy()) }));
     assert.deepEqual(collected, probe.transportEvidence.observations, 'actual collector port receives the same bound event ledger');

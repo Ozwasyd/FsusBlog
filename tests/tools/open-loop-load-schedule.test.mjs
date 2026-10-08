@@ -213,6 +213,75 @@ test('dispatcher records sleep drift without shifting planned timestamps', async
     assert.equal(result.validation.qualificationEligible, false);
 });
 
+test('measurement ports expose the same monotonic origin and active endpoint before adapter drain', async () =>
+{
+    let absolute = 7310;
+    const calls = [];
+    const pending = [];
+    let settled = 0;
+    const schedule = buildOpenLoopLoadSchedule(policy());
+    const result = await dispatchOpenLoopLoadSchedule(schedule, { clock: () => absolute,
+        sleep: async (ms) =>
+        {
+            absolute += ms;
+        }, onMeasurementStart: (window) =>
+        {
+            assert.ok(Object.isFrozen(window));
+            calls.push({ type: 'start', window });
+        }, onMeasurementEnd: (window) =>
+        {
+            calls.push({ type: 'end', window });
+            assert.equal(settled, 0, 'pending adapter drain must be outside the captured active window');
+            absolute += 50;
+            pending.forEach(({ resolve, routeId }) => resolve({ routeId, ok: true, failureKind: null }));
+        }, request: (arrival) =>
+        {
+            assert.equal(calls[0].type, 'start');
+            return new Promise((resolve) => pending.push({ resolve, routeId: arrival.routeId })).then((sample) =>
+            {
+                settled += 1;
+                return sample;
+            });
+        } });
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[0].window, { scheduleDigest: schedule.contentDigest, startedMonotonicMs: 7310,
+        durationMs: 1000, plannedEndMonotonicMs: 8310 });
+    assert.equal(calls[1].window.endedMonotonicMs, 8310);
+    assert.equal(calls[1].window.observedActiveWindowMs, result.timeline.observedActiveWindowMs);
+    assert.equal(calls[1].window.cancelled, false);
+    assert.equal(settled, schedule.plannedCount);
+    assert.ok(result.timeline.records.every((record) => record.completedAtMs === 1050));
+});
+
+test('pre-cancelled measurement reports an interrupted empty active window without fabricated duration', async () =>
+{
+    const controller = new AbortController();
+    controller.abort();
+    let terminal;
+    const result = await dispatchOpenLoopLoadSchedule(buildOpenLoopLoadSchedule(policy()), { signal: controller.signal,
+        clock: () => 7310, onMeasurementEnd: (window) =>
+        {
+            terminal = window;
+        }, request: () => assert.fail('request after cancellation') });
+    assert.equal(terminal.cancelled, true);
+    assert.equal(terminal.endedMonotonicMs, terminal.startedMonotonicMs);
+    assert.equal(terminal.observedActiveWindowMs, 0);
+    assert.equal(result.validation.passed, false);
+});
+
+test('invalid asynchronous or failed measurement admission ports refuse before any request', async () =>
+{
+    const schedule = buildOpenLoopLoadSchedule(policy());
+    const request = () => assert.fail('HTTP before measurement admission');
+    await assert.rejects(dispatchOpenLoopLoadSchedule(schedule, { request, onMeasurementStart: null }), /observable/u);
+    await assert.rejects(dispatchOpenLoopLoadSchedule(schedule, { request, onMeasurementStart: () => Promise.resolve() }), /synchronously/u);
+    const failure = new Error('fixture collector unavailable');
+    await assert.rejects(dispatchOpenLoopLoadSchedule(schedule, { request, onMeasurementStart: () =>
+    {
+        throw failure;
+    } }), (error) => error === failure);
+});
+
 test('dispatcher records request port entry rather than a deferred microtask reservation', async () =>
 {
     let now = 0;

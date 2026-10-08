@@ -348,11 +348,14 @@ export function verifyOpenLoopLoadTimeline(schedule, timeline)
 }
 
 export async function dispatchOpenLoopLoadSchedule(schedule, {
-    request, signal, clock = () => performance.now(), sleep = (ms, options) => delay(ms, undefined, options)
+    request, signal, clock = () => performance.now(), sleep = (ms, options) => delay(ms, undefined, options),
+    onMeasurementStart = () =>
+    {}, onMeasurementEnd = () =>
+    {}
 })
 {
     verifyOpenLoopLoadSchedule(schedule);
-    if (typeof request !== 'function' || typeof clock !== 'function' || typeof sleep !== 'function')
+    if ([request, clock, sleep, onMeasurementStart, onMeasurementEnd].some((port) => typeof port !== 'function'))
     {
         throw new Error('open-loop dispatcher requires observable request and monotonic clock ports');
     }
@@ -387,8 +390,19 @@ export async function dispatchOpenLoopLoadSchedule(schedule, {
     const pending = new Set();
     const requestTimers = new Set();
     const scope = new AbortController();
+    const measurement = freeze({ scheduleDigest: schedule.contentDigest, startedMonotonicMs: start,
+        durationMs: schedule.policy.durationMs, plannedEndMonotonicMs: start + schedule.policy.durationMs });
+    function observeMeasurement(port, observation)
+    {
+        const result = port(freeze(observation));
+        if (result && typeof result.then === 'function')
+        {
+            throw new Error('measurement collector ports must complete synchronously');
+        }
+    }
     try
     {
+        observeMeasurement(onMeasurementStart, measurement);
         for (const arrival of schedule.arrivals)
         {
             while (!signal?.aborted && now() - start < arrival.plannedAtMs)
@@ -468,6 +482,8 @@ export async function dispatchOpenLoopLoadSchedule(schedule, {
             await wait(schedule.policy.durationMs - (now() - start));
         }
         const observedActiveWindowMs = now() - start;
+        observeMeasurement(onMeasurementEnd, { ...measurement, endedMonotonicMs: start + observedActiveWindowMs,
+            observedActiveWindowMs, cancelled: signal?.aborted === true });
         // This is an adapter cleanup bound, not a fabricated HTTP timeout/completion.
         // A non-cooperating adapter produces no terminal timeline or qualification result.
         let drainTimer;
