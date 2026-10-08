@@ -1,0 +1,8 @@
+{
+    "base": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "candidate": "7c6f30f4238f093a3ac0feea2b7399c616d4e2f4",
+    "owner": "tests/tools/test-suite-convergence.test.mjs",
+    "importDeclarationsPreserved": true,
+    "astPreservedExceptExplicitSingleStatementLoop": true,
+    "formatOnlyClaim": false
+}
