@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.IO.Compression;
 using System.Text;
+using System.Xml.Linq;
 
 using FsusBlog.Server.Services.DocumentExport;
 
@@ -53,6 +54,99 @@ public sealed class DocumentExportEpubProviderTests
         Assert.Equal(0x04034b50u, BinaryPrimitives.ReadUInt32LittleEndian(first.Bytes.AsSpan(0, 4)));
         DocumentExportEpubPackageValidator.Validate(first.Bytes, input, response, metadata, Budgets);
     }
+
+    [Theory]
+    [InlineData("<table><p>x</p></table>")]
+    [InlineData("<p><div>x</div></p>")]
+    [InlineData("<p><a href=\"https://example.org\"><div>x</div></a></p>")]
+    [InlineData("<pre><code><div>x</div></code></pre>")]
+    [InlineData("<table>x<tr><td>x</td></tr></table>")]
+    [InlineData("<table><tbody><td>x</td></tbody></table>")]
+    [InlineData("<table><tr><p>x</p></tr></table>")]
+    [InlineData("<table><tr><td colspan=\"-1\">x</td></tr></table>")]
+    [InlineData("<table><tr><td colspan=\"0\">x</td></tr></table>")]
+    [InlineData("<table><tr><td colspan=\"1001\">x</td></tr></table>")]
+    [InlineData("<table><tr><td rowspan=\"-1\">x</td></tr></table>")]
+    [InlineData("<table><tr><td rowspan=\"65535\">x</td></tr></table>")]
+    [InlineData("<table><tr><th scope=\"invalid\">x</th></tr></table>")]
+    [InlineData("<table><tr><td>x</td></tr><caption>Late</caption></table>")]
+    [InlineData("<table><tbody><tr><td>x</td></tr></tbody><tr><td>x</td></tr></table>")]
+    [InlineData("<ul><p>x</p></ul>")]
+    [InlineData("<ol>x<li>x</li></ol>")]
+    [InlineData("<li>x</li>")]
+    [InlineData("<dl><dd>x</dd><dt>x</dt></dl>")]
+    [InlineData("<figure><p>x</p><figcaption>x</figcaption><p>x</p></figure>")]
+    [InlineData("<figcaption>x</figcaption>")]
+    [InlineData("<details><p>x</p><summary>x</summary></details>")]
+    [InlineData("<details><summary>x</summary><summary>x</summary></details>")]
+    [InlineData("<p><br>x</br></p>")]
+    [InlineData("<ol type=\"invalid\"><li>x</li></ol>")]
+    [InlineData("<ol reversed=\"false\"><li>x</li></ol>")]
+    [InlineData("<details open=\"false\"><summary>x</summary></details>")]
+    public void RefusesInvalidXhtmlInBuilderAndActualPackageEvenWhenFrozenContentMatches(string fragment)
+    {
+        EpubPublicationMetadata metadata = Metadata();
+        DocumentExportFrozenInput input = Input(metadata);
+        DocumentExportRendererResponse invalidResponse = Response(input, metadata, fragment);
+        Assert.Throws<InvalidDataException>(() => EpubPackageBuilder.Build(input, invalidResponse, metadata, Budgets));
+
+        const string validFragment = "<div id=\"structure-probe\">marker</div>";
+        EpubPackageBuildResult valid = EpubPackageBuilder.Build(input, Response(input, metadata, validFragment), metadata, Budgets);
+        byte[] mutated = Rewrite(valid.Bytes, "EPUB/chapter-0001.xhtml", bytes => Encoding.UTF8.GetBytes(
+            Encoding.UTF8.GetString(bytes).Replace(validFragment, fragment, StringComparison.Ordinal)));
+        InvalidDataException failure = Assert.Throws<InvalidDataException>(() =>
+            DocumentExportEpubPackageValidator.Validate(mutated, input, invalidResponse, metadata, Budgets));
+        Assert.Contains("XHTML", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("\r")]
+    [InlineData("\r\n")]
+    [InlineData("&#13;")]
+    [InlineData("&#xD;")]
+    [InlineData("&#x0d;&#10;")]
+    public void RefusesCarriageReturnsBeforeCanonicalCodeWhitespaceCanBeLost(string newline)
+    {
+        EpubPublicationMetadata metadata = Metadata();
+        DocumentExportFrozenInput input = Input(metadata);
+        DocumentExportRendererResponse response = Response(input, metadata, "<pre><code>a" + newline + "b</code></pre>");
+        InvalidDataException failure = Assert.Throws<InvalidDataException>(() => EpubPackageBuilder.Build(input, response, metadata, Budgets));
+        Assert.Contains("whitespace must not be normalized", failure.Message, StringComparison.Ordinal);
+
+        EpubPackageBuildResult valid = EpubPackageBuilder.Build(input, Response(input, metadata, "<pre><code>ab</code></pre>"), metadata, Budgets);
+        byte[] mutated = Rewrite(valid.Bytes, "EPUB/chapter-0001.xhtml", bytes => Encoding.UTF8.GetBytes(
+            Encoding.UTF8.GetString(bytes).Replace("<code>ab</code>", "<code>a" + newline + "b</code>", StringComparison.Ordinal)));
+        InvalidDataException actualFailure = Assert.Throws<InvalidDataException>(() =>
+            DocumentExportEpubPackageValidator.Validate(mutated, input, response, metadata, Budgets));
+        Assert.Contains("whitespace must not be normalized", actualFailure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PreservesSupportedXhtmlStructuresAndCodeCharactersInActualPackage()
+    {
+        EpubPublicationMetadata metadata = Metadata();
+        DocumentExportFrozenInput input = Input(metadata);
+        DocumentExportRendererResponse response = Response(input, metadata, XhtmlSubsetFragment());
+        EpubPackageBuildResult result = EpubPackageBuilder.Build(input, response, metadata, Budgets);
+        using var source = new MemoryStream(result.Bytes);
+        using var zip = new ZipArchive(source, ZipArchiveMode.Read);
+        XElement chapter = XElement.Parse(Text(zip, "EPUB/chapter-0001.xhtml"), LoadOptions.PreserveWhitespace);
+        XNamespace xhtml = "http://www.w3.org/1999/xhtml";
+        Assert.Equal("  α\t<>&\n  β\n", chapter.Descendants(xhtml + "code").Single().Value);
+        Assert.Equal("0", (string?)chapter.Descendants(xhtml + "td").First().Attribute("rowspan"));
+        Assert.Equal(2, chapter.Descendants(xhtml + "table").Count());
+        DocumentExportEpubPackageValidator.Validate(result.Bytes, input, response, metadata, Budgets);
+    }
+
+    internal static string XhtmlSubsetFragment() => "<p><strong>Structured</strong> <a href=\"https://example.org\"><em>link</em></a></p>"
+        + "<pre><code>  α&#9;&lt;&gt;&amp;&#10;  β\n</code></pre>"
+        + "<table><caption>Direct rows</caption><tr><th scope=\"col\" colspan=\"2\">Header</th></tr>"
+        + "<tr><td rowspan=\"0\">A</td><td>B</td></tr><tfoot><tr><td colspan=\"2\">Footer</td></tr></tfoot></table>"
+        + "<table><thead><tr><th scope=\"row\">Header</th></tr></thead><tbody><tr><td>Body</td></tr></tbody></table>"
+        + "<ol start=\"-1\" type=\"a\" reversed=\"reversed\"><li><p>First</p><ul><li>Nested</li></ul></li></ol>"
+        + "<dl><dt>Term</dt><dt>Alias</dt><dd><p>Definition</p></dd><dd>Other</dd><dt>Next</dt><dd>Last</dd></dl>"
+        + "<figure><figcaption>First caption</figcaption><p>Content</p></figure>"
+        + "<details open=\"open\"><summary><strong>Summary</strong></summary><p>Details</p></details>";
 
     [Theory]
     [InlineData("ar", "rtl", "العربية שלום 🌍")]

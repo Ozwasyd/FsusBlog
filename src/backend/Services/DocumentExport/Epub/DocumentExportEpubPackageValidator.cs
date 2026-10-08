@@ -22,6 +22,8 @@ public sealed record EpubPackageValidation(
 /// <summary>
 /// Independently validates actual ZIP entries, XML structure, resource integrity,
 /// security, navigation and semantic content against the exact frozen authorities.
+/// Passive XHTML must satisfy the supported content models and scalar attribute bounds;
+/// unsupported structures are refused rather than repaired or silently flattened.
 /// A successful external tool exit cannot substitute for these checks.
 /// </summary>
 public static class DocumentExportEpubPackageValidator
@@ -43,6 +45,16 @@ public static class DocumentExportEpubPackageValidator
     {
         "svg", "g", "path", "line", "polyline", "polygon", "circle", "ellipse", "rect", "text", "tspan", "title", "desc"
     };
+    private static readonly HashSet<string> s_phrasingElements = new(StringComparer.Ordinal)
+    {
+        "span", "code", "kbd", "samp", "strong", "em", "b", "i", "u", "s", "del", "ins", "mark", "small",
+        "sup", "sub", "a", "img", "br", "abbr", "time", "q", "cite"
+    };
+    private static readonly HashSet<string> s_flowElements = new(s_elements.Except(new[]
+    {
+        "html", "head", "title", "link", "body", "li", "dt", "dd", "figcaption", "thead", "tbody", "tfoot",
+        "tr", "th", "td", "caption", "summary"
+    }), StringComparer.Ordinal);
 
     /// <summary>Rejects invalid, corrupt, unsupported or tampered package bytes; never reads host files or network resources.</summary>
     public static EpubPackageValidation Validate(byte[] bytes, DocumentExportFrozenInput input,
@@ -273,6 +285,11 @@ public static class DocumentExportEpubPackageValidator
             {
                 throw new InvalidDataException("EPUB contains active or unknown markup.");
             }
+            if (element.Name.Namespace == s_xhtml)
+            {
+                ValidateXhtmlContentModel(element);
+                ValidateXhtmlAttributeValues(element);
+            }
             if (element.Attribute("id") is XAttribute id
                 && (id.Value.Length == 0 || id.Value.Length > 160
                     || !id.Value.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or ':' or '.')
@@ -354,6 +371,170 @@ public static class DocumentExportEpubPackageValidator
             }
         }
     }
+
+    // This is a closed, passive XHTML subset, not browser repair. Validate the actual
+    // package before semantic comparison so an equally invalid frozen fragment cannot pass.
+    private static void ValidateXhtmlContentModel(XElement element)
+    {
+        string name = element.Name.LocalName;
+        XElement[] children = element.Elements().ToArray();
+        string? parent = element.Parent?.Name.Namespace == s_xhtml ? element.Parent.Name.LocalName : null;
+        bool valid = name switch
+        {
+            "html" => parent is null,
+            "head" or "body" => parent == "html",
+            "title" => parent == "head" && children.Length == 0,
+            "link" => parent == "head" && !element.Nodes().Any(),
+            "img" or "br" or "hr" => !element.Nodes().Any(),
+            "ul" or "ol" => OnlyElementChildren(element, "li"),
+            "dl" => ValidDefinitionList(element),
+            "table" => ValidTable(element),
+            "thead" or "tbody" or "tfoot" => parent == "table" && OnlyElementChildren(element, "tr"),
+            "tr" => parent is "table" or "thead" or "tbody" or "tfoot" && OnlyElementChildren(element, "th", "td"),
+            "li" => parent is "ul" or "ol" && HasFlowChildren(element),
+            "dt" => parent == "dl" && HasPhrasingChildren(element),
+            "dd" => parent == "dl" && HasFlowChildren(element),
+            "th" or "td" => parent == "tr" && HasFlowChildren(element),
+            "caption" => parent == "table" && HasFlowChildren(element) && !element.Descendants(s_xhtml + "table").Any(),
+            "figcaption" => parent == "figure" && HasFlowChildren(element),
+            "figure" => ValidFigure(element),
+            "details" => children.FirstOrDefault()?.Name == s_xhtml + "summary"
+                && children.Count(child => child.Name == s_xhtml + "summary") == 1
+                && element.Nodes().TakeWhile(node => node != children[0]).OfType<XText>()
+                    .All(text => text.Value.All(character => character is ' ' or '\t' or '\n'))
+                && children.Skip(1).All(IsFlow),
+            "summary" => parent == "details" && (HasPhrasingChildren(element)
+                || children.Length == 1 && children[0].Name.Namespace == s_xhtml
+                    && children[0].Name.LocalName is "h1" or "h2" or "h3" or "h4" or "h5" or "h6"
+                    && HasOnlyInterelementWhitespace(element)),
+            "p" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "pre" => HasPhrasingChildren(element),
+            "a" or "del" or "ins" => HasFlowChildren(element),
+            _ => s_phrasingElements.Contains(name) ? HasPhrasingChildren(element) : HasFlowChildren(element)
+        };
+        if (name == "a" && element.Descendants().Any(child => child.Name == s_xhtml + "a" || child.Attribute("tabindex") is not null)
+            || name is "pre" or "code" && element.Descendants(s_xhtml + "pre").Any())
+        {
+            valid = false;
+        }
+        if (!valid)
+        {
+            throw new InvalidDataException("EPUB XHTML content model is invalid or outside the closed supported subset.");
+        }
+    }
+
+    private static bool HasPhrasingChildren(XElement element) => element.Elements().All(child =>
+        child.Name == s_svg + "svg" || child.Name.Namespace == s_xhtml && s_phrasingElements.Contains(child.Name.LocalName)
+            && (child.Name.LocalName is not ("a" or "del" or "ins") || HasPhrasingChildren(child)));
+
+    private static bool IsFlow(XElement element) => element.Name == s_svg + "svg"
+        || element.Name.Namespace == s_xhtml && s_flowElements.Contains(element.Name.LocalName);
+
+    private static bool HasFlowChildren(XElement element) => element.Elements().All(IsFlow);
+
+    private static bool HasOnlyInterelementWhitespace(XElement element) => element.Nodes()
+        .OfType<XText>().All(text => text.Value.All(character => character is ' ' or '\t' or '\n'));
+
+    private static bool OnlyElementChildren(XElement element, params string[] names) => HasOnlyInterelementWhitespace(element)
+        && element.Elements().All(child => child.Name.Namespace == s_xhtml && names.Contains(child.Name.LocalName, StringComparer.Ordinal));
+
+    private static bool ValidDefinitionList(XElement element)
+    {
+        if (!OnlyElementChildren(element, "dt", "dd"))
+        {
+            return false;
+        }
+        bool hasTerm = false;
+        bool hasDefinition = false;
+        foreach (XElement child in element.Elements())
+        {
+            if (child.Name.LocalName == "dt")
+            {
+                if (hasDefinition)
+                {
+                    hasTerm = false;
+                    hasDefinition = false;
+                }
+                hasTerm = true;
+            }
+            else
+            {
+                if (!hasTerm)
+                {
+                    return false;
+                }
+                hasDefinition = true;
+            }
+        }
+        return !hasTerm || hasDefinition;
+    }
+
+    private static bool ValidTable(XElement element)
+    {
+        if (!OnlyElementChildren(element, "caption", "thead", "tbody", "tr", "tfoot"))
+        {
+            return false;
+        }
+        XElement[] children = element.Elements().ToArray();
+        int index = 0;
+        if (index < children.Length && children[index].Name.LocalName == "caption")
+        {
+            index++;
+        }
+        if (index < children.Length && children[index].Name.LocalName == "thead")
+        {
+            index++;
+        }
+        string rowKind = index < children.Length && children[index].Name.LocalName == "tr" ? "tr" : "tbody";
+        while (index < children.Length && children[index].Name.LocalName == rowKind)
+        {
+            index++;
+        }
+        if (index < children.Length && children[index].Name.LocalName == "tfoot")
+        {
+            index++;
+        }
+        return index == children.Length;
+    }
+
+    private static bool ValidFigure(XElement element)
+    {
+        XElement[] children = element.Elements().ToArray();
+        XElement[] captions = children.Where(child => child.Name == s_xhtml + "figcaption").ToArray();
+        return captions.Length <= 1 && (captions.Length == 0 || captions[0] == children[0] || captions[0] == children[^1])
+            && children.All(child => child.Name == s_xhtml + "figcaption" || IsFlow(child));
+    }
+
+    private static void ValidateXhtmlAttributeValues(XElement element)
+    {
+        foreach (XAttribute attribute in element.Attributes().Where(attribute => attribute.Name.Namespace == XNamespace.None))
+        {
+            string value = attribute.Value;
+            bool valid = attribute.Name.LocalName switch
+            {
+                "colspan" => element.Name.LocalName is "th" or "td" && IsUnsignedInteger(value, 1, 1000),
+                "rowspan" => element.Name.LocalName is "th" or "td" && IsUnsignedInteger(value, 0, 65534),
+                "width" or "height" => element.Name.LocalName == "img" && IsUnsignedInteger(value, 0, 100000),
+                "scope" => element.Name.LocalName == "th" && value is "row" or "col" or "rowgroup" or "colgroup",
+                "dir" => value is "ltr" or "rtl" or "auto",
+                "type" => element.Name.LocalName == "link" ? value == "text/css"
+                    : element.Name.LocalName == "ol" && value is "1" or "a" or "A" or "i" or "I",
+                "reversed" => element.Name.LocalName == "ol" && value is "" or "reversed",
+                "open" => element.Name.LocalName == "details" && value is "" or "open",
+                "start" or "tabindex" => Regex.IsMatch(value, "^-?[0-9]+$", RegexOptions.CultureInvariant)
+                    && int.TryParse(value, System.Globalization.NumberStyles.AllowLeadingSign,
+                        System.Globalization.CultureInfo.InvariantCulture, out _),
+                _ => true
+            };
+            if (!valid)
+            {
+                throw new InvalidDataException("EPUB XHTML attribute value is invalid or outside the closed supported subset.");
+            }
+        }
+    }
+
+    private static bool IsUnsignedInteger(string value, int minimum, int maximum) => value.Length > 0
+        && value.All(char.IsAsciiDigit) && int.TryParse(value, System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out int number) && number >= minimum && number <= maximum;
 
     private static void ValidateNavigation(XElement document, EpubPublicationMetadata metadata)
     {
