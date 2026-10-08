@@ -26,6 +26,13 @@
                 "tools/data-scale/probe.sh"
             ],
             "reason": "The canonical probe preserves existing FSUSBLOG shell environment spelling and command owners. New probe status variables use the repository internal naming convention; failed semantic or matrix probes remain hard failures."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "The explicitly supplied compiler candidate preserves the original NuGet lock graph, dependency names and JSON keys. The AngleSharp project-reference edge matches the existing Server dependency; no package or external field is renamed and no restore or audit gate is changed."
         }
     ]
 }
