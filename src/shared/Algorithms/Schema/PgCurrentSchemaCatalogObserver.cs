@@ -321,11 +321,28 @@ public static class PgCurrentSchemaCatalogObserver
             }
         }
 
+        int controlServerVersion = 0;
+        var controlNotNullColumns = new HashSet<string>(StringComparer.Ordinal);
+        if (tables.ContainsKey(CurrentSchemaControlShape.ApplyJournalTableName))
+        {
+            await using DbCommand version = connection.CreateCommand();
+            version.Transaction = transaction;
+            version.CommandText = "SELECT current_setting('server_version_num')::integer;";
+            controlServerVersion = Convert.ToInt32(await version.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));
+            if (controlServerVersion <= 0)
+                throw new InvalidOperationException("current_schema_control_native_version_unavailable");
+        }
         DataTable constraintRows = await QueryAsync(connection, transaction, $"""
             SELECT
                 table_rel.relname AS table_name,
                 constraint_meta.conname AS constraint_name,
                 constraint_meta.contype AS constraint_type,
+                cardinality(constraint_meta.conkey) AS column_count,
+                constraint_meta.contypid = 0 AND constraint_meta.conparentid = 0
+                    AND constraint_meta.conindid = 0 AND constraint_meta.confrelid = 0
+                    AND constraint_meta.conbin IS NULL AND constraint_meta.confkey IS NULL AS plain_column_constraint,
+                to_jsonb(constraint_meta)->>'conenforced' AS is_enforced,
+                to_jsonb(constraint_meta)->>'conperiod' AS is_period,
                 COALESCE((
                     SELECT string_agg(column_meta.attname, ',' ORDER BY constraint_column.ordinality)
                     FROM unnest(constraint_meta.conkey) WITH ORDINALITY AS constraint_column(attnum, ordinality)
@@ -383,6 +400,30 @@ public static class PgCurrentSchemaCatalogObserver
             }
 
             string physicalName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["constraint_name"])!);
+            if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
+                && Convert.ToString(row["constraint_type"]) == "n")
+            {
+                // PG18 stores the original column NOT NULL declaration as a
+                // separate catalog row. Validate every representation fact before
+                // projecting it to the existing canonical IsNullable=false fact.
+                string[] boundColumns = ParseIdentifierList(Convert.ToString(row["columns"]));
+                SchemaTableModel control = CurrentSchemaControlShape.DescribeApplyJournal();
+                if (controlServerVersion < 180000 || boundColumns.Length != 1
+                    || row["column_count"] is DBNull || Convert.ToInt32(row["column_count"]) != 1
+                    || !control.Columns.TryGetValue(boundColumns[0], out SchemaColumnModel? declared)
+                    || declared.IsNullable || !table.Columns.TryGetValue(boundColumns[0], out SchemaColumnModel? measured)
+                    || measured.IsNullable
+                    || Convert.ToString(row["constraint_name"]) != tableName + "_" + boundColumns[0] + "_not_null"
+                    || Convert.ToBoolean(row["is_deferrable"]) || Convert.ToBoolean(row["is_initially_deferred"])
+                    || !Convert.ToBoolean(row["is_validated"]) || Convert.ToString(row["is_enforced"]) != "true"
+                    || Convert.ToString(row["is_period"]) != "false" || !Convert.ToBoolean(row["plain_column_constraint"])
+                    || Convert.ToBoolean(row["no_inherit"]) || !Convert.ToBoolean(row["is_local"])
+                    || Convert.ToInt32(row["inheritance_count"]) != 0 || row["backing_index_name"] is not DBNull
+                    || row["referenced_table"] is not DBNull || row["referenced_schema"] is not DBNull
+                    || !controlNotNullColumns.Add(boundColumns[0]))
+                    throw new InvalidOperationException("current_schema_control_not_null_metadata_invalid");
+                continue;
+            }
             if (tableName == CurrentSchemaControlShape.ApplyJournalTableName
                 && (Convert.ToString(row["constraint_type"]) is "p" or "u")
                 && (!Convert.ToBoolean(row["backing_index_owned"])
@@ -442,6 +483,16 @@ public static class PgCurrentSchemaCatalogObserver
                     foreignKeyDeleteAction,
                     foreignKeyMatchType,
                     referencedSchema));
+        }
+
+        if (tables.ContainsKey(CurrentSchemaControlShape.ApplyJournalTableName))
+        {
+            IEnumerable<string> requiredNotNull = controlServerVersion >= 180000
+                ? CurrentSchemaControlShape.DescribeApplyJournal().Columns.Values.Where(static column => !column.IsNullable)
+                    .Select(static column => column.Name)
+                : [];
+            if (!controlNotNullColumns.SetEquals(requiredNotNull))
+                throw new InvalidOperationException("current_schema_control_not_null_roster_unavailable");
         }
 
         foreach ((string tableName, SchemaTableModel table) in tables.ToArray())
