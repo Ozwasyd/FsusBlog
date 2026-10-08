@@ -399,7 +399,7 @@ describe('selected-ID transport is consumed under the original Writer search lea
     {
         const state = await openWriter();
         const { lease: oldLease } = await state.ready();
-        const compare = state.session.binding.beginToolTask('source-compare', 'compare:selection-control');
+        const compare = state.session.binding.beginToolTask('source-compare');
         const network = pendingSelectionNetwork();
         const pending = revalidateArticleSearchSelection(selectionRequest(), state.session.search);
         const lease = state.session.search.currentTask!;
@@ -431,7 +431,7 @@ describe('selected-ID transport is consumed under the original Writer search lea
     {
         const state = await openWriter();
         await state.ready();
-        const compare = state.session.binding.beginToolTask('source-compare', 'compare:denial-control');
+        const compare = state.session.binding.beginToolTask('source-compare');
         const network = pendingSelectionNetwork();
         const pending = revalidateArticleSearchSelection(selectionRequest(), state.session.search);
         const lease = state.session.search.currentTask!;
@@ -537,7 +537,7 @@ describe('selected-ID transport is consumed under the original Writer search lea
     {
         const state = await openWriter();
         await state.ready();
-        const compare = state.session.binding.beginToolTask('source-compare', 'compare:transport-failure');
+        const compare = state.session.binding.beginToolTask('source-compare');
         const failure = new Error('PRIVATE_SELECTION_TRANSPORT_FAILURE_2319');
         vi.spyOn(selectionNetwork, 'binaryRequest').mockRejectedValueOnce(failure);
         await expect(revalidateArticleSearchSelection(selectionRequest(), state.session.search)).rejects.toBe(failure);
