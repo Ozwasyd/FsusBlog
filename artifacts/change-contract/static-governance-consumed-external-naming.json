@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/release-reliability-lifecycle-action-registry.json",
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the existing machine-consumed lifecycle, test-owner and NuGet keys while consuming the coordinator-verified deadline, registry and dependency prerequisites for static governance verification."
+        }
+    ]
+}
