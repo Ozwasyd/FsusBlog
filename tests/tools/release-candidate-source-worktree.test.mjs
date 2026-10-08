@@ -213,3 +213,17 @@ test('source snapshot refuses promisor lookup before a missing object can trigge
     assert.throws(() => snapshot(fixture.root), /partial\/promisor/u);
     assert.equal(fixture.git('count-objects', '-v'), objectsBefore);
 });
+
+test('source snapshot disables configured fsmonitor hooks instead of executing source callbacks', (t) =>
+{
+    const fixture = gitFixture(t);
+    const hook = path.join(fixture.root, '.git', 'candidate-fsmonitor.sh');
+    const marker = path.join(fixture.root, '.git', 'candidate-fsmonitor-observed');
+    fs.writeFileSync(hook, '#!/bin/sh\nprintf observed > .git/candidate-fsmonitor-observed\nprintf "candidate-token\\0"\n', { mode: 0o755 });
+    fixture.git('config', 'core.fsmonitor', hook);
+    fixture.git('ls-files');
+    assert.equal(fs.existsSync(marker), true, 'actual configured hook must be executable in the setup control');
+    fs.rmSync(marker);
+    snapshot(fixture.root);
+    assert.equal(fs.existsSync(marker), false);
+});
