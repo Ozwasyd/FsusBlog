@@ -1,0 +1,245 @@
+Independent SOURCE review handoff: #3540 / #3537
+This is an author-prepared handoff, not an independent approval or merge receipt.
+Both assigned execution issues remain OPEN. No tracking parent is implemented.
+
+Review this bounded candidate
+Draft PR: https://github.com/Ozwasyd/FsusBlog/pull/3912
+Branch: task/chain-3540-source-review
+Frozen exact head: b03d6e5b257cb66697354f5d96b19c775ffaa040
+Exact tested parent/review base: 8b1c739cacef47995f441f096835863d377dc347
+Latest master observed after publication: 87209d571a93254dcacfe9093753002e8c98822a
+Actual PR diff: ONE file, tests/tools/openapi-aeds-observation.test.mjs,
+62 inserted lines, no deletions. It reuses only this task's own e865e3338adaab9b66784f6c93a1fc886b4b0769
+additions. It does not include the supplied census, lock, compiler, registry,
+retention, producer-roster, generated binding or sealed-closure increments.
+Source head is frozen. Supporting evidence lives on a separate artifact branch;
+it must not be mistaken for additional files in the source PR.
+
+Preserved broader integration
+PR #3817 / task/chain-3540-openapi-boundary stays unchanged at
+4f6ff718f1f19f2d2efe9ecf798751b393d91e06. It is WIP prerequisite integration,
+not a safe bounded independent SOURCE candidate for these two issues.
+API-reported PR base is 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8 and its
+Git merge base with latest master is also that commit. Its complete 72-file
+actual GitHub file/blob set was checked against the local full binary diff;
+every file is a regular 100644 blob. All compressed streams were decoded and
+hashed; all changed JSON objects were checked for duplicate object keys.
+Full per-file mode, blob, before/after SHA-256, size and lock semantic delta are
+in pr-3817-diff-audit.txt; complete raw diff is losslessly compressed.
+
+Full original diff scope and findings
+- 56 evidence files: review text, raw logs/lossless gzip, source seals, three
+  change-contract manifests. These are candidate evidence/declarations, not
+  trusted history authority or runtime qualification.
+- 7 NuGet locks: backend test and core benchmark plus five compiled observers.
+  Six contain AngleSharp/project-edge changes. RuntimeRole also changes its
+  Migration-linked transitive closure (including SQLite, Markdig and MySql).
+  This is materially broader than an OpenAPI parent-import review. Its native
+  SQLite resolved version remains 2.1.11 while a new central-transitive requested
+  range says 3.53.3; this is not a newly introduced native downgrade. The actual
+  before/after objects are recorded, and native consumer acceptance belongs to
+  that supplied capability's owner, not this source patch.
+- OpenAPI test: this task's 62 additions PLUS the imported Font/Theme census
+  assertion/title replacement from supplied 3af56b1ab06ccbd776c85fcdd9b0a8a2b133f7bf.
+  The current typed eight-route assertion is narrower than deleting coverage,
+  but it removes one prior static test ID and requires its own replacement
+  accounting. The bounded candidate preserves the old ID/assertions verbatim.
+- tools/test/correctness-attempt-migration.mjs and its test/docs: supplied owner
+  replaces historical count=225 with complete canonical roster verification.
+  That is a distinct semantic governance change, not this chain's formatter or
+  digest-boundary implementation. Its new looped native test at line 35 has a
+  dynamic identity and native-table-not-closed diagnostic in the canonical AST
+  adapter; the old count-title static ID is also removed. Do not accept 6/6
+  runtime fixture controls as proof of static case-retention admission.
+- Two generated files: source-bound correctness roster and Node execution-target
+  closure. Correct output bytes under the original generators do not satisfy a
+  normal atomic source/output manifest naming eight unchanged source paths.
+  Do not narrow the declared closure, mutate originals or waive historical rules.
+- Lifecycle registry: two registrations for the same suite become one, with no
+  test source/file removed. They were NOT identical rows: the removed declaration
+  named process:lifecycle / real-subprocess-lifecycle / source-text; the retained
+  declaration names host:temporary-repository / isolated-temporary-repository-fixture
+  / source-text+runtime and explicit fixture/output paths. That conflicting
+  physical-owner resolution needs its own owner review; it is not a formatting
+  change or a generic identical-row deduplication.
+- Retention ledger: 1526 rows become 1518 unique IDs by combining eight duplicates.
+  Every unique ID, replacement edge, original reason and path was programmatically
+  verified retained; assertionReplacements and schema are unchanged. Unicode escape
+  spelling differences do not change parsed values. This remains separately owned
+  retention governance, not independent runtime replacement acceptance.
+- Backend C# InlineData: four framework static readonly values become their exact
+  Development/Production constants. All four assertions/cases remain. It fixes a
+  genuine attribute compilation defect but is unrelated to the bounded patch.
+All 9 non-lock/non-artifact changed paths and all 7 lock semantic deltas have been
+inspected. There is no production digest/extractor/runner change in either diff.
+
+Actual failures introduced by the original imported PR scope
+Exact original head 4f6ff718... was rechecked locally against master 8b1c739c...:
+1. check-change-contract --range 8b1c739c... ..HEAD: exit 1, exclusively supplied
+   eeb4e84096571ecb3a989629825f2508e2de7b71 and e38a0badac3867560b5d0fdc1b8d1c648d15ee37
+   lack mandatory Refs footers. These are entering via PR #3817, not master failures.
+   Published source history was not rewritten; the bounded source commit is compliant.
+2. Fetched PR #3817 title/body/head check: exit 1, normal generated manifest names
+   eight source paths unchanged in that PR. This failing declaration is introduced
+   by the imported scope, distinct from baseline's already stale inventory output.
+3. Original test-replacement check-diff: exit 1, AST identity extraction incomplete
+   for correctness-attempt-migration.test.mjs. Canonical per-file probes confirm
+   one native-table-not-closed diagnostic, one nonstatic obligation, and removal
+   of one prior ID there; the original OpenAPI census also removes one prior ID.
+   Both removed IDs are enumerated in source-review-seal.txt. No registered source
+   replacement transaction is included in the inspected actual diff.
+These are review findings to route to those existing canonical owners. This task
+has not rewritten their definitions or implemented another chain's repair.
+
+Bounded source patch: current executable evidence
+Node v24.16.0 (official checksum-verified distribution); SDK 10.0.401.
+Repository lock installations use npm ci --ignore-scripts at regular canonical paths.
+Candidate-bound command/time/exit/source records and untouched raw output are included.
+- node --test --test-name-pattern='^OpenAPI (requires the runner canonical digest and seals its exact provider sources|refuses changed runner import resolution and resealed incomplete provider closure)$' tests/tools/openapi-aeds-observation.test.mjs
+  PASS exit 0, 2/2, zero skips, head b03d6e5b... .
+- node --test tests/tools/frontend-style.test.mjs
+  PASS exit 0, 37/37, zero skips, head b03d6e5b... .
+- node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/fact-extractors/openapi-aeds/extract.mjs --file tests/tools/openapi-aeds-observation.test.mjs
+  PASS exit 0, 0 raw diagnostics. Explicit changed-mode scan also PASS exit 0.
+- node tools/fact-extractors/check-behavior-fact-extractors.mjs
+  PASS exit 0, eight extractor owners; digest dd2566d3d9c34900fb7b13220adc8b1243fae897b7839eeeccd0cbdcd1632bc2.
+- node tools/test-replacement-transaction.mjs check-diff 8b1c739cacef47995f441f096835863d377dc347
+  PASS exit 0, governedChanges=0. Canonical AST proves all prior static cases retained.
+- node tools/governance/check-change-contract.mjs --range 8b1c739cacef47995f441f096835863d377dc347..HEAD
+  PASS exit 0.
+- Trusted checker from base 8b1c739c... with --root <bounded-worktree> and fetched
+  PR #3912 GitHub event: PASS exit 0, pull-request files=1, release-note:none.
+- Two actual changed-mode --fix passes: exit 0 each, zero diagnostics, exact bytes
+  and complete AST/raw-token/literal/comment fingerprint unchanged. All three
+  tree digests ed30032d3e680d2d8305f46bf42173f605d0a903aeba6059b8129829366ae306.
+  This is a current no-op check, not a new format migration or historical receipt.
+
+Proven baseline failures, kept as failures
+Run on isolated exact master 8b1c739c... and bounded b03d6e5b... with the SAME
+original full command and RestoreLockedMode=true, no skips or disabled cases:
+ node --test tests/tools/openapi-aeds-observation.test.mjs tests/tools/behavior-fact-extractors.test.mjs
+ Master: exit 1, 54/56 PASS, 2 FAIL, zero skips.
+ Bounded: exit 1, 55/57 PASS, 2 FAIL, zero skips.
+Both fail the same two compiled observer cases: real .NET locked restore NU1004
+for the inconsistent fsusblog.server project dependency edge, then the original
+--no-build census cannot start its absent executable. SDK is present; the dependency
+closure is inconsistent, not an unavailable toolchain. It does not prove either
+C# observer negative runtime behavior or current normal production census.
+The newly added source case passes, and no prior source case fails in either run.
+Tracked source before/after every command is clean. Locks were not regenerated.
+ node tools/test/generate-correctness-attempt-producers.mjs --check
+ Master and bounded: exit 1, the exact same already-stale canonical inventory.
+The clean PR neither creates the stale output nor fixes/promotes it.
+Prior 57/57 evidence on the broader integration source candidate 38bfe5d... used
+additional lock AND census prerequisites and must NOT be transferred to b03d6e5b.
+The supplied canonical observer lock lineage and accepted census/identity-accounting
+repair are the smallest capabilities needed before this branch's real compiled
+qualification can be reattempted on an explicitly supplied, candidate-bound base.
+
+Latest-master drift and conflict check
+Master first moved 3bc9bacd... -> 8b1c739c... only through the actionlint variable
+repair; the unpublished clean candidate was then rebased, tested and published.
+After publication, latest observed master moved to 87209d571... through four
+other data-scale/timeout registry, test and artifact changes. The frozen source
+head was NOT changed. Its 19 producer/consumer source paths and 15 additional
+policy/test/SDK inputs are byte-identical across review base 8b1c739c..., latest
+master 87209d571... and bounded candidate. Full changed-path scope shows no other
+SDK/production file changed in that latest interval.
+ git merge-tree --write-tree 87209d571... b03d6e5b... : exit 0.
+ git merge-tree --write-tree 87209d571... 4f6ff718... : exit 0.
+This records only ordinary textual conflict checks against the named current master.
+It does not perform the coordinated 79-chain cross-branch conflict phase, mutate a
+branch, merge any PR, authorize a merge or attest product acceptance. If actual
+review findings require source changes, route them before resetting the frozen head.
+
+Scope of independent review requested
+#3540: inspect the existing master module boundary as well as the added controls:
+ runner.mjs passes its actual digestValue as canonicalDigest; canonicalize.mjs
+ stays the single fact-canonicalization owner; extractor imports only Node builtins.
+ Producer/consumer declaration sets both have the same exact 19 paths and retain
+ runner + canonicalizer. The canonical minimal-build path keeps admission-owned
+ validation, contained run-relative receipt, and artifact/projection integrity;
+ it cannot gain standalone fallback, cache qualification or candidate-side authority.
+ The changed-import control changes real runner specifier bytes and supplies an
+ equivalent copied provider, then proves stale source binding is refused. It does
+ not claim to execute that alternate module loader or a compiled admission host.
+ Resealed omissions/extra provider fail the closed set, repeated refusal is equal,
+ no observations are partially accepted, and task fixtures register actual cleanup.
+ No dynamic import/alias evasion, digest duplication, residual or baseline debt.
+#3537: inspect current strict zero diagnostics and unchanged policy/baseline/source
+ seal; historical baseline hash drift remains d2760cd... even though raw current
+ diagnostics are empty. There is no current mechanical gap to justify an invented
+ format-only commit. Existing parent-import resolution is treated semantically under
+ #3540, separately from mechanical formatting. Historical 8fbdea89... / 4c5c8741...
+ diffs passed the current parser's format equivalence. A further exact-head audit
+ corrected the earlier incomplete artifact lookup: withdrawn/unmerged PR #3539
+ head b5bac73368c08b4f675603434f31884405428642 DOES contain its idempotence JSON
+ and later exact 4c5c8741... blame registration (dda8cd8bd3fccd505a99470df8f8226e39de5d39).
+ Its first/second tree digests both match that actual historical final head
+ b89bca556f353a029df310d7c3a7fe5a741edef16ae9ca60d5b304d1e49ff222.
+ Absence of the artifact at the format commit itself was not proof that the
+ original PR lacked it: the checker binds evidence at final PR head. The historical
+ format commit is reachable from that old head, but not current master. There is
+ no source mapping, independent acceptance or current-master recheck supplied by
+ the closed unmerged proposal. The current no-op does not re-sign that old receipt
+ or certify historical formatter execution. Remaining original acceptance is
+ independent history/source-lineage review and standard future master recheck,
+ not a falsely asserted universally missing artifact. Historical raw source,
+ artifact, registration and exact-head digest evidence is preserved separately.
+Both tickets' source stages are ready for independent review, not final issue acceptance.
+
+CI and acceptance limits
+The user explicitly disabled GitHub CI and authorized applicable local candidate-bound
+checks instead. No GitHub workflow was dispatched or awaited; absence of Actions is
+NOT a blocker. Actual failed tests/gates remain failed; independent review is mandatory.
+NOT ACCEPTED / NOT RUN for this bounded head: real compiled observer execution,
+canonical Docker/minimal-build admission, full matrix lanes, runtime/UI/FsusUI,
+production or destructive database migration. Earlier broader-candidate admission
+failed on RuntimeRole output containment and fast rejected cgroup mount root /..;
+those receipts remain tied to their exact older runs and are not rerun or promoted
+here. The corresponding unchanged sources do not prove current runtime acceptance.
+No changes to historical/generated admission, rules, schemas, thresholds, baseline,
+branch protection, qualification, package publication or deployment were made.
+No issue/PR was closed; no merge/auto-merge or independent approval was performed.
+Rollback the isolated new test commit on an introduced regression; retain original
+validators/assertions and all raw failures. Source-only review success alone cannot
+be advertised as merge readiness or whole-chain completion.
+
+Historical evidence correction
+This new handoff supersedes the earlier WIP comments/review limits wherever they
+interpret artifact absence at the two format commits as absence from the whole
+original PR. Those earlier snapshots were incomplete, not current acceptance.
+The exact historical final head has the artifact and subsequent registration;
+its digest binding was verified without mutating any frozen branch. No historical
+formatter run or source acceptance was fabricated, and no history gate was weakened.
+
+Raw evidence hashes (original stream / lossless gzip)
+baseline-focused: 8fdbf914fc232e10a9f364b7d0346752e51e091d2295fb0c3d639ce95d01f60e / 7d50cc0f9f62e6797d6fad3b2a46669b715d5ab7128aeb649fe63bd6464cdccf
+candidate-focused: 548ba3751cb470ed83507f787f08ee8a1c0085406d9999f83925b67c05f35f42 / ad7ab1d9b613a82189bee8230aef933c513788705ee7ad34c776bcf551e9e28b
+bounded-provider: c89a31d9d3875305cf49b2eda848bb78bb68c412e5cccc355458973f3bc625b9 / 52439cea4efb13440010a678ea9210ad0b038c205600d7501df55e1e139a4844
+bounded-style-controls: fe8bd7d2dede8f2cdf30bfc498799c87d1c1bf421d3ea625f933ef769678a1e2 / ecd46ae5f5279bbb9e7bce4faeba23d2b791cddde057fb9dadb0886c980de09c
+candidate-style: 498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7 / 8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9
+candidate-changed: 498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7 / 8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9
+candidate-governance: ffbacfc73493ce5f0d7cd452e79b57bfebd6d97ed3c034f11aa9eb8ba41564d3 / d4db0d3a8702457f1782b2d97593a50faddf07fb46c313bcf92fae83b5520392
+candidate-replacement: 39c1bf43db736e095b544d56d091d80d9833934033d43810919069ddb9e958f9 / 82757b33afdc297615be5cb06610254de614aa899abe1462b180877909077cba
+candidate-contract: 2e33cb00d29c6afda48351e85c4fd2ecffc4fdd9aec5c1098ea1747afeaf6fb8 / e13571f879aee7b14053b974d59b911458c9f922fb268acc77e1078a936a6f5a
+baseline-inventory: 8cbd38056f0544bf94651af2285c265a14de0eb8f10c37e34505c285deba4e09 / 3d3192cc149f1f32df7585b6fa42ebc096c5e4ab61948c019e8a5b14c3bd5a7f
+candidate-inventory: 8cbd38056f0544bf94651af2285c265a14de0eb8f10c37e34505c285deba4e09 / 3d3192cc149f1f32df7585b6fa42ebc096c5e4ab61948c019e8a5b14c3bd5a7f
+bounded-pr-contract: 493475e0caecd2c478be85ce8e7ed98d0b6e3e93d9e8b8c924b79576f6561f3b / b6e186f5b4c8c9e9e388f9fd0bc9ffa8d30f3d1e2ba63863e58f292e05cf5f13
+bounded-noop-format: 80c73f3ef431d7f6d57a6e7a1ddfcc57af5ec6cc63f5f3b70df35792946ad215 / 987cfeb8b18226bb91df9d9c213ff91644bd2b84ce6639aac3630f3fd1df20e4
+bounded-fixer-1: 498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7 / 8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9
+bounded-fixer-2: 498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7 / 8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9
+frozen-commit-contract: 4fb18f317daa6a31212c962d8071814833d14429882aa442eb7110d7f7c0591a / e18751df7ab60c0e61afb2019ebfb12cffa05a560a817da5126f882dace928d4
+frozen-replacement: 78a8930e74622a1ebb281b19297a4d6b35e5260f3aa6d10754d169058a64d771 / 3bb82d13066588c0fbc6d52045fbe885af90129855c9bd28539c02f8327824b1
+frozen-pr-contract: 9a1d71a62b28c70ec011281e8d28d33621d2e3d6b60935fe70377241f97b5e91 / e4fe95467183ecf07682d19e8542666e47516228cf1fede30ed7992c45423766
+original-replacement-check: 78a8930e74622a1ebb281b19297a4d6b35e5260f3aa6d10754d169058a64d771 / 3bb82d13066588c0fbc6d52045fbe885af90129855c9bd28539c02f8327824b1
+original-merge-tree: d1b31ac7dbd08280f1702aad8205ec72b2b959ee59aa4124069ccf067657c2fb / 1c5e61dd07aa128ed9f89b0087cf27c1b07274b2106686ed69e7b4b8edea42de
+bounded-latest-merge-tree: 67d971aaf1cdcb3e0b29f0bb7517bb8060b5984d89d945bdbec30b7bedfe3294 / a053cc8a8a07a90f50d1eaaaefa9a76f353f5c3add0b91304fe03ac8afe5f36a
+original-latest-merge-tree: 192ff810aa5137f0267fd1ff53491b38f0c1d26f63e0fef1e3cc5d31e88ff8e6 / 1c0b11e9dd7c98344375c66aa92384b624e8c4785ce8f3826dcd3f3f0da39f29
+
+Reviewer checklist: independently assess the retained capability boundary and
+19-path source binding; inspect both source tests and their synthetic/runtime
+limits; verify every old case remains; assess the precise baseline failures;
+review actual historical head-bound format evidence and its current-master
+lineage limits; approve or reject SOURCE scope without granting merge/runtime
+readiness. No reviewer identity or approval is fabricated by this handoff.

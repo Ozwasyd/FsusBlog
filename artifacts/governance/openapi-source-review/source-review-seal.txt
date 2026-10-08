@@ -1,0 +1,249 @@
+{
+  "runId": "source-review-handoff-2026-10-08T04:45:49.074751+00:00",
+  "reviewBase": "8b1c739cacef47995f441f096835863d377dc347",
+  "latestMaster": "87209d571a93254dcacfe9093753002e8c98822a",
+  "boundedCandidate": "b03d6e5b257cb66697354f5d96b19c775ffaa040",
+  "preservedOriginal": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+  "sameExactProducerConsumerSourceClosure": [
+    "config/contracts/behavior-contracts.json",
+    "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+    "src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs",
+    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
+    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+    "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+    "src/shared/Contracts/Validation/aeds-protocol.json",
+    "tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs",
+    "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+    "tools/contracts/FsusBlog.OpenApiObservation/Models.cs",
+    "tools/contracts/FsusBlog.OpenApiObservation/OpenApiObservationSelfTest.cs",
+    "tools/contracts/FsusBlog.OpenApiObservation/OpenApiProjectionWriter.cs",
+    "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+    "tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs",
+    "tools/contracts/lib/openapi-observation.mjs",
+    "tools/fact-extractors/lib/canonicalize.mjs",
+    "tools/fact-extractors/openapi-aeds/extract.mjs",
+    "tools/fact-extractors/runner.mjs"
+  ],
+  "sourcesAndPolicy": [
+    {
+      "path": "config/contracts/behavior-contracts.json",
+      "sha256": "2a176e55c40198a55b5c63b38b76f7aa3483aa27bc6e3375d84d090b28a97f93",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "2a176e55c40198a55b5c63b38b76f7aa3483aa27bc6e3375d84d090b28a97f93"
+    },
+    {
+      "path": "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+      "sha256": "51b8dba88857f86dd19d0b11d78e8bb34babc79207dca0be7675c541e231b0dd",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "51b8dba88857f86dd19d0b11d78e8bb34babc79207dca0be7675c541e231b0dd"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs",
+      "sha256": "bdd9354ad4fa9fbcaa9ca0cb63ccf2e7aa52046ae734b3b06114234d7f761f46",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "bdd9354ad4fa9fbcaa9ca0cb63ccf2e7aa52046ae734b3b06114234d7f761f46"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+      "sha256": "4052968b19182c3805f33eb71bacfc0c2097059ec76cd7ad87b565ecd1401d59",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "4052968b19182c3805f33eb71bacfc0c2097059ec76cd7ad87b565ecd1401d59"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
+      "sha256": "9d9033d7220abcf07b25dffae7684d92220c4cf70043e92851604e3ab306c848",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "9d9033d7220abcf07b25dffae7684d92220c4cf70043e92851604e3ab306c848"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+      "sha256": "1f884d5f548492381397c3f3279ec673dbff9f9429492a0eccf88afaeac64684",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "1f884d5f548492381397c3f3279ec673dbff9f9429492a0eccf88afaeac64684"
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+      "sha256": "69f7fb92a5af32c76b350d5ad9ce92acd7fafc75c9951019dac4a3936dd7cefd",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "69f7fb92a5af32c76b350d5ad9ce92acd7fafc75c9951019dac4a3936dd7cefd"
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+      "sha256": "cf2980aa00c2dee72c5ea0b59fb29767bbc8f72374e7420f1a5ba65dbf2407ce",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "cf2980aa00c2dee72c5ea0b59fb29767bbc8f72374e7420f1a5ba65dbf2407ce"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs",
+      "sha256": "77e64d0b7c5c712bc648a7af8a89332a565c09135f233bbe2cac242eccd1ec9c",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "77e64d0b7c5c712bc648a7af8a89332a565c09135f233bbe2cac242eccd1ec9c"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "sha256": "44b126ec8add20863116209483e06363c229c74d087d2618e872f410b1209af4",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "44b126ec8add20863116209483e06363c229c74d087d2618e872f410b1209af4"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/Models.cs",
+      "sha256": "cc3a7aa380320acab369f6792aced5e46b682d78f8b9623fe6d927ad3a13e167",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "cc3a7aa380320acab369f6792aced5e46b682d78f8b9623fe6d927ad3a13e167"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/OpenApiObservationSelfTest.cs",
+      "sha256": "a260ff7304ace94fa4a41caff5c90c11649c0bc561d92fff611d67238ad3b84c",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "a260ff7304ace94fa4a41caff5c90c11649c0bc561d92fff611d67238ad3b84c"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/OpenApiProjectionWriter.cs",
+      "sha256": "399973941e7d14d0e09626587c0466885ef2f5b8f176846b80ddd0148cf602e1",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "399973941e7d14d0e09626587c0466885ef2f5b8f176846b80ddd0148cf602e1"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+      "sha256": "da8c27e4d26af7d46e16eb8297b7dd38fcf9f97cda05241eee4f5d6ef4ce3fc1",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "da8c27e4d26af7d46e16eb8297b7dd38fcf9f97cda05241eee4f5d6ef4ce3fc1"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs",
+      "sha256": "75064b4eecc46430dd4814d57027259be4bc539ec2d3a25f20a6475a79942178",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "75064b4eecc46430dd4814d57027259be4bc539ec2d3a25f20a6475a79942178"
+    },
+    {
+      "path": "tools/contracts/lib/openapi-observation.mjs",
+      "sha256": "58814bc6e84d0a7a1530ad40c89e44935959c952b36abf083d0f7cbdb3b1b2d5",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "58814bc6e84d0a7a1530ad40c89e44935959c952b36abf083d0f7cbdb3b1b2d5"
+    },
+    {
+      "path": "tools/fact-extractors/lib/canonicalize.mjs",
+      "sha256": "33abf393dda9109bf34ae240a11398fdf1432b1d7f24911c4e91e9fa6a5f5dc8",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "33abf393dda9109bf34ae240a11398fdf1432b1d7f24911c4e91e9fa6a5f5dc8"
+    },
+    {
+      "path": "tools/fact-extractors/openapi-aeds/extract.mjs",
+      "sha256": "30ab4b2e57b5ce40ee6f6169a95d58af6108c08ecb537a02cb6548cb06064f2c",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "30ab4b2e57b5ce40ee6f6169a95d58af6108c08ecb537a02cb6548cb06064f2c"
+    },
+    {
+      "path": "tools/fact-extractors/runner.mjs",
+      "sha256": "a379b789959b603fe2440a94e292a65470138058a0565122085609258ed78598",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "a379b789959b603fe2440a94e292a65470138058a0565122085609258ed78598"
+    },
+    {
+      "path": "config/development/frontend-style-policy.json",
+      "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+    },
+    {
+      "path": "config/development/frontend-style-baseline.json",
+      "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+    },
+    {
+      "path": "config/development/frontend-style-rule-registry.json",
+      "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+    },
+    {
+      "path": "config/development/frontend-style-reviewed-residual.json",
+      "sha256": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8"
+    },
+    {
+      "path": "tools/frontend/check-frontend-style.mjs",
+      "sha256": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75"
+    },
+    {
+      "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+      "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+    },
+    {
+      "path": "tools/frontend/style-toolchain/package-lock.json",
+      "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+    },
+    {
+      "path": "tools/governance/change-contract.mjs",
+      "sha256": "fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463"
+    },
+    {
+      "path": "tools/governance/change-contract-registry.mjs",
+      "sha256": "019a39477af6b874eb8321b29cf54f08049509829255e896f0d69ccdc490c1df",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "019a39477af6b874eb8321b29cf54f08049509829255e896f0d69ccdc490c1df"
+    },
+    {
+      "path": "tools/test-replacement/transaction.mjs",
+      "sha256": "aa9df11015f0ca1a74ffffb61caa414010b0a5c5a33a9a9047ddea88a5e6866c",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "aa9df11015f0ca1a74ffffb61caa414010b0a5c5a33a9a9047ddea88a5e6866c"
+    },
+    {
+      "path": "tools/test-inventory/ts-ast-adapter/index.mjs",
+      "sha256": "abaabf83a88f4fa480dd7764e00c9373261b021a0ab17fde1f5c8e5182f88e1a",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "abaabf83a88f4fa480dd7764e00c9373261b021a0ab17fde1f5c8e5182f88e1a"
+    },
+    {
+      "path": "tests/tools/frontend-style.test.mjs",
+      "sha256": "f4af357aa0fc6bf4dbfab0c48f85b49c405bade82153930dca44f2149ab17484",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "f4af357aa0fc6bf4dbfab0c48f85b49c405bade82153930dca44f2149ab17484"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "sha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f"
+    },
+    {
+      "path": "Directory.Build.props",
+      "sha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+      "unchangedAcrossReviewBaseLatestMasterAndBounded": true,
+      "originalIntegrationSha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4"
+    }
+  ],
+  "originalImportedRemovedCaseIds": [
+    {
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "id": "node-test:tests/tools/correctness-attempt-migration.test.mjs#all-225-correctness-producers-bind-canonical-attempt-and-ced1a75c0b"
+    },
+    {
+      "path": "tests/tools/openapi-aeds-observation.test.mjs",
+      "id": "node-test:tests/tools/openapi-aeds-observation.test.mjs#pre-3177-normal-producer-isolates-only-the-exact-owned-j-0a53412110"
+    }
+  ],
+  "boundedProductionCensusUnchanged": true,
+  "localCIAllowed": true,
+  "githubActionsDisabledByUser": true,
+  "independentReviewComplete": false,
+  "mergeReadinessClaimed": false
+}

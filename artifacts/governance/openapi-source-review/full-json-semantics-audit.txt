@@ -1,0 +1,62 @@
+{
+  "changedJsonUniqueObjectKeys": [
+    "artifacts/change-contract/current-correctness-inventory-generated-binding.json",
+    "artifacts/change-contract/openapi-chain-external-naming.json",
+    "artifacts/change-contract/shared-governance-external-naming.json",
+    "benchmarks/core/packages.lock.json",
+    "config/testing/correctness-attempt-producers.json",
+    "tests/backend/packages.lock.json",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "tests/governance/test-lifecycle-registry.json",
+    "tests/test-retention-replacements.json",
+    "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json"
+  ],
+  "retentionBeforeRows": 1526,
+  "retentionAfterRows": 1518,
+  "same1518UniqueIds": true,
+  "everyReplacementEdgeReasonAndPathPreserved": true,
+  "assertionReplacementsUnchanged": true,
+  "lifecycleSameSuiteFiles": true,
+  "lifecycleSuiteSourceUnchanged": true,
+  "lifecycleRemovedDeclaration": {
+    "file": "tests/tools/canonical-article-lifecycle-authority.test.mjs",
+    "owner": "repository-governance:static-node-contracts",
+    "executionCategory": "repository-governance",
+    "lifecycle": "canonical-execution",
+    "physicalExecutionCount": 1,
+    "classifications": [
+      "source-text"
+    ],
+    "staticGovernance": {
+      "id": "canonical-article-lifecycle-authority",
+      "category": "real-subprocess-lifecycle",
+      "physicalOwner": "process:lifecycle"
+    }
+  },
+  "lifecycleRetainedDeclaration": {
+    "file": "tests/tools/canonical-article-lifecycle-authority.test.mjs",
+    "owner": "repository-governance:static-node-contracts",
+    "executionCategory": "repository-governance",
+    "lifecycle": "canonical-execution",
+    "physicalExecutionCount": 1,
+    "classifications": [
+      "source-text",
+      "runtime"
+    ],
+    "staticGovernance": {
+      "id": "canonical-article-lifecycle-authority",
+      "category": "isolated-temporary-repository-fixture",
+      "physicalOwner": "host:temporary-repository",
+      "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/canonical-article-lifecycle-authority",
+      "output": ".tmp/test-governance/results/{checkId}/canonical-article-lifecycle-authority.json"
+    }
+  },
+  "lifecycleDeclarationsWereNotIdentical": true,
+  "physicalOwnerResolutionRequiresOwnOwnerReview": true,
+  "head": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+  "mergeBase": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8"
+}

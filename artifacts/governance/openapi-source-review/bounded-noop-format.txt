@@ -1,0 +1,37 @@
+{
+  "candidate": "b03d6e5b257cb66697354f5d96b19c775ffaa040",
+  "trustedParserBase": "8b1c739cacef47995f441f096835863d377dc347",
+  "start": "2026-10-08T04:46:55.493Z",
+  "end": "2026-10-08T04:47:11.090Z",
+  "command": [
+    "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--fix",
+    "--file",
+    "tests/tools/openapi-aeds-observation.test.mjs",
+    "--file",
+    "tools/fact-extractors/openapi-aeds/extract.mjs"
+  ],
+  "results": [
+    {
+      "pass": 1,
+      "exitCode": 0
+    },
+    {
+      "pass": 2,
+      "exitCode": 0
+    }
+  ],
+  "treeAlgorithm": "sha256(sorted path + NUL + exact UTF-8 bytes + NUL)",
+  "treeDigests": [
+    "ed30032d3e680d2d8305f46bf42173f605d0a903aeba6059b8129829366ae306",
+    "ed30032d3e680d2d8305f46bf42173f605d0a903aeba6059b8129829366ae306",
+    "ed30032d3e680d2d8305f46bf42173f605d0a903aeba6059b8129829366ae306"
+  ],
+  "byteIdentical": true,
+  "completeAstRawTokenCommentEquivalent": true,
+  "formatMigration": "none",
+  "historicalIdempotenceCertified": false
+}

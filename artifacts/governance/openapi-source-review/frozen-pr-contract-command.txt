@@ -1,0 +1,12 @@
+{
+  "candidate": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+  "command": [
+    "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--github-event",
+    "/workspace/scratch/chain-3540/source-handoff/frozen-pr-event.json"
+  ],
+  "start": "2026-10-08T04:36:43.929347+00:00",
+  "end": "2026-10-08T04:36:46.451970+00:00",
+  "exitCode": 1
+}

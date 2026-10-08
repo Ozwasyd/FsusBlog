@@ -1,0 +1,20 @@
+{
+  "runId": "source-review-3540-3537-2026-10-08T04:32:03.347298+00:00",
+  "candidate": "b03d6e5b257cb66697354f5d96b19c775ffaa040",
+  "root": "/workspace/scratch/chain-3540/source-candidate",
+  "command": [
+    "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/openapi-aeds-observation.test.mjs",
+    "tests/tools/behavior-fact-extractors.test.mjs"
+  ],
+  "environment": {
+    "node": "v24.16.0",
+    "RestoreLockedMode": "true"
+  },
+  "start": "2026-10-08T04:32:03.347298+00:00",
+  "end": "2026-10-08T04:32:15.377612+00:00",
+  "exitCode": 1,
+  "trackedStatusBefore": "",
+  "trackedStatusAfter": ""
+}

@@ -1,0 +1,12 @@
+{
+  "candidate": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+  "command": [
+    "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "8b1c739cacef47995f441f096835863d377dc347..HEAD"
+  ],
+  "start": "2026-10-08T04:36:41.142898+00:00",
+  "end": "2026-10-08T04:36:43.071886+00:00",
+  "exitCode": 1
+}

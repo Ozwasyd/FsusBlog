@@ -1,0 +1,12 @@
+{
+  "candidate": "b03d6e5b257cb66697354f5d96b19c775ffaa040",
+  "command": [
+    "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "--test-name-pattern=^OpenAPI (requires the runner canonical digest and seals its exact provider sources|refuses changed runner import resolution and resealed incomplete provider closure)$",
+    "tests/tools/openapi-aeds-observation.test.mjs"
+  ],
+  "start": "2026-10-08T04:36:40.917444+00:00",
+  "end": "2026-10-08T04:36:41.142684+00:00",
+  "exitCode": 0
+}

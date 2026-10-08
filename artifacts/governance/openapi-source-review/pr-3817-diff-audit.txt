@@ -1,0 +1,1404 @@
+{
+  "base": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "head": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+  "remoteFilesMatchExactLocalDiff": true,
+  "counts": {
+    "evidence": 56,
+    "lock": 7,
+    "source-or-contract": 9
+  },
+  "files": [
+    {
+      "path": "artifacts/change-contract/current-correctness-inventory-generated-binding.json",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "7fbad6778c3e10c40cf6243397b75e28e0d7c4a3",
+      "beforeSha256": null,
+      "headSha256": "549c1edea8c282f2763066c80f177e411681013d9977dc69c04f35648095483c",
+      "bytes": 979
+    },
+    {
+      "path": "artifacts/change-contract/openapi-chain-external-naming.json",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "6cedfe82fb2cedf4d8d20e89221d8c1d465fa3b1",
+      "beforeSha256": null,
+      "headSha256": "a122497249a9fbd60adeeea680a64c70dc19f6ddf70ba510b133e01792297601",
+      "bytes": 953
+    },
+    {
+      "path": "artifacts/change-contract/shared-governance-external-naming.json",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "356396bad1803951494b3b44afc4b2633a245a37",
+      "beforeSha256": null,
+      "headSha256": "04971a971aa61c2479adf065c5f3703e2638ebec9603ac58221693efb7ea5f42",
+      "bytes": 975
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/changed-style.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "b28b11b41b7f613094c855755405fa8e9d869482",
+      "beforeSha256": null,
+      "headSha256": "243d93aaa809368a217df715427e14a921736703774abc8c8d6031d729167a11",
+      "bytes": 68
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/clean-producer-inventory.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "d96461e03c0dcf70d3c8009419e64393fbf99e5f",
+      "beforeSha256": null,
+      "headSha256": "8cbd38056f0544bf94651af2285c265a14de0eb8f10c37e34505c285deba4e09",
+      "bytes": 59
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/backend-bootstrap-tests.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "0fbc5e3fccfb36a8c233df8e9a7e76db4c3c0950",
+      "beforeSha256": null,
+      "headSha256": "262e9ecac0b1d0d25dbdc8df5a885f1b2c0d9497bbec58ff4626d1101be57680",
+      "bytes": 11262,
+      "rawSha256": "c208cb4653645da727bb9d0c9bdd8e234bc77beeb17654ca47e256c08c6f5a0a",
+      "rawBytes": 401308
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/backend-locked-restore.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "f8231e21a982d5d6f59f75a274a8dd757c1fbe6a",
+      "beforeSha256": null,
+      "headSha256": "45bd320f801094de8edfab64f67e6eef2f5858df88496d9b16c432f569685cc2",
+      "bytes": 366,
+      "rawSha256": "df44ea59fdcf9b641fa4e30ce64680b8af703f1c0145279f76abc90318445905",
+      "rawBytes": 1059
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/canonical-admission.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "7dbfcc8e6f55be484857fc73fb0251a9281d62d7",
+      "beforeSha256": null,
+      "headSha256": "ac7504d959897c51fc3c6efc21b293cfd41da9a8bda8818cc4147a982c40057a",
+      "bytes": 339,
+      "rawSha256": "fbb2b4e2f29fbd4aa09011bfab335b49c1419302428d9139d669abdec797877b",
+      "rawBytes": 675
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/cgroup-namespace-probe.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "3d2cab2aad32ccf0f4a398ced9d387b516ea5412",
+      "beforeSha256": null,
+      "headSha256": "ebcc94ed95f32914c54cc9dafc3eb3f45ed501f37ffad09026aca57ebf489fcb",
+      "bytes": 63,
+      "rawSha256": "8f8f94f07ecd0e6152663b425f33f1fe8ce609762b9d02fa570dcb92c42a3150",
+      "rawBytes": 49
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/cgroup-outside-sandbox.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "bd69ddcc2b8d2296b3ecef597c6e055086172306",
+      "beforeSha256": null,
+      "headSha256": "a739f472dbe2c7e78e11d7a01b471d46d6de86bbc09aef4a5b0c8d6a02928080",
+      "bytes": 297
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/current-pr-contract-command.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "12d4d21899d7d3224f25a4dce1f1104c09c2b34c",
+      "beforeSha256": null,
+      "headSha256": "ad12f984d52f4f62c9cf92cb02da5c556cd596f433ae540f55b0aaa42e7d7edd",
+      "bytes": 411
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/current-pr-contract.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "dba7c992a03500ad9b845db14bfadff4683793a9",
+      "beforeSha256": null,
+      "headSha256": "e4fe95467183ecf07682d19e8542666e47516228cf1fede30ed7992c45423766",
+      "bytes": 279,
+      "rawSha256": "9a1d71a62b28c70ec011281e8d28d33621d2e3d6b60935fe70377241f97b5e91",
+      "rawBytes": 970
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-contract-command.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "3303dc226703f7f8a4fdcf5b3ab49cabb393c56e",
+      "beforeSha256": null,
+      "headSha256": "601632761153ec799ccb1139298f7ada7a61fe056037cf698326edd24b19ee13",
+      "bytes": 367
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-contract.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "bf736c2202b076d86e7edccc71d4e8259579146b",
+      "beforeSha256": null,
+      "headSha256": "e18751df7ab60c0e61afb2019ebfb12cffa05a560a817da5126f882dace928d4",
+      "bytes": 149,
+      "rawSha256": "4fb18f317daa6a31212c962d8071814833d14429882aa442eb7110d7f7c0591a",
+      "rawBytes": 218
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-focused-command.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "8533c2d995c4f74b696b27595d5e8b2675b00883",
+      "beforeSha256": null,
+      "headSha256": "8581206257d0f8e56f8391c678783f7a40d33d7a530b82545294cd2f2fcaecb3",
+      "bytes": 395
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-focused.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "c4795743d38c0a0ec5b1b65a285bcedc6eec7598",
+      "beforeSha256": null,
+      "headSha256": "f90305fde6f7629c8492813f26b64124ae146fe835abc918e808fed60220e75b",
+      "bytes": 2309,
+      "rawSha256": "f7467dc24a0a9d462fbbb48fd4ddb01b3e37a6f823190db05de6a9c85c12ac5a",
+      "rawBytes": 5429
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-governance.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "47970bd9da4c6b83047bd808f6b62ef0340be207",
+      "beforeSha256": null,
+      "headSha256": "d4db0d3a8702457f1782b2d97593a50faddf07fb46c313bcf92fae83b5520392",
+      "bytes": 166,
+      "rawSha256": "ffbacfc73493ce5f0d7cd452e79b57bfebd6d97ed3c034f11aa9eb8ba41564d3",
+      "rawBytes": 184
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-inventory-command.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "4c14cea29d62e90a0d251a68ae66e75b12a604e1",
+      "beforeSha256": null,
+      "headSha256": "08ee773e6261bfc8b7f2a3e727849e80dcc2e7472d220c5e8879db6fffeecf1c",
+      "bytes": 351
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-inventory.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "d4b9926df0b7defceb6caf0b474c4a190c5ca8f0",
+      "beforeSha256": null,
+      "headSha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+      "bytes": 20,
+      "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rawBytes": 0
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-owner-format-command.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "fae73de7550bef6061613b5ae203fbcabc5eee0d",
+      "beforeSha256": null,
+      "headSha256": "9ddc037db1a5092fa5a5516c3765bed62bd57157bc2867eea49db420455be8ae",
+      "bytes": 343
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-owner-format.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "f744d5503b0caa22710048f64e42ec7455541fab",
+      "beforeSha256": null,
+      "headSha256": "b6a6dcf900e53acbd923533a812cfc519a7dd6fd91bda94c21d59ad29293fa89",
+      "bytes": 601,
+      "rawSha256": "41026a61dc91375453a406adbb9433ac714473ce4102f9a8f89d40937614e25a",
+      "rawBytes": 1187
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-owner-strict.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "1d4e0cadcbb1bbefd5cdd7962888d15de947cd29",
+      "beforeSha256": null,
+      "headSha256": "8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9",
+      "bytes": 79,
+      "rawSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7",
+      "rawBytes": 68
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-static-command.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "ad9baec9a00ef7ae408294feef493fa82b89d206",
+      "beforeSha256": null,
+      "headSha256": "eaed1869f3349d994c2e5f59d3d0a1461a84f89ed158a49630bbae898e8b0c4f",
+      "bytes": 349
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-static.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "f3185667f6e30b67ce54efd2c42ada9fcbce3d64",
+      "beforeSha256": null,
+      "headSha256": "10399db83c84f390b424fe30d00dfb0082f407d68349fc5acca41e9f9cbdc092",
+      "bytes": 214,
+      "rawSha256": "1bf753880d9629229e21ea7cc8474bad07eb6864f9d7c27c64d3354f36af2612",
+      "rawBytes": 270
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-style-controls-command.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "f0b82fd5d2d0bdf33d557ffea6cf4be9d3baa43c",
+      "beforeSha256": null,
+      "headSha256": "f3fcdca87d1d942e7cba9f11c018aaba6da27c1007b53d1cddcb8bb5142c93fe",
+      "bytes": 332
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/final-style-controls.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "f37ebbb8cde26d85387915b65e739cadd52a554c",
+      "beforeSha256": null,
+      "headSha256": "8abcc3c377fbf800e95d34fd1e3257e56888ec46164e70e4d40a6f45ad390a4e",
+      "bytes": 1532,
+      "rawSha256": "b51197e10f3a1566ce0f8279200ebece99ac03617e1972495e31e84592ad06a5",
+      "rawBytes": 3937
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/fixer-pass-1.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "1d4e0cadcbb1bbefd5cdd7962888d15de947cd29",
+      "beforeSha256": null,
+      "headSha256": "8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9",
+      "bytes": 79,
+      "rawSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7",
+      "rawBytes": 68
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/fixer-pass-2.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "1d4e0cadcbb1bbefd5cdd7962888d15de947cd29",
+      "beforeSha256": null,
+      "headSha256": "8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9",
+      "bytes": 79,
+      "rawSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7",
+      "rawBytes": 68
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/historical-format-4c5.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "aef557f5e00757817f690b0f808ae9c8ae55f636",
+      "beforeSha256": null,
+      "headSha256": "a837192c6fc3f38bdaaf27f9d09ee2fb085a28751078004cdc24d5eb4719271a",
+      "bytes": 423,
+      "rawSha256": "3a6842c4bcd736a3345bb8c94a79a353a86bca158929b5ae2e131727ed1ca97b",
+      "rawBytes": 680
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/historical-format-8fb.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "11e16dcc89b323f62f464c69693e111be8a9e92e",
+      "beforeSha256": null,
+      "headSha256": "94346b328be02870e01e4986b31b7c8de9b6dc0817b59ef10da6a39a983ae541",
+      "bytes": 416,
+      "rawSha256": "5e56cd699cfdd47f3db39c1fd68d53f840be3b878b64f0468664c47ae2529813",
+      "rawBytes": 674
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/historical-format-controls.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "21947f478411482a566d45cb59d7820390491bab",
+      "beforeSha256": null,
+      "headSha256": "f0eb0a83d418a6c8d2371d50e3ba8af235a07608c5a66bc53975ea8c7dc87225",
+      "bytes": 281,
+      "rawSha256": "77e467e10f1840d26e0ab4b7e1151bcbf166913dcc97dbbf33c7f7b6a9196dc1",
+      "rawBytes": 844
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/locked-build-consumed.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "08f86a531e1f8f647b741668034905d35800f36a",
+      "beforeSha256": null,
+      "headSha256": "bb0712b6d4ccf9e49118c640a283a7673197abeb51e4bfcee9891800f114fa37",
+      "bytes": 4950,
+      "rawSha256": "ae42f80863bdedc158459e8922567e79075d998bc73a307378793460463ab95e",
+      "rawBytes": 174676
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/locked-openapi-sync.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "da296d5d278f9382fd60ff7ec71676e18bd66cfd",
+      "beforeSha256": null,
+      "headSha256": "c983a1bba2398e8d5aabfc53d645115482d241b94e92616d5b038c4ebc03a1ac",
+      "bytes": 131,
+      "rawSha256": "5f5d21504357a66c0d29964bc605aa7a742e76791d6e3549dcb34ed972292d99",
+      "rawBytes": 143
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/locked-restore-consumed.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "fef71cbaa28ee96e236a1ac7ee89bdadd7ed49c0",
+      "beforeSha256": null,
+      "headSha256": "1e8b09a34fce2983322adc8210f1e91ce53737c04b1a0d73df10ef6f0441803f",
+      "bytes": 153,
+      "rawSha256": "655866efceaf786b013e41be669683daa90eaf541fead9eb0a69a2917bb7c8fa",
+      "rawBytes": 206
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/master-owner-strict.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "1d4e0cadcbb1bbefd5cdd7962888d15de947cd29",
+      "beforeSha256": null,
+      "headSha256": "8601ff58d35caab596cecb84c81e938b51e258ac5dbe01857fea702da5e8e3b9",
+      "bytes": 79,
+      "rawSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7",
+      "rawBytes": 68
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/owner-format-evidence.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "93c29039ce68f57fbd6258f8040811afa93e6cad",
+      "beforeSha256": null,
+      "headSha256": "41026a61dc91375453a406adbb9433ac714473ce4102f9a8f89d40937614e25a",
+      "bytes": 1187
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/owner-format-probe-source.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "c1f1a7630e194160e2cc8a22e237d570e115fbdb",
+      "beforeSha256": null,
+      "headSha256": "800222447e6492274c8ffd96fec3e03f19cb06e6f84e9d4511efddb5e47574d1",
+      "bytes": 2868
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/ready-fast.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "8e7e0074f42cea77127ab1e8d56e6cda7bbf6f39",
+      "beforeSha256": null,
+      "headSha256": "25e5862383c14f3f4486a49ab5d39789ad12a5ed7e9254e2323d641d44d34918",
+      "bytes": 192,
+      "rawSha256": "970d5f53ed4c1b7a60e67192a60e70cbb30b044f811321a57bf10f2e85094330",
+      "rawBytes": 230
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/ready-inventory-controls.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "9e5bdc3a3c9abb689a1a0fd1f8599192e5a5f58a",
+      "beforeSha256": null,
+      "headSha256": "abc47441471e25e763e8dcbdd4a966d0f4ad516a79f1919726875720914924bf",
+      "bytes": 317,
+      "rawSha256": "665c535620cb4cbc9eb36fb76ce2db29ebc36974bfe568463d116af21a2c2839",
+      "rawBytes": 671
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/shared-independent-controls.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "8af9a7bae499e53df62e7dc0315a56990c22f9da",
+      "beforeSha256": null,
+      "headSha256": "e6c47e8e7e594a94d5f112da896fbcac8068c2298a2ec3f0e08c99d4e786f5fe",
+      "bytes": 1546,
+      "rawSha256": "3fa3c6a715e3bbb8eae68219cc53a2632bea4eea5242cfc75337dfd7002ffee7",
+      "rawBytes": 4567
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-run/shared-metadata-controls.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "fffa2735cc1af1c9813123062342134a0cfe68e9",
+      "beforeSha256": null,
+      "headSha256": "804a479a84b8cca012fc266bf064c4ee305751aebbb86a5eb89cf50272ab06c2",
+      "bytes": 2877,
+      "rawSha256": "4a09d9bb6c691f0bcea7a1210018bdb3a5000d94f304fa7d9355d58fda1d1783",
+      "rawBytes": 7795
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-source-seal.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "604088dae6f40257e2ac34e7b46a3d300c459100",
+      "beforeSha256": null,
+      "headSha256": "8503d21244529d1fb1ea94fe085c8af78ee57047f2ee7b3e22ff3a319d66f0c5",
+      "bytes": 4043
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/current-style-verification.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "10a9ce6cab518bba219479af73c3b71cfa4d2dad",
+      "beforeSha256": null,
+      "headSha256": "986c6a45c97dfdff4114f9804c8bd80373026a98583f1163754747ad81d6602b",
+      "bytes": 17788
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/fact-tests.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "b212287c695c0cc6b86ae0314e8d3187aa103703",
+      "beforeSha256": null,
+      "headSha256": "d17ad248fbe97c2f97961b16641d8d0b9e4dde39a4c1370309de1a09f4b4672e",
+      "bytes": 1636
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/focused-tests.log.gz",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "bdd8c6f8006ba9700b4c30cf0e41c9b7bdf4fc73",
+      "beforeSha256": null,
+      "headSha256": "0b911460ee9f185f93d77ebd864961eb6594204ffc33fb601f45c6e8e9abf3dc",
+      "bytes": 2769,
+      "rawSha256": "22d1a4788be624d3d63388797cc477a974b3efff9defa02dec0c6e7d9c67ccd5",
+      "rawBytes": 6866
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/locked-restore.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "ccbd2ca7833a5728506951b4a3bc7a489c0ca0bd",
+      "beforeSha256": null,
+      "headSha256": "428fa228b293ba3b7a06555e97ac4658a7c87404de9ad51403dad1fa9593ed7f",
+      "bytes": 956
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/node-24.19-static-boundary.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "508dbb32a591ea65dff0a5ce58d9b69692d901ed",
+      "beforeSha256": null,
+      "headSha256": "9d522e4cf40b1b9303cf5c9aed0e949f32b953365f5d5776d3f17f1136c5bbf2",
+      "bytes": 966
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/openapi-sync.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "9c6f51915a2ffc2f7cb44f701678834fa2db45c9",
+      "beforeSha256": null,
+      "headSha256": "5f5d21504357a66c0d29964bc605aa7a742e76791d6e3549dcb34ed972292d99",
+      "bytes": 143
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/pinned-fast.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "e5901267412059699a7a3e9ae52ee1e38dc9c793",
+      "beforeSha256": null,
+      "headSha256": "d9a5a2955ebc3ff8d75abb3ca31d483f67392abe8e7dcb364beded4099b3c047",
+      "bytes": 266
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/pinned-static-boundary.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "a2f42eed72c9845cff8de4c78bdb45a1a7b02a4c",
+      "beforeSha256": null,
+      "headSha256": "b1174b9f63104a76ba4081c762e0d017c783aababf437a9eeb86108fd7730ad2",
+      "bytes": 269
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/pr-contract.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "215011c80c680edf93693489f647b9a271ca00a9",
+      "beforeSha256": null,
+      "headSha256": "493475e0caecd2c478be85ce8e7ed98d0b6e3e93d9e8b8c924b79576f6561f3b",
+      "bytes": 42
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/provider-controls.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "8b0d94156d0c0da3e4f396cdd59b23e88e3e36d8",
+      "beforeSha256": null,
+      "headSha256": "4617a4f7b23ed8c4b1cc9dd876950011eae3eb2909918149bdf32982f121eeb6",
+      "bytes": 323
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/review.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "e14185ad3e143735f370b107c14b6b878b58011a",
+      "beforeSha256": null,
+      "headSha256": "2a2dc8ecce7d8060e65f116dcbf2c735f421688d508502161c4b709f598509f4",
+      "bytes": 14899
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/source-seal.txt",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "5b3a26c04f40cad32eb04fa3610a2db19e914e53",
+      "beforeSha256": null,
+      "headSha256": "3a9d7b9593d8d8bd8d36cef4343fff5c3d43ab5ccac7a11d4ec3eec780fb3c4c",
+      "bytes": 2408
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/strict-style.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "bc13d418f2385f6c1882eb0469c5c1a906872408",
+      "beforeSha256": null,
+      "headSha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7",
+      "bytes": 68
+    },
+    {
+      "path": "artifacts/governance/openapi-digest-boundary/style-controls.log",
+      "category": "evidence",
+      "mode": "100644",
+      "headBlob": "f450f50730facf7b89f021e58c249710bb6fb5e3",
+      "beforeSha256": null,
+      "headSha256": "ffd4c949e851da81c8998044d5325b48bc0870ff5c7c66a2741191db32f65f8a",
+      "bytes": 3938
+    },
+    {
+      "path": "benchmarks/core/packages.lock.json",
+      "category": "lock",
+      "mode": "100644",
+      "headBlob": "2fd0bc8ff2ac8ae9b4c828422d87abac16006d4a",
+      "beforeSha256": "f4c3b1b947af4c745744c221a1f560e0802e18f01ef86f97a28b41e9df1f1d7e",
+      "headSha256": "ba5c059240d7151a2187925c627061d93e6872cd7dcd2f0c8b3694e5829422fc",
+      "bytes": 44074,
+      "semanticChanges": [
+        {
+          "framework": "net10.0",
+          "name": "AngleSharp",
+          "before": null,
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[1.5.0, )",
+            "resolved": "1.5.0",
+            "contentHash": "REAdFOAlTxr6yqmxWFFLLMB/+uvIS3N6tXXUAWjoexA0LsQB/CfZYadg+z+DkcpAwJk8gF1VF4YLsq4U1Gficg=="
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "fsusblog.server",
+          "before": {
+            "type": "Project",
+            "dependencies": {
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          },
+          "after": {
+            "type": "Project",
+            "dependencies": {
+              "AngleSharp": "[1.5.0, )",
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "category": "source-or-contract",
+      "mode": "100644",
+      "headBlob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+      "beforeSha256": "140071261ec4d5eebb680026970ae5f07345668d14ba5830cad40795406c7682",
+      "headSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+      "bytes": 315968
+    },
+    {
+      "path": "docs/testing.md",
+      "category": "source-or-contract",
+      "mode": "100644",
+      "headBlob": "e3062ecab19312529aaed2c9e6770852ecbd7647",
+      "beforeSha256": "d708eeb2631d01c479b59adbfdc6836e16d9c584567944d3f424f1fc2c46ebf6",
+      "headSha256": "8543aeb141f68a7be03c982ffd37964c2adc50e199393d7bd20e58339979e3c0",
+      "bytes": 403114
+    },
+    {
+      "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "category": "source-or-contract",
+      "mode": "100644",
+      "headBlob": "658d0fe76ba668127527fe2a3a678c1e44484942",
+      "beforeSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029",
+      "headSha256": "e749fe6a4141b71824fc127f01e8f0f35768f8789d97bf4fa81b894a4b073a46",
+      "bytes": 29855
+    },
+    {
+      "path": "tests/backend/packages.lock.json",
+      "category": "lock",
+      "mode": "100644",
+      "headBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+      "beforeSha256": "95bba6bfd123b7ce4819fb8b52196e77908b0029c591773fd06b5b7a094e3674",
+      "headSha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9",
+      "bytes": 36957,
+      "semanticChanges": [
+        {
+          "framework": "net10.0",
+          "name": "fsusblog.server",
+          "before": {
+            "type": "Project",
+            "dependencies": {
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          },
+          "after": {
+            "type": "Project",
+            "dependencies": {
+              "AngleSharp": "[1.5.0, )",
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "category": "source-or-contract",
+      "mode": "100644",
+      "headBlob": "5acd7ceb23f9b17e959588e53a8a06acab7b49d7",
+      "beforeSha256": "cb0e6bb7f2beb2fa300bdcb08e3617692212c50eb7c165e59ba69108d301c40b",
+      "headSha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21",
+      "bytes": 3014594
+    },
+    {
+      "path": "tests/governance/test-lifecycle-registry.json",
+      "category": "source-or-contract",
+      "mode": "100644",
+      "headBlob": "2d3aeb80583a485134ceaa83c6bf2124d0fafdce",
+      "beforeSha256": "2ed2fb91615b83abeb0b06392ecfcabf3986ab0ac4244da745c56f2453f9458f",
+      "headSha256": "c8fa0b04bcaa9d2c7f04a0d3d981816e927477a0cf7d5c8649fe6d28d736191d",
+      "bytes": 301118
+    },
+    {
+      "path": "tests/test-retention-replacements.json",
+      "category": "source-or-contract",
+      "mode": "100644",
+      "headBlob": "00f850a2fbbc5e5afe1c1c201e0b1f21117beee3",
+      "beforeSha256": "21574e36e1f0b774a8fd20140f100de775aa43d4f76222a1f69d760d2dced4af",
+      "headSha256": "c56c7f168af626392bc3dd5e0b38b653244e5b2c7d8b98e92b55c267dd11e1db",
+      "bytes": 1198622
+    },
+    {
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "category": "source-or-contract",
+      "mode": "100644",
+      "headBlob": "691db20881755f406956fbe3f41c203238210674",
+      "beforeSha256": "d8a2bc6e0d66f24addb821b48c11b69229fc55a3bd929e6e9d550e5515a49980",
+      "headSha256": "01ee1afa262b4af60f690481f792c3ed477d4213cb7c79849c7707af75e9d6ba",
+      "bytes": 5023
+    },
+    {
+      "path": "tests/tools/openapi-aeds-observation.test.mjs",
+      "category": "source-or-contract",
+      "mode": "100644",
+      "headBlob": "07314a55dedb24597a4b35d8fa5049bd605e6fe5",
+      "beforeSha256": "9135ac1f4857a8e52dc1f8b7dae498d39d5cbcb6aa6488166f8cad3993e6a0a5",
+      "headSha256": "5d89aa1024a313f88cae6e646c6198f318dc1065164267efb7fe81a0bec2437a",
+      "bytes": 80877
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "category": "lock",
+      "mode": "100644",
+      "headBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "beforeSha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "headSha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "bytes": 37332,
+      "semanticChanges": [
+        {
+          "framework": "net10.0",
+          "name": "AngleSharp",
+          "before": null,
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[1.5.0, )",
+            "resolved": "1.5.0",
+            "contentHash": "REAdFOAlTxr6yqmxWFFLLMB/+uvIS3N6tXXUAWjoexA0LsQB/CfZYadg+z+DkcpAwJk8gF1VF4YLsq4U1Gficg=="
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "fsusblog.server",
+          "before": {
+            "type": "Project",
+            "dependencies": {
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          },
+          "after": {
+            "type": "Project",
+            "dependencies": {
+              "AngleSharp": "[1.5.0, )",
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "category": "lock",
+      "mode": "100644",
+      "headBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "beforeSha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "headSha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "bytes": 37332,
+      "semanticChanges": [
+        {
+          "framework": "net10.0",
+          "name": "AngleSharp",
+          "before": null,
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[1.5.0, )",
+            "resolved": "1.5.0",
+            "contentHash": "REAdFOAlTxr6yqmxWFFLLMB/+uvIS3N6tXXUAWjoexA0LsQB/CfZYadg+z+DkcpAwJk8gF1VF4YLsq4U1Gficg=="
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "fsusblog.server",
+          "before": {
+            "type": "Project",
+            "dependencies": {
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          },
+          "after": {
+            "type": "Project",
+            "dependencies": {
+              "AngleSharp": "[1.5.0, )",
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "category": "lock",
+      "mode": "100644",
+      "headBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "beforeSha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "headSha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "bytes": 37332,
+      "semanticChanges": [
+        {
+          "framework": "net10.0",
+          "name": "AngleSharp",
+          "before": null,
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[1.5.0, )",
+            "resolved": "1.5.0",
+            "contentHash": "REAdFOAlTxr6yqmxWFFLLMB/+uvIS3N6tXXUAWjoexA0LsQB/CfZYadg+z+DkcpAwJk8gF1VF4YLsq4U1Gficg=="
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "fsusblog.server",
+          "before": {
+            "type": "Project",
+            "dependencies": {
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          },
+          "after": {
+            "type": "Project",
+            "dependencies": {
+              "AngleSharp": "[1.5.0, )",
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "category": "lock",
+      "mode": "100644",
+      "headBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "beforeSha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "headSha256": "3fe6471e90309e4382dab8003e6af87d3524f93e8e871402fa308f20d4a84689",
+      "bytes": 37332,
+      "semanticChanges": [
+        {
+          "framework": "net10.0",
+          "name": "AngleSharp",
+          "before": null,
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[1.5.0, )",
+            "resolved": "1.5.0",
+            "contentHash": "REAdFOAlTxr6yqmxWFFLLMB/+uvIS3N6tXXUAWjoexA0LsQB/CfZYadg+z+DkcpAwJk8gF1VF4YLsq4U1Gficg=="
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "fsusblog.server",
+          "before": {
+            "type": "Project",
+            "dependencies": {
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          },
+          "after": {
+            "type": "Project",
+            "dependencies": {
+              "AngleSharp": "[1.5.0, )",
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "category": "lock",
+      "mode": "100644",
+      "headBlob": "a342034a78b4270de17ebeea7ab20cef2da66dfe",
+      "beforeSha256": "6c29c80a5c5ceff2be39c282788171a5b94259fcad7b6d7a8fa4f9777d9ac7ff",
+      "headSha256": "ad6ed413264ee8dd99e50cb0adffe8e65839d95bdf3570253137f0e8fc15d655",
+      "bytes": 40862,
+      "semanticChanges": [
+        {
+          "framework": "net10.0",
+          "name": "AngleSharp",
+          "before": null,
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[1.5.0, )",
+            "resolved": "1.5.0",
+            "contentHash": "REAdFOAlTxr6yqmxWFFLLMB/+uvIS3N6tXXUAWjoexA0LsQB/CfZYadg+z+DkcpAwJk8gF1VF4YLsq4U1Gficg=="
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "Markdig",
+          "before": null,
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[1.3.2, )",
+            "resolved": "1.3.2",
+            "contentHash": "fZgOC/3CswUrndjDTac70aQpYdtxbW5+5bRumR7vzvI2HJbkmgKisB1c9oT+GA6v0jB/JDR9BLa9FiPzQmaK6A=="
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "Microsoft.Data.Sqlite",
+          "before": null,
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[10.0.4, )",
+            "resolved": "10.0.4",
+            "contentHash": "psCr4snt5X4nUYsbdKEVAd+Mi87youewT0aG3oZznkLoKKn7wCaKdvRdAWRZLjCl8QVkNPC1PivO9gd0pmsQPw==",
+            "dependencies": {
+              "Microsoft.Data.Sqlite.Core": "10.0.4",
+              "SQLitePCLRaw.bundle_e_sqlite3": "2.1.11",
+              "SQLitePCLRaw.core": "2.1.11"
+            }
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "Microsoft.Data.Sqlite.Core",
+          "before": null,
+          "after": {
+            "type": "Transitive",
+            "resolved": "10.0.4",
+            "contentHash": "UkmpN2pDkrtVLh+ypRDCbBij9mhPqOPzvHI625rf+VeT3FHnBwBjAY7XgjK8rGDI74fDx7C1SSIf2OAaAX4g2A==",
+            "dependencies": {
+              "SQLitePCLRaw.core": "2.1.11"
+            }
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "MySqlConnector",
+          "before": null,
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[2.6.2, )",
+            "resolved": "2.6.2",
+            "contentHash": "dlTc/tsBa42szdvpj4nrHvQVUb0gsMwR9HT6J0Zz2OSqfP0CdYlGw+qQPqCpbnO97idfvclSjKYtM6y5QaBQaQ==",
+            "dependencies": {
+              "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2",
+              "Microsoft.Extensions.Logging.Abstractions": "8.0.2"
+            }
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "SQLitePCLRaw.bundle_e_sqlite3",
+          "before": null,
+          "after": {
+            "type": "Transitive",
+            "resolved": "2.1.11",
+            "contentHash": "DC4nA7yWnf4UZdgJDF+9Mus4/cb0Y3Sfgi3gDnAoKNAIBwzkskNAbNbyu+u4atT0ruVlZNJfwZmwiEwE5oz9LQ==",
+            "dependencies": {
+              "SQLitePCLRaw.lib.e_sqlite3": "2.1.11",
+              "SQLitePCLRaw.provider.e_sqlite3": "2.1.11"
+            }
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "SQLitePCLRaw.core",
+          "before": null,
+          "after": {
+            "type": "Transitive",
+            "resolved": "2.1.11",
+            "contentHash": "PK0GLFkfhZzLQeR3PJf71FmhtHox+U3vcY6ZtswoMjrefkB9k6ErNJEnwXqc5KgXDSjige2XXrezqS39gkpQKA=="
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "SQLitePCLRaw.lib.e_sqlite3",
+          "before": null,
+          "after": {
+            "type": "CentralTransitive",
+            "requested": "[3.53.3, )",
+            "resolved": "2.1.11",
+            "contentHash": "Ev2ytaXiOlWZ4b3R67GZBsemTINslLD1DCJr2xiacpn4tbapu0Q4dHEzSvZSMnVWeE5nlObU3VZN2p81q3XOYQ=="
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "SQLitePCLRaw.provider.e_sqlite3",
+          "before": null,
+          "after": {
+            "type": "Transitive",
+            "resolved": "2.1.11",
+            "contentHash": "Y/0ZkR+r0Cg3DQFuCl1RBnv/tmxpIZRU3HUvelPw6MVaKHwYYR8YNvgs0vuNuXCMvlyJ+Fh88U1D4tah1tt6qw==",
+            "dependencies": {
+              "SQLitePCLRaw.core": "2.1.11"
+            }
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "fsusblog.migration",
+          "before": {
+            "type": "Project",
+            "dependencies": {
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Npgsql": "[10.0.3, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )"
+            }
+          },
+          "after": {
+            "type": "Project",
+            "dependencies": {
+              "AngleSharp": "[1.5.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Markdig": "[1.3.2, )",
+              "Microsoft.Data.Sqlite": "[10.0.4, )",
+              "MySqlConnector": "[2.6.2, )",
+              "Npgsql": "[10.0.3, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )"
+            }
+          }
+        },
+        {
+          "framework": "net10.0",
+          "name": "fsusblog.server",
+          "before": {
+            "type": "Project",
+            "dependencies": {
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          },
+          "after": {
+            "type": "Project",
+            "dependencies": {
+              "AngleSharp": "[1.5.0, )",
+              "BCrypt.Net-Next": "[4.1.0, )",
+              "BouncyCastle.Cryptography": "[2.6.2, )",
+              "Fido2": "[4.0.1, )",
+              "FsusBlog.Core": "[1.0.0, )",
+              "FsusBlog.Shared": "[1.0.0, )",
+              "Jint": "[4.13.0, )",
+              "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
+              "MessagePack": "[2.5.301, )",
+              "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
+              "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
+              "Microsoft.OpenApi": "[2.7.5, )",
+              "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",
+              "Nethermind.MclBindings": "[1.0.5, )",
+              "Npgsql": "[10.0.3, )",
+              "Npgsql.OpenTelemetry": "[10.0.2, )",
+              "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+              "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+              "OpenTelemetry.Instrumentation.AspNetCore": "[1.15.2, )",
+              "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
+              "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
+              "Serilog": "[4.3.1, )",
+              "Serilog.AspNetCore": "[10.0.0, )",
+              "Serilog.Sinks.Async": "[2.1.0, )",
+              "Serilog.Sinks.Console": "[6.1.1, )",
+              "Serilog.Sinks.File": "[7.0.0, )",
+              "SqlSugarCoreNoDrive": "[5.1.4.213, )",
+              "StackExchange.Redis": "[2.7.27, )"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "path": "tools/test/correctness-attempt-migration.mjs",
+      "category": "source-or-contract",
+      "mode": "100644",
+      "headBlob": "7110d2c2f8f462a1aec26a5f745919871b0179e6",
+      "beforeSha256": "1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
+      "headSha256": "21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2",
+      "bytes": 4100
+    }
+  ]
+}

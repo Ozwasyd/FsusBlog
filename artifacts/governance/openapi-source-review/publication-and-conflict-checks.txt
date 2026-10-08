@@ -1,0 +1,23 @@
+{
+  "sourceCandidate": "b03d6e5b257cb66697354f5d96b19c775ffaa040",
+  "sourcePr": 3912,
+  "originalFrozenCandidate": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+  "originalPr": 3817,
+  "latestObservedMaster": "87209d571a93254dcacfe9093753002e8c98822a",
+  "conflictChecks": [
+    {
+      "command": "git merge-tree --write-tree 87209d571a93254dcacfe9093753002e8c98822a b03d6e5b257cb66697354f5d96b19c775ffaa040",
+      "exitCode": 0,
+      "tree": "4ff0781a9c142a8099497cdc8c6db531718e983d"
+    },
+    {
+      "command": "git merge-tree --write-tree 87209d571a93254dcacfe9093753002e8c98822a 4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+      "exitCode": 0,
+      "tree": "9afd2b43b8874ea30fffa35594b1d6979835e9b4"
+    }
+  ],
+  "noBranchMerged": true,
+  "sourceHeadsPreserved": true,
+  "globalCrossChainClearanceClaimed": false,
+  "supportingArtifactsOnly": true
+}
