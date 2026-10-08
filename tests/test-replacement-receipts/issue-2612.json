@@ -1,0 +1,87 @@
+{
+  "schema": "fsusblog.test-replacement-receipt.v1",
+  "transactionId": "issue-2612-binary-reader-little-endian-int32",
+  "transactionDigest": "sha256:282d33db0b4caf66958d55b859fbcacd00930a68e73fbcc0b153a5a52ae5c3bf",
+  "beforeTestIds": [
+    "vitest:tests/frontend/unit/adapters/binary/reader.test.ts#reads-little-endian-positive-value-984cdb059e",
+    "vitest:tests/frontend/unit/adapters/binary/reader.test.ts#reads-little-endian-0x01020304-e52b30e56b"
+  ],
+  "afterTestIds": [
+    "vitest:tests/frontend/unit/adapters/binary/reader.test.ts#reads-little-endian-int32-one-60d7785a29",
+    "vitest:tests/frontend/unit/adapters/binary/reader.test.ts#reads-little-endian-int32-ordered-bytes-8a64b2743d"
+  ],
+  "sourceDiffs": [
+    {
+      "path": "tests/frontend/unit/adapters/binary/reader.test.ts",
+      "beforeDigest": "sha256:ac740e9a73248c31834645ab0a24cb278baa331c10dd1f2e0523043506aeac66",
+      "afterDigest": "sha256:c5bf1fd8472912d7487b0c8f35818ff8438462356e1fbd2a1eef5ed75178ad01",
+      "beforeExists": true,
+      "afterExists": true
+    }
+  ],
+  "catalogDiffs": [
+    {
+      "path": "tests/test-retention-replacements.json",
+      "beforeDigest": "sha256:21574e36e1f0b774a8fd20140f100de775aa43d4f76222a1f69d760d2dced4af",
+      "afterDigest": "sha256:8f73f924cf95b53d88cbebdfd6adab0f8a75891766c91b3637eaf5d0d0b198c5",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "beforeDigest": "sha256:eb89679f5a0c01527fc00c002649134ac6f4af0ede5b099b6eea817fcf01745f",
+      "afterDigest": "sha256:eb89679f5a0c01527fc00c002649134ac6f4af0ede5b099b6eea817fcf01745f",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/coverage-registry.json",
+      "beforeDigest": "sha256:0bd4ded7a9578c8daf6e0a05dc3644dbf4ec958700d5b75a9d5618127c107ba5",
+      "afterDigest": "sha256:0bd4ded7a9578c8daf6e0a05dc3644dbf4ec958700d5b75a9d5618127c107ba5",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/matrix.yml",
+      "beforeDigest": "sha256:db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03",
+      "afterDigest": "sha256:db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "docs/testing.generated.md",
+      "beforeDigest": "sha256:cdaa0ad078bbe56f5494c15b916a566de4628693a498b09d3611731d3d916875",
+      "afterDigest": "sha256:cdaa0ad078bbe56f5494c15b916a566de4628693a498b09d3611731d3d916875",
+      "beforeExists": true,
+      "afterExists": true
+    }
+  ],
+  "verificationOutcomes": [
+    {
+      "id": "transaction-schema",
+      "status": "passed"
+    },
+    {
+      "id": "before-source-identity",
+      "status": "passed"
+    },
+    {
+      "id": "atomic-file-application",
+      "status": "passed"
+    },
+    {
+      "id": "after-source-identity",
+      "status": "passed"
+    },
+    {
+      "id": "catalog-closure",
+      "status": "passed"
+    },
+    {
+      "id": "independent-post-apply",
+      "status": "passed"
+    }
+  ],
+  "verification": "passed",
+  "contentDigest": "sha256:0db6ac45b90d6616f9e68ec9a16a34f6fb74be758e50c08cff3e25a5ae2ea129"
+}
