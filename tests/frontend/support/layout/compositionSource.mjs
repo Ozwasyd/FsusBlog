@@ -266,6 +266,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             if (ts.isObjectLiteralExpression(node))
             {
+                if (node.properties.some((property) => !ts.isPropertyAssignment(property) || ts.isComputedPropertyName(property.name)))
+                {
+                    return null;
+                }
                 return Object.fromEntries(node.properties.filter(ts.isPropertyAssignment).map((property) => [property.name.getText().replaceAll("'", '').replaceAll('"', ''), literal(property.initializer, file, new Set(seen))]));
             }
             return null;
@@ -281,6 +285,22 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 {
                     return { kind: 'native-variants', values: prop.values, default: prop.default };
                 }
+            }
+        }
+        const declaration = propDeclaration(record, identifier);
+        let config = declaration?.node;
+        while (config && (ts.isAsExpression(config) || ts.isParenthesizedExpression(config) || ts.isSatisfiesExpression(config)))
+        {
+            config = config.expression;
+        }
+        if (config && ts.isObjectLiteralExpression(config) && config.properties.every(ts.isPropertyAssignment)
+            && !config.properties.some((property) => ts.isComputedPropertyName(property.name) || property.name.getText() === 'values'))
+        {
+            const defaultValue = config.properties.findLast((property) => property.name.getText() === 'default');
+            const value = defaultValue && closedLiteral(defaultValue.initializer);
+            if (typeof value === 'string' && dom.parserOptions.isNativeTag(value))
+            {
+                return { kind: 'native-prop', property: identifier, default: value };
             }
         }
         return null;
@@ -321,12 +341,20 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             if (ts.isObjectLiteralExpression(node))
             {
-                if (node.properties.some((property) => ts.isSpreadAssignment(property) || !ts.isPropertyAssignment(property)))
+                // An explicit field after a spread overrides that spread. An
+                // unknown later field/spread may override the requested prop.
+                for (const property of [...node.properties].reverse())
                 {
-                    return null;
+                    if (!ts.isPropertyAssignment(property) || ts.isComputedPropertyName(property.name))
+                    {
+                        return null;
+                    }
+                    if (property.name.getText().replaceAll("'", '').replaceAll('"', '') === name)
+                    {
+                        return { node: property.initializer, file };
+                    }
                 }
-                const property = node.properties.find((item) => item.name.getText().replaceAll("'", '').replaceAll('"', '') === name);
-                return property ? { node: property.initializer, file } : null;
+                return null;
             }
             return null;
         }
@@ -363,41 +391,37 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         return unbound;
     }
+    function staticPropValue(record, call, name)
+    {
+        const declaration = propDeclaration(record, name);
+        if (!declaration || call.directives.some((directive) => directive.name === 'bind' && (!directive.argument || directive.argumentStatic === false)))
+        {
+            return unbound;
+        }
+        const binding = call.directives.find((directive) => directive.name === 'bind' && directive.argument === name);
+        if (binding)
+        {
+            return binding.expression ? closedLiteral(expression(binding.expression, call.file)) : unbound;
+        }
+        if (Object.hasOwn(call.attributes, name))
+        {
+            return call.attributes[name];
+        }
+        let config = declaration.node;
+        while (ts.isAsExpression(config) || ts.isParenthesizedExpression(config) || ts.isSatisfiesExpression(config))
+        {
+            config = config.expression;
+        }
+        if (!ts.isObjectLiteralExpression(config) || config.properties.some((property) => !ts.isPropertyAssignment(property) || ts.isComputedPropertyName(property.name)))
+        {
+            return unbound;
+        }
+        const defaultValue = config.properties.findLast((property) => property.name.getText() === 'default');
+        return defaultValue ? closedLiteral(defaultValue.initializer) : unbound;
+    }
     function structuralCondition(node, call, condition)
     {
         const record = resolver.parse(node.file);
-        function prop(name)
-        {
-            const declaration = propDeclaration(record, name);
-            if (!declaration || call.directives.some((directive) => directive.name === 'bind' && (!directive.argument || directive.argumentStatic === false)))
-            {
-                return unbound;
-            }
-            const binding = call.directives.find((directive) => directive.name === 'bind' && directive.argument === name);
-            if (binding)
-            {
-                return binding.expression ? closedLiteral(expression(binding.expression, call.file)) : unbound;
-            }
-            if (Object.hasOwn(call.attributes, name))
-            {
-                return call.attributes[name];
-            }
-            let config = declaration.node;
-            if (ts.isAsExpression(config) || ts.isSatisfiesExpression(config))
-            {
-                config = config.expression;
-            }
-            if (!ts.isObjectLiteralExpression(config))
-            {
-                return unbound;
-            }
-            if (config.properties.some((property) => !ts.isPropertyAssignment(property)))
-            {
-                return unbound;
-            }
-            const defaultValue = config.properties.find((property) => property.name.getText() === 'default');
-            return defaultValue ? closedLiteral(defaultValue.initializer) : unbound;
-        }
         function slots(name)
         {
             return Object.hasOwn(call.slotInputs.present, name) ? (call.slotInputs.present[name] === null ? unbound : call.slotInputs.present[name])
@@ -438,7 +462,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 {
                     if (variable.expression.text === 'defineProps')
                     {
-                        return prop(exp.name.text);
+                        return staticPropValue(record, call, exp.name.text);
                     }
                     const imported = record.imports.get(variable.expression.text);
                     if (variable.expression.text === 'defineSlots' || (imported?.specifier === 'vue' && imported.name === 'useSlots'))
@@ -662,6 +686,34 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         entryFiles.forEach(visit);
         const files = [...records.values()].filter((record) => reachable.has(record.file));
         const graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+        const nativePropBindings = [];
+        const nativePropErrors = [];
+        for (const node of graphNodes.filter((node) => node.origin.kind === 'native-prop'))
+        {
+            const calls = graphNodes.filter((call) => call.definition === node.file);
+            if (!calls.length)
+            {
+                nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property });
+            }
+            for (const call of calls)
+            {
+                try
+                {
+                    const value = staticPropValue(resolver.parse(node.file), call, node.origin.property);
+                    if (typeof value !== 'string' || !dom.parserOptions.isNativeTag(value))
+                    {
+                        nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property, callNode: call.id });
+                        continue;
+                    }
+                    nativePropBindings.push({ sourceNode: node.id, callNode: call.id, tag: value,
+                        inputDigest: controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }) });
+                }
+                catch (error)
+                {
+                    nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property, callNode: call.id, message: error.message });
+                }
+            }
+        }
         const structuralBindings = [];
         for (const node of graphNodes.filter((node) => !node.structural && node.file.startsWith(upstream + '/')))
         {
@@ -692,8 +744,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         const bindings = resolver.sourceBindings();
         errors.push(...bindings.errors);
         return { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
-            files, nodes: graphNodes, structuralBindings, resolverInputs: bindings.files,
-            errors: errors.filter((error) => !error.file || reachable.has(error.file)), sourceDigest: controlDigest({ files: files.map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
+            files, nodes: graphNodes, structuralBindings, nativePropBindings, resolverInputs: bindings.files,
+            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors], sourceDigest: controlDigest({ files: files.map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
     }
     function instrument(file, code)
     {
@@ -705,7 +757,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         const edits = record.nodes.map((id) => nodes.get(id)).filter((node) => !node.structural)
             .map((node) => ({ offset: node.offset + 1 + node.tag.length,
-                content: ` ${['native', 'native-variants'].includes(node.origin.kind) ? compositionNodeAttribute : compositionCallAttribute}="${node.id}"` }))
+                content: ` ${['native', 'native-variants', 'native-prop'].includes(node.origin.kind) ? compositionNodeAttribute : compositionCallAttribute}="${node.id}"` }))
             .sort((a, b) => b.offset - a.offset);
         for (const edit of edits)
         {

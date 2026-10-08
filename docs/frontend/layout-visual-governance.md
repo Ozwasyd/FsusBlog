@@ -174,6 +174,11 @@ This bounded structural proof neither supplies product state bindings nor
 qualifies a source-only result. A missing public surface/material emission stays
 an upstream capability error even when the component's structural conditions
 are proven.
+An unbounded native `tag` prop can be proven only for an actual call whose
+literal/default input resolves to a native tag. `nativePropBindings` bind that
+call and its inputs; every rendered native prop node is checked against the
+nearest matching call. A dynamic input or unknown component name remains an
+`unbound-native-prop-source` error, and an actual mismatched tag is rejected.
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

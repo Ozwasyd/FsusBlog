@@ -40,6 +40,8 @@ const context = '<aside data-fsus-region="document-context" data-fsus-owner="doc
 const chrome = '<Toolbar data-fsus-region="shell-navigation" data-fsus-owner="shell-navigation-owner" data-fsus-chrome="navigation" data-fsus-surface="control-group" data-fsus-material="boundary"><a href="#content">Navigation</a></Toolbar>';
 const baseMarkup = `${header}${body}${context}${chrome}`;
 const baseScript = 'import { FsusTaskPageHeader as Header, FsusCollectionToolbar as Toolbar } from "@ozwasyd/element-plus";';
+const nativePropMarkup = baseMarkup.replace('<p>Current content</p>', '<Scroller><p>Current content</p></Scroller>');
+const nativePropScript = baseScript + 'import {ElScrollbar as Scroller} from "@ozwasyd/element-plus";';
 function fixture(markup, script = baseScript, style = '')
 {
     return `<script setup>${script}</script><template><main style="display:flex;flex-direction:column">${markup}</main></template><style>${style}</style>`;
@@ -56,6 +58,10 @@ const cases = [
         baseScript + 'import {ref} from "vue";const showActions=ref(false);'), expected: 'unknown-conditional-state-binding' },
     { name: 'public-structural-render-count-drift', content: fixture(baseMarkup), mutation: 'duplicate-public-title', expected: 'structural-condition-render-mismatch' },
     { name: 'missing-public-call-provenance', content: fixture(baseMarkup), mutation: 'remove-public-call-marker', expected: 'unknown-conditional-state-binding' },
+    { name: 'public-native-prop-default', content: fixture(nativePropMarkup, nativePropScript), nativeProbe: true, expected: null },
+    { name: 'public-native-prop-tag-drift', content: fixture(nativePropMarkup, nativePropScript), nativeProbe: true, mutation: 'replace-native-tag', expected: 'unknown-dynamic-native-tag' },
+    { name: 'dynamic-native-prop-is-unbound', content: fixture(nativePropMarkup.replace('<Scroller>', '<Scroller :tag="currentTag">'),
+        nativePropScript + 'import {ref} from "vue";const currentTag=ref("div");'), expected: 'unbound-native-prop-source' },
     { name: 'two-task-page-headers', content: fixture(baseMarkup + header), expected: 'task-header-not-exact-one' },
     { name: 'three-same-priority-primary-buttons', content: fixture(baseMarkup.replace(action, action.repeat(3))), expected: 'primary-action-not-exact' },
     { name: 'section-card-card-nesting', content: fixture(baseMarkup.replace('<p>Current content</p>', '<section data-fsus-surface="data-region" data-fsus-material="boundary"><section data-fsus-surface="data-region" data-fsus-material="boundary">Nested</section></section>')), expected: 'forbidden-surface-nesting' },
@@ -128,6 +134,28 @@ try
             {
                 await page.locator('header').evaluate((header) => header.removeAttribute('data-fsus-composition-call'));
             }
+            if (item.nativeProbe)
+            {
+                const binding = graph.nativePropBindings.find((binding) => graph.nodes.find((node) => node.id === binding.callNode)?.tag === 'Scroller');
+                assert.ok(binding, 'actual Scrollbar default must have a source-bound native tag');
+                assert.equal(binding.tag, 'div');
+                const view = page.locator(`[data-fsus-composition-node="${binding.sourceNode}"]`);
+                assert.equal(await view.count(), 1);
+                assert.equal(await view.evaluate((element) => element.tagName.toLowerCase()), 'div');
+                if (item.mutation === 'replace-native-tag')
+                {
+                    await view.evaluate((element) =>
+                    {
+                        const replacement = globalThis.document.createElement('section');
+                        for (const attribute of element.attributes)
+                        {
+                            replacement.setAttribute(attribute.name, attribute.value);
+                        }
+                        replacement.append(...element.childNodes);
+                        element.replaceWith(replacement);
+                    });
+                }
+            }
             const candidate = structuredClone(archetype);
             if (item.contractInput)
             {
@@ -140,18 +168,24 @@ try
             {
                 assert.ok(reasons.includes(item.expected), `${item.expected} was not detected: ${reasons.join(',')}`);
             }
-            else
+            else if (!item.nativeProbe)
             {
                 baselineReasons = reasons;
                 // Current FsusUI has no public composition surface/material provenance contract.
                 // This limitation stays a failing observation, never a forged clean baseline.
                 assert.deepEqual(reasons, ['unproved-public-surface-capability']);
             }
+            else
+            {
+                assert.ok(!reasons.includes('unknown-dynamic-native-tag') && !reasons.includes('unbound-native-prop-source'),
+                    'source-bound native defaults must match their actual DOM; unrelated unresolved state/capability remains diagnostic');
+            }
             if (item.expected)
             {
                 assert.ok(!baselineReasons.includes(item.expected), 'negative predicate must add a real baseline difference');
             }
             verifyCompositionObservation(receipt, { graph, identity: run.identity, runId, runBinding, archetype: candidate, state: item.state });
+            assert.deepEqual(runtimeErrors, [], 'diagnostic mutations must not substitute a runtime error for the targeted gate');
             const tampered = { ...receipt, errors: [], observationsPassed: true };
             assert.throws(() => verifyCompositionObservation(tampered, { graph, identity: run.identity, runId, runBinding, archetype: candidate, state: item.state }), /tampered/);
             const receiptPath = join(output, `${item.name}.json`);
@@ -160,6 +194,7 @@ try
             result.observationPassed = receipt.observationsPassed;
             result.receipt = receiptPath;
             result.reasons = reasons;
+            result.runtimeErrors = runtimeErrors;
         }
         catch (error)
         {

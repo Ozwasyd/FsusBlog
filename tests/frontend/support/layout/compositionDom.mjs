@@ -168,6 +168,17 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
         {
             errors.push(error('unknown-dynamic-native-tag', node));
         }
+        if (source.origin.kind === 'native-prop')
+        {
+            const call = ancestry(node).map((ancestor) => sourceNodes.get(ancestor.sourceCall)).find((candidate) => candidate?.definition === source.file);
+            const bindings = graph.nativePropBindings?.filter((binding) => binding.sourceNode === source.id
+                && call?.id === binding.callNode
+                && binding.inputDigest === compositionDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs })) ?? [];
+            if (bindings.length !== 1 || bindings[0].tag !== node.tag)
+            {
+                errors.push(error('unknown-dynamic-native-tag', node));
+            }
+        }
         for (const name of ['data-fsus-owner', 'data-fsus-region', 'data-fsus-action', 'data-fsus-action-priority', 'data-fsus-chrome', 'data-fsus-content'])
         {
             if (node.attributes[name] === undefined)
@@ -183,7 +194,8 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
     }
     const owners = nodes.filter((node) => node.owner);
     for (const node of nodes.filter((node) => node.owner || node.region || node.action || node.surface || node.material
-        || node.responsibility || node.content || node.tag === 'h1' || node.semanticRole === 'heading'))
+        || node.responsibility || node.content || node.tag === 'h1' || node.semanticRole === 'heading'
+        || sourceNodes.get(node.sourceNode)?.origin.kind === 'native-prop'))
     {
         validateSource(node);
     }

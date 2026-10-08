@@ -155,6 +155,33 @@ test('finite native component alternatives retain every actual source branch', (
     assert.ok(unknown.errors.some((error) => error.reason === 'unknown-component-source'));
 });
 
+test('public native tag props bind the real default or exact literal call without a fallback', () =>
+{
+    const graph = source().graph([fixture('<script setup>import {ElScrollbar as Scroller} from "@ozwasyd/element-plus";</script><template><Scroller/><Scroller tag="section"/></template>')]);
+    assert.ok(!graph.errors.some((error) => error.reason === 'unbound-native-prop-source'));
+    assert.ok(graph.nodes.some((node) => node.origin.kind === 'native-prop' && node.origin.property === 'tag' && node.origin.default === 'div'));
+    assert.deepEqual(graph.nativePropBindings.map((binding) => binding.tag).sort(), ['div', 'section']);
+    const dynamic = source().graph([fixture('<script setup>import {ElScrollbar as Scroller} from "@ozwasyd/element-plus";</script><template><Scroller :tag="currentTag"/></template>')]);
+    assert.ok(dynamic.errors.some((error) => error.reason === 'unbound-native-prop-source'));
+    assert.equal(dynamic.nativePropBindings.length, 0);
+    const unknown = source().graph([fixture('<script setup>import {ElScrollbar as Scroller} from "@ozwasyd/element-plus";</script><template><Scroller tag="UnknownPanel"/></template>')]);
+    assert.ok(unknown.errors.some((error) => error.reason === 'unbound-native-prop-source'));
+});
+
+test('a later unknown props spread cannot inherit proof from an earlier native default', () =>
+{
+    fixture('export const sharedProps = { inherited: String };', 'SharedProps.ts');
+    fixture('<script setup>import {sharedProps} from "./SharedProps";const props=defineProps({...sharedProps,tag:{type:String,default:"section"}});</script><template><component :is="tag"/></template>', 'EarlierSpread.vue');
+    const bounded = source().graph([fixture('<script setup>import Owner from "./EarlierSpread.vue";</script><template><Owner/></template>')]);
+    assert.deepEqual(bounded.errors, []);
+    assert.deepEqual(bounded.nativePropBindings.map((binding) => binding.tag), ['section']);
+    assert.equal(bounded.nodes.find((node) => node.tag === 'Owner').origin.kind, 'local');
+    fixture('<script setup>import {sharedProps} from "./SharedProps";const props=defineProps({tag:{type:String,default:"section"},...sharedProps});</script><template><component :is="tag"/></template>', 'LaterSpread.vue');
+    const unknown = source().graph([fixture('<script setup>import Owner from "./LaterSpread.vue";</script><template><Owner/></template>')]);
+    assert.ok(unknown.errors.some((error) => error.reason === 'unknown-component-source'));
+    assert.equal(unknown.nativePropBindings.length, 0);
+});
+
 test('route-name branching resolves useRoute aliases and computed element access', () =>
 {
     const graph = source().graph([fixture('<script setup>import {useRoute as activeRoute} from "vue-router";const current = activeRoute();const good = current["name"] === "representative";</script><template><h1 v-if="good">Good</h1></template>')]);
