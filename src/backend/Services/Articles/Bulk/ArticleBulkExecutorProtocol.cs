@@ -94,6 +94,39 @@ internal static class ArticleBulkExecutorProtocol
             }),
             string.Empty));
 
+    internal static ArticleBulkItemReceipt RejectedBeforeCanonicalCommand(
+        ArticleBulkExecutionRequest request,
+        ArticleBulkPlan plan,
+        ArticleBulkPlanItem item,
+        ArticleBulkItemExecutionDecision decision)
+    {
+        if (decision.PlanDigest != plan.ContentDigest || decision.ArticleId != item.ArticleId
+            || decision.FrozenItemDigest != item.ContentDigest || decision.RejectionReasonCode is null
+            || decision.ContentDigest != ArticleBulkDigest.Of(decision with
+            {
+                ContentDigest = string.Empty
+            }))
+        {
+            throw new ArticleBulkContractException("article-bulk.item-decision-unbound");
+        }
+        return ArticleBulkExecutionFramework.SealItemReceipt(new ArticleBulkItemReceipt(
+            request.AttemptId, plan.ContentDigest, plan.RegistryDigest, plan.OperationId, item.ArticleId,
+            item.ExpectedRevision!, null, null, item.Status, ArticleBulkItemStatus.Failed,
+            decision.RejectionReasonCode, ArticleBulkOperationRegistry.Get(plan.OperationId).CommandOwner,
+            ArticleBulkDigest.Of(new
+            {
+                request.ExecutionIdentityDigest,
+                decision.ContentDigest,
+                DecisionKind = "pre-canonical-admission-rejected",
+                NoCanonicalCommandWasAdmitted = true
+            }), [], ArticleBulkDigest.Of(new
+            {
+                request.AttemptId,
+                item.ArticleId,
+                decision.ContentDigest
+            }), string.Empty));
+    }
+
     internal static ArticleBulkAggregateReceipt Aggregate(
         ArticleBulkExecutionRequest request,
         ArticleBulkPlan plan,
