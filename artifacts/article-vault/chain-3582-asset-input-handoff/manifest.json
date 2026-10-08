@@ -1,0 +1,72 @@
+{
+    "schema": "fsusblog.article-vault.asset-input-handoff.v1",
+    "productionSource": "e933ae5197f4990433cdabfaec34668695984e2a",
+    "createdAt": "2026-10-08T15:33:17.236650+00:00",
+    "files": [
+        {
+            "path": "README.md",
+            "sha256": "511cdc3b89d2013e054bfd0ba02c12c94639d597a6f5d53eecbaebc083ed81f0",
+            "bytes": 2806
+        },
+        {
+            "path": "backend-build.log.gz",
+            "sha256": "2148e70d8c09d51415daa9a76c9e486753be663d07463e6530dce73f167ee248",
+            "bytes": 4503
+        },
+        {
+            "path": "component-result.json",
+            "sha256": "7f235023d6ec066fee7a6f5480a1aa0105ea9101755d38f1b8419827fa4a3569",
+            "bytes": 2051
+        },
+        {
+            "path": "component.log.gz",
+            "sha256": "ee8c016d8f7dceeaceb0f70ab46e42a5ab237091f3346cb82f74317903cf0d1b",
+            "bytes": 10988
+        },
+        {
+            "path": "component.trx.gz",
+            "sha256": "f008055d5bee5d1be16d61e5e82b1789b2636fb10759356b7d01373701701138",
+            "bytes": 7009
+        },
+        {
+            "path": "issue-2124.json",
+            "sha256": "eba94df9e8f79e7938bb9537e610b4c08b56ecb7d4ce2b381cb0339f2d34fb70",
+            "bytes": 3519
+        },
+        {
+            "path": "issue-2125.json",
+            "sha256": "76a8a274eb089e0be8f154729ad1377fcc46659c0f61eaa8b566c008dcfb354a",
+            "bytes": 3764
+        },
+        {
+            "path": "issue-accounting.json",
+            "sha256": "8b028f8c98757c3ccd8af720a9742323e273898aa0b6cd5f90bede510961f97d",
+            "bytes": 39469
+        },
+        {
+            "path": "issue-accounting.md",
+            "sha256": "8bcbf41cf28ebfcd671fda40c692678ecfc3ae839ab9f36266ff4b5e5fd0b899",
+            "bytes": 13280
+        },
+        {
+            "path": "source-binding.json",
+            "sha256": "070faed41fb2a20cdd20ebc6075cb3c40fd96fd78d259f6ca852609bb66c1f0e",
+            "bytes": 929
+        },
+        {
+            "path": "style.log.gz",
+            "sha256": "3327b10a270e8ba8f1a5c5a119000f4fcdaded9ed8bcf8bf09e029df94003f87",
+            "bytes": 65
+        },
+        {
+            "path": "summary.json",
+            "sha256": "3595b263f3e6c847055ff0aaeb7adf0ce8d44111d9bba28c6c9c671538455e78",
+            "bytes": 1297
+        },
+        {
+            "path": "supplier-requirements.json",
+            "sha256": "6cb666356fe27b37cb0765be4fcba82964602796341a48b3686a3f15468cd18f",
+            "bytes": 3246
+        }
+    ]
+}
