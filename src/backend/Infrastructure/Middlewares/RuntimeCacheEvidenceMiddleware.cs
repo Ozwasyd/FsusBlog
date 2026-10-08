@@ -102,7 +102,8 @@ internal sealed class RuntimeCacheEvidenceMiddleware(
         public override long Length => throw new NotSupportedException();
         public override long Position
         {
-            get => throw new NotSupportedException(); set => throw new NotSupportedException();
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
         }
         public override void Flush() => inner.Flush();
         public override Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);

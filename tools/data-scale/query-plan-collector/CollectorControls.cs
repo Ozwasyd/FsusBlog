@@ -1,16 +1,15 @@
+using System.Buffers;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Buffers;
 
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
-using FsusBlog.Shared.Contracts.Outputs;
-using FsusBlog.Server.Infrastructure.Testing;
-
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -190,7 +189,11 @@ internal static class CollectorControls
         Task? lateTask = null;
         string latePath = await RunRequest("collector-late-command", _ =>
         {
-            lateTask = Task.Run(async () => { await releaseLate.Task; await RawQuery(record: true); });
+            lateTask = Task.Run(async () =>
+            {
+                await releaseLate.Task;
+                await RawQuery(record: true);
+            });
             return Task.CompletedTask;
         });
         releaseLate.SetResult();
@@ -203,7 +206,11 @@ internal static class CollectorControls
         Task? supersededTask = null;
         string supersededPath = await RunRequest("collector-superseded", _ =>
         {
-            supersededTask = Task.Run(async () => { await releaseSuperseded.Task; await RawQuery(record: true); });
+            supersededTask = Task.Run(async () =>
+            {
+                await releaseSuperseded.Task;
+                await RawQuery(record: true);
+            });
             return Task.CompletedTask;
         });
         await RunRequest("collector-superseded", _ => RawQuery(record: true));

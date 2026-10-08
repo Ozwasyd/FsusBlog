@@ -1,8 +1,8 @@
 using System.Data;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Globalization;
 
 using Npgsql;
 
@@ -179,42 +179,42 @@ internal sealed class QueryPlanCommandCapture(string directory, JsonElement bind
 
     private void PublishCurrent(RuntimeCacheRequestObservation observation)
     {
-            bool complete = observation.DatabaseAttributionComplete && observation.DatabaseObservationStatus == "complete"
-                && observation.DatabaseCommandCount == _commands.Count && _failures.Count == 0
-                && observation.DatabaseFingerprints.Order(StringComparer.Ordinal).SequenceEqual(
-                    _commands.Select(static command => RuntimeCacheEvidenceObservation.FingerprintSql(command.Sql)).Order(StringComparer.Ordinal));
-            string fileName = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(requestId))) + ".json";
-            string path = Path.Combine(directory, fileName);
-            string temporaryPath = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".tmp");
-            var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
-            if (!OperatingSystem.IsWindows())
+        bool complete = observation.DatabaseAttributionComplete && observation.DatabaseObservationStatus == "complete"
+            && observation.DatabaseCommandCount == _commands.Count && _failures.Count == 0
+            && observation.DatabaseFingerprints.Order(StringComparer.Ordinal).SequenceEqual(
+                _commands.Select(static command => RuntimeCacheEvidenceObservation.FingerprintSql(command.Sql)).Order(StringComparer.Ordinal));
+        string fileName = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(requestId))) + ".json";
+        string path = Path.Combine(directory, fileName);
+        string temporaryPath = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".tmp");
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+        if (!OperatingSystem.IsWindows())
+        {
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        }
+        try
+        {
+            using (var stream = new FileStream(temporaryPath, options))
             {
-                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-            }
-            try
-            {
-                using (var stream = new FileStream(temporaryPath, options))
+                JsonSerializer.Serialize(stream, new
                 {
-                    JsonSerializer.Serialize(stream, new
-                    {
-                        schema = "fsusblog.query-command-capture.v1",
-                        status = complete ? "captured" : "failed",
-                        qualification = "not-performed",
-                        binding,
-                        observation,
-                        commands = _commands,
-                        failureReasons = _failures
-                    }, s_json);
-                }
-                File.Move(temporaryPath, path, overwrite: true);
+                    schema = "fsusblog.query-command-capture.v1",
+                    status = complete ? "captured" : "failed",
+                    qualification = "not-performed",
+                    binding,
+                    observation,
+                    commands = _commands,
+                    failureReasons = _failures
+                }, s_json);
             }
-            finally
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
             {
-                if (File.Exists(temporaryPath))
-                {
-                    File.Delete(temporaryPath);
-                }
+                File.Delete(temporaryPath);
             }
+        }
     }
 }
 
