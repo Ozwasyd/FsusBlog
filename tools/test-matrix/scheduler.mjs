@@ -13,6 +13,8 @@ import { isDeepStrictEqual } from 'node:util';
 import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler fingerprints use the canonical source-identity owner.
 import { sealSourceIdentity } from '../fact-extractors/identity.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- CPU capacity remains owned by the machine-bound selection producer.
+import { cpuCapacitySchedulerInput } from '../test/cpu-calibration-loader.mjs';
 import {
     attachCurrentRunEvidenceHandoff,
     parseCurrentRunEvidenceHandoffs,
@@ -5280,6 +5282,7 @@ async function runDagUnlocked(options)
         startedAt: new Date(effectiveWallClockStartedAtMs).toISOString(),
         updatedAt: new Date().toISOString(),
         resourceBudget: budget,
+        ...(options.cpuCapacityReceipt ? { cpuCapacityReceipt: options.cpuCapacityReceipt } : {}),
         budgetMs: wallClockBudgetMs,
         budgetPolicyDigest,
         timedOut: false,
@@ -7869,6 +7872,10 @@ function resolveSchedulerResumeBinding({ checkpointFile, runId, targetTierId, na
 export async function runDag(options)
 {
     const resume = options.resume === true || options.mode === 'resume';
+    if (resume && options.cpuCapacity !== undefined)
+    {
+        throw new Error('scheduler CPU capacity input currently requires Fresh; resume capacity restoration is not implemented');
+    }
     if (resume && !String(options.runId ?? '').trim())
     {
         throw new Error('contract.missing-resume-identity: explicit runId is required');
@@ -7885,6 +7892,14 @@ export async function runDag(options)
     const root = path.resolve(options.root);
     const runsRoot = resolveRealOrAncestralPath(options.runsRoot ?? path.join(root, '.tmp/test-runs'));
     const runId = safeRunId(options.runId ?? createRunId(options.targetTierId ?? 'matrix'));
+    // Bind once before any plan/checkpoint publication or admission. The CPU owner
+    // reopens the selected immutable capability, never a mutable active pointer.
+    const cpuInput = options.cpuCapacity === undefined ? null : cpuCapacitySchedulerInput(
+        options.cpuCapacity?.selection, {
+            runId, identity: options.cpuCapacity?.identity, topology: options.cpuCapacity?.topology,
+            resources: options.systemResources ?? defaultSystemResources()
+        }
+    );
     const snapshotWorktree = options.snapshotWorktree ?? (() => snapshotGitWorktree(root));
     const runSourceSnapshot = await snapshotWorktree();
     const envCommit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim();
@@ -7949,6 +7964,8 @@ export async function runDag(options)
         const resumeInvocation = resume ? resolveSchedulerResumeBinding(resumeBindingOptions) : null;
         const result = await runDagUnlocked({
             ...options,
+            ...(cpuInput ? { systemResources: cpuInput.systemResources,
+                cpuCapacityReceipt: cpuInput.capacityReceipt } : { cpuCapacityReceipt: null }),
             root,
             runsRoot,
             runId,
