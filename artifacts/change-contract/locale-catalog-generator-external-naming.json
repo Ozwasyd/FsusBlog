@@ -8,6 +8,13 @@
                 "tools/contracts/check-locale-catalog.mjs"
             ],
             "reason": "Preserve external tooling identifiers on the registered tools/**/*.mjs surface. Generator byte parity and canonical consumer-parser reuse add no environment-variable names and keep all locale codes, JSON fields, public exports and digests unchanged."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the registered execution-authority JSON keys while the canonical producer rebinds changed source digests; owners, commands, policy and generated-history admission remain unchanged."
         }
     ]
 }
