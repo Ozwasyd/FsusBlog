@@ -2,7 +2,7 @@
 
 ## Authority and scope
 
-`src/shared/Contracts/Validation/aeds-access-profiles.json` is the only access-profile authority. It describes each consumer's required, optional, deferred and ignored fields, semantic validations, output contract, supported record layouts and deterministic canonical fallback layouts. It does not own the AEDS frame header, frame numbers or payload layout. Those remain owned by `aeds-protocol.json` and the existing POD contracts.
+`src/shared/Contracts/Validation/aeds-access-profiles.json` is the only access-profile authority. It describes each consumer's required, optional, deferred and ignored fields, semantic validations, output contract and reference to the current wire layout. It does not own the AEDS frame header, frame numbers or payload layout. Those remain owned by `aeds-protocol.json` and the existing POD contracts.
 
 The first default profile is `publicArticleListCard`. The authority also reserves reviewed, disabled profiles for filter/archive items, notification previews and local search ranking. Disabled profiles are declarations, not production branches.
 
@@ -24,11 +24,11 @@ CI and local governance use `--check`; generated drift fails closed.
 
 ## Validation and materialization
 
-The transport still validates the 16-byte AEDS v2 header, expected frame type, payload length and CRC before selecting a payload reader. The selected reader then validates the cursor envelope, counts, inferred record size, reserved bytes, every slice range, strict UTF-8, tag ranges and trailing bytes exactly once.
+The transport still validates the 16-byte AEDS v2 header, expected frame type, payload length and CRC before selecting a payload reader. The selected reader then validates the cursor envelope, counts, exact current record size, reserved bytes, every slice range, strict UTF-8, tag ranges and trailing bytes exactly once.
 
-`publicArticleListCard` supports 76-byte and 100-byte ArticleList records. It materializes only card identity, creation time, category, title, summary and the five tags that the public card can render. Views, deletion state, lifecycle dates and revision/publication coordinates are validated structurally but are not converted to objects or strings.
+`publicArticleListCard` accepts only cursor envelope v2 and 100-byte ArticleList records. It materializes only card identity, creation time, category, title, summary and the five tags that the public card can render. Views, deletion state, lifecycle dates and revision/publication coordinates are validated structurally but are not converted to objects or strings.
 
-The legal 56-byte read-only layout is intentionally outside the optimized profile. It deterministically invokes `mapArticlePageFromPodPayload` / `TryDecodeArticlePage` and then projects the canonical result. Unknown layouts and malformed payloads never take fallback and never return a partial page.
+The payload layout is defined once in `aeds-protocol.json` under `payloadLayouts.ArticleList`; `generate-aeds-protocol.mjs` generates the C#, TypeScript and C++ wire constants. Access profiles do not declare offsets or record sizes. Both canonical and selective readers reject 56/76-byte records, cursor v1, missing envelopes, invalid revision/publication coordinates and malformed bytes.
 
 ## Direct public view path
 
@@ -45,10 +45,10 @@ Formatting, route generation, relative-time rendering and notification reconcili
 
 ## Benchmark gate and rollback
 
-`AedsAccessProjectionBenchmarks` covers 5/20/100-item pages, 1/8 tags per article and 76/100-byte records. `MemoryDiagnoser` reports time, allocations and allocated bytes for canonical decode, projection decode and canonical decode plus view digest; setup verifies a correctness digest before measurement. Browser/Worker focused tests record parity and malformed rejection.
+`AedsAccessProjectionBenchmarks` covers 5/20/100-item pages, 1/8 tags per article and current 100-byte records. `MemoryDiagnoser` reports time, allocations and allocated bytes for canonical decode, projection decode and canonical decode plus view digest; setup verifies a correctness digest before measurement. Browser/Worker focused tests record parity and malformed rejection.
 
 Only profiles showing at least 25% lower allocated bytes/op or 15% lower decode-plus-projection time may set `defaultEnabled: true`. A profile that misses the gate stays declared but disabled.
 
-The checked baseline in `tests/performance/aeds-access-projection-baseline.json` passes every matrix case: allocation falls by 44.2–64.4% and projection decode time falls by 17.5–72.1%. The default flag is therefore evidence-backed rather than assumed.
+The checked baseline in `tests/performance/aeds-access-projection-baseline.json` passes every matrix case: allocation falls by 44.2–64.4% and projection decode time falls by 17.5–72.1%. This is historical profile admission evidence. It does not establish current-only candidate benchmark, allocation or bundle acceptance; rerun the current 5/20/100-item matrix and compare the exact baseline before accepting the removal.
 
-Operational rollback does not change the wire or require a server restart: the public caller can be switched back to `getArticles`, or a previous frontend asset can be selected, while cached AEDS v2 frames remain valid. Unsupported legal layouts already fall back per request. The canonical decoder must not be removed until all declared compatibility layouts retire through the protocol lifecycle.
+Operational rollback does not change the wire or require a server restart: the public caller can be switched back to `getArticles`, or a previous frontend asset can be selected, while cached AEDS v2 frames remain valid. Rollback must retain the current wire contract. No reader interprets retired layouts.

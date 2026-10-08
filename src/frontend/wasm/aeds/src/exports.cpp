@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "aeds_decode.hpp"
+#include "article_list_wire_validation.hpp"
 #include "pod_views.hpp"
 
 namespace
@@ -27,7 +28,7 @@ thread_local std::uint32_t t_arenaClearCount = 0;
 thread_local std::uint64_t t_handleEpoch = 0;
 thread_local std::uint64_t t_ioHandleToken = 0;
 thread_local std::uint64_t t_payloadHandleToken = 0;
-constexpr std::size_t KArticleListRecordSize = 56u;
+constexpr std::size_t KArticleListRecordSize = FsusBlog::AedsWire::ArticleListRecordBytes;
 constexpr std::size_t KCompactTagRecordSize = 12u;
 constexpr std::size_t KTagPodSize = 132u;
 constexpr std::size_t KCommentItemPodSize = 24u;
@@ -243,40 +244,17 @@ int RenderArticleDetailHtml(const std::uint8_t* payload, std::uint32_t payloadLe
 
 int RenderArticleListHtml(const std::uint8_t* payload, std::uint32_t payloadLen)
 {
-    if (payload == nullptr || payloadLen < 16u)
+    FsusBlog::AedsWire::ArticleListPayloadView view{};
+    if (!FsusBlog::AedsWire::ValidateArticleListPayload(payload, payloadLen, view))
     {
         SetError("article_list_payload_invalid");
         return 0;
     }
-
-    std::int32_t total = 0;
-    std::int32_t count = 0;
-    std::int32_t tagRecordCount = 0;
-    std::int32_t blobLen = 0;
-    if (!ReadI32Le(payload, payloadLen, 0, total) || !ReadI32Le(payload, payloadLen, 4, count)
-        || !ReadI32Le(payload, payloadLen, 8, tagRecordCount) || !ReadI32Le(payload, payloadLen, 12, blobLen)
-        || count < 0 || tagRecordCount < 0 || blobLen < 0)
-    {
-        SetError("article_list_header_invalid");
-        return 0;
-    }
-
-    std::size_t cursor = 16u;
-    if (cursor + static_cast<std::size_t>(blobLen) > payloadLen)
-    {
-        SetError("article_list_blob_overflow");
-        return 0;
-    }
-    const std::uint8_t* blob = payload + cursor;
-    cursor += static_cast<std::size_t>(blobLen);
-    const std::size_t RecordBytes = static_cast<std::size_t>(count) * KArticleListRecordSize;
-    const std::size_t TagRecordBytes = static_cast<std::size_t>(tagRecordCount) * KCompactTagRecordSize;
-    if (cursor + RecordBytes + TagRecordBytes > payloadLen)
-    {
-        SetError("article_list_records_overflow");
-        return 0;
-    }
-    const std::uint8_t* records = payload + cursor;
+    const auto total = view.total;
+    const auto count = view.count;
+    const auto* blob = view.blob;
+    const auto blobLen = view.blobLength;
+    const auto* records = view.records;
 
     t_lastHtml.clear();
     t_lastHtml.reserve(4096);
@@ -300,9 +278,9 @@ int RenderArticleListHtml(const std::uint8_t* payload, std::uint32_t payloadLen)
         std::int32_t titleLen = 0;
         std::int32_t summaryOffset = 0;
         std::int32_t summaryLen = 0;
-        ReadSliceRef(pod, KArticleListRecordSize, 20u, categoryOffset, categoryLen);
-        ReadSliceRef(pod, KArticleListRecordSize, 28u, titleOffset, titleLen);
-        ReadSliceRef(pod, KArticleListRecordSize, 36u, summaryOffset, summaryLen);
+        ReadSliceRef(pod, KArticleListRecordSize, FsusBlog::AedsWire::ArticleListCategoryNameOffset, categoryOffset, categoryLen);
+        ReadSliceRef(pod, KArticleListRecordSize, FsusBlog::AedsWire::ArticleListTitleOffset, titleOffset, titleLen);
+        ReadSliceRef(pod, KArticleListRecordSize, FsusBlog::AedsWire::ArticleListSummaryOffset, summaryOffset, summaryLen);
 
         AppendLiteral(t_lastHtml,
                       "<article class=\"group flex flex-col items-start gap-3 sm:gap-4 subpixel-antialiased border-b "

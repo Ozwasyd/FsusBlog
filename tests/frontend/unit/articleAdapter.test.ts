@@ -1,3 +1,4 @@
+import { ARTICLE_LIST_WIRE } from '@/generated/aedsArticleListWire'
 import { describe, expect, it } from 'vitest'
 import {
   mapArticleDetailFromPodPayload,
@@ -852,7 +853,7 @@ describe('mapArticleDetailFromPodPayload', () => {
 
 describe('mapArticlePageFromPodPayload', () => {
   /**
-   * Compact ArticleList record (56B):
+   * Current ArticleList record (100B):
    * id, views, createTimeMs, categoryId, categoryName slice, title slice,
    * summary slice, tagStart, tagCount, isDeleted, hasIsDeleted, reserved.
    */
@@ -862,7 +863,7 @@ describe('mapArticlePageFromPodPayload', () => {
     categoryName: string
     title: string
   }>, nextCursor: string | null = null): Uint8Array {
-    const ITEM_RECORD_SIZE = 56
+    const ITEM_RECORD_SIZE = ARTICLE_LIST_WIRE.recordBytes
     const summary = 'sum'
     const blobParts: Uint8Array[] = []
     const slices: Array<{ category: [number, number], title: [number, number], summary: [number, number] }> = []
@@ -909,6 +910,11 @@ describe('mapArticlePageFromPodPayload', () => {
       edv.setInt32(recordOffset + 40, slice.summary[1], true)
       edv.setInt32(recordOffset + 44, 0, true)
       edv.setInt32(recordOffset + 48, 0, true)
+      edv.setInt32(recordOffset + 56, 2, true)
+      edv.setBigInt64(recordOffset + 76, 99n, true)
+      edv.setInt32(recordOffset + 84, 3, true)
+      edv.setBigInt64(recordOffset + 88, 88n, true)
+      edv.setInt32(recordOffset + 96, 2, true)
     })
     pos += items.length * ITEM_RECORD_SIZE
     if (pos !== envelope.byteLength) {

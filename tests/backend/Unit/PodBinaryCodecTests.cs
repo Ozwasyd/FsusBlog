@@ -41,7 +41,7 @@ public class PodBinaryCodecTests
             pod, id, title, summary, null, null, 42, createTime,
             new ArticleCategoryCoreModel(3, "Tech"),
             [new TagCoreModel(1, "dotnet")],
-            false);
+            false, CurrentRevisionId: id + 100, RevisionNo: 1);
     }
 
     [Fact]

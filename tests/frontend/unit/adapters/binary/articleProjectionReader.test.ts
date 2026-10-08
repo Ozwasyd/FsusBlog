@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { mapArticlePageFromPodPayload } from '@/adapters/binary/articleAdapter'
 import { mapPublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader'
 import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry'
-import { AEDS_ACCESS_PROFILE, ARTICLE_LIST_ACCESS } from '@/generated/aedsAccessProfiles'
+import { AEDS_ACCESS_PROFILE } from '@/generated/aedsAccessProfiles'
+import { ARTICLE_LIST_WIRE as ARTICLE_LIST_ACCESS } from '@/generated/aedsArticleListWire'
 import { FrameType } from '@wasm/protocol/frame'
 
 const encoder = new TextEncoder()
@@ -84,7 +85,7 @@ function buildArticleListPayload(recordBytes: 56 | 76 | 100, options?: {
 }
 
 describe('ArticleList access projection reader', () => {
-  it.each([76, 100] as const)('matches canonical public card fields for %s-byte records', (recordBytes) => {
+  it.each([100] as const)('matches canonical public card fields for %s-byte records', (recordBytes) => {
     const payload = buildArticleListPayload(recordBytes)
     const canonical = mapArticlePageFromPodPayload(payload)
     const projected = mapPublicArticleListCardProjection(payload)
@@ -102,19 +103,22 @@ describe('ArticleList access projection reader', () => {
     expect(projected.items[0]).not.toHaveProperty('currentRevisionId')
   })
 
-  it('deterministically falls back to canonical decoding for 56-byte records', () => {
-    const projected = mapPublicArticleListCardProjection(buildArticleListPayload(56))
-    expect(projected.decodePath).toBe('canonical-fallback')
-    expect(projected.items[0]?.title).toBe('Projection title')
+  it.each([56, 76] as const)('rejects retired %s-byte records in both readers', (size) => {
+    const payload = buildArticleListPayload(size)
+    expect(() => mapPublicArticleListCardProjection(payload)).toThrow()
+    expect(() => mapArticlePageFromPodPayload(payload)).toThrow()
   })
 
-  it('validates a fallback layout before invoking the canonical decoder', () => {
-    expect(() => mapPublicArticleListCardProjection(buildArticleListPayload(56, {
-      corruptTitleOffset: true
-    }))).toThrow()
-    expect(() => mapPublicArticleListCardProjection(buildArticleListPayload(56, {
-      reservedByte: 1
-    }))).toThrow()
+  it.each(['revision', 'publication', 'tag range', 'trailing'] as const)('rejects malformed current %s coordinates in both readers', (kind) => {
+    const original = buildArticleListPayload(100)
+    const payload = kind === 'trailing' ? new Uint8Array([...original, 0]) : original
+    const view = new DataView(payload.buffer)
+    const offset = 29 + view.getInt32(25, true)
+    if (kind === 'revision') view.setBigInt64(offset + ARTICLE_LIST_ACCESS.offsets.currentRevisionId, 0n, true)
+    if (kind === 'publication') view.setInt32(offset + ARTICLE_LIST_ACCESS.offsets.publicationNo, 0, true)
+    if (kind === 'tag range') view.setInt32(offset + ARTICLE_LIST_ACCESS.offsets.tagCount, 3, true)
+    expect(() => mapPublicArticleListCardProjection(payload)).toThrow()
+    expect(() => mapArticlePageFromPodPayload(payload)).toThrow()
   })
 
   it.each([
