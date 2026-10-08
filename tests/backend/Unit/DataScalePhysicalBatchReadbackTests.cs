@@ -11,6 +11,21 @@ namespace FsusBlog.Server.Tests.Unit;
 /// <summary>Native physical readback diagnostics, not a qualified full graph seed.</summary>
 public sealed class DataScalePhysicalBatchReadbackTests
 {
+    [Theory]
+    [InlineData(DateTimeKind.Local)]
+    [InlineData(DateTimeKind.Unspecified)]
+    public void NonUtcExpectedTimestamp_IsRefusedBeforeDatabaseWrite(DateTimeKind kind)
+    {
+        DataScaleArticlePhysicalBatch batch = Batch(1);
+        object?[] row = batch.Tables[0].Rows[0].ToArray();
+        row[^1] = DateTime.SpecifyKind((DateTime)row[^1]!, kind);
+        batch = batch with
+        {
+            Tables = [batch.Tables[0] with { Rows = [row] }]
+        };
+        Assert.Throws<InvalidOperationException>(() => DataScalePhysicalBatchReadback.ExpectedDigest(batch));
+    }
+
     [Fact]
     public async Task EverySupportedTypeAndChunk_ReadsExactValuesIndependentOfRowOrder()
     {

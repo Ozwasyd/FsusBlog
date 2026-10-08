@@ -15,7 +15,14 @@ namespace FsusBlog.Server.Services.Fixtures.DataScale;
 internal static class DataScalePhysicalBatchReadback
 {
     internal static string ExpectedDigest(DataScaleArticlePhysicalBatch batch)
-        => Digest(batch.Tables, batch.PrimaryKeyColumns);
+    {
+        if (batch.Tables.SelectMany(table => table.Rows).SelectMany(row => row)
+            .Any(value => value is DateTime time && time.Kind != DateTimeKind.Utc))
+        {
+            throw new InvalidOperationException("physical_expected_datetime_not_utc");
+        }
+        return Digest(batch.Tables, batch.PrimaryKeyColumns);
+    }
 
     internal static async Task<DataScaleBulkPostconditions> ObserveAsync(
         DbConnection connection,
@@ -83,7 +90,10 @@ internal static class DataScalePhysicalBatchReadback
             {
                 violations.Add($"physical_key_set_mismatch:{table.Table}");
             }
-            observed.Add(table with { Rows = rows });
+            observed.Add(table with
+            {
+                Rows = rows
+            });
         }
         string digest = Digest(observed, expected.PrimaryKeyColumns);
         if (digest != ExpectedDigest(expected))

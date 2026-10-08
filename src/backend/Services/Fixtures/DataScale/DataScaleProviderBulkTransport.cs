@@ -190,7 +190,10 @@ internal static class DataScaleProviderBulkTransport
         command.Parameters.Add(parameter);
         var columns = new List<string>();
         await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) columns.Add(reader.GetString(0));
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            columns.Add(reader.GetString(0));
+        }
         if (columns.Count != 1 || columns[0] != update.Columns[0].Name)
         {
             throw new InvalidOperationException("bulk_deferred_update_native_primary_key_mismatch");
@@ -227,7 +230,10 @@ internal static class DataScaleProviderBulkTransport
         sql.Append(Quote(provider, table.Table)).Append(" SET ");
         for (int column = 1; column < table.Columns.Count; column++)
         {
-            if (column != 1) sql.Append(", ");
+            if (column != 1)
+            {
+                sql.Append(", ");
+            }
             sql.Append(Quote(provider, table.Columns[column].Name)).Append(" = CASE ").Append(key);
             for (int row = 0; row < count; row++)
             {

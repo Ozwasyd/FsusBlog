@@ -20,7 +20,10 @@ internal sealed record DataScaleArticlePhysicalBatch(
     IReadOnlyList<ArticleScaleRowPlan> LogicalReferences,
     IReadOnlyDictionary<string, long> LogicalRowCounts)
 {
-    internal IReadOnlyDictionary<string, IReadOnlyList<int>> DeferredColumns { get; init; }
+    internal IReadOnlyDictionary<string, IReadOnlyList<int>> DeferredColumns
+    {
+        get; init;
+    }
         = new Dictionary<string, IReadOnlyList<int>>(StringComparer.Ordinal);
 }
 
@@ -193,7 +196,10 @@ internal static class DataScaleArticlePhysicalProjection
                 {
                     throw new InvalidOperationException("physical_deferred_column_contract_mismatch");
                 }
-                if (cycleColumns.Length != 0) deferred.Add(binding.Table, cycleColumns);
+                if (cycleColumns.Length != 0)
+                {
+                    deferred.Add(binding.Table, cycleColumns);
+                }
             }
         }
         ArticleScaleRowPlan[] references = graphs.SelectMany(graph => graph.Rows).Where(row =>
@@ -202,7 +208,10 @@ internal static class DataScaleArticlePhysicalProjection
             .ToDictionary(group => group.Key.ToString(), group => group.LongCount(), StringComparer.Ordinal);
         // Logical taxonomy/audit references remain explicit obligations. This projection does
         // not fabricate product audit rows or silently claim article_tag/checkpoint persistence.
-        return new(tables, keys, references, counts) { DeferredColumns = deferred };
+        return new(tables, keys, references, counts)
+        {
+            DeferredColumns = deferred
+        };
     }
 
     // The exact final factory values are retained; only nullable FK cycles are deferred
