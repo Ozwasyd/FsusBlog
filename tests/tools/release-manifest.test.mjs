@@ -8,6 +8,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+
+
+import { canonicalize } from '../../tools/fact-extractors/lib/canonicalize.mjs';
+import { RELEASE_ID_CONTRACT } from '../../tools/release/release-id.mjs';
+import { releaseIdentityRosterArtifacts } from '../../tools/release/release-manifest-identity-contract.mjs';
+import { signReleaseManifest, verifyReleaseManifestArtifacts } from '../../tools/release/release-manifest-signature-contract.mjs';
 import {
     createReleaseManifest,
     deriveReleaseCandidateId,
@@ -793,4 +799,134 @@ test('closed identity roster binds one current build and rejects missing range m
     moved.identity.frontend.assetManifest.reference = '/other/artifacts/assets.json';
     assert.equal(deriveReleaseCandidateId(moved), original.candidateId);
     assert.notEqual(deriveReleaseManifestContentDigest(moved), original.contentDigest);
+});
+
+
+function signingFixture(context)
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-signature-source-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+    const input = createInput();
+    function writeArtifact(artifact, bytes)
+    {
+        const reference = path.join(directory, path.basename(artifact.reference));
+        fs.writeFileSync(reference, bytes);
+        artifact.reference = reference;
+        artifact.sha256 = `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+    }
+    function populate(value)
+    {
+        if (value && typeof value === 'object')
+        {
+            if (Object.hasOwn(value, 'reference'))
+            {
+                writeArtifact(value, Buffer.from(`source-only artifact ${value.reference}`));
+            }
+            else
+            {
+                for (const nested of Object.values(value))
+                {
+                    populate(nested);
+                }
+            }
+        }
+    }
+    populate(input.identity);
+    writeArtifact(input.identity.signing.publicKey, publicKey.export({ type: 'spki', format: 'pem' }));
+    const policy = { schema: 'fsusblog.release-signing-trust.v1', version: input.identity.signing.trustPolicy.version,
+        allowedKeys: [{ keyId: input.identity.signing.keyId, algorithm: 'ed25519', publicKeySha256: input.identity.signing.publicKey.sha256 }] };
+    writeArtifact(input.identity.signing.trustPolicy.artifact, Buffer.from(canonicalize(policy)));
+    input.frontendManifestHash = input.identity.frontend.assetManifest.sha256;
+    input.wasmArtifactHash = input.identity.frontend.wasmArtifact.sha256;
+    const unsigned = createReleaseManifest(input);
+    const manifest = signReleaseManifest(unsigned, privateKey);
+    const options = { manifest, releaseIdContract: RELEASE_ID_CONTRACT,
+        trustPolicyReference: input.identity.signing.trustPolicy.artifact.reference,
+        trustPolicySha256: input.identity.signing.trustPolicy.artifact.sha256,
+        readBytes: reference => fs.readFileSync(reference) };
+    return { directory, privateKey, unsigned, manifest, options };
+}
+
+test('real ephemeral Ed25519 signatures bind current artifacts and independent trust without native qualification', context =>
+{
+    const fixture = signingFixture(context);
+    const result = verifyReleaseManifestArtifacts(fixture.options);
+    assert.equal(result.signatureVerified, true);
+    assert.equal(result.nativeClaimEligible, false);
+    assert.equal(result.actualDatabaseObserved, false);
+    assert.equal(result.candidateId, fixture.manifest.candidateId);
+    assert.equal(result.artifacts.length, releaseIdentityRosterArtifacts(fixture.manifest.identity).length + 1);
+    assert.deepEqual(verifyReleaseManifestArtifacts(fixture.options), result);
+    const manifestFile = path.join(fixture.directory, 'manifest.json');
+    writeReleaseManifestAtomic(manifestFile, fixture.manifest);
+    const checked = spawnSync(process.execPath, [path.join(root, 'tools/release/check-release-manifest.mjs'),
+        '--manifest', manifestFile, '--verify-artifacts', 'true', '--trust-policy', fixture.options.trustPolicyReference,
+        '--trust-policy-sha256', fixture.options.trustPolicySha256], { encoding: 'utf8' });
+    assert.equal(checked.status, 0, checked.stderr);
+    assert.equal(JSON.parse(checked.stdout).qualificationEligible, false);
+    assert.equal(JSON.parse(checked.stdout).candidateId, fixture.manifest.candidateId);
+    assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, manifest: fixture.unsigned }), /unsigned/u);
+    assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, trustPolicyReference: undefined }), /independent trust/u);
+    assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, trustPolicySha256: `sha256:${'9'.repeat(64)}` }), /independent trust/u);
+    assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, readBytes: () => Buffer.from('tampered') }), /byte digest/u);
+    assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, readBytes: () =>
+    {
+        throw new Error('missing artifact');
+    } }), /missing artifact/u);
+    const changedSignature = Buffer.from(fixture.manifest.signature, 'base64');
+    changedSignature[0] ^= 1;
+    assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, manifest: {
+        ...fixture.manifest, signature: changedSignature.toString('base64') } }), /signature verification/u);
+    assert.throws(() => signReleaseManifest(fixture.unsigned, crypto.generateKeyPairSync('ed25519').privateKey), /bound public key/u);
+    const other = structuredClone(fixture.manifest);
+    other.identity.serviceWorker.version = 'other-current-version';
+    other.candidateId = deriveReleaseCandidateId(other);
+    other.contentDigest = deriveReleaseManifestContentDigest(other);
+    assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, manifest: other }), /signature verification/u);
+    const policyFile = fixture.options.trustPolicyReference;
+    const before = fs.readFileSync(policyFile);
+    fs.writeFileSync(policyFile, 'not the admitted policy');
+    assert.throws(() => verifyReleaseManifestArtifacts(fixture.options), /byte digest/u);
+    fs.writeFileSync(policyFile, before);
+    assert.deepEqual(verifyReleaseManifestArtifacts(fixture.options), result);
+});
+
+
+test('signature authority rejects coherent resealing of unadmitted duplicate and open trust policies', context =>
+{
+    const fixture = signingFixture(context);
+    const originalPolicy = JSON.parse(fs.readFileSync(fixture.options.trustPolicyReference));
+    for (const alter of [
+        policy =>
+        {
+            policy.allowedKeys[0].keyId = 'unadmitted-key';
+        },
+        policy =>
+        {
+            policy.allowedKeys.push({ ...policy.allowedKeys[0] });
+        },
+        policy =>
+        {
+            policy.maximumVersion = 'future';
+        },
+        policy =>
+        {
+            policy.allowedKeys[0].algorithm = 'none';
+        }
+    ])
+    {
+        const policy = structuredClone(originalPolicy);
+        alter(policy);
+        const bytes = Buffer.from(canonicalize(policy));
+        fs.writeFileSync(fixture.options.trustPolicyReference, bytes);
+        const changed = structuredClone(fixture.unsigned);
+        const sha256 = `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+        changed.identity.signing.trustPolicy.artifact.sha256 = sha256;
+        changed.candidateId = deriveReleaseCandidateId(changed);
+        changed.contentDigest = deriveReleaseManifestContentDigest(changed);
+        const signed = signReleaseManifest(changed, fixture.privateKey);
+        assert.throws(() => verifyReleaseManifestArtifacts({ ...fixture.options, manifest: signed,
+            trustPolicySha256: sha256 }), /trust/u);
+    }
 });

@@ -43,6 +43,7 @@ try
     const manifest = createReleaseManifest({
         identity: JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(readExplicitReleaseArtifact(
             options['identity-roster'], options['identity-roster-sha256']))),
+        signature: options.signature,
         releaseId: options['release-id'],
         commitSha: options['commit-sha'],
         imageRepository: options['image-repository'],

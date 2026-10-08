@@ -15,6 +15,7 @@ const TOP_LEVEL_FIELDS = new Set([
     'schema',
     'candidateId',
     'contentDigest',
+    'signature',
     'releaseId',
     'commitSha',
     'imageRepository',
@@ -173,6 +174,7 @@ export function deriveReleaseManifestContentDigest(manifest)
 {
     const unsigned = { ...manifest };
     delete unsigned.contentDigest;
+    delete unsigned.signature;
     return `sha256:${digestValue(stable(unsigned))}`;
 }
 
@@ -192,7 +194,7 @@ export function createReleaseManifestValueContract({ releaseIdContract })
         }
         const inputFields = new Set(['releaseId', 'commitSha', 'imageRepository', 'imageTag', 'imageDigest',
             'registryDigestVerified', 'createdAtUtc', 'frontendManifestHash', 'wasmArtifactHash', 'currentSchema',
-            'identity', 'dotnetVersion', 'nodeVersion', 'dockerVersion', 'dockerfileDigest', 'runtimeProfile', 'target']);
+            'identity', 'dotnetVersion', 'nodeVersion', 'dockerVersion', 'dockerfileDigest', 'runtimeProfile', 'target', 'signature']);
         for (const key of Object.keys(input))
         {
             if (!inputFields.has(key))
@@ -214,6 +216,7 @@ export function createReleaseManifestValueContract({ releaseIdContract })
             wasmArtifactHash: input.wasmArtifactHash,
             currentSchema: input.currentSchema,
             identity: input.identity,
+            signature: input.signature ?? null,
             toolchain: {
                 dotnetVersion: input.dotnetVersion,
                 nodeVersion: input.nodeVersion,
@@ -373,6 +376,16 @@ export function createReleaseManifestValueContract({ releaseIdContract })
         if (!SHA256.test(String(manifest.contentDigest ?? '')) || manifest.contentDigest !== deriveReleaseManifestContentDigest(manifest))
         {
             errors.push('contentDigest must equal the sealed manifest bytes projection');
+        }
+        if (manifest.signature !== null && (typeof manifest.signature !== 'string'
+            || !/^[A-Za-z0-9+/]{86}==$/u.test(manifest.signature)
+            || Buffer.from(manifest.signature, 'base64').toString('base64') !== manifest.signature))
+        {
+            errors.push('signature must be a canonical 64-byte Ed25519 signature or an explicitly unsigned draft');
+        }
+        if (options.requireSignature === true && manifest.signature === null)
+        {
+            errors.push('unsigned manifest cannot enter artifact verification or activation');
         }
         if (containsSensitiveField(manifest))
         {
