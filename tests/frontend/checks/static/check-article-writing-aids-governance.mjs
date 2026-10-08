@@ -12,7 +12,7 @@ const forbidden = [
     ['local-authority', /\b(?:localStorage|sessionStorage|indexedDB|createArticleDocumentContextAdapter|new ArticleDocumentContextAuthority)\b/u],
     ['surface-coupling', /\b(?:mode|surface|documentEpoch|sourceRevision|content|history)\s*:/u],
     ['single-mode', /\b(?:zenEnabled|writingMode|EditorLayoutMode)\b/u],
-    ['runtime-import', /import\s+(?!type\b)[\s\S]*?from\s+['"]@ozwasyd\/element-plus(?:\/[^'"]*)?['"]/u],
+    ['runtime-import', /import\s+(?!type\b)[^;]*?from\s+['"]@ozwasyd\/element-plus(?:\/[^'"]*)?['"]/u],
     ['private-import', /from\s+['"][^'"]*(?:\/packages\/|\/internal\/|\/es\/|\/lib\/)[^'"]*['"]/u]
 ];
 

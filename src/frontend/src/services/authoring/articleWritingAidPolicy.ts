@@ -1,14 +1,14 @@
-import type {
-    MarkdownEditorFocusExemptions,
-    MarkdownEditorProps,
-    MarkdownEditorResolvedWritingAids
-} from '@ozwasyd/element-plus';
-
 import {
     validateArticleDocumentContext,
     type ArticleDocumentContext,
     type ArticleDocumentContextAdapter
 } from './articleDocumentContext';
+
+import type {
+    MarkdownEditorFocusExemptions,
+    MarkdownEditorProps,
+    MarkdownEditorResolvedWritingAids
+} from '@ozwasyd/element-plus';
 
 export type ArticleWritingAidBlockedReason =
     | 'not-requested'
