@@ -1,0 +1,12 @@
+Formatting code files in workspace '/workspace/FsusBlog-moderation-format-only'.
+Loading workspace.
+Project C#.csproj is using configuration from '/workspace/FsusBlog-moderation-format-only/.editorconfig'.
+Complete in 987ms.
+Determining formattable files.
+Complete in 343ms.
+Running formatters.
+Complete in 477ms.
+Formatted code file '/workspace/FsusBlog-moderation-format-only/src/backend/Interfaces/IModerationRuntimeStateService.cs'.
+Formatted code file '/workspace/FsusBlog-moderation-format-only/src/backend/Services/Fixtures/CommentModerationFixturePort.cs'.
+Formatted 2 of 2 files.
+Format complete in 1859ms.

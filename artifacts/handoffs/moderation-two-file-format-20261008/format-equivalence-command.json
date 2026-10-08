@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {validateFormatOnlyDiff} from './tools/governance/change-contract.mjs';const errors=validateFormatOnlyDiff(process.cwd(),process.argv[1],process.argv[2]);console.log(JSON.stringify({errors}));process.exitCode=errors.length?1:0;",
+    "8a95130ab5e391729d5606275d483edc678e9b5d",
+    "a0db452fdb86ea27c55ea77720ad20b9ef509c78"
+  ],
+  "sourceSha": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+  "exitCode": 0,
+  "expectedFileCount": 2,
+  "backendTestCount": 0,
+  "excludedControlsExecuted": []
+}

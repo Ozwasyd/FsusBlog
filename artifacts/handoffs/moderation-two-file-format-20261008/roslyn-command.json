@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "run",
+    "--project",
+    "/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008/roslyn-equivalence/Equivalence.csproj",
+    "--",
+    "/workspace/FsusBlog-moderation-format-only",
+    "/workspace/FsusBlog-moderation-format-only/.tmp/moderation-two-file-format-20261008",
+    "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+    "src/backend/Services/Fixtures/CommentModerationFixturePort.cs"
+  ],
+  "startedAtUtc": "2026-10-08T14:35:56.677948+00:00",
+  "endedAtUtc": "2026-10-08T14:36:01.420037+00:00",
+  "exitCode": 0,
+  "backendTestCount": 0
+}

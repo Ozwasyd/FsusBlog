@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "format",
+    "whitespace",
+    "/workspace/FsusBlog-moderation-format-only",
+    "--folder",
+    "--include",
+    "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+    "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+    "--verbosity",
+    "diagnostic",
+    "--verify-no-changes"
+  ],
+  "startedAtUtc": "2026-10-08T14:34:48.876060+00:00",
+  "endedAtUtc": "2026-10-08T14:34:50.823259+00:00",
+  "exitCode": 2,
+  "fileSha256": {
+    "src/backend/Interfaces/IModerationRuntimeStateService.cs": "053bbd272f8e3a11f59d517c5ecbc6c76a576cb8fcb604f15825df9f81df38a6",
+    "src/backend/Services/Fixtures/CommentModerationFixturePort.cs": "3999173bf92d0c5a7bc909f45de98ba171bc24dbe73f245f795e567a5ef00c85"
+  },
+  "logSha256": "6a14551d06470c71404dd04b078dc35f728e85802c411c54d7b6193bc8372870"
+}

@@ -1,0 +1,18 @@
+{
+  "baseSha": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "branch": "codex/moderation-two-file-format-20261008",
+  "filePreimages": {
+    "src/backend/Interfaces/IModerationRuntimeStateService.cs": "603c8c8b8e0d25d8c8c26436e246cc87c8b99bd7",
+    "src/backend/Services/Fixtures/CommentModerationFixturePort.cs": "191502296a57e93f58975a00b71d40cc846798bb"
+  },
+  "positiveVerificationAllowlist": [
+    "official dotnet format whitespace baseline on exactly two files (expected diagnostics 9+3)",
+    "official dotnet format whitespace pass1 and pass2 on exactly two files",
+    "official dotnet format whitespace verify-no-changes on exactly two files",
+    "Roslyn exact token/value/comment/directive preservation on exactly two pre/post pairs",
+    "direct format-only diff and bounded commit range contract"
+  ],
+  "expectedBackendTestsExecuted": 0,
+  "excludedControlsExecuted": [],
+  "sharedBlameMetadataReservation": "pending explicit confirmation; do not modify yet"
+}

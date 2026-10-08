@@ -1,0 +1,34 @@
+{
+  "checkedFilePairs": 2,
+  "success": true,
+  "results": [
+    {
+      "path": "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+      "equivalent": true,
+      "tokensEqual": true,
+      "triviaEqual": true,
+      "beforeErrors": 0,
+      "afterErrors": 0,
+      "tokenCount": 328,
+      "significantTriviaCount": 3,
+      "beforeTokenSha256": "796c0ee21d36a726e7c647766ea63c57e3e3077df43530073ed82bc23110bc79",
+      "afterTokenSha256": "796c0ee21d36a726e7c647766ea63c57e3e3077df43530073ed82bc23110bc79",
+      "beforeTriviaSha256": "0d3d644968241af36f3e3eaa54ff86b5e35f34e924dd9793c4c38deb7cbf9fb1",
+      "afterTriviaSha256": "0d3d644968241af36f3e3eaa54ff86b5e35f34e924dd9793c4c38deb7cbf9fb1"
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+      "equivalent": true,
+      "tokensEqual": true,
+      "triviaEqual": true,
+      "beforeErrors": 0,
+      "afterErrors": 0,
+      "tokenCount": 7192,
+      "significantTriviaCount": 31,
+      "beforeTokenSha256": "875c6c15e787e4fba02e50f27373a7d71c368633468c781e8689b47421aee6a4",
+      "afterTokenSha256": "875c6c15e787e4fba02e50f27373a7d71c368633468c781e8689b47421aee6a4",
+      "beforeTriviaSha256": "48ebd11ecc5369101e2423ba7f9085eb07fd4d2c5829ac672b204ef94ab3b907",
+      "afterTriviaSha256": "48ebd11ecc5369101e2423ba7f9085eb07fd4d2c5829ac672b204ef94ab3b907"
+    }
+  ]
+}
