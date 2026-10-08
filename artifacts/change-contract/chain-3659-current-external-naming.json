@@ -29,8 +29,10 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "src/migration/packages.lock.json",
                 "tests/backend/packages.lock.json",
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/migration/packages.lock.json"
             ],
             "reason": "Preserve the registered external document, receipt, catalog, environment and JSON contract identifiers across canonical source reconciliation, test bindings and explicitly supplied dependency handoffs. Internal renaming would break their established consumers; no external identifier or qualification rule is replaced."
         },
