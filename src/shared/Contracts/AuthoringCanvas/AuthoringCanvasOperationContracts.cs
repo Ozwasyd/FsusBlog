@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace FsusBlog.Server.Services.Authoring;
+namespace FsusBlog.Shared.Contracts.AuthoringCanvas;
 
 /// <summary>
 /// Closed, versioned contract for canvas-local operations. Commands carry sealed before/after

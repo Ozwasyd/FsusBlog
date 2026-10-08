@@ -1,3 +1,4 @@
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 using FsusBlog.Server.Infrastructure.CoreBridge.Caching;
@@ -181,6 +182,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringCanvasOperationTransaction, PostgresAuthoringCanvasOperationTransaction>();
         services.AddScoped<AuthoringCanvasOperationEngine>();
         services.AddScoped<AuthoringCanvasOperationDatabaseVerifier>();
+        services.AddScoped<AuthoringCanvasTransport>();
         services.AddScoped<IAuthorSavedViewDependencyProvider, PostgresAuthorSavedViewDependencyProvider>();
         services.AddScoped<IAuthorSavedViewDependencyCatalog, AuthorSavedViewDependencyCatalog>();
         services.AddScoped<IAuthorSavedViewQueryValidator, AuthorSavedViewQueryValidator>();

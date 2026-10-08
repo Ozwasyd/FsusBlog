@@ -1,0 +1,73 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "The content exactness catalogs, current documentation authorities, test registries and receipt tooling must change atomically while preserving existing external JSON, Markdown marker, command-line and receipt identifiers; internal JavaScript symbols remain governed by the repository mapping. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-canvas-document-boundary.md"
+            ],
+            "reason": "DOM and token spelling is preserved only when documented as a caller-visible contract. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Modules/Endpoints/AuthoringCanvasEndpoints.cs",
+                "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasDocumentStore.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationDatabaseVerifier.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationEngine.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationReferenceValidator.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationSemantics.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationVerifier.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceFactSource.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceResolver.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceVerifier.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasTransport.cs",
+                "src/backend/Services/Authoring/IAuthoringCanvasDocumentStore.cs",
+                "src/backend/Services/Authoring/PostgresAuthoringCanvasCoordinateAuthority.cs",
+                "src/backend/Services/Authoring/PostgresAuthoringCanvasOperationTransaction.cs",
+                "src/core/Algorithms/AedsFrameType.cs",
+                "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
+                "src/shared/AedsFrameHeader.cs",
+                "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasDocumentContracts.cs",
+                "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasOperationContracts.cs",
+                "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs",
+                "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs",
+                "tools/contracts/generate-authoring-canvas-wire.mjs",
+                "tools/governance/check-authoring-canvas-authority.mjs"
+            ],
+            "reason": "Process environment spelling is external while option variables remain internal. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
+        },
+        {
+            "id": "generated-native",
+            "paths": [
+                "src/frontend/wasm/aeds/include/aeds_frame.hpp"
+            ],
+            "reason": "The protocol generator owns this ABI-layout header and its member spelling. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
+        },
+        {
+            "id": "compiler-intrinsic",
+            "paths": [
+                "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+                "tests/frontend/fixtures/aeds-protocol-cpp-contract.cpp"
+            ],
+            "reason": "Compiler-provided intrinsic names cannot be renamed. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/aeds-golden-catalog.json",
+                "tests/fixtures/protocol/authoring-canvas-wire-golden.json"
+            ],
+            "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
+        }
+    ]
+}

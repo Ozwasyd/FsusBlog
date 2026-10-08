@@ -2,6 +2,7 @@
 
 #include "aeds_crc32.hpp"
 #include "aeds_frame.hpp"
+#include "authoring_canvas_wire.generated.hpp"
 #include "font_theme_admin_pods.hpp"
 #include "pod_views.hpp"
 
@@ -54,6 +55,8 @@ const char* ToErrorString(ErrorCode errorCode)
             return "header_length_mismatch";
         case ErrorCode::PayloadCrcMismatch:
             return "payload_crc_mismatch";
+        case ErrorCode::AuthoringCanvasPayloadInvalid:
+            return "authoring_canvas_payload_invalid";
         case ErrorCode::ArticlePayloadInvalid:
             return "article_payload_invalid";
         case ErrorCode::FrameTypeUnsupported:
@@ -131,6 +134,12 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         && !FsusBlog::Pod::FontTheme::ParsePayload(FrameType, payload, PayloadLength, nullptr))
     {
         return MakeError(ErrorCode::FontThemePayloadInvalid);
+    }
+
+    if (FrameType >= 253 && FrameType <= 265
+        && !ValidateAuthoringCanvasPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::AuthoringCanvasPayloadInvalid);
     }
 
     DecodeResult ok{};
