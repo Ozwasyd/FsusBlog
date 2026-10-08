@@ -100,12 +100,13 @@ export function documentExportCanDownload(view: DocumentExportPresentation, now:
 function presentationInt64(value: number | string, minimum: bigint): bigint
 {
     if (typeof value === 'number' ? !Number.isSafeInteger(value)
-        : !/^(0|[1-9][0-9]{0,18})$/.test(value))
+        : typeof value !== 'string' || !/^(0|[1-9][0-9]{0,18})$/.test(value))
     {
         throw new Error('document_export_presentation_int64');
     }
     const exact = BigInt(value);
-    if (exact < minimum || exact > 9223372036854775807n)
+    if ((typeof value === 'string' && exact.toString() !== value)
+        || exact < minimum || exact > 9223372036854775807n)
     {
         throw new Error('document_export_presentation_int64');
     }

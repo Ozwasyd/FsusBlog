@@ -407,7 +407,7 @@ describe('lossless presentation scalars', () => {
     ])('compares %s to %s without rounding', (left, right, expected) => {
         expect(documentExportCompareVersions(left, right)).toBe(expected);
     });
-    it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, '01', '+1', ' 1', '1e2', '9223372036854775808'])('refuses invalid version %s', (version) => {
+    it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, '01', '+1', ' 1', '1e2', '1\n', '1\r', '1\u2028', '9223372036854775808'])('refuses invalid version %s', (version) => {
         expect(() => documentExportCompareVersions(version, 1)).toThrow('document_export_presentation_int64');
     });
     it('retains the newer exact version across stale pages and status replies', async () => {
