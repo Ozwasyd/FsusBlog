@@ -19,13 +19,13 @@ import {
     resumeCurrentRunEvidenceCheckpoint
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
 } from '../test/current-run-evidence-checkpoint.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler validates canonical current-run locator inputs.
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Finalizer admission consumes exact current-run bindings.
+import { locateCurrentRunEvidence } from '../test/current-run-evidence-locator.mjs';
 import {
     validateCurrentRunEvidenceContext,
     validateEvidenceLocatorRegistry
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler validates canonical current-run locator inputs.
 } from '../test/evidence-location-contract.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Finalizer admission consumes exact current-run bindings.
-import { locateCurrentRunEvidence } from '../test/current-run-evidence-locator.mjs';
 import {
     loadPhysicalExecutionProcessPolicy,
     residentServiceTransferSchema,
@@ -1378,6 +1378,7 @@ export function effectiveCacheInputs(tier)
     const inputs = new Set((tier.cacheInputs ?? []).map(String));
     inputs.add('tests/matrix.yml');
     inputs.add('tests/coverage-registry.json');
+    inputs.add('config/testing/required-evidence-authority-ledger.json');
     const commandPath = commandInputPath(tier.command);
     if (commandPath)
     {

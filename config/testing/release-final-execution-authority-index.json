@@ -542,6 +542,16 @@
                 "../../config/development/native-tooling-style-baseline.json",
                 "../../.markdownlint-cli2.jsonc"
             ]
+        },
+        {
+            "owner": "tools/governance/javascript-format-equivalence.mjs",
+            "sourceDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+            "expressionDigest": "sha256:1194f26d255953521c4695d2e2c8f846dbd455bb916275c81e8cdf5a4951d015",
+            "kind": "runtime-require-path",
+            "dependencies": [
+                "tools/governance/javascript-format-parser/package.json",
+                "tools/governance/javascript-format-parser/package-lock.json"
+            ]
         }
     ],
     "runtimeDynamicShellSources": [
