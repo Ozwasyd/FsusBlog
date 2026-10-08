@@ -4,6 +4,7 @@ using System.Text.Json;
 
 namespace FsusBlog.Contracts.Schema;
 
+/// <summary>Seals, verifies and projects current schema facts without granting migration or startup admission.</summary>
 public static class CurrentSchemaCanonicalAuthority
 {
     public const string ModelVersion = "fsusblog.current-schema.v5";
