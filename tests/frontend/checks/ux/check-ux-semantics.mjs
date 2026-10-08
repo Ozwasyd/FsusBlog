@@ -272,7 +272,8 @@ expectNotIncludes('src/frontend/src/views/admin/Tag.vue', '删除判断使用管
 expectNotIncludes('src/frontend/src/views/admin/Tag.vue', 'label="真实引用"', 'tag reference column label must not lead with implementation wording');
 expectIncludes('src/frontend/src/locales/zh-CN/public.ts', '搜索文章、标签或关键词', 'public search placeholder must be specific');
 expectIncludes('src/frontend/src/components/public/HomeFeedSurface.vue', '快速入口', 'home sidebar nav must be named quick entry');
-expectIncludes('src/frontend/src/components/public/pages/PublicFilterPageContent.vue', '范围：文章、标签、关键词', 'search results must show scope and state');
+expectIncludes('src/frontend/src/components/public/pages/PublicFilterPageContent.vue', "t('public.filter.scope')", 'search results must consume the typed scope key');
+expectIncludes('src/frontend/src/locales/zh-CN/public.ts', '范围：文章、标签、关键词', 'search scope must retain articles, tags and keywords');
 expectIncludes('src/frontend/src/components/home/HomeArticleEmptyState.vue', '查看归档', 'public empty state must include next action');
 
 if (failures.length > 0)

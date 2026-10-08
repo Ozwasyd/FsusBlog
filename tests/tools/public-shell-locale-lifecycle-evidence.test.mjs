@@ -2546,25 +2546,25 @@ function waterfallFixture()
 {
     const fonts = fontFixture();
     const identity = { matrixDigest: 'actual' };
-    const domain = { url: 'http://127.0.0.1/opaque-hash.js', digest: 'sha256:domain',
+    const domain = { url: 'http://127.0.0.1/opaque-hash.js', digest: 'sha256:domain', size: 10,
         identities: [{ kind: 'domain', locale: fonts.font.locale, domain: 'public' }] };
     const resources = [domain, ...fonts.responses.map((response, index) => ({
-        ...response.resource, url: `http://127.0.0.1/opaque-${index}.woff2`
+        ...response.resource, size: 10, url: `http://127.0.0.1/opaque-${index}.woff2`
     }))];
     return { bindings: { identity, resources, preference, preferenceUrl: 'http://127.0.0.1/api/binary/locale-preference' },
         scene: { issue: 2085, stage: 'initial-network', locale: fonts.font.locale, requiredDomains: ['public'], requiredFont: fonts.font,
             networkPolicy: { includeCacheAndPreload: true, businessDataReRequests: 0 } },
-        evidence: { identity, issues: [], requests: resources.map((resource, index) => ({ url: resource.url, urlDigest: String(index), method: 'GET' })),
-            browser: { performance: [], preloads: [{ url: domain.url }] }, responses: [
-                { status: 200, contentDigest: domain.digest, resource: domain },
-                ...fonts.responses.map((response, index) => ({ ...response, resource: resources[index + 1] }))
+        evidence: { identity, issues: [], requests: resources.map((resource, index) => ({ url: resource.url, urlDigest: String(index), method: 'GET', requestOrdinal: index })),
+            browser: { performance: resources.map((resource) => ({ url: resource.url, decodedBodySize: resource.size, encodedBodySize: resource.size, transferSize: 0 })), preloads: [{ url: domain.url }] }, responses: [
+                { url: domain.url, requestOrdinal: 0, status: 200, contentDigest: domain.digest, resource: domain },
+                ...fonts.responses.map((response, index) => ({ ...response, url: resources[index + 1].url, requestOrdinal: index + 1, resource: resources[index + 1] }))
             ] }, fontObservation: fonts.observation };
 }
 
 test('waterfall maps opaque hashed filenames through admitted manifest identity, including preload/cache', () =>
 {
     const input = waterfallFixture();
-    input.evidence.browser.performance.push({ url: input.bindings.resources[0].url, transferSize: 0 });
+    input.evidence.browser.performance[0].transferSize = 0;
     assert.deepEqual(assertPublicShellLocaleResourceWaterfall(input), { observedDomains: ['public'], requestCount: 4 });
 });
 

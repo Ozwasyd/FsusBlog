@@ -8,8 +8,8 @@
                 class="search-result-meta mb-5 border-b border-[var(--fsusblog-panel-border)] pb-5 text-xs font-medium leading-6 text-[var(--fsusblog-text-muted)]"
                 aria-live="polite"
             >
-                <span>范围：文章、标签、关键词</span>
-                <span>结果：{{ searchResultStateText }}</span>
+                <span>{{ t('public.filter.scope') }}</span>
+                <span>{{ t('public.filter.result', { state: searchResultStateText }) }}</span>
             </div>
 
             <div
@@ -17,12 +17,12 @@
                 class="filter-stack mb-8 inline-flex max-w-full items-center gap-6"
                 data-fsus-motion-surface="search-panel"
             >
-                <span class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">排序</span>
+                <span class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ t('public.filter.sort') }}</span>
                 <ElRadioGroup
                     :model-value="searchSortMode"
                     class="fsus-radio-group--touch"
                     size="small"
-                    aria-label="搜索排序"
+                    :aria-label="t('public.filter.sortAria')"
                     @change="handleSortChange"
                 >
                     <ElRadioButton
@@ -81,7 +81,7 @@
                     <ElIcon
                         class="transition-fsus transition-fsus-fast group-hover:opacity-70"
                         aria-hidden="true"
-                    ><Back /></ElIcon> 回到主页
+                    ><Back /></ElIcon> {{ t('public.filter.backHome') }}
                 </a>
             </div>
         </aside>
@@ -95,6 +95,7 @@ import FilterArticleLoadingState from '@/components/filter/FilterArticleLoadingS
 import FilterHeader from '@/components/filter/FilterHeader.vue';
 import PublicArticleList from '@/components/public/PublicArticleList.vue';
 import PublicContentState from '@/components/public/PublicContentState.vue';
+import { useI18nText } from '@/composables/useI18nText';
 import { Back } from '@/fsusui/icons';
 import { PUBLIC_FIXED_PATHS } from '@/public-renderers/publicRoutePaths';
 import type { SearchSortMode } from '@/services/localSearch';
@@ -121,6 +122,8 @@ const emit = defineEmits<{
     (event: 'sort-change', mode: SearchSortMode): void;
 }>();
 
+const { t } = useI18nText();
+
 const handleSortChange = (value: string | number | boolean | undefined): void =>
 {
     if (value === 'relevance' || value === 'latest' || value === 'hot')
@@ -142,13 +145,13 @@ const handleEmptyAction = (event: MouseEvent): void =>
 
 const paginationContract = computed<PaginationContract>(() => ({
     previous: {
-        label: '上一页',
+        label: t('public.filter.previous'),
         href: props.view.pagination.previousHref,
         disabled: !props.view.pagination.canGoPrev,
         action: { action: 'page-prev' }
     },
     next: {
-        label: '下一页',
+        label: t('public.filter.next'),
         href: props.view.pagination.nextHref,
         disabled: !props.view.pagination.canGoNext,
         action: { action: 'page-next' }
@@ -160,12 +163,12 @@ const searchResultStateText = computed(() =>
 {
     if (props.isLoadingState)
     {
-        return '正在检索';
+        return t('public.filter.searching');
     }
 
     if (props.invalidTarget)
     {
-        return '搜索目标不可用';
+        return t('public.filter.unavailable');
     }
 
     if (props.view.articles.length === 0)

@@ -35,7 +35,7 @@
         >
             <header class="mb-10 border-b border-[var(--fsusblog-panel-border)] pb-6 sm:mb-12 sm:pb-8">
                 <h1 class="mb-6 text-2xl font-bold leading-tight tracking-normal text-[var(--fsusblog-text-heading)] sm:text-3xl">
-                    归档
+                    {{ t('public.archive.title') }}
                 </h1>
                 <div class="flex items-center gap-6 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
                     <span class="text-[var(--fsusblog-text-primary)] tabular-nums">{{ publishedCountText }}</span>
@@ -43,7 +43,7 @@
                 <nav
                     v-if="view.yearGroups.length > 1"
                     class="mt-6 flex flex-wrap gap-3"
-                    aria-label="年份快速导航"
+                    :aria-label="t('public.archive.yearNavigation')"
                 >
                     <a
                         v-for="yearGroup in view.yearGroups"
@@ -125,7 +125,7 @@
             <PublicContentState
                 v-else
                 :title="view.emptyState.title"
-                description="发布后的内容会显示在这里。"
+                :description="t('public.archive.emptyDescription')"
                 size="page"
                 role="status"
                 aria-live="polite"
@@ -151,7 +151,7 @@ const props = defineProps<{
 
 const emit = defineEmits<(event: 'navigate', href: string) => void>();
 
-const { translatePlural } = useI18nText();
+const { t, translatePlural } = useI18nText();
 const focusRingClass = themeTokens.focusRing;
 const publishedCountText = computed(() =>
     translatePlural('public.archive.publishedCount', props.view.total)

@@ -26,6 +26,7 @@ import {
 
 const { readPrivateFile } = await import(new URL('../test-fixtures/receipt/private-io.mjs', import.meta.url));
 const { originalBrowserRecordLimits, originalCaptureLimits, validatePublicShellLocaleOriginalCaptureLimits } = await import(new URL('../../tests/browser-contract/public-shell-locale-lifecycle-evidence.mjs', import.meta.url));
+const { assertPublicShellLocaleNetwork } = await import(new URL('../../tests/browser-contract/public-shell-locale-network.mjs', import.meta.url));
 const { projectBrowserContractLocaleTopology } = await import(new URL('../release/browser-contract-receipt-contract.mjs', import.meta.url));
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -1078,6 +1079,10 @@ export function validatePublicShellLocaleSceneOriginalDocuments({ matrix, caller
                 validateOriginalBatch({ ...document, evidence: capture, privateOriginals: { ...document.privateOriginals,
                     captureCut: capture.captureCut, originals: document.privateOriginals.originals.filter(leaf => leaf.sequence <= capture.captureCut) } },
                 identity, { ...runtime, requests, responses }, limits);
+                if (observation.stage === 'initial-network')
+                {
+                    assertPublicShellLocaleNetwork({ bindings: runtime, scene: document.scene, evidence: capture });
+                }
             }
         }
         originalAssert(firstResponses <= 1 && (!checked.normal || Object.hasOwn(document.evidence, 'browser') || firstResponses === 1),
