@@ -418,14 +418,18 @@
                     "enum": [
                         "article",
                         "comment",
-                        "row"
+                        "audit"
                     ]
                 },
                 "semanticIdentity": {
-                    "$ref": "#/$defs/id"
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
                 },
                 "operationIdentity": {
-                    "$ref": "#/$defs/id"
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
                 },
                 "ordinal": {
                     "type": "integer",
@@ -456,7 +460,9 @@
                 "articleIdentity": {
                     "anyOf": [
                         {
-                            "$ref": "#/$defs/id"
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 512
                         },
                         {
                             "type": "null"
@@ -505,9 +511,13 @@
                             "type": "object",
                             "additionalProperties": false,
                             "required": [
+                                "hasRevision",
                                 "hasPublication"
                             ],
                             "properties": {
+                                "hasRevision": {
+                                    "type": "boolean"
+                                },
                                 "hasPublication": {
                                     "type": "boolean"
                                 }
@@ -542,21 +552,41 @@
                                     }
                                 },
                                 "article.revision": {
-                                    "type": "object",
-                                    "additionalProperties": false,
-                                    "required": [
-                                        "applicability",
-                                        "instantUtc"
-                                    ],
-                                    "properties": {
-                                        "applicability": {
-                                            "const": "instant"
+                                    "oneOf": [
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "applicability",
+                                                "instantUtc"
+                                            ],
+                                            "properties": {
+                                                "applicability": {
+                                                    "const": "instant"
+                                                },
+                                                "instantUtc": {
+                                                    "type": "string",
+                                                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                                }
+                                            }
                                         },
-                                        "instantUtc": {
-                                            "type": "string",
-                                            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,7})?Z$"
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "applicability",
+                                                "instantUtc"
+                                            ],
+                                            "properties": {
+                                                "applicability": {
+                                                    "const": "not-generated"
+                                                },
+                                                "instantUtc": {
+                                                    "type": "null"
+                                                }
+                                            }
                                         }
-                                    }
+                                    ]
                                 },
                                 "article.metadata-updated": {
                                     "type": "object",
@@ -603,7 +633,7 @@
                                             ],
                                             "properties": {
                                                 "applicability": {
-                                                    "const": "null"
+                                                    "const": "not-generated"
                                                 },
                                                 "instantUtc": {
                                                     "type": "null"
@@ -680,7 +710,9 @@
                         },
                         "state": {
                             "enum": [
-                                "active",
+                                "approved",
+                                "pending",
+                                "rejected",
                                 "deleted"
                             ]
                         },
@@ -688,14 +720,18 @@
                             "type": "object",
                             "additionalProperties": false,
                             "required": [
-                                "edited",
-                                "moderated"
+                                "hasRevision",
+                                "hasEditTime",
+                                "hasModerationTime"
                             ],
                             "properties": {
-                                "edited": {
+                                "hasRevision": {
                                     "type": "boolean"
                                 },
-                                "moderated": {
+                                "hasEditTime": {
+                                    "type": "boolean"
+                                },
+                                "hasModerationTime": {
                                     "type": "boolean"
                                 }
                             }
@@ -823,7 +859,7 @@
                                     "type": "object",
                                     "properties": {
                                         "entityKind": {
-                                            "const": "row"
+                                            "const": "audit"
                                         }
                                     }
                                 }
@@ -831,7 +867,7 @@
                         },
                         "state": {
                             "enum": [
-                                "present"
+                                "recorded"
                             ]
                         },
                         "stateFacts": {
@@ -844,10 +880,10 @@
                             "type": "object",
                             "additionalProperties": false,
                             "required": [
-                                "scale.row-created"
+                                "audit.occurred"
                             ],
                             "properties": {
-                                "scale.row-created": {
+                                "audit.occurred": {
                                     "type": "object",
                                     "additionalProperties": false,
                                     "required": [
@@ -922,7 +958,7 @@
                             "required": [
                                 "article",
                                 "comment",
-                                "row"
+                                "audit"
                             ],
                             "properties": {
                                 "article": {
@@ -935,7 +971,7 @@
                                     "minimum": 0,
                                     "maximum": 1000000
                                 },
-                                "row": {
+                                "audit": {
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 1000000
@@ -948,7 +984,7 @@
                             "required": [
                                 "article",
                                 "comment",
-                                "row"
+                                "audit"
                             ],
                             "properties": {
                                 "article": {
@@ -993,11 +1029,23 @@
                                     "type": "object",
                                     "additionalProperties": false,
                                     "required": [
-                                        "active",
+                                        "approved",
+                                        "pending",
+                                        "rejected",
                                         "deleted"
                                     ],
                                     "properties": {
-                                        "active": {
+                                        "approved": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        },
+                                        "pending": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        },
+                                        "rejected": {
                                             "type": "integer",
                                             "minimum": 0,
                                             "maximum": 1000000
@@ -1009,14 +1057,14 @@
                                         }
                                     }
                                 },
-                                "row": {
+                                "audit": {
                                     "type": "object",
                                     "additionalProperties": false,
                                     "required": [
-                                        "present"
+                                        "recorded"
                                     ],
                                     "properties": {
-                                        "present": {
+                                        "recorded": {
                                             "type": "integer",
                                             "minimum": 0,
                                             "maximum": 1000000
@@ -1037,12 +1085,16 @@
                                 ],
                                 "properties": {
                                     "commentIdentity": {
-                                        "$ref": "#/$defs/id"
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 512
                                     },
                                     "parentIdentity": {
                                         "anyOf": [
                                             {
-                                                "$ref": "#/$defs/id"
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 512
                                             },
                                             {
                                                 "type": "null"
@@ -1050,7 +1102,16 @@
                                         ]
                                     },
                                     "rootIdentity": {
-                                        "$ref": "#/$defs/id"
+                                        "anyOf": [
+                                            {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "maxLength": 512
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
                                     }
                                 }
                             }
@@ -1081,7 +1142,9 @@
                 "scalarRoles",
                 "qualificationEligible",
                 "semanticDigest",
-                "contentDigest"
+                "contentDigest",
+                "scalarRolesPurpose",
+                "unsupportedFields"
             ],
             "properties": {
                 "schema": {
@@ -1256,7 +1319,10 @@
                                                     "$ref": "#/$defs/id"
                                                 },
                                                 "applicability": {
-                                                    "const": "null"
+                                                    "enum": [
+                                                        "null",
+                                                        "not-generated"
+                                                    ]
                                                 },
                                                 "instantUtc": {
                                                     "type": "null"
@@ -1302,6 +1368,14 @@
                                             "items": {
                                                 "$ref": "#/$defs/id"
                                             }
+                                        },
+                                        "parentIdentity": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "minLength": 1,
+                                            "maxLength": 512
                                         }
                                     }
                                 }
@@ -1327,6 +1401,33 @@
                 },
                 "contentDigest": {
                     "$ref": "#/$defs/digest"
+                },
+                "scalarRolesPurpose": {
+                    "const": "canonical-planned-offsets"
+                },
+                "unsupportedFields": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "field",
+                            "roleId",
+                            "reason"
+                        ],
+                        "properties": {
+                            "field": {
+                                "$ref": "#/$defs/id"
+                            },
+                            "roleId": {
+                                "$ref": "#/$defs/id"
+                            },
+                            "reason": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -1768,6 +1768,7 @@
                     "revisionRequired": true,
                     "publicationAllowed": true,
                     "stateFacts": [
+                        "hasRevision",
                         "hasPublication"
                     ],
                     "roles": [
@@ -1778,8 +1779,8 @@
                         },
                         {
                             "roleId": "article.revision",
-                            "presence": "always",
-                            "absent": "null"
+                            "presence": "hasRevision",
+                            "absent": "not-generated"
                         },
                         {
                             "roleId": "article.metadata-updated",
@@ -1789,7 +1790,7 @@
                         {
                             "roleId": "article.publication",
                             "presence": "hasPublication",
-                            "absent": "null"
+                            "absent": "not-generated"
                         },
                         {
                             "roleId": "article.published",
@@ -1805,14 +1806,17 @@
                 {
                     "kind": "comment",
                     "states": [
-                        "active",
+                        "approved",
+                        "pending",
+                        "rejected",
                         "deleted"
                     ],
                     "revisionRequired": true,
                     "publicationAllowed": false,
                     "stateFacts": [
-                        "edited",
-                        "moderated"
+                        "hasRevision",
+                        "hasEditTime",
+                        "hasModerationTime"
                     ],
                     "roles": [
                         {
@@ -1822,12 +1826,12 @@
                         },
                         {
                             "roleId": "comment.edited",
-                            "presence": "edited",
+                            "presence": "hasEditTime",
                             "absent": "null"
                         },
                         {
                             "roleId": "comment.moderated",
-                            "presence": "moderated",
+                            "presence": "hasModerationTime",
                             "absent": "null"
                         }
                     ],
@@ -1836,16 +1840,16 @@
                     ]
                 },
                 {
-                    "kind": "row",
+                    "kind": "audit",
                     "states": [
-                        "present"
+                        "recorded"
                     ],
                     "revisionRequired": false,
                     "publicationAllowed": false,
                     "stateFacts": [],
                     "roles": [
                         {
-                            "roleId": "scale.row-created",
+                            "roleId": "audit.occurred",
                             "presence": "always",
                             "absent": "null"
                         }
@@ -1853,7 +1857,11 @@
                     "invariantIds": []
                 }
             ],
-            "contentDigest": "sha256:c070320ffd8ead759ff57434e0a5f2f00e5a54f7e6b6367243122ec9cb1de6da"
+            "contentDigest": "sha256:7ed60d4d14c4ed0edc1fdbca85909daccaec62192e721634ba646e040f95e5f7",
+            "parentChronology": {
+                "roleId": "comment.created",
+                "operator": "<="
+            }
         }
     ]
 }

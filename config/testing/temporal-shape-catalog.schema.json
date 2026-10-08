@@ -435,7 +435,8 @@
                 "id",
                 "schema",
                 "entityKinds",
-                "contentDigest"
+                "contentDigest",
+                "parentChronology"
             ],
             "properties": {
                 "id": {
@@ -505,7 +506,10 @@
                                             "minLength": 1
                                         },
                                         "absent": {
-                                            "const": "null"
+                                            "enum": [
+                                                "null",
+                                                "not-generated"
+                                            ]
                                         }
                                     }
                                 }
@@ -522,6 +526,22 @@
                 },
                 "contentDigest": {
                     "$ref": "#/$defs/digest"
+                },
+                "parentChronology": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "roleId",
+                        "operator"
+                    ],
+                    "properties": {
+                        "roleId": {
+                            "const": "comment.created"
+                        },
+                        "operator": {
+                            "const": "<="
+                        }
+                    }
                 }
             }
         }

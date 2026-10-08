@@ -588,7 +588,16 @@ function boundedInteger(value, minimum, location)
 
 function entityIdentity(coordinate)
 {
-    return `${coordinate.entityKind}:${coordinate.semanticIdentity}`;
+    return JSON.stringify([coordinate.entityKind, coordinate.semanticIdentity]);
+}
+
+function explicitEntityIdentity(value, location)
+{
+    if (typeof value !== 'string' || value.length === 0 || value.length > 512 || value.trim() !== value)
+    {
+        fail('temporal.entity-facts-invalid', `${location} requires a bounded explicit producer identity`);
+    }
+    return value;
 }
 
 function entityRoleFacts(entity, kind, epoch)
@@ -607,11 +616,11 @@ function entityRoleFacts(entity, kind, epoch)
         const present = binding.presence === 'always' || entity.stateFacts[binding.presence];
         if (!present)
         {
-            if (fact.applicability !== 'null' || fact.instantUtc !== null)
+            if (fact.applicability !== binding.absent || fact.instantUtc !== null)
             {
-                fail('temporal.entity-facts-invalid', `${binding.roleId} must be explicitly null for this state`);
+                fail('temporal.entity-facts-invalid', `${binding.roleId} must explicitly declare ${binding.absent} for this state`);
             }
-            roles.push({ roleId: binding.roleId, applicability: 'null', instantUtc: null, epochMilliseconds: null });
+            roles.push({ roleId: binding.roleId, applicability: binding.absent, instantUtc: null, epochMilliseconds: null });
             continue;
         }
         if (fact.applicability !== 'instant')
@@ -682,7 +691,8 @@ function validateEntityDistribution(distribution, entities, shape, producerId)
     {
         entityKeys(link, ['commentIdentity', 'parentIdentity', 'rootIdentity'], 'root/nested mapping');
         if (!comments.has(link.commentIdentity) || links.has(link.commentIdentity)
-            || !comments.has(link.rootIdentity) || (link.parentIdentity !== null && !comments.has(link.parentIdentity)))
+            || (link.parentIdentity === null ? link.rootIdentity !== null
+                : !comments.has(link.rootIdentity) || !comments.has(link.parentIdentity)))
         {
             fail('temporal.entity-facts-invalid', 'comment relationships require exact plan-owned identities');
         }
@@ -705,14 +715,21 @@ function validateEntityDistribution(distribution, entities, shape, producerId)
             visited.add(current);
             current = links.get(current).parentIdentity;
         }
-        if (current !== link.rootIdentity || comments.get(identity).coordinate.articleIdentity !== comments.get(current).coordinate.articleIdentity)
+        if ((link.parentIdentity !== null && current !== link.rootIdentity)
+            || comments.get(identity).coordinate.articleIdentity !== comments.get(current).coordinate.articleIdentity)
         {
             fail('temporal.entity-facts-invalid', 'comment root mapping differs from its article-owned chain');
+        }
+        if (link.parentIdentity !== null)
+        {
+            const createdAt = (semanticIdentity) => comments.get(semanticIdentity).roles
+                .find((role) => role.roleId === 'comment.created').epochMilliseconds;
+            verifyRelation(shape.parentChronology.operator, createdAt(link.parentIdentity), createdAt(identity));
         }
     }
     for (const entity of comments.values())
     {
-        if (!identities.has(`article:${entity.coordinate.articleIdentity}`))
+        if (!identities.has(JSON.stringify(['article', entity.coordinate.articleIdentity])))
         {
             fail('temporal.entity-facts-invalid', 'comment article identity is missing from the producer plan');
         }
@@ -729,7 +746,7 @@ function entityHistoryRelations(entities, shape, catalog)
     {
         const coordinate = entity.coordinate;
         const identity = entityIdentity(coordinate);
-        const pointId = `${identity}:${coordinate.operationIdentity}`;
+        const pointId = JSON.stringify([coordinate.entityKind, coordinate.semanticIdentity, coordinate.operationIdentity]);
         if (pointIds.has(pointId))
         {
             fail('temporal.entity-facts-invalid', 'duplicate explicit entity operation coordinate');
@@ -753,7 +770,10 @@ function entityHistoryRelations(entities, shape, catalog)
             {
                 fail('temporal.entity-facts-invalid', 'revision instant changed across history coordinates');
             }
-            revisions.set(revisionKey, revision);
+            if (coordinate.revisionNumber !== null)
+            {
+                revisions.set(revisionKey, revision);
+            }
             if (coordinate.publicationNumber !== null)
             {
                 const publication = [coordinate.publicationRevisionNumber, byRole.get('article.publication').epochMilliseconds];
@@ -768,7 +788,7 @@ function entityHistoryRelations(entities, shape, catalog)
         }
     }
     const revisionTimes = new Map();
-    for (const entity of entities.filter((candidate) => candidate.coordinate.entityKind === 'article')
+    for (const entity of entities.filter((candidate) => candidate.coordinate.entityKind === 'article' && candidate.coordinate.revisionNumber !== null)
         .sort((left, right) => left.coordinate.revisionNumber - right.coordinate.revisionNumber))
     {
         const identity = entityIdentity(entity.coordinate);
@@ -805,7 +825,7 @@ function entityHistoryRelations(entities, shape, catalog)
                 verifyRelation(operator, previous.value.epochMilliseconds, current.value.epochMilliseconds);
             }
             return { id, roleIds: [...invariant.roles], status: present.length === values.length ? 'verified' : 'state-bound',
-                nullRoleIds: values.filter((value) => value.applicability === 'null').map((value) => value.roleId) };
+                nullRoleIds: values.filter((value) => value.applicability !== 'instant').map((value) => value.roleId) };
         });
     });
 }
@@ -833,8 +853,8 @@ export function resolveTemporalEntityRoles({ temporalContext, fixtureIdentity, s
         const coordinate = entity.coordinate;
         entityKeys(coordinate, ['entityKind', 'semanticIdentity', 'operationIdentity', 'ordinal', 'revisionNumber',
             'publicationNumber', 'publicationRevisionNumber', 'articleIdentity'], 'entity coordinate');
-        stableIdentity(coordinate.semanticIdentity, 'semanticIdentity');
-        stableIdentity(coordinate.operationIdentity, 'operationIdentity');
+        explicitEntityIdentity(coordinate.semanticIdentity, 'semanticIdentity');
+        explicitEntityIdentity(coordinate.operationIdentity, 'operationIdentity');
         boundedInteger(coordinate.ordinal, 0, 'ordinal');
         const kind = shape.entityKinds.find((candidate) => candidate.kind === coordinate.entityKind);
         if (!kind || !kind.states.includes(entity.state))
@@ -842,7 +862,8 @@ export function resolveTemporalEntityRoles({ temporalContext, fixtureIdentity, s
             fail('temporal.entity-facts-invalid', 'entity kind/state is unsupported by the canonical shape');
         }
         entityKeys(entity.stateFacts, kind.stateFacts, 'stateFacts');
-        if (kind.revisionRequired ? !Number.isSafeInteger(coordinate.revisionNumber) || coordinate.revisionNumber < 1
+        const hasRevision = kind.revisionRequired && entity.stateFacts.hasRevision === true;
+        if (hasRevision ? !Number.isSafeInteger(coordinate.revisionNumber) || coordinate.revisionNumber < 1
             : coordinate.revisionNumber !== null)
         {
             fail('temporal.entity-facts-invalid', 'revision coordinate must match the entity kind');
@@ -852,7 +873,7 @@ export function resolveTemporalEntityRoles({ temporalContext, fixtureIdentity, s
             || coordinate.publicationNumber < 1 || !Number.isSafeInteger(coordinate.publicationRevisionNumber)
             || coordinate.publicationRevisionNumber < 1 || coordinate.publicationRevisionNumber > coordinate.revisionNumber)
             || !published && coordinate.publicationRevisionNumber !== null
-            || coordinate.entityKind === 'article' && (entity.stateFacts.hasPublication !== published
+            || coordinate.entityKind === 'article' && (entity.stateFacts.hasPublication !== published || published && !hasRevision
                 || entity.state === 'published' && !published || entity.state === 'draft' && published)
             || (coordinate.entityKind === 'comment' ? typeof coordinate.articleIdentity !== 'string' : coordinate.articleIdentity !== null))
         {
@@ -863,6 +884,17 @@ export function resolveTemporalEntityRoles({ temporalContext, fixtureIdentity, s
     });
     validateEntityDistribution(entityPlan.distribution, entities, shape, context.producerId);
     const relations = entityHistoryRelations(entities, shape, loaded.catalog);
+    const commentLinks = new Map(entityPlan.distribution.rootNested.map((link) => [link.commentIdentity, link]));
+    for (const [index, entity] of entities.entries())
+    {
+        if (entity.coordinate.entityKind === 'comment')
+        {
+            const link = commentLinks.get(entity.coordinate.semanticIdentity);
+            relations[index].push({ id: 'comment-parent-chronology', roleIds: [shape.parentChronology.roleId],
+                status: link.parentIdentity === null ? 'state-bound' : 'verified', nullRoleIds: [],
+                parentIdentity: link.parentIdentity });
+        }
+    }
     const binding = readTemporalDomainProducerInventory().producerBindings.find((candidate) => candidate.producerId === context.producerId);
     const scalarRoleIds = binding?.scalarRoleIds ?? [];
     const scalarRoles = scalarRoleIds.length === 0 ? null : resolveTemporalRoles({ temporalContext: context,
@@ -872,7 +904,8 @@ export function resolveTemporalEntityRoles({ temporalContext, fixtureIdentity, s
         sourceCommit: context.sourceCommit, sourceFingerprint: context.sourceFingerprint, businessEpochUtc: context.businessEpochUtc },
     fixtureIdentity: fixture, catalog: { schema: loaded.catalog.schema, digest: loaded.catalogDigest },
     shape: { id: shape.id, digest: shapeDigest }, entityPlan: structuredClone(entityPlan), entityPlanDigest: digestCanonical(entityPlan),
-    entities: entities.map((entity, index) => ({ ...entity, relations: relations[index] })), scalarRoles, qualificationEligible: false };
+    entities: entities.map((entity, index) => ({ ...entity, relations: relations[index] })), scalarRoles,
+    scalarRolesPurpose: 'canonical-planned-offsets', unsupportedFields: structuredClone(binding?.unsupportedFields ?? []), qualificationEligible: false };
     const semanticDigest = digestCanonical(artifact);
     return Object.freeze({ ...artifact, semanticDigest, contentDigest: digestCanonical({ ...artifact, semanticDigest }) });
 }
