@@ -36,7 +36,6 @@
                 "tools/release/required-evidence-owner-contract.mjs",
                 "tools/release/required-evidence-owner-input.mjs",
                 "tools/release/required-evidence-verifier-registry.mjs",
-                "tools/run-test-matrix.mjs",
                 "tools/security/perception-character-v3-independent-review.mjs",
                 "tools/security/production-xss-evidence.mjs",
                 "tools/security/run-perception-character-v3-release-gate.mjs",

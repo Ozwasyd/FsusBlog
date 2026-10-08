@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:8bb395b62707270b2cca20e8050cd163c4372153ca653f4a86c689b28bd86a55",
+    "scanDigest": "sha256:43c02472620c7637c015e2f97cd63b96681ca5e73aae75d753fbde528d718987",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -678,28 +678,28 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#7ee8c0ef8f134afe"
         },
         {
-            "findingId": "b6c35521ce856c9f",
+            "findingId": "5234bceb75af555f",
             "consumerId": "evidence-consumer.artifacts.change-contract.release-authority-bindings-external-naming",
-            "location": "artifacts/change-contract/release-authority-bindings-external-naming.json:59",
+            "location": "artifacts/change-contract/release-authority-bindings-external-naming.json:58",
             "oldSelectionRule": "evidence-selection.latest-newest",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#b6c35521ce856c9f"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#5234bceb75af555f"
         },
         {
-            "findingId": "bc27bacee977b147",
+            "findingId": "a15b5fd4b4a2434f",
             "consumerId": "evidence-consumer.artifacts.change-contract.release-authority-bindings-external-naming",
-            "location": "artifacts/change-contract/release-authority-bindings-external-naming.json:59",
+            "location": "artifacts/change-contract/release-authority-bindings-external-naming.json:58",
             "oldSelectionRule": "evidence-selection.pointer-without-identity",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#bc27bacee977b147"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#a15b5fd4b4a2434f"
         },
         {
             "findingId": "2373a53e42ccc168",
@@ -7542,5 +7542,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#f436eec7357e7959"
         }
     ],
-    "contentDigest": "sha256:f3385b014bbfb685ec22c81e2917eb9aab4aa194605401e3ab6f0eee3c8a5443"
+    "contentDigest": "sha256:5d4f8acb4dc711940d73d8562b44367d9286f0d28c9e7ba130ff97f09fae9f11"
 }
