@@ -131,6 +131,40 @@ Run `node --test tests/tools/quiescence-measurement-consumer.test.mjs` for consu
 protocol controls, including actual task-private locator/filesystem operations and
 real CLI spawn-zero refusal. Positive lease facts are explicitly unit-owner models.
 
+`tools/test/runtime-performance-preparation.mjs` separates preparation from formal
+measurement. Its explicit plan binds every fixture locator to an operation-level
+input reason, the current run/attempt/source, original caller budget, protected
+quiescence projection and exact resident handoff recipient. It consumes the existing
+namespace environment, marker validator, resident inventory/live reader and shared
+consumer holder. It does not acquire `benchmark-window` or wait for unrelated
+coverage/build terminal states. Same-run fixture content, resident generation,
+runtime endpoints and held state are rechecked before and after each operation.
+Failure or cancellation stops further work; original producer terminal proof remains
+with the existing holder owner. Publication failure closes admission rather than
+allowing downstream measurement to consume partial preparation.
+
+The preparation output owner writes one exclusive, fsynced receipt and producer
+envelope in the canonical run/attempt output root. A repeated or interrupted write
+cannot overwrite either file. Consumption uses an explicit producer locator and
+independently verifies the preparation/input/holder bindings. Both input and output
+readers preserve the canonical protected terminal-attempt requirement. A terminal
+attempt cannot accept new preparation output, so the production live-stage locator
+handoff remains blocked until the canonical owner provides that capability; this
+producer does not waive the existing output protection to admit a live stage.
+
+The standalone `runtime-performance-preparation.sh` entry refuses before spawn:
+shared physical catalog registration, production holder transport, prepare-only
+mutation/fault ports and a valid current-stage locator handoff are unavailable.
+The old performance bundle also refuses its four legacy data-scale/summary/fault
+entrypoints before command dispatch. The original lane commands contain semantic
+or timed probes and runtime restarts; they are not preparation wrappers. Shared
+scheduler/matrix/catalog, resident lease protocol, workload and threshold ownership
+remain unchanged. Source-model operations and task-private append-only IO do not
+establish production or runtime qualification.
+
+Run `node --test tests/tools/runtime-performance-preparation.test.mjs` for exact
+input binding, drift/refusal, cancellation, original budget and publication controls.
+
 Run `node --test tests/tools/runtime-quiescence-barrier.test.mjs tests/tools/runtime-quiescence-receipt.test.mjs tests/tools/runtime-quiescence-journal.test.mjs` for focused protocol controls.
 
 Run `node tools/test-matrix/quiescence-contract.mjs` and

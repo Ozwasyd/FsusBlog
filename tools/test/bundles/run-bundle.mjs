@@ -54,6 +54,7 @@ import { readRuntimeEnvironment } from './runtime-environment.mjs';
 import { writeBundleSummaryAtomically } from './terminal-summary.mjs';
 
 const {assertProductionMeasurementQuiescenceAvailable} = await import(new URL('../quiescence-measurement-inventory.mjs', import.meta.url));
+const {assertNotLegacyPerformancePreparation} = await import(new URL('../runtime-performance-preparation.mjs', import.meta.url));
 
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -3088,6 +3089,7 @@ async function waitForResidentHandoff()
 
 async function executePerformanceStep(step)
 {
+    assertNotLegacyPerformancePreparation(step.id);
     beginPhysicalProducer(step);
     if (step.id === 'runtime-state-ready')
     {

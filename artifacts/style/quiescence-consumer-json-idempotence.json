@@ -9,7 +9,11 @@
     "paths": [
         "config/testing/measurement-quiescence-consumers.json"
     ],
-    "firstPassTreeSha256": "53f582d3258e9a4c607aee5e8b2ac457bab84ad7ae44b960ad37aa151bb72340",
-    "secondPassTreeSha256": "53f582d3258e9a4c607aee5e8b2ac457bab84ad7ae44b960ad37aa151bb72340",
-    "idempotent": true
+    "firstPassTreeSha256": "7ec9a8c0b53c3039a60570ce2b62e9e5967dbefdce09138b9af1eddd068e43fe",
+    "secondPassTreeSha256": "7ec9a8c0b53c3039a60570ce2b62e9e5967dbefdce09138b9af1eddd068e43fe",
+    "idempotent": true,
+    "subsequentBehaviorRefs": [
+        1931
+    ],
+    "currentPassNote": "Re-executed the original declared formatter twice after adding the1931 consumer. Both digests bind the candidate21-consumer inventory; revision retains the original mechanical commit identity."
 }

@@ -4,6 +4,11 @@
     "domainAuthority": "config/testing/runtime-state-domain-registry.json",
     "consumers": [
         {
+            "consumerId": "runtime-performance-preparation",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/runtime-performance-preparation.mjs"
+        },
+        {
             "consumerId": "backend-perf",
             "stateContract": "requires-quiescence",
             "owner": "tools/test/bundles/bundle-steps.mjs"
