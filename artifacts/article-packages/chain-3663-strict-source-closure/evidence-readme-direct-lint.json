@@ -1,0 +1,16 @@
+{
+    "command": [
+        "markdownlint-cli2",
+        "--config",
+        ".markdownlint-cli2.jsonc",
+        "artifacts/article-packages/chain-3663-strict-source-closure/README.md"
+    ],
+    "testedSha": "f115e3964cd44376b187bb8a361a2abf9ca9e2d5",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T15:16:05.778972+00:00",
+    "endUtc": "2026-10-08T15:16:09.273179+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/strict-source-closure/evidence-readme-direct-lint.log"
+}

@@ -1,0 +1,119 @@
+{
+    "evidenceHead": "f115e3964cd44376b187bb8a361a2abf9ca9e2d5",
+    "sourceTestedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+    "sourceUnchanged": true,
+    "checks": {
+        "evidence-commit-range": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-manifest-authority-3663/tools/governance/check-change-contract.mjs",
+                "--root",
+                "/workspace/FsusBlog-strict-source-closure-3663",
+                "--range",
+                "0c0f3583b21dabefcffc5717ad8665521a61b775..HEAD"
+            ],
+            "testedSha": "f115e3964cd44376b187bb8a361a2abf9ca9e2d5",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:15:33.077388+00:00",
+            "endUtc": "2026-10-08T15:15:34.315919+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/evidence-commit-range.log"
+        },
+        "evidence-readme-style": {
+            "command": [
+                "node",
+                "tools/style/check-native-tooling-style.mjs",
+                "--domain",
+                "docs",
+                "--mode",
+                "changed",
+                "--file",
+                "artifacts/article-packages/chain-3663-strict-source-closure/README.md",
+                "--require-tools"
+            ],
+            "testedSha": "f115e3964cd44376b187bb8a361a2abf9ca9e2d5",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:15:34.297845+00:00",
+            "endUtc": "2026-10-08T15:15:34.351777+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/evidence-readme-style.log"
+        },
+        "evidence-readme-direct-lint": {
+            "command": [
+                "markdownlint-cli2",
+                "--config",
+                ".markdownlint-cli2.jsonc",
+                "artifacts/article-packages/chain-3663-strict-source-closure/README.md"
+            ],
+            "testedSha": "f115e3964cd44376b187bb8a361a2abf9ca9e2d5",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:16:05.778972+00:00",
+            "endUtc": "2026-10-08T15:16:09.273179+00:00",
+            "exitCode": 1,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/evidence-readme-direct-lint.log"
+        },
+        "evidence-readme-literal-lint": {
+            "command": [
+                "markdownlint-cli2",
+                "--config",
+                ".markdownlint-cli2.jsonc",
+                "--no-globs",
+                ":artifacts/article-packages/chain-3663-strict-source-closure/README.md"
+            ],
+            "testedSha": "f115e3964cd44376b187bb8a361a2abf9ca9e2d5",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:16:22.339933+00:00",
+            "endUtc": "2026-10-08T15:16:22.595398+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/evidence-readme-literal-lint.log"
+        },
+        "final-evidence-push": {
+            "command": [
+                "git",
+                "push",
+                "-u",
+                "origin",
+                "codex/chain-3663-strict-source-closure"
+            ],
+            "testedSha": "f115e3964cd44376b187bb8a361a2abf9ca9e2d5",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:16:07.072481+00:00",
+            "endUtc": "2026-10-08T15:16:08.767353+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/final-evidence-push.log"
+        },
+        "final-evidence-remote-sha": {
+            "command": [
+                "git",
+                "ls-remote",
+                "--heads",
+                "origin",
+                "refs/heads/codex/chain-3663-strict-source-closure"
+            ],
+            "testedSha": "f115e3964cd44376b187bb8a361a2abf9ca9e2d5",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:16:48.825406+00:00",
+            "endUtc": "2026-10-08T15:16:49.373537+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/final-evidence-remote-sha.log"
+        }
+    },
+    "limits": [
+        "Native tooling wrapper selected0 artifact docs; not counted as README lint coverage.",
+        "First direct README lint accidentally inherited repository globs:364files/741issues/exit1; preserved as failed, not waived or accepted. Corrected literal positive path with --no-globs:1README/0issues/exit0.",
+        "git diff --check reports trailing whitespace in unchanged captured raw published-source-push.log. Source/test diff check passes; no raw artifact normalization or blanket waiver.",
+        "No original held audits/full matrices were executed. The accidental read-only document scan was outside the intended positive scope and is explicitly recorded."
+    ]
+}

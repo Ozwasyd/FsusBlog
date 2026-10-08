@@ -1,0 +1,21 @@
+{
+    "command": [
+        "node",
+        "tools/style/check-native-tooling-style.mjs",
+        "--domain",
+        "docs",
+        "--mode",
+        "changed",
+        "--file",
+        "artifacts/article-packages/chain-3663-strict-source-closure/README.md",
+        "--require-tools"
+    ],
+    "testedSha": "f115e3964cd44376b187bb8a361a2abf9ca9e2d5",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T15:15:34.297845+00:00",
+    "endUtc": "2026-10-08T15:15:34.351777+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/strict-source-closure/evidence-readme-style.log"
+}
