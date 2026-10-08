@@ -6,7 +6,7 @@
         "tests/matrix.yml": "sha256:c2c0354deb867bcb1c65a6f6a092724e8a5706a9a751395b3be5838f58af16c7",
         "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:d0fa3f6a5062739922c5121c38fc4026c7392d6817b4e3b7c1b6fbb53580dd82",
         "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
-        "config/testing/test-execution-envelope-applicability.json": "sha256:56187457f27a922333626fca45f50424d7a4c388ede1e176ed6515952387791c",
+        "config/testing/test-execution-envelope-applicability.json": "sha256:281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7",
         "tools/test/attempt-runner.mjs": "sha256:a42fe86b68e31ac6357a660c33376b2c241933fee9992e5e0e23e90ca4daba6c",
         "tools/test/temporal-context.mjs": "sha256:492dba7f4c65b8aa716c33cc851f812d99718e088678f8c530e8488c38192f36",
         "tools/test/temporal-context-contract.mjs": "sha256:7d12a5f5c1e123c2572ea829120d742b8517779f839a81dd7076bcea3197cc82"
@@ -6367,5 +6367,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:eb22d1c89e42b104450f958da7013ebecc40895dc4dc4d781838358c0f90073b"
+    "contentDigest": "sha256:4532bcbd18e855b824adde89ddea229b75bab8d634710737ad3f061f7bbc1816"
 }

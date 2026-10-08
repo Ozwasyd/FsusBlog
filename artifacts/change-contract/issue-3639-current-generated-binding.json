@@ -6,12 +6,13 @@
         "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
         "tools/frontend/style-toolchain/eslint.config.mjs",
         "config/development/frontend-style-policy.json",
-        "tools/governance/change-contract-registry.mjs"
+        "tools/governance/change-contract-registry.mjs",
+        "tools/test/correctness-attempt-migration.mjs"
     ],
     "outputs": [
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "4f0788eb11e2182f9fb568ea8a144c95e4893076666ac8fb6ba782b708fb49de"
+            "sha256": "75b23099647b479a5dc391e4977dbd3a2ff1b323c96f44eef35a3c16a37d6e1a"
         },
         {
             "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
@@ -19,7 +20,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "5cde0e930a771f2b2d38afa46da30a65f1dfc8947a368d5c1262df1284360e49"
+            "sha256": "ade29328609a0fbc8d135b79326010d3e3cb352a1bc936bb6a290afd64ef8b23"
         },
         {
             "path": "config/testing/test-execution-envelope-applicability.json",
