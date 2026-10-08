@@ -2898,107 +2898,107 @@ async function runSelfTest()
 
 async function main()
 {
-const args = process.argv.slice(2);
-const requireOk = args.includes('--require-ok');
-if (args.includes('--self-test'))
-{
-    await runSelfTest();
-    process.exit(0);
-}
-
-const manifestArg = args.find((arg) => !arg.startsWith('--'));
-function resolveRunBoundManifest()
-{
-    const context = resolveProductionFreshLocatorEnvironment(process.env);
-    const collectionDir = String(process.env.FSUSBLOG_RELEASE_EVIDENCE_COLLECTION_DIR ?? '').trim();
-    if (!collectionDir)
+    const args = process.argv.slice(2);
+    const requireOk = args.includes('--require-ok');
+    if (args.includes('--self-test'))
     {
-        fail(
-            'run-bound release manifest consumption requires'
+        await runSelfTest();
+        process.exit(0);
+    }
+
+    const manifestArg = args.find((arg) => !arg.startsWith('--'));
+    function resolveRunBoundManifest()
+    {
+        const context = resolveProductionFreshLocatorEnvironment(process.env);
+        const collectionDir = String(process.env.FSUSBLOG_RELEASE_EVIDENCE_COLLECTION_DIR ?? '').trim();
+        if (!collectionDir)
+        {
+            fail(
+                'run-bound release manifest consumption requires'
       + ' FSUSBLOG_RELEASE_EVIDENCE_COLLECTION_DIR'
-        );
-    }
-    const outputRoot = path.resolve(context.outputRoot);
-    const manifestFile = path.resolve(collectionDir, 'manifest.json');
-    if (manifestFile !== outputRoot
+            );
+        }
+        const outputRoot = path.resolve(context.outputRoot);
+        const manifestFile = path.resolve(collectionDir, 'manifest.json');
+        if (manifestFile !== outputRoot
   && !manifestFile.startsWith(`${outputRoot}${path.sep}`))
-    {
-        fail(
-            `release evidence collection dir escapes the run-bound output root: ${collectionDir}`
-        );
+        {
+            fail(
+                `release evidence collection dir escapes the run-bound output root: ${collectionDir}`
+            );
+        }
+        const relativePath = path.relative(outputRoot, manifestFile).replaceAll(path.sep, '/');
+        const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim();
+        const commit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim();
+        const candidateIdentityDigest = sha256Value([
+            context.runId,
+            context.attemptId,
+            namespace,
+            commit
+        ].filter(Boolean).join('|'));
+        const layout = resolveProductionFreshOutputAttempt({
+            root: rootDir,
+            runId: context.runId,
+            attemptId: context.attemptId
+        });
+        const binding = createProductionFreshRunBoundLocator({
+            repositoryRoot: rootDir,
+            runId: context.runId,
+            attemptId: context.attemptId,
+            outputRoot,
+            producerId: 'release-evidence',
+            relativePath,
+            schema: 'fsusblog.release-evidence-manifest.v2',
+            candidateIdentityDigest,
+            receiptRef: path
+                .relative(rootDir, path.join(layout.runOutputRoot, 'terminal-attempts.json'))
+                .replaceAll(path.sep, '/')
+        });
+        const result = readProductionFreshJsonOutput({
+            root: rootDir,
+            locator: binding.locator,
+            expectedCandidateIdentityDigest: candidateIdentityDigest
+        });
+        return { manifest: result.json, manifestPath: result.file };
     }
-    const relativePath = path.relative(outputRoot, manifestFile).replaceAll(path.sep, '/');
-    const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim();
-    const commit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim();
-    const candidateIdentityDigest = sha256Value([
-        context.runId,
-        context.attemptId,
-        namespace,
-        commit
-    ].filter(Boolean).join('|'));
-    const layout = resolveProductionFreshOutputAttempt({
-        root: rootDir,
-        runId: context.runId,
-        attemptId: context.attemptId
-    });
-    const binding = createProductionFreshRunBoundLocator({
-        repositoryRoot: rootDir,
-        runId: context.runId,
-        attemptId: context.attemptId,
-        outputRoot,
-        producerId: 'release-evidence',
-        relativePath,
-        schema: 'fsusblog.release-evidence-manifest.v2',
-        candidateIdentityDigest,
-        receiptRef: path
-            .relative(rootDir, path.join(layout.runOutputRoot, 'terminal-attempts.json'))
-            .replaceAll(path.sep, '/')
-    });
-    const result = readProductionFreshJsonOutput({
-        root: rootDir,
-        locator: binding.locator,
-        expectedCandidateIdentityDigest: candidateIdentityDigest
-    });
-    return { manifest: result.json, manifestPath: result.file };
-}
 
-let manifest = null;
-let manifestPath = null;
-void manifest;
-void manifestPath;
-if (manifestArg)
-{
-    manifestPath = path.resolve(manifestArg);
-    manifest = readJson(manifestPath);
-}
-else
-{
-    let runBound;
-    try
+    let manifest = null;
+    let manifestPath = null;
+    void manifest;
+    void manifestPath;
+    if (manifestArg)
     {
-        runBound = resolveRunBoundManifest();
+        manifestPath = path.resolve(manifestArg);
+        manifest = readJson(manifestPath);
     }
-    catch (error)
+    else
     {
-        fail(
-            'explicit manifest path or a production-fresh run-bound locator context is required;'
+        let runBound;
+        try
+        {
+            runBound = resolveRunBoundManifest();
+        }
+        catch (error)
+        {
+            fail(
+                'explicit manifest path or a production-fresh run-bound locator context is required;'
       + ` ${error instanceof Error ? error.message : String(error)}`
-        );
+            );
+        }
+        manifest = runBound.manifest;
+        manifestPath = runBound.manifestPath;
     }
-    manifest = runBound.manifest;
-    manifestPath = runBound.manifestPath;
-}
-const result = validateManifest(manifest, { requireOk, manifestPath });
-if (!result.ok)
-{
-    for (const error of result.errors)
+    const result = validateManifest(manifest, { requireOk, manifestPath });
+    if (!result.ok)
     {
-        console.error(`[release-manifest-check] violation: ${error}`);
+        for (const error of result.errors)
+        {
+            console.error(`[release-manifest-check] violation: ${error}`);
+        }
+        process.exit(1);
     }
-    process.exit(1);
-}
 
-console.log(`[release-manifest-check] ok | status=${manifest.status} missing=${result.missingRequired.length} file=${manifestPath}`);
+    console.log(`[release-manifest-check] ok | status=${manifest.status} missing=${result.missingRequired.length} file=${manifestPath}`);
 
 }
 

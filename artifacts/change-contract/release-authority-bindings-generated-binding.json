@@ -7,7 +7,7 @@
     "outputs": [
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "bf6eca7c2cfe246396f6d0190b4bb8d227b7ce568cdef174eb4cbfd26b69d003"
+            "sha256": "e85e6080c82d6262c87f357393ad19468502dc597f1b2e586c3ae349be500f2a"
         },
         {
             "path": "config/testing/evidence-locator-registry.json",
@@ -15,7 +15,7 @@
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "7e64787e6754fb10479e53da6ac701e59eeca80fe819ecb68f6eeeedcff44e97"
+            "sha256": "bddef3989531f0a3369b8e5788027999d788ad272f0ebd2bffef652b5dd649d7"
         }
     ]
 }

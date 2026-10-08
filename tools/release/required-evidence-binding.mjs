@@ -59,7 +59,7 @@ function exactIds(actual, expected, field)
 
 // Owner describe() only reads the receipt's schema layout. It receives no run
 // context or expected values with which to manufacture missing business fields.
-export async function createRequiredEvidenceBinding(options)
+async function evaluateRequiredEvidenceBinding(options)
 {
     const allowed = new Set(['authorityId', 'catalog', 'context', 'domainInputs',
         'expectedIdentity', 'explicitInputs', 'reference', 'locatorRegistry',
@@ -207,6 +207,22 @@ export async function createRequiredEvidenceBinding(options)
     requireCheck(/^sha256:[a-f0-9]{64}$/u.test(body.receipt.contentDigest ?? ''),
         'CONTENT_DIGEST_MISSING', 'owner must expose the verified producer content digest');
     return immutable({ ...body, contentDigest: governanceContentDigest(body) });
+}
+
+export async function createRequiredEvidenceBinding(options)
+{
+    try
+    {
+        return await evaluateRequiredEvidenceBinding(options);
+    }
+    catch (error)
+    {
+        if (error instanceof RequiredEvidenceBindingError)
+        {
+            throw error;
+        }
+        throw new RequiredEvidenceBindingError('VERIFIER_REJECTED', error.message);
+    }
 }
 
 export async function verifyRequiredEvidenceBinding(binding, options)

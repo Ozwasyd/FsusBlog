@@ -13,8 +13,8 @@ const { verifyConformanceArtifact } = await import(new URL('../../tools/test-qua
 const { contentDigest } = await import(new URL('../../tools/test-quality/schema.mjs', import.meta.url));
 const { governanceContentDigest } = await import(new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url));
 const { buildIndependentReview } = await import(new URL('../../tools/security/perception-character-v3-independent-review.mjs', import.meta.url));
-const { requiredEvidenceVerifier as xssVerifier } = await import(new URL('../../tools/security/production-xss-evidence.mjs', import.meta.url));
-const { requiredEvidenceVerifier as nativeVerifier } = await import(new URL('../../tools/test/native-test-receipt.mjs', import.meta.url));
+const { requiredEvidenceVerifier: xssVerifier } = await import(new URL('../../tools/security/production-xss-evidence.mjs', import.meta.url));
+const { requiredEvidenceVerifier: nativeVerifier } = await import(new URL('../../tools/test/native-test-receipt.mjs', import.meta.url));
 const { describeJobEvidence } = await import(new URL('../../tools/release/required-evidence-owner-contract.mjs', import.meta.url));
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');

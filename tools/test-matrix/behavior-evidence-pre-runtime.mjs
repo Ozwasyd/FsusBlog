@@ -29,17 +29,17 @@
  *   - status/failureReasons/contentDigest
  */
 
-/* eslint-disable import-x/no-relative-parent-imports -- The pre-runtime join composes the canonical BehaviorGraph authority. */
+
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import {
+const {
     joinBehaviorGraph,
     behaviorGraphSchema
-} from '../contracts/behavior-graph-join.mjs';
+} = await import(new URL('../contracts/behavior-graph-join.mjs', import.meta.url));
 
 import { validateJsonSchema } from './schema-validator/validate.mjs';
 

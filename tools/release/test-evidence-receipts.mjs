@@ -5,15 +5,15 @@ import process from 'node:process';
 
 const { readCorrectnessProducerTemporalAuthority } = await import(new URL('../test/temporal-producer-bindings.mjs', import.meta.url));
 
-import {
+const {
     validatePostRuntimeReceipt
-} from '../test-matrix/behavior-evidence-post-runtime.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
-import {
+} = await import(new URL('../test-matrix/behavior-evidence-post-runtime.mjs', import.meta.url));
+const {
     assertPreRuntimeQualified
-} from '../test-matrix/behavior-evidence-pre-runtime.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
-import {
+} = await import(new URL('../test-matrix/behavior-evidence-pre-runtime.mjs', import.meta.url));
+const {
     validateRequiredEvidenceCatalogBinding
-} from '../test-matrix/required-evidence-catalog.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
+} = await import(new URL('../test-matrix/required-evidence-catalog.mjs', import.meta.url));
 
 import {
     productionBuildReceiptSchema,
@@ -1442,7 +1442,7 @@ export const requiredEvidenceVerifier = Object.freeze({
     }),
     async verify({ receipt, context, domainInputs })
     {
-        const { describeOwnerReceipt, verifiedOwnerResult, requireOwnerChecks } = await import('./required-evidence-owner-contract.mjs');
+        const { verifiedOwnerResult, requireOwnerChecks } = await import('./required-evidence-owner-contract.mjs');
         if (!domainInputs?.buildReceiptDigest)
         {
             throw new Error('explicit build receipt digest is required');
