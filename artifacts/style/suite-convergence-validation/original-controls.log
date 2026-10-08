@@ -67,7 +67,7 @@ test at tests/tools/test-suite-convergence.test.mjs:35:1
 ✖ #2348 canonical MFA retirement retains before identities without post-baseline self-admission (61.97212ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
   + actual - expected
-  
+
   + [
   +   'xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json',
   +   'xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json',
@@ -79,7 +79,7 @@ test at tests/tools/test-suite-convergence.test.mjs:35:1
   +   'xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons: conflicting replacement declarations in tests/test-retention-replacements.json and tests/test-retention-replacements.json'
   + ]
   - []
-  
+
       at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/test-suite-convergence.test.mjs:56:12)
       at Test.runInAsyncScope (node:async_hooks:227:14)
       at Test.run (node:internal/test_runner/test:1382:25)

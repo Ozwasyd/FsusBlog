@@ -154,7 +154,26 @@
         },
         {
             "path": "artifacts/style/suite-convergence-validation/original-controls.log",
-            "sha256": "d0952130e73a30018d4cce941083f325d484309f74d762789433688dbe165562"
+            "sha256": "7bac2a1cfc3f9ea4927d90dc1f045cbf392ede08e9b5e3926b45594e3f1b2dff",
+            "representation": "whitespace-normalized-presentation",
+            "rawArtifact": {
+                "sourceCommit": "e179f92a7056781ffd55b277a4f98fb3bfcd69b9",
+                "path": "artifacts/style/suite-convergence-validation/original-controls.log",
+                "gitBlob": "f79830d11ce97b1f8a3d41add5807f57c3d5a750",
+                "sha256": "d0952130e73a30018d4cce941083f325d484309f74d762789433688dbe165562",
+                "externalArchivePath": "candidate-presentation/raw/original-controls.log"
+            },
+            "presentationTransform": {
+                "operation": "remove two ASCII spaces from each of two blank lines",
+                "lineNumbers": [
+                    70,
+                    82
+                ],
+                "removedBytes": 4,
+                "allNonBlankLineBytesPreserved": true,
+                "lineCountPreserved": true,
+                "historicalResultsAndQualificationUnchanged": true
+            }
         },
         {
             "path": "artifacts/style/suite-convergence-validation/retention-gate.log",
