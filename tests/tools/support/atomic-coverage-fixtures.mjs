@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { digestCanonical, sealContentDigest, sha256 } from '../../../tools/test/attempt-provenance.mjs';
-import { canonicalTestId, planExactShards, sealReplayPlan } from '../../../tools/test/execution-replay-contract.mjs';
-import { createCoveragePlan } from '../../../tools/coverage/atomic-coverage-plan.mjs';
+const {digestCanonical, sealContentDigest, sha256} = await import(new URL('../../../tools/test/attempt-provenance.mjs', import.meta.url));
+const {canonicalTestId, planExactShards, sealReplayPlan} = await import(new URL('../../../tools/test/execution-replay-contract.mjs', import.meta.url));
+const {createCoveragePlan} = await import(new URL('../../../tools/coverage/atomic-coverage-plan.mjs', import.meta.url));
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../../..');
 const identity = Object.freeze({ runId: 'coverage-fixture', sourceCommit: '1'.repeat(40), sourceFingerprint: `sha256:${'2'.repeat(64)}` });

@@ -1,7 +1,7 @@
-import path from 'node:path';
 import { lstatSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
-import { digestCanonical, sealContentDigest, sha256 } from '../test/attempt-provenance.mjs';
+const {digestCanonical, sealContentDigest, sha256} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 
 export const coverageProducerIds = Object.freeze([
     'coverage-backend', 'coverage-frontend', 'coverage-merge',
@@ -26,7 +26,10 @@ const sourcePaths = Object.freeze([
 
 export function requireCoverage(condition, message)
 {
-    if (!condition) throw new Error(`coverage.atomic-input-invalid: ${message}`);
+    if (!condition)
+    {
+        throw new Error(`coverage.atomic-input-invalid: ${message}`);
+    }
 }
 
 /** Read only an explicit repository-relative regular file, rejecting symlink ancestors. */

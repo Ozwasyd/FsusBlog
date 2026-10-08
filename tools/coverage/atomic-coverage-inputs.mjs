@@ -1,7 +1,7 @@
 import path from 'node:path';
 
-import { digestCanonical, sha256, validateAttemptReceipt } from '../test/attempt-provenance.mjs';
-import { validateReplayPlan } from '../test/execution-replay-contract.mjs';
+const {digestCanonical, sha256, validateAttemptReceipt} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
+const {validateReplayPlan} = await import(new URL('../test/execution-replay-contract.mjs', import.meta.url));
 import { readCoverageBytes, requireCoverage, validateCoveragePlan } from './atomic-coverage-plan.mjs';
 
 function readReference(root, reference)
@@ -88,7 +88,9 @@ export function readCoverageMaterial({ root, plan, producerId, material, verifyA
         const declared = producer.outputs.find((item) => item.role === artifact.role);
         requireCoverage(declared && artifact.path === declared.path && !roles.has(artifact.role)
             && !paths.has(artifact.path) && !capturedPaths.has(artifact.attemptPath), 'duplicate/wrong-domain artifact');
-        roles.add(artifact.role); paths.add(artifact.path); capturedPaths.add(artifact.attemptPath);
+        roles.add(artifact.role);
+        paths.add(artifact.path);
+        capturedPaths.add(artifact.attemptPath);
         requireCoverage(attempt.artifactDigests[artifact.attemptPath] === artifact.digest, 'output absent from canonical attempt');
         const bytes = readReference(root, { path: artifact.path, digest: artifact.digest });
         requireCoverage(sha256(readCoverageBytes(root, `${attemptDirectory}/${artifact.attemptPath}`)) === artifact.digest, 'captured output tamper');
