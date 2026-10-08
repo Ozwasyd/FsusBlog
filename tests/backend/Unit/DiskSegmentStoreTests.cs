@@ -198,18 +198,205 @@ public sealed class DiskSegmentStoreTests
     }
 
     [Fact]
+    public void DrainedWaitsForDisableEvenWhenEmptyAndLeavesCallerOwnedRootUsable()
+    {
+        using var fixture = new Fixture();
+        Task drained = fixture.Store.Drained;
+        Assert.False(drained.IsCompleted);
+        fixture.Store.RetryCleanup();
+        Assert.False(drained.IsCompleted);
+        fixture.Store.Disable();
+        Assert.True(drained.IsCompletedSuccessfully);
+        fixture.Store.Disable();
+        fixture.Store.Dispose();
+        Assert.Same(drained, fixture.Store.Drained);
+        Assert.True(drained.IsCompletedSuccessfully);
+        fixture.Root.Validate();
+        string name = fixture.Root.NewName("stage");
+        using (FileStream file = fixture.Root.CreateFile(name))
+        {
+            file.WriteByte(7);
+        }
+        using (FileStream file = fixture.Root.OpenRead(name))
+        {
+            Assert.Equal(7, file.ReadByte());
+        }
+        fixture.Root.Delete(name);
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Fact]
+    public async Task CanceledDrainedWaiterCannotReleaseLiveReaderOrCompleteSharedDrain()
+    {
+        using var fixture = new Fixture();
+        MemoryContentIdentity identity = Identity();
+        DiskSegmentPublication published = fixture.Publish(identity, [1, 2, 3]);
+        using DiskSegmentLease reader = fixture.Store.Acquire(published.SegmentId, identity).Value!;
+        Task drained = fixture.Store.Drained;
+        fixture.Store.Disable();
+        Assert.False(drained.IsCompleted);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => drained.WaitAsync(cancellation.Token));
+        Assert.Same(drained, fixture.Store.Drained);
+        Assert.False(drained.IsCompleted);
+        Assert.Single(fixture.Root.EnumerateNames(16));
+        Assert.Equal(32768, fixture.DiskUsed);
+        Assert.Equal(1, fixture.InodesUsed);
+        using var target = new MemoryStream();
+        Assert.True(reader.CopyTo(target).Succeeded);
+        Assert.Equal(new byte[] { 1, 2, 3 }, target.ToArray());
+        Assert.False(drained.IsCompleted);
+        reader.Dispose();
+        await drained.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(drained.IsCompletedSuccessfully);
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        fixture.Root.Validate();
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void DisableDuringRecoveryScanOrProbeAdmissionWaitsForTransientOperationDrain(int disableAtObservation)
+    {
+        Fixture? fixture = null;
+        int observations = 0;
+        using (fixture = new Fixture(duringAdmission: () =>
+        {
+            if (++observations == disableAtObservation)
+            {
+                Fixture active = fixture ?? throw new InvalidOperationException("Fixture must exist before admission.");
+                active.Store.Disable();
+                Assert.False(active.Store.Drained.IsCompleted);
+                active.Store.RetryCleanup();
+                Assert.False(active.Store.Drained.IsCompleted);
+            }
+        }))
+        {
+            string name = fixture.WriteRaw([1, 2, 3]);
+            DiskFileFootprint original = fixture.Root.ObserveFileFootprint(name);
+            int approvals = 0;
+            var result = fixture.Store.Recover(true, entry =>
+            {
+                approvals++;
+                return true;
+            });
+            Assert.Equal(disableAtObservation, observations);
+            Assert.Equal(MemoryFailure.TierUnavailable, result.Failure);
+            Assert.Equal(0, approvals);
+            Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+            Assert.Equal(name, Assert.Single(fixture.Root.EnumerateNames(16)));
+            Assert.Equal(original.Inode, fixture.Root.ObserveFileFootprint(name).Inode);
+            Assert.Empty(fixture.Coordinator.Allocations());
+            Assert.DoesNotContain(fixture.Coordinator.EventWindow().Events, entry => entry.Kind == "existing-registered");
+            Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
+            Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+            Assert.False(fixture.Coordinator.Snapshot().Faulted);
+            fixture.Root.Validate();
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DisableDuringReadOrInventoryAdmissionWaitsForWholeOperationDrain(bool acquireReader)
+    {
+        Fixture? fixture = null;
+        bool armed = false;
+        int disables = 0;
+        using (fixture = new Fixture(duringAdmission: () =>
+        {
+            if (armed)
+            {
+                armed = false;
+                disables++;
+                Fixture active = fixture ?? throw new InvalidOperationException("Fixture must exist before admission.");
+                active.Store.Disable();
+                Assert.False(active.Store.Drained.IsCompleted);
+                active.Store.RetryCleanup();
+                Assert.False(active.Store.Drained.IsCompleted);
+            }
+        }))
+        {
+            MemoryContentIdentity identity = Identity();
+            DiskSegmentPublication publication = fixture.Publish(identity, [1, 2, 3]);
+            armed = true;
+            MemoryFailure? failure = acquireReader
+                ? fixture.Store.Acquire(publication.SegmentId, identity).Failure
+                : fixture.Store.ObserveInventory().Failure;
+            Assert.Equal(MemoryFailure.TierUnavailable, failure);
+            Assert.Equal(1, disables);
+            Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+            Assert.Empty(fixture.Root.EnumerateNames(16));
+            Assert.Empty(fixture.Coordinator.Allocations());
+            Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
+            Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+            Assert.False(fixture.Coordinator.Snapshot().Faulted);
+            fixture.Root.Validate();
+        }
+    }
+
+    [Fact]
+    public void DisableDuringCompactionWaitsForExistingSourceLeaseAndWholeCompactionOperation()
+    {
+        using var fixture = new Fixture();
+        MemoryContentIdentity first = Identity();
+        MemoryContentIdentity second = Identity();
+        using var firstPayload = new MemoryStream([1, 2]);
+        using var secondPayload = new MemoryStream([3, 4]);
+        var publication = fixture.Store.Publish([new(first, firstPayload, firstPayload.Length),
+            new(second, secondPayload, secondPayload.Length)],
+            DiskSpillClassification.PublicImmutableReconstructible, true);
+        Assert.True(publication.Succeeded);
+        Guid segmentId = publication.Value!.SegmentId;
+        int predicates = 0;
+        var result = fixture.Store.Compact(segmentId, entry =>
+        {
+            if (++predicates == 2)
+            {
+                Assert.Equal(1, fixture.Coordinator.Snapshot().Reservations);
+                fixture.Store.Disable();
+                Assert.False(fixture.Store.Drained.IsCompleted);
+                fixture.Store.RetryCleanup();
+                Assert.False(fixture.Store.Drained.IsCompleted);
+                Assert.Single(fixture.Root.EnumerateNames(16));
+                Assert.Equal(32768, fixture.DiskUsed);
+                Assert.Equal(1, fixture.InodesUsed);
+            }
+            return true;
+        }, true);
+        Assert.Equal(2, predicates);
+        Assert.Equal(MemoryFailure.TierUnavailable, result.Failure);
+        Assert.Null(result.Value);
+        Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.Empty(fixture.Coordinator.Allocations());
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        Assert.False(fixture.Coordinator.Snapshot().Faulted);
+        fixture.Root.Validate();
+    }
+
+    [Fact]
     public void DisableBlocksNewOperationsAndDrainsExistingReaderBeforeDeletion()
     {
         using var fixture = new Fixture();
         MemoryContentIdentity identity = Identity();
         DiskSegmentPublication published = fixture.Publish(identity, [7]);
         DiskSegmentLease reader = fixture.Store.Acquire(published.SegmentId, identity).Value!;
+        Assert.False(fixture.Store.Drained.IsCompleted);
         fixture.Store.Disable();
+        Assert.False(fixture.Store.Drained.IsCompleted);
         Assert.Single(fixture.Root.EnumerateNames(16));
         Assert.Equal(MemoryFailure.TierUnavailable, fixture.Store.Acquire(published.SegmentId, identity).Failure);
         Assert.Equal(MemoryFailure.TierUnavailable, fixture.Store.Recover(true, _ => true).Failure);
         Assert.True(reader.CopyTo(new MemoryStream()).Succeeded);
+        Assert.False(fixture.Store.Drained.IsCompleted);
         reader.Dispose();
+        Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+        fixture.Root.Validate();
         Assert.Empty(fixture.Root.EnumerateNames(16));
         Assert.Equal(MemoryFailure.StaleLocation, reader.CopyTo(new MemoryStream()).Failure);
         Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
@@ -260,12 +447,16 @@ public sealed class DiskSegmentStoreTests
         {
             reader.Dispose();
             fixture.Store.Retire(source.SegmentId);
+            fixture.Store.Disable();
+            Assert.False(fixture.Store.Drained.IsCompleted);
             Assert.Single(fixture.Root.EnumerateNames(16));
             Assert.True(fixture.DiskUsed > 0);
             Assert.Equal(MemoryFailure.StaleLocation, reader.CopyTo(new MemoryStream()).Failure);
         });
         Assert.True(reader.CopyTo(target).Succeeded);
         Assert.Equal(new byte[256], target.ToArray());
+        Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+        fixture.Root.Validate();
         Assert.Empty(fixture.Root.EnumerateNames(16));
         Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
         reader.Dispose();
@@ -282,9 +473,13 @@ public sealed class DiskSegmentStoreTests
         {
             reader.Dispose();
             fixture.Store.Retire(source.SegmentId);
+            fixture.Store.Disable();
+            Assert.False(fixture.Store.Drained.IsCompleted);
             throw new InvalidOperationException("Task-owned caller staging failure.");
         });
         Assert.Throws<InvalidOperationException>(() => reader.CopyTo(target));
+        Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+        fixture.Root.Validate();
         Assert.Empty(fixture.Root.EnumerateNames(16));
         Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
     }
@@ -673,7 +868,9 @@ public sealed class DiskSegmentStoreTests
             Assert.Equal(1, before.Reservations);
             Assert.True(fixture.DiskUsed > 0);
             fixture.Store.Disable();
+            Assert.False(fixture.Store.Drained.IsCompleted);
             fixture.Store.RetryCleanup();
+            Assert.False(fixture.Store.Drained.IsCompleted);
             Assert.Equal(stage, Assert.Single(fixture.Root.EnumerateNames(16)));
             MemoryAccountingSnapshot retained = fixture.Coordinator.Snapshot();
             Assert.Equal(before.Reservations, retained.Reservations);
@@ -690,6 +887,8 @@ public sealed class DiskSegmentStoreTests
         Assert.Equal(1, callbacks);
         Assert.Equal(MemoryFailure.TierUnavailable, result.Failure);
         Assert.Null(result.Value);
+        Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+        fixture.Root.Validate();
         Assert.Empty(fixture.Root.EnumerateNames(16));
         Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
         Assert.Equal(0, fixture.Coordinator.Snapshot().Allocations);
@@ -711,7 +910,9 @@ public sealed class DiskSegmentStoreTests
             Assert.True(before.Reservations > 0);
             Assert.True(fixture.DiskUsed > 0);
             fixture.Store.Disable();
+            Assert.False(fixture.Store.Drained.IsCompleted);
             fixture.Store.RetryCleanup();
+            Assert.False(fixture.Store.Drained.IsCompleted);
             Assert.Equal(name, Assert.Single(fixture.Root.EnumerateNames(16)));
             MemoryAccountingSnapshot retained = fixture.Coordinator.Snapshot();
             Assert.Equal(before.Reservations, retained.Reservations);
@@ -724,6 +925,8 @@ public sealed class DiskSegmentStoreTests
         Assert.Equal(1, approvals);
         Assert.Equal(MemoryFailure.TierUnavailable, result.Failure);
         Assert.Null(result.Value);
+        Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+        fixture.Root.Validate();
         Assert.Empty(fixture.Root.EnumerateNames(16));
         Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
         Assert.Equal(0, fixture.Coordinator.Snapshot().Allocations);
@@ -777,6 +980,10 @@ public sealed class DiskSegmentStoreTests
         {
             Assert.Equal(charge.Value, fixture.Coordinator.Snapshot().Used[charge.Key]);
         }
+        fixture.Store.Disable();
+        Assert.False(fixture.Store.Drained.IsCompleted);
+        fixture.Store.RetryCleanup();
+        Assert.False(fixture.Store.Drained.IsCompleted);
         // The test owns both inodes. Restore only the original writer inode to exercise legal cleanup.
         File.Delete(replacementPath);
         File.Move(backup, replacementPath);
@@ -787,6 +994,8 @@ public sealed class DiskSegmentStoreTests
         Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
         Assert.Equal(0, fixture.Coordinator.Snapshot().Allocations);
         Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+        fixture.Root.Validate();
         Assert.False(fixture.Coordinator.Snapshot().Faulted);
     }
 
@@ -1276,6 +1485,10 @@ public sealed class DiskSegmentStoreTests
         fixture.Store.RetryCleanup();
         Assert.Equal(new byte[] { 7, 8, 9 }, File.ReadAllBytes(path));
         AssertRecoveryOwner(fixture, id, original.LogicalBytes);
+        fixture.Store.Disable();
+        Assert.False(fixture.Store.Drained.IsCompleted);
+        fixture.Store.RetryCleanup();
+        Assert.False(fixture.Store.Drained.IsCompleted);
         File.Delete(path);
         File.Move(backup, path);
         Assert.Equal(original.Inode, fixture.Root.ObserveFileFootprint(name).Inode);
@@ -1283,6 +1496,8 @@ public sealed class DiskSegmentStoreTests
         Assert.Empty(fixture.Root.EnumerateNames(16));
         Assert.Empty(fixture.Coordinator.Allocations());
         Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+        fixture.Root.Validate();
     }
 
     [Fact]
@@ -1327,6 +1542,7 @@ public sealed class DiskSegmentStoreTests
             {
                 Fixture active = fixture ?? throw new InvalidOperationException("Fixture must exist before admission.");
                 active.Store.Disable();
+                Assert.False(active.Store.Drained.IsCompleted);
             }
         }))
         {
@@ -1338,6 +1554,8 @@ public sealed class DiskSegmentStoreTests
                 approvals++;
                 return true;
             });
+            Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+            fixture.Root.Validate();
             Assert.Equal(3, observations);
             Assert.Equal(MemoryFailure.TierUnavailable, result.Failure);
             Assert.Equal(0, approvals);
@@ -1448,6 +1666,10 @@ public sealed class DiskSegmentStoreTests
         Assert.Equal(0, candidate.ReadCalls);
         Assert.Empty(fixture.Root.EnumerateNames(16));
         AssertRecoveryOwner(fixture, id, original.LogicalBytes);
+        fixture.Store.Disable();
+        Assert.False(fixture.Store.Drained.IsCompleted);
+        fixture.Store.RetryCleanup();
+        Assert.False(fixture.Store.Drained.IsCompleted);
         File.Move(backup, path);
         Assert.Equal(original.Inode, fixture.Root.ObserveFileFootprint(name).Inode);
         fixture.Store.RetryCleanup();
@@ -1455,6 +1677,8 @@ public sealed class DiskSegmentStoreTests
         Assert.False(File.Exists(backup));
         Assert.Empty(fixture.Coordinator.Allocations());
         Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+        fixture.Root.Validate();
         Assert.False(fixture.Coordinator.Snapshot().Faulted);
     }
 
@@ -1501,6 +1725,10 @@ public sealed class DiskSegmentStoreTests
             DiskSpillClassification.PublicImmutableReconstructible, true).Failure);
         Assert.Equal(0, candidate.ReadCalls);
         Assert.Empty(fixture.Root.EnumerateNames(16));
+        fixture.Store.Disable();
+        Assert.False(fixture.Store.Drained.IsCompleted);
+        fixture.Store.RetryCleanup();
+        Assert.False(fixture.Store.Drained.IsCompleted);
         File.Move(backup, path);
         Assert.Equal(originalInode, fixture.Root.ObserveFileFootprint(originalName).Inode);
         fixture.Store.RetryCleanup();
@@ -1508,6 +1736,8 @@ public sealed class DiskSegmentStoreTests
         Assert.False(File.Exists(backup));
         Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
         Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        Assert.True(fixture.Store.Drained.IsCompletedSuccessfully);
+        fixture.Root.Validate();
         Assert.False(fixture.Coordinator.Snapshot().Faulted);
     }
 

@@ -21,6 +21,10 @@ public sealed class DiskSegmentStore : IDisposable
     private readonly DiskSegmentLimits _limits;
     private readonly IDiskPhysicalAllocationPolicy _physicalPolicy;
     private readonly List<Segment> _segments = [];
+    private readonly TaskCompletionSource _drained = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _operations;
+    private int _temporaryResources;
+    private bool _releaseFailed;
     private bool _disabled;
 
     public DiskSegmentStore(OwnedSpillRoot root, DiskBudgetAdmission budget, DiskSegmentLimits limits,
@@ -39,12 +43,21 @@ public sealed class DiskSegmentStore : IDisposable
     /// <summary>Every write requires an owner policy; an absent frozen bound rejects before creation.</summary>
     public bool UsesPhysicalAllocationPolicy => true;
 
+    /// <summary>
+    /// Completes after Disable and actual release of every store-owned operation, lease,
+    /// handle and charge. Unresolved physical cleanup keeps it pending; temporary release
+    /// failures fault it. The caller-owned root, budget and copy targets are excluded.
+    /// Canceling a caller's wait never releases these resources.
+    /// </summary>
+    public Task Drained => _drained.Task;
+
     public MemoryOperationResult<DiskSpillInventoryObservation> ObserveInventory(CancellationToken cancellationToken = default)
     {
         if (!Monitor.TryEnter(_gate))
         {
             return MemoryOperationResult<DiskSpillInventoryObservation>.Reject(MemoryFailure.BudgetRejected);
         }
+        _operations++;
         try
         {
             if (_disabled)
@@ -57,7 +70,7 @@ public sealed class DiskSegmentStore : IDisposable
             {
                 return MemoryOperationResult<DiskSpillInventoryObservation>.Reject(admission.Failure!.Value);
             }
-            using MemoryReservation reservation = admission.Value!;
+            using OperationResource<MemoryReservation> reservation = Track(admission.Value!);
             if (_disabled)
             {
                 return MemoryOperationResult<DiskSpillInventoryObservation>.Reject(MemoryFailure.TierUnavailable);
@@ -71,8 +84,10 @@ public sealed class DiskSegmentStore : IDisposable
                 long untrackedFiles = 0;
                 long untrackedAllocatedBytes = 0;
                 int trackedFiles = 0;
-                foreach (string name in _root.EnumerateNames(_limits.MaxRecoveryFiles))
+                using OperationResource<IEnumerator<string>> scan = Track(_root.EnumerateNames(_limits.MaxRecoveryFiles).GetEnumerator());
+                while (scan.Resource.MoveNext())
                 {
+                    string name = scan.Resource.Current;
                     cancellationToken.ThrowIfCancellationRequested();
                     DiskFileFootprint footprint = _root.ObserveFileFootprint(name);
                     files = checked(files + 1);
@@ -106,7 +121,14 @@ public sealed class DiskSegmentStore : IDisposable
         }
         finally
         {
-            Monitor.Exit(_gate);
+            try
+            {
+                EndOperation();
+            }
+            finally
+            {
+                Monitor.Exit(_gate);
+            }
         }
     }
 
@@ -122,6 +144,7 @@ public sealed class DiskSegmentStore : IDisposable
         {
             return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.BudgetRejected);
         }
+        _operations++;
         try
         {
             if (_disabled)
@@ -165,10 +188,12 @@ public sealed class DiskSegmentStore : IDisposable
             {
                 return MemoryOperationResult<DiskSegmentPublication>.Reject(admission.Failure!.Value);
             }
+            using OperationResource<MemoryReservation> reservation = Track(admission.Value!);
             string stagingName = _root.NewName("stage");
             TryName(stagingName, out Guid id, out _);
             var segment = new Segment(id, stagingName, admission.Value!) { Bytes = size, Operations = 1 };
             _segments.Add(segment);
+            reservation.TransferOwnership();
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -188,8 +213,9 @@ public sealed class DiskSegmentStore : IDisposable
                     Cleanup(segment);
                     return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.BudgetRejected);
                 }
-                using (FileStream file = _root.CreateFile(segment.Name, () => segment.FileExists = true))
+                using (OperationResource<FileStream> handle = Track(_root.CreateFile(segment.Name, () => segment.FileExists = true)))
                 {
+                    FileStream file = handle.Resource;
                     segment.Footprint = _root.ObserveFileFootprint(file);
                     int count = records.Count;
                     if (count <= 0 || count > _limits.MaxRecordsPerSegment || count > admittedCount)
@@ -288,7 +314,14 @@ public sealed class DiskSegmentStore : IDisposable
         }
         finally
         {
-            Monitor.Exit(_gate);
+            try
+            {
+                EndOperation();
+            }
+            finally
+            {
+                Monitor.Exit(_gate);
+            }
         }
     }
 
@@ -303,6 +336,7 @@ public sealed class DiskSegmentStore : IDisposable
         {
             return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.BudgetRejected);
         }
+        _operations++;
         try
         {
             if (_disabled)
@@ -315,7 +349,7 @@ public sealed class DiskSegmentStore : IDisposable
             {
                 return MemoryOperationResult<DiskSegmentRecovery>.Reject(scanAdmission.Failure!.Value);
             }
-            using MemoryReservation scanReservation = scanAdmission.Value!;
+            using OperationResource<MemoryReservation> scanReservation = Track(scanAdmission.Value!);
             if (_disabled)
             {
                 return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.TierUnavailable);
@@ -325,8 +359,10 @@ public sealed class DiskSegmentStore : IDisposable
             int examined = 0;
             try
             {
-                foreach (string name in _root.EnumerateNames(_limits.MaxRecoveryFiles))
+                using OperationResource<IEnumerator<string>> scan = Track(_root.EnumerateNames(_limits.MaxRecoveryFiles).GetEnumerator());
+                while (scan.Resource.MoveNext())
                 {
+                    string name = scan.Resource.Current;
                     cancellationToken.ThrowIfCancellationRequested();
                     // Bounded scan includes unrelated names; unsupported version namespaces are never interpreted/deleted.
                     if (++examined > _limits.MaxRecoveryFiles)
@@ -349,16 +385,16 @@ public sealed class DiskSegmentStore : IDisposable
                     {
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(probe.Failure!.Value);
                     }
+                    using OperationResource<MemoryReservation> probeReservation = Track(probe.Value!);
                     if (_disabled)
                     {
-                        probe.Value!.Dispose();
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.TierUnavailable);
                     }
-                    using MemoryReservation probeReservation = probe.Value!;
                     long size;
                     DiskFileFootprint footprint;
-                    using (FileStream file = _root.OpenRead(name))
+                    using (OperationResource<FileStream> handle = Track(_root.OpenRead(name)))
                     {
+                        FileStream file = handle.Resource;
                         size = file.Length;
                         footprint = _root.ObserveFileFootprint(file);
                         if (!staging && !DiskSegmentFormat.Supported(file))
@@ -394,7 +430,7 @@ public sealed class DiskSegmentStore : IDisposable
                     {
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(admission.Failure!.Value);
                     }
-                    using MemoryReservation indexReservation = admission.Value!;
+                    using OperationResource<MemoryReservation> indexReservation = Track(admission.Value!);
                     if (_disabled)
                     {
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.TierUnavailable);
@@ -406,7 +442,7 @@ public sealed class DiskSegmentStore : IDisposable
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.OwnershipViolation);
                     }
                     MemoryOperationResult<IMemoryAllocationCharge> adopted = AdoptExisting(id, name, footprint,
-                        bound.Value!, indexReservation, indexBytes);
+                        bound.Value!, indexReservation.Resource, indexBytes);
                     if (!adopted.Succeeded)
                     {
                         // No ownership was registered: preserve the existing file and its
@@ -430,8 +466,9 @@ public sealed class DiskSegmentStore : IDisposable
                             discarded++;
                             continue;
                         }
-                        using (FileStream file = _root.OpenRead(name))
+                        using (OperationResource<FileStream> handle = Track(_root.OpenRead(name)))
                         {
+                            FileStream file = handle.Resource;
                             if (!SameFile(footprint, _root.ObserveFileFootprint(file)))
                             {
                                 throw new DiskFileSystemException("recover replaced spill file", 0, DiskFileSystemFailure.OwnershipChanged);
@@ -500,7 +537,14 @@ public sealed class DiskSegmentStore : IDisposable
         }
         finally
         {
-            Monitor.Exit(_gate);
+            try
+            {
+                EndOperation();
+            }
+            finally
+            {
+                Monitor.Exit(_gate);
+            }
         }
     }
 
@@ -511,6 +555,7 @@ public sealed class DiskSegmentStore : IDisposable
         {
             return MemoryOperationResult<DiskSegmentLease>.Reject(MemoryFailure.BudgetRejected);
         }
+        _operations++;
         try
         {
             Segment? segment = _segments.Find(candidate => candidate.Id == segmentId
@@ -530,16 +575,19 @@ public sealed class DiskSegmentStore : IDisposable
             {
                 return MemoryOperationResult<DiskSegmentLease>.Reject(admission.Failure!.Value);
             }
+            OperationResource<MemoryReservation> reservation = Track(admission.Value!);
+            OperationResource<FileStream>? handle = null;
             FileStream? file = null;
             try
             {
                 if (_disabled || segment.Retired)
                 {
-                    admission.Value!.Dispose();
+                    reservation.Dispose();
                     return MemoryOperationResult<DiskSegmentLease>.Reject(MemoryFailure.TierUnavailable);
                 }
                 _root.Validate();
-                file = _root.OpenRead(segment.Name);
+                handle = Track(_root.OpenRead(segment.Name));
+                file = handle.Resource;
                 if (segment.Footprint is null || !SameObject(segment.Footprint, _root.ObserveFileFootprint(file)))
                 {
                     throw new DiskFileSystemException("read replaced spill file", 0, DiskFileSystemFailure.OwnershipChanged);
@@ -550,14 +598,23 @@ public sealed class DiskSegmentStore : IDisposable
                 {
                     throw new InvalidDataException("Segment data or allocation changed since publication.");
                 }
-                segment.Leases++;
-                return MemoryOperationResult<DiskSegmentLease>.Success(
+                MemoryOperationResult<DiskSegmentLease> result = MemoryOperationResult<DiskSegmentLease>.Success(
                     new(file, segment.Id, segment.Entries.Count, segment.Bytes, entry, scratch, admission.Value!, () => Release(segment)));
+                segment.Leases++;
+                handle.TransferOwnership();
+                reservation.TransferOwnership();
+                return result;
             }
             catch (Exception exception) when (KnownFailure(exception))
             {
-                file?.Dispose();
-                admission.Value!.Dispose();
+                try
+                {
+                    handle?.Dispose();
+                }
+                finally
+                {
+                    reservation.Dispose();
+                }
                 if (exception is InvalidDataException or EndOfStreamException)
                 {
                     segment.Retired = true;
@@ -567,14 +624,27 @@ public sealed class DiskSegmentStore : IDisposable
             }
             catch
             {
-                file?.Dispose();
-                admission.Value!.Dispose();
+                try
+                {
+                    handle?.Dispose();
+                }
+                finally
+                {
+                    reservation.Dispose();
+                }
                 throw;
             }
         }
         finally
         {
-            Monitor.Exit(_gate);
+            try
+            {
+                EndOperation();
+            }
+            finally
+            {
+                Monitor.Exit(_gate);
+            }
         }
     }
 
@@ -596,6 +666,7 @@ public sealed class DiskSegmentStore : IDisposable
         {
             return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.BudgetRejected);
         }
+        _operations++;
         try
         {
             Segment? source = _segments.Find(segment => segment.Id == segmentId && segment.Published && !segment.Retired);
@@ -645,7 +716,14 @@ public sealed class DiskSegmentStore : IDisposable
         }
         finally
         {
-            Monitor.Exit(_gate);
+            try
+            {
+                EndOperation();
+            }
+            finally
+            {
+                Monitor.Exit(_gate);
+            }
         }
     }
 
@@ -659,6 +737,7 @@ public sealed class DiskSegmentStore : IDisposable
                 segment.Retired = true;
                 Cleanup(segment);
             }
+            CompleteIfDrained();
         }
     }
 
@@ -670,6 +749,7 @@ public sealed class DiskSegmentStore : IDisposable
             {
                 Cleanup(_segments[index]);
             }
+            CompleteIfDrained();
         }
     }
 
@@ -683,6 +763,7 @@ public sealed class DiskSegmentStore : IDisposable
                 _segments[index].Retired = true;
                 Cleanup(_segments[index]);
             }
+            CompleteIfDrained();
         }
     }
 
@@ -742,7 +823,8 @@ public sealed class DiskSegmentStore : IDisposable
         }
         // Keep an actual descriptor open through registration. Name, descriptor and
         // owner-frozen scope must agree before the common ledger observes ownership.
-        using FileStream backing = _root.OpenRead(name);
+        using OperationResource<FileStream> handle = Track(_root.OpenRead(name));
+        FileStream backing = handle.Resource;
         if (!SameFile(footprint, _root.ObserveFileFootprint(backing))
             || !SameFile(footprint, _root.ObserveFileFootprint(name)))
         {
@@ -773,12 +855,97 @@ public sealed class DiskSegmentStore : IDisposable
         {
             segment.Leases--;
             Cleanup(segment);
+            CompleteIfDrained();
+        }
+    }
+
+    private OperationResource<T> Track<T>(T resource) where T : IDisposable
+    {
+        var lifetime = new OperationResource<T>(this, resource);
+        _temporaryResources++;
+        return lifetime;
+    }
+
+    private void ReleaseTemporaryResource()
+    {
+        lock (_gate)
+        {
+            _temporaryResources--;
+            CompleteIfDrained();
+        }
+    }
+
+    private void EndOperation()
+    {
+        // This outer finally runs after all using scopes, including recovery's scan,
+        // probe and index reservations. Reentrant Disable cannot finish them early.
+        _operations--;
+        CompleteIfDrained();
+    }
+
+    private void FailTemporaryRelease(Exception exception)
+    {
+        lock (_gate)
+        {
+            // An uncertain handle release may still keep unlinked backing alive.
+            // Preserve its charges and stop growth rather than infer physical drain.
+            _releaseFailed = true;
+            _disabled = true;
+            foreach (Segment segment in _segments)
+            {
+                segment.Retired = true;
+            }
+            _drained.TrySetException(exception);
+        }
+    }
+
+    private void CompleteIfDrained()
+    {
+        if (_disabled && _operations == 0 && _temporaryResources == 0 && _segments.Count == 0)
+        {
+            _drained.TrySetResult();
+        }
+    }
+
+    private sealed class OperationResource<T>(DiskSegmentStore owner, T resource) : IDisposable where T : IDisposable
+    {
+        private int _released;
+        internal T Resource { get; } = resource;
+
+        internal void TransferOwnership()
+        {
+            // The bounded segment/lease roster now owns the same real resource.
+            // Transfer only changes lifetime tracking, never ledger accounting.
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                owner.ReleaseTemporaryResource();
+            }
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) != 0)
+            {
+                return;
+            }
+            try
+            {
+                Resource.Dispose();
+            }
+            catch (Exception exception)
+            {
+                // A failed release is not a terminal success even if a surrounding
+                // operation translates that exception to a typed failure result.
+                owner.FailTemporaryRelease(exception);
+                throw;
+            }
+            owner.ReleaseTemporaryResource();
         }
     }
 
     private void Cleanup(Segment segment)
     {
-        if (!segment.Retired || segment.Leases != 0 || segment.Operations != 0)
+        if (_releaseFailed || !segment.Retired || segment.Leases != 0 || segment.Operations != 0)
         {
             return;
         }
