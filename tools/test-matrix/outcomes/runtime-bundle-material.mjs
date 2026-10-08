@@ -1,9 +1,9 @@
 /* eslint-disable import-x/no-relative-parent-imports -- Consume the existing runtime and outcome contract owners. */
+import { freezeDeep } from '../../test-fixtures/receipt/canonical.mjs';
 import { normalizeRuntimeIdentity } from '../../test-runtime/contract.mjs';
 import { validateRuntimeResetBarrierReceipt } from '../../test-runtime/reset-barrier.mjs';
 import { runtimeStepCatalogDigest, validateRuntimeSchedulePlan } from '../../test-runtime/schedule-plan.mjs';
 import { validateRuntimeStateSnapshot } from '../../test-runtime/state-snapshot.mjs';
-import { freezeDeep } from '../../test-fixtures/receipt/canonical.mjs';
 
 import { exactIds, reason } from './adapter-support.mjs';
 import { readOutcomeFailureTaxonomy } from './outcome-contract.mjs';
@@ -17,7 +17,10 @@ const statuses = Object.freeze(['passed', 'failed', 'skipped', 'blocked', 'not-r
 
 function require(condition, message)
 {
-    if (!condition) throw new Error(`runtime outcome material: ${message}`);
+    if (!condition)
+    {
+        throw new Error(`runtime outcome material: ${message}`);
+    }
 }
 
 function records(values, label)
@@ -92,7 +95,10 @@ export function collectRuntimeBundleOutcomeMaterial(encodedInput, encodedExpecte
         'execution is cross-plan');
     const failures = [];
     const add = (kind, facts) => failures.push(reason(kind, runtimeBundleOutcomeProducerId, facts));
-    if (plan.seed !== expected.plan.seed) add('determinism.seed-drift', { replayPlanDigest: identity.replayDigest });
+    if (plan.seed !== expected.plan.seed)
+    {
+        add('determinism.seed-drift', { replayPlanDigest: identity.replayDigest });
+    }
     if (plan.clockDigest !== identity.clockDigest || actualIdentity.clockDigest !== identity.clockDigest)
     {
         add('determinism.clock-drift', { temporalContextDigest: identity.clockDigest });
@@ -144,7 +150,10 @@ export function collectRuntimeBundleOutcomeMaterial(encodedInput, encodedExpecte
         require(!['passed', 'failed'].includes(entry.status) || step.executed, `assertion was not executed: ${entry.id}`);
         require(!['blocked', 'skipped', 'not-reached'].includes(step.status) || entry.status === step.status,
             `assertion conceals unexecuted step: ${entry.id}`);
-        if (entry.status === 'failed') add('product.assertion', { assertionId: entry.id });
+        if (entry.status === 'failed')
+        {
+            add('product.assertion', { assertionId: entry.id });
+        }
         return { id: entry.id, stepId: entry.stepId, status: entry.status };
     }).sort((left, right) => left.id.localeCompare(right.id));
     equalIds(assertionOutcomes.filter((entry) => ['passed', 'failed'].includes(entry.status)).map((entry) => entry.id),
@@ -176,8 +185,14 @@ export function collectRuntimeBundleOutcomeMaterial(encodedInput, encodedExpecte
             requiredBoundaries.push(`before-mutating-step:${id}`, `after-mutating-step:${id}`);
         }
     }
-    if (execution.status === 'success') requiredBoundaries.push('after-runtime:');
-    for (const key of requiredBoundaries) require(boundaryKeys.has(key), `missing state boundary: ${key}`);
+    if (execution.status === 'success')
+    {
+        requiredBoundaries.push('after-runtime:');
+    }
+    for (const key of requiredBoundaries)
+    {
+        require(boundaryKeys.has(key), `missing state boundary: ${key}`);
+    }
     const finalCapture = captures.find((capture) => capture.snapshot.boundary === 'after-runtime');
     if (finalCapture)
     {
@@ -197,6 +212,24 @@ export function collectRuntimeBundleOutcomeMaterial(encodedInput, encodedExpecte
     const resets = execution.resetReceipts;
     require(Array.isArray(resets), 'reset receipts missing');
     const postconditions = [];
+    require(execution.postconditions && typeof execution.postconditions === 'object'
+        && !Array.isArray(execution.postconditions), 'step postconditions missing');
+    equalIds(Object.keys(execution.postconditions), executed, 'step postconditions');
+    for (const id of executed)
+    {
+        const observation = execution.postconditions[id];
+        const declared = exactIds(authority.steps[id].postconditions ?? [], 'catalog postconditions');
+        equalIds(exactIds(observation.declared, 'observed postconditions'), declared, 'declared postconditions');
+        require(['satisfied', 'failed'].includes(observation.status), 'unknown step postcondition status');
+        for (const postconditionId of declared)
+        {
+            if (observation.status === 'failed')
+            {
+                add('product.state-mismatch', { semanticId: postconditionId });
+            }
+            postconditions.push({ stepId: id, id: postconditionId, status: observation.status });
+        }
+    }
     for (const receipt of resets)
     {
         const barrier = receipt.barrier;
@@ -217,7 +250,10 @@ export function collectRuntimeBundleOutcomeMaterial(encodedInput, encodedExpecte
         {
             require(['satisfied', 'failed'].includes(result.status)
                 && /^sha256:[a-f0-9]{64}$/u.test(result.observationDigest), 'reset postcondition status/digest missing');
-            if (result.status !== 'satisfied') add('product.state-mismatch', { semanticId: result.domain });
+            if (result.status !== 'satisfied')
+            {
+                add('product.state-mismatch', { semanticId: result.domain });
+            }
             postconditions.push({ stepId: barrier.consumerStepId, id: declared.postcondition, domain: result.domain,
                 status: result.status, observationDigest: result.observationDigest });
         }
@@ -241,11 +277,17 @@ export function collectRuntimeBundleOutcomeMaterial(encodedInput, encodedExpecte
             artifactDigests.push({ id: artifact.id, digest: artifact.digest });
         }
     }
+    const taxonomyKinds = readOutcomeFailureTaxonomy();
+    require(Array.isArray(execution.failures ?? []), 'structured failures must be an array');
     for (const failure of execution.failures ?? [])
     {
-        const taxonomy = readOutcomeFailureTaxonomy().get(failure.kind);
+        const taxonomy = taxonomyKinds.get(failure.kind);
         require(taxonomy && taxonomy.requiredIdentity.every((field) => failure.identity?.[field] !== undefined)
             && failure.identity.producerId === runtimeBundleOutcomeProducerId, 'unknown or incomplete structured failure');
+        require(failure.identity.testId === undefined || plannedAssertions.has(failure.identity.testId),
+            'failure refers to an unplanned assertion');
+        require(failure.identity.assertionId === undefined || plannedAssertions.has(failure.identity.assertionId),
+            'failure refers to an unplanned assertion');
         failures.push(reason(failure.kind, runtimeBundleOutcomeProducerId, failure.identity));
     }
     const successful = execution.status === 'success' && failures.length === 0

@@ -19,8 +19,8 @@ async function fixture()
         accessedDomains: ['fixture.public-content'],
         observerBindings: { 'fixture.public-content': { observerId: 'fixture-observer', observerVersion: 'v1' } },
         steps: {
-            prepare: { writes: ['fixture.public-content'], resetBefore: [], resetAfter: [] },
-            observe: { reads: ['fixture.public-content'], resetBefore: [], resetAfter: [] }
+            prepare: { postconditions: ['prepared'], writes: ['fixture.public-content'], resetBefore: [], resetAfter: [] },
+            observe: { postconditions: ['observed'], reads: ['fixture.public-content'], resetBefore: [], resetAfter: [] }
         }
     };
     const plan = createRuntimeSchedulePlan({ steps, kind: 'canonical', concurrencyCap: 1, maxConcurrency: 1,
@@ -43,7 +43,9 @@ async function fixture()
         execution: { schema: 'fsusblog.production-runtime-order-execution.v1', identity, status: 'success',
             planId: plan.planId, planDigest: plan.contentDigest, executedStepIds: ['prepare', 'observe'],
             executedAssertionIds: ['assert:prepare', 'assert:observe'], boundarySnapshots: captures,
-            finalSnapshot: captures[3].snapshot, finalFragments: captures[3].fragments, resetReceipts: [], failures: [] },
+            finalSnapshot: captures[3].snapshot, finalFragments: captures[3].fragments, resetReceipts: [], failures: [],
+            postconditions: { prepare: { declared: ['prepared'], status: 'satisfied' },
+                observe: { declared: ['observed'], status: 'satisfied' } } },
         assertions: [{ id: 'assert:prepare', stepId: 'prepare', status: 'passed' },
             { id: 'assert:observe', stepId: 'observe', status: 'passed' }],
         artifacts: [{ id: 'state-export', disposition: 'correctness', digest: digest('artifact') },
@@ -61,7 +63,8 @@ const kinds = (material) => material.failures.map((failure) => failure.kind);
 
 function resealPlan(input, change)
 {
-    const { contentDigest, ...body } = input.plan;
+    const body = { ...input.plan };
+    delete body.contentDigest;
     change(body);
     input.plan = sealDocument(body);
     input.execution.planId = input.plan.planId;
@@ -111,6 +114,7 @@ test('blocked steps and not-reached steps retain distinct member and assertion o
     const value = await fixture();
     value.input.execution.status = 'partial';
     value.input.execution.executedStepIds = ['prepare'];
+    delete value.input.execution.postconditions.observe;
     value.input.execution.executedAssertionIds = ['assert:prepare'];
     value.input.bundle.schedulerTerminalReceipts.observe.terminalState = 'blocked';
     value.input.bundle.schedulerTerminalReceipts.observe.primaryFailureRefs = ['prepare'];
@@ -145,6 +149,7 @@ test('skipped members cannot borrow executed assertion observations', async () =
     const value = await fixture();
     value.input.execution.status = 'partial';
     value.input.execution.executedStepIds = ['prepare'];
+    delete value.input.execution.postconditions.observe;
     value.input.bundle.schedulerTerminalReceipts.observe.terminalState = 'skipped';
     assert.throws(() => collect(value), /assertion was not executed/);
     value.input.assertions[1].status = 'skipped';
@@ -168,7 +173,11 @@ test('unchanged passing assertions cannot hide a different final semantic state'
 test('runtime plan seed clock and replay drift use canonical structured taxonomy', async () =>
 {
     const value = await fixture();
-    resealPlan(value.input, (plan) => { plan.seed = 104729; plan.clockDigest = digest('different-clock'); });
+    resealPlan(value.input, (plan) =>
+    {
+        plan.seed = 104729;
+        plan.clockDigest = digest('different-clock');
+    });
     const result = collect(value);
     assert.deepEqual(kinds(result), ['determinism.seed-drift', 'determinism.clock-drift', 'determinism.execution-plan-drift']);
     assert.equal(result.status, 'failed');
@@ -244,8 +253,9 @@ test('reset postconditions and snapshot references use the original barrier veri
         beforeCapture: value.input.execution.boundarySnapshots[1], afterCapture: value.input.execution.boundarySnapshots[2],
         postconditionResults: [{ domain: 'fixture.public-content', status: 'satisfied', observationDigest: digest('postcondition') }] });
     value.input.execution.resetReceipts = [receipt];
-    assert.equal(collect(value).postconditions[0].status, 'satisfied');
-    const { receiptDigest, ...body } = receipt;
+    assert.equal(collect(value).postconditions.find((entry) => entry.id === 'fixture-ready').status, 'satisfied');
+    const body = { ...receipt };
+    delete body.receiptDigest;
     body.postconditionResults = [{ domain: 'fixture.public-content', status: 'failed', observationDigest: digest('postcondition') }];
     value.input.execution.resetReceipts = [sealDocument(body, 'receiptDigest')];
     assert.ok(kinds(collect(value)).includes('product.state-mismatch'));
@@ -261,4 +271,15 @@ test('runtime material admission requires explicit encoded input and a finite ho
     assert.throws(() => collect(value, 20), /byte limit/);
     assert.throws(() => collectRuntimeBundleOutcomeMaterial(value.input, JSON.stringify(value.expected), 1000000), /not text/);
     assert.throws(() => collectRuntimeBundleOutcomeMaterial('{}', '{}', Infinity), /explicit host byte limit/);
+});
+
+
+test('step postcondition failures and catalog membership are never replaced by bundle success', async () =>
+{
+    const value = await fixture();
+    value.input.execution.postconditions.observe.status = 'failed';
+    assert.equal(collect(value).status, 'failed');
+    assert.ok(kinds(collect(value)).includes('product.state-mismatch'));
+    value.input.execution.postconditions.observe.declared = [];
+    assert.throws(() => collect(value), /declared postconditions membership mismatch/);
 });
