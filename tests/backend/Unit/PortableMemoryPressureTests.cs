@@ -6,8 +6,8 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PortableMemoryPressureTests
 {
-    private static readonly ResourceDomainId Domain = new(Guid.Parse("ffec1a22-6d73-48b1-ae06-4cb16bd9802b"));
-    private static readonly DateTimeOffset Origin = DateTimeOffset.UnixEpoch;
+    private static readonly ResourceDomainId s_domain = new(Guid.Parse("ffec1a22-6d73-48b1-ae06-4cb16bd9802b"));
+    private static readonly DateTimeOffset s_origin = DateTimeOffset.UnixEpoch;
 
     [Theory]
     [InlineData(MemoryObservationState.Unknown)]
@@ -44,9 +44,9 @@ public sealed class PortableMemoryPressureTests
         MemoryPressureObservation previous = Observation(10, 1);
         MemoryPressureObservation current = Observation(20, 2);
         Assert.Equal(MemoryPressureTransition.DomainChanged,
-            MemoryPressureNormalizer.Compare(previous, current, Domain, 2, Origin.AddSeconds(2), TimeSpan.FromSeconds(10)).Transition);
+            MemoryPressureNormalizer.Compare(previous, current, s_domain, 2, s_origin.AddSeconds(2), TimeSpan.FromSeconds(10)).Transition);
         Assert.Equal(MemoryPressureTransition.DomainChanged,
-            MemoryPressureNormalizer.Compare(previous, current, new(Guid.NewGuid()), 1, Origin.AddSeconds(2), TimeSpan.FromSeconds(10)).Transition);
+            MemoryPressureNormalizer.Compare(previous, current, new(Guid.NewGuid()), 1, s_origin.AddSeconds(2), TimeSpan.FromSeconds(10)).Transition);
     }
 
     [Fact]
@@ -55,10 +55,10 @@ public sealed class PortableMemoryPressureTests
         MemoryPressureObservation previous = Observation(10, 1);
         MemoryPressureObservation current = Observation(20, 2);
         Assert.Equal(MemoryPressureTransition.Stale,
-            MemoryPressureNormalizer.Compare(previous, current, Domain, 1, Origin.AddSeconds(30), TimeSpan.FromSeconds(10)).Transition);
+            MemoryPressureNormalizer.Compare(previous, current, s_domain, 1, s_origin.AddSeconds(30), TimeSpan.FromSeconds(10)).Transition);
         Assert.Equal(MemoryPressureTransition.ClockDiscontinuity, Compare(current, previous).Transition);
         Assert.Equal(MemoryPressureTransition.ClockDiscontinuity,
-            MemoryPressureNormalizer.Compare(previous, current, Domain, 1, Origin, TimeSpan.FromSeconds(10)).Transition);
+            MemoryPressureNormalizer.Compare(previous, current, s_domain, 1, s_origin, TimeSpan.FromSeconds(10)).Transition);
         MemoryPressureObservation overflowPrevious = Observation(10, 1, timestamp: long.MinValue);
         MemoryPressureObservation overflowCurrent = Observation(20, 2, timestamp: long.MaxValue);
         Assert.Equal(MemoryPressureTransition.ClockDiscontinuity, Compare(overflowPrevious, overflowCurrent).Transition);
@@ -99,16 +99,16 @@ public sealed class PortableMemoryPressureTests
     {
         ResourceDomainId operations = new(Guid.NewGuid());
         var topology = new MemoryResourceTopology([
-            new(Domain, "payload", MemoryResourceUnit.Bytes, null),
+            new(s_domain, "payload", MemoryResourceUnit.Bytes, null),
             new(operations, "operations", MemoryResourceUnit.OperationSlots, null)
         ]);
         var ledger = new MemoryReservationCoordinator(topology, [
-            new(Domain, MemoryResourceUnit.Bytes, 64), new(operations, MemoryResourceUnit.OperationSlots, 2)
+            new(s_domain, MemoryResourceUnit.Bytes, 64), new(operations, MemoryResourceUnit.OperationSlots, 2)
         ], 1, 8, 16);
-        var source = new PortableMemoryPressureSource(ledger, Domain, new(Guid.NewGuid()), [
-            new(Domain, "payload", MemoryResourceUnit.Bytes), new(operations, "operations", MemoryResourceUnit.OperationSlots)
+        var source = new PortableMemoryPressureSource(ledger, s_domain, new(Guid.NewGuid()), [
+            new(s_domain, "payload", MemoryResourceUnit.Bytes), new(operations, "operations", MemoryResourceUnit.OperationSlots)
         ], TimeProvider.System, traceCapacity: 2);
-        using MemoryReservation reservation = ledger.TryReserve([new(Domain, MemoryResourceUnit.Bytes, 32)]).Value!;
+        using MemoryReservation reservation = ledger.TryReserve([new(s_domain, MemoryResourceUnit.Bytes, 32)]).Value!;
         for (int index = 0; index < 5; index++)
         {
             MemoryPressureSample sample = source.Capture();
@@ -130,18 +130,18 @@ public sealed class PortableMemoryPressureTests
         Assert.Empty(source.Trace());
         Assert.Equal(2UL, source.Capture().DomainRevision);
         Assert.Throws<ArgumentOutOfRangeException>(() => source.InvalidateDomain(2));
-        Assert.Throws<ArgumentException>(() => new PortableMemoryPressureSource(ledger, Domain, new(Guid.NewGuid()), [
-            new(Domain, "other-capacity", MemoryResourceUnit.Bytes)
+        Assert.Throws<ArgumentException>(() => new PortableMemoryPressureSource(ledger, s_domain, new(Guid.NewGuid()), [
+            new(s_domain, "other-capacity", MemoryResourceUnit.Bytes)
         ], TimeProvider.System, 2));
     }
 
     [Fact]
     public async Task DomainInvalidationDuringRealCaptureRefusesOldHistory()
     {
-        var topology = new MemoryResourceTopology([new(Domain, "payload", MemoryResourceUnit.Bytes, null)]);
-        var ledger = new MemoryReservationCoordinator(topology, [new(Domain, MemoryResourceUnit.Bytes, 64)], 1, 8, 16);
+        var topology = new MemoryResourceTopology([new(s_domain, "payload", MemoryResourceUnit.Bytes, null)]);
+        var ledger = new MemoryReservationCoordinator(topology, [new(s_domain, MemoryResourceUnit.Bytes, 64)], 1, 8, 16);
         using var clock = new BlockingClock();
-        var source = new PortableMemoryPressureSource(ledger, Domain, new(Guid.NewGuid()), [], clock, 2);
+        var source = new PortableMemoryPressureSource(ledger, s_domain, new(Guid.NewGuid()), [], clock, 2);
         Task<MemoryPressureSample> capture = Task.Run(source.Capture);
         try
         {
@@ -152,7 +152,10 @@ public sealed class PortableMemoryPressureTests
         {
             clock.Resume();
         }
-        await Assert.ThrowsAsync<InvalidOperationException>(async () => { await capture; });
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await capture;
+        });
         Assert.Empty(source.Trace());
         Assert.Equal(2UL, source.Capture().DomainRevision);
     }
@@ -162,8 +165,8 @@ public sealed class PortableMemoryPressureTests
     {
         Assert.Throws<ArgumentException>(() => Observation(1, 1, metric: MemoryPressureMetric.GcHeapBytes));
         Assert.Throws<ArgumentException>(() => new MemoryPressureObservation(MemoryPressureMetric.LedgerOperationSlots,
-            MemoryResourceUnit.Bytes, MemoryPressureScope.Ledger, Domain, 1, MemoryObservationState.Available,
-            1, "wrong-unit", Origin, 1, 1));
+            MemoryResourceUnit.Bytes, MemoryPressureScope.Ledger, s_domain, 1, MemoryObservationState.Available,
+            1, "wrong-unit", s_origin, 1, 1));
         Assert.Equal(MemoryPressureTransition.SourceChanged,
             Compare(Observation(10, 1), Observation(20, 2, metric: MemoryPressureMetric.ProcessWorkingSetBytes)).Transition);
     }
@@ -198,9 +201,9 @@ public sealed class PortableMemoryPressureTests
         MemoryPressureMetric metric = MemoryPressureMetric.TotalAllocatedBytes,
         MemoryPressureScope? scope = null, long? timestamp = null)
         => new(metric, MemoryResourceUnit.Bytes, scope ?? (metric == MemoryPressureMetric.LedgerChargedBytes
-            ? MemoryPressureScope.Ledger : MemoryPressureScope.Process), Domain, 1, state, value, "replay-fixture-v1",
-            Origin.AddSeconds(seconds), timestamp ?? seconds * 1000L, 1000);
+            ? MemoryPressureScope.Ledger : MemoryPressureScope.Process), s_domain, 1, state, value, "replay-fixture-v1",
+            s_origin.AddSeconds(seconds), timestamp ?? seconds * 1000L, 1000);
 
     private static MemoryPressureDelta Compare(MemoryPressureObservation previous, MemoryPressureObservation current)
-        => MemoryPressureNormalizer.Compare(previous, current, Domain, 1, Origin.AddSeconds(10), TimeSpan.FromSeconds(20));
+        => MemoryPressureNormalizer.Compare(previous, current, s_domain, 1, s_origin.AddSeconds(10), TimeSpan.FromSeconds(20));
 }

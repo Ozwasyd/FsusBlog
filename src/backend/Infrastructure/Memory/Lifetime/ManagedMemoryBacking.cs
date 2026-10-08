@@ -82,7 +82,7 @@ public sealed class ManagedMemoryBacking : IMemoryHostViewSource, IDisposable
     {
         ArgumentNullException.ThrowIfNull(ledger);
         content.Validate();
-        if (capacity <= 0 || payload.Length > capacity || holdLimit <= 0 || revision.Value == 0
+        if (capacity <= 0 || capacity > Array.MaxLength || payload.Length > capacity || holdLimit <= 0 || revision.Value == 0
             || epoch.Value == 0 || operationDomain.Value == Guid.Empty)
         {
             return MemoryOperationResult<ManagedMemoryBacking>.Reject(MemoryFailure.BoundsViolation);

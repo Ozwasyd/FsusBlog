@@ -12,6 +12,16 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ManagedMemoryBackingTests
 {
     [Fact]
+    public void ClrOutOfRangeCapacityIsRejectedBeforeCreatingAnyReservation()
+    {
+        var fixture = new Fixture(long.MaxValue);
+        Assert.Equal(MemoryFailure.BoundsViolation, fixture.TryCreate(int.MaxValue).Failure);
+        Assert.Empty(fixture.Ledger.EventWindow().Events);
+        Assert.Equal(0, fixture.Ledger.Snapshot().Reservations);
+        Assert.Equal(0, fixture.Ledger.Snapshot().Allocations);
+    }
+
+    [Fact]
     public async Task UnclassifiedBackingIsClearedOnlyAfterTheFinalReaderEnds()
     {
         var fixture = new Fixture(64);
