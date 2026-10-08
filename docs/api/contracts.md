@@ -2377,10 +2377,18 @@ distance、slug exact/prefix/fuzzy 和 distance、category/tag exact/prefix、ve
 Draft/Published/Scheduled/Archived priority、stable article ID 升序比较；exact title 不受 recent rank 覆盖。
 比较不消费 updatedAt、views、local history、AI 或 embedding。重复 title/slug 仍保留各自 article ID。
 
-当前交付仅为 input/ranking core；candidate construction 不证明 permission/history admission。生产 source
-adapter、服务端过滤、verified history 接入、sealed response/receipt、authenticated cursor、selection revalidation
-和 AEDS route/compiled observation 尚未接入。此 core 不能作为可用 query API、完整 scale/cancel/privacy 验收，
+当前交付包含 input/ranking core 和独立的内部 permission-first source measurement；candidate construction
+不证明 permission/history admission。完整 query source adapter、verified history 接入、sealed response/receipt、
+authenticated cursor、selection revalidation 和 AEDS route/compiled observation 尚未接入。此 core 不能作为
+可用 query API、完整 scale/cancel/privacy 验收，
 或 #2232 cache 可写入的 verified response。前端不得据此开启本地全量查询或 authority fallback。
+
+内部 `AuthorArticleQuerySourceInspection` 在只含 ID/revision/status 的读取前复用现有 live principal/site/session
+authority，并在管理元数据读取前只允许当前可 project 且可 write 的 ID。权限 digest 或 source coordinates
+变化时丢弃全部观察字段。规范 `ArticleService` projection 每批上限 1000；该内部测量不建立 ranked pagination、
+authorized query response、verified history projection 或 receipt，也不暴露 route。当前模型缺少 slug authority，
+空 corpus 同样明确为 `SlugUnavailable`；Archived read grant、verified Recent source wiring 和 query cursor
+分别保持 unavailable。内部观察不能作为成功响应写入 verified query cache 或 UI。
 
 ### Admin Author Workbench
 
