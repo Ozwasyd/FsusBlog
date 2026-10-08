@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/public-runtime-producers/declarations.mjs",
+                "tools/test/public-runtime-producers/projection.mjs",
+                "tools/test/public-runtime-producers/compiler-adapter.mjs",
+                "tools/test/public-runtime-producers/settled-reset-adapter.mjs"
+            ],
+            "reason": "Preserve existing public runtime environment spellings, catalog IDs and scheduler receipt keys while composing the canonical authorities through internal camelCase source APIs."
+        }
+    ]
+}
