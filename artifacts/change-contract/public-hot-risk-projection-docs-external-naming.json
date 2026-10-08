@@ -7,6 +7,13 @@
                 "src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs"
             ],
             "reason": "Preserve registered process-environment names on the existing projection owner while clarifying only XML replacement ordering and clock-relative expiry. Current-base/candidate Roslyn token, AST, signature and XML-stripped-byte equivalence confirms that executable source and external names are unchanged."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Consume the coordinator-approved NuGet consumer-lock prerequisite without adapting package-manager JSON keys, package names, versions or hashes. The only supplied backend lock change records Server's existing AngleSharp dependency edge; its bytes equal the approved source commit."
         }
     ]
 }
