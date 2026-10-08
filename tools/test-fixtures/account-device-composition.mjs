@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
-import { readFixtureCatalogs } from '../testing/fixture-catalog.mjs';
 import { canonicalJson, digestCanonical, freezeDeep } from './receipt/canonical.mjs';
 import { runPostcondition } from './receipt/postconditions.mjs';
 import { assertNoSecrets } from './receipt/secrets.mjs';
+
+const { readFixtureCatalogs } = await import(new URL('../testing/fixture-catalog.mjs', import.meta.url));
 
 const producerId = 'account-profile-preferences';
 const projectionKeys = [
@@ -30,7 +31,32 @@ function same(left, right)
 function sourceObservations(observations)
 {
     return { ...observations, database: { ...observations?.database,
-        entities: observations?.database?.entities?.map(({ variantId: _variantId, ...entity }) => entity) } };
+        entities: observations?.database?.entities?.map((entity) =>
+        {
+            const source = { ...entity };
+            delete source.variantId;
+            return source;
+        }) } };
+}
+
+function assertNoAccountPrivateMaterial(value)
+{
+    assertNoSecrets(value);
+    function visit(current)
+    {
+        if (!current || typeof current !== 'object')
+        {
+            return;
+        }
+        for (const [key, child] of Object.entries(current))
+        {
+            const normalized = key.replace(/[^a-z]/giu, '').toLowerCase();
+            requireCondition(!/(?:accesstoken|refreshtoken|sessiontoken|privatekey|password|recovery|proofsecret|credentialsecret|devicefingerprint|deviceprivatedata|rawstoragestate)/u.test(normalized)
+                && !/^(?:cookies?|storagestate|authorization)$/u.test(normalized), 'ordinary-private-material');
+            visit(child);
+        }
+    }
+    visit(value);
 }
 
 function selectedCapabilities(context, catalogs)
@@ -73,7 +99,7 @@ export function composeAccountDeviceRequests(context, result, verifiedIdentities
     }
     const raw = result?.compositionReceipt;
     requireCondition(raw?.producerId === producerId && raw.strategy === 'transaction-fixture', 'missing-account-source');
-    assertNoSecrets(raw);
+    assertNoAccountPrivateMaterial(raw);
     requireCondition(raw.namespace === context.namespace && raw.runId === context.runIdentity
         && raw.owner === `fxacct:${context.namespace}:${context.runIdentity}`, 'account-run-binding');
     requireCondition(same(raw.providedCapabilities, capabilities)
@@ -101,6 +127,8 @@ export function composeAccountDeviceRequests(context, result, verifiedIdentities
     const authority = localeAuthority();
     requireCondition(raw.localeCatalogDigest === authority.digest, 'locale-catalog-drift');
     requireCondition(/^[a-f0-9]{64}$/u.test(raw.contentDigest), 'account-source-digest');
+    requireCondition(result.producerVariantPlanDigest === context.variantPlan?.producerVariantPlanDigest,
+        'producer-plan-drift');
     requireCondition(Array.isArray(raw.entityIdentities) && raw.entityIdentities.length === entities.length
         && entities.every((entity) => raw.entityIdentities.filter((identity) =>
             identity.id === entity.id && identity.kind === entity.kind
@@ -142,6 +170,15 @@ export function composeAccountDeviceRequests(context, result, verifiedIdentities
             && same(projections.map((item) => item.deviceRole).sort(), [...fields.deviceRoles].sort())
             && new Set(fields.deviceRoles).size === fields.deviceRoles.length
             && projections.length > 0 && projections.length === fields.deviceProjectionCount, 'device-role-coverage');
+        for (const [field, projectedField] of [
+            ['incomingDeviceLocales', 'incomingDeviceLocale'],
+            ['explicitCookieLocales', 'explicitCookieLocale'],
+            ['serverResolvedLocales', 'resolvedLocale']
+        ])
+        {
+            requireCondition(same(fields[field], [...new Set(projections.map((projection) => projection[projectedField]))]),
+                'device-resolution-summary-drift');
+        }
         let siteOrigin;
         try
         {
@@ -185,7 +222,7 @@ export function composeAccountDeviceRequests(context, result, verifiedIdentities
         }
     }
     requireCondition(raw.deviceProjections.length === requests.length, 'unowned-device-projection');
-    assertNoSecrets(requests);
+    assertNoAccountPrivateMaterial(requests);
     return freezeDeep(requests);
 }
 
@@ -193,7 +230,7 @@ export function composeAccountDeviceRequests(context, result, verifiedIdentities
 export function assertAccountCleanupOwnership(context, result, verifiedIdentities)
 {
     const raw = result?.compositionReceipt;
-    assertNoSecrets(raw);
+    assertNoAccountPrivateMaterial(raw);
     requireCondition(raw?.namespace === context.namespace && raw.runId === context.runIdentity
         && raw.owner === `fxacct:${context.namespace}:${context.runIdentity}`
         && verifiedIdentities?.namespace === context.namespace

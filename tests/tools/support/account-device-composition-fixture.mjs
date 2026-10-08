@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
-import { readFixtureCatalogs } from '../../../tools/testing/fixture-catalog.mjs';
+const { readFixtureCatalogs } = await import(new URL('../../../tools/testing/fixture-catalog.mjs', import.meta.url));
+
 
 const producerId = 'account-profile-preferences';
 const digest = 'ab'.repeat(32);
@@ -127,7 +128,8 @@ export function accountCompositionTestInput()
     return {
         context: { namespace: raw.namespace, runIdentity: raw.runId,
             profileIdentity: { profileId: 'account-profile-preferences' },
-            variantPlan: { variants: raw.providedCapabilities.map((capabilityId) => ({ capabilityId, validityClass: 'canonical-positive' })) },
+            variantPlan: { producerVariantPlanDigest: `sha256:${digest}`,
+                variants: raw.providedCapabilities.map((capabilityId) => ({ capabilityId, validityClass: 'canonical-positive' })) },
             temporalContext: { unitTestOnly: true }, handles: { accountDeviceSiteOrigin: 'https://account-device.example' } },
         result: { compositionReceipt: raw, observations: raw.observations, deviceProjections: raw.deviceProjections,
             providedCapabilities: raw.providedCapabilities, producerVariantPlanDigest: `sha256:${digest}` },

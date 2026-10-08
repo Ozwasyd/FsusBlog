@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { assertAccountCleanupOwnership, composeAccountDeviceRequests } from '../../tools/test-fixtures/account-device-composition.mjs';
 import { accountCompositionTestInput } from './support/account-device-composition-fixture.mjs';
+
+const { assertAccountCleanupOwnership, composeAccountDeviceRequests } = await import(new URL('../../tools/test-fixtures/account-device-composition.mjs', import.meta.url));
 
 function compose(input)
 {
@@ -30,42 +31,166 @@ test('profile none composes no account or device state', () =>
 });
 
 const sourceMutations = [
-    ['cross-run', (input) => { input.result.compositionReceipt.runId = 'another-run'; }],
-    ['cross-namespace', (input) => { input.result.compositionReceipt.namespace = 'another-namespace'; }],
-    ['foreign owner', (input) => { input.result.compositionReceipt.owner = 'another-owner'; }],
-    ['cross-auth-profile', (input) => { input.verifiedIdentities.profileId = 'another-profile'; }],
-    ['unverified auth', (input) => { input.verifiedIdentities.verified = false; }],
-    ['same account all auth states', (input) => { input.verifiedIdentities.references[1].publicId = input.verifiedIdentities.references[0].publicId; }],
-    ['same observed account reused', (input) => { input.result.compositionReceipt.observations.database.entities[1].id = input.result.compositionReceipt.observations.database.entities[0].id; }],
-    ['missing DB', (input) => { input.result.compositionReceipt.observations.database.entities.pop(); }],
-    ['missing reader', (input) => { input.result.compositionReceipt.observations.cache.entries.pop(); }],
-    ['reader revision', (input) => { input.result.compositionReceipt.observations.cache.entries[0].revision += 1; }],
-    ['reader mismatch', (input) => { input.result.compositionReceipt.observations.cache.entries[0].matchesDatabase = false; }],
-    ['second reader domain', (input) => { input.result.compositionReceipt.observations.cache.entries[0].domain = 'another-reader'; }],
-    ['missing device', (input) => { input.result.compositionReceipt.deviceProjections.pop(); }],
-    ['stale device revision', (input) => { input.result.compositionReceipt.deviceProjections[0].revision += 1; }],
-    ['foreign device user', (input) => { input.result.compositionReceipt.deviceProjections[0].userRef = 'user-999'; }],
-    ['device capability drift', (input) => { input.result.compositionReceipt.deviceProjections[0].capabilityId = 'preferences.locale.auto'; }],
-    ['device account mode drift', (input) => { input.result.compositionReceipt.deviceProjections[0].accountMode = 'auto'; }],
-    ['device account locale drift', (input) => { input.result.compositionReceipt.deviceProjections[0].accountLocale = null; }],
-    ['unknown resolved locale', (input) => { input.result.compositionReceipt.deviceProjections[0].resolvedLocale = 'unknown-locale'; }],
-    ['stale catalog', (input) => { input.result.compositionReceipt.localeCatalogDigest = '00'.repeat(32); }],
-    ['device catalog drift', (input) => { input.result.compositionReceipt.deviceProjections[0].catalogDigest = '00'.repeat(32); }],
-    ['duplicate device roles', (input) => { input.result.compositionReceipt.deviceProjections.at(-1).deviceRole = 'device-a'; }],
-    ['unowned extra projection', (input) => { input.result.compositionReceipt.deviceProjections.push({ ...input.result.compositionReceipt.deviceProjections[0], userRef: 'user-999' }); }],
-    ['auth side effect', (input) => { input.result.compositionReceipt.observations.database.entities[0].fields.securityStateUnchanged = false; }],
-    ['revision overwrite', (input) => { input.result.compositionReceipt.observations.database.entities.find((entity) => entity.capabilityHint.endsWith('revision-conflict')).fields.newerValuePreserved = false; }],
-    ['handle conflict overwrite', (input) => { input.result.compositionReceipt.observations.database.entities.find((entity) => entity.capabilityHint === 'profile.public-handle.conflict').fields.challengerPreserved = false; }],
-    ['warning-only source', (input) => { input.result.compositionReceipt.observations.warningOnly = true; }],
-    ['fallback source', (input) => { input.result.compositionReceipt.observations.source = 'local-fallback'; }],
-    ['missing identity', (input) => { input.result.compositionReceipt.entityIdentities.pop(); }],
-    ['private data field', (input) => { input.result.compositionReceipt.deviceProjections[0].privateKey = 'sensitive'; }],
-    ['token material', (input) => { input.result.compositionReceipt.deviceProjections[0].resolutionSource = 'Bearer abc'; }],
-    ['missing site origin', (input) => { delete input.context.handles.accountDeviceSiteOrigin; }],
-    ['site URL with path', (input) => { input.context.handles.accountDeviceSiteOrigin += '/account'; }],
-    ['site URL with credentials', (input) => { input.context.handles.accountDeviceSiteOrigin = 'https://user:password@account-device.example'; }],
-    ['normalized device drift', (input) => { input.result.deviceProjections = []; }],
-    ['duplicate plan capability', (input) => { input.context.variantPlan.variants.push(input.context.variantPlan.variants[0]); }]
+    ['cross-run', (input) =>
+    {
+        input.result.compositionReceipt.runId = 'another-run';
+    }],
+    ['cross-namespace', (input) =>
+    {
+        input.result.compositionReceipt.namespace = 'another-namespace';
+    }],
+    ['foreign owner', (input) =>
+    {
+        input.result.compositionReceipt.owner = 'another-owner';
+    }],
+    ['cross-auth-profile', (input) =>
+    {
+        input.verifiedIdentities.profileId = 'another-profile';
+    }],
+    ['unverified auth', (input) =>
+    {
+        input.verifiedIdentities.verified = false;
+    }],
+    ['same account all auth states', (input) =>
+    {
+        input.verifiedIdentities.references[1].publicId = input.verifiedIdentities.references[0].publicId;
+    }],
+    ['same observed account reused', (input) =>
+    {
+        input.result.compositionReceipt.observations.database.entities[1].id = input.result.compositionReceipt.observations.database.entities[0].id;
+    }],
+    ['missing DB', (input) =>
+    {
+        input.result.compositionReceipt.observations.database.entities.pop();
+    }],
+    ['missing reader', (input) =>
+    {
+        input.result.compositionReceipt.observations.cache.entries.pop();
+    }],
+    ['reader revision', (input) =>
+    {
+        input.result.compositionReceipt.observations.cache.entries[0].revision += 1;
+    }],
+    ['reader mismatch', (input) =>
+    {
+        input.result.compositionReceipt.observations.cache.entries[0].matchesDatabase = false;
+    }],
+    ['second reader domain', (input) =>
+    {
+        input.result.compositionReceipt.observations.cache.entries[0].domain = 'another-reader';
+    }],
+    ['missing device', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections.pop();
+    }],
+    ['stale device revision', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections[0].revision += 1;
+    }],
+    ['foreign device user', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections[0].userRef = 'user-999';
+    }],
+    ['device capability drift', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections[0].capabilityId = 'preferences.locale.auto';
+    }],
+    ['device account mode drift', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections[0].accountMode = 'auto';
+    }],
+    ['device account locale drift', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections[0].accountLocale = null;
+    }],
+    ['unknown resolved locale', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections[0].resolvedLocale = 'unknown-locale';
+    }],
+    ['stale catalog', (input) =>
+    {
+        input.result.compositionReceipt.localeCatalogDigest = '00'.repeat(32);
+    }],
+    ['device catalog drift', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections[0].catalogDigest = '00'.repeat(32);
+    }],
+    ['duplicate device roles', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections.at(-1).deviceRole = 'device-a';
+    }],
+    ['unowned extra projection', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections.push({ ...input.result.compositionReceipt.deviceProjections[0], userRef: 'user-999' });
+    }],
+    ['auth side effect', (input) =>
+    {
+        input.result.compositionReceipt.observations.database.entities[0].fields.securityStateUnchanged = false;
+    }],
+    ['revision overwrite', (input) =>
+    {
+        input.result.compositionReceipt.observations.database.entities.find((entity) => entity.capabilityHint.endsWith('revision-conflict')).fields.newerValuePreserved = false;
+    }],
+    ['handle conflict overwrite', (input) =>
+    {
+        input.result.compositionReceipt.observations.database.entities.find((entity) => entity.capabilityHint === 'profile.public-handle.conflict').fields.challengerPreserved = false;
+    }],
+    ['warning-only source', (input) =>
+    {
+        input.result.compositionReceipt.observations.warningOnly = true;
+    }],
+    ['fallback source', (input) =>
+    {
+        input.result.compositionReceipt.observations.source = 'local-fallback';
+    }],
+    ['missing identity', (input) =>
+    {
+        input.result.compositionReceipt.entityIdentities.pop();
+    }],
+    ['private data field', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections[0].privateKey = 'sensitive';
+    }],
+    ['camel-case private field in DB', (input) =>
+    {
+        input.result.compositionReceipt.observations.database.entities[0].fields.deviceFingerprint = 'sensitive';
+    }],
+    ['recovery material in cleanup plan', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState[0].recoveryMaterial = 'sensitive';
+    }],
+    ['token material', (input) =>
+    {
+        input.result.compositionReceipt.deviceProjections[0].resolutionSource = 'Bearer abc';
+    }],
+    ['missing site origin', (input) =>
+    {
+        delete input.context.handles.accountDeviceSiteOrigin;
+    }],
+    ['site URL with path', (input) =>
+    {
+        input.context.handles.accountDeviceSiteOrigin += '/account';
+    }],
+    ['site URL with credentials', (input) =>
+    {
+        input.context.handles.accountDeviceSiteOrigin = 'https://user:password@account-device.example';
+    }],
+    ['normalized device drift', (input) =>
+    {
+        input.result.deviceProjections = [];
+    }],
+    ['old resolved locale summary', (input) =>
+    {
+        input.result.compositionReceipt.observations.database.entities[0].fields.serverResolvedLocales = [];
+    }],
+    ['producer plan drift', (input) =>
+    {
+        input.result.producerVariantPlanDigest = `sha256:${'00'.repeat(32)}`;
+    }],
+    ['duplicate plan capability', (input) =>
+    {
+        input.context.variantPlan.variants.push(input.context.variantPlan.variants[0]);
+    }]
 ];
 
 for (const [name, mutate] of sourceMutations)
@@ -79,14 +204,38 @@ for (const [name, mutate] of sourceMutations)
 }
 
 const cleanupMutations = [
-    ['cross-run', (input) => { input.result.compositionReceipt.runId = 'another-run'; }],
-    ['cross-profile', (input) => { input.verifiedIdentities.profileId = 'another-profile'; }],
-    ['unowned account', (input) => { input.result.compositionReceipt.cleanupState[0].userId = 999; }],
-    ['duplicate account', (input) => { input.result.compositionReceipt.cleanupState[1].userId = input.result.compositionReceipt.cleanupState[0].userId; }],
-    ['missing compensation', (input) => { input.result.compositionReceipt.cleanupState.pop(); }],
-    ['foreign security digest', (input) => { input.result.compositionReceipt.cleanupState[0].securityStateDigest = '00'.repeat(32); }],
-    ['profile resets preference', (input) => { input.result.compositionReceipt.cleanupState.find((state) => state.profileChanged).preferenceChanged = true; }],
-    ['preference resets handle', (input) => { input.result.compositionReceipt.cleanupState.find((state) => state.preferenceChanged).profileChanged = true; }]
+    ['cross-run', (input) =>
+    {
+        input.result.compositionReceipt.runId = 'another-run';
+    }],
+    ['cross-profile', (input) =>
+    {
+        input.verifiedIdentities.profileId = 'another-profile';
+    }],
+    ['unowned account', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState[0].userId = 999;
+    }],
+    ['duplicate account', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState[1].userId = input.result.compositionReceipt.cleanupState[0].userId;
+    }],
+    ['missing compensation', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState.pop();
+    }],
+    ['foreign security digest', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState[0].securityStateDigest = '00'.repeat(32);
+    }],
+    ['profile resets preference', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState.find((state) => state.profileChanged).preferenceChanged = true;
+    }],
+    ['preference resets handle', (input) =>
+    {
+        input.result.compositionReceipt.cleanupState.find((state) => state.preferenceChanged).profileChanged = true;
+    }]
 ];
 
 for (const [name, mutate] of cleanupMutations)

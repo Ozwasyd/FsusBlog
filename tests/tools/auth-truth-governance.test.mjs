@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+
+const { checkAccountLocaleFixtureGovernance } = await import(new URL('../../tools/test/check-account-locale-fixture-governance.mjs', import.meta.url));
+const { checkAuthFixtureGovernance } = await import(new URL('../../tools/test/check-auth-fixture-governance.mjs', import.meta.url));
+const { checkAuthTruthGovernance } = await import(new URL('../../tools/test/check-auth-truth-governance.mjs', import.meta.url));
+const { scanAccountAuthFixtureSources } = await import(new URL('../../tools/test/account-auth-fixture-source-scan.mjs', import.meta.url));
+
+
+const examples = [
+    ['token-signing', 'jwt.sign(claims, key);'],
+    ['direct-auth-storage', 'db.query("INSERT INTO step_up_proof VALUES (1)");'],
+    ['placeholder-credential', 'const kind = "placeholder_credential";'],
+    ['legacy-strength', 'const kind = "legacy_mfa";'],
+    ['claim-only-step-up', 'const stepUpVerified = true;'],
+    ['permission-second-map', 'const permissionMap = {};'],
+    ['duration-hardcode', 'const cookieMaxAge = 2592000;'],
+    ['truth-inference', 'truthFromFilename(file);'],
+    ['refresh-context-rebuild', 'context.refreshAuthTime = now;'],
+    ['cross-truth-root', 'const storage = sharedCanonicalLegacyRoot;'],
+    ['legacy-wrapper', 'compatAuthTruthReader();'],
+    ['ordinary-secret-output', 'console.error({ proofSecret });']
+];
+
+for (const [ruleId, source] of examples)
+{
+    test(`auth truth source scanner detects ${ruleId}: ${source.split('(')[0]}`, () =>
+    {
+        const report = scanAccountAuthFixtureSources('auth-truth', [{ path: 'tests/truth.ts', source }]);
+        assert.ok(report.violations.some((item) => item.ruleId === ruleId));
+    });
+}
+
+test('all checkers refuse terminal acceptance when actual cleanup authorities are absent', () =>
+{
+    const root = mkdtempSync(path.join(tmpdir(), 'account-auth-source-scan-'));
+    try
+    {
+        execFileSync('git', ['init', '--quiet', root]);
+        writeFileSync(path.join(root, 'source.ts'), 'const observed = canonical.read(binding);\n');
+        for (const checker of [checkAccountLocaleFixtureGovernance, checkAuthFixtureGovernance, checkAuthTruthGovernance])
+        {
+            const report = checker(root);
+            assert.equal(report.status, 'blocked');
+            assert.deepEqual(report.violations, []);
+            assert.equal(report.blockers[0].code, 'verified-cleanup-authority-unavailable');
+            assert.equal('receiptDigest' in report, false);
+        }
+        symlinkSync('/does-not-exist', path.join(root, 'external.ts'));
+        assert.ok(checkAuthTruthGovernance(root).blockers.some((item) => item.code === 'source-not-bounded-regular-file'));
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});

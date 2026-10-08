@@ -10,9 +10,10 @@
 
 import { createHash } from 'node:crypto';
 
-import { assertAccountCleanupOwnership, composeAccountDeviceRequests } from '../account-device-composition.mjs';
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 import { validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
+
+const { assertAccountCleanupOwnership, composeAccountDeviceRequests } = await import(new URL('../account-device-composition.mjs', import.meta.url));
 const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForPostgres, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 const producerId = 'account-profile-preferences';
 const strategy = 'transaction-fixture';
@@ -201,15 +202,36 @@ function endpointContext(context)
             'account profile/preference composition root requires an explicit backend URL and fixture secret'
         );
     }
+    let endpoint;
+    try
+    {
+        endpoint = new URL(baseUrl);
+    }
+    catch
+    {
+        throw new Error('account profile/preference backend URL is invalid');
+    }
+    if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password)
+    {
+        throw new Error('account profile/preference backend URL requires an HTTP origin without credentials');
+    }
     return Object.freeze({ baseUrl, secret });
 }
 
 async function invoke(context, action, body, signal)
 {
+    signal?.throwIfAborted();
     const adapter = context.handles?.accountProfilePreferenceAdapter;
     if (adapter && typeof adapter[action] === 'function')
     {
-        return adapter[action](body, context, signal);
+        try
+        {
+            return await adapter[action](body, context, signal);
+        }
+        catch (error)
+        {
+            throw new Error(`account profile/preference ${action} authority invocation failed`, { cause: error });
+        }
     }
     const { baseUrl, secret } = endpointContext(context);
     const headers = {
@@ -416,7 +438,13 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
         if (verification?.ok !== true
             || verification.contentDigest !== producerResult.compositionReceipt.contentDigest)
         {
-            return { ok: false, producerId, reason: 'live verification failed' };
+            return { ok: false, producerId, reason: 'live verification failed', failureDigest: stableDigest(verification ?? null) };
+        }
+        if (!Array.isArray(verification.verifiedCapabilities)
+            || JSON.stringify([...verification.verifiedCapabilities].sort())
+                !== JSON.stringify([...producerResult.providedCapabilities].sort()))
+        {
+            return { ok: false, producerId, reason: 'live verification capability coverage is incomplete' };
         }
         const deviceProjectionRequests = composeAccountDeviceRequests(context, producerResult, verifiedIdentityReferences);
         if (deviceProjectionRequests.length > 0)
@@ -446,7 +474,13 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
         return {
             ok: false,
             producerId,
-            reason: error instanceof Error ? error.message : String(error)
+            reason: error instanceof Error ? error.message : 'account verification failed',
+            failureDigest: stableDigest({
+                name: error instanceof Error ? error.name : typeof error,
+                message: error instanceof Error ? error.message : null,
+                cause: error?.cause instanceof Error
+                    ? { name: error.cause.name, message: error.cause.message } : null
+            })
         };
     }
 }

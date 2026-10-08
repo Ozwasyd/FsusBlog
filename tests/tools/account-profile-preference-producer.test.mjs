@@ -187,7 +187,7 @@ function compositionAdapter()
         async verify(receipt)
         {
             calls.push({ action: 'verify', receipt });
-            return { ok: true, contentDigest: receipt.contentDigest };
+            return { ok: true, contentDigest: receipt.contentDigest, verifiedCapabilities: receipt.providedCapabilities };
         },
         async cleanup(receipt)
         {
@@ -329,7 +329,7 @@ test('live transport sends prepare identity headers only to the prepare endpoint
         if (action === 'verify')
         {
             const receipt = JSON.parse(options.body);
-            return Response.json({ ok: true, contentDigest: receipt.contentDigest });
+            return Response.json({ ok: true, contentDigest: receipt.contentDigest, verifiedCapabilities: receipt.providedCapabilities });
         }
         return new Response(null, { status: 204 });
     };
@@ -372,6 +372,87 @@ test('producer verification fails closed without the sealed auth ProducerReceipt
 
     assert.equal(verification.ok, false);
     assert.match(verification.reason, /exact sealed auth-session ProducerReceipt/u);
+});
+
+test('profile-only source verification uses canonical profile checks without device side effects', async () =>
+{
+    const adapter = compositionAdapter();
+    const planned = plannedContext({ adapter });
+    const context = { ...planned, variantPlan: { ...planned.variantPlan,
+        variants: planned.variantPlan.variants.filter((variant) => variant.capabilityId.startsWith('profile.')) } };
+    const result = await prepareAccountProfilePreferences(context);
+    const verification = await verifyAccountProfilePreferences(context, result);
+    assert.equal(verification.ok, true);
+    assert.deepEqual(result.deviceProjections, []);
+});
+
+test('no account capabilities and already-aborted prepare invoke no authority', async () =>
+{
+    const adapter = compositionAdapter();
+    const context = plannedContext({ adapter });
+    await assert.rejects(() => prepareAccountProfilePreferences({ ...context,
+        variantPlan: { ...context.variantPlan, variants: [] } }), /zero owned capabilities/u);
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(() => prepareAccountProfilePreferences(context, controller.signal), { name: 'AbortError' });
+    assert.deepEqual(adapter.calls, []);
+});
+
+test('foreign compensation plan never reaches cleanup authority', async () =>
+{
+    const adapter = compositionAdapter();
+    const context = plannedContext({ adapter });
+    const result = await prepareAccountProfilePreferences(context);
+    result.compositionReceipt.cleanupState[0].userId = 999;
+    await assert.rejects(() => cleanupAccountProfilePreferences(context, result), /cleanup-unowned-account/u);
+    assert.deepEqual(adapter.calls.map((call) => call.action), ['prepare']);
+});
+
+test('adapter failure retains original private cause while ordinary verdict stays redacted', async () =>
+{
+    const adapter = compositionAdapter();
+    const failure = new Error('Bearer material-that-must-remain-private');
+    const context = plannedContext({ adapter });
+    const result = await prepareAccountProfilePreferences(context);
+    adapter.verify = async () =>
+    {
+        throw failure;
+    };
+    const verdict = await verifyAccountProfilePreferences(context, result);
+    assert.equal(verdict.ok, false);
+    assert.equal(JSON.stringify(verdict).includes(failure.message), false);
+    assert.match(verdict.failureDigest, /^[a-f0-9]{64}$/u);
+    adapter.verify = async () =>
+    {
+        throw new Error('a different private failure');
+    };
+    assert.notEqual((await verifyAccountProfilePreferences(context, result)).failureDigest, verdict.failureDigest);
+    adapter.prepare = async () =>
+    {
+        throw failure;
+    };
+    await assert.rejects(() => prepareAccountProfilePreferences(context), (error) =>
+        error.cause === failure && !error.message.includes(failure.message));
+});
+
+test('an ok API reply with partial, missing, duplicate or extra capability proof cannot verify', async () =>
+{
+    for (const select of [
+        () => undefined,
+        (capabilities) => capabilities.slice(1),
+        (capabilities) => [...capabilities, capabilities[0]],
+        (capabilities) => [...capabilities, 'auth.user.active']
+    ])
+    {
+        const adapter = compositionAdapter();
+        const context = plannedContext({ adapter });
+        const result = await prepareAccountProfilePreferences(context);
+        adapter.verify = async (receipt) => ({ ok: true, contentDigest: receipt.contentDigest,
+            verifiedCapabilities: select(receipt.providedCapabilities) });
+        const verification = await verifyAccountProfilePreferences(context, result);
+        assert.equal(verification.ok, false);
+        assert.match(verification.reason, /coverage is incomplete/u);
+    }
 });
 
 test('producer fails closed without identity refs or with cross-run refs', async () =>
