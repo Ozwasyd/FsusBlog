@@ -287,6 +287,51 @@ test('local, CI and Production filters use the same platform projection', () =>
     }
 });
 
+test('Windows production plan preserves the canonical LocalRedis exclusion', () =>
+{
+    const records = [
+        unixPlatformTest,
+        portablePlatformTest,
+        {
+            ...portablePlatformTest,
+            id: 'integration-id',
+            traits: { Category: ['Integration'] }
+        },
+        {
+            ...portablePlatformTest,
+            id: 'redis-id',
+            traits: { Fixture: ['LocalRedis'] }
+        }
+    ];
+    const plan = projectProductionPlatformPlan(records, 'win32');
+    assert.equal(plan.lane, 'backend-production');
+    assert.equal(plan.executionFilter,
+        '(Category!=Integration&Category!=Performance&Fixture!=LocalRedis)&Platform!=Unix');
+    assert.equal(plan.discoveredTestCaseCount, 2);
+    assert.equal(plan.plannedTestCaseCount, 1);
+    assert.equal(plan.notSelectedTestCaseCount, 1);
+    assert.deepEqual(projectProductionUnionRecords(records, 'win32'), [portablePlatformTest]);
+    assert.equal(plan.localRedisTests.length, 4);
+    assert.ok(plan.localRedisTests.every((record) => record.result === 'not-selected'));
+    assert.equal(plan.platformTests[0].result, 'not-selected');
+
+    const outcome = reconcileBackendPlatformOutcome(plan, []);
+    assert.equal(outcome.platformTests[0].result, 'not-selected');
+    for (const record of plan.localRedisTests)
+    {
+        assert.throws(() => reconcileBackendPlatformOutcome(plan, [{
+            testId: 'excluded-redis-result',
+            testName: record.fullyQualifiedName,
+            outcome: 'Passed'
+        }]), /executed a not-selected LocalRedis test/u);
+    }
+    assert.throws(() => reconcileBackendPlatformOutcome(plan, [{
+        testId: unixPlatformTest.id,
+        testName: unixPlatformTest.displayName,
+        outcome: 'Passed'
+    }]), /executed not-selected Unix test/u);
+});
+
 test('platform metadata is closed-world and cannot disappear or be ignored by the runner', () =>
 {
     assert.throws(
