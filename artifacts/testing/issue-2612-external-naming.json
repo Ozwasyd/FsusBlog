@@ -18,9 +18,10 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test-inventory/discovery.mjs"
             ],
-            "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            "reason": "preserve the canonical execution and environment authority spellings while verifying the current producer roster and interpreting bounded observed MSBuild path separators"
         }
     ]
 }
