@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/contracts/generate-locale-catalog.mjs",
+                "tools/contracts/check-locale-catalog.mjs"
+            ],
+            "reason": "Preserve external tooling identifiers on the registered tools/**/*.mjs surface. Generator byte parity and canonical consumer-parser reuse add no environment-variable names and keep all locale codes, JSON fields, public exports and digests unchanged."
+        }
+    ]
+}

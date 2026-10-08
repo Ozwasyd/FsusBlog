@@ -229,7 +229,7 @@ export async function admitPublicShellLocaleRuntimeBindings({ root, matrix, harn
             existing.identities.push(identity);
             return existing;
         }
-        const record = { url, file: relative, digest: artifact.sha256, identities: [identity] };
+        const record = { url, file: relative, digest: artifact.sha256, size: artifact.size, identities: [identity] };
         resources.set(url, record);
         return record;
     }

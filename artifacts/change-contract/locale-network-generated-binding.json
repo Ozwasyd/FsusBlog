@@ -1,0 +1,18 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "src/frontend/src/locales/routeLocaleDomains.ts",
+        "tests/browser-contract/public-shell-locale-lifecycle-evidence.mjs",
+        "tests/browser-contract/public-shell-locale-network.mjs",
+        "tests/browser-contract/public-shell-locale-runtime-bindings.mjs",
+        "tools/test-matrix/verify-public-shell-locale.mjs",
+        "tools/contracts/generate-locale-catalog.mjs",
+        "tools/contracts/check-locale-catalog.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "ef0829eb03740527e8ba85be4e600d021aa6d2cebdd4b5f1d7a832d07f092359"
+        }
+    ]
+}
