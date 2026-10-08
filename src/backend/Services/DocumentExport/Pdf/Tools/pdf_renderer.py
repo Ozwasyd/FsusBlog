@@ -344,6 +344,84 @@ def image_signature(image):
     return (image.width, image.height, digest(color + alpha.tobytes()))
 
 
+def rtl_layout_lines(page):
+    from weasyprint.text.ffi import ffi, pango
+
+    result = []
+    for line_box in page._page_box.descendants():
+        if type(line_box).__name__ != "LineBox":
+            continue
+        text_boxes = [
+            box
+            for box in line_box.descendants()
+            if type(box).__name__ == "TextBox" and box.text
+        ]
+        if not any(
+            unicodedata.bidirectional(character) in {"R", "AL"}
+            for box in text_boxes
+            for character in box.text
+        ):
+            continue
+        glyphs = []
+        for box_index, box in enumerate(text_boxes):
+            layout = box.pango_layout
+            layout.reactivate(box.style)
+            try:
+                pango.pango_layout_set_single_paragraph_mode(layout.layout, True)
+                line, _ = layout.get_first_line()
+                text = layout.text.encode("utf-8")
+                run = line.runs[0]
+                advance = 0
+                while run != ffi.NULL:
+                    item = run.data
+                    run = run.next
+                    shaped = item.glyphs
+                    offset = item.item.offset
+                    positions = [
+                        offset + shaped.log_clusters[i]
+                        for i in range(shaped.num_glyphs)
+                    ]
+                    if item.item.analysis.level % 2:
+                        positions.insert(0, offset + item.item.length)
+                    else:
+                        positions.append(offset + item.item.length)
+                    for index in range(shaped.num_glyphs):
+                        glyph = shaped.glyphs[index]
+                        start, end = sorted(positions[index : index + 2])
+                        characters = text[start:end].decode("utf-8")
+                        if glyph.glyph != pango.PANGO_GLYPH_EMPTY and compact_text(
+                            characters
+                        ):
+                            glyphs.append(
+                                {
+                                    "text": compact_text(characters),
+                                    "x": (
+                                        box.position_x
+                                        + (advance + glyph.geometry.x_offset) / 1024
+                                    )
+                                    * 0.75,
+                                    "y": (
+                                        box.position_y
+                                        + box.baseline
+                                        + glyph.geometry.y_offset / 1024
+                                    )
+                                    * 0.75,
+                                    "order": (box_index, start),
+                                }
+                            )
+                        advance += glyph.geometry.width
+            finally:
+                layout.deactivate()
+        result.append(
+            {
+                "glyphs": glyphs,
+                "left": min(box.position_x for box in text_boxes) * 0.75,
+                "right": max(box.position_x + box.width for box in text_boxes) * 0.75,
+            }
+        )
+    return result
+
+
 def layout_witnesses(document, request):
     from PIL import Image, ImageChops
 
@@ -422,7 +500,14 @@ def layout_witnesses(document, request):
                         "visibleInk": visible_ink,
                     }
                 )
-        pages.append({"links": links, "images": images, "codeLines": code_lines})
+        pages.append(
+            {
+                "links": links,
+                "images": images,
+                "codeLines": code_lines,
+                "rtlLines": rtl_layout_lines(page),
+            }
+        )
     return pages
 
 
@@ -575,11 +660,68 @@ def validate_code_lines(page, expected):
             raise PdfRejected("code-whitespace-semantics")
 
 
-def read_body_text(page, body):
-    # MuPDF's logical-text pass can reverse the characters *inside* an RTL
-    # ligature. Use the actual ToUnicode glyph cluster, retaining its declared
-    # character order, rather than swapping letters based on expected content.
-    traces = page.get_texttrace()
+def read_body_text(page, body, rtl_lines):
+    # Pango's frozen-font layout supplies cluster positions and logical indices.
+    # The letters below always come from actual PDF ToUnicode clusters: matching
+    # source letters at those positions prevents arbitrary BiDi reordering from
+    # accepting a changed letter sequence.
+    clusters = []
+    buckets = {}
+    for span in page.get_texttrace():
+        previous = None
+        for codepoint, glyph, origin, rectangle in span["chars"]:
+            if glyph == -1 and previous is not None:
+                previous["text"] += chr(codepoint)
+            else:
+                previous = {"text": chr(codepoint), "x": origin[0], "y": origin[1]}
+                index = len(clusters)
+                clusters.append(previous)
+                key = (round(origin[0] * 4), round(origin[1] * 4))
+                buckets.setdefault(key, []).append(index)
+    corrected = []
+    for reference in rtl_lines:
+        used = set()
+        pieces = []
+        for expected in reference["glyphs"]:
+            key = (round(expected["x"] * 4), round(expected["y"] * 4))
+            candidates = [
+                index
+                for dx in (-1, 0, 1)
+                for dy in (-1, 0, 1)
+                for index in buckets.get((key[0] + dx, key[1] + dy), [])
+                if index not in used
+                and abs(clusters[index]["x"] - expected["x"]) <= 0.25
+                and abs(clusters[index]["y"] - expected["y"]) <= 0.25
+                and compact_text(clusters[index]["text"]) == expected["text"]
+            ]
+            if not candidates:
+                raise PdfRejected("text-order-or-content")
+            index = min(
+                candidates,
+                key=lambda index: abs(clusters[index]["x"] - expected["x"])
+                + abs(clusters[index]["y"] - expected["y"]),
+            )
+            used.add(index)
+            pieces.append((expected["order"], clusters[index]["text"]))
+        baselines = {glyph["y"] for glyph in reference["glyphs"]}
+        for index, cluster in enumerate(clusters):
+            if (
+                index not in used
+                and compact_text(cluster["text"])
+                and reference["left"] - 0.25
+                <= cluster["x"]
+                <= reference["right"] + 0.25
+                and any(abs(cluster["y"] - y) <= 0.25 for y in baselines)
+            ):
+                raise PdfRejected("text-order-or-content")
+        corrected.append(
+            {
+                "reference": reference,
+                "baselines": baselines,
+                "text": "".join(text for order, text in sorted(pieces)),
+                "seen": False,
+            }
+        )
     lines = []
     for block in page.get_text("rawdict", clip=body, sort=True)["blocks"]:
         for line in block.get("lines", []):
@@ -587,43 +729,37 @@ def read_body_text(page, body):
                 character for span in line["spans"] for character in span["chars"]
             ]
             text = "".join(character["c"] for character in characters)
-            directional = [
-                unicodedata.bidirectional(character)
-                for character in text
-                if not character.isspace()
-            ]
-            if any(direction in {"R", "AL"} for direction in directional) and all(
-                direction in {"R", "AL", "NSM", "ON", "BN"} for direction in directional
-            ):
-                baselines = {character["origin"][1] for character in characters}
-                clusters = []
-                for span in traces:
-                    previous = None
-                    for codepoint, glyph, origin, rectangle in span["chars"]:
-                        if not (
-                            any(
-                                abs(origin[1] - baseline) <= 0.25
-                                for baseline in baselines
-                            )
-                            and line["bbox"][0] - 0.25
-                            <= origin[0]
-                            <= line["bbox"][2] + 0.25
-                        ):
-                            previous = None
-                            continue
-                        if glyph == -1 and previous is not None:
-                            previous["text"] += chr(codepoint)
-                        else:
-                            previous = {"text": chr(codepoint), "x": origin[0]}
-                            clusters.append(previous)
-                if clusters:
-                    text = "".join(
-                        cluster["text"]
-                        for cluster in sorted(
-                            clusters, key=lambda cluster: -cluster["x"]
-                        )
-                    )
+            for candidate in corrected:
+                reference = candidate["reference"]
+                if not any(
+                    abs(character["origin"][1] - y) <= 0.25
+                    for character in characters
+                    for y in candidate["baselines"]
+                ):
+                    continue
+                if not any(
+                    reference["left"] - 0.25
+                    <= character["origin"][0]
+                    <= reference["right"] + 0.25
+                    for character in characters
+                ):
+                    continue
+                if any(
+                    not character["c"].isspace()
+                    and not reference["left"] - 0.25
+                    <= character["origin"][0]
+                    <= reference["right"] + 0.25
+                    for character in characters
+                ):
+                    raise PdfRejected("text-order-or-content")
+                # MuPDF can split one HTML line at an inline font/BiDi run.
+                # Every glyph was checked above, including unexpected extras.
+                text = "" if candidate["seen"] else candidate["text"]
+                candidate["seen"] = True
+                break
             lines.append(text)
+    if any(not candidate["seen"] for candidate in corrected):
+        raise PdfRejected("text-order-or-content")
     return "\n".join(lines) + "\n"
 
 
@@ -735,11 +871,11 @@ def verify_pdf(data, request, witnesses=None):
             # SVG text is a separate PDF XObject and can occur later in object
             # order than its visible position. Sort text blocks by reading
             # position while retaining each block's logical Unicode order.
-            text = read_body_text(page, body)
+            reference = witnesses[page.number]
+            text = read_body_text(page, body, reference["rtlLines"])
             if "\ufffd" in text or "\x00" in text:
                 raise PdfRejected("text-tofu")
             extracted.append(text)
-            reference = witnesses[page.number]
             validate_layout_images(page, image_signatures, reference["images"])
             validate_visible_images(data, page.number, reference["images"])
             validate_layout_links(page, pdf, reference["links"])

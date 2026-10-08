@@ -41,9 +41,13 @@ repeated targets and images. Wrapped links retain all their annotation rectangle
 Verify mode never calls the PDF writer or replaces the supplied PDF. Code checks
 preserve logical ligature order; tabs are checked through their rendered space
 and line geometry rather than discarded with other whitespace.
-For plain RTL text, actual PDF ToUnicode glyph clusters retain their internal
-character order during reading-order reconstruction, including lam-alef. Expected
-article text never supplies replacement letters; a substituted letter order fails.
+RTL text, including Latin/digit and inline-font mixtures, is checked against the
+existing frozen-font Pango layout's glyph-cluster positions and UTF-8 logical
+indices. Actual PDF ToUnicode clusters must have the declared letters at those
+positions. Logical output is rebuilt from those verified actual clusters, including
+lam-alef, rather than reversing a mixed line or supplying expected source letters.
+A changed letter or digit order remains a hard failure. This uses the existing
+print-engine/native dependencies and adds no new parser or package authority.
 Raster images also undergo a PDFium visibility check. An independently parsed
 in-memory page retains only its direct image painting objects; its image-region
 pixels must agree with the original full page. Full or partial overlays are

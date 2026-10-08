@@ -522,6 +522,40 @@ def test_rtl_ligature_order_cannot_hide_letter_substitution():
         tool.verify_pdf(data, value)
 
 
+@pytest.mark.parametrize(
+    "text,direction",
+    [
+        ("سلام PDF", "rtl"),
+        ("سلام 123", "rtl"),
+        ("سلام PDF 123 مرحبا", "rtl"),
+        ("PDF سلام 123", "ltr"),
+    ],
+)
+def test_rtl_latin_and_digits_preserve_native_logical_cluster_order(text, direction):
+    value = request(f"<p dir='{direction}'>{text}</p>", text)
+    result = render_in_process(value)
+    assert (
+        tool.verify_pdf(base64.b64decode(result["pdfBase64"]), value)["pageCount"] == 1
+    )
+
+
+def test_rtl_mixed_inline_fonts_preserve_logical_order():
+    value = request("<p dir='rtl'>سلام <strong>PDF</strong> 123</p>", "سلام PDF 123")
+    result = render_in_process(value)
+    assert (
+        tool.verify_pdf(base64.b64decode(result["pdfBase64"]), value)["pageCount"] == 1
+    )
+
+
+def test_rtl_mixed_order_rejects_changed_digits_without_replacing_source_letters():
+    value = request("<p dir='rtl'>سلام 123</p>", "سلام 123")
+    render_in_process(value)
+    changed = request("<p dir='rtl'>سلام 321</p>", "سلام 321")
+    data = base64.b64decode(render_in_process(changed)["pdfBase64"])
+    with pytest.raises(tool.PdfRejected, match="text-order-or-content"):
+        tool.verify_pdf(data, value)
+
+
 def test_table_footer_before_body_is_explicitly_rejected():
     fragment = (
         "<table><thead><tr><th>A</th><th>B</th></tr></thead>"
