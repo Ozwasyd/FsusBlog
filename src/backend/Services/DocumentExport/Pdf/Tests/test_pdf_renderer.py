@@ -1,0 +1,355 @@
+"""Real PDF render/parse controls; fixtures are canonical-HTML boundary inputs."""
+
+import base64
+import importlib.util
+import io
+import json
+import subprocess
+import sys
+from contextlib import closing
+from pathlib import Path
+
+import pikepdf
+import pymupdf
+import pypdfium2
+import pytest
+from fontTools import subset
+from fontTools.ttLib import TTFont
+from PIL import Image
+
+tool_path = Path(__file__).parents[1] / "Tools" / "pdf_renderer.py"
+spec = importlib.util.spec_from_file_location("pdf_renderer", tool_path)
+tool = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(tool)
+
+
+def font_asset(path, family="DejaVu Sans", font_number=None, characters=None):
+    if font_number is None and characters is None:
+        data = Path(path).read_bytes()
+    else:
+        with TTFont(
+            path, fontNumber=font_number if font_number is not None else -1
+        ) as font:
+            if characters is not None:
+                subsetter = subset.Subsetter()
+                subsetter.populate(text=characters + "0123456789/ ")
+                subsetter.subset(font)
+            stream = io.BytesIO()
+            font.save(stream)
+            data = stream.getvalue()
+    return {
+        "family": family,
+        "weight": 400,
+        "style": "normal",
+        "mediaType": "font/ttf",
+        "bytes": base64.b64encode(data).decode(),
+        "sha256": tool.digest(data),
+    }
+
+
+def request(fragment="<p>Hello PDF</p>", expected="Hello PDF", links=None, fonts=None):
+    fonts = fonts or [font_asset("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")]
+    faces = "".join(
+        f"@font-face{{font-family:'{font['family']}';src:url(data:{font['mediaType']};base64,{font['bytes']})}}"
+        for font in fonts
+    )
+    css = "@page{size:A4;margin:18mm;@bottom-center{content:counter(page)' / 'counter(pages);font-size:9px}}body{margin:0;font-family:'DejaVu Sans';font-size:12px}pre{white-space:pre-wrap;overflow-wrap:anywhere}table{table-layout:fixed;width:100%}td{overflow-wrap:anywhere}.page-break{break-before:page}"
+    return {
+        "htmlDocument": f"<!doctype html><html><head><meta charset='utf-8'><style>{faces}{css}</style></head><body>{fragment}</body></html>",
+        "fontAssets": fonts,
+        "expectedText": expected,
+        "expectedLinks": links or [],
+        "inputDigest": "sha256:" + "a" * 64,
+        "printProfile": "a4-reading-v1",
+        "pdfBase64": None,
+    }
+
+
+def render_in_process(value):
+    # Fontconfig is process-global, so each render uses a fresh real process.
+    completed = subprocess.run(
+        [sys.executable, str(tool_path), "render"],
+        input=json.dumps(value).encode(),
+        capture_output=True,
+        timeout=60,
+    )
+    if completed.returncode:
+        raise tool.PdfRejected(completed.stderr.decode().strip())
+    return json.loads(completed.stdout)
+
+
+def test_real_paginated_pdf_preserves_links_breaks_and_embedded_fonts(tmp_path):
+    value = request(
+        "<h1>First page</h1><p><a href='https://example.org/'>Safe link</a></p><p class='page-break'>Second page</p>",
+        "First pageSafe linkSecond page",
+        ["https://example.org/"],
+    )
+    result = render_in_process(value)
+    data = base64.b64decode(result["pdfBase64"])
+    (tmp_path / "paginated.pdf").write_bytes(data)
+    assert result["pageCount"] == 2
+    assert result["fontCount"] >= 1
+    with pymupdf.open(stream=data) as pdf:
+        assert "First page" in pdf[0].get_text()
+        assert "Second page" in pdf[1].get_text()
+        assert pdf[0].get_links()[0]["uri"] == "https://example.org/"
+
+
+def test_normalization_ignores_metadata_but_detects_visible_tamper():
+    value = request()
+    result = render_in_process(value)
+    data = base64.b64decode(result["pdfBase64"])
+    with pikepdf.Pdf.open(io.BytesIO(data)) as pdf:
+        pdf.docinfo["/CreationDate"] = "D:20000101000000Z"
+        altered = io.BytesIO()
+        pdf.save(altered, static_id=True)
+    assert (
+        tool.verify_pdf(altered.getvalue(), value)["semanticDigest"]
+        == result["semanticDigest"]
+    )
+    with pymupdf.open(stream=data) as pdf:
+        pdf[0].draw_rect(pymupdf.Rect(10, 10, 30, 30), fill=(1, 0, 0))
+        changed = pdf.tobytes()
+    assert tool.verify_pdf(changed, value)["semanticDigest"] != result["semanticDigest"]
+
+
+def test_normalized_digest_is_stable_across_real_render_attempts():
+    value = request()
+    first = render_in_process(value)
+    second = render_in_process(value)
+    assert first["semanticDigest"] == second["semanticDigest"]
+    assert first["pageCount"] == second["pageCount"]
+    assert first["fontCount"] == second["fontCount"]
+
+
+@pytest.mark.parametrize("data", [b"", b"%PDF-1.7\n%%EOF", b"<html>not PDF</html>"])
+def test_invalid_pdf_is_rejected(data):
+    with pytest.raises(Exception):
+        tool.verify_pdf(data, request())
+
+
+def test_zero_page_pdf_is_rejected():
+    with pikepdf.Pdf.new() as pdf:
+        stream = io.BytesIO()
+        pdf.save(stream)
+    with pytest.raises(tool.PdfRejected, match="pdf-structure"):
+        tool.verify_pdf(stream.getvalue(), request())
+
+
+def test_truncated_real_pdf_is_rejected():
+    result = render_in_process(request())
+    with pytest.raises(tool.PdfRejected, match="pdf-header"):
+        tool.verify_pdf(base64.b64decode(result["pdfBase64"])[:-40], request())
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "<script>alert(1)</script>",
+        "<img src='https://example.org/private.png'>",
+        "<p style='display:none'>Hidden</p>",
+        "<a href='javascript:alert(1)'>X</a>",
+        "<iframe src='file:///etc/passwd'></iframe>",
+    ],
+)
+def test_no_network_user_script_or_css(fragment):
+    with pytest.raises(tool.PdfRejected):
+        tool.validate_request(request(fragment))
+
+
+def test_fetcher_cannot_read_network_or_host_files():
+    for url in [
+        "https://example.org/",
+        "file:///etc/passwd",
+        "data:text/html;base64,WA==",
+    ]:
+        with pytest.raises(tool.PdfRejected, match="resource-closure"):
+            tool.embedded_fetcher(url)
+
+
+def test_missing_unicode_font_and_font_digest_drift_fail_closed():
+    with pytest.raises(tool.PdfRejected, match="font-coverage"):
+        render_in_process(request("<p>中文</p>", "中文"))
+    value = request()
+    value["fontAssets"][0]["sha256"] = "sha256:" + "0" * 64
+    with pytest.raises(tool.PdfRejected, match="font-digest"):
+        render_in_process(value)
+
+
+def test_text_and_link_tamper_are_rejected():
+    value = request()
+    data = base64.b64decode(render_in_process(value)["pdfBase64"])
+    value["expectedText"] = "Different text"
+    with pytest.raises(tool.PdfRejected, match="text-order-or-content"):
+        tool.verify_pdf(data, value)
+    value["expectedText"] = "Hello PDF"
+    value["expectedLinks"] = ["https://example.org/"]
+    with pytest.raises(tool.PdfRejected, match="link-semantics"):
+        tool.verify_pdf(data, value)
+
+
+def test_large_source_real_many_page_output():
+    text = "The bounded article preserves every sentence. " * 2500
+    value = request(f"<p>{text}</p>", text)
+    result = render_in_process(value)
+    assert len(text) > 100000
+    assert 10 < result["pageCount"] < tool.maximum_pages
+
+
+def test_verify_mode_returns_actual_bytes_and_same_semantics():
+    value = request()
+    result = render_in_process(value)
+    value["pdfBase64"] = result["pdfBase64"]
+    assert render_in_process(value) == result
+
+
+def test_closed_fields_and_profile():
+    value = request()
+    value["printProfile"] = "arbitrary-css"
+    with pytest.raises(tool.PdfRejected, match="print-profile"):
+        tool.validate_request(value)
+    with pytest.raises(tool.PdfRejected, match="duplicate-property"):
+        tool.closed_object([("a", 1), ("a", 2)])
+
+
+def test_fixed_cli_arguments_and_private_errors():
+    result = subprocess.run(
+        [sys.executable, str(tool_path), "--eval", "private title"], capture_output=True
+    )
+    assert result.returncode == 1
+    assert result.stdout == b""
+    assert result.stderr == b"fixed-arguments\n"
+
+
+def test_cjk_and_emoji_with_registered_frozen_fonts():
+    text = "中文 PDF 😀"
+    fonts = [
+        font_asset("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        font_asset(
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "Noto Sans CJK SC",
+            2,
+            "中文",
+        ),
+    ]
+    result = render_in_process(request(f"<p>{text}</p>", text, fonts=fonts))
+    assert result["pageCount"] == 1
+    assert result["fontCount"] >= 2
+    data = base64.b64decode(result["pdfBase64"])
+    with pymupdf.open(stream=data) as parsed:
+        chinese = [
+            span
+            for block in parsed[0].get_text("dict")["blocks"]
+            for line in block.get("lines", [])
+            for span in line["spans"]
+            if "中文" in span["text"]
+        ][0]
+    with closing(pypdfium2.PdfDocument(data)) as visible:
+        with closing(visible[0]) as page:
+            with closing(page.render(scale=2)) as bitmap:
+                bounds = [int(value * 2) for value in chinese["bbox"]]
+                pixels = bitmap.to_pil().convert("RGB").crop(bounds)
+                assert any(low < 200 for low, high in pixels.getextrema())
+
+
+def test_rtl_with_registered_font_has_actual_extraction():
+    text = "مرحبا بالعالم"
+    fonts = [
+        font_asset("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        font_asset(
+            "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
+            "Noto Sans Arabic",
+        ),
+    ]
+    result = render_in_process(request(f"<p dir='rtl'>{text}</p>", text, fonts=fonts))
+    assert result["fontCount"] >= 1
+
+
+def test_wide_code_and_table_preserve_every_character():
+    code = "very_long_identifier_" * 50
+    value = request(
+        f"<pre>{code}</pre><table><tr><td>Alpha</td><td>Beta</td></tr></table>",
+        code + "AlphaBeta",
+    )
+    result = render_in_process(value)
+    assert result["pageCount"] >= 1
+
+
+def test_screenshot_only_pdf_is_rejected():
+    with pymupdf.open() as pdf:
+        pdf.new_page(width=595.2756, height=841.8898)
+        data = pdf.tobytes()
+    with pytest.raises(tool.PdfRejected, match="screenshot-or-missing-fonts"):
+        tool.verify_pdf(data, request())
+
+
+def test_resource_and_output_budget_refusals(monkeypatch):
+    with pytest.raises(tool.PdfRejected, match="resource-budget"):
+        tool.decode_bytes(base64.b64encode(b"12345").decode(), 4)
+    result = render_in_process(request())
+    monkeypatch.setattr(tool, "maximum_output", 4)
+    with pytest.raises(tool.PdfRejected, match="pdf-header-or-size"):
+        tool.verify_pdf(base64.b64decode(result["pdfBase64"]), request())
+
+
+def test_generated_list_markers_are_preserved_and_verified():
+    result = render_in_process(
+        request(
+            "<ul><li>First</li><li>Second</li></ul><ol start='3'><li>Third</li><li>Fourth</li></ol>",
+            "FirstSecondThirdFourth",
+        )
+    )
+    with pymupdf.open(stream=base64.b64decode(result["pdfBase64"])) as pdf:
+        text = pdf[0].get_text()
+        assert text.count("•") == 2
+        assert "3." in text and "4." in text
+
+
+def test_table_repeated_headers_preserve_order_without_false_loss():
+    rows = "".join(
+        f"<tr><td>Row {index}</td><td>Value {index}</td></tr>" for index in range(120)
+    )
+    expected = "Column AColumn B" + "".join(
+        f"Row {index}Value {index}" for index in range(120)
+    )
+    value = request(
+        f"<table><thead><tr><th>Column A</th><th>Column B</th></tr></thead><tbody>{rows}</tbody></table>",
+        expected,
+    )
+    result = render_in_process(value)
+    assert result["pageCount"] > 1
+
+
+def test_inline_image_svg_math_captions_and_footnote_links():
+    image = io.BytesIO()
+    Image.new("RGB", (20, 10), (100, 150, 200)).save(image, format="PNG")
+    encoded = base64.b64encode(image.getvalue()).decode()
+    fragment = (
+        f"<figure><img src='data:image/png;base64,{encoded}' alt='Figure'/>"
+        "<figcaption>Caption</figcaption></figure>"
+        "<svg xmlns='http://www.w3.org/2000/svg' width='160' height='30'>"
+        "<title>Diagram description</title><text x='0' y='20'>x² + y²</text></svg>"
+        "<p>Reference<a href='#note'>1</a></p><p id='note'>Footnote</p>"
+    )
+    result = render_in_process(request(fragment, "Captionx² + y²Reference1Footnote"))
+    with pymupdf.open(stream=base64.b64decode(result["pdfBase64"])) as pdf:
+        assert pdf[0].get_images()
+        assert pdf[0].get_links()[0]["kind"] in {pymupdf.LINK_GOTO, pymupdf.LINK_NAMED}
+
+
+def test_unembedded_font_resource_is_rejected_even_alongside_valid_fonts():
+    value = request()
+    data = base64.b64decode(render_in_process(value)["pdfBase64"])
+    with pikepdf.Pdf.open(io.BytesIO(data)) as pdf:
+        font = pdf.make_indirect(
+            pikepdf.Dictionary(
+                Type=pikepdf.Name("/Font"),
+                Subtype=pikepdf.Name("/Type1"),
+                BaseFont=pikepdf.Name("/Helvetica"),
+            )
+        )
+        pdf.pages[0].Resources.Font["/UnregisteredFont"] = font
+        stream = io.BytesIO()
+        pdf.save(stream)
+    with pytest.raises(tool.PdfRejected, match="unembedded-font"):
+        tool.verify_pdf(stream.getvalue(), value)
