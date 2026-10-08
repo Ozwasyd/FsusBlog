@@ -116,6 +116,24 @@ test('semantic owner declarations bind real source contracts without adding case
     const aot = consistency.requirements.find((row) => row.kind === 'aot-consistency');
     assert.deepEqual(aot.routePatterns, ['/article/{articleId}']);
     assert.ok(aot.businessOwners.some((owner) => owner.entrypoint.endsWith('PublicRouteIdentity.BuildCanonicalPath')));
+    const comments = buildQuerySemanticOwnerInventory({ binding, kinds: { article: ['detail'],
+        comment: ['public-thread', 'deleted-root', 'deleted-reply', 'actor-filter', 'permission-filter', 'pending-visibility'] } });
+    const thread = comments.requirements.find((row) => row.kind === 'public-thread');
+    assert.equal(thread.businessOwners.length, 4);
+    assert.equal(thread.routePatterns.length, 4);
+    assert.ok(thread.businessOwners.some((owner) => owner.entrypoint.endsWith('.GetPermalinkContextAsync')));
+    assert.ok(comments.requirements.find((row) => row.kind === 'deleted-reply').businessOwners
+        .some((owner) => owner.entrypoint.endsWith('.GetChildrenAsync')));
+    const actor = comments.requirements.find((row) => row.kind === 'actor-filter');
+    assert.ok(actor.businessOwners.some((owner) => owner.entrypoint.endsWith('.GetAttributableAsync')));
+    assert.ok(actor.businessOwners.some((owner) => owner.entrypoint.endsWith('.GetUserCommentsForArticleAsync')));
+    const permission = comments.requirements.find((row) => row.kind === 'permission-filter');
+    assert.deepEqual(permission.routePatterns, ['/api/binary/author/comments/moderation']);
+    assert.equal(permission.actorConstraint, 'AdminPermissions.CommentModerate');
+    const pending = comments.requirements.find((row) => row.kind === 'pending-visibility');
+    assert.ok(pending.routePatterns.includes('/api/binary/comment/me'));
+    assert.ok(pending.routePatterns.includes('/api/binary/comment/{articleId:int}'));
+    assert.ok(pending.routePatterns.includes('/api/binary/author/comments/moderation'));
     assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { ...kinds, article: ['invented-kind'] } }), /undeclared/u);
     assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { ...kinds, comment: ['public-list', 'public-list'] } }), /unique/u);
     assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { article: ['detail'] } }), /vocabulary/u);

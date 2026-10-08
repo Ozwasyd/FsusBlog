@@ -153,8 +153,15 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
     const comment = (member) => sourceRef('src/backend/Services/CommentQueryService.cs', `FsusBlog.Server.Services.ICommentQueryService.${member}`);
     const authorQueue = () => sourceRef('src/backend/Services/Authoring/AuthoringUseCasePorts.cs',
         'FsusBlog.Server.Services.Authoring.IAuthoringModerationQueue.ListCommentModerationQueuePageAsync');
-    const actorRead = () => sourceRef('src/core/Services/Abstractions/ICommentCoreService.cs',
-        'FsusBlog.Core.Services.Abstractions.ICommentCoreService.GetUserCommentsAsync');
+    const actorReads = () => [comment('GetAttributableAsync'),
+        ...['GetUserCommentsAsync', 'GetUserCommentsForArticleAsync'].map((member) =>
+            sourceRef('src/core/Services/Abstractions/ICommentCoreService.cs',
+                `FsusBlog.Core.Services.Abstractions.ICommentCoreService.${member}`))];
+    const publicCommentReads = () => ['GetTreeRootsAsync', 'GetChildrenAsync', 'GetPermalinkContextAsync', 'GetRepliesAsync'].map(comment);
+    const publicCommentRoutes = () => ['/api/binary/comment/{articleId:int}',
+        '/api/binary/comment/{articleId:int}/children/{parentId:long}',
+        '/api/binary/comment/{articleId:int}/context/{commentId:long}',
+        '/api/binary/comment/{articleId:int}/thread/{rootId:long}'];
     const visibilityProjection = () => sourceRef('src/backend/Infrastructure/Projections/CommentProjection.cs',
         'FsusBlog.Server.Infrastructure.Projections.CommentProjection.ToCoreModel');
     const projectionVerifier = () => sourceRef('src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs',
@@ -245,17 +252,27 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
                     routePatterns = ['/api/binary/comment/{articleId:int}', '/api/binary/comment/{articleId:int}/children/{parentId:long}'];
                     break;
                 case 'comment:public-thread':
+                    businessOwners = publicCommentReads();
+                    routePatterns = publicCommentRoutes();
+                    blockers.push('canonical_thread_edges_and_deleted_placeholder_coordinates_missing');
+                    break;
                 case 'comment:deleted-root':
+                    businessOwners = [comment('GetTreeRootsAsync'), comment('GetPermalinkContextAsync')];
+                    routePatterns = ['/api/binary/comment/{articleId:int}', '/api/binary/comment/{articleId:int}/context/{commentId:long}'];
+                    blockers.push('canonical_thread_edges_and_deleted_placeholder_coordinates_missing');
+                    break;
                 case 'comment:deleted-reply':
-                    businessOwners = [comment('GetTreeRootsAsync'), comment('GetRepliesAsync')];
-                    routePatterns = ['/api/binary/comment/{articleId:int}', '/api/binary/comment/{articleId:int}/thread/{rootId:long}'];
+                    businessOwners = [comment('GetChildrenAsync'), comment('GetRepliesAsync'), comment('GetPermalinkContextAsync')];
+                    routePatterns = publicCommentRoutes().slice(1);
                     blockers.push('canonical_thread_edges_and_deleted_placeholder_coordinates_missing');
                     break;
                 case 'comment:approved-visibility':
                 case 'comment:region-filter':
-                    businessOwners = [comment('GetTreeRootsAsync'), sourceRef('src/backend/Interfaces/IRegionLegalModerationService.cs',
-                        'FsusBlog.Server.Interfaces.IRegionLegalModerationService.NormalizeRegion')];
-                    routePatterns = ['/api/binary/comment/{articleId:int}'];
+                    businessOwners = [...publicCommentReads(),
+                        sourceRef('src/backend/Interfaces/IClientRegionResolver.cs', 'FsusBlog.Server.Interfaces.IClientRegionResolver.Resolve'),
+                        sourceRef('src/backend/Interfaces/IRegionLegalModerationService.cs',
+                            'FsusBlog.Server.Interfaces.IRegionLegalModerationService.NormalizeRegion')];
+                    routePatterns = publicCommentRoutes();
                     blockers.push('canonical_status_region_and_publication_coordinates_missing');
                     break;
                 case 'comment:moderation-queue':
@@ -267,16 +284,21 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
                 case 'comment:pending-visibility':
                 case 'comment:rejected-visibility':
                 case 'comment:hidden-visibility':
+                    businessOwners = [...publicCommentReads(), authorQueue(), ...actorReads(), visibilityProjection()];
+                    routePatterns = [...publicCommentRoutes(), '/api/binary/author/comments/moderation', '/api/binary/comment/me'];
+                    actorConstraint = 'AllowAnonymous / AdminPermissions.CommentModerate / RequireAnonymousAccountPrincipal';
+                    blockers.push('canonical_actor_status_and_permission_visibility_coordinates_missing');
+                    break;
                 case 'comment:actor-filter':
-                    businessOwners = [actorRead(), visibilityProjection()];
+                    businessOwners = [...actorReads(), visibilityProjection()];
                     routePatterns = ['/api/binary/comment/me'];
                     actorConstraint = 'RequireAnonymousAccountPrincipal';
                     blockers.push('canonical_actor_status_and_permission_visibility_coordinates_missing');
                     break;
                 case 'comment:permission-filter':
-                    businessOwners = [actorRead(), authorQueue(), comment('GetTreeRootsAsync')];
-                    routePatterns = ['/api/binary/comment/me', '/api/binary/author/comments/moderation', '/api/binary/comment/{articleId:int}'];
-                    actorConstraint = 'RequireAnonymousAccountPrincipal / AdminPermissions.CommentModerate / AllowAnonymous';
+                    businessOwners = [authorQueue()];
+                    routePatterns = ['/api/binary/author/comments/moderation'];
+                    actorConstraint = 'AdminPermissions.CommentModerate';
                     blockers.push('canonical_actor_status_and_permission_visibility_coordinates_missing');
                     break;
                 default:
