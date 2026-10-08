@@ -5,6 +5,7 @@
             "id": "environment-variable",
             "paths": [
                 "tools/mutation/stryker-tool.mjs",
+                "tools/test/correctness-attempt-migration.mjs",
                 "tools/test/execution-envelope-network.mjs",
                 "tools/test/mutation-release-parity.mjs",
                 "tools/test/release-mutation-attempt-root.mjs",
@@ -18,6 +19,9 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "config/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/release-reliability-lifecycle-action-registry.json",
                 "tests/backend/packages.lock.json"
             ],
             "reason": "Preserve the exact NuGet-generated dependency schema from the supplied supporting lock correction."
