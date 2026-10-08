@@ -613,3 +613,31 @@ test('entity registrations keep undefined source fields unbound and validate exa
         binding.requiredRoleIds.pop();
     }, /complete canonical role closure/u);
 });
+
+test('minimal scale xs source plan is schema valid and refuses its real historical ordering conflict', () =>
+{
+    // Exact dates/distribution from the supplied producer source. Coordinate strings below
+    // are isolated test inputs, not exported production identities or runtime observations.
+    const instant = (instantUtc) => ({ applicability: 'instant', instantUtc });
+    const entityPlan = {
+        schema: 'fsusblog.temporal-entity-plan.v1', sourcePlanDigest: sourceFingerprint,
+        distribution: { kind: 'scale', tier: 'scale-xs', ordinalBase: 1,
+            counts: { article: 1, comment: 0, audit: 0 },
+            stateCounts: { article: { draft: 0, scheduled: 0, published: 1, archived: 0, deleted: 0 },
+                comment: { approved: 0, pending: 0, rejected: 0, deleted: 0 }, audit: { recorded: 0 } },
+            rootNested: [] },
+        entities: [{ coordinate: { entityKind: 'article', semanticIdentity: 'controlled-source-article',
+            operationIdentity: 'controlled-source-operation', ordinal: 1, revisionNumber: 1,
+            publicationNumber: 1, publicationRevisionNumber: 1, articleIdentity: null },
+        state: 'published', stateFacts: { hasRevision: true, hasPublication: true },
+        facts: { 'article.created': instant('2024-02-29T23:59:58.000Z'),
+            'article.revision': instant('2024-02-29T23:59:59.000Z'),
+            'article.metadata-updated': instant('2024-02-29T23:59:59.000Z'),
+            'article.publication': instant('2024-02-28T23:59:59.000Z'),
+            'article.published': instant('2024-02-28T23:59:59.000Z') } }]
+    };
+    const schema = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/testing/resolved-temporal-roles.schema.json'), 'utf8'));
+    assert.deepEqual(validateJsonSchema(entityPlan, { $ref: '#/$defs/entityPlan', $defs: schema.$defs }), []);
+    assert.throws(() => resolveOrdinaryEntityPlan(entityPlan, 'scale-data'),
+        (error) => error.reasonCode === 'temporal.invariant-mismatch');
+});
