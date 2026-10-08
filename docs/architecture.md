@@ -161,7 +161,15 @@ Resource observations retain an explicit unit, source, sample time and Unknown,
 Denied, Malformed or Stale state without a numeric value. Resource topology records
 capacity aliases and containment rather than summing host, UMA, locked subsets or
 same-volume paths as independent extra capacity. These are contracts; pressure sampling
-and atomic allocation accounting remain separate implementations.
+remain separate implementations. `MemoryReservationCoordinator` performs all-or-nothing
+resource-vector admission and reservation conversion under one gate, expands containing
+constraints, and charges aliases once. Its callers supply explicit finite caps and metadata
+bounds. A shrink keeps all existing charges; converted reservations cannot release their
+allocation charge. Expanded backing is rejected before allocation when it exceeds its grant.
+The event ring records ownership identities and charge deltas; after rotation its window
+explicitly ceases to claim complete history. Metadata headroom, pool retention/trim,
+backing descriptors, role/read/pin accounting and actual reclaim remain incomplete; the
+coordinator is not integrated into live allocation or capability activation.
 
 The canonical mode values are Auto = 0, Disabled = 1 and Required = 2. Omission normalizes
 to Auto. Invalid enum values, numeric strings, legacy Preferred and misspelled modes
