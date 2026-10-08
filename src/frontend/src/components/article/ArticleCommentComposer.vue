@@ -1462,3 +1462,10 @@ function createCommentMutationId(): string
     }
 }
 </style>
+
+<style>
+.comment-composer-focus-dialog .fsus-dialog__footer
+ {
+    width: 100%;
+}
+</style>

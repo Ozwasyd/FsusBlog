@@ -131,6 +131,13 @@ for (const theme of ['light', 'dark']) {
                 await expect(expanded).toBeFocused()
                 await expect(expanded).toHaveValue(content)
                 expect(await selection(expanded)).toEqual([2, 8, 'backward'])
+                const footerWidth = await dialog.locator('.comment-composer-focus__footer').evaluate(element => {
+                    const surface = element.closest('.comment-composer-focus-dialog') as HTMLElement
+                    const style = getComputedStyle(surface)
+                    const contentWidth = surface.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+                    return { actual: element.getBoundingClientRect().width, expected: contentWidth }
+                })
+                expect(Math.abs(footerWidth.actual - footerWidth.expected)).toBeLessThanOrEqual(1)
                 await dialog.getByRole('radio', { name: '预览', exact: true }).click()
                 await expect(dialog.getByRole('textbox')).toHaveCount(0)
                 await dialog.getByRole('radio', { name: '编写', exact: true }).click()
