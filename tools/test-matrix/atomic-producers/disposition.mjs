@@ -1,7 +1,8 @@
 import fs from 'node:fs';
+import { URL } from 'node:url';
 
-import { digestCanonical, sealContentDigest } from '../../test/attempt-provenance.mjs';
-import { validateJsonSchema } from '../schema-validator/validate.mjs';
+const { digestCanonical, sealContentDigest } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
+const { validateJsonSchema } = await import(new URL('../schema-validator/validate.mjs', import.meta.url));
 
 const schema = JSON.parse(fs.readFileSync(new URL('./disposition.schema.json', import.meta.url), 'utf8'));
 

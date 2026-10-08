@@ -126,8 +126,13 @@ consumer adoption, canonical runtime state integration, broader cancellation
 acceptance and independent review remain open. Exact local fixture execution
 does not substitute for those conditions.
 
-The current strict source linter refuses relative parent imports used to consume
-the canonical modules. No suppression, dynamic import rewrite or rule change is
-introduced. A reviewed canonical module/package dependency boundary is required
-from the source-style/integration owner before source admission; fixture controls
-do not waive this gate.
+Cross-directory dependencies use the existing explicit module URL representation:
+`await import(new URL(<literal relative source>, import.meta.url))`, with the
+`URL` constructor imported from `node:url`. Each source path and named binding
+remains enumerable by the original canonical Node AST dependency inspector.
+No path alias, forwarding facade, substitute implementation, or lint exception is
+introduced. The structural follow-up retains the stable cancellation commit
+`653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0`; source dependency closure and bindings
+are checked against that commit. Strict source checks still require canonical
+baseline admission and independent review; zero file diagnostics does not waive
+stale shared baseline bindings or provide native qualification.
