@@ -3,7 +3,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class RealConcurrencyHarnessTests
 {
     [Fact]
-    public void RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny()
+    public async Task RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny()
     {
         int started = 0;
         Func<Task> worker = () =>
@@ -11,9 +11,9 @@ public sealed class RealConcurrencyHarnessTests
             Interlocked.Increment(ref started);
             return Task.CompletedTask;
         };
-        Assert.Throws<ArgumentException>(() => RealConcurrencyHarness.RunAsync(worker));
-        Assert.Throws<ArgumentException>(() => RealConcurrencyHarness.RunAsync(worker, null!));
-        Assert.Throws<ArgumentException>(() => RealConcurrencyHarness.RunAsync<int>(() => Task.FromResult(1)));
+        await Assert.ThrowsAsync<ArgumentException>(() => RealConcurrencyHarness.RunAsync(worker));
+        await Assert.ThrowsAsync<ArgumentException>(() => RealConcurrencyHarness.RunAsync(worker, null!));
+        await Assert.ThrowsAsync<ArgumentException>(() => RealConcurrencyHarness.RunAsync<int>(() => Task.FromResult(1)));
         Assert.Equal(0, started);
     }
 
