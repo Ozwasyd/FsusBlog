@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve existing documented public selectors, token spellings and document markers while clarifying canonical authoring context disposal admission; no external name or marker is renamed."
+        }
+    ]
+}
