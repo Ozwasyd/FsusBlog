@@ -13,7 +13,8 @@ namespace FsusBlog.Server.Services.ArticleVault;
 /// </summary>
 public sealed class PostgresArticleVaultOperationCheckpointStore(
     NpgsqlDataSource dataSource,
-    IArticleVaultExecutionStore executionStore) : IArticleVaultOperationCheckpointStore
+    IArticleVaultExecutionStore executionStore,
+    TimeProvider timeProvider) : IArticleVaultOperationCheckpointStore
 {
     public async Task RegisterAsync(
         ArticleVaultOperationIdentity identity,
@@ -23,6 +24,13 @@ public sealed class PostgresArticleVaultOperationCheckpointStore(
         ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateIdentity(identity, plan));
 
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        if (timeProvider.GetUtcNow().ToUnixTimeMilliseconds() > identity.DeadlineUnixMs)
+        {
+            // Expiry must not prevent replaying an identity that was already durably registered.
+            await RequireIdentityAsync(connection, null, identity, false, cancellationToken);
+            return;
+        }
+
         await using var command = new NpgsqlCommand("""
             INSERT INTO article_vault_operation_identity (
                 operation_identity, site_identity, vault_identity, device_identity, agent_identity,
@@ -89,6 +97,14 @@ public sealed class PostgresArticleVaultOperationCheckpointStore(
         }
 
         ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateAppend(identity, plan, previous, checkpoint));
+        long nowUnixMs = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
+        if (checkpoint.RecordedAtUnixMs > nowUnixMs
+            || nowUnixMs > identity.DeadlineUnixMs
+                && checkpoint.State is not (VaultOperationState.Cancelled or VaultOperationState.RecoveryRequired or VaultOperationState.Blocked))
+        {
+            throw Rejected("article_vault_operation_current_deadline_invalid");
+        }
+
         if (previous?.State == VaultOperationState.RecoveryRequired
             && checkpoint.State == VaultOperationState.MaterializingLocal)
         {
