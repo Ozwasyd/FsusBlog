@@ -90,3 +90,30 @@ node node_modules/vitest/vitest.mjs run --config vitest.config.ts \
 Independent replay has **4 passes**, with the other 10 cases intentionally unrun.
 The old `b4aa6c403e44b12242e9239cd2e4227f6eb660c0` failures remain preserved;
 the new result does not qualify the owner's broader admission, browser or types.
+
+The independent search/reveal consumer probe requires exact Blog
+`d1758a52b948a98f010dac57f3dadae036db6e9d` and the same real local UI pin.
+Copy only `searchRevealDraftPrivacyBoundaries.test.ts` into that isolated checkout,
+then run from its `src/frontend`:
+
+```sh
+FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI \
+FSUSBLOG_VITEST_REPORT_ID=search-reveal-privacy-public-ssr \
+node node_modules/vitest/vitest.mjs run --config vitest.config.ts \
+  ../../tests/frontend/unit/integration/searchRevealDraftPrivacyBoundaries.test.ts
+```
+
+The four new cases pass using the actual public editor, canonical anchor/runtime
+and production projection/status component. They inspect real Vue SSR output for
+private source/context/digest and exception reflection, same-body document
+isolation, and cancellation followed by a fresh projection. The component retains
+an old immutable availability value until its host refreshes the prop; availability
+does not acknowledge navigation or permission. This exact source has no production
+host consuming the projection/status component. Full Writer mounting and backend
+query/permission/range admission remain unverified. The original 32 tests and
+Playwright state matrix were not rerun or counted as independent acceptance.
+
+First setup failure (0 tests, unresolved SSR import) is preserved separately in
+`/tmp/fsus-search-reveal-privacy/first-run.log`; the corrected harness uses Vue's
+public `vue/server-renderer` export through the canonical alias. Successful
+independent output is `/tmp/fsus-search-reveal-privacy/public-ssr-run.log`.
