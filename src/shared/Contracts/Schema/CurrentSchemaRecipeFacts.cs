@@ -34,7 +34,10 @@ public sealed record CurrentSchemaIndependentSequenceFacts(
     bool IsIndependent)
 {
     /// <summary>Defaults of the original closed CREATE SEQUENCE AS bigint source grammar.</summary>
-    public static CurrentSchemaIndependentSequenceFacts PostgreSqlBigIntDefaults { get; } =
+    public static CurrentSchemaIndependentSequenceFacts PostgreSqlBigIntDefaults
+    {
+        get;
+    } =
         new("bigint", 1, 1, 1, long.MaxValue, 1, false, true);
 }
 
@@ -145,7 +148,10 @@ public static class CurrentSchemaControlShape
             Owner = new SchemaOwnerModel("postgresql", "public." + semantic.Name + "." + entry.Key)
         }, StringComparer.Ordinal);
         var constraints = semantic.Constraints.Values.Select(value => value.Kind == "primary-key"
-            ? value with { Name = "pk_" + semantic.Name } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
+            ? value with
+            {
+                Name = "pk_" + semantic.Name
+            } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
         var indexes = constraints.Values.Where(static value => value.Kind == "unique").ToDictionary(static value => value.Name,
             static value => new SchemaIndexModel(value.Name, true,
                 value.Columns.Select(static name => new SchemaIndexKeyModel(name, "asc", "last", "default", "default")).ToArray(),
@@ -174,7 +180,10 @@ public static class CurrentSchemaControlShape
             Owner = new SchemaOwnerModel(owner, location + "." + entry.Key)
         }, StringComparer.Ordinal);
         var constraints = semantic.Constraints.Values.Select(value => !sqlite && value.Kind == "primary-key"
-            ? value with { Name = "PRIMARY" } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
+            ? value with
+            {
+                Name = "PRIMARY"
+            } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
         var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
         int ordinal = 0;
         // The sole declared primary key has four columns, so it is not SQLite's

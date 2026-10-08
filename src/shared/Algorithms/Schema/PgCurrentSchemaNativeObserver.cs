@@ -55,7 +55,8 @@ public static class PgCurrentSchemaNativeObserver
                 string? normalized;
                 if (column.IsIdentity)
                 {
-                    if (!expected) ValidateIdentityDefault(name, column, raw);
+                    if (!expected)
+                        ValidateIdentityDefault(name, column, raw);
                     normalized = null;
                 }
                 else if (expected)
@@ -73,10 +74,14 @@ public static class PgCurrentSchemaNativeObserver
                 {
                     // The old catalog decoder may have normalized NULL or stripped
                     // a cast. It cannot invent a default missing from raw pg_attrdef.
-                    if (column.DefaultValue is not null) throw new InvalidOperationException("current_schema_owned_native_default_unobserved");
+                    if (column.DefaultValue is not null)
+                        throw new InvalidOperationException("current_schema_owned_native_default_unobserved");
                     normalized = null;
                 }
-                columns.Add(columnName, column with { DefaultValue = normalized });
+                columns.Add(columnName, column with
+                {
+                    DefaultValue = normalized
+                });
             }
             var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
             foreach ((string constraintName, SchemaConstraintModel constraint) in table.Constraints)
@@ -93,7 +98,11 @@ public static class PgCurrentSchemaNativeObserver
                 string[] referencedColumns = BoundColumns(node).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
                 if (!expected && !raw[Key("check", name, constraintName)].Columns.Order(StringComparer.Ordinal).SequenceEqual(referencedColumns))
                     throw new InvalidOperationException("current_schema_owned_native_check_dependencies_changed");
-                constraints.Add(constraintName, constraint with { Expression = ExpressionIdentity(node), Columns = referencedColumns });
+                constraints.Add(constraintName, constraint with
+                {
+                    Expression = ExpressionIdentity(node),
+                    Columns = referencedColumns
+                });
             }
             var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
             foreach ((string indexName, SchemaIndexModel index) in table.IndexDefinitions)
@@ -109,7 +118,10 @@ public static class PgCurrentSchemaNativeObserver
                     predicate = ExpressionIdentity(PgCurrentSchemaExpressionParser.Parse(record.Expression, table.Columns));
                 else if (!expected && predicate is not null)
                     throw new InvalidOperationException("current_schema_owned_native_index_predicate_unobserved");
-                indexes.Add(indexName, index with { Predicate = predicate });
+                indexes.Add(indexName, index with
+                {
+                    Predicate = predicate
+                });
             }
             tables.Add(name, new SchemaTableModel(name, columns, table.Indexes, indexes, constraints, table.Owner));
         }
@@ -117,7 +129,8 @@ public static class PgCurrentSchemaNativeObserver
         {
             if (!snapshot.Tables.TryGetValue(expression.Table, out SchemaTableModel? table))
             {
-                if (!expected) throw new InvalidOperationException("current_schema_owned_native_expression_table_unobserved");
+                if (!expected)
+                    throw new InvalidOperationException("current_schema_owned_native_expression_table_unobserved");
                 continue;
             }
             bool bound = expression.Kind switch
@@ -127,7 +140,8 @@ public static class PgCurrentSchemaNativeObserver
                 "index-predicate" => table.IndexDefinitions.ContainsKey(expression.Name),
                 _ => throw new InvalidOperationException("current_schema_owned_native_expression_kind_unknown")
             };
-            if (!bound && !expected) throw new InvalidOperationException("current_schema_owned_native_expression_object_unobserved");
+            if (!bound && !expected)
+                throw new InvalidOperationException("current_schema_owned_native_expression_object_unobserved");
         }
         return new SchemaModelSnapshot(tables, snapshot.Identity, snapshot.Provider);
     }
@@ -137,7 +151,8 @@ public static class PgCurrentSchemaNativeObserver
         bool hasDefault = raw.TryGetValue(Key("default", table, column.Name), out PgCurrentRawExpression? expression);
         if (column.GenerationKind == "identity-by-default" || column.GenerationKind == "identity-always")
         {
-            if (hasDefault) throw new InvalidOperationException("current_schema_owned_native_identity_default_changed");
+            if (hasDefault)
+                throw new InvalidOperationException("current_schema_owned_native_identity_default_changed");
             return;
         }
         if (!hasDefault || column.OwnedSequence is not SchemaOwnedSequenceModel sequence
