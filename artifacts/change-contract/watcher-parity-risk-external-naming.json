@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/risk-watcher-parity/evidence/source-bindings.json",
+                "tests/risk-watcher-parity/packages.lock.json"
+            ],
+            "reason": "Preserve exact diagnostic source/assembly binding keys and NuGet-owned lockfile keys. This isolated test-only declaration changes no shared naming policy, baseline or platform acceptance."
+        }
+    ]
+}

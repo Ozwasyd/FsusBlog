@@ -1,0 +1,2 @@
+{"id":"linux.baseline.refusal.digest_only_ack_must_not_clear_loss","status":"FAIL","actual":{"IsValid":true,"LastSequence":9,"InvalidatedReasonCode":null,"RescanReceiptSha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},"expected":"remain invalid: no owner/watch-instance/event-cut/pending-loss proof supplied"}
+{"summary":true,"passed":0,"failed":1,"nativeWindowsNtfs":"UNRUN: Linux host","nativeMacosApfs":"UNRUN: Linux host; Darwin C uncompiled"}

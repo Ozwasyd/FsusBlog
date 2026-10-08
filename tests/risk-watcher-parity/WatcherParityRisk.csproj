@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+    <ItemGroup>
+        <Reference Include="FsusBlog.ArticleVault.Windows">
+            <HintPath>$(WindowsSourceRoot)/src/article-vault/windows/bin/Release/net10.0/FsusBlog.ArticleVault.Windows.dll</HintPath>
+        </Reference>
+        <Reference Include="FsusBlog.ArticleVault.MacOS">
+            <HintPath>$(MacSourceRoot)/src/article-vault/macos/bin/Release/net10.0/FsusBlog.ArticleVault.MacOS.dll</HintPath>
+        </Reference>
+        <Reference Include="FsusBlog.Shared">
+            <HintPath>$(ObservationSourceRoot)/src/shared/bin/Release/net10.0/FsusBlog.Shared.dll</HintPath>
+        </Reference>
+        <Reference Include="FsusBlog.ArticleVault.Linux">
+            <HintPath>$(ObservationSourceRoot)/src/article-vault/linux/bin/Release/net10.0/FsusBlog.ArticleVault.Linux.dll</HintPath>
+        </Reference>
+        <Reference Include="FsusBlog.ArticleVault.Observations">
+            <HintPath>$(ObservationSourceRoot)/src/article-vault/observations/bin/Release/net10.0/FsusBlog.ArticleVault.Observations.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+</Project>
