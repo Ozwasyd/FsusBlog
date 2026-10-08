@@ -307,7 +307,7 @@ internal sealed class DocumentExportDocxPackage
             string name = element.Name.LocalName;
             if (name is "a" or "img" or "svg" or "br")
             {
-                Bookmark(element, destination, () => { });
+                Bookmark(element, destination, null);
             }
             if (name == "a")
             {
@@ -370,14 +370,14 @@ internal sealed class DocumentExportDocxPackage
         }
     }
 
-    private void Bookmark(XElement? source, XElement destination, Action content)
+    private void Bookmark(XElement? source, XElement destination, Action? content)
     {
         string? id = (string?)source?.Attribute("id");
         if (id is not null)
         {
             destination.Add(new XElement(Word + "bookmarkStart", W("id", Array.IndexOf(_bookmarks.Keys.ToArray(), id) + 1), W("name", _bookmarks[id])));
         }
-        content();
+        content?.Invoke();
         if (id is not null)
         {
             destination.Add(new XElement(Word + "bookmarkEnd", W("id", Array.IndexOf(_bookmarks.Keys.ToArray(), id) + 1)));
