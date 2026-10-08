@@ -30,41 +30,58 @@ test('all current canonical correctness producers bind attempt and external auth
     });
 });
 
-for (const mutation of ['omitted', 'extra', 'duplicate', 'wrong authority'])
+function assertResealedRosterRejected(context, mutation)
 {
-    test(`migration rejects a freshly resealed ${mutation} canonical producer roster`, (context) =>
+    const root = path.resolve(import.meta.dirname, '../..');
+    const isolatedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'correctness-roster-'));
+    context.after(() => fs.rmSync(isolatedRoot, { recursive: true, force: true }));
+    const inventory = buildCorrectnessAttemptProducerInventory(root);
+    for (const file of Object.keys(inventory.sourceDigests))
     {
-        const root = path.resolve(import.meta.dirname, '../..');
-        const isolatedRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'correctness-roster-'));
-        context.after(() => fs.rmSync(isolatedRoot, { recursive: true, force: true }));
-        const inventory = buildCorrectnessAttemptProducerInventory(root);
-        for (const file of Object.keys(inventory.sourceDigests))
-        {
-            const destination = path.join(isolatedRoot, file);
-            fs.mkdirSync(path.dirname(destination), { recursive: true });
-            fs.copyFileSync(path.join(root, file), destination);
-        }
-        if (mutation === 'omitted')
-        {
-            inventory.entries.pop();
-        }
-        else if (mutation === 'extra')
-        {
-            inventory.entries.push({ ...inventory.entries[0], producerId: 'matrix:unregistered-producer' });
-        }
-        else if (mutation === 'duplicate')
-        {
-            inventory.entries.push(structuredClone(inventory.entries[0]));
-        }
-        else
-        {
-            inventory.entries[0].authorityBindings.executionEnvelope = 'unregistered-authority';
-        }
-        const destination = path.join(isolatedRoot, 'config/testing/correctness-attempt-producers.json');
-        fs.writeFileSync(destination, JSON.stringify(sealContentDigest(inventory)));
-        assert.throws(() => validateCorrectnessAttemptMigration(isolatedRoot), /differs from canonical authorities/u);
-    });
+        const destination = path.join(isolatedRoot, file);
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        fs.copyFileSync(path.join(root, file), destination);
+    }
+    if (mutation === 'omitted')
+    {
+        inventory.entries.pop();
+    }
+    else if (mutation === 'extra')
+    {
+        inventory.entries.push({ ...inventory.entries[0], producerId: 'matrix:unregistered-producer' });
+    }
+    else if (mutation === 'duplicate')
+    {
+        inventory.entries.push(structuredClone(inventory.entries[0]));
+    }
+    else
+    {
+        inventory.entries[0].authorityBindings.executionEnvelope = 'unregistered-authority';
+    }
+    const destination = path.join(isolatedRoot, 'config/testing/correctness-attempt-producers.json');
+    fs.writeFileSync(destination, JSON.stringify(sealContentDigest(inventory)));
+    assert.throws(() => validateCorrectnessAttemptMigration(isolatedRoot), /differs from canonical authorities/u);
 }
+
+test('migration rejects a freshly resealed omitted canonical producer roster', (context) =>
+{
+    assertResealedRosterRejected(context, 'omitted');
+});
+
+test('migration rejects a freshly resealed extra canonical producer roster', (context) =>
+{
+    assertResealedRosterRejected(context, 'extra');
+});
+
+test('migration rejects a freshly resealed duplicate canonical producer roster', (context) =>
+{
+    assertResealedRosterRejected(context, 'duplicate');
+});
+
+test('migration rejects a freshly resealed wrong authority canonical producer roster', (context) =>
+{
+    assertResealedRosterRejected(context, 'wrong authority');
+});
 
 test('matrix and physical producers fail closed on a crossed execution owner', () =>
 {
