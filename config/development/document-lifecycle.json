@@ -1892,6 +1892,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/security/public-asset-delivery-policy.generated.md",
+            "status": "generated",
+            "owner": "security",
+            "relatedIssues": [
+                1780
+            ],
+            "supersedes": [],
+            "supersededBy": null,
+            "producer": "tools/security/public-asset-policy.mjs"
+        },
+        {
             "path": "docs/security.md",
             "status": "current",
             "owner": "security",

@@ -32,6 +32,10 @@ Public illustrations live under `PublicAssetRoot/illustration` and are exposed o
 
 One-time migration from the retired `/app/wwwroot/uploads/illustration` layout is owned by `tools/storage/migrate-public-assets.mjs`. It requires an explicit stop-writes confirmation, verifies relative path/length/SHA-256 inventories, installs through same-filesystem rename, is idempotent when already complete, and never dual-reads or falls back to the legacy root. Startup fails closed when the legacy WebRoot uploads directory still contains entries.
 
+Public illustrations are served by `UseFsusPublicAssets` from `PublicAssetRoot/illustration`, after trusted forwarded headers, security headers and release-drain tracking, before the endpoint/authentication pipeline. The `/uploads` branch terminates locally, including rejected and missing files, so retired WebRoot content and SPA fallback cannot supply a second asset mapping. Admission precedes provider lookup and uses only the in-memory per-client limiter. Normal file delivery does not resolve asset identities or consult a database, Redis, authorization policy or directory listing.
+
+`config/security/public-asset-delivery.json` supplies the application admission, MIME mappings, write-size bound, gateway limits and response headers. The startup parser rejects malformed input. `node tools/security/public-asset-policy.mjs` generates the bounded public-asset blocks in `ops/gateway/production-openresty.conf` and the [generated policy reference](../security/public-asset-delivery-policy.generated.md); `--check` rejects drift. Successful immutable caching is restricted to successful/not-modified responses; rejected responses retain `no-store`. The gateway sends public requests to Kestrel and does not mount the public or private asset root. This implementation and its focused HTTP checks do not replace the complete asset security matrix or migration qualification.
+
 ## Static assets
 
 `tools/storage/release-assets.mjs` stores each file in both:

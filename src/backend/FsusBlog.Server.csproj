@@ -60,6 +60,7 @@
 
 	<!-- Dictionary and moderation policy files are required publish content. -->
 	<ItemGroup>
+		<EmbeddedResource Include="..\..\config\security\public-asset-delivery.json" LogicalName="FsusBlog.PublicAssetDeliveryPolicy.json" />
 		<EmbeddedResource Include="..\shared\Contracts\Validation\Security\perception-character-v3-contract.json" Link="Contracts\perception-character-v3-contract.json" LogicalName="FsusBlog.PerceptionCharacterV3.Contract.json" />
 		<EmbeddedResource Include="..\..\config\testing\bounded-channel-delivery-contracts.json" Link="Contracts\bounded-channel-delivery-contracts.json" LogicalName="FsusBlog.BoundedChannelDeliveryContracts.json" />
 		<EmbeddedResource Include="..\..\config\runtime\redis-operation-budgets.json" Link="Contracts\redis-operation-budgets.json" LogicalName="FsusBlog.RedisOperationBudgets.json" />
