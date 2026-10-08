@@ -341,10 +341,26 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
         invalidate();
     }
 
+    async function retrySubmission(): Promise<void>
+    {
+        if (permitted.value && !busy.value)
+        {
+            await submitCall.retry();
+        }
+    }
+
+    async function retryAction(): Promise<void>
+    {
+        if (permitted.value && !busy.value)
+        {
+            await actionCall?.retry();
+        }
+    }
+
     return {
         views, selectedView, offset, pageSize, open, permitted, loading, queryFailure,
         submission, actionState, actionName, busy, setOpen, changeIdentity, refresh,
-        submit, retrySubmission: submitCall.retry, select, act, reconcile,
-        retryAction: () => actionCall?.retry(), actionAllowed, dispose
+        submit, retrySubmission, select, act, reconcile,
+        retryAction, actionAllowed, dispose
     };
 }
