@@ -37,7 +37,8 @@
             "id": "json-wire-key",
             "paths": [
                 "tests/backend/packages.lock.json",
-                "config/schemas/article-relation-contract.schema.json"
+                "config/schemas/article-relation-contract.schema.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "Preserve the canonical3654 NuGet lock wire fields and consume canonical2442 relation schema anchor grammar exactly; no independent dependency selection, second schema or wire-key renaming is introduced."
         },
