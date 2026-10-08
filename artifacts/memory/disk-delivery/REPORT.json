@@ -5,7 +5,7 @@
     "sourceTree": "f36f0f61e0c4ffd07c319a6a92855b4d85a9a533",
     "baseCommit": "b9c076e4b763130075218ff9d50f9a6c36784f59",
     "commonContractCheckpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
-    "branch": "codex/mem-3453-3455-disk-lifecycle",
+    "branch": "codex/mem-3453-3455-disk-delivery",
     "environment": {
         "os": "Linux",
         "kernel": "6.18.44",
@@ -329,7 +329,8 @@
         "gitPush": "source branch successfully pushed",
         "pullRequest": "not created; coordinated secondary-rate-limit hold",
         "issueClosure": "not requested",
-        "productionActivation": "none"
+        "productionActivation": "none",
+        "supersedes": "Preserves validated history through5a5c19ac9. The previous disk-lifecycle branch also contains two delivery-only footer-invalid commits; no force push or history rewrite performed. Use this disk-delivery branch for review."
     },
     "sourceWorktreeAtBinding": "Tracked module and test sources byte-equal to sourceCommit; delivery-only artifacts packaged separately.",
     "sourceHardening": [
@@ -340,7 +341,7 @@
     "runtimeFixtureScope": "Four unchanged owning-project test-source owners linked with actual current disk modules and exact common checkpoint in a temporary cached-source context. 44 executed/pass,0 failed/skipped. Independent canonical project/QA scopes remain unqualified.",
     "validationInvocationCommit": "6d097e03597d2edec9b085a2d875cd04bf3a55a0",
     "sourceTreeScope": "Exact validation invocation tree; file list binds the disk modules, tests and naming manifest. Delivery-only packaging remains outside runtime source.",
-    "cleanup": "Clean-master comparison worktree removed. All random filesystem fixture roots were disposed by executed tests; temporary source context/toolchain home retained only until trace packaging and then safe task-only cleanup.",
+    "cleanup": "Clean-master comparison worktree removed. Executed tests disposed all random filesystem fixture roots. After packaging raw TRX, source recipe and source/config/toolchain hashes, removed only task-owned /tmp/mem-disk-source-tests, /tmp/mem-disk-validation-home, /tmp/mem-disk-validation-results and /tmp/mem-common. Configured SDK and NuGet cache preserved.",
     "setupCorrection": "Initial PATH/common-location inspection missed preconfigured /workspace/.setup. Updated validation uses the installed SDK and existing pinned cache. Initial command-not-found raw output remains historical, not the current blocker.",
     "isolatedSourceRun": {
         "qualification": false,
