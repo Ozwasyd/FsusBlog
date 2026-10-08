@@ -147,7 +147,7 @@ function ownerFixture(context)
     return { plan, receipt, write, verify };
 }
 
-test('current owner producer receipt satisfies the strict lifecycle verifier contract', (context) =>
+test('data-scale runtime receipt satisfies verifyDataScaleOwnerReceipt contract', (context) =>
 {
     const fixture = ownerFixture(context);
     const verified = fixture.verify();
@@ -158,7 +158,7 @@ test('current owner producer receipt satisfies the strict lifecycle verifier con
     assert.equal(verified.contentDigest, fixture.receipt.contentDigest);
 });
 
-test('current owner receipt rejects identity tampering with and without a recomputed digest', (context) =>
+test('data-scale runtime receipt rejects tampered fields', (context) =>
 {
     const fixture = ownerFixture(context);
     for (const field of ['parentSchedulerRunId', 'invocationId', 'attemptId', 'sourceCommit'])
