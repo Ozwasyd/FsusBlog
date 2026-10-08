@@ -23,7 +23,16 @@
                 "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureContracts.cs",
                 "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureValidator.cs",
                 "src/shared/Contracts/ArticleVault/ArticleVaultScalarMetadataMerge.cs",
-                "src/shared/Contracts/ArticleVault/ArticleVaultSourceAdmission.cs"
+                "src/shared/Contracts/ArticleVault/ArticleVaultSourceAdmission.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs",
+                "src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs"
             ],
             "reason": "Preserve external process environment and protocol spellings while new internal C# and JavaScript symbols follow repository naming conventions."
         },
@@ -31,7 +40,8 @@
             "id": "css-like-contract",
             "paths": [
                 "docs/api/contracts.md",
-                "docs/architecture/article-vault-linux-watcher.md"
+                "docs/architecture/article-vault-linux-watcher.md",
+                "docs/architecture/article-property-value-boundary.md"
             ],
             "reason": "Preserve caller-visible documented DOM/token spelling and existing document identifiers; regenerate the testing projection through its original producer."
         },
