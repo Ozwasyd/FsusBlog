@@ -68,6 +68,8 @@ export async function probeLocaleMenuBrowserZoom({ chromium, expect, url, eviden
             || (paint.afterContent !== 'none' && paint.afterBorderStyle !== 'none' && Number.parseFloat(paint.afterBorderWidth) > 0));
         const captureViewport = async (width, fileName) =>
         {
+            // Wait for committed paint frames after a diagnostic underlay/style mutation.
+            await page.evaluate(() => new Promise((resolve) => globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(resolve))));
             const session = await context.newCDPSession(page);
             try
             {
