@@ -3010,3 +3010,94 @@ provenance, privacy admission, and full package/schema acceptance remain separat
 canonical-owner gates before export or import. This API reads no stores, grants
 no permissions, emits no audit receipt, changes no business state, and is not a
 wire endpoint or executable import plan.
+
+## Closed article-package manifest candidate
+
+`ArticlePackageManifestCandidateCodec` owns the finite candidate envelope used by
+issues #2398 and #2408 while the complete package authorities remain unavailable. This
+is a pure intermediate contract, not an accepted `manifest.json`, a replacement
+property catalog, an exporter or an executable import plan. It cannot authorize
+an archive, a persisted read, a target transition, a permission decision or a write.
+
+The closed envelope requires `schemaVersion`, `canonicalHashVersion`,
+`propertySchemaVersion`, `articles` and `semanticDigest`. Only the exact current
+version tuple is supported: candidate `1`, `ArticleCanonicalHashV1.HashVersion`
+`1` and `ArticlePropertyValueSnapshot.CurrentSchemaVersion` `1`. No lossless
+migration has been registered; missing, legacy and future versions are rejected.
+Adding a version or a migration requires its own closed source/target mapping,
+unsupported-field policy and independent proof; unknown fields do not become a
+compatibility union.
+
+Each article requires an explicit `portableArticle`, closed `source` coordinates,
+exact `title` and required nullable `summary`, `titleSummaryDigest`,
+`propertySnapshotDigest`, `propertyMappingDigest`, `sourceBytes` and `lifecycle`.
+Source article/revision IDs, revision number, canonical hash, site scope, property
+revision and nullable draft/server-revision/publication coordinates remain source
+facts, never portable identity generators. Draft coordinates are paired and
+cannot coexist with publication coordinates. Local definition-owner IDs and
+private store paths are not serialized. Portable and source article IDs are
+unique within the frozen set; source filenames, titles, labels and routes confer
+no identity authority.
+
+Lifecycle preserves the defined source status and exact nullable UTC publication
+and schedule instants. It reuses `ArticleStatusTransitionPolicy.IsDefined` and
+does not call target/transition admission against the current clock. A historical
+Scheduled or Deleted source remains a source fact, not permission to recreate
+that target. Taxonomy existence, portable taxonomy mapping and names still
+require their actual canonical provider.
+
+Byte metadata uses the sole `ArticlePackageSourceBytes` owner: exact original
+length, SHA-256, BOM, LF/CRLF/bare-CR counts, final newline and trailing spaces/tabs.
+The planner inspects the actual owned bytes and matches their strict decoded
+Markdown to the canonical input without normalization. A BOM is preserved in
+raw-byte metadata and omitted only while decoding its content. Canonical text
+normalization cannot substitute for raw-byte equality. Title and summary preserve
+raw text and null versus empty, through `ArticlePackageTitleSummaryMapper`.
+Property projections reuse `ArticlePackagePropertyMapper` and its eight-type
+owner; their source article/revision must equal the text source coordinates.
+Within one plan, site and definition-owner assertions must agree, and source
+Definition/schema/digest and definition-scoped Option pairs must retain a global
+bijection to their explicit portable identities. Aliases and epoch drift fail.
+The codec can retain closed draft/publication coordinate shapes, but the planner
+refuses either kind with a fixed authority-unavailable result: the current
+canonical text input cannot establish an exact draft or publication observation.
+
+Parsing rejects duplicate, unknown and missing keys at every object level, wrong
+JSON types, malformed UTF-8/UTF-16, comments, trailing commas, invalid identities,
+invalid UTC spellings and budget overflow. Supported budgets are 1..1,000 articles,
+16 MiB candidate JSON, the existing bounded text and property inputs, 32 MiB per
+source byte input and 64 MiB total planned source bytes. Before invoking any
+mapper, the planner checks aggregate 16 Mi UTF-16 code units, 20,000 property
+values, 20,000 property binding rows and 20,000 projected identities. Individually
+valid rows cannot bypass these whole-plan budgets. Collections are copied
+with a single bounded count and indexed traversal; overflow is never truncated.
+A semantic digest sorts articles by ordinal portable identity and frames every
+field and exact raw string independently of input JSON key order or archive
+bytes, under `fsusblog.article-package.manifest-candidate.v1`. Framing starts
+with the strict UTF-8 domain string, three version Int32 values and an Int32
+article count. Each sorted row follows the documented JSON field order: source
+IDs/counts/enums/booleans use little-endian Int32, revision/property coordinates
+use little-endian Int64, and strings use an Int32 byte length plus exact UTF-8.
+Nullable strings and Int64 coordinates have an Int32 zero/one presence flag
+before any payload. Lifecycle dates are nullable strings in exact
+`yyyy-MM-ddTHH:mm:ss.fffffffZ` UTC spelling. The semantic digest itself is omitted
+from its payload; raw byte length/hash and every byte metadata field are bound.
+
+`ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan` freezes verified
+pure projections and owned bytes. `TryBindCandidatePlan` revalidates the manifest
+and reprojects every supplied canonical source, comparing recomputed digests;
+a copied digest cannot bless changed fields or source bytes. Plans contain no
+target resolution or mutation actions. Returned source byte copies are detached;
+mutating input arrays, caller collections or returned copies cannot rewrite an
+already frozen plan. Repeated calls have no persistence or ambient state.
+
+Fields requiring assets, syntax dependencies, references, rights,
+responsibility, taxonomy, privacy or source-metadata authority are explicitly
+rejected, including empty and null assertions. The planner rejects supplied
+ArticleReference values, including empty sets, instead of inventing an observed
+reference provider. All candidate plans refuse `RequirePackageAuthority()` with
+`article_package_manifest_authority_unavailable`. Complete package acceptance
+still requires the exact persisted/source reads, real FsusUI parser diagnostics
+and provider-backed dependency, asset, privacy and rights policies, frozen full
+metadata, archive/checksum binding and independent end-to-end evidence. A valid
+component candidate satisfies none of those unavailable authority gates.
