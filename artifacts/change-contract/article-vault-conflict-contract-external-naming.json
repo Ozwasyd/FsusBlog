@@ -16,6 +16,7 @@
                 "docs/architecture/article-property-value-boundary.md",
                 "docs/architecture/article-vault-1871/local-first-decision.md",
                 "docs/architecture/article-vault-1871/prototype-evidence.md",
+                "docs/architecture/article-vault-agent-control.md",
                 "docs/architecture/article-vault-dependencies.md",
                 "docs/architecture/article-vault-linux-watcher.md",
                 "docs/architecture/article-vault-macos-watcher.md"
@@ -142,6 +143,7 @@
                 "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyManifest.cs",
                 "src/shared/Contracts/ArticleVault/Dependencies/PortableDependencyVerifier.cs",
                 "tools/governance/article-vault-conflict-terminal-ui.mjs",
+                "tools/governance/check-article-vault-agent-control.mjs",
                 "tools/governance/check-article-vault-conflicts.mjs",
                 "tools/governance/check-article-vault-dependency-boundary.mjs",
                 "tools/test/build-macos-vault-native.mjs",
