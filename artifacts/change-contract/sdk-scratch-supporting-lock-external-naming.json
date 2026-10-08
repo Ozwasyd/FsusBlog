@@ -6,9 +6,18 @@
             "paths": [
                 "tests/backend/packages.lock.json",
                 "tests/governance/test-lifecycle-registry.json",
-                "tests/test-retention-replacements.json"
+                "tests/test-retention-replacements.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve existing NuGet lock fields and governance schema keys while consuming the exact supplied supporting commits b104b99d84b91af577336efd6430d492c25683c9, f7b29774ae4aebad286539cc033aa736b9dbe613 and 86841bac2fb0cdbeb8baa02b218869529abbf093."
+            "reason": "Preserve the existing registered serialized keys or environment boundary spelling while consuming exact supplied source changes and binding the owned admission fixture through the original producer."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the existing registered serialized keys or environment boundary spelling while consuming exact supplied source changes and binding the owned admission fixture through the original producer."
         }
     ]
 }
