@@ -1028,15 +1028,19 @@ internal static class ContractVerifier
 
     private static bool VerifySemanticParity()
     {
-        var pod = PodProjector.ProjectArticleList(21, 88, DateTime.UnixEpoch.AddHours(2), 5, "cat-x", "title-x", "summary-x", false, out _);
+        // Public list cards carry the projection's selected display summary.
+        // Cover/Snippet are auxiliary Core fields, absent from the v2 list wire.
+        // The backend regression tests exercise the actual ArticleProjection.
+        const string selectedDisplaySummary = "snippet-x";
+        var pod = PodProjector.ProjectArticleList(21, 88, DateTime.UnixEpoch.AddHours(2), 5, "cat-x", "title-x", selectedDisplaySummary, false, out _);
         var source = new CorePageResult<ArticleListCoreModel>(
             [new ArticleListCoreModel(
                 pod,
                 21,
                 "title-x",
-                "summary-x",
+                selectedDisplaySummary,
                 null,
-                "snippet-x",
+                null,
                 88,
                 DateTime.UnixEpoch.AddHours(2),
                 new ArticleCategoryCoreModel(5, "cat-x"),
