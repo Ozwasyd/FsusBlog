@@ -20,6 +20,16 @@ public sealed record AuthorTypographyPreferenceReadResult(
     AuthorTypographyPreferenceReadOutcome Outcome,
     AuthorTypographySnapshot? Snapshot);
 
+/// <summary>
+/// Sole server policy for a profile verified against the active public design baseline.
+/// An unavailable policy returns null; consumers must not invent a client/default catalog.
+/// </summary>
+public interface IAuthorTypographyCurrentDesignDefaultPolicy
+{
+    /// <summary>Returns the verified current design profile, or null while its source contract is unavailable.</summary>
+    AuthorTypographyProfile? GetCurrentDesignDefault();
+}
+
 /// <summary>Reads author typography through the same scoped service as writing-aid preferences.</summary>
 public interface IAuthorTypographyPreferenceReader
 {
@@ -67,6 +77,7 @@ public interface IAuthorTypographyPreferenceCommand
     /// </summary>
     Task<AuthorTypographyPreferenceWriteResult> UpdateTypographyAsync(
         AuthorTypographyScope authenticatedScope,
+        string deviceScope,
         AuthorTypographyMutationRequest request,
         CancellationToken cancellationToken = default);
 }

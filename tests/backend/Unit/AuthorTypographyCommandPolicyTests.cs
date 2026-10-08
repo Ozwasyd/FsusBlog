@@ -9,6 +9,23 @@ public sealed class AuthorTypographyCommandPolicyTests
     private static readonly AuthorTypographyProfile s_profile = new(1, "system-sans", "standard", "standard", "standard", "standard");
 
     [Fact]
+    public void PayloadPreparation_RequiresAtomicWriterCasAndDoesNotInventAnObservedProfile()
+    {
+        var command = new AuthorTypographyCommand(0, AuthorTypographyMutation.SetProfile, s_profile);
+        AuthorTypographyCommandDecision prepared = AuthorTypographyCommandPolicy.PreparePayload(s_scope, command, null);
+        Assert.Equal(new AuthorTypographyPreparedMutation(s_scope, 0, s_profile), prepared.PreparedMutation);
+        Assert.Equal(AuthorTypographyCommandStatus.RevisionConflict,
+            AuthorTypographyCommandPolicy.Prepare(s_scope, Snapshot(1), command, null).Status);
+        Assert.Equal(AuthorTypographyCommandStatus.CurrentDesignDefaultUnavailable,
+            AuthorTypographyCommandPolicy.PreparePayload(s_scope, new(0, AuthorTypographyMutation.Reset, null), null).Status);
+        Assert.Equal(AuthorTypographyCommandStatus.InvalidSnapshot,
+            AuthorTypographyCommandPolicy.PreparePayload(s_scope with
+            {
+                SiteIdentity = " site:primary"
+            }, command, null).Status);
+    }
+
+    [Fact]
     public void SetProfile_PreparesOnlyClosedReplacementWithoutChangingObservedFacts()
     {
         AuthorTypographySnapshot current = Snapshot(8);

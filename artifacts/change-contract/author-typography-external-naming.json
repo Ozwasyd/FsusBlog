@@ -10,6 +10,7 @@
                 "src/shared/Contracts/AuthorTypography/AuthorTypographyCommandPolicy.cs",
                 "src/shared/Contracts/AuthorTypography/AuthorTypographyRequestReplayPolicy.cs",
                 "src/backend/Interfaces/AuthorTypographyPreferencePorts.cs",
+                "src/backend/Services/UserLocalePreferenceService.AuthorTypography.cs",
                 "tools/frontend/author-typography-inventory.mjs"
             ],
             "reason": "These source paths are covered by the existing broad process-environment registry. No environment keys are added or renamed; external closed profile IDs remain literal while C# and JavaScript identifiers follow the internal naming map."

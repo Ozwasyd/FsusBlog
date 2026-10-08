@@ -197,12 +197,14 @@ public static class AuthorTypographyContractValidator
         return Convert.ToHexStringLower(hash.GetHashAndReset());
     }
 
-    private static bool ValidateScope(AuthorTypographyScope? scope)
+    /// <summary>Validates scope coordinates without authenticating the caller or normalizing supplied identity.</summary>
+    public static bool ValidateScope(AuthorTypographyScope? scope)
     {
         return scope is not null
             && scope.AccountId > 0
             && !string.IsNullOrWhiteSpace(scope.SiteIdentity)
             && scope.SiteIdentity.Length <= 128
+            && string.Equals(scope.SiteIdentity, scope.SiteIdentity.Trim(), StringComparison.Ordinal)
             && !scope.SiteIdentity.Any(char.IsControl);
     }
 
