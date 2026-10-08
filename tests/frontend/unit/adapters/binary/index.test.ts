@@ -504,6 +504,28 @@ describe('decodeBinaryFramePayload', () => {
         expect(result).toEqual({ items: [], total: 0, hasMore: false, nextCursor: null })
         continue
       }
+      if (decoder.name === 'mapCommentPolicySnapshotFromPayload') {
+        // Current packed policy has no version field; retain the historical
+        // replacement fingerprint as evidence of its original result shape.
+        expect(result).toEqual({
+          anonymousCommentsEnabled: true,
+          publicCommentsEnabled: true,
+          zkAnonymousEnabled: true,
+          defaultAuthorMode: 'zk_anonymous',
+          supportedDisplayLanguages: ['en'],
+          snapshotHash: '9'.repeat(64),
+          commentMaxChars: 1000,
+          commentMaxUtf8Bytes: 4096,
+          zkProdEnabled: false,
+          zkProdNativeVerifierConfigured: false,
+          zkProdTrustedSetupVerified: false,
+          zkProdCredentialRequired: false,
+          zkProdCredentialRootReady: false,
+          zkProdUnavailableReason: 'contract_invalid',
+          zkProdReadiness: CommentPolicyReadiness.ContractInvalid
+        })
+        continue
+      }
       if (decoder.name === 'mapUserLocalePreferenceFromPayload') {
         expect(result).toEqual({
           mode: 'auto',
