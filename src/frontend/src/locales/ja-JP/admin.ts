@@ -4,6 +4,28 @@ import type { LocaleSchema } from '../keys';
 import type { admin as zhCNAdmin } from '../zh-CN/admin';
 
 export const admin = {
+    articleInspector: {
+        commandGroup: '記事インスペクター',
+        commands: {
+            publish: '公開設定',
+            rights: '権利設定',
+            check: '内容チェック',
+            preview: 'プレビュー',
+            versions: 'バージョン',
+            resources: 'リソース'
+        },
+        unavailable: {
+            noDocument: '文書が開かれていません',
+            staleDocument: '文書が変更されました。再選択してください',
+            permission: 'このセッションでは記事を編集できません',
+            readonly: '文書は読み取り専用です',
+            loading: '文書を読み込み中',
+            saving: '保存中です。お待ちください',
+            modalActive: '先に現在のダイアログを閉じてください',
+            pending: 'インスペクターを開いています',
+            aborted: '操作がキャンセルされました'
+        }
+    },
     shell: {
         skipToMain: 'メインコンテンツへ',
         mainSite: 'サイト',

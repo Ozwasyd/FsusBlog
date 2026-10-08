@@ -115,6 +115,7 @@ import {
     type FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
 import { createMarkdownSourceCoordinateMap } from '@/fsusui/markdownOutline';
+import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorCommand,
@@ -124,6 +125,7 @@ import type {
 } from '@/ui-contracts/markdownEditor';
 
 type FsusUiMarkdownEditorExpose = Readonly<{
+    dispatchTransaction: ArticleEditorContinuityPort['dispatchTransaction'];
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     revealHeading?: (
@@ -469,13 +471,24 @@ function cancelProgrammaticViewportSuppression(): void
 
 onBeforeUnmount(cancelProgrammaticViewportSuppression);
 
-function trackAuthoringSelection(event: FsusUiMarkdownEditorSelectionEvent): void
+function trackAuthoringSelection(event: ArticleAuthoringSelectionEvent): void
 {
-    const identity = props.documentIdentity;
-    emit('selection-change', identity ? { ...event, documentIdentity: identity } : event);
+    const identity = event.documentIdentity;
+    emit('selection-change', event);
     if (identity === undefined)
     {
         currentAuthoringBinding.value = null;
+        return;
+    }
+    const expected = props.documentIdentity;
+    if (identity.id !== expected?.id || identity.epoch !== expected?.epoch)
+    {
+        return;
+    }
+    const current = currentAuthoringBinding.value;
+    if (current?.documentId === identity.id &&
+        current.documentEpoch === identity.epoch && event.revision < current.revision)
+    {
         return;
     }
     currentAuthoringBinding.value = Object.freeze({
@@ -492,6 +505,18 @@ function trackAuthoringTransaction(event: FsusUiMarkdownEditorTransactionEvent):
 {
     emit('transaction', event);
     if (!event.accepted)
+    {
+        return;
+    }
+    const identity = props.documentIdentity;
+    if (identity && (identity.id !== event.documentIdentity.id ||
+        identity.epoch !== event.documentIdentity.epoch))
+    {
+        return;
+    }
+    const current = currentAuthoringBinding.value;
+    if (current?.documentId === event.documentIdentity.id &&
+        current.documentEpoch === event.documentIdentity.epoch && event.revision < current.revision)
     {
         return;
     }
@@ -534,7 +559,7 @@ function trackAuthoringViewport(event: Event): void
     const firstLine = Math.max(1, Math.floor(textarea.scrollTop / lineHeight) + 1);
     const visibleLines = Math.max(1, Math.ceil(textarea.clientHeight / lineHeight) + 1);
     const lastLine = firstLine + visibleLines;
-    let start = 0;
+    let start: number;
     try
     {
         start = coordinateMap.toRawOffsetFromLineColumn({ line: firstLine, column: 0 });
@@ -743,7 +768,14 @@ watch(() => props.documentIdentity, () =>
     currentAuthoringBinding.value = null;
 });
 
+function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
+{
+    const editor = editorRef.value;
+    return editor && typeof editor.dispatchTransaction === 'function' ? editor : null;
+}
+
 defineExpose({
+    getAuthoringEditorPort,
     insertMarkdownAtCursor,
     openCommandPalette,
     revealHeading,

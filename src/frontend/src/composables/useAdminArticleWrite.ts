@@ -1,4 +1,3 @@
-import { type FormInstance } from '@ozwasyd/element-plus';
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -48,6 +47,7 @@ import { useImageUploadPreferences } from '@/composables/useImageUploadPreferenc
 import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
 import { usePow } from '@/composables/usePow';
 import { BinaryTransportError } from '@/composition/binaryTransport';
+import { createMarkdownAnchorMap, type MarkdownEditorDispatchResult } from '@/fsusui/articlePositionMaps';
 import { toast } from '@/fsusui/feedback';
 import { isFsusUiOk } from '@/fsusui/result';
 import {
@@ -67,14 +67,22 @@ import {
     type ArticleRecoveryJournalWriteResult,
     type ArticleRecoveryOperationKind
 } from '@/services/articleRecoveryJournal';
+import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
+import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
 import {
     articleDocumentContextAuthority,
     type ArticleDocumentContextAdapter
 } from '@/services/authoring/articleDocumentContext';
+import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
+import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
+import { ArticlePreviewSourceAdmission } from '@/services/authoring/articlePreviewSourceAdmission';
+import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
+
+import type { FormItemContext, FormValidateCallback, FormValidationResult } from '@ozwasyd/element-plus';
 
 interface ArticleParams {
     title: string;
@@ -469,7 +477,10 @@ export function useAdminArticleWrite()
     const router = useRouter();
     const powProvider = usePow();
     const adminStore = useAdminStore();
-    const formRef = useTemplateRef<FormInstance>('formRef');
+    const formRef = useTemplateRef<{
+        validate: (callback?: FormValidateCallback) => FormValidationResult;
+        fields: readonly FormItemContext[];
+    }>('formRef');
     const articleId = computed(() =>
     {
         const raw = route.params.id ?? route.query.id;
@@ -830,6 +841,118 @@ export function useAdminArticleWrite()
         id: authoringDocumentContext.value.documentId,
         epoch: authoringDocumentContext.value.documentEpoch
     }));
+    // Every authoring consumer shares the existing canonical document binding.
+    const authoringAnchors = new ArticleAnchorContextAdapter(articleDocumentContextAdapter);
+    const authoringAttachments = new ArticleAttachmentContextAdapter(articleDocumentContextAdapter,
+        'article-assets', 'article-assets:v1', authoringAnchors);
+    let attachmentEditor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> | null = null;
+    const attachmentPort: ArticleAttachmentTransactionPort = {
+        dispatch: transaction =>
+        {
+            if (!active || !attachmentEditor)
+            {
+                throw new Error('article-attachment-editor-unbound');
+            }
+            return attachmentEditor.dispatch(transaction);
+        },
+        commitSource: result =>
+        {
+            const current = articleDocumentContextAdapter.context;
+            if (!active || !result.accepted || result.documentIdentity.id !== current.documentId
+                || result.documentIdentity.epoch !== current.documentEpoch
+                || (result.beforeRevision !== current.sourceRevision && result.revision !== current.sourceRevision))
+            {
+                throw new Error('article-attachment-source-commit-invalid');
+            }
+            // Commit the public revision first; the synchronous source watch is then idempotent.
+            if (result.revision > current.sourceRevision)
+            {
+                articleDocumentContextAdapter.updateSource(result.value, result.revision);
+            }
+            else if (articleForm.content !== result.value)
+            {
+                throw new Error('article-attachment-source-commit-invalid');
+            }
+            articleForm.content = result.value;
+            syncAuthoringDocumentContext();
+        },
+        binding: () => ({ document: articleDocumentContextAdapter.context,
+            map: createMarkdownAnchorMap({ identity: articleDocumentContextAdapter.documentIdentity,
+                source: articleForm.content }) })
+    };
+    const authoringAttachmentRuntime = Object.freeze({
+        captureAnchor: (selection: Parameters<ArticleAnchorContextAdapter['capture']>[1],
+            options: Parameters<ArticleAnchorContextAdapter['capture']>[2]) => authoringAnchors.capture(attachmentPort.binding(), selection, options),
+        capture: (input: Omit<Parameters<ArticleAttachmentContextAdapter['capture']>[0], 'source'>) =>
+            authoringAttachments.capture({ ...input, source: articleForm.content }),
+        commitCreated: (capture: Parameters<ArticleAttachmentContextAdapter['commitCreated']>[0]) =>
+            authoringAttachments.commitCreated(capture, attachmentPort),
+        complete: (handle: Parameters<ArticleAttachmentContextAdapter['complete']>[0], result: Parameters<ArticleAttachmentContextAdapter['complete']>[1]) =>
+            authoringAttachments.complete(handle, result, attachmentPort),
+        remove: (handle: Parameters<ArticleAttachmentContextAdapter['remove']>[0]) => authoringAttachments.remove(handle, attachmentPort),
+        replace: (handle: Parameters<ArticleAttachmentContextAdapter['replace']>[0], file: Parameters<ArticleAttachmentContextAdapter['replace']>[1]) =>
+            authoringAttachments.replace(handle, file, attachmentPort),
+        retry: (handle: Parameters<ArticleAttachmentContextAdapter['retry']>[0]) => authoringAttachments.retry(handle),
+        consumeTransaction: (result: MarkdownEditorDispatchResult) => authoringAttachments.consumeTransaction(result, attachmentPort),
+        get receipts()
+        {
+            return authoringAttachments.lifecycleReceipts;
+        },
+        bindEditor: (editor: Pick<ArticleAttachmentTransactionPort, 'dispatch'>) =>
+        {
+            if (!active || attachmentEditor)
+            {
+                throw new Error('article-attachment-editor-binding-invalid');
+            }
+            attachmentEditor = editor;
+            return () =>
+            {
+                if (attachmentEditor !== editor)
+                {
+                    return;
+                }
+                attachmentEditor = null;
+                authoringAttachments.cancelPending('article-attachment-editor-release');
+            };
+        }
+    });
+    let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
+    let releaseEditorRuntime: (() => void) | null = null;
+    const authoringEditorRuntime = Object.freeze({
+        bindEditor: (editor: ArticleEditorContinuityPort, options: ArticleEditorRuntimeBindingOptions) =>
+        {
+            if (!active || editorRuntimeBinding)
+            {
+                throw new Error('article-editor-runtime-already-bound');
+            }
+            const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction) });
+            let binding: ArticleEditorRuntimeBinding;
+            try
+            {
+                binding = bindArticleEditorRuntime(articleDocumentContextAdapter, authoringAnchors, authoringAttachments,
+                    attachmentPort, () => articleForm.content, editor, options);
+            }
+            catch (error)
+            {
+                releaseAttachmentEditor();
+                throw error;
+            }
+            editorRuntimeBinding = binding;
+            const release = (): void =>
+            {
+                if (editorRuntimeBinding !== binding)
+                {
+                    return;
+                }
+                editorRuntimeBinding = null;
+                releaseEditorRuntime = null;
+                binding.dispose();
+                releaseAttachmentEditor();
+            };
+            releaseEditorRuntime = release;
+            return Object.freeze({ binding, release });
+        }
+    });
     const initTask = useAbortableTask({
         registry: articleDocumentContextAdapter,
         kind: 'refresh',
@@ -1034,6 +1157,16 @@ export function useAdminArticleWrite()
 
     const articlePreviewGeneration = useArticlePreviewGeneration({
         target: privatePreview,
+        documentContext: articleDocumentContextAdapter,
+        sourceAdmission: () =>
+        {
+            const read = () => ({ context: articleDocumentContextAdapter.context, source: articleForm.content,
+                // This form has no responsibility authority input. Missing stays explicit; no published fallback.
+                responsibility: null, siteAuthor: '', attachmentLifecycleHistory: authoringAttachments.lifecycleReceipts,
+                authoringInputDigest: calculateOpenArticleDocumentDigest(currentPrepublishIdentity()) });
+            return editorRuntimeBinding ? ArticlePreviewSourceAdmission.attachRuntime(editorRuntimeBinding, read)
+                : ArticlePreviewSourceAdmission.attach(read);
+        },
         readRequest: () => buildServerDraftRequest(
             buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
         ),
@@ -3041,6 +3174,9 @@ export function useAdminArticleWrite()
         disposeArticleRecoveryLifecycle?.();
         disposeArticleRecoveryLifecycle = null;
         recoveryCoordinator.dispose();
+        releaseEditorRuntime?.();
+        attachmentEditor = null;
+        authoringAttachments.dispose();
         articleDocumentContextBinding.release();
         initTask.cancel();
         submitTask.cancel();
@@ -3116,6 +3252,9 @@ export function useAdminArticleWrite()
         articleForm,
         authoringDocumentContext,
         authoringDocumentIdentity,
+        authoringDocumentContextAdapter: articleDocumentContextAdapter,
+        authoringAttachmentRuntime,
+        authoringEditorRuntime,
         currentRevisionId,
         currentRevisionNo,
         articleRightsUsingSiteDefaults,

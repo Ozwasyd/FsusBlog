@@ -174,9 +174,15 @@ export function useImageUploadRuntime()
         fileName: ''
     });
     let attemptGeneration = 0;
+    const cleanupRequired = ref(false);
+    let abandonPromise: Promise<void> | null = null;
 
     const statusText = computed(() =>
     {
+        if (cleanupRequired.value)
+        {
+            return errorMessage.value || '等待上传取消确认';
+        }
         switch (phase.value)
         {
             case 'compressing':
@@ -196,10 +202,14 @@ export function useImageUploadRuntime()
         }
     });
 
-    const canResume = computed(() => phase.value === 'paused' || phase.value === 'error');
+    const canResume = computed(() => !cleanupRequired.value && (phase.value === 'paused' || phase.value === 'error'));
 
     const uploadFile = async (file: File, options: ImageCompressionOptions, runtimeOptions: ImageUploadRuntimeOptions = {}): Promise<string> =>
     {
+        if (cleanupRequired.value || abandonPromise)
+        {
+            throw createAppError(AppErrorCode.Conflict, '上传会话尚未取消，请先重试取消');
+        }
         const generation = ++attemptGeneration;
         const ensureCurrentAttempt = (): void =>
         {
@@ -266,6 +276,7 @@ export function useImageUploadRuntime()
             }
             catch (error)
             {
+                ensureCurrentAttempt();
                 if (error instanceof UploadAttemptSupersededError)
                 {
                     throw error;
@@ -355,6 +366,7 @@ export function useImageUploadRuntime()
             }
             catch (error)
             {
+                ensureCurrentAttempt();
                 if (error instanceof UploadAttemptSupersededError)
                 {
                     throw error;
@@ -392,28 +404,53 @@ export function useImageUploadRuntime()
         return uploadFile(attempt.file, attempt.options, attempt.runtimeOptions);
     };
 
-    const abandon = async (): Promise<void> =>
+    const abandon = (): Promise<void> =>
     {
+        if (abandonPromise)
+        {
+            return abandonPromise;
+        }
         const uploadId = activeSession.uploadId;
         const resumeKey = activeSession.resumeKey;
         attemptGeneration += 1;
-        if (resumeKey)
-        {
-            clearSnapshot(resumeKey);
-        }
-        phase.value = 'idle';
         progress.value = 0;
         errorMessage.value = '';
         preview.value = null;
         pendingAttempt.value = null;
-        activeSession.uploadId = '';
-        activeSession.resumeKey = '';
-        activeSession.fileName = '';
-
-        if (uploadId)
+        cleanupRequired.value = Boolean(uploadId);
+        // Invalidate live work immediately, but retain its original session and
+        // recovery evidence until the canonical abort API acknowledges cleanup.
+        // Schedule the request after assigning the promise, including sync throws.
+        abandonPromise = Promise.resolve().then(async () =>
         {
-            await abortUpload(uploadId);
-        }
+            try
+            {
+                if (uploadId)
+                {
+                    await abortUpload(uploadId);
+                }
+                if (resumeKey)
+                {
+                    clearSnapshot(resumeKey);
+                }
+                activeSession.uploadId = '';
+                activeSession.resumeKey = '';
+                activeSession.fileName = '';
+                cleanupRequired.value = false;
+                phase.value = 'idle';
+            }
+            catch (error)
+            {
+                phase.value = 'error';
+                errorMessage.value = toAppError(error, '上传取消未完成，请重试取消').message;
+                throw error;
+            }
+            finally
+            {
+                abandonPromise = null;
+            }
+        });
+        return abandonPromise;
     };
 
     void getWasmSupportedFormats().then((formats) =>
@@ -435,6 +472,7 @@ export function useImageUploadRuntime()
         wasmSupportedFormats,
         statusText,
         canResume,
+        cleanupRequired,
         activeSession,
         uploadFile,
         resumeLatest,

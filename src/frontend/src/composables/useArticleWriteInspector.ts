@@ -16,6 +16,7 @@ type ArticleWriteInspectorLoader = () => void | Promise<void>;
 interface ArticleWriteInspectorOptions {
     initialInspector?: ArticleWriteInspectorView | null;
     loadView?: Partial<Record<ArticleWriteInspectorView, ArticleWriteInspectorLoader>>;
+    createEditorFocusReturn?: () => (() => boolean) | null;
 }
 
 export function useArticleWriteInspector(options: ArticleWriteInspectorOptions = {})
@@ -26,8 +27,9 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
     const scrollContainers = new Map<ArticleWriteInspectorView, HTMLElement>();
     const railTriggers = new Map<ArticleWriteInspectorView, HTMLElement>();
     const pendingLoads = new Map<ArticleWriteInspectorView, Promise<void>>();
-    let focusReturnTarget: HTMLElement | null = null;
+    let focusReturnTarget: HTMLElement | (() => boolean) | null = null;
     let closingInspector: ArticleWriteInspectorView | null = null;
+    let focusGeneration = 0;
 
     const rememberScroll = (view: ArticleWriteInspectorView | null): void =>
     {
@@ -67,7 +69,12 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
 
         requestedViews.add(view);
         const loader = options.loadView?.[view];
-        const request = Promise.resolve(loader?.())
+        const request = Promise.resolve().then(() => loader?.())
+            .catch((error: unknown) =>
+            {
+                requestedViews.delete(view);
+                throw error;
+            })
             .finally(() =>
             {
                 pendingLoads.delete(view);
@@ -86,7 +93,9 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
             rememberScroll(activeInspector.value);
         }
 
-        focusReturnTarget = trigger ?? railTriggers.get(view) ?? focusReturnTarget;
+        focusGeneration += 1;
+        closingInspector = null;
+        focusReturnTarget = trigger ?? options.createEditorFocusReturn?.() ?? railTriggers.get(view) ?? focusReturnTarget;
         activeInspector.value = view;
         const loading = ensureLoaded(view);
         void restoreScroll(view);
@@ -108,6 +117,7 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
 
     const close = (): void =>
     {
+        focusGeneration += 1;
         closingInspector = activeInspector.value;
         rememberScroll(closingInspector);
         activeInspector.value = null;
@@ -165,6 +175,7 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
 
     const restoreFocus = async (): Promise<void> =>
     {
+        const generation = focusGeneration;
         await nextTick();
         if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function')
         {
@@ -173,11 +184,41 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
                 window.requestAnimationFrame(() => resolve());
             });
         }
+        if (activeInspector.value !== null || generation !== focusGeneration)
+        {
+            return;
+        }
         const target = focusReturnTarget
       ?? (closingInspector ? railTriggers.get(closingInspector) ?? null : null);
-        target?.focus({ preventScroll: true });
         focusReturnTarget = null;
         closingInspector = null;
+        if (typeof target === 'function')
+        {
+            target();
+        }
+        else
+        {
+            target?.focus({ preventScroll: true });
+        }
+    };
+
+    const focusActiveView = async (
+        view: ArticleWriteInspectorView,
+        signal?: AbortSignal
+    ): Promise<boolean> =>
+    {
+        await nextTick();
+        if (signal?.aborted || activeInspector.value !== view)
+        {
+            return false;
+        }
+        const target = scrollContainers.get(view);
+        if (!target?.isConnected)
+        {
+            return false;
+        }
+        target.focus({ preventScroll: true });
+        return target.ownerDocument.activeElement === target;
     };
 
     if (activeInspector.value)
@@ -197,6 +238,7 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
         registerTrigger,
         registerScrollContainer,
         updateScroll,
+        focusActiveView,
         restoreFocus
     };
 }

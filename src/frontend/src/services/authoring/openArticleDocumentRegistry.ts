@@ -1174,7 +1174,7 @@ function isValidEntry(entry: unknown): entry is OpenArticleDocumentEntry
     }
 
     const { contentDigest, ...base } = entry;
-    return computeEntryDigest(base) === contentDigest;
+    return computeEntryDigest(base as Omit<OpenArticleDocumentEntry, 'contentDigest'>) === contentDigest;
 }
 
 export interface OpenArticleDocumentReplayResult {

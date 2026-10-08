@@ -146,6 +146,11 @@
                         :disabled="submitting"
                     />
 
+                    <ArticleAuthorCommandEntry
+                        :palette="authorCommandPalette"
+                        :label="authorCommandLabel"
+                    />
+
                     <h2
                         id="article-body-heading"
                         class="sr-only"
@@ -153,6 +158,7 @@
                         正文
                     </h2>
                     <div
+                        ref="authorCommandShortcutScope"
                         class="write-editor-panel"
                         data-editor-panel="true"
                     >
@@ -161,6 +167,7 @@
                                 ref="articleEditorRef"
                                 v-model="articleForm.content"
                                 :command-surfaces="authoringCommandSurfaces"
+                                :authoring-commands="inspectorCommands"
                                 :article-identity="authoringDocumentIdentity.id"
                                 :document-identity="authoringDocumentIdentity"
                                 :loading="pageLoading"
@@ -169,7 +176,11 @@
                                 @draft-save="saveDraftNow"
                                 @submit="requestSubmit"
                                 @upload-img="handleUploadImg"
-                            />
+                                @transaction="consumeAuthoringTransaction"
+                                @selection-change="consumeAuthoringSelection"
+                                @editor-focus="consumeAuthoringFocus"
+                            >
+                            </ArticleWriteEditor>
                         </ElFormItem>
                     </div>
                 </section>
@@ -751,6 +762,7 @@ import { useRoute } from 'vue-router';
 import { ArticlePublishStatus } from '@/api/article';
 import type { AssetLibraryItemResponse } from '@/api/authoring';
 import ArticleAssetLibraryPanel from '@/components/admin/article/ArticleAssetLibraryPanel.vue';
+import ArticleAuthorCommandEntry from '@/components/admin/article/ArticleAuthorCommandEntry.vue';
 import { focusFirstArticleValidationError } from '@/components/admin/article/articleEditorAccessibility';
 import ArticlePrivatePreviewPanel from '@/components/admin/article/ArticlePrivatePreviewPanel.vue';
 import ArticleRevisionPanel from '@/components/admin/article/ArticleRevisionPanel.vue';
@@ -763,21 +775,30 @@ import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitle
 import FsusDialog from '@/components/ui/FsusDialog.vue';
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue';
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
+import { useArticleAuthorCommandPalette } from '@/composables/useArticleAuthorCommandPalette';
 import {
     useArticleWriteInspector,
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
+import { useArticleWriteInspectorCommands } from '@/composables/useArticleWriteInspectorCommands';
+import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection } from '@/fsusui/articlePositionMaps';
 import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
+import { activeLocale, translate } from '@/locales';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
+import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
+import type { ArticleEditorRuntimeBinding } from '@/services/authoring/articleEditorRuntimeBinding';
 import {
     articleWorkspaceTabRouter,
-    createArticleWorkspaceOpenInput,
-    type ArticleWorkspaceStatusSummary
+    createArticleWorkspaceOpenInput
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import type {
     ArticleDocumentContextRef,
-    ArticleDocumentIdentity
+    ArticleDocumentIdentity,
+    ArticleWorkspaceStatusSummary
 } from '@/services/authoring/openArticleDocumentRegistry';
+import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
+import { useThemeRuntime } from '@/services/themeRuntime';
+import { useAdminStore } from '@/store/admin';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 defineOptions({ name: 'ArticleWriteView' });
@@ -838,7 +859,10 @@ const {
     seoChecking,
     seoStatusText,
     articleForm,
+    authoringDocumentContext,
     authoringDocumentIdentity,
+    authoringDocumentContextAdapter,
+    authoringEditorRuntime,
     currentRevisionId,
     currentRevisionNo,
     articleRightsUsingSiteDefaults,
@@ -1011,7 +1035,10 @@ const syncWorkspaceTab = async (): Promise<void> =>
 
 watch(
     [workspaceCanRegister, workspaceIdentity],
-    () => { void syncWorkspaceTab(); },
+    () =>
+    {
+        void syncWorkspaceTab();
+    },
     { immediate: true, deep: true }
 );
 watch(
@@ -1047,19 +1074,131 @@ const quickTagName = ref('');
 const quickCategoryInputRef = ref<{ focus?: () => void; } | null>(null);
 const quickTagInputRef = ref<{ focus?: () => void; } | null>(null);
 const coverInputRef = ref<HTMLInputElement | null>(null);
-const articleEditorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean; } | null>(null);
+const articleEditorRef = ref<{
+    getAuthoringEditorPort: () => ArticleEditorContinuityPort | null;
+    insertMarkdownAtCursor?: (markdown: string) => boolean;
+    openCommandPalette: () => void;
+} | null>(null);
+const authorCommandShortcutScope = ref<HTMLElement | null>(null);
 const submitConfirmDialog = ref(false);
 const leaveConfirmDialog = ref(false);
-const {
-    activeInspector,
-    open: openInspector,
-    switchTo: switchInspector,
-    close: closeInspector,
-    registerTrigger: registerInspectorTrigger,
-    registerScrollContainer: registerInspectorScrollContainer,
-    updateScroll: updateInspectorScroll,
-    restoreFocus: restoreInspectorFocus
-} = useArticleWriteInspector({
+const authoringModalActive = computed(() => quickCreateCategoryDialog.value || quickCreateTagDialog.value ||
+    submitConfirmDialog.value || leaveConfirmDialog.value);
+const authoringTheme = useThemeRuntime();
+const authoringAdmin = useAdminStore();
+let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
+let boundEditorPort: ArticleEditorContinuityPort | null = null;
+let releaseEditorRuntime: (() => void) | null = null;
+let editorBindingGeneration = 0;
+
+watch(articleEditorRef, () =>
+{
+    const generation = ++editorBindingGeneration;
+    releaseEditorRuntime?.();
+    releaseEditorRuntime = null;
+    editorRuntimeBinding = null;
+    boundEditorPort = null;
+    void nextTick().then(() =>
+    {
+        if (generation !== editorBindingGeneration)
+        {
+            return;
+        }
+        const port = articleEditorRef.value?.getAuthoringEditorPort();
+        if (!port)
+        {
+            return;
+        }
+        // Consumer retention bounds; automatic-render eligibility remains owned by the refresh policy.
+        const bound = authoringEditorRuntime.bindEditor(port, {
+            surface: 'source',
+            configuration: { allowLatex: true, allowMermaid: true, baseUrl: null },
+            identity: { themeDigest: calculateOpenArticleDocumentDigest({ theme: authoringTheme.resolvedTheme.value }),
+                        locale: activeLocale.value },
+            cachePolicy: { maxEntryBytes: 4 * 1024 * 1024, maxAgeMs: 60_000, maxReceipts: 64 }
+        });
+        boundEditorPort = port;
+        editorRuntimeBinding = bound.binding;
+        releaseEditorRuntime = bound.release;
+        // Observe actual editor events; initialization dispatch would steal initial title focus.
+    });
+}, { flush: 'post' });
+onUnmounted(() =>
+{
+    editorBindingGeneration += 1;
+    releaseEditorRuntime?.();
+    editorRuntimeBinding = null;
+    boundEditorPort = null;
+});
+
+function consumeAuthoringTransaction(event: MarkdownEditorDispatchResult): void
+{
+    editorRuntimeBinding?.consumeTransaction(event);
+}
+
+function consumeAuthoringSelection(event: {
+    documentIdentity?: { id: string; epoch: number; };
+    revision: number;
+    selection: MarkdownEditorResolvedSelection;
+}): void
+{
+    if (event.documentIdentity)
+    {
+        editorRuntimeBinding?.consumeSelection({ ...event, documentIdentity: event.documentIdentity });
+    }
+}
+
+function consumeAuthoringFocus(event: 'focusin' | 'focusout'): void
+{
+    editorRuntimeBinding?.consumeFocus(event);
+}
+
+function createEditorFocusReturn(): (() => boolean) | null
+{
+    const binding = editorRuntimeBinding;
+    const port = boundEditorPort;
+    const document = authoringDocumentContext.value;
+    if (!binding || !port || !document || !authoringDocumentContextAdapter.isCurrentContext(document) ||
+        pageLoading.value || submitting.value || authoringModalActive.value ||
+        authoringAdmin.adminState !== 'active' || !authoringAdmin.hasPermission('article.write'))
+    {
+        return null;
+    }
+    const contextDigest = document.contextDigest;
+    return () =>
+    {
+        if (editorRuntimeBinding !== binding || boundEditorPort !== port ||
+            authoringDocumentContext.value?.contextDigest !== contextDigest || pageLoading.value ||
+            !authoringDocumentContextAdapter.isCurrentContext(document) ||
+            submitting.value || authoringModalActive.value || authoringAdmin.adminState !== 'active' ||
+            !authoringAdmin.hasPermission('article.write'))
+        {
+            return false;
+        }
+        // The native owner retains its selection/history; a public no-change transaction restores focus.
+        // Acceptance is dispatch admission only, never a viewport or focus-completion receipt.
+        try
+        {
+            const result = port.dispatchTransaction({ changes: [], history: 'skip', origin: 'programmatic',
+                                                      documentIdentity: { id: document.documentId, epoch: document.documentEpoch },
+                                                      expectedRevision: document.sourceRevision });
+            return result.accepted;
+        }
+        catch
+        {
+            return false;
+        }
+    };
+}
+const authorCommandLabel = computed(() => translate('admin.articleInspector.commandGroup'));
+const authorCommandPalette = useArticleAuthorCommandPalette({
+    editor: articleEditorRef,
+    shortcutScope: authorCommandShortcutScope,
+    enabled: computed(() => authoringDocumentContext.value !== null && !pageLoading.value &&
+        !submitting.value && !authoringModalActive.value)
+});
+const inspectorOwner = useArticleWriteInspector({
+    createEditorFocusReturn,
     initialInspector: route.query.preview === 'private' ? 'preview' : null,
     loadView: {
         resources: () => refreshAssetLibrary()
@@ -1073,6 +1212,24 @@ const {
                 showErrorToast(error, '历史版本刷新失败');
             })
     }
+});
+const {
+    activeInspector,
+    open: openInspector,
+    switchTo: switchInspector,
+    close: closeInspector,
+    registerTrigger: registerInspectorTrigger,
+    registerScrollContainer: registerInspectorScrollContainer,
+    updateScroll: updateInspectorScroll,
+    restoreFocus: restoreInspectorFocus
+} = inspectorOwner;
+const { commands: inspectorCommands } = useArticleWriteInspectorCommands({
+    inspector: inspectorOwner,
+    admin: authoringAdmin,
+    documentContext: authoringDocumentContext,
+    loading: pageLoading,
+    saving: submitting,
+    modalActive: authoringModalActive
 });
 
 const triggerCoverInput = (): void =>
