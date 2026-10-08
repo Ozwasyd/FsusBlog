@@ -93,3 +93,29 @@ node artifacts/frontend/locale-menu-probe/multiline/fixture-build.mjs /workspace
 
 Rollback requires a coordinated consumer rollback if reverting its required
 public API; do not silently restore a second menu owner or fallback.
+
+## Additional canonical visual and remote observations
+
+At FsusUI `2f3707e6453abebcfd6579683e5685f97a17c9ac`, `pnpm visual:check`
+passed its static conformance comparisons. A real `test:visual:affected
+--base=origin/main` attempt built official icons, reused qualified WASM artifacts
+and completed the official demo production build, then exited 1 before browser
+suites: readiness rejected changed icons/demo source fingerprints. The official
+icon producer introduced five tracked alias exports, recorded in
+`canonical-generated-icons.patch`; only those task-generated changes were
+restored afterwards. No gate, receipt, fingerprint or snapshot was bypassed or
+fabricated. The generated setup change means this attempt is not an accepted
+exact-source visual runtime receipt. The affected plan also flags the consumed
+InteractionTraceFixture change as requiring the full profile; no full-profile
+pass is claimed. The smallest next action is for the upstream artifact owner to
+provide a qualified canonical preparation with stable source fingerprints, then
+rerun the affected/full visual gates.
+
+Remote FsusUI visual and macOS platform jobs reported FAILURE while other jobs
+were queued/in progress. Job metadata identifies `Run visual suites` and `Run
+platform-owned restore, build, tests, and smoke`; annotations give exit 1 without
+a precise cause. Attempts to read redirected logs returned Forbidden. These are
+unresolved remote failures, not classified as pre-existing or waived as an
+environment exemption. Local applicable evidence may replace remote CI under
+the user's instruction, but it does not establish these missing rendered/native
+qualifications. No all-green CI claim is made.

@@ -155,11 +155,30 @@
       "result": "domain checker; not UX acceptance",
       "artifact": "fsusui-design-check.log",
       "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac"
+    },
+    {
+      "repository": "FsusUI",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+      "command": "pnpm run visual:check",
+      "exitCode": 0,
+      "result": "static conformance comparisons; not rendered acceptance",
+      "artifact": "fsusui-visual-check.log"
+    },
+    {
+      "repository": "FsusUI",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+      "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers pnpm run test:visual:affected --base=origin/main",
+      "exitCode": 1,
+      "result": "official demo build passed, readiness rejected icons/demo source fingerprint change before browser suites",
+      "artifact": "fsusui-affected-visual-failed.log",
+      "generatedSourceDirtyDuringSetup": "canonical-generated-icons.patch",
+      "cleanup": "only task-generated icon index changes restored; source checkout clean"
     }
   ],
   "blocked": [
     "locked published package access and local/published parity",
-    "complete locked production application install/build/typecheck"
+    "complete locked production application install/build/typecheck",
+    "canonical affected visual runtime readiness; generated icons/demo source fingerprints changed during official preparation"
   ],
   "notRun": [
     "qualified production route with real preference/resource service",
@@ -179,7 +198,7 @@
   "evidence": [
     {
       "path": "README.md",
-      "sha256": "0bfb1996f7aeef63183aab81f15db5f7df702ddd84ae809204ee8392da72c10f"
+      "sha256": "ffa2c80528ba3c533b392fef43578d41d6e22d770750511447e0945b5716bd7f"
     },
     {
       "path": "before-probe.json",
@@ -196,6 +215,10 @@
     {
       "path": "built-css.json",
       "sha256": "250c27406c71d750fe323a4eb7b65509fe58c256d74f4eebdfdc79f4a5a6b3ed"
+    },
+    {
+      "path": "canonical-generated-icons.patch",
+      "sha256": "63044dfa441cb5813b525a9637a39b5159748e34868ed470533c58715f8dd8be"
     },
     {
       "path": "consumer-1440-dark-zoom1.png",
@@ -234,6 +257,14 @@
       "sha256": "4c04749361870a72d9adf5ddd99155bbba34a911a75e0b460efc16e97b44dd4d"
     },
     {
+      "path": "fsusui-affected-visual-failed.log",
+      "sha256": "5e4ddfdca23cfed2da89ca9bf2ccd1b6914547438d11f06fa99176806c5e90dc"
+    },
+    {
+      "path": "fsusui-affected-visual-plan.log",
+      "sha256": "eaba2f043fec6a647bc96a296d5e460fa0bfbf8159f995d13bc87e6efefaafc2"
+    },
+    {
       "path": "fsusui-classification.json",
       "sha256": "0410f75f981cadad7e77efd5823706f2a4a7c4294cd7622e4b90a1f71cf2c135"
     },
@@ -264,6 +295,10 @@
     {
       "path": "fsusui-unit.log",
       "sha256": "d63315d58f57d0eb7e093c8f8ea0a00a9efd6299c1347e4168db207d6d6b79f3"
+    },
+    {
+      "path": "fsusui-visual-check.log",
+      "sha256": "c222105c6ad394bcd0c91531be231258a3580de0ea05598089ce574e6c90df51"
     },
     {
       "path": "layout.log",
@@ -314,6 +349,14 @@
       "sha256": "60035e48effe1003eb7499802d92485efab97ac877d2f24eabdc40d6262bf744"
     },
     {
+      "path": "remote-macos-check.json",
+      "sha256": "b6c27845dc0cbbe4b69921f48bb45aeebd4aedb5815c12e7b7b358163e0c9b22"
+    },
+    {
+      "path": "remote-visual-check.json",
+      "sha256": "831da539a2a5ab682765f9531fdd545c3c430c61293f4f701f4ca9b9573972cd"
+    },
+    {
       "path": "selector-types.log",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
@@ -321,5 +364,15 @@
       "path": "style.log",
       "sha256": "d58b7fae4fe99ccb5f0521063e932259e09a241d9e6ae3299c3abb889617962c"
     }
-  ]
+  ],
+  "remoteChecks": {
+    "observedAt": "2026-10-08T04:47:50.296Z",
+    "fsusUiHead": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+    "visual": "FAILURE",
+    "macosPlatform": "FAILURE",
+    "logRead": "Forbidden at redirected log storage; annotations give exit 1 only, exact cause not attributable",
+    "others": "in progress/queued; no all-green claim",
+    "blogHead": "85b9372eac3ef5ab14ff4535af8ae5b3e4e7bf75",
+    "blogChecks": "none at observation"
+  }
 }
