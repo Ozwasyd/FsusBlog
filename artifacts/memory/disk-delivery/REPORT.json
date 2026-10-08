@@ -6,7 +6,6 @@
     "baseCommit": "b9c076e4b763130075218ff9d50f9a6c36784f59",
     "commonContractCheckpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
     "branch": "codex/mem-3453-3455-disk-lifecycle",
-    "sourceWorktreeAtBinding": "clean",
     "environment": {
         "os": "Linux",
         "kernel": "6.18.44",
@@ -133,7 +132,7 @@
             "reason": "SDK invocation unavailable; checker undefined trim diagnostic"
         },
         {
-            "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter disk fixture classes",
+            "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter 'FullyQualifiedName~DiskBudgetAdmissionTests|FullyQualifiedName~DiskSpillEligibilityTests|FullyQualifiedName~OwnedSpillRootTests|FullyQualifiedName~DiskSegmentStoreTests'",
             "result": "NotRun",
             "attemptExit": 127,
             "reason": "dotnet not found"
@@ -294,5 +293,6 @@
         "pullRequest": "not created; coordinated secondary-rate-limit hold",
         "issueClosure": "not requested",
         "productionActivation": "none"
-    }
+    },
+    "sourceWorktreeAtBinding": "Tracked module and test sources byte-equal to sourceCommit; delivery-only artifacts packaged separately."
 }
