@@ -13,6 +13,7 @@ import { createHash } from 'node:crypto';
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 import { validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
 
+const { assertAccountLocaleOwnershipCurrent } = await import(new URL('../../test/account-locale-fixture-inventory.mjs', import.meta.url));
 const { assertAccountCleanupOwnership, composeAccountDeviceRequests } = await import(new URL('../account-device-composition.mjs', import.meta.url));
 const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForPostgres, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 const producerId = 'account-profile-preferences';
@@ -404,6 +405,7 @@ function normalizeResult(raw, context, capabilities, resolvedTemporalRoles)
 export async function prepareAccountProfilePreferences(context, signal)
 {
     assertNoLegacyOverride();
+    assertAccountLocaleOwnershipCurrent();
     const capabilities = selectedCapabilities(context);
     const identities = identityReferences(context);
     const resolvedTemporalRoles = resolveTemporalRolesForProducer({

@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const { assertAccountLocaleOwnershipCurrent } = await import(new URL('./account-locale-fixture-inventory.mjs', import.meta.url));
 const { digestCanonical, freezeDeep } = await import(new URL('../test-fixtures/receipt/canonical.mjs', import.meta.url));
 
 
@@ -110,7 +111,9 @@ function javascriptViews(source, relativePath)
         if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer)
         {
             aliases.set(node.name.text, node.initializer);
-            views.push({ text: `${node.name.text}=${node.initializer.getText(tree)}`, start: node.getStart(tree) });
+            views.push({ text: `${node.name.text}=${node.initializer.getText(tree)}`, start: node.getStart(tree),
+                syntaxContext: ts.isStringLiteral(node.initializer) || ts.isNoSubstitutionTemplateLiteral(node.initializer)
+                    ? 'literal-data' : 'executable-expression' });
         }
         if (ts.isCallExpression(node))
         {
@@ -124,7 +127,7 @@ function javascriptViews(source, relativePath)
         // Literal SQL and configured entry points are relevant; comments are not.
         if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
         {
-            views.push({ text: node.text, start: node.getStart(tree) });
+            views.push({ text: node.text, start: node.getStart(tree), syntaxContext: 'literal-data' });
         }
         ts.forEachChild(node, visit);
     }
@@ -169,15 +172,19 @@ export function scanAccountAuthFixtureSources(domain, sources)
                 {
                     const offset = /\.(?:[cm]?js|tsx?)$/u.test(item.path) ? view.start : view.start + match.index;
                     const line = item.source.slice(0, offset).split('\n').length;
-                    violations.push({ ruleId, path: item.path, line });
+                    violations.push({ ruleId, path: item.path, line,
+                        sourceCategory: /(?:^docs\/|\.md$)/u.test(item.path) ? 'documentation'
+                            : item.path.startsWith('tests/') ? 'test-source'
+                                : item.path.startsWith('config/') ? 'configuration' : 'active-source',
+                        syntaxContext: view.syntaxContext ?? (/\.(?:[cm]?js|tsx?)$/u.test(item.path) ? 'executable-expression' : 'text') });
                 }
             }
         }
     }
-    const unique = new Map(violations.map((item) => [`${item.path}\0${item.line}\0${item.ruleId}`, item]));
+    const unique = new Map(violations.map((item) => [`${item.path}\0${item.line}\0${item.ruleId}\0${item.syntaxContext ?? "text"}`, item]));
     return freezeDeep({ domain, phase: 'source-pattern-scan', sourceDigest: digestCanonical(sources),
         scannedFiles: sources.length, violations: [...unique.values()].sort((left, right) =>
-            left.path.localeCompare(right.path) || left.line - right.line || left.ruleId.localeCompare(right.ruleId)) });
+            left.path.localeCompare(right.path) || left.line - right.line || left.ruleId.localeCompare(right.ruleId) || String(left.syntaxContext).localeCompare(String(right.syntaxContext))) });
 }
 
 /** Enumerate actual Git sources, including new files; never follow a worktree symlink. */
@@ -254,6 +261,17 @@ export function inspectAccountAuthFixtureRepository(domain, repositoryRoot = roo
     if (!sources.some((source) => source.path === inventoryPath))
     {
         blockers.push({ code: 'ownership-or-consumer-inventory-unavailable', path: inventoryPath });
+    }
+    else if (domain === 'account-locale')
+    {
+        try
+        {
+            assertAccountLocaleOwnershipCurrent(repositoryRoot);
+        }
+        catch
+        {
+            blockers.push({ code: 'ownership-inventory-stale-or-invalid', path: inventoryPath });
+        }
     }
     // The cutover issues are deletion/consumer owners, not invented aggregate
     // APIs. Existing CleanupAsync/cleanupPrivate calls do not supply independent
