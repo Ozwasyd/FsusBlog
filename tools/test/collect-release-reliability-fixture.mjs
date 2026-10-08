@@ -1,9 +1,16 @@
 #!/usr/bin/env node
 
+/* eslint-disable import-x/no-relative-parent-imports -- Integrate the existing canonical lifecycle and resource observer owners. */
+
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+
+import {
+    readDockerPostgresqlDatabaseState,
+    readDockerPublicCacheState
+} from '../test-runtime/production-observer-ports.mjs';
 
 import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';
 import { digestValue } from './release-reliability-receipt.mjs';
@@ -258,6 +265,11 @@ const document = {
     schema: 'fsusblog.release-reliability-runtime-topology.v1', status: 'complete', runId: args['run-id'], namespace: args.namespace,
     root: path.relative(root, fixtureRoot).replaceAll(path.sep, '/'), config: file(root, args.config, 'config'), schemaFile: file(root, args.schema, 'schema'), seed: file(root, args.seed, 'seed'),
     auditRetentionPolicy: file(root, args['audit-retention-policy'], 'audit retention policy'),
+    resourceState: {
+        postgres: readDockerPostgresqlDatabaseState({ container: postgresContainer.Id }),
+        redis: await readDockerPublicCacheState({ container: redisContainer.Id,
+            namespacePrefix: runtimeEnvironment.RedisOptions__InstanceName })
+    },
     runtime: {
         profile: 'docker-final-image',
         imageDigest: args['image-digest'],

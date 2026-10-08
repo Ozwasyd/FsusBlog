@@ -86,6 +86,7 @@
                         "observe-data-scale-runtime",
                         "provision-data-scale-runtime",
                         "prepare-evidence-files",
+                        "reset-runtime-state",
                         "run-measurement",
                         "teardown-data-scale-runtime"
                     ]

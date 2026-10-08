@@ -54,7 +54,7 @@
             "actionId": "soak-prepare-evidence-files",
             "scenarioId": "release-soak-min",
             "phase": "reset-before",
-            "operation": "prepare-evidence-files",
+            "operation": "reset-runtime-state",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -88,7 +88,12 @@
                 "terminateGraceMs": 1000
             },
             "stateDomains": [
-                "artifact.release-derived"
+                "artifact.release-derived",
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
             ],
             "safeAfterFailure": false,
             "targets": [
@@ -181,7 +186,7 @@
             "actionId": "soak-observe-final-runtime-state",
             "scenarioId": "release-soak-min",
             "phase": "reset-after",
-            "operation": "observe-runtime",
+            "operation": "reset-runtime-state",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -274,7 +279,7 @@
             "actionId": "peak-prepare-evidence-files",
             "scenarioId": "release-load-peak",
             "phase": "reset-before",
-            "operation": "prepare-evidence-files",
+            "operation": "reset-runtime-state",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -308,7 +313,12 @@
                 "terminateGraceMs": 1000
             },
             "stateDomains": [
-                "artifact.release-derived"
+                "artifact.release-derived",
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
             ],
             "safeAfterFailure": false,
             "targets": [
@@ -405,7 +415,7 @@
             "actionId": "peak-observe-final-runtime-state",
             "scenarioId": "release-load-peak",
             "phase": "reset-after",
-            "operation": "observe-runtime",
+            "operation": "reset-runtime-state",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -499,7 +509,7 @@
             "actionId": "burst-prepare-evidence-files",
             "scenarioId": "release-load-burst",
             "phase": "reset-before",
-            "operation": "prepare-evidence-files",
+            "operation": "reset-runtime-state",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -533,7 +543,12 @@
                 "terminateGraceMs": 1000
             },
             "stateDomains": [
-                "artifact.release-derived"
+                "artifact.release-derived",
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
             ],
             "safeAfterFailure": false,
             "targets": [
@@ -630,7 +645,7 @@
             "actionId": "burst-observe-final-runtime-state",
             "scenarioId": "release-load-burst",
             "phase": "reset-after",
-            "operation": "observe-runtime",
+            "operation": "reset-runtime-state",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -1171,7 +1186,7 @@
             "actionId": "memory-prepare-evidence-files",
             "scenarioId": "release-memory-leak-budget",
             "phase": "reset-before",
-            "operation": "prepare-evidence-files",
+            "operation": "reset-runtime-state",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -1205,7 +1220,12 @@
                 "terminateGraceMs": 1000
             },
             "stateDomains": [
-                "artifact.release-derived"
+                "artifact.release-derived",
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
             ],
             "safeAfterFailure": false,
             "targets": [
@@ -1296,7 +1316,7 @@
             "actionId": "memory-observe-final-runtime-state",
             "scenarioId": "release-memory-leak-budget",
             "phase": "reset-after",
-            "operation": "observe-runtime",
+            "operation": "reset-runtime-state",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -1389,7 +1409,7 @@
             "actionId": "open-handle-prepare-evidence-files",
             "scenarioId": "release-open-handle-budget",
             "phase": "reset-before",
-            "operation": "prepare-evidence-files",
+            "operation": "reset-runtime-state",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -1423,7 +1443,12 @@
                 "terminateGraceMs": 1000
             },
             "stateDomains": [
-                "artifact.release-derived"
+                "artifact.release-derived",
+                "network.host-topology",
+                "postgres.schema",
+                "redis.cache.public",
+                "runtime.backend-process",
+                "runtime.backend-resource-counters"
             ],
             "safeAfterFailure": false,
             "targets": [
@@ -1514,7 +1539,7 @@
             "actionId": "open-handle-observe-final-runtime-state",
             "scenarioId": "release-open-handle-budget",
             "phase": "reset-after",
-            "operation": "observe-runtime",
+            "operation": "reset-runtime-state",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",

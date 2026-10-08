@@ -1,9 +1,13 @@
+
+/* eslint-disable import-x/no-relative-parent-imports -- Integrate the existing canonical lifecycle and resource observer owners. */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+
+import { postgresqlDatabaseStateDigest } from '../test-runtime/production-observer-ports.mjs';
 
 import {
     loadPhysicalExecutionProcessPolicy,
@@ -27,6 +31,62 @@ export const lifecyclePhaseOrder = [
     'postcondition',
     'reset-after'
 ];
+
+/** Validate native database invariants and the observable result of a scoped cache reset. */
+export function ordinaryRuntimeResourceStateErrors({ action, observation, topology, reset })
+{
+    const errors = [];
+    const state = observation?.resourceState;
+    const baseline = topology?.resourceState;
+    const validDatabase = (value) => value?.status === 'observed'
+        && value.database === 'fsusblog'
+        && /^sha256:[0-9a-f]{64}$/u.test(String(value.schemaDigest ?? ''))
+        && Array.isArray(value.relations)
+        && value.relations.every((entry) => typeof entry.name === 'string'
+            && ['r', 'm', 'S'].includes(entry.kind)
+            && Number.isSafeInteger(entry.rowCount) && entry.rowCount >= 0
+            && /^sha256:[0-9a-f]{64}$/u.test(String(entry.rowsDigest ?? '')))
+        && value.stateDigest === postgresqlDatabaseStateDigest(value);
+    if (!validDatabase(state?.postgres) || !validDatabase(baseline?.postgres)
+        || state.postgres.stateDigest !== baseline.postgres.stateDigest)
+    {
+        errors.push('database schema/rows/sequences differ from admitted fixture baseline or are unobserved');
+    }
+    const validCache = (value) => value?.status === 'observed'
+        && typeof value.namespacePrefix === 'string' && /^[A-Za-z0-9_.-]+_$/u.test(value.namespacePrefix)
+        && Number.isSafeInteger(value.publicKeyCount) && value.publicKeyCount >= 0
+        && Array.isArray(value.keyDigests) && value.keyDigests.length === value.publicKeyCount
+        && sortedUniqueStrings(value.keyDigests, { allowEmpty: true })
+        && value.keyDigests.every((digest) => /^sha256:[0-9a-f]{64}$/u.test(digest));
+    if (!validCache(state?.redis) || !validCache(baseline?.redis)
+        || state.redis.namespacePrefix !== baseline.redis.namespacePrefix)
+    {
+        errors.push('run-bound public cache keyspace is unobserved or has a different prefix');
+    }
+    if (action.operation === 'reset-runtime-state')
+    {
+        if (!validCache(state?.redis) || state.redis.publicKeyCount !== 0)
+        {
+            errors.push('public cache reset left keys in the current run');
+        }
+        if (reset?.status !== 'complete'
+            || reset.containerId !== topology?.redis?.instance
+            || reset.runId !== topology?.runId || reset.namespace !== topology?.namespace
+            || reset.namespacePrefix !== baseline?.redis?.namespacePrefix
+            || !validCache(reset.before) || !validCache(reset.after)
+            || reset.before.namespacePrefix !== reset.namespacePrefix
+            || reset.after.namespacePrefix !== reset.namespacePrefix
+            || reset.after.publicKeyCount !== 0
+            || !Array.isArray(reset.deleted)
+            || reset.deleted.some((entry) => !reset.before.keyDigests.includes(entry.keyDigest)
+                || ![0, 1].includes(entry.deletedCount))
+            || new Set(reset.deleted.map((entry) => entry.keyDigest)).size !== reset.deleted.length)
+        {
+            errors.push('public cache reset execution/ownership evidence is incomplete');
+        }
+    }
+    return errors;
+}
 
 function readJson(repositoryRoot, relativePath)
 {
@@ -114,6 +174,7 @@ function validateRegistryShape(registry, schema)
                 'observe-mutation',
                 'observe-runtime',
                 'prepare-evidence-files',
+                'reset-runtime-state',
                 'run-measurement',
                 'teardown-data-scale-runtime'
             ].includes(action.operation)
@@ -236,6 +297,16 @@ function validateActionOperation(action, scenario, errors)
             || action.stateDomains.some((domain) => !domain.startsWith('artifact.')))
         {
             errors.push(`${prefix} evidence preparation must own sorted artifact targets only`);
+        }
+    }
+    else if (action.operation === 'reset-runtime-state')
+    {
+        if (!['reset-before', 'reset-after'].includes(action.phase)
+            || !action.stateDomains.includes('postgres.schema')
+            || !action.stateDomains.includes('redis.cache.public')
+            || Object.hasOwn(action, 'targets') && !sortedUniqueStrings(action.targets))
+        {
+            errors.push(`${prefix} runtime reset must verify database state and reset public cache`);
         }
     }
     else if (Object.hasOwn(action, 'targets'))

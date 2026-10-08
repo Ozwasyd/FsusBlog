@@ -59,6 +59,7 @@ function createFixture(context)
         'ConnectionStrings__DefaultConnection=Host=127.0.0.1;Port=20001;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true',
         'ConnectionStrings__Redis=127.0.0.1:22001',
         'RedisOptions__Configuration=127.0.0.1:22001',
+        'RedisOptions__InstanceName=FsusBlog_fixture-namespace_',
         'FSUSBLOG_DATA_ROOT=/host/run-bound/data',
         'PublicAot__SsrClientRoot=/host/run-bound/frontend/dist'
     ];
@@ -92,7 +93,7 @@ function createFixture(context)
     };
     const labels = { 'io.fsusblog.test.run-id': 'fixture-run', 'io.fsusblog.test.namespace': 'fixture-namespace' };
     const containers = Object.fromEntries(['postgres', 'redis'].map((name) => [name, {
-        Id: `fixture-${name}-id`,
+        Id: name === 'postgres' ? '1'.repeat(64) : '2'.repeat(64),
         Image: digest(name),
         State: { Running: true },
         Config: { Image: `${name}:fixture`, Labels: { ...labels } },
@@ -177,6 +178,19 @@ if (process.argv[2] === 'network' && process.argv[3] === 'inspect') {
   process.exit(0);
 }
 if (process.argv[2] === 'exec') {
+  if (process.argv.includes('pg_dump')) {
+    process.stdout.write('fixture schema\\n');
+    process.exit(0);
+  }
+  if (process.argv.includes('psql')) {
+    process.stdout.write(JSON.stringify({ kind: 'inventory', relations: [{ name: 'fixture_record', kind: 'r' }] }) + '\\n');
+    process.stdout.write(JSON.stringify({ name: 'fixture_record', kind: 'r', rows: [] }) + '\\n');
+    process.exit(0);
+  }
+  if (process.argv.includes('redis-cli') && process.argv.includes('SCAN')) {
+    process.stdout.write(JSON.stringify(['0', []]));
+    process.exit(0);
+  }
   const command = process.argv.at(-1);
   const identity = state.processIdentity;
   if (command.includes('/proc/1/stat')) {
@@ -248,6 +262,9 @@ test('fixture collector seals Docker-native backend procfs identity and fixture 
     const result = collect(fixture);
     assert.equal(result.status, 0, result.stderr);
     const topology = JSON.parse(fs.readFileSync(path.join(fixture.root, 'fixture/topology.json'), 'utf8'));
+    assert.equal(topology.resourceState.postgres.status, 'observed');
+    assert.equal(topology.resourceState.postgres.relations[0].rowCount, 0);
+    assert.equal(topology.resourceState.redis.publicKeyCount, 0);
     assert.equal(topology.runtime.backendContainer.id, fixture.containers.backend.Id);
     assert.equal(topology.postgres.imageId, fixture.containers.postgres.Image);
     assert.equal(topology.redis.imageId, fixture.containers.redis.Image);

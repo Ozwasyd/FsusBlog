@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 import {
     expandLifecycleTemplate,
-    loadLifecycleActionContracts
+    loadLifecycleActionContracts,
+    ordinaryRuntimeResourceStateErrors
 } from './release-reliability-lifecycle-actions.mjs';
 import { digestValue } from './release-reliability-receipt.mjs';
 
@@ -674,7 +675,8 @@ function verifyLifecycleOperation({
             identity
         });
     }
-    if (action.operation === 'prepare-evidence-files')
+    if (action.operation === 'prepare-evidence-files'
+        || action.operation === 'reset-runtime-state' && action.targets)
     {
         const deletedPaths = (document.operation.deleted ?? [])
             .map((entry) => entry.path).sort();
@@ -685,7 +687,7 @@ function verifyLifecycleOperation({
             throw new Error('evidence-file preparation post-state is false');
         }
     }
-    if (action.operation === 'observe-runtime')
+    if (['observe-runtime', 'reset-runtime-state'].includes(action.operation))
     {
         const topology = identity.fixture?.topology?.content;
         const backend = topology?.runtime?.backendContainer;
@@ -746,6 +748,14 @@ function verifyLifecycleOperation({
             && after.measurementDescendants?.status !== 'zero')
         {
             throw new Error('measurement descendant zero-state is unproved');
+        }
+        const resourceErrors = ordinaryRuntimeResourceStateErrors({
+            action, observation: after, topology,
+            reset: document.operation.publicCacheReset
+        });
+        if (resourceErrors.length > 0)
+        {
+            throw new Error(resourceErrors.join('; '));
         }
         if (action.phase !== 'precondition')
         {

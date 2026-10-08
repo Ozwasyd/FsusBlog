@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,9 +8,11 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const {
-    loadLifecycleActionContracts
+    loadLifecycleActionContracts,
+    ordinaryRuntimeResourceStateErrors
 } = await import(new URL('../../tools/test/release-reliability-lifecycle-actions.mjs', import.meta.url));
 const {
+    observeOrdinaryRuntimeResourceState,
     inspectBackendIdentity,
     readMeasurementProcessTreeObservation,
     runLifecycleAction
@@ -24,6 +27,11 @@ const {
     verifyLifecycleActionReceipt,
     verifyMeasurementProcessTreeBinding
 } = await import(new URL('../../tools/test/verify-release-reliability-lifecycle-action.mjs', import.meta.url));
+const {
+    readDockerPostgresqlDatabaseState,
+    readDockerPublicCacheState,
+    resetDockerPublicCache
+} = await import(new URL('../../tools/test-runtime/production-observer-ports.mjs', import.meta.url));
 
 const repositoryRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
@@ -925,4 +933,206 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
         }),
         /seed receipt path\/digest binding mismatch/u
     );
+});
+
+// Explicit diagnostic opt-in: these native primitives do not admit or qualify a release runtime.
+test('native lifecycle state detects summary-only pollution and verifies exact cache cleanup', {
+    skip: process.env.FSUSBLOG_LIFECYCLE_NATIVE !== '1'
+}, async (context) =>
+{
+    const runId = `lifecycle-native-${randomUUID()}`;
+    const namespace = runId;
+    const directory = path.join(repositoryRoot, '.tmp/release-reliability/lifecycle-native', runId);
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const evidence = {
+        sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim(),
+        runId, namespace, startedAt: new Date().toISOString(), qualificationEligible: false,
+        nativeControls: [], resources: [], cleanup: [], status: 'running'
+    };
+    const ids = {};
+    const docker = (...args) => execFileSync('docker', args, {
+        encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024
+    }).trim();
+    const sql = (query) => docker('exec', ids.postgres, 'psql', '-X', '-qAt', '-v',
+        'ON_ERROR_STOP=1', '-U', 'fsusblog', '-d', 'fsusblog', '-c', query);
+    const redis = (...args) => JSON.parse(docker('exec', ids.redis, 'redis-cli', '--json', ...args));
+    try
+    {
+        for (const [kind, image, args] of [
+            ['postgres', 'postgres:17-alpine', ['--tmpfs', '/var/lib/postgresql/data:rw',
+                '-e', 'POSTGRES_USER=fsusblog', '-e', 'POSTGRES_DB=fsusblog', '-e', 'POSTGRES_HOST_AUTH_METHOD=trust']],
+            ['redis', 'redis:7-alpine', ['--tmpfs', '/data:rw']]
+        ])
+        {
+            ids[kind] = docker('run', '-d', '--name', `fsusblog-test-${runId}-${kind}`,
+                '--label', `io.fsusblog.test.run-id=${runId}`, '--label', `io.fsusblog.test.namespace=${namespace}`,
+                '--cpus', '0.5', '--memory', '256m', '--pids-limit', '64', ...args, image);
+            evidence.resources.push({ kind, id: ids[kind], image });
+        }
+        const deadline = Date.now() + 20_000;
+        let ready = false;
+        while (Date.now() < deadline)
+        {
+            try
+            {
+                assert.equal(sql('SELECT 1;'), '1');
+                assert.equal(redis('PING'), 'PONG');
+                ready = true;
+                break;
+            }
+            catch
+            {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+        }
+        assert.equal(ready, true, 'real PostgreSQL and Redis must become ready');
+        sql("CREATE TABLE lifecycle_probe (id integer PRIMARY KEY, value text NOT NULL); INSERT INTO lifecycle_probe VALUES (1, 'fixture'); CREATE SEQUENCE lifecycle_sequence;");
+        const namespacePrefix = `FsusBlog_${namespace}_`;
+        const initialDatabase = readDockerPostgresqlDatabaseState({ container: ids.postgres });
+        assert.equal(initialDatabase.relations.length, 2, 'both fixture rows and sequences must be observed');
+        const imageId = (id) => JSON.parse(docker('inspect', id))[0].Image;
+        const topology = { runId, namespace,
+            postgres: { instance: ids.postgres, imageId: imageId(ids.postgres) },
+            redis: { instance: ids.redis, imageId: imageId(ids.redis) },
+            runtime: { environmentProjection: { effective: { RedisOptions__InstanceName: namespacePrefix } } } };
+        topology.resourceState = await observeOrdinaryRuntimeResourceState({ topology, runId });
+        assert.equal(topology.resourceState.postgres.status, 'observed');
+        assert.equal(topology.resourceState.redis.status, 'observed');
+        const action = { operation: 'reset-runtime-state', phase: 'reset-before' };
+        const reset = () => resetDockerPublicCache({ container: ids.redis, runId, namespace, namespacePrefix });
+        const errors = async (proof) => ordinaryRuntimeResourceStateErrors({ action, topology,
+            observation: { resourceState: await observeOrdinaryRuntimeResourceState({ topology, runId }) }, reset: proof });
+        const publicKey = `${namespacePrefix}blog:scenario-a`;
+        const protectedKey = `${namespacePrefix}session:protected`;
+        const foreignKey = 'foreign:blog:protected';
+        redis('SET', protectedKey, 'keep');
+        redis('SET', foreignKey, 'keep');
+        for (let cycle = 0; cycle < 2; cycle += 1)
+        {
+            assert.deepEqual(await errors(await reset()), []);
+            sql("INSERT INTO lifecycle_probe VALUES (2, 'scenario-a-residue');");
+            redis('SET', publicKey, 'residue');
+            const summary = path.join(directory, 'summary.json');
+            fs.writeFileSync(summary, '{"status":"ok"}\n');
+            fs.rmSync(summary);
+            const afterSummaryOnly = await observeOrdinaryRuntimeResourceState({ topology, runId });
+            const refusal = ordinaryRuntimeResourceStateErrors({ action, topology,
+                observation: { resourceState: afterSummaryOnly } });
+            assert.ok(refusal.some((error) => error.includes('database schema/rows/sequences')));
+            assert.ok(refusal.some((error) => error.includes('public cache reset left keys')));
+            const proof = await reset();
+            const databaseRefusal = await errors(proof);
+            assert.ok(databaseRefusal.some((error) => error.includes('database schema/rows/sequences')));
+            assert.equal(proof.after.publicKeyCount, 0);
+            // Only the test restores its deliberate mutation; the online lifecycle remains readonly.
+            sql('DELETE FROM lifecycle_probe WHERE id = 2;');
+            assert.deepEqual(await errors(await reset()), []);
+            evidence.nativeControls.push({ cycle, afterSummaryOnly, refusal, cacheReset: proof, databaseRefusal });
+        }
+        sql("UPDATE lifecycle_probe SET value = 'same-count-mutation' WHERE id = 1;");
+        assert.notEqual(readDockerPostgresqlDatabaseState({ container: ids.postgres }).stateDigest,
+            topology.resourceState.postgres.stateDigest, 'same-count row mutation must be detected');
+        sql("UPDATE lifecycle_probe SET value = 'fixture' WHERE id = 1;");
+        sql("SELECT nextval('lifecycle_sequence');");
+        assert.notEqual(readDockerPostgresqlDatabaseState({ container: ids.postgres }).stateDigest,
+            topology.resourceState.postgres.stateDigest, 'sequence mutation must be detected');
+        evidence.nativeControls.push({ sameCountRowMutation: 'rejected', sequenceMutation: 'rejected' });
+        redis('SET', publicKey, 'cleanup-negative');
+        await assert.rejects(() => resetDockerPublicCache({ container: ids.redis, runId: 'foreign-run',
+            namespace, namespacePrefix }), /ownership changed/u);
+        assert.equal(redis('GET', publicKey), 'cleanup-negative');
+        // Real Redis remains the observer; only DEL is refused by a negative transport control.
+        const actualDocker = execFileSync('which', ['docker'], { encoding: 'utf8' }).trim();
+        const originalPath = process.env.PATH;
+        const transportDirectory = path.join(directory, 'negative-transport');
+        fs.mkdirSync(transportDirectory);
+        const transport = path.join(transportDirectory, 'docker');
+        fs.writeFileSync(transport, `#!${process.execPath}\nconst { spawnSync } = require('node:child_process');\nconst args = process.argv.slice(2);\nif (args[0] === 'exec' && args.includes('redis-cli') && args.includes('DEL')) { process.stdout.write('0\\n'); } else { const result = spawnSync(${JSON.stringify(actualDocker)}, args, { stdio: 'inherit' }); process.exit(result.status ?? 1); }\n`, { mode: 0o700 });
+        // A diagnostic identity has no admitted backend or precondition receipt.
+        // Exercise the real action anyway: it must attempt owned cleanup and remain failed.
+        const fixture = createFixture(context);
+        fixture.identity = sealDocument({ ...fixture.identity, runId,
+            fixture: { status: 'complete', topology: { content: topology } } });
+        fs.writeFileSync(path.join(fixture.root, fixture.identityReference.path),
+            `${JSON.stringify(fixture.identity)}\n`);
+        fixture.environment.FSUSBLOG_RELEASE_RELIABILITY_RUN_ID = runId;
+        fixture.environment.FSUSBLOG_RELEASE_RELIABILITY_SCENARIO_ID = 'release-soak-min';
+        fixture.environment.FSUSBLOG_RELEASE_RELIABILITY_IDENTITY_DIGEST = fixture.identity.contentDigest;
+        const cleanupAction = () => runLifecycleAction({ actionId: 'soak-observe-final-runtime-state',
+            repositoryRoot: fixture.root, environment: fixture.environment });
+        let falseDeletion;
+        try
+        {
+            process.env.PATH = `${transportDirectory}${path.delimiter}${originalPath}`;
+            falseDeletion = await reset();
+            assert.equal(falseDeletion.status, 'failed');
+            assert.equal(falseDeletion.after.publicKeyCount, 1);
+            const failedCleanup = await cleanupAction();
+            assert.equal(failedCleanup.status, 'failed');
+            assert.equal(failedCleanup.operation.publicCacheReset.status, 'failed');
+            evidence.nativeControls.push({ failedCleanupAction: failedCleanup });
+        }
+        finally
+        {
+            process.env.PATH = originalPath;
+        }
+        evidence.nativeControls.push({ successfulCommandWithResidue: falseDeletion });
+        const safeCleanup = await cleanupAction();
+        assert.equal(safeCleanup.operation.publicCacheReset.status, 'complete');
+        assert.equal(safeCleanup.status, 'failed');
+        assert.ok(safeCleanup.finalObservation.failures.some((value) => value.includes('runtime baseline receipt is unavailable')));
+        evidence.nativeControls.push({ missingBaselineSafeCleanupAction: safeCleanup });
+        assert.equal((await reset()).status, 'complete');
+        assert.equal((await reset()).deleted.length, 0, 'repeated cleanup must be idempotent');
+        assert.equal(redis('GET', protectedKey), 'keep');
+        assert.equal(redis('GET', foreignKey), 'keep');
+        assert.equal((await readDockerPublicCacheState({ container: ids.redis, namespacePrefix })).publicKeyCount, 0);
+        evidence.nativeControls.push({ wrongOwner: 'rejected', repeatedCleanup: 'passed', protectedKeys: 'unchanged' });
+        evidence.status = 'diagnostic-passed';
+    }
+    catch (error)
+    {
+        evidence.status = 'failed';
+        evidence.error = error.message;
+        throw error;
+    }
+    finally
+    {
+        let cleanupFailure = false;
+        for (const [kind, id] of Object.entries(ids))
+        {
+            try
+            {
+                const [owner] = JSON.parse(docker('inspect', id));
+                assert.equal(owner.Config.Labels['io.fsusblog.test.run-id'], runId);
+                assert.equal(owner.Config.Labels['io.fsusblog.test.namespace'], namespace);
+                docker('rm', '-f', '-v', id);
+                let absent = false;
+                try
+                {
+                    docker('inspect', id);
+                }
+                catch
+                {
+                    absent = true;
+                }
+                assert.equal(absent, true);
+                evidence.cleanup.push({ kind, id, absent });
+            }
+            catch (error)
+            {
+                cleanupFailure = true;
+                evidence.cleanup.push({ kind, id, error: error.message });
+            }
+        }
+        evidence.finishedAt = new Date().toISOString();
+        if (cleanupFailure)
+        {
+            evidence.status = 'failed';
+        }
+        const file = path.join(directory, 'native-observation.json');
+        fs.writeFileSync(file, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
+        console.log(`native lifecycle diagnostic evidence: ${file}`);
+        assert.equal(cleanupFailure, false, 'every task-private container must be confirmed absent');
+    }
 });
