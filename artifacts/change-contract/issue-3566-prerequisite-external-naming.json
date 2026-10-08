@@ -4,10 +4,19 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "config/testing/correctness-attempt-producers.json",
                 "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
                 "tests/governance/test-lifecycle-registry.json"
             ],
-            "reason": "preserve NuGet consumer lock keys and canonical lifecycle registry identities while consuming the exact dependency corrections supplied by their existing owners"
+            "reason": "preserve NuGet lock keys, lifecycle identities and canonical producer and closure JSON fields while consuming only exact dependency corrections supplied by their existing owners"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "preserve the canonical execution owner and environment authority spellings in the exact supplied migration capability without changing naming or runtime admission rules"
         }
     ]
 }
