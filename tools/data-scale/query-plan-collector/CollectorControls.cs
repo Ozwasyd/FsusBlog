@@ -1,16 +1,15 @@
+using System.Buffers;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Buffers;
 
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
-using FsusBlog.Shared.Contracts.Outputs;
-using FsusBlog.Server.Infrastructure.Testing;
-
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
