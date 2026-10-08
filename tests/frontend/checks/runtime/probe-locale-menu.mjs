@@ -382,6 +382,7 @@ try
     await expect(menu).not.toBeAttached();
     const touchContext = await browser.newContext({ viewport: { width: 375, height: 900 }, hasTouch: true, isMobile: true });
     const touchPage = await touchContext.newPage();
+    touchPage.setDefaultTimeout(5000);
     touchPage.on('pageerror', (error) => report.errors.push(`touch-browser: ${error.message}`));
     await touchPage.goto(`${server.resolvedUrls.local[0]}?consumer`, { timeout: 30000 });
     await touchPage.locator('[data-locale-selector-trigger]').tap();
