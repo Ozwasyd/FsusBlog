@@ -5,6 +5,8 @@ import {
     MARKDOWN_ANCHOR_ID,
     collectMarkdownAnchorNodes,
     createMarkdownEditorProjection,
+    reviveMarkdownStableProjection,
+    snapshotMarkdownStableProjection,
     stabilizeMarkdownEditorProjection
 } from '@ozwasyd/element-plus/markdown-runtime';
 
@@ -12,7 +14,8 @@ import { createArticleDocumentContextAdapter } from '@/services/authoring/articl
 
 describe('Required actual public block-anchor boundary (#2444)', () =>
 {
-    it.each(['currentMarkdownAnchors', 'planMarkdownAnchorInsert', 'planMarkdownAnchorEdit', 'planMarkdownAnchorRemove'])(
+    it.each(['currentMarkdownAnchors', 'planMarkdownAnchorInsert', 'planMarkdownAnchorEdit', 'planMarkdownAnchorRemove',
+        'createMarkdownOutlineTree', 'resolveMarkdownOutlineActive'])(
         'exports existing %s through the documented public package entry', name =>
         {
             expect(Reflect.get(fsusUi, name)).toBeTypeOf('function');
@@ -31,6 +34,8 @@ describe('Required actual public block-anchor boundary (#2444)', () =>
         const node = projection.nodes.find(item => item.kind === 'anchor');
         expect(node).toBeDefined();
         expect(projection.resolve(node!.id).status).toBe('current');
+        const revived = reviveMarkdownStableProjection(snapshotMarkdownStableProjection(projection));
+        expect(revived.resolve(node!.id).status).toBe('current');
     });
 
     it.each(['intro\n', 'intro\r\n'])('the public ID validator denies trailing bytes in %j', candidate =>

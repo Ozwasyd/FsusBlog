@@ -2,6 +2,7 @@
 import { mount } from '@vue/test-utils';
 import {
     ElMarkdownEditor,
+    runMarkdownEditorCommand,
     type MarkdownEditorCommandContext,
     type MarkdownEditorDispatchResult,
     type MarkdownEditorTransaction
@@ -30,7 +31,7 @@ function fixture()
     const editor = wrapper.vm as unknown as { dispatchTransaction(transaction: MarkdownEditorTransaction): MarkdownEditorDispatchResult; };
     const binding = bindArticleEditorRuntime(owner, anchors, attachments, {
         dispatch: transaction => editor.dispatchTransaction(transaction),
-        commitSource: () => { throw new Error('Navigation must never commit source.'); },
+        commitSource: result => owner.updateSource(result.value),
         binding: () => ({ document: owner.context, map: createMarkdownAnchorMap({ identity: owner.documentIdentity, source }) })
     }, () => source, editor, { surface: 'source', configuration: { allowLatex: false, allowMermaid: false, baseUrl: null },
         identity: { themeDigest: digest({ theme: 'test' }), locale: 'zh-CN' },
@@ -46,23 +47,37 @@ function fixture()
             markerRanges: node.rawMarkerRanges, type: node.kind, status: node.status, diagnosticCode: node.diagnosticCode } };
     cleanups.push(() => { binding.dispose(); attachments.dispose(); wrapper.unmount(); owner.dispose(); });
     const command = createArticleBlockAnchorRevealCommand(binding, { label: '显示锚点源码', reason: reason => `诊断：${reason}` });
-    return { owner, binding, context, command, controller, dispatch };
+    return { owner, binding, context, command, controller, dispatch, editor };
 }
 
 describe('Block command consumer of real shared runtime binding (#2444)', () =>
 {
-    it('uses the real binding and command authority while preserving the current upstream resolver failure', () =>
+    it('reveals the real owner identity through a public command plan and actual editor dispatch', async () =>
     {
-        const { owner, binding, context, command, dispatch } = fixture();
+        const { owner, binding, context, command, dispatch, editor } = fixture();
         expect(binding.context).toBe(owner.context);
         expect(command.key).toBe('reveal-anchor-source');
         expect(command.presentation).toEqual(['palette', 'selection']);
+        expect(context.projection!.resolve(context.syntax!.nodeId).status).toBe('current');
         expect(command.when?.(context)).toBe(true);
-        expect(command.enabled?.(context)).toBe(false);
-        expect(command.disabledReason?.(context)).toBe('诊断：source-node-stale');
-        expect(() => command.run(context)).toThrow('诊断：source-node-stale');
+        expect(command.enabled?.(context)).toBe(true);
+        expect(command.disabledReason?.(context)).toBeUndefined();
+        const before = editor.dispatchTransaction({ changes: [], history: 'skip', origin: 'programmatic',
+            documentIdentity: owner.documentIdentity, expectedRevision: owner.context.sourceRevision });
+        expect(before.accepted).toBe(true);
+        expect(binding.consumeTransaction(before)).toBe(true);
+        const plan = await runMarkdownEditorCommand(command, context);
+        expect(plan).toMatchObject({ focus: 'editor', transaction: { changes: [], history: 'skip', origin: 'command',
+            documentIdentity: owner.documentIdentity, expectedRevision: 0,
+            selection: { ...context.syntax!.range, direction: 'backward' } } });
         expect(dispatch).not.toHaveBeenCalled();
+        const result = editor.dispatchTransaction(plan!.transaction!);
+        expect(result).toMatchObject({ accepted: true, beforeRevision: 0, revision: 0, value: context.value,
+            documentIdentity: owner.documentIdentity, selection: { ...context.syntax!.range, direction: 'backward' } });
+        expect(result.history).toEqual(before.history);
+        expect(binding.consumeTransaction(result)).toBe(true);
         expect(owner.context.sourceRevision).toBe(0);
+        expect(owner.context).toBe(binding.context);
     });
 
     it('does not expose the command without a projected explicit anchor', () =>
