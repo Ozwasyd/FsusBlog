@@ -34,17 +34,15 @@ describe('actual FsusUI public legacy embed denial', () =>
     );
 
     it.each(['html', 'iframe', 'component', 'privateCopy'])(
-        'refuses an untyped provider field %s without rewriting host source', (field) =>
+        'refuses an untyped provider field %s', (field) =>
         {
-            const source = `::embed[target="${article}" mode="article"]`;
             const request = createMarkdownEmbedRequest({
                 documentIdentity: { id: 'document:legacy-control', epoch: 3 }, revision: 8,
                 nodeId: 'embed:one', target: article, mode: 'article', version: 1
             });
             expect(commitMarkdownEmbedResult(request, {
                 ...request, status: 'resolved', [field]: '<iframe>unsafe</iframe>'
-            })).toMatchObject({ status: 'stale' });
-            expect(source).toBe(`::embed[target="${article}" mode="article"]`);
+            })).toMatchObject({ status: 'rejected', reason: 'invalid-result' });
         }
     );
 });
