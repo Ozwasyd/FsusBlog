@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Reserved production whitespace repair for #1688.
+8a4916b135eedaec0d6252f9b6e5e1bd53040913

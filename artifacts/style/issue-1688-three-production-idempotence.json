@@ -1,0 +1,106 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "8a4916b135eedaec0d6252f9b6e5e1bd53040913",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace FsusBlog.slnx --no-restore --include src/backend/Infrastructure/Operations/ProductionHealth.cs src/backend/Program.cs src/backend/Services/SystemService.cs --verbosity diagnostic"
+    },
+    "paths": [
+        "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+        "src/backend/Program.cs",
+        "src/backend/Services/SystemService.cs"
+    ],
+    "firstPassTreeSha256": "cbb92d230c1de38831e11b084842c83487c39fc0c43c743adf96be4bcfaaba4b",
+    "secondPassTreeSha256": "cbb92d230c1de38831e11b084842c83487c39fc0c43c743adf96be4bcfaaba4b",
+    "idempotent": true,
+    "sourcePreimageRevision": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "sourcePreimages": [
+        {
+            "path": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "gitBlob": "9f708dcc83014fabe0b570b3c62d2088dfd251c1"
+        },
+        {
+            "path": "src/backend/Program.cs",
+            "gitBlob": "50734b1e3226d880728905d59fba94c7f7d28908"
+        },
+        {
+            "path": "src/backend/Services/SystemService.cs",
+            "gitBlob": "842f13491890fcd203b2b8abf223b619577e6c2b"
+        }
+    ],
+    "actualExecution": {
+        "beforeVerifyExitCode": 2,
+        "beforeWhitespaceDiagnostics": 14,
+        "firstPassExitCode": 0,
+        "secondPassExitCode": 0,
+        "afterVerifyExitCode": 0,
+        "scopedCSharpStyleExitCode": 1,
+        "remainingScopedWhitespaceDiagnostics": 0,
+        "remainingScopedCheckerDiagnostic": "[csharp-style] src/backend/Services/SystemService.cs:19 using-order: using directives must place System first and sort namespaces within a group [SqlSugar]"
+    },
+    "roslynEquivalence": {
+        "schema": "fsusblog.roslyn-format-equivalence.v1",
+        "parserAssemblyVersion": "5.9.0.0",
+        "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
+        "paths": [
+            {
+                "path": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+                "tokenCount": 8188,
+                "beforeTokenSha256": "b6d40de1af17d15c8e250f96e407af385ac31372727acd128df905c53e65588b",
+                "afterTokenSha256": "b6d40de1af17d15c8e250f96e407af385ac31372727acd128df905c53e65588b",
+                "beforeAnchoredTriviaSha256": "c870d942e33f69e2d6b282be4cc648adda5f72401b09d4658307046e76e0fe5a",
+                "afterAnchoredTriviaSha256": "c870d942e33f69e2d6b282be4cc648adda5f72401b09d4658307046e76e0fe5a",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/backend/Program.cs",
+                "tokenCount": 1029,
+                "beforeTokenSha256": "99bb4d7041c4e962a7ad1d701aeb0e9b51176fbe4db962f745e3481798f75c66",
+                "afterTokenSha256": "99bb4d7041c4e962a7ad1d701aeb0e9b51176fbe4db962f745e3481798f75c66",
+                "beforeAnchoredTriviaSha256": "bc0355c767a6ac4e0773d38b14c34892ed196818f49c43b84c9eb1550d9ad9d1",
+                "afterAnchoredTriviaSha256": "bc0355c767a6ac4e0773d38b14c34892ed196818f49c43b84c9eb1550d9ad9d1",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/backend/Services/SystemService.cs",
+                "tokenCount": 5646,
+                "beforeTokenSha256": "38f2bf986fd02355399eb40e027da5955b22f75226a483287801e9b8e2e940a7",
+                "afterTokenSha256": "38f2bf986fd02355399eb40e027da5955b22f75226a483287801e9b8e2e940a7",
+                "beforeAnchoredTriviaSha256": "ba477407e116d32a173c1a6a4bf756eea0d22e39c57cd44d8325dc25e4c309da",
+                "afterAnchoredTriviaSha256": "ba477407e116d32a173c1a6a4bf756eea0d22e39c57cd44d8325dc25e4c309da",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            }
+        ],
+        "equivalent": true
+    },
+    "qualificationEligible": false,
+    "diagnosticArtifacts": [
+        {
+            "path": ".tmp/issue-1688/three-production-format/before-formatter.log",
+            "sha256": "5ab7730b07e496c0df2cb56acd274dd528c00ba87e6db9d6ed6fa0cb7b34adf2"
+        },
+        {
+            "path": ".tmp/issue-1688/three-production-format/first-formatter.log",
+            "sha256": "a891ee6368c529bb1da7630ab4b8ecd0b37b93399bb59ede7bb0fe744d9f99b4"
+        },
+        {
+            "path": ".tmp/issue-1688/three-production-format/second-formatter.log",
+            "sha256": "240c2ebbf3e041b99b88d5b1f0119a1d5d6d2a554c0bda2a19935c60732f67da"
+        },
+        {
+            "path": ".tmp/issue-1688/three-production-format/after-formatter.log",
+            "sha256": "f77762c92f0ae3186b38c078ebef36b2620a9975be1ac143c0421c75c2fda859"
+        },
+        {
+            "path": ".tmp/issue-1688/three-production-format/scoped-csharp-style.log",
+            "sha256": "6c24efa2399aa0163d23dcdbfdd9e69d4166cd3a9ef076135fe0f6af5304100c"
+        }
+    ]
+}
