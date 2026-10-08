@@ -3510,6 +3510,125 @@
                     "anchor": "class OsNumaTopologySource"
                 }
             ]
+        },
+        {
+            "id": "flat-native-index",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "producer": "TryBuild freezes finite counts, admits whole native index plus build workspace before NativeMemory.AlignedAlloc and UTF8 key writing",
+            "owner": "FlatArtifactIndex sealed physical owner; FlatArtifactIndexPublication counted initial holder; existing content publisher remains authoritative",
+            "consumers": "Id/route lookup leases, descriptor and key views, internal publication holder and reference oracle",
+            "releaseEvent": "Construction failure frees candidate and charge; published retirement stops new readers and releases native storage/charge after final counted index reader; payload lifetime binding remains a separate unresolved integration",
+            "capacityModel": "Checked aligned allocation covers descriptors, id/route slots and key bytes; finite build workspace is separate; a descriptor is not proof of referenced payload ownership",
+            "frequency": "Per explicit admitted build/discovery/allocation/transfer; no measured production rate",
+            "asyncEscape": "Reader/publication holds and descriptor results can outlive an index replacement; payload owner, representation and revision binding must be supplied before product integration",
+            "classification": "unclassified",
+            "eligibilityOwner": "Existing content and capability authority; availability, caller flags and source tests do not approve generic payload migration",
+            "migrationDisposition": "Deny generic migration and activation until exact content, workload, release and runtime gates are satisfied",
+            "exclusionReason": "Delivered APIs are source contributions, not proof of payload owner binding, hardware availability or complete qualification",
+            "observationHeadroom": "Retain native, managed, driver and control metadata in the denominator; finite policy estimates are not exact process/driver usage, and missing device/platform measurements remain NotVerified",
+            "testOwner": "tests/backend/Unit/FlatArtifactIndexTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+                    "anchor": "class FlatArtifactIndex"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Host/FlatArtifactIndexLayout.cs",
+                    "anchor": "class FlatArtifactIndexLayout"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Host/ReferenceArtifactIndex.cs",
+                    "anchor": "class ReferenceArtifactIndex"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs",
+                    "anchor": "class FlatArtifactIndexPublication"
+                }
+            ]
+        },
+        {
+            "id": "gpu-operation-owner-metadata",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Devices/GpuMemoryDevice.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "producer": "GpuMemoryDevice admits driver allocation/staging/transfer vectors through the existing coordinator; bounded snapshots materialize retained operation/allocation lists",
+            "owner": "GpuAllocation device owner, GpuStagingBuffer registered-host owner and operation tokens; driver sessions retain actual native completion ownership",
+            "consumers": "GpuTransferOperation, source/destination peer holds, quarantined operations, retained staging pool and PollCompletions caller",
+            "releaseEvent": "Disable rejects new work and drains actual operations; confirmed native allocation rejection releases admission, uncertain failure retains reservations, and teardown failure retains quarantine/owner state",
+            "capacityModel": "MaximumAllocationBytes/MaximumAllocations/MaximumStagingBuffers/MaximumOperations bound declared resources; staging Capacity and aligned descriptor are distinct from device Length and native actual capacity, whose charging integration remains NotVerified",
+            "frequency": "Per explicit admitted build/discovery/allocation/transfer; no measured production rate",
+            "asyncEscape": "Transfers, peer mappings, registered staging and quarantined native owners survive caller cancellation until actual driver completion or safe retained fault handling",
+            "classification": "unclassified",
+            "eligibilityOwner": "Existing content and capability authority; availability, caller flags and source tests do not approve generic payload migration",
+            "migrationDisposition": "Deny generic migration and activation until exact content, workload, release and runtime gates are satisfied",
+            "exclusionReason": "Delivered APIs are source contributions, not proof of payload owner binding, hardware availability or complete qualification",
+            "observationHeadroom": "Retain native, managed, driver and control metadata in the denominator; finite policy estimates are not exact process/driver usage, and missing device/platform measurements remain NotVerified",
+            "testOwner": "tests/backend/Unit/GpuMemoryDeviceTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Devices/GpuMemoryDevice.cs",
+                    "anchor": "class GpuMemoryDevice"
+                }
+            ]
+        },
+        {
+            "id": "gpu-discovery-roster-metadata",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Platform/GpuMetalDiscovery.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuNativeDiscovery.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "producer": "Explicit native/Metal discovery freezes bounded approved library/API/OS-version rosters into distinct arrays before calling the isolated loader",
+            "owner": "GpuNativeLoadPolicy/GpuMetalLoadPolicy copied rosters and discovery result sessions; source-level approved API input is not a per-host activation permit",
+            "consumers": "Caller-held load policy, discovery results and retained native/Metal sessions; existing capability authority must perform separate qualification",
+            "releaseEvent": "Managed roster references end with actual caller release/GC; unsuccessful discovery closes only unretained empty sessions; successful sessions remain caller-owned",
+            "capacityModel": "Finite roster bounds limit paths, versions and discovery devices; exact CLR string/array and native driver overhead is separately observed, never zero inferred usage",
+            "frequency": "Per explicit admitted build/discovery/allocation/transfer; no measured production rate",
+            "asyncEscape": "Discovery outputs and native library/session owners may outlive the method return; disabled observation must not call native loaders; real hardware/backend availability remains NotVerified",
+            "classification": "unclassified",
+            "eligibilityOwner": "Existing content and capability authority; availability, caller flags and source tests do not approve generic payload migration",
+            "migrationDisposition": "Deny generic migration and activation until exact content, workload, release and runtime gates are satisfied",
+            "exclusionReason": "Delivered APIs are source contributions, not proof of payload owner binding, hardware availability or complete qualification",
+            "observationHeadroom": "Retain native, managed, driver and control metadata in the denominator; finite policy estimates are not exact process/driver usage, and missing device/platform measurements remain NotVerified",
+            "testOwner": "tests/backend/Unit/GpuNativeTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Platform/GpuMetalDiscovery.cs",
+                    "anchor": "class GpuMetalLoadPolicy"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Platform/GpuNativeDiscovery.cs",
+                    "anchor": "class GpuNativeLoadPolicy"
+                }
+            ]
         }
     ],
     "syntaxObserver": {
