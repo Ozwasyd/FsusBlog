@@ -5,13 +5,21 @@ namespace FsusBlog.Server.Infrastructure.Memory.Disk;
 
 public sealed record DiskBudgetRequest(long DiskBytes, long HostBytes, long OperationSlots);
 
+/// <summary>Unknown layering cannot certify capacity independent of host memory.</summary>
+public enum DiskBackingKind
+{
+    Unknown,
+    MemoryBacked,
+    Independent
+}
+
 /// <summary>One scoped, time-bounded observation; quota/inode unknowns remain explicit.</summary>
 public sealed record DiskCapacityObservation(
     string CapacityIdentity,
     MemoryResourceObservation AvailableBytes,
     MemoryResourceObservation QuotaBytes,
     MemoryResourceObservation AvailableInodes,
-    bool MemoryBacked,
+    DiskBackingKind Backing,
     DateTimeOffset ValidUntil,
     ulong PolicyRevision);
 
@@ -43,7 +51,9 @@ public sealed class DiskBudgetAdmission
             || coordinator.Topology.Unit(hostDomain) != MemoryResourceUnit.Bytes
             || coordinator.Topology.Unit(slotDomain) != MemoryResourceUnit.OperationSlots
             || !coordinator.Topology.ConstraintChain(diskDomain).Any(domain => domain.Id == capacityDomain)
-            || coordinator.Topology.SharesCapacityOrContainment(diskDomain, hostDomain))
+            || coordinator.Topology.ConstraintChain(diskDomain).Select(domain => domain.CapacityIdentity)
+                .Intersect(coordinator.Topology.ConstraintChain(hostDomain).Select(domain => domain.CapacityIdentity),
+                    StringComparer.Ordinal).Any())
         {
             throw new ArgumentException("Disk admission requires independent host and slot domains and a containing shared volume.");
         }
@@ -84,7 +94,7 @@ public sealed class DiskBudgetAdmission
         }
         DateTimeOffset now = _timeProvider.GetUtcNow();
         string capacityIdentity = _coordinator.Topology.CapacityIdentity(_capacityDomain);
-        if (sample.MemoryBacked || sample.PolicyRevision == 0 || sample.CapacityIdentity != capacityIdentity
+        if (sample.Backing != DiskBackingKind.Independent || sample.PolicyRevision == 0 || sample.CapacityIdentity != capacityIdentity
             || sample.ValidUntil <= now || !Usable(sample.AvailableBytes, now, _capacityDomain)
             || !Usable(sample.QuotaBytes, now, _capacityDomain)
             || !Usable(sample.AvailableInodes, now, SlotDomain)
