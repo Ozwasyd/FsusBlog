@@ -2396,6 +2396,14 @@
                 {
                     "path": "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs",
                     "anchor": "public sealed class PortableMemoryPressureSource"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Platform/WindowsNativeMemoryPressureReader.cs",
+                    "anchor": "public static class WindowsNativeMemoryPressureReader"
+                },
+                {
+                    "path": "tests/backend/Unit/WindowsNativeMemoryPressureReaderTests.cs",
+                    "anchor": "public sealed class WindowsNativeMemoryPressureReaderTests"
                 }
             ]
         },

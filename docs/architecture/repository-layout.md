@@ -430,3 +430,20 @@ These raw counters do not classify thrashing, grant headroom or qualify a proces
 domain. Native meanings follow the [cgroup v2 interfaces](https://docs.kernel.org/admin-guide/cgroup-v2.html),
 [PSI interface](https://docs.kernel.org/accounting/psi.html) and
 [v1 memory statistics](https://docs.kernel.org/admin-guide/cgroup-v1/memory.html).
+
+`WindowsNativeMemoryPressureReader` is a raw 64-bit Windows PSAPI2 observation
+surface using system32 `GlobalMemoryStatusEx`, `K32GetPerformanceInfo` and
+`K32GetProcessMemoryInfo`. It fills fixed caller-owned admitted value storage,
+retains native API/scope and per-call UTC/monotonic provenance, and checks page
+conversion and capture clock validity. Omitted mode is Auto; Disabled clears old
+output and makes no native or clock capture. Unsupported targets are separate
+from disabled mode and report unavailable values. Current-process pseudo-handles
+remain borrowed. Physical availability, system commit, process private commit and
+page-fault counts are distinct observations; commit limits are not promoted to
+hard physical/job capacity, private commit is not swap occupancy, and page faults
+are not classified as swap activity. The API/ABI guard (PSAPI2 Windows 6.1+,
+x64/arm64) is not a product support or qualification declaration. All results
+remain `NotVerified`; job/compression/pressure APIs, actual Windows rows, measured
+probe/metadata costs and canonical Auto/readiness integration remain required.
+Native ABI/meanings follow [PERFORMANCE_INFORMATION](https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-performance_information)
+and [PROCESS_MEMORY_COUNTERS_EX](https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters_ex).
