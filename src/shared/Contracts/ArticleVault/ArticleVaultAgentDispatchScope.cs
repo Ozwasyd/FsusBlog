@@ -55,6 +55,12 @@ public sealed class ArticleVaultAgentDispatchScope : IDisposable
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_revoked, this);
+            if (_registered.Values.Any(item => item.ExecuteRequestIdentity == executeRequestIdentity
+                && item.Reference.Identity.OperationIdentity != reference.Identity.OperationIdentity))
+            {
+                throw new InvalidDataException("agent_dispatch_request_identity_duplicate");
+            }
+
             if (_registered.TryGetValue(reference.Identity.OperationIdentity, out OperationEntry? old))
             {
                 if (old.Active is not null || old.ExecuteRequestIdentity != executeRequestIdentity
@@ -152,14 +158,24 @@ public sealed class ArticleVaultAgentDispatchScope : IDisposable
 
             // This only requests cancellation. Existing canonical checkpoint transitions stay
             // with their owner; an uncertain/accepted server result still requires recovery.
+            CancellationTokenSource? activeCancellation;
             lock (_gate)
             {
                 entry.CancelRequested = true;
-                entry.Active?.Cancel();
+                activeCancellation = entry.Active;
             }
 
             try
             {
+                try
+                {
+                    activeCancellation?.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // The target completed while the cancellation request was being admitted.
+                }
+
                 ArticleVaultAgentOperationSnapshot snapshot = await _operations.ReadAsync(entry.Reference, cancellationToken)
                     .ConfigureAwait(false);
                 ArticleVaultAgentOperationInventory.RequireCurrentBinding(_binding, _rootManifestSha256, entry.Reference, snapshot);
@@ -258,6 +274,11 @@ public sealed class ArticleVaultAgentDispatchScope : IDisposable
                 _ => Blocked("agent_canonical_execution_failed", result.ResultSha256)
             };
         }
+        catch (InvalidDataException exception) when (
+            exception.Message is "agent_current_operation_execution_admission_missing" or "agent_operation_execution_checkpoint_required")
+        {
+            return Blocked(exception.Message);
+        }
         catch (Exception)
         {
             // No invented cancellation or success when the canonical result is uncertain.
@@ -281,14 +302,39 @@ public sealed class ArticleVaultAgentDispatchScope : IDisposable
 
     public void Dispose()
     {
+        CancellationTokenSource[] active;
         lock (_gate)
         {
             _revoked = true;
             foreach (OperationEntry entry in _registered.Values)
             {
                 entry.CancelRequested = true;
-                entry.Active?.Cancel();
             }
+
+            active = _registered.Values.Where(static entry => entry.Active is not null)
+                .Select(static entry => entry.Active!).ToArray();
+        }
+
+        bool failed = false;
+        foreach (CancellationTokenSource cancellation in active)
+        {
+            try
+            {
+                cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // The operation's finally block already disposed this linked source.
+            }
+            catch (Exception)
+            {
+                failed = true;
+            }
+        }
+
+        if (failed)
+        {
+            throw new InvalidDataException("agent_dispatch_cancellation_drain_failed");
         }
     }
 
@@ -296,7 +342,15 @@ public sealed class ArticleVaultAgentDispatchScope : IDisposable
     {
         lock (_gate)
         {
-            if (request.Reference is not { } reference || !_registered.TryGetValue(reference.Identity, out OperationEntry? entry)
+            if (request.Reference is not { } reference)
+            {
+                return null;
+            }
+
+            OperationEntry? entry = cancellation
+                ? _registered.GetValueOrDefault(reference.Identity)
+                : _registered.Values.SingleOrDefault(item => item.ExecuteRequestIdentity == request.RequestIdentity);
+            if (entry is null || !cancellation && reference.Identity != entry.Reference.Identity.PlanReference
                 || request.CancellationIdentity != entry.CancellationIdentity
                 || reference.ContentSha256 != (cancellation ? entry.Reference.Identity.ContentSha256 : entry.Reference.Identity.PlanSha256)
                 || !cancellation && request.RequestIdentity != entry.ExecuteRequestIdentity)

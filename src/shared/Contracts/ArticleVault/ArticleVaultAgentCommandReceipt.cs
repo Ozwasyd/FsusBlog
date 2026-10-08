@@ -26,10 +26,33 @@ public sealed record ArticleVaultAgentCommandReceipt(
     string? CanonicalResultSha256,
     string ContentSha256);
 
-/// <summary>Produces privacy-safe wire receipts; completed always requires canonical result identity.</summary>
+/// <summary>Produces privacy-safe wire receipts; completed/cancelled require an actual owner receipt.</summary>
 public static class ArticleVaultAgentCommandReceipts
 {
     public const string Schema = "fsusblog.article-vault.agent-command-receipt.v1";
+
+    /// <summary>Encodes only one closed result bound to the exact admitted request and frame.</summary>
+    public static byte[] EncodeForRequest(
+        ArticleVaultAgentRequest request,
+        long frameByteLength,
+        ArticleVaultAgentCommandReceipt receipt)
+    {
+        byte[] bytes = ArticleVaultAgentProtocol.Encode(receipt);
+        ArticleVaultAgentCommandReceipt validated = Decode(bytes);
+        if (!ArticleVaultAgentRequestCodec.Verify(request)
+            || validated.Binding != request.Binding || validated.RequestIdentity != request.RequestIdentity
+            || validated.RequestSha256 != request.ContentSha256 || validated.Command != request.Command
+            || validated.LeaseGeneration != request.LeaseGeneration
+            || validated.LeaseReceiptSha256 != request.LeaseReceiptSha256
+            || validated.CancellationIdentity != request.CancellationIdentity
+            || validated.DeadlineUnixMilliseconds != request.DeadlineUnixMilliseconds
+            || validated.FrameByteLength != frameByteLength)
+        {
+            throw new InvalidDataException("agent_ipc_result_request_mismatch");
+        }
+
+        return bytes;
+    }
 
     public static ArticleVaultAgentCommandReceipt Create(
         ArticleVaultAgentRequest request,

@@ -6,6 +6,7 @@ namespace FsusBlog.Shared.Contracts.ArticleVault;
 /// </summary>
 public sealed record ArticleVaultAgentLifecycleInventoryReceipt(
     string Schema,
+    string RootManifestSha256,
     long LeaseGeneration,
     long Sequence,
     string? PreviousReceiptSha256,
@@ -21,12 +22,13 @@ public static class ArticleVaultAgentLifecycleInventory
 
     public static ArticleVaultAgentLifecycleInventoryReceipt Create(
         ArticleVaultAgentLifecycleInventoryReceipt? previous,
+        string rootManifestSha256,
         long leaseGeneration,
         ArticleVaultAgentLifecycleReceipt lifecycle,
         IReadOnlyList<ArticleVaultAgentOperationReference> operations)
     {
         ArgumentNullException.ThrowIfNull(operations);
-        var receipt = new ArticleVaultAgentLifecycleInventoryReceipt(Schema, leaseGeneration,
+        var receipt = new ArticleVaultAgentLifecycleInventoryReceipt(Schema, rootManifestSha256, leaseGeneration,
             previous?.Sequence + 1 ?? 1, previous?.ContentSha256, lifecycle,
             operations.OrderBy(static item => item.Identity.OperationIdentity, StringComparer.Ordinal).ToArray(), string.Empty);
         receipt = receipt with
@@ -55,6 +57,7 @@ public static class ArticleVaultAgentLifecycleInventory
     public static bool Verify(ArticleVaultAgentLifecycleInventoryReceipt? receipt)
     {
         if (receipt is null || receipt.Schema != Schema || receipt.LeaseGeneration < 1 || receipt.Sequence < 1
+            || !ArticleVaultAgentProtocol.IsDigest(receipt.RootManifestSha256)
             || !ArticleVaultAgentLifecycle.Verify(receipt.Lifecycle)
             || (receipt.Sequence == 1 ? receipt.PreviousReceiptSha256 is not null
                 : !ArticleVaultAgentProtocol.IsDigest(receipt.PreviousReceiptSha256))
@@ -121,7 +124,8 @@ public static class ArticleVaultAgentLifecycleInventory
                 && next.Lifecycle.NewState is ArticleVaultAgentLifecycleState.Stopped or ArticleVaultAgentLifecycleState.Starting;
         }
 
-        return before == after && (previous.Lifecycle == next.Lifecycle
+        return before == after && previous.RootManifestSha256 == next.RootManifestSha256
+            && (previous.Lifecycle == next.Lifecycle
             || next.Lifecycle.Sequence == previous.Lifecycle.Sequence + 1
                 && next.Lifecycle.PreviousReceiptSha256 == previous.Lifecycle.ContentSha256
                 && next.Lifecycle.PreviousState == previous.Lifecycle.NewState);

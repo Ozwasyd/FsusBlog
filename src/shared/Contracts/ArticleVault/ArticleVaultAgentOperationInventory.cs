@@ -72,6 +72,12 @@ public static class ArticleVaultAgentOperationInventory
 
     public static bool IsReference(ArticleVaultAgentOperationReference? reference)
         => reference?.Identity is { } identity && reference.CheckpointSequence >= 0
+            && identity.Schema == ArticleVaultOperationSchemas.Identity && identity.SchemaVersion == ArticleVaultOperationSchemas.Version
+            && ArticleVaultAgentProtocol.IsIdentity(identity.SiteIdentity) && ArticleVaultAgentProtocol.IsIdentity(identity.VaultIdentity)
+            && ArticleVaultAgentProtocol.IsIdentity(identity.DeviceIdentity) && ArticleVaultAgentProtocol.IsIdentity(identity.AgentIdentity)
+            && ArticleVaultAgentProtocol.IsIdentity(identity.PlanReference) && identity.DeadlineUnixMs > 0
+            && ArticleVaultAgentProtocol.IsDigest(identity.PlanSha256) && ArticleVaultAgentProtocol.IsDigest(identity.RequestSha256)
+            && ArticleVaultAgentProtocol.IsDigest(identity.IdempotencySha256)
             && ArticleVaultAgentProtocol.IsDigest(reference.CheckpointSha256)
             && ArticleVaultAgentProtocol.IsDigest(identity.ContentSha256)
             && identity.ContentSha256 == ArticleVaultOperationCodec.ComputeContentSha256(identity)

@@ -60,6 +60,40 @@ public sealed class LinuxVaultWriterLeaseScope : IDisposable
         get; private set;
     }
 
+    internal string RootManifestSha256 => _root.Manifest.ContentSha256;
+
+    internal string LifecycleJournalPath
+        => Path.Combine(ControlDirectory, ArticleVaultAgentProtocol.Digest(new[]
+        {
+            Receipt.Binding.SiteIdentity, Receipt.Binding.VaultIdentity
+        }) + ".agent-lifecycle");
+
+    internal SafeFileHandle OpenLifecycleJournal(CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            RequireCurrent(cancellationToken);
+            using SafeFileHandle directory = OpenControlDirectory();
+            SafeFileHandle handle = LinuxVaultLeaseNative.Own(LinuxVaultLeaseNative.OpenAt(
+                LinuxVaultLeaseNative.Descriptor(directory), Path.GetFileName(LifecycleJournalPath), LinuxVaultLeaseNative.LeaseFlags));
+            try
+            {
+                LinuxVaultLeaseNative.RequirePrivate(handle, directory: false);
+                if (LinuxVaultLeaseNative.Lock(LinuxVaultLeaseNative.Descriptor(handle), 2 | 4) != 0)
+                {
+                    throw new InvalidDataException("agent_lifecycle_journal_already_owned");
+                }
+
+                return handle;
+            }
+            catch
+            {
+                handle.Dispose();
+                throw;
+            }
+        }
+    }
+
     /// <summary>The operator-owned namespace is fixed per current user, not chosen per process.</summary>
     public static string ControlDirectory
         => $"/run/user/{LinuxVaultLeaseNative.CurrentUser()}/fsusblog-vault";
@@ -219,7 +253,7 @@ public sealed class LinuxVaultWriterLeaseScope : IDisposable
         }
     }
 
-    private static SafeFileHandle OpenControlDirectory()
+    internal static SafeFileHandle OpenControlDirectory()
     {
         SafeFileHandle current = LinuxVaultLeaseNative.Own(LinuxVaultLeaseNative.OpenAt(-100, "/", LinuxVaultLeaseNative.DirectoryFlags));
         try

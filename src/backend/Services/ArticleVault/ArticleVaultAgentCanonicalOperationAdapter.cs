@@ -12,6 +12,7 @@ public sealed class ArticleVaultAgentCanonicalOperationAdapter(
     IArticleVaultSyncPlanExecutor executor,
     ArticleVaultAgentBinding binding,
     string rootManifestSha256,
+    long trustedAdminPrincipalId,
     TimeProvider timeProvider) : IArticleVaultAgentCanonicalOperations
 {
     public async Task<ArticleVaultAgentOperationSnapshot> ReadAsync(
@@ -91,6 +92,11 @@ public sealed class ArticleVaultAgentCanonicalOperationAdapter(
             reference.Identity.PlanReference, reference.Identity.PlanSha256, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidDataException("agent_operation_plan_missing");
         ArticleVaultExecutionIntegrity.ValidateBundle(bundle);
+        if (trustedAdminPrincipalId <= 0 || bundle.AdminPrincipalId != trustedAdminPrincipalId)
+        {
+            throw new InvalidDataException("agent_operation_principal_binding_mismatch");
+        }
+
         ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateIdentity(reference.Identity, bundle.Plan));
         if (bundle.Plan.RootManifestSha256 != rootManifestSha256 || reference.Identity.SiteIdentity != binding.SiteIdentity
             || reference.Identity.VaultIdentity != binding.VaultIdentity || reference.Identity.DeviceIdentity != binding.DeviceIdentity

@@ -14,6 +14,10 @@ const leaseFile = `${native}/LinuxVaultWriterLeaseScope.cs`;
 const endpointFile = `${native}/LinuxVaultLocalIpcEndpoint.cs`;
 const grantFile = `${native}/LinuxVaultAgentGrantLedger.cs`;
 const controlFile = `${native}/LinuxVaultAgentControlSession.cs`;
+const journalFile = `${native}/LinuxVaultAgentLifecycleJournal.cs`;
+const dispatchFile = `${contracts}/ArticleVaultAgentDispatchScope.cs`;
+const inventoryFile = `${contracts}/ArticleVaultAgentLifecycleInventory.cs`;
+const adapterFile = 'src/backend/Services/ArticleVault/ArticleVaultAgentCanonicalOperationAdapter.cs';
 const commands = ['ObserveBatch', 'RequestPlanner', 'ExecuteVerifiedPlan', 'MaterializeVerifiedInstruction', 'InspectStatus', 'Cancel', 'Revoke'];
 const owners = new Map([
     ['ArticleVaultAgentProtocol', protocolFile],
@@ -21,14 +25,18 @@ const owners = new Map([
     ['LinuxVaultWriterLeaseScope', leaseFile],
     ['LinuxVaultLocalIpcEndpoint', endpointFile],
     ['LinuxVaultAgentGrantLedger', grantFile],
-    ['LinuxVaultAgentControlSession', controlFile]
+    ['LinuxVaultAgentControlSession', controlFile],
+    ['LinuxVaultAgentLifecycleJournal', journalFile],
+    ['ArticleVaultAgentDispatchScope', dispatchFile],
+    ['ArticleVaultAgentLifecycleInventory', inventoryFile],
+    ['ArticleVaultAgentCanonicalOperationAdapter', adapterFile]
 ]);
 
 export function readArticleVaultAgentControlSources(repositoryRoot = root)
 {
     const files = [contracts, native].flatMap((directory) => readdirSync(path.join(repositoryRoot, directory))
         .filter((name) => name.endsWith('.cs')).map((name) => `${directory}/${name}`));
-    return new Map(files.map((file) => [file, readFileSync(path.join(repositoryRoot, file), 'utf8')]));
+    return new Map([...files, adapterFile].map((file) => [file, readFileSync(path.join(repositoryRoot, file), 'utf8')]));
 }
 
 /** Static ownership/refusal evidence only; this never qualifies native locks, trust or recovery. */
@@ -79,7 +87,7 @@ export function checkArticleVaultAgentControlSources(sources)
             errors.push(`${file}: second agent protocol or writer lease owner`);
         }
     }
-    for (const file of [leaseFile, endpointFile, grantFile, controlFile])
+    for (const file of [leaseFile, endpointFile, grantFile, controlFile, journalFile, dispatchFile, inventoryFile])
     {
         const source = sources.get(file);
         if (/\b(?:HttpClient|ProcessStartInfo|ArticleService|IArticleVaultCanonicalGroupWriter|Npgsql|DbContext|ExecuteSql|SaveChanges|LibGit2Sharp)\b/u.test(source)
@@ -94,7 +102,11 @@ export function checkArticleVaultAgentControlSources(sources)
         [leaseFile, ['LinuxVaultLeaseNative.Lock', '2 | 4', '/run/user/', 'RequirePrivate', 'ValidateOriginalHeldRegularFileUnchanged', 'VerifyWatchedRoot', 'BootMilliseconds', 'VerifyTransition', 'Flush(flushToDisk: true)', 'writer_lease_journal_incomplete_recovery_required']],
         [endpointFile, ['CreateLocalListener', 'RequireCurrentUserPeer', 'RequirePrivateSocket', 'SameSocket', 'cleanup_unowned_endpoint', 'MaximumFrameBytes', '_grants.Admit', 'ZeroMemory', 'CreateLinkedTokenSource']],
         [grantFile, ['FixedTimeEquals', 'MaximumRequests', '_requests.Add', 'agent_request_duplicate_or_budget_exceeded', 'ZeroMemory', '_lease.Revoke', 'grant.Binding != request.Binding', 'grant.Generation != request.LeaseGeneration']],
-        [controlFile, ['InspectStatus', 'ArticleVaultAgentCommand.InspectStatus', '_grants.Revoke', '_endpoint.DisposeAsync', '_lease.Dispose', 'ControlStateRetained', 'owned_control_endpoint_close_failed']]
+        [controlFile, ['InspectStatus', 'ArticleVaultAgentCommand.InspectStatus', '_grants.Revoke', '_endpoint.DisposeAsync', '_lease.Dispose', 'ControlStateRetained', 'owned_control_endpoint_close_failed', 'ServeNextAsync', '_journal.Append', 'agent_operation_inventory_persistence_failed']],
+        [journalFile, ['OpenLifecycleJournal', 'VerifyAppend', 'MaximumJournalBytes', 'Flush(flushToDisk: true)', 'agent_lifecycle_journal_incomplete_recovery_required', 'agent_lifecycle_journal_recovery_required']],
+        [dispatchFile, ['ArticleVaultSyncPlanner.Build', 'RequireCurrentBinding', 'agent_dispatch_lifecycle_not_running', 'agent_execution_recovery_required', 'agent_native_conditional_materializer_missing']],
+        [inventoryFile, ['VerifyAppend', 'previous.RootManifestSha256 == next.RootManifestSha256', 'retained.CheckpointSequence < old.CheckpointSequence', 'next.Lifecycle.RescanRequired']],
+        [adapterFile, ['checkpoints.ReadThroughAsync', 'executor.ExecuteAsync', 'ArticleVaultExecutionIntegrity.VerifyResult', 'agent_current_operation_execution_admission_missing', 'agent_execution_result_receipt_missing']]
     ]);
     for (const [file, required] of guards)
     {
@@ -109,6 +121,10 @@ export function checkArticleVaultAgentControlSources(sources)
     if (/AddressFamily\.(?:InterNetwork|InterNetworkV6)|IPAddress\.Any|IPEndPoint/u.test(sources.get(endpointFile)))
     {
         errors.push('IPC must remain a closed current-user Unix endpoint, never remote or listen-all');
+    }
+    if (/\b(?:AppendAsync|SaveResultAsync|ExecuteGroupAsync|SaveChanges|CreateTemporarySource)\s*\(/u.test(sources.get(adapterFile)))
+    {
+        errors.push('canonical agent adapter must not add operation transitions, a writer or a private materializer');
     }
     if (/\b\w+\.Bind\s*\(/u.test(sources.get(endpointFile)))
     {

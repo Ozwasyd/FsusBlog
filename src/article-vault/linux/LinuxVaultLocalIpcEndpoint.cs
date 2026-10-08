@@ -87,7 +87,18 @@ public sealed class LinuxVaultLocalIpcEndpoint : IDisposable, IAsyncDisposable
     /// Reads one bounded frame from one actual current-user peer. Returning a request proves only
     /// local IPC admission; execution/materialization still belongs to the canonical producers.
     /// </summary>
-    public async Task<ArticleVaultAgentRequest> ReadRequestAsync(CancellationToken cancellationToken)
+    public Task<ArticleVaultAgentRequest> ReadRequestAsync(CancellationToken cancellationToken)
+        => ExchangeAsync(null, cancellationToken);
+
+    /// <summary>Writes only the verified bounded command receipt back to the same admitted peer.</summary>
+    internal Task<ArticleVaultAgentRequest> DispatchRequestAsync(
+        Func<ArticleVaultAgentRequest, int, CancellationToken, Task<ArticleVaultAgentCommandReceipt>> dispatch,
+        CancellationToken cancellationToken)
+        => ExchangeAsync(dispatch ?? throw new ArgumentNullException(nameof(dispatch)), cancellationToken);
+
+    private async Task<ArticleVaultAgentRequest> ExchangeAsync(
+        Func<ArticleVaultAgentRequest, int, CancellationToken, Task<ArticleVaultAgentCommandReceipt>>? dispatch,
+        CancellationToken cancellationToken)
     {
         lock (_gate)
         {
@@ -130,6 +141,21 @@ public sealed class LinuxVaultLocalIpcEndpoint : IDisposable, IAsyncDisposable
                 LinuxVaultLeaseNative.RequireCurrentUserPeer(peer);
                 VerifyEndpoint();
                 _grants.Admit(request, secret, timeout.Token);
+                if (dispatch is not null)
+                {
+                    ArticleVaultAgentCommandReceipt receipt = await dispatch(request, length, timeout.Token).ConfigureAwait(false);
+                    // Reparse through the sole closed result codec; no service/source body can
+                    // appear in this transport and a result must name this admitted request.
+                    byte[] response = ArticleVaultAgentCommandReceipts.EncodeForRequest(request, length, receipt);
+
+                    LinuxVaultLeaseNative.RequireCurrentUserPeer(peer);
+                    VerifyEndpoint();
+                    BinaryPrimitives.WriteInt32BigEndian(prefix, response.Length);
+                    await stream.WriteAsync(prefix, timeout.Token).ConfigureAwait(false);
+                    await stream.WriteAsync(response, timeout.Token).ConfigureAwait(false);
+                    await stream.FlushAsync(timeout.Token).ConfigureAwait(false);
+                }
+
                 return request;
             }
             finally

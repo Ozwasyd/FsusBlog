@@ -3,8 +3,8 @@
 This document describes the lease and closed IPC source for issues
 [#2113](https://github.com/Ozwasyd/FsusBlog/issues/2113) and
 [#2114](https://github.com/Ozwasyd/FsusBlog/issues/2114). It does not certify a
-running filesystem agent. The lifecycle implementation currently reduces
-versioned contract facts; it does not install a signed package, atomically
+running filesystem agent. The lifecycle implementation reduces versioned facts
+and owns persistent local control resources; it does not install a signed package, atomically
 update a binary, start processes, or produce a verified rescan.
 
 ## Sole protocol and native ownership
@@ -80,15 +80,47 @@ revoking the lease. The replay ledger rejects duplicate IDs and blocks at
 4096 requests rather than evicting old IDs. It is session-local; durable
 operation idempotency remains the canonical operation owner's responsibility.
 
-Local request admission is not execution. No business dispatcher, snapshot,
-watcher, planner, server writer or materializer is implemented in these files.
-The future host must consume the real producer APIs and send bound result
-receipts. It must revoke the ledger on logout/site switch/unlink, stop its
-owned work and dispose endpoint/lease in that order.
+Local request admission is not execution. `ServeNextAsync` keeps the admitted
+peer connection open, dispatches the closed request and sends a four-byte
+big-endian length followed by one bounded command receipt. It reparses and binds
+the result to the original request, including frame size, deadline and cancellation
+identity. Service objects, bodies and credentials cannot enter that response.
+
+`ArticleVaultAgentDispatchScope` registers bounded, host-supplied canonical planner
+inputs and exact operation pointers. It snapshots inputs, uses the original
+`ArticleVaultSyncPlanner.Build` and consumes verified histories through
+`IArticleVaultAgentCanonicalOperations`. Execute requests are pinned to their
+registered request/cancellation identities and original plan reference/digest; cancel targets only the exact operation
+and signals its owned in-flight request. Without a canonical Cancelled checkpoint
+or result, cancellation remains admitted/blocked. An interrupted accepted result
+retains its canonical digest with recovery-required semantics.
+
+`ArticleVaultAgentCanonicalOperationAdapter` is a server composition adapter over
+the original sealed execution store, checkpoint store and sync executor. It verifies
+persisted results before and after the original executor's result-replay path. It
+never appends operation checkpoints or adds an article writer. The current canonical
+`ReadThroughAsync` is an immutable historical-prefix read, not current-tip admission.
+First execution without a persisted result therefore blocks with
+`agent_current_operation_execution_admission_missing`. #2106 must supply an actual
+current-operation compare/admit/execute handler, including cancellation/recovery
+serialization, before that path can execute new work. The host must supply its
+trusted session bridge; this adapter does not register itself in DI or provision
+service credentials in the local agent. It requires the server boundary's trusted
+admin principal and refuses sealed bundles belonging to another principal.
+
+Normal commands require this control owner's Running/no-rescan lifecycle and
+matching lease receipt. The actual current factory remains Starting/rescan-required.
+Observe-batch additionally needs native observation admission. Materialization
+blocks with `agent_native_conditional_materializer_missing`: root-issued reads,
+enumeration and operation temporary preparation are not a final conditional
+replace/remove, complete metadata admission or atomic base commit. Accepted source
+and immutable resolution proposals also grant none of those capabilities. No second
+planner, snapshot/watcher, proposal store, operation store or materializer is added.
 
 `LinuxVaultAgentControlSession` is an in-process lifecycle API for an actual
-transferred native lease. It creates and owns the grant ledger and IPC endpoint,
-exposes `InspectStatus`, issues only status grants and provides idempotent
+transferred native lease. It creates and owns the grant ledger, IPC endpoint and
+lifecycle journal, exposes `InspectStatus`/`InspectInventory`, provides purpose-bound
+`CreateCommandGrant`, and provides idempotent
 `ShutdownAsync` for stop/logout/site-switch/unlink. Revocation precedes cleanup;
 pending IPC reads are cancelled and drained before endpoint/lease disposal.
 Unlink retains control/audit state. Any first cleanup failure preserves a blocked
@@ -96,6 +128,24 @@ receipt with a fixed stage-specific reason rather than reporting terminal
 success. This scope creates no watcher, process, temporary source file or binary
 installation. Its stopped/retained receipts describe only its owned local control
 resources, not a complete installed agent or an install/update transport.
+
+The resident lifecycle journal is the site/Vault digest plus `.agent-lifecycle`
+inside the same fixed namespace. It requires an operator-provisioned current-user
+0600 regular file; it does not create the file or alter persistent permissions.
+An exclusive journal handle remains held through terminal receipt persistence,
+including after the revoked writer lease closes. Records are hash-linked, bounded
+to 16 KiB each and 1 MiB total, fsynced, and retain at most eight exact canonical
+operation pointers. Those pointers include the original identity and named checkpoint
+sequence/digest; operation transitions stay in #2106's existing store. Incomplete,
+exhausted or uncertain writes block explicit recovery and are never truncated or
+silently retried. Unlink retains this journal and user Markdown.
+
+Registration is unusable if its pointer was not durably recorded. A new lease
+generation retains prior pointers and starts rescan-required; it cannot restore a
+persisted Running state or discard unfinished operations. Root manifest and full
+control binding are recorded. Old-agent pointers are recovery evidence, not grants
+for a new agent/session. A complete restart still requires actual root/source-tree,
+watcher/rescan and canonical operation revalidation producers.
 
 ## Lifecycle contract and remaining producers
 
@@ -128,17 +178,20 @@ planner/execution/materialization/operation APIs. Windows/macOS implementations
 and all independent runtime acceptance remain outstanding. No package mapper,
 FsusUI syntax parser, snapshot/watcher, sync winner or product UI is duplicated.
 
-Focused commands using the existing original project are:
+Ordinary dispatch checks using the existing original project are:
 
 ```bash
 dotnet restore tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --locked-mode
-dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore -c Release --filter 'Category=ArticleVaultLeaseProtocol|Category=ArticleVaultAgentLifecycle|Category=LinuxArticleVaultLeaseIpcRuntime'
+dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore -c Release --filter 'Category=ArticleVaultAgentDispatch'
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore -c Release --filter 'FullyQualifiedName~ArticleVaultAgentCanonicalOperationAdapterTests'
 node --test tests/governance/article-vault-agent-control.test.mjs
 node tools/governance/check-article-vault-agent-control.mjs
 ```
 
-The native test requires the real operator-provisioned control namespace. Its
-missing gate is a test failure, never an automatic pass, skip, fake device or
-substituted endpoint. Contract/static passes cannot replace it. Shared matrix,
+These unit/source checks provide no independent native QA clearance. The saved
+environment has absent provisioned control state and unsupported overlayfs; its
+earlier runtime failures remain unaccepted. No lease/kernel concurrency audit is
+part of this dispatch increment. Contract/static passes cannot replace native
+acceptance. Shared matrix,
 lifecycle/coverage registries and generated authority bindings are integrated
 by the overall owner, without concurrent edits from this source subchain.
