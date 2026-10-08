@@ -468,7 +468,6 @@ export interface AnonymousCommentTicketRequestDto {
     parentId?: string | null;
     rootId?: string | null;
     replyToCommentId?: string | null;
-    credentialEpoch: number;
     circuitNumericId: number;
     publicInputLayoutVersion: number;
     actionContext: string;
