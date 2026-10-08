@@ -712,6 +712,15 @@ public sealed class AuthoringExtensionRpcTests
     [InlineData("a\n\0é𝄞\ud800", "89f57d854aa2b871834c31342c1451edd26c031936a43cfd444f24187424f008")]
     public async Task MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(string text, string digest)
     {
+        // Attribute strings are UTF-8; the lone surrogate becomes three replacement
+        // characters. Restore that exact vector in runtime UTF-16 without changing
+        // its original case identity or independently framed expected digest.
+        if (text.EndsWith("\ufffd\ufffd\ufffd", StringComparison.Ordinal))
+        {
+            Assert.Equal("a\n\0é𝄞\ufffd\ufffd\ufffd", text);
+            text = text[..^3] + '\ud800';
+        }
+
         RpcFixture fixture = await CreateFixtureAsync();
         Assert.Equal("a80d7cc420549ed58fc55ee2cb500c2b6a23bb3e301cfcf7bacccb898ed85ca7", fixture.Envelope.GrantDigest);
         AuthoringMutationPlan plan = fixture.Envelope.Payload.MutationPlan!;
