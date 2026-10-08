@@ -4,6 +4,11 @@
         {
             "id": "environment-variable",
             "paths": [
+                "tools/release/correctness-provisional-receipt.mjs",
+                "tools/release/correctness-scheduler-authority.mjs",
+                "tools/release/correctness-terminal-receipt.mjs",
+                "tools/release/correctness-terminal-seal-journal.mjs",
+                "tools/release/test-evidence-receipts-cli.mjs",
                 "tools/test-matrix/atomic-failure/ci-projection.mjs",
                 "tools/test-matrix/atomic-failure/conformance.mjs",
                 "tools/test-matrix/atomic-failure/executable-authorities.mjs",
@@ -13,9 +18,12 @@
                 "tools/test-matrix/atomic-producers/contract.mjs",
                 "tools/test-matrix/atomic-producers/disposition.mjs",
                 "tools/test-matrix/atomic-producers/execution.mjs",
+                "tools/test-matrix/correctness-input-manifest.mjs",
+                "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+                "tools/test-matrix/scheduler.mjs",
                 "tools/test/bundles/bundle-steps.mjs"
             ],
-            "reason": "preserve externally owned process/replay interfaces in atomic failure consumers and exact framework653ef38 source consumption; source remains bound to its original owner"
+            "reason": "preserve original process/replay naming while consuming exact framework ebf0d6e0 and scheduler terminal2eda290cc source; exclusive atomic consumers use internal aliases and keep each original source owner"
         }
     ]
 }
