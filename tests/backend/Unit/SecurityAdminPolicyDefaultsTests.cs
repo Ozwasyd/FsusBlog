@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Configuration;
-
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;

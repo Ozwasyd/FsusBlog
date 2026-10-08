@@ -21,12 +21,13 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "config/testing/content-field-contracts.generated.json",
                 "config/testing/correctness-attempt-producers.json",
                 "tests/backend/packages.lock.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
                 "tests/governance/test-lifecycle-registry.json"
             ],
-            "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests; preserve canonical backend NuGet lock field spellings from the supplied consumer-lock lineage"
+            "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests; preserve canonical backend NuGet lock field spellings from the supplied consumer-lock lineage; preserve the canonical generated field-contract wire keys while consuming only its owner-produced article source binding and content digest"
         }
     ]
 }
