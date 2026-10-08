@@ -1111,6 +1111,10 @@ public sealed class DocumentExportJobServiceTests : IDisposable
     [Fact]
     public async Task StorageLinkAndBroadMode_RefuseWithoutFollowingOrChangingExternalData()
     {
+        if (!OperatingSystem.IsLinux())
+        {
+            throw new PlatformNotSupportedException("document_export_private_acl_adapter_required");
+        }
         (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
         string outside = Path.Combine(_root, "outside");
         Directory.CreateDirectory(outside);
