@@ -87,17 +87,17 @@ export async function verifyVaultAnchorSyntax(
         && candidate.binding.sourceSha256 === actual.binding.sourceSha256
         && candidate.valid === actual.valid
         && candidate.anchors.length === actual.anchors.length
-        && candidate.anchors.every((anchor, index) =>
+        && actual.anchors.every((checked, index) =>
         {
-            const checked = actual.anchors[index];
-            return checked !== undefined && anchor.anchorIdentity === checked.anchorIdentity
-                && anchor.start === checked.start && anchor.end === checked.end;
+            const anchor = candidate.anchors[index];
+            return anchor?.anchorIdentity === checked.anchorIdentity
+                && anchor?.start === checked.start && anchor?.end === checked.end;
         })
         && candidate.diagnostics.length === actual.diagnostics.length
-        && candidate.diagnostics.every((diagnostic, index) =>
+        && actual.diagnostics.every((checked, index) =>
         {
-            const checked = actual.diagnostics[index];
-            return checked !== undefined && diagnostic.code === checked.code
-                && diagnostic.start === checked.start && diagnostic.end === checked.end;
+            const diagnostic = candidate.diagnostics[index];
+            return diagnostic?.code === checked.code
+                && diagnostic?.start === checked.start && diagnostic?.end === checked.end;
         });
 }

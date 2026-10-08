@@ -57,5 +57,9 @@ describe('Vault public embed grammar consumption', () => {
         ]) {
             expect(await verifyVaultEmbedSyntax(source, digest(source), { ...snapshot, directives: [changed] })).toBe(false);
         }
+        expect(await verifyVaultEmbedSyntax(source, digest(source), {
+            ...snapshot,
+            directives: Array(snapshot.directives.length)
+        })).toBe(false);
     });
 });
