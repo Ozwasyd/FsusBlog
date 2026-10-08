@@ -1416,7 +1416,7 @@ function assertedFixtureProperties(sourceFile, parser, context)
 {
     // v1 admits only the reviewed complete IO program and complete fourteen-field
     // rejection callback. Unknown shapes remain findings, including new fixtures.
-    const helperShape = '284b6dee33386749749b8acca76119bd9663dd9ba058c5894e273ba8569c4b8b';
+    const helperShape = '8d358833a3261d31aa585a37d3f34c1e27a078c1cdc8779729df23287f8d3421';
     const callbackShape = '355a8d983d2d52070759c70b2d4e9a94e53f068f9556ffaac32ae6ab2507ad4d';
     const helperPath = 'tests/tools/support/zero-legacy-scanner-fixture.mjs';
     const imports = new Map();
@@ -1462,6 +1462,10 @@ function assertedFixtureProperties(sourceFile, parser, context)
                 registerImport(binding.name.text, modulePath, (binding.propertyName ?? binding.name).text, binding.name);
             }
         }
+        if (clause?.namedBindings && parser.isNamespaceImport(clause.namedBindings))
+        {
+            registerImport(clause.namedBindings.name.text, modulePath, '*', clause.namedBindings.name);
+        }
     }
     const requiredImports = [
         ['test', 'node:test', 'default'], ['assert', 'node:assert/strict', 'default'],
@@ -1495,6 +1499,36 @@ function assertedFixtureProperties(sourceFile, parser, context)
         }
         return parser.isIdentifier(node) ? node.text : null;
     };
+    const writesProtectedBinding = (node) =>
+    {
+        if (!node)
+        {
+            return false;
+        }
+        if (parser.isParenthesizedExpression(node))
+        {
+            return writesProtectedBinding(node.expression);
+        }
+        if (parser.isArrayLiteralExpression(node))
+        {
+            return node.elements.some(writesProtectedBinding);
+        }
+        if (parser.isObjectLiteralExpression(node))
+        {
+            return node.properties.some((property) => writesProtectedBinding(
+                parser.isPropertyAssignment(property) ? property.initializer
+                    : parser.isShorthandPropertyAssignment(property) ? property.name : property.expression));
+        }
+        if (parser.isSpreadElement(node) || parser.isSpreadAssignment(node))
+        {
+            return writesProtectedBinding(node.expression);
+        }
+        if (parser.isBinaryExpression(node) && node.operatorToken.kind === parser.SyntaxKind.EqualsToken)
+        {
+            return writesProtectedBinding(node.left);
+        }
+        return protectedNames.has(rootIdentifier(node));
+    };
     const inspect = (node) =>
     {
         if (parser.isIdentifier(node) && ['eval', 'Reflect', 'Function', 'global', 'globalThis'].includes(node.text))
@@ -1508,7 +1542,7 @@ function assertedFixtureProperties(sourceFile, parser, context)
             unsupported = true;
         }
         if (parser.isBinaryExpression(node) && node.operatorToken.kind >= parser.SyntaxKind.FirstAssignment
-            && node.operatorToken.kind <= parser.SyntaxKind.LastAssignment && protectedNames.has(rootIdentifier(node.left)))
+            && node.operatorToken.kind <= parser.SyntaxKind.LastAssignment && writesProtectedBinding(node.left))
         {
             unsupported = true;
         }

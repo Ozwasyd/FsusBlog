@@ -687,6 +687,61 @@ test('owned scanner fixture preserves representative input bytes and rejection r
     assert.equal(fs.existsSync(beforeRoot), true);
 });
 
+test('owned scanner fixture fixes parser modes across umasks and cleans interrupted repeated writes', (t) =>
+{
+    const helperUrl = new URL('./support/zero-legacy-scanner-fixture.mjs', import.meta.url).href;
+    const parserPaths = [
+        'src/frontend/package.json', 'src/frontend/package-lock.json',
+        'src/frontend/node_modules/playwright-core/package.json',
+        'src/frontend/node_modules/playwright-core/lib/utilsBundleImpl/index.js',
+        'src/frontend/node_modules/typescript/package.json',
+        'src/frontend/node_modules/typescript/lib/typescript.js'
+    ];
+    for (const mask of [0o022, 0o077])
+    {
+        const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'scanner-helper-mode-control-'));
+        t.after(() => fs.rmSync(temporaryRoot, { recursive: true, force: true }));
+        const program = `
+            import assert from 'node:assert/strict';
+            import fs from 'node:fs';
+            import os from 'node:os';
+            import path from 'node:path';
+            const { createZeroLegacyScannerFixture } = await import(${JSON.stringify(helperUrl)});
+            process.umask(${mask});
+            const files = ${JSON.stringify(parserPaths)};
+            for (let iteration = 0; iteration < 2; iteration += 1) {
+                const fixture = createZeroLegacyScannerFixture({ 'input.json': '{}\\n' });
+                try {
+                    for (const file of files) {
+                        const absolute = path.join(fixture.root, file);
+                        const stat = fs.lstatSync(absolute);
+                        assert.ok(stat.isFile());
+                        assert.equal(stat.nlink, 1);
+                        assert.equal(stat.mode & 0o777, 0o644, file);
+                        assert.ok(fs.readFileSync(absolute).equals(fs.readFileSync(path.join(${JSON.stringify(repositorySourceRoot)}, file))));
+                    }
+                } finally {
+                    fixture.dispose();
+                    fixture.dispose();
+                }
+                assert.equal(fs.existsSync(fixture.root), false);
+                const before = fs.readdirSync(os.tmpdir());
+                assert.throws(() => createZeroLegacyScannerFixture({
+                    blocked: 'existing file', 'blocked/nested.json': 'unreachable'
+                }), /EEXIST|ENOTDIR/u);
+                assert.deepEqual(fs.readdirSync(os.tmpdir()), before);
+            }
+        `;
+        const execution = spawnSync(process.execPath, ['--input-type=module', '--eval', program], {
+            cwd: repositorySourceRoot,
+            env: { ...process.env, TMPDIR: temporaryRoot, TMP: temporaryRoot, TEMP: temporaryRoot },
+            encoding: 'utf8', timeout: 30000
+        });
+        assert.equal(execution.status, 0, execution.stderr || execution.error?.message);
+        assert.deepEqual(fs.readdirSync(temporaryRoot), []);
+    }
+});
+
 test('owned scanner fixture rejects getters aliases and parser input replacement before creating data', () =>
 {
     let getterReads = 0;
@@ -793,6 +848,8 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         ['helper-clears-input', representative, helper.replace('    const inputEntries', '    files = {}\n    const inputEntries'), imports, true],
         ['helper-other-root', representative, helper.replace('return Object.freeze({ root, dispose })', 'return Object.freeze({ root: repositoryRoot, dispose })'), imports, true],
         ['helper-parser-change', representative, helper.replace('typescript/lib/typescript.js', 'typescript/lib/other.js'), imports, true],
+        ['helper-mode-change', representative, helper.replace('chmodSync(absolute, 0o644)', 'chmodSync(absolute, 0o600)'), imports, true],
+        ['helper-mode-removed', representative, helper.replace('chmodSync(absolute, 0o644);', ''), imports, true],
         ['fake-import', representative, helper, imports.replace("'../../tools/docs/behavior-document-consistency-final.mjs'", "'./fake-scanner.mjs'"), true],
         ['findings-replaced', representative.replace('scanZeroLegacyGovernance(scannerFixture.root).findings', 'inventedFindings'), helper, imports, true],
         ['missing-assertion', representative.replace(/ {4}assert\.ok\(rules\.includes\('forbidden-self-certification:reviewed'\)\);?\n/u, ''), helper, imports, true],
@@ -826,9 +883,17 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         ['explicit-url-constructor-alias', representative, helper, `${explicitImports}\nconst aliased = URL;`, true],
         ['explicit-url-constructor-mutation', representative, helper, `${explicitImports}\nURL = fakeURL;`, true],
         ['explicit-url-scanner-shadow', representative, helper, `${explicitImports}\nfunction other({ scanZeroLegacyGovernance }) {}`, true],
+        ['explicit-url-namespace-shadow', representative, helper, `import * as scanZeroLegacyGovernance from './fake-scanner.mjs';\n${explicitImports}`, true],
+        ['explicit-url-object-write', representative, helper, `${explicitImports}\n({ scanZeroLegacyGovernance } = replacement);`, true],
+        ['explicit-url-array-write', representative, helper, `${explicitImports}\n[scanZeroLegacyGovernance] = replacement;`, true],
+        ['explicit-url-default-write', representative, helper, `${explicitImports}\n[scanZeroLegacyGovernance = fakeScanner] = replacement;`, true],
         ['explicit-url-duplicate-binding', representative, helper, `${explicitImports}\n${explicitImport}`, true],
         ['explicit-url-scanner-byte-change', representative, helper, explicitImports, true, `${scanner}\n// Modified scanner bytes.\n`],
-        ['static-scanner-byte-change', representative, helper, imports, true, `${scanner}\n// Modified scanner bytes.\n`]
+        ['static-scanner-byte-change', representative, helper, imports, true, `${scanner}\n// Modified scanner bytes.\n`],
+        ['explicit-url-scanner-link', representative, helper, explicitImports, true, scanner, scannerPath],
+        ['explicit-url-helper-link', representative, helper, explicitImports, true, scanner, helperPath],
+        ['static-scanner-link', representative, helper, imports, true, scanner, scannerPath],
+        ['static-helper-link', representative, helper, imports, true, scanner, helperPath]
     ];
     const rejectionRules = [
         'lastVerifiedCommit', 'lastReviewedCommit', 'contentBaselineSha', 'approvedContentDigest',
@@ -836,11 +901,11 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         'ignoreDifference', 'lastReviewedAt', 'verifiedAt', 'waiver'
     ].map((field) => `forbidden-machine-field:${field}`);
     rejectionRules.push('forbidden-self-certification:verified', 'forbidden-self-certification:reviewed');
-    for (const [name, callback, helperSource, importSource, rejected, scannerSource = scanner] of variants)
+    for (const [name, callback, helperSource, importSource, rejected, scannerSource = scanner, sourceLink = null] of variants)
     {
         if (rejected)
         {
-            assert.ok(callback !== representative || helperSource !== helper || importSource !== imports || scannerSource !== scanner,
+            assert.ok(callback !== representative || helperSource !== helper || importSource !== imports || scannerSource !== scanner || sourceLink !== null,
                 `${name} must change a real mutation input`);
         }
         const repositoryRoot = repositoryFixture(t, {
@@ -848,6 +913,11 @@ test('zero-legacy fixture classification requires the complete reviewed source t
             [helperPath]: helperSource,
             [probe]: `${importSource}\n${callback}`
         });
+        if (sourceLink)
+        {
+            fs.unlinkSync(path.join(repositoryRoot, sourceLink));
+            fs.symlinkSync(path.join(repositorySourceRoot, sourceLink), path.join(repositoryRoot, sourceLink));
+        }
         const rules = new Set(scanZeroLegacyGovernance(repositoryRoot).findings.filter((finding) => finding.file === probe)
             .map((finding) => finding.rule));
         for (const rule of rejectionRules)
