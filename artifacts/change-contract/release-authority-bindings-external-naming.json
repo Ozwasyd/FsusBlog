@@ -55,9 +55,12 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "config/schemas/test-execution-envelope-applicability.schema.json",
+                "config/testing/correctness-attempt-producers.json",
                 "config/testing/current-run-evidence-location-acceptance.json",
                 "config/testing/release-final-execution-authority-index.json",
                 "config/testing/required-evidence-authority-ledger.json",
+                "config/testing/test-execution-envelope-applicability.json",
                 "tests/fixtures/test-matrix/execution-dependency-contract.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
@@ -66,9 +69,17 @@
         {
             "id": "shell-environment-variable",
             "paths": [
-                "tools/test/lanes/static-governance.sh"
+                "tools/test/lanes/static-governance.sh",
+                "tools/test/run-matrix-governance-once.sh"
             ],
             "reason": "Preserve existing shell environment keys in the supplied canonical dependency regression lane."
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "Preserve the registered GitHub Actions workflow keys while consuming the explicitly supplied canonical projection repair."
         }
     ]
 }

@@ -11,12 +11,15 @@
         "tools/ci/check-job-summaries.mjs",
         "tools/test-matrix/scheduler.mjs",
         "tools/test/lanes/static-governance.sh",
-        "tests/tools/required-evidence-dependencies.test.mjs"
+        "tests/tools/required-evidence-dependencies.test.mjs",
+        "config/schemas/test-execution-envelope-applicability.schema.json",
+        "tools/test/run-matrix-governance-once.sh",
+        "tests/tools/execution-envelope-policy.test.mjs"
     ],
     "outputs": [
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "c365dc59ec0c4665356ef39c448f36ea332c9ea1a22c04c469d6b8f1043e0e20"
+            "sha256": "7136105f9c58fd833124e98cc9e672d55ffc45de289a13aa7a9947f68efa22e5"
         },
         {
             "path": "config/testing/evidence-locator-registry.json",
@@ -24,7 +27,7 @@
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "0f6d27bb96a6de00537b32effa1646ca9df602e748e4d51561fce681b1528b00"
+            "sha256": "fcdd9bb67e9ab36f1b373a5247d3ebd92a2b8ce46cdea9934cba2c9ee31ef24c"
         },
         {
             "path": "config/testing/release-final-execution-authority-index.json",
@@ -32,11 +35,19 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "00ffd3aa2c466c2ac224a35565ace808c1b5ca75f07f814161bf7172754de0ed"
+            "sha256": "70f7b2478d336fbf9698b2d46aac3b7bb3ae18ca77024ef545a3434075a54718"
         },
         {
             "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
             "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+        },
+        {
+            "path": "config/testing/test-execution-envelope-applicability.json",
+            "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
         }
     ]
 }

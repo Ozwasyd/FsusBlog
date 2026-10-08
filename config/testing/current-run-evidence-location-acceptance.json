@@ -2,15 +2,15 @@
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
         "config/testing/evidence-locator-registry.json": "sha256:a865bc917f81ce1faba6440a12ef5028a775a887677faad38801cae8fa7cf239",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:c365dc59ec0c4665356ef39c448f36ea332c9ea1a22c04c469d6b8f1043e0e20",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:7136105f9c58fd833124e98cc9e672d55ffc45de289a13aa7a9947f68efa22e5",
         "tools/test/evidence-location-scanner.mjs": "sha256:fba2fe9d1e0376cb55a26dbde9db25ff052319c3865ea640af99ac396adadadd",
         "tools/test/current-run-evidence-locator.mjs": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
         "tools/test/current-run-evidence-transport.mjs": "sha256:8e03601c519d3ace8ce405de7e0d5b4f877dc6cf6dcb6d3b287918db406f79cc",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:99f40ec565fe484ef1c36fd930eb0f7e0d5cbeed4eee3f1a588e3e68d44f65d7"
     },
     "registryDigest": "sha256:5b0014edc8ed8c889b537f8be89efab31700648a3cec7920c70376681fd69aca",
-    "ledgerDigest": "sha256:5d4f8acb4dc711940d73d8562b44367d9286f0d28c9e7ba130ff97f09fae9f11",
-    "scannerDigest": "sha256:43c02472620c7637c015e2f97cd63b96681ca5e73aae75d753fbde528d718987",
+    "ledgerDigest": "sha256:99c2d21d8ecaedccba47e0b106a316a4f2f5ab4c518c837201a8ba08a1cd1d27",
+    "scannerDigest": "sha256:c6aab4438a75494d10c4010ed9d65ca44c1b1432c5f4c19deb5804dff8a11e54",
     "locatorDigest": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
     "transportDigest": "sha256:8e03601c519d3ace8ce405de7e0d5b4f877dc6cf6dcb6d3b287918db406f79cc",
     "consumerInventory": [
@@ -837,5 +837,5 @@
     "consumerCount": 117,
     "findingCount": 627,
     "warnings": [],
-    "contentDigest": "sha256:4fa75f7d32bfb8526c700462b2cb2819c8fdf580f05bef355e8d38ffc2b8e16e"
+    "contentDigest": "sha256:23b36d17583bdaa88b8331291f42f86c8553e409fe1089723940fd1278cbe770"
 }
