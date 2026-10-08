@@ -57,6 +57,18 @@ finite command grammar refuses unsupported shell structure or dynamic expansion.
 These functions neither replace the Shell/Node/TS closure analyzer nor claim whole
 repository coverage. Extraction still needs canonical owner integration.
 
+`analyzeAtomicExecutionMaterial(input, hostLimits)` compares complete externally
+captured execution observations with navigation and local/CI projections. Missing
+terminal members, retries, duplicate spawns, omitted finalizers, wrong blocked
+closure, graph drift and first-failure replacement are refused. Its result retains
+`terminalAcceptancePending: true`; it is not a terminal acceptance receipt. The
+new conformance tests also invoke the existing `executeWeightedStepDag` with real
+Node children to collect two independent failures and check transitive blocking,
+settled joining and exact-once cleanup. They retain a failing cancellation control:
+when a cancelled primary is followed by cleanup failure, the existing executor
+uses cleanup failure as the aggregate cause. Only the original executor owner may
+repair that precedence defect; this partition does not alter the scheduler.
+
 All inputs require separate host budgets: `maxDepth`, `maxNodes`, `maxBytes` and
 `maxItems`, each a positive safe integer. Descriptor checks reject getters, proxies,
 special objects, sparse arrays and cycles before cloning. This constructed-object

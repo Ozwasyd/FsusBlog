@@ -5,6 +5,7 @@
             "id": "environment-variable",
             "paths": [
                 "tools/test-matrix/atomic-failure/ci-projection.mjs",
+                "tools/test-matrix/atomic-failure/conformance.mjs",
                 "tools/test-matrix/atomic-failure/executable-authorities.mjs",
                 "tools/test-matrix/atomic-failure/failure-navigation.mjs",
                 "tools/test-matrix/atomic-failure/projection-contract.mjs"
