@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 
 import { loadCompositionInputs } from '@fsusblog/layout-governance/composition-contracts';
 import { createLayoutAggregationPlan } from '@fsusblog/layout-governance/layout-aggregation';
+
 import { checkLayoutComposition } from './check-layout-composition.mjs';
 
 const root = process.cwd();
