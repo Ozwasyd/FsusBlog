@@ -1,4 +1,3 @@
-using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 using FsusBlog.Server.Infrastructure.CoreBridge.Caching;
@@ -20,6 +19,7 @@ using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Services.Telemetry;
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -175,6 +175,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringRevisionCompareService, AuthoringRevisionCompareService>();
         services.AddScoped<IAuthoringCanvasDocumentStore, AuthoringCanvasDocumentStore>();
         services.AddScoped<IAuthoringCanvasArticleReferenceReader, PostgresAuthoringCanvasArticleReferenceReader>();
+        services.AddScoped<IAuthoringArticleCurrentSourceReader, AuthoringArticleCurrentSourceReader>();
         services.AddScoped<IAuthoringCanvasExternalCoordinateAuthority, PostgresAuthoringCanvasCoordinateAuthority>();
         services.AddScoped<IAuthoringCanvasCoordinateFactProvider, AuthoringCanvasCoordinateFactProvider>();
         services.AddScoped<IAuthoringCanvasReferenceFactSource, AuthoringCanvasReferenceFactSource>();

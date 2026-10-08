@@ -378,7 +378,7 @@ public sealed class AuthoringRevisionCompareAuthority(
         bool authorized = await db.Queryable<AdminPrincipal>()
             .Where(principal => principal.Id == context.AdminPrincipalId
                 && principal.Status == AdminPrincipalStatus.Active)
-            .AnyAsync(principal => principal.Permissions == AdminPermissions.ArticleWrite
+            .AnyAsync(principal => principal.IsRoot || principal.Permissions == AdminPermissions.ArticleWrite
                 || principal.Permissions.StartsWith(AdminPermissions.ArticleWrite + "\n")
                 || principal.Permissions.EndsWith("\n" + AdminPermissions.ArticleWrite)
                 || principal.Permissions.Contains("\n" + AdminPermissions.ArticleWrite + "\n"), cancellationToken)

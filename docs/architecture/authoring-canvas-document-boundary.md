@@ -167,3 +167,24 @@ catalog metadata. Production C++ validates Canvas payloads alongside the existin
 FontTheme payload checks. Frozen vectors cover all thirteen roots and malformed
 inputs. Codec, source, PostgreSQL, HTTP/session and rendered UX evidence remain
 separate acceptance stages.
+
+## Authorized current-source stage
+
+`IAuthoringArticleCurrentSourceReader` composes the existing article-reference
+reader and immutable revision-package reader for a numeric current article. It
+observes the actual permission/lifecycle/head before and after the sealed package
+read, compares every authority field and the exact current revision/display,
+preserves raw Markdown bytes and separates the revision ID from its ordinal.
+Cancellation stops at each asynchronous observation; an unavailable, revoked,
+archived, deleted, malformed or drifting source returns no package. The scalar
+article read uses the same PostgreSQL query as the batch reader, and empty pin
+collections are frozen before later awaits. The source byte budget is checked
+before hashing. Both concrete permission readers admit an active root principal
+under the existing administrator policy.
+
+The two existing primary-domain tokens (`primary-site` for Canvas and `primary`
+for revision packages) are mapped explicitly inside this server composition.
+They do not create a portable site identity. This source-stage port does not
+produce a portable article UUID, workspace document/draft identity, FsusUI
+projection or dependency receipt. It does not expose another HTTP route or
+qualify a runtime, database, public preview or relation query.
