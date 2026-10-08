@@ -46,6 +46,7 @@
                 "src/article-vault/windows/WindowsVaultTestAccess.cs",
                 "src/article-vault/windows/WindowsVaultWatchContracts.cs",
                 "src/article-vault/windows/WindowsVaultWatcherSession.cs",
+                "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultAcceptedSourceAdapter.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultMaterializationPreflightVerifier.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultPropertyMetadataMerge.cs",

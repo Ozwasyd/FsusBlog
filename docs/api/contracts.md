@@ -3102,6 +3102,30 @@ receipts cannot substitute for its missing atomic index writer/readback.
 
 ## Vault operation and observation candidates
 
+The canonical `ArticleVaultAcceptedSourceAdapter.ReadAsync` now binds exact sealed
+plan/result references, a named operation and the receipt's actual historical
+revision ID to the existing `IRevisionComparePackageReader`. It verifies package
+seal and original byte identity and checks the canonical live permission projection
+before and after reading. Configured permission-site drift is refused. The reader's
+closed revision metadata and rights/responsibility/release snapshots do not supply
+complete V1 portable metadata or typed property/taxonomy mappings; reading these
+bytes does not authorize a local write or synchronized base.
+
+`ArticleVaultRecoveryCheckpointReader.ReadAcceptedSourceAsync` reads only the exact
+checkpoint history tip and accepted result named by the existing canonical stores,
+then consumes that same adapter. The accepted instruction must equal the original
+preflight instruction. Historical access does not execute resume/undo, establish
+native readback or admit a current resolution.
+
+`AddFsusArticleVaultRecoveryReaders(trustedVaultSiteIdentity)` is an explicit
+in-process host composition API. The host supplies the trusted Vault site binding
+independently of requests and registers the existing domain reader/permission/store
+authorities. The checkpoint owner must supply its admitted store separately; missing
+registration is a real composition failure. Repeated/conflicting site composition
+is refused. This API installs no endpoint, inferred identity, database migration,
+backup journal, native lease or writer. It is not called automatically by startup
+while the checkpoint schema and trusted site binding are unavailable.
+
 `ArticleVaultOperationVerifier` binds the original plan, agent, request,
 idempotency key and deadline to an exact immutable checkpoint chain. Cancellation
 or expiry after an uncertain server commit requires recovery and retains the
