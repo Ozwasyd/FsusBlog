@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
+using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Shared.Contracts.ArticleVault;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -177,26 +178,33 @@ internal static class ArticleVaultOperationFixture
     internal const string DigestC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 
     internal static ArticleVaultSyncPlan Plan()
+        => Plan(out _, out _, out _, "body\r\n"u8.ToArray());
+
+    private static ArticleVaultSyncPlan Plan(
+        out ArticleVaultRootManifest root,
+        out ArticleVaultArticleManifest article,
+        out ArticleVaultServerObservation observation,
+        byte[] source)
     {
         VaultArticleCoordinate coordinate = new(
             ArticleVaultSchemas.Coordinate, 1, true, false, 4,
-            ArticleVaultManifestCodec.CaptureSourceBytes("body\r\n"u8), DigestB, DigestC, "draft", DigestC, string.Empty);
+            ArticleVaultManifestCodec.CaptureSourceBytes(source), DigestB, DigestC, "draft", DigestC, string.Empty);
         coordinate = coordinate with { ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(coordinate) };
         const string path = "articles/portable-article.md";
-        ArticleVaultArticleManifest article = new(
+        article = new(
             ArticleVaultSchemas.ArticleManifest, 1, "site-primary", "vault-primary", "device-primary",
             "portable-article", "101", new VaultPathProjection(path, ArticleVaultManifestCodec.ComputeProjectionSha256(path)),
             new VaultArticleCoordinates(coordinate, coordinate, coordinate),
             new VaultOperationWatermarks(0, null, null, null, null, null, null), VaultArticleState.Clean, string.Empty);
         article = article with { ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(article) };
-        ArticleVaultRootManifest root = new(
+        root = new(
             ArticleVaultSchemas.RootManifest, 1, ArticleVaultSchemas.ControlTreeVersion,
             new VaultControlTree(ArticleVaultSchemas.RootManifestPath, ArticleVaultSchemas.ArticleManifestDirectory,
                 ArticleVaultSchemas.ReceiptDirectory), article.SiteIdentity, article.VaultIdentity, article.DeviceIdentity,
             [new VaultArticleReference(article.PortableArticleIdentity, ".fsus/articles/portable-article.json", article.ContentSha256, path)],
             [], string.Empty);
         root = root with { ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(root) };
-        ArticleVaultServerObservation observation = new(
+        observation = new(
             ArticleVaultPlanSchemas.ServerObservation, 1, article.SiteIdentity, article.VaultIdentity, article.DeviceIdentity,
             article.PortableArticleIdentity, article.ServerArticleIdentity, coordinate, string.Empty);
         observation = observation with { ContentSha256 = ArticleVaultSyncPlanCodec.ComputeContentSha256(observation) };
@@ -205,6 +213,37 @@ internal static class ArticleVaultOperationFixture
             VaultSyncDirection.Sync, 1_800_000_000_000, 1_800_000_060_000, false));
         Assert.Empty(result.Errors);
         return Assert.IsType<ArticleVaultSyncPlan>(result.Plan);
+    }
+
+    internal static ArticleVaultSealedExecutionBundle Bundle(byte[] source)
+    {
+        ArticleVaultSyncPlan plan = Plan(out ArticleVaultRootManifest root, out ArticleVaultArticleManifest article,
+            out ArticleVaultServerObservation observation, source);
+        ArticleVaultExecutionPayload payload = new(ArticleVaultExecutionSchemas.Payload, 1, [], string.Empty);
+        payload = payload with { ContentSha256 = ArticleVaultExecutionIntegrity.SealPayload(payload) };
+        ArticleVaultSealedExecutionBundle bundle = new(ArticleVaultExecutionSchemas.Bundle, 1,
+            plan.PlanCandidateIdentity, plan.ContentSha256, 1001, plan, root, [article], [observation], payload, string.Empty);
+        return bundle with { ContentSha256 = ArticleVaultExecutionIntegrity.SealBundle(bundle) };
+    }
+
+    internal static ArticleVaultExecutionResult NoOpResult(ArticleVaultSealedExecutionBundle bundle)
+    {
+        VaultSyncPlanGroup group = Assert.Single(bundle.Plan.Groups);
+        VaultSyncPlanItem item = Assert.Single(group.Items);
+        string idempotency = ArticleVaultExecutionIntegrity.ComputeGroupIdempotency(bundle.Plan, group);
+        ArticleVaultOperationResultReceipt operation = new(ArticleVaultExecutionSchemas.OperationReceipt, 1,
+            bundle.Plan.SiteIdentity, bundle.Plan.VaultIdentity, bundle.PlanSha256, group.GroupIdentity, item.OperationIdentity,
+            item.PortableArticleIdentity, item.Decision, ArticleVaultOperationOutcome.NoOp, 101, 4, 4,
+            "article-service/noop", null, null, [], [], idempotency, item.Server.Source!.Sha256, null, string.Empty);
+        operation = operation with { ContentSha256 = ArticleVaultExecutionIntegrity.SealOperationReceipt(operation) };
+        ArticleVaultGroupResultReceipt groupReceipt = new(ArticleVaultExecutionSchemas.GroupReceipt, 1,
+            bundle.Plan.SiteIdentity, bundle.Plan.VaultIdentity, bundle.PlanSha256, group.GroupIdentity, idempotency,
+            true, [operation], null, string.Empty);
+        groupReceipt = groupReceipt with { ContentSha256 = ArticleVaultExecutionIntegrity.SealGroupReceipt(groupReceipt) };
+        ArticleVaultExecutionResult result = new(ArticleVaultExecutionSchemas.Result, 1, bundle.Plan.ResultCandidateIdentity,
+            bundle.Plan.SiteIdentity, bundle.Plan.VaultIdentity, bundle.PlanReference, bundle.PlanSha256,
+            bundle.Plan.IdempotencyKey, ArticleVaultExecutionOutcome.NoOp, [groupReceipt], null, bundle.Plan.CreatedAtUnixMs + 1, string.Empty);
+        return result with { ContentSha256 = ArticleVaultExecutionIntegrity.SealResult(result) };
     }
 
     internal static ArticleVaultOperationIdentity Identity(ArticleVaultSyncPlan plan)
