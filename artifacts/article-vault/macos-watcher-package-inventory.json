@@ -1,0 +1,61 @@
+{
+    "schema": "fsusblog.article-vault.macos-watcher-package-inventory.v1",
+    "issue": 2671,
+    "owner": "issue-2671",
+    "status": "implemented-wip",
+    "assembly": "FsusBlog.ArticleVault.MacOS",
+    "agentPackage": "existing-article-vault-agent; platform observer only",
+    "dependencyHead": "c0c32cb168fbe59125b942b5964edd7263247338",
+    "modules": [
+        "src/article-vault/macos/FsusBlog.ArticleVault.MacOS.csproj",
+        "src/article-vault/macos/MacVaultWatchContracts.cs",
+        "src/article-vault/macos/MacVaultRawFactCodec.cs",
+        "src/article-vault/macos/MacVaultRawFactBuffer.cs",
+        "src/article-vault/macos/MacVaultRootPathScope.cs",
+        "src/article-vault/macos/MacVaultWatcherSession.cs",
+        "src/article-vault/macos/FSEventsNative.cs",
+        "src/article-vault/macos/native/MacVaultFSEvents.c"
+    ],
+    "publicSymbols": [
+        "MacVaultWatchRequest",
+        "MacVaultWatcherOptions",
+        "MacVaultWatchIdentity",
+        "MacVaultFilesystemSemantics",
+        "MacVaultWatermark",
+        "MacVaultRawFact",
+        "MacVaultFactClass",
+        "MacVaultPathDisposition",
+        "MacVaultRawFactCodec",
+        "MacVaultWatcherSession",
+        "MacVaultWatcherException"
+    ],
+    "nativeBoundary": {
+        "api": "CoreServices FSEvents + descriptor-relative Darwin path admission",
+        "library": "libFsusBlog.ArticleVault.MacOS.dylib",
+        "flags": [
+            "WatchRoot",
+            "FileEvents",
+            "NoDefer"
+        ],
+        "queue": "serial libdispatch",
+        "sourceReads": "fixed .fsus/vault.json only; no Markdown reads"
+    },
+    "tests": [
+        "tests/article-vault/macos/MacVaultRawFactContractTests.cs",
+        "tests/article-vault/macos/MacVaultWatcherApfsTests.cs"
+    ],
+    "commands": {
+        "contracts": "dotnet test tests/article-vault/macos/FsusBlog.ArticleVault.MacOS.Tests.csproj --no-restore --filter Category=MacArticleVaultRawFactContract",
+        "nativeApfs": "dotnet test tests/article-vault/macos/FsusBlog.ArticleVault.MacOS.Tests.csproj --no-restore --filter Category=MacArticleVaultWatcher"
+    },
+    "qualification": {
+        "issue": 2674,
+        "status": "wip-not-executed",
+        "requires": [
+            "real macOS/APFS",
+            "actual #2110/#2112/#2113/#2114/#1909 capabilities; no simulated qualification"
+        ]
+    },
+    "registrationOwner": "original-chain-3582 integration owner",
+    "qualificationClaim": false
+}
