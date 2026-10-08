@@ -2,7 +2,7 @@
 set -euo pipefail
 
 scriptRoot="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-articleCommit=1440291b065a8e30b6d5f64ed864c090d5a9d79e
+articleCommit=c2847aaae1c1230a87435a26c13eae465d6b681c
 commentCommit=8822207ec995f4346eed20f27393b172dd51343a
 articleSourceRoot=""
 commentSourceRoot=""
@@ -30,10 +30,13 @@ while [[ $# -gt 0 ]]; do
             cat <<'HELP'
 Usage: check.sh --article-source-root <absolute Git root> --comment-source-root <absolute Git root> --evidence-directory <new absolute directory>
 
-Compile test/evidence-only refusal controls using immutable article source
-1440291b065a8e30b6d5f64ed864c090d5a9d79e and comment backend source
-8822207ec995f4346eed20f27393b172dd51343a. The configured Git roots must contain
-these commits; their current working-tree contents are not consumed.
+Compile test/evidence-only refusal controls using immutable writer backend source
+c2847aaae1c1230a87435a26c13eae465d6b681c with nine original comment source
+files from 8822207ec995f4346eed20f27393b172dd51343a. The configured Git roots
+must contain these commits; working-tree producer contents are not consumed.
+
+The temporary assembly uses the backend's existing FsusBlog.Server.Tests friend
+grant. No assembly attribute, production source or security settings are changed.
 
 All producer and harness build files are temporary. The new evidence directory
 retains source hashes and unmodified stage output, including the first failure.
@@ -71,40 +74,48 @@ done
 mkdir -p -- "$evidenceDirectory"
 evidenceDirectory="$(realpath "$evidenceDirectory")"
 scratchDirectory="$(mktemp -d /tmp/fsusblog-query-producer-controls.XXXXXXXX)"
-mkdir -- "$scratchDirectory/comment" "$scratchDirectory/article" "$scratchDirectory/harness"
+mkdir -- "$scratchDirectory/backend" "$scratchDirectory/harness"
 
 # Archive immutable commits, never working-tree files or prebuilt assemblies.
 # Git source roots supply objects; their current HEAD is not claimed as a producer.
-git -C "$commentSourceRoot" archive "$commentCommit" | tar -x -C "$scratchDirectory/comment"
-identityPath=src/backend/Services/Fixtures/DataScale/ArticleScaleGraphIdentityBindings.cs
-git -C "$articleSourceRoot" show "$articleCommit:$identityPath" > "$scratchDirectory/article/ArticleScaleGraphIdentityBindings.cs"
-cmp "$scratchDirectory/article/ArticleScaleGraphIdentityBindings.cs" \
-    <(git -C "$articleSourceRoot" show "$articleCommit:$identityPath") \
-    || Fail "article identity source bytes differ from the exact commit"
+git -C "$articleSourceRoot" archive "$articleCommit" | tar -x -C "$scratchDirectory/backend"
+commentOverlayPaths=(
+    src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphFactory.cs
+    src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphModels.cs
+    src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphResolution.cs
+    src/backend/Services/Fixtures/DataScale/CommentScalePlan.cs
+    src/backend/Services/Fixtures/DataScale/CommentScalePolicyResolver.cs
+    src/backend/Services/ArticleCommentPolicyService.cs
+    src/backend/Services/CommentModerationService.cs
+    src/backend/Services/CommentService.cs
+    src/backend/Services/Security/AnonymousCommentPolicyService.cs
+)
+for sourcePath in "${commentOverlayPaths[@]}"; do
+    git -C "$commentSourceRoot" show "$commentCommit:$sourcePath" > "$scratchDirectory/backend/$sourcePath"
+done
 planPath=src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs
 [[ "$(git -C "$articleSourceRoot" rev-parse "$articleCommit:$planPath")" \
     == "$(git -C "$commentSourceRoot" rev-parse "$commentCommit:$planPath")" ]] \
-    || Fail "linked article identity dependency differs between producer commits"
-[[ ! -e "$scratchDirectory/comment/$identityPath" ]] \
-    || Fail "comment source already defines article identity bindings"
+    || Fail "article plan dependency differs between producer commits"
 
 python3 - "$articleSourceRoot" "$commentSourceRoot" "$articleCommit" "$commentCommit" \
-    "$scratchDirectory" "$scriptRoot" "$evidenceDirectory/source-manifest.json" <<'PY'
+    "$scratchDirectory" "$scriptRoot" "$evidenceDirectory/source-manifest.json" "${commentOverlayPaths[@]}" <<'PY'
 import hashlib
 import json
 from pathlib import Path
 import subprocess
 import sys
 
-article_root, comment_root, article_commit, comment_commit, scratch, controls, output = sys.argv[1:]
+article_root, comment_root, article_commit, comment_commit, scratch, controls, output = sys.argv[1:8]
+overlay_paths = sys.argv[8:]
 entries = []
 producer_directory = 'src/backend/Services/Fixtures/DataScale/'
-sources = [(article_root, article_commit, producer_directory + 'ArticleScaleGraphIdentityBindings.cs',
-            Path(scratch) / 'article/ArticleScaleGraphIdentityBindings.cs')]
-for name in ['ArticleScalePlan.cs', 'CommentScalePlan.cs', 'CanonicalCommentGraphModels.cs',
-             'CanonicalCommentGraphResolution.cs', 'CanonicalCommentGraphFactory.cs', 'CommentScalePolicyResolver.cs']:
-    path = producer_directory + name
-    sources.append((comment_root, comment_commit, path, Path(scratch) / 'comment' / path))
+writer_paths = subprocess.check_output(['git', '-C', article_root, 'ls-tree', '-r', '--name-only',
+                                        article_commit, '--', producer_directory], text=True).splitlines()
+writer_paths.append('src/backend/Properties/AssemblyInfo.cs')
+sources = [(article_root, article_commit, path, Path(scratch) / 'backend' / path)
+           for path in writer_paths if path.endswith('.cs')]
+sources.extend((comment_root, comment_commit, path, Path(scratch) / 'backend' / path) for path in overlay_paths)
 for root, commit, path, extracted in sources:
     original = subprocess.check_output(['git', '-C', root, 'show', f'{commit}:{path}'])
     if extracted.is_symlink() or not extracted.is_file() or extracted.read_bytes() != original:
@@ -113,30 +124,37 @@ for root, commit, path, extracted in sources:
                     'gitBlob': subprocess.check_output(['git', '-C', root, 'rev-parse', f'{commit}:{path}'], text=True).strip(),
                     'contentDigest': 'sha256:' + hashlib.sha256(original).hexdigest()})
 control_sources = []
-for name in ['QueryProducerRoleIntake.cs', 'QueryProducerRoleIntakeControls.cs', 'check.sh']:
+for name in ['QueryProducerRoleIntake.cs', 'QueryPostgresProducerIntake.cs', 'QueryProducerRoleIntakeControls.cs', 'check.sh']:
     path = Path(controls) / name
     if path.is_symlink() or not path.is_file():
         raise SystemExit(f'control source must be a regular file: {name}')
     control_sources.append({'path': 'tools/data-scale/query-producer-role-intake/' + name,
                             'contentDigest': 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest()})
 manifest = {'scope': 'compiled-refusal-controls-only', 'qualification': False, 'releaseEvidenceEligible': False,
-            'commentBackendTree': subprocess.check_output(['git', '-C', comment_root, 'rev-parse', f'{comment_commit}^{{tree}}'], text=True).strip(),
+            'integration': 'writer-backend-with-nine-original-comment-source-overlays',
+            'writerBackendCommit': article_commit,
+            'writerBackendTree': subprocess.check_output(['git', '-C', article_root, 'rev-parse', f'{article_commit}^{{tree}}'], text=True).strip(),
+            'commentSourceCommit': comment_commit,
+            'commentSourceTree': subprocess.check_output(['git', '-C', comment_root, 'rev-parse', f'{comment_commit}^{{tree}}'], text=True).strip(),
+            'commentOverlayPaths': overlay_paths,
+            'harnessAssemblyName': 'FsusBlog.Server.Tests',
             'producerSources': entries, 'controlSources': control_sources}
 Path(output).write_text(json.dumps(manifest, indent=4) + '\n', encoding='utf-8')
 PY
 
-cp -- "$scriptRoot/QueryProducerRoleIntake.cs" "$scriptRoot/QueryProducerRoleIntakeControls.cs" "$scratchDirectory/harness/"
+cp -- "$scriptRoot/QueryProducerRoleIntake.cs" "$scriptRoot/QueryPostgresProducerIntake.cs" \
+    "$scriptRoot/QueryProducerRoleIntakeControls.cs" "$scratchDirectory/harness/"
 cat > "$scratchDirectory/harness/QueryProducerRoleIntakeControls.csproj" <<'XML'
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <OutputType>Exe</OutputType>
+        <AssemblyName>FsusBlog.Server.Tests</AssemblyName>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
     <ItemGroup>
-        <ProjectReference Include="../comment/src/backend/FsusBlog.Server.csproj" />
-        <Compile Include="../article/ArticleScaleGraphIdentityBindings.cs" Link="OriginalProducer/ArticleScaleGraphIdentityBindings.cs" />
+        <ProjectReference Include="../backend/src/backend/FsusBlog.Server.csproj" />
     </ItemGroup>
 </Project>
 XML
@@ -182,26 +200,23 @@ for entry in manifest['controlSources']:
         if path.is_symlink() or not path.is_file() or 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest() != entry['contentDigest']:
             raise SystemExit(f'control source changed during compiled check: {entry["path"]}')
 for entry in manifest['producerSources']:
-    if entry['path'].endswith('/ArticleScaleGraphIdentityBindings.cs'):
-        path = Path(scratch) / 'article/ArticleScaleGraphIdentityBindings.cs'
-    else:
-        path = Path(scratch) / 'comment' / entry['path']
+    path = Path(scratch) / 'backend' / entry['path']
     if path.is_symlink() or not path.is_file() or 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest() != entry['contentDigest']:
         raise SystemExit(f'producer source changed during compiled check: {entry["path"]}')
 print('PASS: exact consumer, controls, script and producer source bytes remain bound to the manifest.')
 PY
 }
 
-RunLogged restore-backend timeout 180 dotnet restore "$scratchDirectory/comment/src/backend/FsusBlog.Server.csproj" --locked-mode
+RunLogged restore-backend timeout 180 dotnet restore "$scratchDirectory/backend/src/backend/FsusBlog.Server.csproj" --locked-mode
 RunLogged restore-harness timeout 180 dotnet restore "$scratchDirectory/harness/QueryProducerRoleIntakeControls.csproj" --no-dependencies
 for lockPath in src/backend/packages.lock.json src/core/packages.lock.json src/shared/packages.lock.json \
     tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json; do
-    cmp "$scratchDirectory/comment/$lockPath" <(git -C "$commentSourceRoot" show "$commentCommit:$lockPath") \
+    cmp "$scratchDirectory/backend/$lockPath" <(git -C "$articleSourceRoot" show "$articleCommit:$lockPath") \
         || Fail "native dependency lock bytes changed during restore: $lockPath"
 done
 RunLogged build timeout 300 dotnet build "$scratchDirectory/harness/QueryProducerRoleIntakeControls.csproj" \
-    --no-restore --configuration Release -p:PublishClientAssets=false -p:FsusBlogCommitSha="$commentCommit"
+    --no-restore --configuration Release -p:PublishClientAssets=false -p:FsusBlogCommitSha="$articleCommit"
 RunLogged source-binding-before-controls VerifyManifestSources
-RunLogged controls timeout 30 dotnet "$scratchDirectory/harness/bin/Release/net10.0/QueryProducerRoleIntakeControls.dll"
+RunLogged controls timeout 30 dotnet "$scratchDirectory/harness/bin/Release/net10.0/FsusBlog.Server.Tests.dll"
 RunLogged source-binding-after-controls VerifyManifestSources
 printf 'Compiled refusal source manifest and output: %s\n' "$evidenceDirectory"

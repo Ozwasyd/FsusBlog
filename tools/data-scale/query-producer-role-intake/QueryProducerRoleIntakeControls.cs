@@ -32,9 +32,39 @@ internal static class QueryProducerRoleIntakeControls
             var emptyBlockers = new QueryProducerRoleInspection(null, null, Array.Empty<string>());
             RequireRefusal(emptyBlockers);
             RequireBlockedBeforeSubsequentStatement(emptyBlockers);
+
+            QueryPostgresProducerInspection missingPostgres = QueryPostgresProducerIntake.Inspect(
+                null, null, null, null, null, ReadOnlySpan<byte>.Empty);
+            string[] requiredPostgresBlockers =
+            [
+                "postgres_article_production_missing",
+                "article_canonical_plan_missing",
+                "article_resolved_graph_batch_missing",
+                "article_current_postgres_connection_missing",
+                "article_current_checkpoint_identity_missing",
+                "article_checkpoint_authentication_key_missing",
+                "article_native_allocation_persistence_receipt_missing",
+                "article_query_epoch_fixture_generation_and_seed_receipt_binding_missing",
+                "article_whole_plan_materialization_receipt_missing",
+                "article_complete_logical_taxonomy_audit_acceptance_missing",
+                "article_actual_publication_result_and_current_invocation_missing"
+            ];
+            Require(missingPostgres.Production is null && missingPostgres.ResolvedBatch is null
+                && missingPostgres.CurrentIdentity is null && !missingPostgres.ComponentBindingsMatched,
+                "Absent PostgreSQL producer inputs cannot become matched components.");
+            Require(missingPostgres.Blockers.SequenceEqual(requiredPostgresBlockers),
+                "All PostgreSQL missing-input and physical admission blockers must survive.");
+            RequireRefusal(missingPostgres);
+            RequireBlockedBeforeSubsequentStatement(missingPostgres);
+            var emptyPostgresBlockers = new QueryPostgresProducerInspection(null, null, null, true, Array.Empty<string>());
+            RequireRefusal(emptyPostgresBlockers);
+            RequireBlockedBeforeSubsequentStatement(emptyPostgresBlockers);
             Console.WriteLine("PASS: null producer inputs preserve all four blockers.");
             Console.WriteLine("PASS: refusal prevents the subsequent statement.");
             Console.WriteLine("PASS: manually empty blockers cannot authorize queries.");
+            Console.WriteLine("PASS: null PostgreSQL inputs preserve all eleven blockers without matching components.");
+            Console.WriteLine("PASS: PostgreSQL refusal prevents the subsequent statement.");
+            Console.WriteLine("PASS: manually empty PostgreSQL blockers cannot authorize queries.");
             Console.WriteLine("Scope: compiled refusal controls only; qualification and release eligibility are false.");
             return 0;
         }
@@ -68,6 +98,31 @@ internal static class QueryProducerRoleIntakeControls
             refused = true;
         }
         Require(refused && !subsequentStatementReached, "Refusal must stop the subsequent statement.");
+    }
+
+    private static void RequireRefusal(QueryPostgresProducerInspection inspection)
+    {
+        Require(!inspection.CanExecuteQueries, "PostgreSQL component linkage cannot authorize query execution.");
+        Require(!inspection.Qualification, "PostgreSQL component linkage cannot qualify product behavior.");
+        Require(!inspection.ReleaseEvidenceEligible, "PostgreSQL component linkage cannot qualify release evidence.");
+    }
+
+    private static void RequireBlockedBeforeSubsequentStatement(QueryPostgresProducerInspection inspection)
+    {
+        bool subsequentStatementReached = false;
+        bool refused = false;
+        try
+        {
+            inspection.ThrowBeforeQueryExecution();
+            subsequentStatementReached = true;
+        }
+        catch (InvalidOperationException exception)
+        {
+            Require(exception.Message.StartsWith("query_postgres_producer_intake_blocked:", StringComparison.Ordinal),
+                "PostgreSQL refusal must retain its dedicated failure code.");
+            refused = true;
+        }
+        Require(refused && !subsequentStatementReached, "PostgreSQL refusal must stop the subsequent statement.");
     }
 
     private static void Require(bool condition, string message)

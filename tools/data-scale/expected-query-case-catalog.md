@@ -151,7 +151,7 @@ The earlier synthetic control mapping is not production coverage evidence.
 The test/evidence-only
 [typed consumer](query-producer-role-intake/QueryProducerRoleIntake.cs) connects
 the actual `ArticleScaleGraphIdentityBindings` from #2542 source
-`1440291b065a8e30b6d5f64ed864c090d5a9d79e` and
+`c2847aaae1c1230a87435a26c13eae465d6b681c` and
 `CommentScaleResolvedGraphIntent` from #2545 source
 `8822207ec995f4346eed20f27393b172dd51343a`. It compares article plan digest,
 semantic article role, original native reference schema/digest and the native
@@ -163,8 +163,8 @@ expected values, role registry or query runner.
 Article allocation bindings explicitly lack physical allocation provenance;
 comment intents contain symbolic parent/reply requests and planned moderation,
 without actual comment IDs or final thread/status/visibility coordinates. The
-existing bulk transport result proves neither a sealed graph receipt nor its
-source/run/business-epoch binding. Reference equality, an empty comment
+existing bulk transport result proves neither complete graph admission nor
+its query business-epoch binding. Reference equality, an empty comment
 occurrence or a committed row count cannot waive those missing capabilities.
 
 `ThrowBeforeQueryExecution()` refuses even if a caller clears the diagnostic
@@ -176,17 +176,69 @@ Replacing this unconditional refusal requires the original producers' actual
 sealed physical receipt admission APIs and exact query coordinates. An invented
 callback, receipt shape or caller-supplied ID map is not an admission substitute.
 
-The [compiled refusal controls](query-producer-role-intake/check.sh) use the
-two exact original Git source commits. They compile against the complete real
-comment backend and link the exact #2542 identity binding source, whose original
-article plan dependency is byte-identical. No producer object, native ID,
-digest or receipt is fabricated by those controls. The output proves typed
-source linkage and missing-input refusal only; actual producer linkage cases,
-physical acceptance, production queries and 1M qualification remain unrun.
+The [compiled refusal controls](query-producer-role-intake/check.sh) archive the
+complete exact writer backend and overlay nine exact comment-owned source files
+from the original comment commit. This is a composite source integration; its
+manifest identifies both original sources and all local controls. The writer's
+identity binding is compiled once from its backend. The internal native APIs
+are accessed using the existing `FsusBlog.Server.Tests` friend assembly grant;
+no production access declaration or security setting changes. No producer
+object, native ID, digest, key or receipt is fabricated by these controls.
+The output proves typed source linkage and missing-input refusal only; actual
+producer linkage cases, physical acceptance, production queries and 1M
+qualification remain unrun.
 
 ```sh
 bash tools/data-scale/query-producer-role-intake/check.sh --help
 ```
+
+## Canonical PostgreSQL producer consumption
+
+The [PostgreSQL intake](query-producer-role-intake/QueryPostgresProducerIntake.cs)
+consumes the actual source-level `DataScalePostgresArticleProduction`,
+`ArticleScaleResolvedGraphBatch` and `DataScaleBatchCheckpointIdentity` from
+writer commit `c2847aaae1c1230a87435a26c13eae465d6b681c`. These APIs exist and are
+used directly; missing runtime artifacts do not erase their source capability.
+The producer and checkpoint types are internal to the native backend, so this
+consumer remains inside test/evidence compilation until the original owner
+provides an appropriate external handoff.
+
+The intake requires an actual resolved batch explicitly. It compares the
+original whole-plan coverage's plan binding, bounded batch ordinal roster,
+native allocation role/ID map and production graph digests. Role requirements
+and shared-content aliases come only from
+`CanonicalArticleGraphFactory.DescribeNativeRoles`. Every original alias group
+must retain one allocated ID; no global ID uniqueness rule replaces that owner.
+Resealing calls the same
+factory's native-binding/resolved-input overload; no second generator or
+ordinal-derived ID is introduced. An actual open PostgreSQL connection supplies
+the original authority's current database identity. The original checkpoint
+validator authenticates the exact independently supplied current identity and
+committed stage; its first failure propagates without retry or normalization.
+No SQL is executed by this consumer.
+
+Successful component matching still cannot execute queries. The current
+checkpoint binds run/runtime/source/namespace/provider/database, plan/batch,
+graph/native-binding/physical/key-roster digests. It does not bind query
+business epoch, fixture generation, seed receipt or assignment coverage digest.
+Complete whole-plan assignment coverage also does not prove that every batch
+was physically materialized. Native allocation persistence has a real awaited
+callback but no returned durable admission receipt. Logical taxonomy/audit
+acceptance remains separate, and `CompleteSeedAccepted` remains false.
+
+`DataScalePublicationRequestBinding.BindAsync` is now a real native API: it
+joins an actual publication result to native factory roles and delegates to
+the original writer/current-invocation verifiers. The producer creates no
+publication result. The remaining publication blocker is the actual result
+and current invocation, not absence of a binding API. This component neither
+manufactures those values nor replaces that verifier.
+
+The original runner still must hook both intake boundaries before expected
+mapping/capture and retain its independent query source/run/epoch/seed binding.
+MySQL/SQLite native allocation, final comment coordinates, whole-plan physical
+receipt, complete audit/taxonomy acceptance and scale qualification remain
+unaccepted. These specific artifact gaps do not prevent compiling and consuming
+the current PostgreSQL source components.
 
 ## Current integration limits
 
