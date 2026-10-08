@@ -61,8 +61,14 @@ export function validateSemanticOutcomeConsumerInventory(inventory)
     {
         throw new Error('semantic outcome consumer inventory is not migrated to canonical authorities');
     }
+    const consumerIds = new Set();
     for (const consumer of inventory.consumers)
     {
+        if (consumerIds.has(consumer?.id))
+        {
+            throw new Error('semantic outcome consumer inventory contains a duplicate owner');
+        }
+        consumerIds.add(consumer?.id);
         const authority = expectedAuthorities.get(consumer.id);
         sortedUnique(consumer.entrypoints, `${consumer.id}.entrypoints`);
         sortedUnique(consumer.outputSchemas, `${consumer.id}.outputSchemas`);
@@ -230,6 +236,7 @@ export function admitSemanticOutcomeCleanAttempt({
     inventory = readSemanticOutcomeConsumerInventory()
 })
 {
+    validateSemanticOutcomeConsumerInventory(inventory);
     const consumer = inventory.consumers.find((entry) => entry.id === consumerId);
     if (!consumer)
     {
@@ -256,7 +263,10 @@ export function admitSemanticOutcomeCleanAttempt({
             worktreeFingerprint: expectedIdentity?.worktreeFingerprint,
             schedulerRunId: expectedIdentity?.schedulerRunId,
             producerId: expectedIdentity?.producerId
-        }
+        },
+        expectedAttemptIdentity: Object.fromEntries([
+            'executionEnvelopeDigest', 'replayPlanDigest', 'temporalContextDigest'
+        ].map((field) => [field, expectedIdentity[field]]))
     });
     if (!attemptVerdict.eligible)
     {
@@ -296,6 +306,49 @@ export function admitSemanticOutcomeCleanAttempt({
             reasons: Object.freeze(candidate.reasons),
             attemptVerdict
         });
+    }
+    const attemptEligibility = candidate.verification.attemptEligibility;
+    const attemptFields = ['aggregateDigest', 'attemptDigest', 'attemptNumber',
+        'cleanFirstAttempt', 'firstFailure', 'qualificationEligible'];
+    if (!attemptEligibility || typeof attemptEligibility !== 'object'
+        || JSON.stringify(Object.keys(attemptEligibility).sort())
+            !== JSON.stringify([...attemptFields].sort()))
+    {
+        return Object.freeze({
+            schema: 'fsusblog.semantic-outcome-clean-attempt-admission.v1',
+            consumerId,
+            eligible: false,
+            reasons: Object.freeze([referenceError(
+                `${candidateReference.producerId} owner verification omitted its canonical attempt binding`,
+                candidateReference
+            )]),
+            attemptVerdict
+        });
+    }
+    const verifiedAttemptBinding = {
+        aggregateDigest: attemptVerdict.aggregate.contentDigest,
+        attemptDigest: attemptVerdict.attempt.contentDigest,
+        attemptNumber: attemptVerdict.attempt.attemptNumber,
+        cleanFirstAttempt: attemptVerdict.aggregate.cleanFirstAttempt,
+        firstFailure: attemptVerdict.attempt.firstFailure,
+        qualificationEligible: attemptVerdict.aggregate.qualificationEligible
+    };
+    for (const field of attemptFields)
+    {
+        if (attemptEligibility[field] !== verifiedAttemptBinding[field])
+        {
+            return Object.freeze({
+                schema: 'fsusblog.semantic-outcome-clean-attempt-admission.v1',
+                consumerId,
+                eligible: false,
+                reasons: Object.freeze([{
+                    ...identityMismatch(candidateReference, field,
+                        verifiedAttemptBinding[field], attemptEligibility[field]),
+                    code: 'candidate.attempt-binding-mismatch'
+                }]),
+                attemptVerdict
+            });
+        }
     }
     const outcome = candidate.verification.outcome;
     const outcomeShapeValid = ['blocked', 'cancelled', 'failed', 'success'].includes(outcome.status)

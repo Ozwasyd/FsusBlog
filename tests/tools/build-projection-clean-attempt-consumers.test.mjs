@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const {admitSemanticOutcomeCleanAttempt, readSemanticOutcomeConsumerInventory} = await import(new URL('../../tools/release/semantic-outcome-clean-attempt-consumers.mjs', import.meta.url));
+const {admitSemanticOutcomeCleanAttempt, readSemanticOutcomeConsumerInventory, validateSemanticOutcomeConsumerInventory} = await import(new URL('../../tools/release/semantic-outcome-clean-attempt-consumers.mjs', import.meta.url));
 const {runProducerAttempts} = await import(new URL('../../tools/test/attempt-runner.mjs', import.meta.url));
 const {sha256} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
@@ -98,7 +98,20 @@ function identity(producerId = 'semantic-producer', schedulerRunId = 'semantic-r
     };
 }
 
-function verifier(candidateReference, expectedIdentity, outcome = {
+function attemptBinding(attemptEvidence)
+{
+    const aggregate = attemptEvidence.aggregateReceipt;
+    return {
+        aggregateDigest: aggregate.contentDigest,
+        attemptDigest: aggregate.attempts[0].digest,
+        attemptNumber: 1,
+        cleanFirstAttempt: aggregate.cleanFirstAttempt,
+        firstFailure: false,
+        qualificationEligible: aggregate.qualificationEligible
+    };
+}
+
+function verifier(candidateReference, expectedIdentity, attemptEligibility, outcome = {
     status: 'success',
     requiredMembershipVerified: true,
     reasons: []
@@ -113,6 +126,7 @@ function verifier(candidateReference, expectedIdentity, outcome = {
         candidateDigest: candidateReference.contentDigest,
         verificationReceiptDigest: candidateReference.verificationReceiptDigest,
         identity: expectedIdentity,
+        attemptEligibility,
         outcome
     });
 }
@@ -128,6 +142,7 @@ function admit(consumer, attemptEvidence, options = {})
         : verifier(
             candidateReference,
             options.verificationIdentity ?? identity(),
+            options.attemptEligibility ?? attemptBinding(attemptEvidence),
             options.outcome
         );
     return admitSemanticOutcomeCleanAttempt({
@@ -289,4 +304,72 @@ test('consumer source neither invokes producers nor imports raw semantic parsers
     );
     assert.doesNotMatch(source, /child_process|spawnSync|execFile|from\s+['"][^'"]*(?:immutable-build|release-projection|release-finalizer)-adapter/u);
     assert.doesNotMatch(source, /readdirSync|statSync|mtimeMs|finalExitCode/u);
+});
+
+
+test('consumer inventory rejects duplicate owners instead of omitting a domain', () =>
+{
+    const inventory = structuredClone(readSemanticOutcomeConsumerInventory());
+    inventory.consumers[1] = structuredClone(inventory.consumers[0]);
+    assert.throws(() => validateSemanticOutcomeConsumerInventory(inventory), /duplicate/u);
+});
+
+test('actual verified attempt authority digests must match candidate expected identity', async (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-semantic-authority-drift-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const attemptEvidence = await cleanEvidence(directory);
+    for (const consumer of readSemanticOutcomeConsumerInventory().consumers)
+    {
+        for (const field of ['executionEnvelopeDigest', 'replayPlanDigest', 'temporalContextDigest'])
+        {
+            const drifted = { ...identity(), [field]: `sha256:${'0'.repeat(64)}` };
+            const result = admit(consumer, attemptEvidence, {
+                expectedIdentity: drifted,
+                verificationIdentity: drifted
+            });
+            assert.equal(result.eligible, false, `${consumer.id}/${field}`);
+            assert.equal(result.reasons[0].code, 'attempt.consumer-identity-mismatch');
+            assert.equal(result.reasons[0].field, field);
+        }
+    }
+});
+
+test('owner candidate must bind the exact verified aggregate and attempt receipts', async (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-semantic-attempt-binding-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const attemptEvidence = await cleanEvidence(directory);
+    const original = attemptBinding(attemptEvidence);
+    for (const consumer of readSemanticOutcomeConsumerInventory().consumers)
+    {
+        for (const [field, value] of [
+            ['aggregateDigest', `sha256:${'0'.repeat(64)}`],
+            ['attemptDigest', `sha256:${'0'.repeat(64)}`],
+            ['attemptNumber', 2],
+            ['cleanFirstAttempt', false],
+            ['qualificationEligible', false],
+            ['firstFailure', true]
+        ])
+        {
+            const result = admit(consumer, attemptEvidence, {
+                attemptEligibility: { ...original, [field]: value }
+            });
+            assert.equal(result.eligible, false, `${consumer.id}/${field}`);
+            assert.equal(result.reasons[0].code, 'candidate.attempt-binding-mismatch');
+            assert.equal(result.reasons[0].field, field);
+        }
+        const candidateReference = reference(consumer);
+        const result = admit(consumer, attemptEvidence, {
+            candidateReference,
+            verifyCandidate: (actual) =>
+            {
+                const verified = verifier(candidateReference, identity(), original)(actual);
+                delete verified.attemptEligibility;
+                return verified;
+            }
+        });
+        assert.equal(result.eligible, false);
+        assert.equal(result.reasons[0].code, 'candidate.external-authority-unverified');
+    }
 });
