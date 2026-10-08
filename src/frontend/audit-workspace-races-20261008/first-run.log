@@ -1,0 +1,80 @@
+
+ RUN  v4.1.5 /workspace/fsusblog-qa-workspace-races/src/frontend
+
+stdout | audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > MUST_FIX dependency: open-or-activate must not reactivate a permission-revoked existing tab
+AUDIT_PERMISSION_REOPEN {"result":{"schema":"fsusblog.open-article-document-result.v1","commandId":"audit-command:restore-reopen","idempotencyKey":"audit-idempotency:restore-reopen","commandKind":"open-or-activate","status":"activated-existing","reason":null,"revisionBefore":3,"revisionAfter":4,"tabId":"audit-tab:1","editorSessionRef":"audit-session:1","owningGroupId":"audit-group:primary","replacedPreviewTabId":null,"replacedPreviewSessionRef":null,"authorityRef":"audit-status:allowed","entryBefore":{"schema":"fsusblog.open-article-document-entry.v1","identity":{"articleId":1,"draftId":"audit-draft:1","documentId":"audit-document:1"},"documentContext":{"documentEpoch":1,"sourceRevision":"audit-source:1","draftRevision":"audit-draft-revision:1"},"editorSessionRef":"audit-session:1","tabId":"audit-tab:1","isPreview":false,"isPinned":true,"isActive":false,"owningGroupId":"audit-group:primary","status":{"dirty":false,"saving":false,"conflict":false,"recovery":false,"pendingAttachments":false,"permission":"revoked","lifecycle":"current","statusRef":"audit-status:revoked"},"lastActiveAnchorRef":null,"closeRequestRef":null,"lifecycleRevision":3,"contentDigest":"038a3f6bfcfefe3fb25fad9cb1b81298cc2662446366739727ef825a5bd7a398"},"entryAfter":{"schema":"fsusblog.open-article-document-entry.v1","identity":{"articleId":1,"draftId":"audit-draft:1","documentId":"audit-document:1"},"documentContext":{"documentEpoch":1,"sourceRevision":"audit-source:1","draftRevision":"audit-draft-revision:1"},"editorSessionRef":"audit-session:1","tabId":"audit-tab:1","isPreview":false,"isPinned":true,"isActive":true,"owningGroupId":"audit-group:primary","status":{"dirty":false,"saving":false,"conflict":false,"recovery":false,"pendingAttachments":false,"permission":"revoked","lifecycle":"current","statusRef":"audit-status:revoked"},"lastActiveAnchorRef":null,"closeRequestRef":null,"lifecycleRevision":4,"contentDigest":"9f68edc593c7b192e2fbc24880b1a49a1cc6b699ee8f12b11f9393fd8c48adae"},"commandDigest":"6419c0966baa9c759dc87a5cf392e6d8238bc87d824f39f3af32eb36188b5a8e","contentDigest":"8cee656727f5bf7796dbb08baeb75e2ff968e60e96e385cb41a3e813646d1ff3"},"before":{"schema":"fsusblog.open-article-document-registry.v1","revision":3,"entries":[{"schema":"fsusblog.open-article-document-entry.v1","identity":{"articleId":1,"draftId":"audit-draft:1","documentId":"audit-document:1"},"documentContext":{"documentEpoch":1,"sourceRevision":"audit-source:1","draftRevision":"audit-draft-revision:1"},"editorSessionRef":"audit-session:1","tabId":"audit-tab:1","isPreview":false,"isPinned":true,"isActive":false,"owningGroupId":"audit-group:primary","status":{"dirty":false,"saving":false,"conflict":false,"recovery":false,"pendingAttachments":false,"permission":"revoked","lifecycle":"current","statusRef":"audit-status:revoked"},"lastActiveAnchorRef":null,"closeRequestRef":null,"lifecycleRevision":3,"contentDigest":"038a3f6bfcfefe3fb25fad9cb1b81298cc2662446366739727ef825a5bd7a398"},{"schema":"fsusblog.open-article-document-entry.v1","identity":{"articleId":2,"draftId":"audit-draft:2","documentId":"audit-document:2"},"documentContext":{"documentEpoch":1,"sourceRevision":"audit-source:2","draftRevision":"audit-draft-revision:2"},"editorSessionRef":"audit-session:2","tabId":"audit-tab:2","isPreview":false,"isPinned":true,"isActive":true,"owningGroupId":"audit-group:primary","status":{"dirty":false,"saving":false,"conflict":false,"recovery":false,"pendingAttachments":false,"permission":"allowed","lifecycle":"current","statusRef":"audit-status:allowed"},"lastActiveAnchorRef":null,"closeRequestRef":null,"lifecycleRevision":1,"contentDigest":"ed6f9c28e09c713ba9b822ad4531b039a165354a374780fe3dd3fa49271eb832"}],"processedCommandDigests":["2d4b62617c17b5406ac359b3a33a85fc7d61132516215b368c28f89d005d3bf9","4a2dc71fcfd173eda0d65c4b6a28164fc6a659c164bcb50b067b68727442b341","ea9bee584367ae300af70ac3ff3783e0b7d4584f04fc4a22f7325c6f41e2002d"],"contentDigest":"04c5c26ecf0868a278588c0785b72470ee6b19da6b31aa83ed38a77c2f849d34"},"after":{"schema":"fsusblog.open-article-document-registry.v1","revision":4,"entries":[{"schema":"fsusblog.open-article-document-entry.v1","identity":{"articleId":1,"draftId":"audit-draft:1","documentId":"audit-document:1"},"documentContext":{"documentEpoch":1,"sourceRevision":"audit-source:1","draftRevision":"audit-draft-revision:1"},"editorSessionRef":"audit-session:1","tabId":"audit-tab:1","isPreview":false,"isPinned":true,"isActive":true,"owningGroupId":"audit-group:primary","status":{"dirty":false,"saving":false,"conflict":false,"recovery":false,"pendingAttachments":false,"permission":"revoked","lifecycle":"current","statusRef":"audit-status:revoked"},"lastActiveAnchorRef":null,"closeRequestRef":null,"lifecycleRevision":4,"contentDigest":"9f68edc593c7b192e2fbc24880b1a49a1cc6b699ee8f12b11f9393fd8c48adae"},{"schema":"fsusblog.open-article-document-entry.v1","identity":{"articleId":2,"draftId":"audit-draft:2","documentId":"audit-document:2"},"documentContext":{"documentEpoch":1,"sourceRevision":"audit-source:2","draftRevision":"audit-draft-revision:2"},"editorSessionRef":"audit-session:2","tabId":"audit-tab:2","isPreview":false,"isPinned":true,"isActive":false,"owningGroupId":"audit-group:primary","status":{"dirty":false,"saving":false,"conflict":false,"recovery":false,"pendingAttachments":false,"permission":"allowed","lifecycle":"current","statusRef":"audit-status:allowed"},"lastActiveAnchorRef":null,"closeRequestRef":null,"lifecycleRevision":2,"contentDigest":"f7598c5fea5b795e40f7b99927acccfe9f8fb58f1b5d72db2afd83e70df5a752"}],"processedCommandDigests":["2d4b62617c17b5406ac359b3a33a85fc7d61132516215b368c28f89d005d3bf9","4a2dc71fcfd173eda0d65c4b6a28164fc6a659c164bcb50b067b68727442b341","6419c0966baa9c759dc87a5cf392e6d8238bc87d824f39f3af32eb36188b5a8e","ea9bee584367ae300af70ac3ff3783e0b7d4584f04fc4a22f7325c6f41e2002d"],"contentDigest":"c89139ed3720516f8bd1441be5a51dafab72887a9516bafe9f4b4518a84486aa"}}
+
+stdout | audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > MUST_FIX dependency: resetting projections during pending readiness must invalidate the late result
+AUDIT_RESET_LATE {"result":{"schema":"fsusblog.article-workspace-tab-router.v1","receiptRef":"tab-router:0:0","action":"open-or-activate","entrypoint":"recent-restore","origin":"user","generation":0,"registryRevision":1,"route":null,"tabId":"tab:433f04a4606e0914bba658df","editorSessionRef":"session:433f04a4606e0914bba658df","resultStatus":"applied","sessionState":"ready","sessionReceiptRef":"session-ready:tab:433f04a4606e0914bba658df:1","reason":null,"contentDigest":"fc5346a00ecdb922d361f3f691994c121f1f2481d3f70cc385fb69f890f18fd6"},"tabs":[{"tabId":"tab:433f04a4606e0914bba658df","articleId":1,"draftId":"audit-draft:1","documentId":"audit-document:1","editorSessionRef":"session:433f04a4606e0914bba658df","owningGroupId":"audit-group:primary","title":"文章 1","isPreview":false,"isPinned":true,"isActive":true,"status":{"dirty":false,"saving":false,"conflict":false,"recovery":false,"pendingAttachments":false,"permission":"allowed","lifecycle":"current","statusRef":"audit-status:allowed"},"sessionState":"ready","registryRevision":1,"contentDigest":"93fa2e5f58e4e7156db85e0d0c3e5530932f06a182d444e3a47ad4a9d40feee6"}]}
+
+stdout | audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > MUST_FIX dependency: older navigation completion must not return an applied current result
+AUDIT_OUT_OF_ORDER {"second":{"schema":"fsusblog.article-workspace-tab-router.v1","receiptRef":"tab-router:2:2","action":"route-update","entrypoint":"recent-restore","origin":"user","generation":2,"registryRevision":2,"route":"/user/manage/article/edit/2","tabId":"tab:0b4620dfbef6a68448e4dd71","editorSessionRef":"session:0b4620dfbef6a68448e4dd71","resultStatus":"applied","sessionState":"ready","sessionReceiptRef":"session-ready:tab:0b4620dfbef6a68448e4dd71:1","reason":null,"contentDigest":"95ffc3d7edb50a844db5d1bb227842487ea9cb840a2cefd80a4fa152e9b59590"},"late":{"schema":"fsusblog.article-workspace-tab-router.v1","receiptRef":"tab-router:1:2","action":"route-update","entrypoint":"recent-restore","origin":"user","generation":1,"registryRevision":2,"route":"/user/manage/article/edit/1","tabId":"tab:433f04a4606e0914bba658df","editorSessionRef":"session:433f04a4606e0914bba658df","resultStatus":"applied","sessionState":"ready","sessionReceiptRef":"session-ready:tab:433f04a4606e0914bba658df:1","reason":null,"contentDigest":"b48c9179cb1db5dc297bfbf5a4f5b9648e8a080f133822aec30910a9ee3af140"},"activeTab":{"tabId":"tab:0b4620dfbef6a68448e4dd71","articleId":2,"draftId":"audit-draft:2","documentId":"audit-document:2","editorSessionRef":"session:0b4620dfbef6a68448e4dd71","owningGroupId":"audit-group:primary","title":"文章 2","isPreview":false,"isPinned":true,"isActive":true,"status":{"dirty":false,"saving":false,"conflict":false,"recovery":false,"pendingAttachments":false,"permission":"allowed","lifecycle":"current","statusRef":"audit-status:allowed"},"sessionState":"ready","registryRevision":2,"contentDigest":"eab1deb5df7349e79c72155ea2f6537f1b4c0ff67dddaab58a0c27b7cf209ab5"}}
+
+ ✓ audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > rejects writer B carrying the same revision after writer A commits 5ms
+ ✓ audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > coalesces same article in a different group/draft without allocating a second session 2ms
+ ✓ audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > rejects one editor session ref being owned by a different article 1ms
+ ✓ audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > preserves live authority when a consumer mutates an exported entry/state 1ms
+ ✓ audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > rejects late session readiness if permission changes during the router await 2ms
+ × audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > MUST_FIX dependency: open-or-activate must not reactivate a permission-revoked existing tab 14ms
+   → expected 'activated-existing' to be 'rejected-state' // Object.is equality
+ × audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > MUST_FIX dependency: resetting projections during pending readiness must invalidate the late result 2ms
+   → expected 'ready' to be 'blocked' // Object.is equality
+ × audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > MUST_FIX dependency: older navigation completion must not return an applied current result 2ms
+   → expected 'applied' to be 'stale' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > MUST_FIX dependency: open-or-activate must not reactivate a permission-revoked existing tab
+AssertionError: expected 'activated-existing' to be 'rejected-state' // Object.is equality
+
+Expected: "rejected-state"
+Received: "activated-existing"
+
+ ❯ audit-workspace-races-20261008/registry-boundaries.test.ts:119:31
+    117|         const result = registry.execute(open(1, 3, 'restore-reopen'));
+    118|         console.log('AUDIT_PERMISSION_REOPEN', JSON.stringify({ result…
+    119|         expect(result.status).toBe('rejected-state');
+       |                               ^
+    120|         expect(registry.exportState()).toEqual(before);
+    121|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > MUST_FIX dependency: resetting projections during pending readiness must invalidate the late result
+AssertionError: expected 'ready' to be 'blocked' // Object.is equality
+
+Expected: "blocked"
+Received: "ready"
+
+ ❯ audit-workspace-races-20261008/registry-boundaries.test.ts:129:37
+    127|         const result = await pending;
+    128|         console.log('AUDIT_RESET_LATE', JSON.stringify({ result, tabs:…
+    129|         expect(result.sessionState).toBe('blocked');
+       |                                     ^
+    130|     });
+    131|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  audit-workspace-races-20261008/registry-boundaries.test.ts > independent published-interface boundaries; no #2302–#2306 candidate supplied > MUST_FIX dependency: older navigation completion must not return an applied current result
+AssertionError: expected 'applied' to be 'stale' // Object.is equality
+
+Expected: "stale"
+Received: "applied"
+
+ ❯ audit-workspace-races-20261008/registry-boundaries.test.ts:148:35
+    146|         const late = await first;
+    147|         console.log('AUDIT_OUT_OF_ORDER', JSON.stringify({ second, lat…
+    148|         expect(late.resultStatus).toBe('stale');
+       |                                   ^
+    149|         expect(coordinator.getActiveTab()?.articleId).toBe(2);
+    150|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 5 passed (8)
+   Start at  05:53:23
+   Duration  282ms (transform 104ms, setup 0ms, import 130ms, tests 30ms, environment 0ms)
+
