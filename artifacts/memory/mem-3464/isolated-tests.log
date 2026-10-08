@@ -1,0 +1,7 @@
+  IsolatedTests -> /tmp/mem-3464-tests/bin/Debug/net10.0/FsusBlog.Server.Tests.dll
+Test run for /tmp/mem-3464-tests/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+WARNING: Overwriting results file: /tmp/mem-3464-tests/results/flat-index.trx
+Results File: /tmp/mem-3464-tests/results/flat-index.trx
+
+Passed!  - Failed:     0, Passed:    14, Skipped:     0, Total:    14, Duration: 167 ms - FsusBlog.Server.Tests.dll (net10.0)

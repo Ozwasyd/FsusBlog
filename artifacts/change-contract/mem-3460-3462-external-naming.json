@@ -1,0 +1,34 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuAllocation.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuDriver.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuMemoryDevice.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuPeerCapabilities.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuPeerDeviceOperation.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuPeerMapping.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuPeerTransfer.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuTransferOperation.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuMetalAllocationObservation.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuMetalDiscovery.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuMetalSession.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuNativeDiscovery.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuNativeSession.cs"
+            ],
+            "reason": "Preserve caller-visible process environment spelling under the existing path-based native naming admission. All internal GPU identifiers retain repository PascalCase/camelCase conventions; native API symbol strings retain the actual vendor ABI names."
+        }
+    ]
+}

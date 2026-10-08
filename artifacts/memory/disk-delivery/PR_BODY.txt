@@ -1,0 +1,103 @@
+## Linked Issue
+
+Refs #3453
+
+Related segment-lifecycle work: https://github.com/Ozwasyd/FsusBlog/issues/3455
+Common-contract dependency: https://github.com/Ozwasyd/FsusBlog/pull/3845
+
+## Scope Summary
+
+Implement disk admission and an owned-root boundary, plus reconstructible immutable segments. Disk, host scratch/index and operation slots use the existing MemoryReservationCoordinator; staging/compaction and old-reader storage remain charged until legal deletion. Linux operations use anchored no-follow handles and actual device identity. Unknown quota/inodes/backing remain unavailable for independent escape capacity. A versioned bounded multirecord format verifies lengths, representation identity, completion and SHA-256 before publication/reuse; content-owner denial overrides spill availability. Recovery and cleanup have finite rosters; compaction retains old leases. Startup growth first requires a completed admitted owner inventory; unsupported/untracked/changed files block growth. Descriptor-bound block/inode observations and optional owner-frozen physical upper bounds retain source/destination charges through inode-checked deletion. PublicAOT publication authority is untouched.
+
+Base: b9c076e4b763130075218ff9d50f9a6c36784f59. Exact source head: b4394b882c2a768c216e794e80d19a8f328719f0. Common API: 089d95e466c23a7fc781d30b80157cb4dd199c10; its seven consumed files are byte-identical at owner6a8b4c713da2af77b6763074ed1fcbbbc1224416. This branch does not import the broad common WIP or edit its held files; source depends on owner integration of PR3845 contracts.
+
+## Change Classification
+
+- [x] Behavior change
+- [ ] Format-only
+- [ ] Naming-only
+- [ ] Generated output
+- [ ] Public contract change
+- [x] External naming exception
+- Contract impact: compatible
+
+## Tests Run
+
+- [x] Other: git diff base..source-head --check; PASS.
+- [x] Other: node tools/governance/check-change-contract.mjs --range base..source-head; PASS.
+- [x] Other: node tools/run-test-matrix.mjs validate; FAIL on candidate and clean exact master with identical Node parser/closure drift.
+- [x] Other: configured SDK + node tools/dotnet/check-csharp-style.mjs --mode changed --base base; PASS15 files,zero violations.
+- [ ] Full owning-project backend tests: configured dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore; BLOCKED by preexisting NU1004 locked reference mismatch.
+- [x] Ordinary isolated source tests: existing four test-source files + actual disk modules + exact common checkpoint; cached locked subset restore and existing xUnit runner; PASS69,failed0,skipped0. This is not the original owning-project context or qualification. Recipe and raw TRX attached.
+
+Current continuation results/source hashes are in artifacts/memory/disk-delivery/OBSERVATION_REPORT.json; prior44-test evidence remains in REPORT.json. Every AC remains NotVerified. Exclusive-creation wrapper failures retain ownership; reentrant CopyTo disposal retains the active operation through its final hold, including unexpected caller exceptions. No complete owning-project/native qualification or physical-memory bound is claimed. No missing dependencies were fetched. No Docker tests were run.
+
+## UI Evidence
+
+No observable UI changes.
+
+## Coding Convention
+
+- [x] C# mother-style mapping checked
+- [x] Formatter/linter run
+- [x] No tool default overrides repository style
+- [x] Mechanical formatting separated from logic
+- [x] .git-blame-ignore-revs updated when applicable
+- Formatter identity: repository C# checker + configured SDK dotnet format
+- Formatter version: SDK10.0.401; source style pass
+- Formatter command: node tools/dotnet/check-csharp-style.mjs --mode changed --base b9c076e4b763130075218ff9d50f9a6c36784f59
+- Formatter idempotence evidence: none
+- Blame-ignore revision: none
+
+## External Naming Exception
+
+- Exceptions manifest: artifacts/change-contract/mem-disk-external-naming.json
+
+## Documentation / Intent
+
+- [x] Public API docs updated
+- [x] Ownership/security/performance intent updated
+- [x] Historical handoff archived or source-of-truth updated
+- [x] TODO/FIXME references valid issues
+
+## Compatibility And Risk
+
+- [x] Cross-language coding conventions reviewed
+- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer
+- [x] External wire / ABI / database / third-party names preserved or explicitly adapted
+- [x] Public API impact reviewed
+- [x] AEDS frame / binary contract impact reviewed
+- [x] Database migration impact reviewed
+- [x] Security, auth, moderation, PoW, or privacy impact reviewed
+- [x] Docs updated or a reason is recorded below
+- [x] Known limitations updated if applicable
+
+## Performance Claim
+
+- Claim level: none
+- Evidence path: none
+- Non-goals: physical managed-memory measurements, qualification or throughput/latency claims
+
+## Release Note
+
+- Audience: internal
+- Category: Internal/Tooling
+- Summary: implement owned disk admission and segment lifecycle
+
+## Generated Output
+
+- Generator source: none
+- Generated outputs: none
+- Digest/evidence: none
+- Automation identity: none
+
+## Rollout / Rollback
+
+- Rollout: no production activation. Integrate exact common source and registered domains, canonical storage-root selection, content owner authorization and release/runtime qualification through the original owners.
+- Rollback: Disable rejects new operations; existing leased reads drain. Retire/delete only owner-proven lease-free files. A failed delete retains its charge and bounded cleanup entry. Unknown versions remain isolated. Never bulk-read disk contents back to host memory.
+- Deferred work: Auto/default-root integration, governed qualification probes, quota-native evidence, crash subprocess boundaries, measured host bounds, independently qualified platform/mapping paths and complete DAG acceptance.
+- Known limitations: Linux x64 source compiled/tested in isolated cases; complete backend qualification and arm64 remain NotVerified; unresolved filesystem layering fails closed. No mmap path. When supplied, IDiskPhysicalAllocationPolicy reserves/retains the full frozen physical upper bound; without it, the compatibility source path uses logical bytes and remains unqualified. Actual statx block/inode inventory is implemented and blocks untracked startup growth; a qualified policy, root/unattributed filesystem metadata baseline and shared-namespace coordination still require the existing owner before Auto qualification. Inode samples conservatively constrain I/O slots; independently accounted persistent inode occupancy requires the common owner domain/unit contract. Configured SDK/cached subset works; full owning project retains preexisting NU1004 locked restore inconsistency. CI is disabled. GitHub secondary content creation limits hold external PR/comment creation; this local body is a preserved draft, not a created PR.
+
+## Notes For Reviewers
+
+This is source preservation, not issue closure or merge authorization. Shared contracts/coordinator/pressure/lifetime and broad inventories/history/matrix registries are untouched. Repo-wide docs/config/lifecycle updates belong to the original integration owner; inline ownership/security documentation and this task-local evidence record the module boundaries without a second registry. No wire, AEDS, database, public authority, UI, generated producer, mechanical migration or performance claim applies. Configured formatter invocation passes the selected source; isolated build/tests pass69 cases, while the original full project and held independent QA remain unqualified. No blame-ignore entry is applicable. Independent review and exact-candidate runtime checks remain required.

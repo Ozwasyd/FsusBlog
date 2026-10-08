@@ -1,0 +1,7 @@
+  MemoryDiskSourceTests -> /tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll
+Test run for /tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+WARNING: Overwriting results file: /tmp/mem-disk-validation-results/observation-final.trx
+Results File: /tmp/mem-disk-validation-results/observation-final.trx
+
+Passed!  - Failed:     0, Passed:    69, Skipped:     0, Total:    69, Duration: 127 ms - MemoryDiskSourceTests.dll (net10.0)

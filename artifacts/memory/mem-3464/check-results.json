@@ -1,0 +1,32 @@
+[
+    {
+        "name": "backend-build",
+        "command": [
+            "dotnet",
+            "build",
+            "src/backend/FsusBlog.Server.csproj",
+            "--no-restore",
+            "-p:PublishClientAssets=false",
+            "-p:CustomAfterMicrosoftCommonTargets=/tmp/mem-3464-contracts/contracts.targets"
+        ],
+        "cwd": "/workspace/FsusBlog-3464",
+        "exitCode": 0,
+        "raw": "backend-build.log"
+    },
+    {
+        "name": "isolated-tests",
+        "command": [
+            "dotnet",
+            "test",
+            "/tmp/mem-3464-tests/IsolatedTests.csproj",
+            "--no-restore",
+            "--logger",
+            "trx;LogFileName=flat-index.trx",
+            "--results-directory",
+            "/tmp/mem-3464-tests/results"
+        ],
+        "cwd": "/workspace/FsusBlog-3464",
+        "exitCode": 0,
+        "raw": "isolated-tests.log"
+    }
+]

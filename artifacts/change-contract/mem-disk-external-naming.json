@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Disk/DiskBudgetAdmission.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskFileFootprint.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskFileSystemException.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskPhysicalAllocationPolicy.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSegmentFormat.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSegmentLease.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSegmentStore.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSpillEligibility.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSpillInventoryObservation.cs",
+                "src/backend/Infrastructure/Memory/Disk/OwnedSpillRoot.cs",
+                "src/backend/Infrastructure/Memory/Platform/LinuxOwnedSpillDirectory.cs"
+            ],
+            "reason": "Preserve existing caller-visible process environment and platform EntryPoint spelling; internal disk symbols follow repository C# naming. This declaration follows the existing path-based admission and does not introduce a new environment configuration authority."
+        }
+    ]
+}

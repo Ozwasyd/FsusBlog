@@ -22,6 +22,8 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
+using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
 
 if (args.Contains("--verify-contract", StringComparer.Ordinal))
@@ -1028,23 +1030,31 @@ internal static class ContractVerifier
 
     private static bool VerifySemanticParity()
     {
-        var pod = PodProjector.ProjectArticleList(21, 88, DateTime.UnixEpoch.AddHours(2), 5, "cat-x", "title-x", "summary-x", false, out _);
+        var raw = new ArticleListItemReadModel
+        {
+            Id = 21,
+            Title = "title-x",
+            Summary = "summary-x",
+            Snippet = "snippet-x",
+            Views = 88,
+            CreateTime = DateTime.UnixEpoch.AddHours(2),
+            CategoryId = 5,
+            CategoryName = "cat-x",
+            Tags = [new() { Id = 1, Name = "tag-1" }, new() { Id = 2, Name = "tag-2" }],
+            IsDeleted = false
+        };
+        ArticleListCoreModel projected = ArticleProjection.ToCoreListModel(raw);
+        if (projected.Summary != raw.Snippet || ArticleProjection.ToResponse(raw).Summary != raw.Snippet)
+        {
+            return false;
+        }
+        // Encode the actual producer's output, including its auxiliary fields.
+        // The expected v2 wire model has only the selected display Summary;
+        // Cover/Snippet remain absent. Do not normalize the decoded result.
         var source = new CorePageResult<ArticleListCoreModel>(
-            [new ArticleListCoreModel(
-                pod,
-                21,
-                "title-x",
-                "summary-x",
-                null,
-                "snippet-x",
-                88,
-                DateTime.UnixEpoch.AddHours(2),
-                new ArticleCategoryCoreModel(5, "cat-x"),
-                [new TagCoreModel(1, "tag-1"), new TagCoreModel(2, "tag-2")],
-                false)],
-            1);
+            [projected with { CoverImageUrl = null, Snippet = null }], 1);
 
-        byte[] bytes = PodBinaryCodec.EncodeArticlePage(source);
+        byte[] bytes = PodBinaryCodec.EncodeArticlePage(new CorePageResult<ArticleListCoreModel>([projected], 1));
         bool ok = PodBinaryCodec.TryDecodeArticlePage(bytes, out var decoded);
         if (!ok || decoded.Items.Count != source.Items.Count)
         {

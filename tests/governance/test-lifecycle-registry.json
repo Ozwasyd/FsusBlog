@@ -6,6 +6,24 @@
     },
     "nodeTests": [
         {
+            "file": "tests/tools/memory-allocation-inventory.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ],
+            "staticGovernance": {
+                "id": "memory-allocation-inventory",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "process:memory-allocation-inventory",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/memory-allocation-inventory",
+                "output": ".tmp/test-governance/results/{checkId}/memory-allocation-inventory.json"
+            }
+        },
+        {
             "file": "tests/tools/aeds-protocol-generation.test.mjs",
             "owner": "matrix-tier:backend-golden",
             "executionCategory": "matrix-tier",
@@ -6778,21 +6796,6 @@
             ],
             "staticGovernance": {
                 "id": "canonical-article-graph-factory",
-                "category": "real-subprocess-lifecycle",
-                "physicalOwner": "process:lifecycle"
-            }
-        },
-        {
-            "file": "tests/tools/canonical-article-lifecycle-authority.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text"
-            ],
-            "staticGovernance": {
-                "id": "canonical-article-lifecycle-authority",
                 "category": "real-subprocess-lifecycle",
                 "physicalOwner": "process:lifecycle"
             }

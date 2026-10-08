@@ -4,8 +4,9 @@ namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
 public sealed class SharedNotificationStreamFrame
 {
-    private readonly byte[] _buffer;
+    private readonly byte[]? _buffer;
     private readonly ArrayPool<byte>? _pool;
+    private readonly IMemoryOwner<byte>? _memoryOwner;
     // Ownership invariant: a frame starts with one owner. Publishers Retain once per fan-out
     // target, and the target queue must either consume that retain on success or Release it
     // on reject. The pooled buffer is returned only at zero.
@@ -19,14 +20,40 @@ public sealed class SharedNotificationStreamFrame
         _refCount = 1;
     }
 
+    private SharedNotificationStreamFrame(IMemoryOwner<byte> memoryOwner, int length)
+    {
+        _memoryOwner = memoryOwner;
+        Length = length;
+        _refCount = 1;
+    }
+
     public int Length
     {
         get;
     }
 
-    public ReadOnlyMemory<byte> Memory => _buffer.AsMemory(0, Length);
+    public ReadOnlyMemory<byte> Memory
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _refCount) <= 0, this);
+            return _memoryOwner is null ? _buffer.AsMemory(0, Length) : _memoryOwner.Memory[..Length];
+        }
+    }
 
-    internal ReadOnlyMemory<byte> BufferMemory => _buffer.AsMemory(0, Length);
+    internal ReadOnlyMemory<byte> BufferMemory => Memory;
+
+    // OWNERSHIP: Only the admitted adapter transfers this owner. No mutable view escapes
+    // after transfer; existing per-recipient retains hold it through actual completion.
+    internal static SharedNotificationStreamFrame FromOwnedMemory(IMemoryOwner<byte> owner, int length)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        if (length <= 0 || length > owner.Memory.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length));
+        }
+        return new SharedNotificationStreamFrame(owner, length);
+    }
 
     public static SharedNotificationStreamFrame FromOwnedBuffer(byte[] buffer, int length)
         => FromOwnedBuffer(buffer, length, ArrayPool<byte>.Shared);
@@ -75,7 +102,8 @@ public sealed class SharedNotificationStreamFrame
 
         if (_pool is not null)
         {
-            _pool.Return(_buffer, clearArray: true);
+            _pool.Return(_buffer!, clearArray: true);
         }
+        _memoryOwner?.Dispose();
     }
 }
