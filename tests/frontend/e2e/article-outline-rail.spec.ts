@@ -163,6 +163,28 @@ test.describe('article outline current rendered contract', () => {
         await expect(panel.getByText('正文中暂无标题。')).toBeVisible()
     })
 
+    test('keyboard caret navigation updates one current active heading without an outline click', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 })
+        await page.emulateMedia({ reducedMotion: 'reduce' })
+        await openOutline(page, 0)
+        await page.getByRole('button', { name: '打开文章大纲' }).click()
+        const panel = page.locator('[data-article-outline-panel="true"]')
+        const editor = page.locator('#article-content')
+        const source = '# First\n\nFirst body\n\n# Last\n\nLast body\n'
+        await editor.fill(source)
+        const items = panel.getByRole('treeitem')
+        await expect(items).toHaveCount(2)
+        await editor.focus()
+        for (const [key, index] of [['Control+Home', 0], ['Control+End', 1], ['Control+Home', 0]] as const) {
+            await page.keyboard.press(key)
+            await expect(editor).toHaveJSProperty('selectionStart', index === 0 ? 0 : source.length)
+            await expect(editor).toHaveJSProperty('selectionEnd', index === 0 ? 0 : source.length)
+            await expect(items.nth(index)).toHaveAttribute('aria-selected', 'true')
+            await expect(panel.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(1)
+            await expect(editor).toBeFocused()
+        }
+    })
+
     test('mobile reveal releases the Drawer focus trap before returning to the editor', async ({ page }) => {
         await page.setViewportSize({ width: 375, height: 812 })
         await page.emulateMedia({ reducedMotion: 'reduce' })
