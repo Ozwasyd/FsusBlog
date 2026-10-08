@@ -45,6 +45,15 @@
                 "tools/test/correctness-attempt-migration.mjs"
             ],
             "reason": "Preserve the registered external document, receipt, catalog, environment and JSON contract identifiers across canonical source reconciliation, test bindings and explicitly supplied dependency handoffs. Internal renaming would break their established consumers; no external identifier or qualification rule is replaced."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/aeds-only-policy.md",
+                "docs/api/quick-reference.md",
+                "docs/api/stability.md"
+            ],
+            "reason": "Preserve the registered external document, receipt, catalog, environment and JSON contract identifiers across canonical source reconciliation, test bindings and explicitly supplied dependency handoffs. Internal renaming would break their established consumers; no external identifier or qualification rule is replaced."
         }
     ]
 }

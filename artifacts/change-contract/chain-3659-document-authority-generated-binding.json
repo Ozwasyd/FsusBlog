@@ -24,6 +24,26 @@
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
             "sha256": "11455248470de12b6c745320977b57cd9d5b512de47f5016ad6b2ac0922d8d39"
+        },
+        {
+            "path": "docs/api.md",
+            "sha256": "657e6e03205dd7c44cc390de373c9e87ba23bf539318a84a459e30291257b29e"
+        },
+        {
+            "path": "docs/api/aeds-only-policy.md",
+            "sha256": "122283a1e3b68230dba31fc8ecf1a1d16e6cfdd47638d5f561d2b7284610cdd6"
+        },
+        {
+            "path": "docs/api/quick-reference.md",
+            "sha256": "c7ce8792d7de9ef5d2c4bd9feb127584e0086814fd5fe6ab0dca66120eb61000"
+        },
+        {
+            "path": "docs/api/schemas-and-errors.md",
+            "sha256": "8dc95c928f7da8180415cf5cc763931047e09dc7da519369d169a2edbffa3194"
+        },
+        {
+            "path": "docs/api/stability.md",
+            "sha256": "ab50e4d4783383c40ff6b96895d7f416e14dd7838ed63c3dc2d8ae4a230b1bf2"
         }
     ]
 }
