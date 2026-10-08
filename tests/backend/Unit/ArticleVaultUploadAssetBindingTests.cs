@@ -47,6 +47,30 @@ public sealed class ArticleVaultUploadAssetBindingTests
         Assert.Equal(2, setup.Observer.ReceivedCalls().Count());
     }
 
+    [Fact]
+    public async Task SharedAssetReader_BindsFactsWithoutASecondVaultOrWriterAuthority()
+    {
+        var setup = Create();
+        var reference = new CurrentArticleUploadAssetReference(42, 4, setup.Package.SourceDigest, setup.Reference.AssetId);
+        var observed = await setup.Assets.ObserveCurrentRevisionAsync(reference, setup.Principal, setup.Session, setup.Sha256);
+        Assert.Equal(reference, observed.Reference);
+        Assert.Equal(setup.Upload.Asset, observed.Asset);
+        Assert.Equal(setup.Upload.ReferenceLedgerSha256, observed.ReferenceLedgerSha256);
+        Assert.Equal(setup.Package.PackageDigest, observed.RevisionPackageSha256);
+        Assert.False(observed.CanExecute);
+        Assert.False(observed.CanUpload);
+        Assert.False(observed.CanMaterialize);
+        Assert.False(observed.CanCommitBase);
+        Assert.Empty(setup.Observer.ReceivedCalls());
+        setup.Upload = setup.Upload with
+        {
+            References = []
+        };
+        var failure = await Assert.ThrowsAsync<CurrentArticleUploadAssetObservationRejectedException>(() =>
+            setup.Assets.ObserveCurrentRevisionAsync(reference, setup.Principal, setup.Session, setup.Sha256));
+        Assert.Equal("upload_or_revision_reference_unavailable", failure.ReasonCode);
+    }
+
     [Theory]
     [InlineData("principal")]
     [InlineData("plan")]
@@ -238,7 +262,14 @@ public sealed class ArticleVaultUploadAssetBindingTests
             var packages = Substitute.For<IRevisionComparePackageReader>();
             packages.ReadAuthorizedAsync(Arg.Any<RevisionCompareReadContext>(), 42, Arg.Any<RevisionCompareSourceSelector>(), Arg.Any<CancellationToken>())
                 .Returns(_ => RevisionComparePackageReadResult.Available(Package));
-            Reader = new(store, Observer, new AuthoringArticleCurrentSourceReader(articles, packages), Files, Clock, "site-primary");
+            var sourceReader = new AuthoringArticleCurrentSourceReader(articles, packages);
+            Assets = new(sourceReader, Files);
+            Reader = new(store, Observer, sourceReader, Files, Clock, "site-primary");
+        }
+
+        internal CurrentArticleUploadAssetBindingReader Assets
+        {
+            get;
         }
 
         internal ArticleVaultSealedExecutionBundle Bundle

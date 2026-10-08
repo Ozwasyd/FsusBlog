@@ -47,14 +47,14 @@ namespace FsusBlog.Server.Tests;
 public sealed class UploadAssetObservationTests(PostgresSchemaMigrationFixture fixture)
 {
     [Theory]
-    [InlineData(67)]
+    [InlineData(68)]
     [InlineData(20_971_520)]
     public async Task VaultUploadBinding_ReusesRealNativeObservationAndCanonicalRevisionReference(int size)
     {
         FsusBlog.Server.Services.ArticleVault.ArticleVaultCurrentUploadAssetObservation bound;
         string root;
         string nativeSha256;
-        await using (var upload = await CreateAsync(size == 67 ? null : CreateOriginalPng(size)))
+        await using (var upload = await CreateAsync(size == 68 ? null : CreateOriginalPng(size)))
         {
             root = upload.Root;
             Guid assetId = Guid.ParseExact(upload.Access.UploadId, "N");

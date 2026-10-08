@@ -3028,3 +3028,23 @@ supply that missing selected-resource authority, authorize private asset export,
 or admit an unreferenced new upload. Canonical resource plan/rights/reuse admission
 and actual private-purpose policy binding remain with the original resource
 owners; this consumer does not create a permission receipt or activate cutover.
+
+The current source/upload/reference read algorithm lives once in
+`CurrentArticleUploadAssetBindingReader.ObserveCurrentRevisionAsync`.
+It requires an authenticated owner, expected persisted article/revision/raw-source
+SHA and AssetId, and re-observes the existing current source and original committed
+upload authorities. It returns actual original source byte identity, permission
+scope/fingerprint, revision package digest, complete asset metadata and exact
+version/ledger/revision-reference facts. Vault adds its selected operation and
+complete-group/rights/lifetime checks around that shared method. The optional
+current-scope hook adds refusal conditions; it cannot grant permission.
+
+Writer/preview integration may consume these shared server facts through their
+canonical transport owner; no new HTTP route/frame or grant is invented here.
+The frontend `verifyIntent`, `observeReference` and `observeCleanup` ports still
+require original current owned-intent/node/transaction proof, a defined mapping
+from editor/draft context to persisted source coordinates and actual durable
+cleanup facts. A public digest validator or cloned lifecycle log is insufficient:
+the original attachment adapter's owned maps remain private. Current rights,
+responsibility and site-author authority are separate from historical revision
+package snapshots. Missing bindings keep recovery-required and grant nothing.

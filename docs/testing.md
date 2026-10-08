@@ -1803,3 +1803,9 @@ resource authorization. Preserve original asset/session/byte negative controls
 and inspect owned filesystem/database teardown; bind current commits, source
 hashes and run artifacts. No original Vault lease/kernel/integrity audit replay
 or root execution/base qualification is part of this bounded supplier check.
+
+The shared-reader control also calls the same `CurrentArticleUploadAssetBindingReader`
+without a Vault observer: it returns current source/reference facts, invokes no
+Vault authority and refuses the missing canonical revision edge. The Vault
+consumer uses this same implementation and retains all operation/group/rights
+refusals. These controls do not implement or qualify the frontend authority ports.

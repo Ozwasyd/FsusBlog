@@ -1,14 +1,12 @@
 using System.Globalization;
 using System.Security.Claims;
 
-using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleVault;
-using FsusBlog.Shared.Contracts.AuthoringCanvas;
 
 namespace FsusBlog.Server.Services.ArticleVault;
 
@@ -68,6 +66,8 @@ public sealed class ArticleVaultUploadAssetBindingReader(
     TimeProvider timeProvider,
     string trustedVaultSiteIdentity)
 {
+    private readonly CurrentArticleUploadAssetBindingReader _assets = new(sources, files);
+
     public async Task<ArticleVaultCurrentUploadAssetObservation> ObserveCurrentRevisionUploadAsync(
         ArticleVaultUploadAssetReference reference,
         ClaimsPrincipal principal,
@@ -112,24 +112,27 @@ public sealed class ArticleVaultUploadAssetBindingReader(
         ArticleVaultCurrentArticleObservation[] before = (await observations.ObserveGroupAsync(
             bundle, group, cancellationToken).ConfigureAwait(false)).ToArray();
         ArticleVaultSyncPlanExecutor.ValidateCurrentObservations(group, before);
-        var owner = new AuthoringCanvasOwner(adminId, "primary-site");
-        Guid requestId = Guid.CreateVersion7();
-        AuthoringArticleCurrentSource sourceBefore = await ReadSourceAsync().ConfigureAwait(false);
-        UploadAssetObservation uploadBefore = await ReadUploadAsync().ConfigureAwait(false);
-        // Re-observe through the original byte/session/ledger validator, not through a cached URL.
-        UploadAssetObservation uploadAfter = await ReadUploadAsync().ConfigureAwait(false);
-        AuthoringArticleCurrentSource sourceAfter = await ReadSourceAsync().ConfigureAwait(false);
+        CurrentArticleUploadAssetObservation asset;
+        try
+        {
+            asset = await _assets.ObserveCurrentRevisionAsync(new(articleId, item.Server.ServerRevision.Value,
+                item.Server.Source.Sha256, reference.AssetId), principal, session, sha256,
+                cancellationToken, () => RequireLifetime(bundle, cancellationToken)).ConfigureAwait(false);
+        }
+        catch (CurrentArticleUploadAssetObservationRejectedException exception)
+        {
+            throw Rejected(exception.ReasonCode);
+        }
+        if (asset.Source != item.Server.Source)
+        {
+            throw Rejected("source_unavailable_or_changed");
+        }
         ArticleVaultCurrentArticleObservation[] after = (await observations.ObserveGroupAsync(
             bundle, group, cancellationToken).ConfigureAwait(false)).ToArray();
         ArticleVaultSyncPlanExecutor.ValidateCurrentObservations(group, after);
         RequireLifetime(bundle, cancellationToken);
         ArticleVaultExecutionIntegrity.ValidateBundle(bundle);
-        if (!before.SequenceEqual(after) || sourceBefore.Authority != sourceAfter.Authority
-            || sourceBefore.Package.PackageDigest != sourceAfter.Package.PackageDigest
-            || uploadBefore.AssetVersionSha256 != uploadAfter.AssetVersionSha256
-            || uploadBefore.ReferenceLedgerSha256 != uploadAfter.ReferenceLedgerSha256
-            || uploadBefore.Asset != uploadAfter.Asset || !uploadBefore.References.SequenceEqual(uploadAfter.References)
-            || principal.Identity?.IsAuthenticated != true || !principal.IsAdminPrincipal()
+        if (!before.SequenceEqual(after) || principal.Identity?.IsAuthenticated != true || !principal.IsAdminPrincipal()
             || !principal.TryGetAdminPrincipalId(out long currentAdminId) || currentAdminId != adminId)
         {
             throw Rejected("current_facts_changed");
@@ -139,51 +142,15 @@ public sealed class ArticleVaultUploadAssetBindingReader(
             "fsusblog.article-vault.current-upload-asset-observation.v1", 1, reference,
             bundle.Plan.SiteIdentity, bundle.Plan.VaultIdentity, bundle.Plan.DeviceIdentity,
             item.PortableArticleIdentity, item.ServerArticleIdentity!, articleId, item.Server.ServerRevision.Value, item.Server.Source.Sha256,
-            adminId, owner.SiteScope, sourceAfter.Authority.PermissionFingerprint, current.PermissionSha256!,
-            current.RightsBoundarySha256, current.PublicationBoundarySha256, uploadAfter.Asset,
-            uploadAfter.UploadId, uploadAfter.AssetVersionSha256, uploadAfter.ReferenceLedgerSha256,
+            adminId, asset.ArticlePermissionScope, asset.ArticlePermissionSha256, current.PermissionSha256!,
+            current.RightsBoundarySha256, current.PublicationBoundarySha256, asset.Asset,
+            asset.UploadId, asset.AssetVersionSha256, asset.ReferenceLedgerSha256,
             item.Server.ServerRevision.Value.ToString(CultureInfo.InvariantCulture), string.Empty);
         return unsigned with
         {
             ContentSha256 = ArticleVaultExecutionIntegrity.Digest(unsigned)
         };
 
-        async Task<AuthoringArticleCurrentSource> ReadSourceAsync()
-        {
-            AuthoringArticleCurrentSourceReadResult read = await sources.ReadCurrentAuthorizedAsync(
-                owner, articleId, requestId, cancellationToken).ConfigureAwait(false);
-            RequireLifetime(bundle, cancellationToken);
-            if (read.Status != RevisionComparePackageReadStatus.Available || read.Source is not { } source
-                || source.Owner != owner || source.RequestId != requestId || !source.Authority.Authorized
-                || !Digest(source.Authority.PermissionFingerprint) || source.Article.ArticleId != articleId
-                || source.Article.CurrentRevision != item.Server.ServerRevision
-                || source.Package.ArticleId != articleId || source.Package.RevisionId != item.Server.ServerRevision
-                || source.Package.SourceKind != RevisionCompareSourceKind.CurrentRevision
-                || !RevisionComparePackageSeal.Verify(source.Package)
-                || !ArticleVaultManifestValidator.ValidateSourceBytes(item.Server.Source, source.Package.RawMarkdown.AsSpan()).IsValid)
-            {
-                throw Rejected("source_unavailable_or_changed");
-            }
-            return source;
-        }
-
-        async Task<UploadAssetObservation> ReadUploadAsync()
-        {
-            var read = await files.ObserveCommittedUploadAsync(session, sha256, cancellationToken).ConfigureAwait(false);
-            RequireLifetime(bundle, cancellationToken);
-            if (!read.IsSuccess || read.Value is not { } upload || upload.Schema != "fsusblog.upload-asset-observation.v1"
-                || upload.UploadId != session.UploadId || upload.Asset.Id != reference.AssetId
-                || upload.Asset.OwnerAdminPrincipalId != adminId || upload.Asset.State != ContentAssetState.Active
-                || upload.Asset.Sha256 != sha256 || !Digest(upload.AssetVersionSha256) || !Digest(upload.ReferenceLedgerSha256)
-                || !upload.References.Any(value => value.AssetId == reference.AssetId
-                    && value.SourceKind == ContentAssetSourceKinds.Revision && value.ArticleId == articleId
-                    && value.SourceKey == item.Server.ServerRevision.Value.ToString(CultureInfo.InvariantCulture)
-                    && value.ReferenceCount > 0))
-            {
-                throw Rejected("upload_or_revision_reference_unavailable");
-            }
-            return upload;
-        }
     }
 
     private void RequireLifetime(ArticleVaultSealedExecutionBundle bundle, CancellationToken cancellationToken)
