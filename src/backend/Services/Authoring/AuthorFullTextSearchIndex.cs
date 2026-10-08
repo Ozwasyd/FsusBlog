@@ -70,6 +70,19 @@ public sealed record AuthorSearchIndexReadSnapshot(
     int UserId, string SiteScope, long IndexGeneration, long SourceGeneration,
     string RegistryDigest, ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> Articles);
 
+/// <summary>One derived position in the sole index; source text is never copied into a posting.</summary>
+public sealed record AuthorSearchIndexPosting(
+    int ArticleId, string DocumentDigest, AuthorSearchFieldKind Field, string? HeadingIdentity,
+    int TokenPosition, AuthorSearchSourceRange Source);
+
+/// <summary>
+/// Bounded, immutable storage input for the separate query owner. The offset is valid only
+/// within this actor/site/index generation. It is not a query result or authorization receipt.
+/// </summary>
+public sealed record AuthorSearchIndexPostingPage(
+    int UserId, string SiteScope, long IndexGeneration, long SourceGeneration, string RegistryDigest, string Term,
+    int NextOffset, bool HasMore, ImmutableArray<AuthorSearchIndexPosting> Postings);
+
 /// <summary>
 /// In-memory algorithm checkpoint. It is not durable storage, a trusted receipt, or native
 /// crash qualification. Resume rederives all source facts rather than admitting serialized
@@ -89,6 +102,7 @@ public sealed class AuthorFullTextSearchIndex(
     public const int MaxArticles = 10_000;
     public const int MaxDocuments = 100_000;
     public const int MaxStoredTokens = 1_000_000;
+    public const int MaxPostingPageSize = 1_000;
     public const int MaxStoredTermCharacters = 32 * 1_024 * 1_024;
     public const int MaxBatchSourceCharacters = 8 * 1_024 * 1_024;
     public const long MaxEstimatedIndexBytes = 256L * 1_024 * 1_024;
@@ -98,6 +112,8 @@ public sealed class AuthorFullTextSearchIndex(
         ImmutableSortedDictionary<int, AuthorSearchIndexedArticle>.Empty;
     private ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> _staged =
         ImmutableSortedDictionary<int, AuthorSearchIndexedArticle>.Empty;
+    private ImmutableDictionary<string, ImmutableArray<AuthorSearchIndexPosting>> _postings =
+        ImmutableDictionary<string, ImmutableArray<AuthorSearchIndexPosting>>.Empty.WithComparers(StringComparer.Ordinal);
     private int _afterArticleId;
     private long? _sourceGeneration;
     private long _indexGeneration;
@@ -140,7 +156,10 @@ public sealed class AuthorFullTextSearchIndex(
             {
                 return new(page.SourceGeneration, _afterArticleId, _staged.Count);
             }
+            ImmutableDictionary<string, ImmutableArray<AuthorSearchIndexPosting>> postings =
+                BuildPostings(_staged, cancellationToken);
             _articles = _staged;
+            _postings = postings;
             _staged = ImmutableSortedDictionary<int, AuthorSearchIndexedArticle>.Empty;
             _indexGeneration = candidateGeneration;
             _status = AuthorSearchIndexStatus.Current;
@@ -218,7 +237,10 @@ public sealed class AuthorFullTextSearchIndex(
             ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> candidate =
                 RebindGeneration(_articles, candidateGeneration).SetItem(articleId, projected);
             ValidateBudget(candidate);
+            ImmutableDictionary<string, ImmutableArray<AuthorSearchIndexPosting>> postings =
+                BuildPostings(candidate, cancellationToken);
             _articles = candidate;
+            _postings = postings;
             _indexGeneration = candidateGeneration;
             _sourceGeneration = page.SourceGeneration;
         }
@@ -257,6 +279,56 @@ public sealed class AuthorFullTextSearchIndex(
             }
             return new(userId, siteScope, generation, _sourceGeneration!.Value,
                 AuthorFullTextSearchVerifier.CaptureRegistry().ContentDigest, _articles);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Reads only the writer-maintained inverted storage representation. The caller supplies
+    /// one term normalized by the sole tokenizer; grammar, phrase/ranking, current source and
+    /// permission revalidation, snippets and client delivery remain with the query owner.
+    /// No source corpus scan or source-provider call occurs while opening or paging a lookup.
+    /// </summary>
+    public async Task<AuthorSearchIndexPostingPage> ReadPostingsAsync(
+        int queryUserId, string querySiteScope, long expectedIndexGeneration, string normalizedTerm,
+        int offset, int pageSize, CancellationToken cancellationToken = default)
+    {
+        if (offset is < 0 or > MaxStoredTokens || pageSize is <= 0 or > MaxPostingPageSize)
+        {
+            throw new AuthorSearchContractException("author_search_posting_page_budget_invalid");
+        }
+        ImmutableArray<string> terms = AuthorFullTextSearchTokenizer.TokenizeQueryValue(normalizedTerm);
+        if (terms.Length != 1 || terms[0] != normalizedTerm)
+        {
+            throw new AuthorSearchContractException("author_search_posting_term_not_normalized");
+        }
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            long generation = RequireCurrentGeneration();
+            if (queryUserId != userId || querySiteScope != siteScope || expectedIndexGeneration != generation)
+            {
+                throw new AuthorSearchContractException("author_search_index_read_scope_or_generation_stale");
+            }
+            ImmutableArray<AuthorSearchIndexPosting> all = _postings.TryGetValue(normalizedTerm, out var stored)
+                ? stored : [];
+            if (offset > all.Length)
+            {
+                throw new AuthorSearchContractException("author_search_posting_offset_invalid");
+            }
+            int count = Math.Min(pageSize, all.Length - offset);
+            var page = ImmutableArray.CreateBuilder<AuthorSearchIndexPosting>(count);
+            for (int index = offset; index < offset + count; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                page.Add(all[index]);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return new(userId, siteScope, generation, _sourceGeneration!.Value,
+                AuthorFullTextSearchVerifier.CaptureRegistry().ContentDigest, normalizedTerm, offset + count, offset + count < all.Length, page.MoveToImmutable());
         }
         finally
         {
@@ -360,6 +432,32 @@ public sealed class AuthorFullTextSearchIndex(
         return rebound.ToImmutable();
     }
 
+    private static ImmutableDictionary<string, ImmutableArray<AuthorSearchIndexPosting>> BuildPostings(
+        ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> articles, CancellationToken cancellationToken)
+    {
+        var terms = new Dictionary<string, ImmutableArray<AuthorSearchIndexPosting>.Builder>(StringComparer.Ordinal);
+        foreach (AuthorSearchIndexedArticle article in articles.Values)
+        {
+            foreach (AuthorSearchTokenizedDocument document in article.Documents)
+            {
+                foreach (AuthorSearchToken token in document.Tokens)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!terms.TryGetValue(token.Term, out var postings))
+                    {
+                        postings = ImmutableArray.CreateBuilder<AuthorSearchIndexPosting>();
+                        terms.Add(token.Term, postings);
+                    }
+                    postings.Add(new(article.ArticleId, document.Document.ContentDigest, document.Document.Field.Kind,
+                        document.Document.Field.HeadingIdentity, token.Position, token.Source));
+                }
+            }
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return terms.ToImmutableDictionary(static pair => pair.Key,
+            static pair => pair.Value.ToImmutable(), StringComparer.Ordinal);
+    }
+
     private void ValidatePage(AuthorSearchIndexSourcePage page, int afterArticleId, int pageSize)
     {
         if (page.SourceGeneration <= 0 || page.Articles.IsDefault || page.Articles.Length > pageSize
@@ -407,7 +505,7 @@ public sealed class AuthorFullTextSearchIndex(
         }
         if (articles.Count > MaxArticles || documents > MaxDocuments
             || tokens > MaxStoredTokens || characters > MaxStoredTermCharacters
-            || articles.Count * 128L + documents * 1_024L + tokens * 192L + characters * 2L > MaxEstimatedIndexBytes)
+            || articles.Count * 128L + documents * 1_024L + tokens * 320L + characters * 2L > MaxEstimatedIndexBytes)
         {
             throw new AuthorSearchContractException("author_search_index_budget_exceeded");
         }
