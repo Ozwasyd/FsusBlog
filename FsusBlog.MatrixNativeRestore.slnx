@@ -1,0 +1,4 @@
+<Solution>
+    <Project Path="src/backend/FsusBlog.Server.csproj" />
+    <Project Path="tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj" />
+</Solution>

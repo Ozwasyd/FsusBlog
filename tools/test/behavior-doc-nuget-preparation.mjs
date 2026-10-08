@@ -87,7 +87,7 @@ export function behaviorDocNugetClosure(repositoryRoot)
 export function matrixNativeNugetClosure(repositoryRoot)
 {
     const projects = Object.values(matrixNativeProjects).sort();
-    const solution = 'tools/contracts/MatrixNativeRestore.slnx';
+    const solution = 'FsusBlog.MatrixNativeRestore.slnx';
     const text = regular(path.join(repositoryRoot, solution)).toString('utf8');
     const expected = '<Solution>\n' + projects.map((project) =>
         `    <Project Path="${path.posix.relative(path.posix.dirname(solution), project)}" />\n`).join('')
@@ -210,7 +210,7 @@ export function nugetPreparationCommand({ purpose = 'behavior-doc', packagesRoot
         throw new Error('Unknown NuGet preparation purpose');
     }
     return ['dotnet', 'restore', purpose === 'matrix-native'
-        ? 'tools/contracts/MatrixNativeRestore.slnx' : 'tools/contracts/BehaviorDocRestore.slnx',
+        ? 'FsusBlog.MatrixNativeRestore.slnx' : 'tools/contracts/BehaviorDocRestore.slnx',
     '--locked-mode', '--packages', packagesRoot, '--artifacts-path', artifactsRoot,
     '/p:NuGetAudit=false', '/p:Configuration=Release', '--disable-parallel', '--source', feedRoot,
     '--configfile', configFile];

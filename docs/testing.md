@@ -165,7 +165,7 @@ The end-to-end test selects `png-alpha` from MediaShapeCatalog, obtains verified
 The original `tools/docs/prepare-behavior-doc-nuget.mjs` has two distinct dependency
 preparation purposes. The default remains BehaviorDoc; `--purpose matrix-native`
 binds the actual extractor/backend projects declared by
-`tools/testing/content-shape-catalog.mjs` through `tools/contracts/MatrixNativeRestore.slnx`.
+`tools/testing/content-shape-catalog.mjs` through `FsusBlog.MatrixNativeRestore.slnx`.
 Its closure includes every referenced project lock and source, the solution, the
 native caller owner, and the Dockerfile SDK/runtime pins. It also observes the
 complete canonical SDK/compiler/runtime input bytes without launching the SDK.
