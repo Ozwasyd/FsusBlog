@@ -803,6 +803,52 @@ server observations 及 caller direction/cancel policy 重新验证 membership�
 permission、schema、expiry 和 digest；drift 必须拒绝，不能自动 rebase。此 contract 不执行 server writer、DB、filesystem、
 Vault materialization、watcher 或 conflict resolution。
 
+### Article Vault conflict classifications
+
+`ArticleVaultConflictRegistry` 在既有 `src/shared/Contracts/ArticleVault/` owner
+中固定十二种 closed conflict types，以及每类唯一 disposition、owner、required fact、
+allowed actions、authority boundary 与参数化 proof-test identity。原 `ArticleVaultSyncPlan`
+V1、planner、writer 和同步决定不变；此合同没有可执行 decision、merge result 或 writer command。
+
+`ArticleVaultConflictEvidence` 使用独立版本 `fsusblog.article-vault.conflict-evidence.v1`，
+并使用原 manifest codec 的 closed JSON、kebab-case enums 和 canonical SHA-256。它绑定原 plan、
+group、operation、site/vault/device/portable/server identity、manifest/observation digest，以及
+完整 base/local/server coordinates。Items 按 closed type 排序且不重复；generic UI status 不能
+代替这些具体 items。Registry 内容、schema/version 或任一绑定变化都会使旧证据失效。
+
+`ValidateStructure` 重算 typed source ranges/semantic-node intersections，或 stable metadata
+field/entity 的三方 value digests，拒绝 overlap 被标成 disjoint、未知/重复 field/entity、
+未封存 coordinates、缺失 base，以及 action/disposition/registry drift。Lifecycle、permission
+和 dependency conflict 由三方 coordinates 的实际差异重算；bare fact digest 不能证明冲突。
+Rename 和 Git 需要尚未存在的 canonical current readers，目前分别明确拒绝为
+`article_vault_conflict_identity_observer_missing` 和 `article_vault_conflict_git_observer_missing`。
+Create-create 在 registry 中为 rejected；共同 base 缺失不能退化为 generic manual acceptance。
+旧 schema 本身无效时，沿用原 validator 的 precise fail-closed error，而不把无效 payload
+包装成可继续执行的 schema conflict。
+
+`VerifyCurrentBinding` 先调用既有 `ArticleVaultSyncPlanVerifier.VerifyCurrent`，再检查原 item 的
+exact operation/coordinate/reference identity，以及调用者显式提供的 current diagnostics。
+**该方法仅证明绑定和 typed geometry，不能证明 parser 与 bytes 的对应关系，也不能证明 metadata
+fields 来自真实 stable option/entity reader。** Current diagnostics 必须由独立 current reader
+提供；复制 evidence 自身不能构成独立资格证据。
+
+Automatic registry disposition 只声明该类未来允许的证明路径。当前不存在 #2117 byte/parser reader
+和 #2118 stable-field reader；`ValidateAutomaticEligibility` 明确返回对应 missing-reader reason，
+不会把任意合法 parser/field-registry digest、相同的 caller-supplied facts 或 source-only unit tests
+升级为可执行 automatic candidate。之后应在这些 canonical owner 的实现中接入真实 reader 与独立
+recomputation，保持本门禁与原 sync planner，而不是增加第二 planner 或 verified Boolean bypass。
+
+Source diagnostics 只携带 bounded base-byte ranges、node identity、parser/algorithm version/digests；
+metadata diagnostics 只携带 typed editable fields、stable entity IDs 和 value digests。无正文、AI score、
+mtime/size winner、global accept-local/server、shell/Git command 或 arbitrary executable payload。
+服务端 lifecycle/rights/publication/owner/permission 不属于 editable fields，不能通过本地 YAML 或
+allowed action 覆盖。所有 actions 是 future per-item plan 的输入边界，不会被此 verifier 执行。
+
+原 backend `ArticleVaultConflictTests` 覆盖 registry completeness、specific authority protection、
+range/node overlap、closed codec、unknown fields/enums、cross-identity/coordinate drift、missing base、
+current-fact/schema drift 和 source-only admission denial。这些是原项目 unit controls；实际 parser、
+provider、filesystem/Git、browser、recovery、terminal receipt 与完整 #1909 admission 仍未获得验收。
+
 ### Article embed provider contract
 
 `src/shared/Contracts/ArticleEmbeds/` 是文章嵌入 target、provider request/result 与 dependency
