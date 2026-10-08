@@ -119,14 +119,16 @@ export function layoutArticleGraph(result: ArticleGraphResult): ArticleGraphLayo
 /** Static under normal/reduced motion. Every slice is a real task; terminal paths close ports and detach cancellation. */
 export function runArticleGraphLayoutTask(result: ArticleGraphResult, signal: AbortSignal, limits: ArticleGraphLayoutBudget = articleGraphLayoutBudget): Promise<ArticleGraphLayoutOutcome>
 {
+    const budget = Object.freeze({ itemsPerSlice: limits.itemsPerSlice, slices: limits.slices, sliceMilliseconds: limits.sliceMilliseconds,
+        cpuMilliseconds: limits.cpuMilliseconds, wallMilliseconds: limits.wallMilliseconds });
     for (const key of Object.keys(articleGraphLayoutBudget) as (keyof ArticleGraphLayoutBudget)[])
     {
-        if (!Number.isFinite(limits[key]) || limits[key] <= 0 || limits[key] > articleGraphLayoutBudget[key])
+        if (!Number.isFinite(budget[key]) || budget[key] <= 0 || budget[key] > articleGraphLayoutBudget[key])
         {
             throw new Error('invalid-layout-budget');
         }
     }
-    if (!Number.isSafeInteger(limits.itemsPerSlice) || !Number.isSafeInteger(limits.slices))
+    if (!Number.isSafeInteger(budget.itemsPerSlice) || !Number.isSafeInteger(budget.slices))
     {
         throw new Error('invalid-layout-budget');
     }
@@ -153,7 +155,7 @@ export function runArticleGraphLayoutTask(result: ArticleGraphResult, signal: Ab
             resolve(outcome('blocked', 'task-unavailable', null));
             return;
         }
-        const steps = layoutSteps(result, limits.itemsPerSlice);
+        const steps = layoutSteps(result, budget.itemsPerSlice);
         let finished = false;
         const finish = (status: ArticleGraphLayoutOutcome['status'], reason: ArticleGraphLayoutReason | null, layout: ArticleGraphLayout | null): void =>
         {
@@ -189,11 +191,12 @@ export function runArticleGraphLayoutTask(result: ArticleGraphResult, signal: Ab
                 cancel();
                 return;
             }
-            if (++slices > limits.slices || performance.now() - started > limits.wallMilliseconds)
+            if (slices >= budget.slices || performance.now() - started > budget.wallMilliseconds)
             {
-                finish('blocked', slices > limits.slices ? 'slice-budget' : 'time-budget', null);
+                finish('blocked', slices >= budget.slices ? 'slice-budget' : 'time-budget', null);
                 return;
             }
+            slices++;
             const sliceStart = performance.now();
             let step: IteratorResult<void, ArticleGraphLayout>;
             try
@@ -208,13 +211,17 @@ export function runArticleGraphLayoutTask(result: ArticleGraphResult, signal: Ab
             const elapsed = performance.now() - sliceStart;
             cpuMilliseconds += elapsed;
             maxSliceMilliseconds = Math.max(maxSliceMilliseconds, elapsed);
-            if (elapsed > limits.sliceMilliseconds || cpuMilliseconds > limits.cpuMilliseconds)
+            if (elapsed > budget.sliceMilliseconds || cpuMilliseconds > budget.cpuMilliseconds)
             {
                 finish('blocked', 'cpu-budget', null);
             }
             else if (step.done)
             {
                 finish('settled', null, step.value);
+            }
+            else if (slices >= budget.slices)
+            {
+                finish('blocked', 'slice-budget', null);
             }
             else
             {
