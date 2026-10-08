@@ -46,7 +46,8 @@ if (scenario === 'timeout') setInterval(() => {}, 1000);
     const result = await runProducerAttempts({ evidenceRoot: directory, producerId,
         retryPolicyId: 'correctness-first-attempt', sourceCommit: identity.sourceCommit,
         worktreeFingerprint: identity.worktreeFingerprint, schedulerRunId: identity.schedulerRunId,
-        command: [process.execPath, '-e', source, scenario], cwd: root, env: {},
+        command: scenario === 'launch' ? [path.join(directory, 'unavailable-executable')]
+            : [process.execPath, '-e', source, scenario], cwd: root, env: {},
         authorityReferences: references, verifyAuthority, expectedTestIds: ['ordinary:build-assertion'],
         timeoutMs: scenario === 'timeout' ? 200 : 5000 });
     const [attempt] = result.attempts;
@@ -76,6 +77,15 @@ test('ordinary executed process signal maps the runner structured kind', async (
     assert.equal(observed.attempt.failureKind, 'command-signal');
     const outcome = mapImmutableBuildNativeAttemptOutcome(observed);
     assert.equal(outcome.reasons[0].kind, 'infra.process-signal');
+    assert.equal(outcome.reasons[0].identity.attemptNumber, 1);
+});
+
+test('ordinary unavailable executable maps the original launch failure observation', async (context) =>
+{
+    const observed = await ordinaryAttempt(context, 'launch');
+    assert.equal(observed.attempt.failureKind, 'command-spawn-error');
+    const outcome = mapImmutableBuildNativeAttemptOutcome(observed);
+    assert.equal(outcome.reasons[0].kind, 'infra.process-launch');
     assert.equal(outcome.reasons[0].identity.attemptNumber, 1);
 });
 
