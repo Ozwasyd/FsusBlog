@@ -32,6 +32,7 @@
                     </ElSelect>
                     <ElRadioGroup
                         v-model="formatId"
+                        class="document-export-center__formats"
                         aria-label="导出格式"
                         :disabled="submissionLocked"
                     >
@@ -334,6 +335,7 @@ function start(): void
 .document-export-center
  {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--fsus-space-6);
     color: var(--fsus-ink);
 }
@@ -350,6 +352,12 @@ function start(): void
 .document-export-center__list
  {
     block-size: min(40vh, 24rem);
+}
+
+.document-export-center__formats
+ {
+    display: flex;
+    flex-wrap: wrap;
 }
 
 .document-export-center__actions
