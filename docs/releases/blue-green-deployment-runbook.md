@@ -21,7 +21,7 @@ render: key-value-table
 | Key | Value |
 | --- | --- |
 | bundleIds | ["backend-tests","build-static","frontend-tests","performance-evidence","runtime-browser"] |
-| edges | ["backend-tests->performance-evidence","build-static->performance-evidence","frontend-tests->performance-evidence","runtime-browser->performance-evidence"] |
+| edges | ["backend-tests-&gt;performance-evidence","build-static-&gt;performance-evidence","frontend-tests-&gt;performance-evidence","runtime-browser-&gt;performance-evidence"] |
 | hasDependencyEdges | true |
 | profileId | production |
 | topoOrderConstraints | ["after:performance-evidence\|requires:backend-tests","after:performance-evidence\|requires:build-static","after:performance-evidence\|requires:frontend-tests","after:performance-evidence\|requires:runtime-browser"] |
