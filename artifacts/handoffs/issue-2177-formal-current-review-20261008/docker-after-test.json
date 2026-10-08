@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-10-08T11:20:01.819267+00:00",
+  "exitCode": 0,
+  "containerIds": [
+    "2304053ed86539e91c80f08ad12bc1c73aa9db53104b6bb3617af118ef1c206a",
+    "2050b9a3a496a23e01e406fde5dcbeb7f7f180c3b58ef9b134298c43c978a153"
+  ],
+  "newResidualContainerIds": [],
+  "onlyComparedNoDeletion": true
+}

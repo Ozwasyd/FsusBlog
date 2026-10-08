@@ -1,0 +1,26 @@
+{
+  "sourceOperation": "using-directive token order and alias declaration grouping; does not assert format-only token equivalence",
+  "files": [
+    {
+      "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+      "allUsingAndAliasDeclarationsPreserved": true,
+      "allNamespaceTestBodyAndAssertionBytesPreserved": true,
+      "beforeSha256": "c458c13b61ab2dae6a38af17b41c1811b6d950fef0ce7b4386fc5fe388214db0",
+      "afterSha256": "06e074fcea388ee9e75473f6272f506f96cbeaa7285b0c945c5ea86564d895fd"
+    },
+    {
+      "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+      "allUsingAndAliasDeclarationsPreserved": true,
+      "allNamespaceTestBodyAndAssertionBytesPreserved": true,
+      "beforeSha256": "41fa2b0133835f78751a938565e8f9981f1ebea60a4fadd82fc20520c3b6af2c",
+      "afterSha256": "54332aae5236031e6803d7229e885079e236740a41ec2ff1cd498ca394898f61"
+    },
+    {
+      "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+      "allUsingAndAliasDeclarationsPreserved": true,
+      "allNamespaceTestBodyAndAssertionBytesPreserved": true,
+      "beforeSha256": "e7400ddcaa63dc2f9f101b6e06d9f4ebdb1cbba2c1028913849149361c402b17",
+      "afterSha256": "42a46ffb9fcd313ab5d41688cf023ca0ad39084e511fb47dec1c06f33bedae59"
+    }
+  ]
+}

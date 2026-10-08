@@ -1,0 +1,10 @@
+{
+  "singleFileCanonicalCommit": "a95de1defd39a46f34992bed9eee3c150d990456",
+  "canonicalBeforeBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+  "canonicalAfterBlob": "658d0fe76ba668127527fe2a3a678c1e44484942",
+  "canonicalPreimageMatches97f": true,
+  "canonicalPostimageMatchesActualF66": true,
+  "initialActualSourceIntake": "first exact diff hunk of previously supplied f53; now independently matches complete published a95 canonical source",
+  "a95WholeCommitSourcePathCount": 1,
+  "noOtherF53RuntimeExpectationHunksConsumed": true
+}

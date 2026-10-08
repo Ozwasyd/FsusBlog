@@ -1,0 +1,21 @@
+{
+  "composedSha": "c2e1a0942e375ef0c73e0dce09b19767a0c345de",
+  "previousRealFormal80Sha": "a5900edd594488b35560b8825714a2e989b2b1a2",
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "restore",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--locked-mode",
+    "-p:NuGetAudit=true",
+    "-m:1",
+    "-nodeReuse:false"
+  ],
+  "startedAt": "2026-10-08T11:06:15.349400+00:00",
+  "endedAt": "2026-10-08T11:06:17.057266+00:00",
+  "exitCode": 0,
+  "logSha256": "8db34e7dc6d85777b942fc17d896ab9f8c3545710895ed2ab848f8cfad98e74f",
+  "originalProject": true,
+  "lockedModeWaived": false,
+  "usesNoRestore": false,
+  "wholeIssueAccepted": false
+}

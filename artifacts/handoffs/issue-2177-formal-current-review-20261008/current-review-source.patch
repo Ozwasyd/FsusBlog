@@ -1,0 +1,474 @@
+diff --git a/artifacts/change-contract/backend-existing-reader-lock-external-naming.json b/artifacts/change-contract/backend-existing-reader-lock-external-naming.json
+new file mode 100644
+index 000000000..3372c6126
+--- /dev/null
++++ b/artifacts/change-contract/backend-existing-reader-lock-external-naming.json
+@@ -0,0 +1,12 @@
++{
++    "schema": "fsusblog.external-naming-exceptions.v1",
++    "exceptions": [
++        {
++            "id": "json-wire-key",
++            "paths": [
++                "tests/backend/packages.lock.json"
++            ],
++            "reason": "preserve official NuGet project-reference dependency keys and package content hashes while recording the already-declared Server AngleSharp 1.5.0 dependency in the existing backend test lock"
++        }
++    ]
++}
+diff --git a/artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json b/artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json
+new file mode 100644
+index 000000000..083ea1d65
+--- /dev/null
++++ b/artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json
+@@ -0,0 +1,20 @@
++{
++    "schema": "fsusblog.external-naming-exceptions.v1",
++    "exceptions": [
++        {
++            "id": "environment-variable",
++            "paths": [
++                "src/backend/Services/ArticleCommentPolicyService.cs",
++                "src/backend/Services/CommentModerationService.cs",
++                "src/backend/Services/CommentService.cs",
++                "src/backend/Services/Security/AnonymousCommentPolicyService.cs"
++            ],
++            "reason": "Preserve existing production configuration and process environment names while exposing the same compiled pure policy methods."
++        },
++        {
++            "id": "css-like-contract",
++            "paths": ["docs/architecture/comment-command-boundary.md"],
++            "reason": "Preserve canonical configuration, thread and generated-section identifiers while documenting the exact production-shared policy API."
++        }
++    ]
++}
+diff --git a/docs/architecture/comment-command-boundary.md b/docs/architecture/comment-command-boundary.md
+index 0d889c623..48401be64 100644
+--- a/docs/architecture/comment-command-boundary.md
++++ b/docs/architecture/comment-command-boundary.md
+@@ -22,6 +22,30 @@ semantics. Both `ICommentEndpointService` and the core bridge's
+ `ICommentCommandService` resolve to the same scoped command implementation.
+ Rollback can independently disable anonymous policy or automatic moderation
+ while public create/delete commands remain available.
++
++## Production-shared pure policy inputs
++
++Compiled callers can evaluate existing policy without constructing database services:
++`AnonymousCommentPolicyService.EvaluateAuthorMode(policy, requestedAuthorMode, publicSendExplicitlySelected)`,
++`ArticleCommentPolicyService.Compose(articleId, site, article, thread)`, and
++`ArticleCommentPolicyService.EvaluateWrite(policy, authorMode, utcNow)` are public static
++entry points used by the production services. Author-mode admission must precede the
++article write-policy decision; the latter does not authenticate an actor or reject
++every unsupported author mode. `utcNow` is an explicit business-time input, while
++the article ID and policy snapshots come from the caller's authoritative article-role
++mapping. These functions allocate no comment, revision, outbox or security facts.
++
++`CommentModerationService.ResolveInitialState(actor, regionDecision, modelEnabled,
++modelProviderAvailable)` shares the production initial-state decision with explicit
++model settings. Production region rejection precedes this decision, which preserves
++the ordering of hidden-region, manual-region, actor-review and model-review rules.
++`CommentModerationTransitions.IsAllowed` owns later transition legality and
++`CommentCommandService.ResolveReplyRecipientId(targetAuthorAccountId,
++replyingActorAccountId)` owns target-derived recipient/self-reply suppression.
++`AnonymousCommentScopePolicy` owns versioned top/thread scopes and credential quotas.
++These source APIs do not verify proofs, reserve nullifiers, validate persisted thread
++visibility, sign fixture receipts or substitute for canonical command transactions.
++
+ ## Current thread invariants
+ 
+ <!-- fsus-doc-claim
+diff --git a/src/backend/Services/ArticleCommentPolicyService.cs b/src/backend/Services/ArticleCommentPolicyService.cs
+index 14f95ae3b..17dc99fed 100644
+--- a/src/backend/Services/ArticleCommentPolicyService.cs
++++ b/src/backend/Services/ArticleCommentPolicyService.cs
+@@ -237,7 +237,7 @@ public sealed class ArticleCommentPolicyService(
+         return await ResolveAsync(articleId, rootCommentId, cancellationToken);
+     }
+ 
+-    internal static EffectiveArticleCommentPolicy Compose(
++    public static EffectiveArticleCommentPolicy Compose(
+         int articleId,
+         AnonymousCommentPolicySnapshot site,
+         ArticleCommentPolicy? article,
+@@ -261,7 +261,7 @@ public sealed class ArticleCommentPolicyService(
+             thread?.LockedAtUtc.HasValue == true, threadVersion, hash);
+     }
+ 
+-    internal static CommentPolicyWriteDecision EvaluateWrite(
++    public static CommentPolicyWriteDecision EvaluateWrite(
+         EffectiveArticleCommentPolicy policy,
+         string authorMode,
+         DateTime utcNow)
+diff --git a/src/backend/Services/CommentModerationService.cs b/src/backend/Services/CommentModerationService.cs
+index b3e80e123..1a9854726 100644
+--- a/src/backend/Services/CommentModerationService.cs
++++ b/src/backend/Services/CommentModerationService.cs
+@@ -88,6 +88,24 @@ public sealed class CommentModerationService(
+     public CommentInitialModerationDecision ResolveInitialState(
+         CommentActor actor,
+         RegionModerationDecision regionDecision)
++    {
++        if (regionDecision.HideUntilReviewed || regionDecision.RequiresManualReview || actor.RequiresModeration)
++        {
++            return ResolveInitialState(actor, regionDecision, modelEnabled: false, modelProviderAvailable: false);
++        }
++
++        return ResolveInitialState(
++            actor,
++            regionDecision,
++            configuration?.GetValue<bool?>("Moderation:AntiSpamModel:Enabled") ?? antiSpam is not null,
++            antiSpam is not null);
++    }
++
++    public static CommentInitialModerationDecision ResolveInitialState(
++        CommentActor actor,
++        RegionModerationDecision regionDecision,
++        bool modelEnabled,
++        bool modelProviderAvailable)
+     {
+         if (regionDecision.HideUntilReviewed)
+         {
+@@ -104,13 +122,11 @@ public sealed class CommentModerationService(
+             return new(CommentModerationStatus.Pending, "pending_anonymous_policy");
+         }
+ 
+-        bool modelEnabled = configuration?.GetValue<bool?>("Moderation:AntiSpamModel:Enabled")
+-            ?? antiSpam is not null;
+         if (modelEnabled)
+         {
+             return new(
+                 CommentModerationStatus.Pending,
+-                antiSpam is null ? "pending_model_provider_unavailable" : "pending_model_review");
++                modelProviderAvailable ? "pending_model_review" : "pending_model_provider_unavailable");
+         }
+ 
+         return new(CommentModerationStatus.Approved, "approved_deterministic_low_risk");
+diff --git a/src/backend/Services/CommentService.cs b/src/backend/Services/CommentService.cs
+index 1b4798a98..e780e2134 100644
+--- a/src/backend/Services/CommentService.cs
++++ b/src/backend/Services/CommentService.cs
+@@ -668,7 +668,7 @@ public partial class CommentCommandService(
+         return childCount < maxChildren;
+     }
+ 
+-    private static int? ResolveReplyRecipientId(int? targetAuthorAccountId, int? replyingActorAccountId)
++    public static int? ResolveReplyRecipientId(int? targetAuthorAccountId, int? replyingActorAccountId)
+         => targetAuthorAccountId is > 0 && targetAuthorAccountId != replyingActorAccountId
+             ? targetAuthorAccountId
+             : null;
+diff --git a/src/backend/Services/Security/AnonymousCommentPolicyService.cs b/src/backend/Services/Security/AnonymousCommentPolicyService.cs
+index 19eb576e8..0e06d3df7 100644
+--- a/src/backend/Services/Security/AnonymousCommentPolicyService.cs
++++ b/src/backend/Services/Security/AnonymousCommentPolicyService.cs
+@@ -174,7 +174,7 @@ public sealed class AnonymousCommentPolicyService(
+             DateTime.UtcNow);
+     }
+ 
+-    private static CommentAuthorModeDecision EvaluateAuthorMode(
++    public static CommentAuthorModeDecision EvaluateAuthorMode(
+         AnonymousCommentPolicySnapshot policy,
+         string? requestedAuthorMode,
+         bool publicSendExplicitlySelected)
+diff --git a/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs b/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
+index 138d80eff..b6a233e7a 100644
+--- a/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
++++ b/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
+@@ -4,10 +4,10 @@ using System.Runtime.InteropServices;
+ using System.Security.Cryptography;
+ using System.Text.Json;
+ 
+-using Xunit;
+-
+ using FsusBlog.Server.Infrastructure.AuthoringExtensions;
+ 
++using Xunit;
++
+ namespace FsusBlog.Server.Tests;
+ 
+ // SOURCE COMPONENT_SIMULATION: the public RPC handler calls the actual IO
+@@ -502,7 +502,7 @@ public sealed class AuthoringExtensionRpcBrokerTests
+         }
+         var network = new Network();
+         var broker = new AuthoringExtensionServiceIoBroker(new AuthoringServiceGrantValidator(new Addresses(),
+-            new CanonicalAuthoringFilePathVerifier(), clock, ImmutableHashSet.Create(StringComparer.Ordinal, root)), network, staging);
++            new LinuxAuthoringFilePathVerifier(), clock, ImmutableHashSet.Create(StringComparer.Ordinal, root)), network, staging);
+         var transaction = new NoTransaction();
+         var revision = new Revision();
+         var envelope = new AuthoringRpcEnvelope(2, operation is null ? AuthoringRpcMethod.NetworkBrokerRequest : AuthoringRpcMethod.FileBrokerRequest,
+diff --git a/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs b/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs
+index b4b75d123..75947dd73 100644
+--- a/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs
++++ b/tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs
+@@ -1,9 +1,11 @@
++using FsusBlog.Contracts.Articles;
+ using FsusBlog.Core.Services.Articles;
+ using FsusBlog.Server.Entities;
+ using FsusBlog.Server.Infrastructure.Middlewares;
+ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+ using FsusBlog.Server.Interfaces;
+ using FsusBlog.Server.Services;
++using FsusBlog.Server.Services.Articles;
+ using FsusBlog.Server.Services.Fixtures;
+ 
+ using Microsoft.AspNetCore.Http;
+diff --git a/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs b/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs
+index 4908b5ffc..5a6cfb1c2 100644
+--- a/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs
++++ b/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs
+@@ -563,9 +563,9 @@ public sealed class CanonicalArticleProjectionVerifierTests
+                 }
+                 return scenario.StartsWith("publication", StringComparison.Ordinal)
+                     ? verifier.AwaitCurrentOutputAsync(publication, publicationInvocation,
+-                        PublicContentFixtureSeeder.ProjectionConvergencePollInterval, callerBudget.Token)
++                        PublicContentFixtureSeeder.s_projectionConvergencePollInterval, callerBudget.Token)
+                     : verifier.AwaitCurrentOutputAsync(authority, currentInvocation,
+-                        PublicContentFixtureSeeder.ProjectionConvergencePollInterval, callerBudget.Token);
++                        PublicContentFixtureSeeder.s_projectionConvergencePollInterval, callerBudget.Token);
+             }
+             return scenario.StartsWith("publication", StringComparison.Ordinal)
+                 ? verifier.VerifyAsync(publication, publicationInvocation)
+diff --git a/tests/backend/Unit/CommentModerationInitialStateTests.cs b/tests/backend/Unit/CommentModerationInitialStateTests.cs
+index 8f8346473..3b7fe6110 100644
+--- a/tests/backend/Unit/CommentModerationInitialStateTests.cs
++++ b/tests/backend/Unit/CommentModerationInitialStateTests.cs
+@@ -70,6 +70,36 @@ public sealed class CommentModerationInitialStateTests
+         Assert.Equal("hidden_region_review", decision.ReasonCode);
+     }
+ 
++    [Fact]
++    public void ResolveInitialState_RegionReviewDoesNotReadUnusableModelConfiguration()
++    {
++        IConfiguration configuration = new ConfigurationBuilder()
++            .AddInMemoryCollection(new Dictionary<string, string?>
++            {
++                ["Moderation:AntiSpamModel:Enabled"] = "invalid-boolean"
++            })
++            .Build();
++        var service = new CommentModerationService(
++            Substitute.For<SqlSugar.ISqlSugarClient>(),
++            new RegionLegalModerationService(),
++            Substitute.For<FsusBlog.Server.Infrastructure.Cache.ICacheInvalidationDispatcher>(),
++            Substitute.For<ICommentNotificationService>(),
++            NullLogger<CommentModerationService>.Instance,
++            configuration: configuration);
++
++        CommentInitialModerationDecision hidden = service.ResolveInitialState(PublicActor(), Region(hideUntilReviewed: true));
++        CommentInitialModerationDecision manual = service.ResolveInitialState(PublicActor(), Region(requiresManualReview: true));
++        CommentInitialModerationDecision actorReview = service.ResolveInitialState(PublicActor() with
++        {
++            RequiresModeration = true
++        }, Region());
++
++        Assert.Equal(CommentModerationStatus.Hidden, hidden.Status);
++        Assert.Equal("pending_region_review", manual.ReasonCode);
++        Assert.Equal("pending_anonymous_policy", actorReview.ReasonCode);
++        Assert.Throws<InvalidOperationException>(() => service.ResolveInitialState(PublicActor(), Region()));
++    }
++
+     private static CommentModerationService CreateService(bool enabled)
+     {
+         IConfiguration configuration = new ConfigurationBuilder()
+diff --git a/tests/backend/Unit/CommentPurePolicyContractTests.cs b/tests/backend/Unit/CommentPurePolicyContractTests.cs
+new file mode 100644
+index 000000000..e5e81c7b3
+--- /dev/null
++++ b/tests/backend/Unit/CommentPurePolicyContractTests.cs
+@@ -0,0 +1,87 @@
++using System.Reflection;
++
++using FsusBlog.Server.Entities;
++using FsusBlog.Server.Models.CommentIdentity;
++using FsusBlog.Server.Models.Moderation;
++using FsusBlog.Server.Services;
++using FsusBlog.Server.Services.Security;
++
++namespace FsusBlog.Server.Tests.Unit;
++
++public sealed class CommentPurePolicyContractTests
++{
++    [Theory]
++    [InlineData("anonymous", true, "anonymous_author_mode_retired")]
++    [InlineData("legacy_server_visible_pseudonymous", true, "anonymous_author_mode_retired")]
++    [InlineData("unknown", true, "author_mode_invalid")]
++    [InlineData("public", false, "public_opt_in_required")]
++    [InlineData("zk_anonymous", true, "zk_anonymous_disabled")]
++    public void ExplicitPolicyInput_PreservesAuthorModeRefusals(string mode, bool optIn, string expected)
++    {
++        var policy = new AnonymousCommentPolicySnapshot(true, true, false, CommentAuthorModes.ZkAnonymous, ["en"]);
++
++        CommentAuthorModeDecision decision = AnonymousCommentPolicyService.EvaluateAuthorMode(policy, mode, optIn);
++
++        Assert.False(decision.Allowed);
++        Assert.Equal(expected, decision.Status);
++    }
++
++    [Theory]
++    [InlineData(true, true, true, true, true, CommentModerationStatus.Hidden, "hidden_region_review")]
++    [InlineData(false, true, true, true, true, CommentModerationStatus.Pending, "pending_region_review")]
++    [InlineData(false, false, true, true, true, CommentModerationStatus.Pending, "pending_anonymous_policy")]
++    [InlineData(false, false, false, true, false, CommentModerationStatus.Pending, "pending_model_provider_unavailable")]
++    [InlineData(false, false, false, true, true, CommentModerationStatus.Pending, "pending_model_review")]
++    [InlineData(false, false, false, false, true, CommentModerationStatus.Approved, "approved_deterministic_low_risk")]
++    public void ExplicitModelInputs_PreserveInitialModerationPrecedence(
++        bool hidden,
++        bool manual,
++        bool actorReview,
++        bool modelEnabled,
++        bool providerAvailable,
++        CommentModerationStatus expectedStatus,
++        string expectedReason)
++    {
++        var actor = new CommentActor(7, CommentAuthorModes.Public, "handle", null, "handle", "en", null, null, "subject", "common", actorReview);
++        var region = new RegionModerationDecision(true, "GLOBAL", 1d, "unit", null, [], [], [], "v1", "allowed", "allowed", manual, hidden);
++
++        CommentInitialModerationDecision decision = CommentModerationService.ResolveInitialState(actor, region, modelEnabled, providerAvailable);
++
++        Assert.Equal(expectedStatus, decision.Status);
++        Assert.Equal(expectedReason, decision.ReasonCode);
++    }
++
++    [Theory]
++    [InlineData(7, 7, null)]
++    [InlineData(7, 8, 7)]
++    [InlineData(7, null, 7)]
++    [InlineData(null, 8, null)]
++    [InlineData(0, 8, null)]
++    public void ReplyRecipient_UsesObservedTargetAndSuppressesSelfReply(int? target, int? actor, int? expected)
++        => Assert.Equal(expected, CommentCommandService.ResolveReplyRecipientId(target, actor));
++
++    [Fact]
++    public void ArticleWriteDecision_UsesTheExplicitClockAtTheExactClosureBoundary()
++    {
++        DateTime closedAt = DateTime.UnixEpoch.AddTicks(1);
++        var site = new AnonymousCommentPolicySnapshot(true, true, true, CommentAuthorModes.ZkAnonymous, ["en"]);
++        var article = new ArticleCommentPolicy { ArticleId = 42, Enabled = true, ClosedAtUtc = closedAt };
++        EffectiveArticleCommentPolicy policy = ArticleCommentPolicyService.Compose(42, site, article, null);
++
++        Assert.True(ArticleCommentPolicyService.EvaluateWrite(policy, CommentAuthorModes.Public, closedAt.AddTicks(-1)).Allowed);
++        CommentPolicyWriteDecision atBoundary = ArticleCommentPolicyService.EvaluateWrite(policy, CommentAuthorModes.Public, closedAt);
++
++        Assert.False(atBoundary.Allowed);
++        Assert.Equal("comment_policy_closed", atBoundary.Status);
++    }
++
++    [Fact]
++    public void PurePolicyInputs_ArePublicWithoutFriendAssemblyOrServiceConstruction()
++    {
++        Assert.NotNull(typeof(ArticleCommentPolicyService).GetMethod("Compose", BindingFlags.Public | BindingFlags.Static));
++        Assert.NotNull(typeof(ArticleCommentPolicyService).GetMethod("EvaluateWrite", BindingFlags.Public | BindingFlags.Static));
++        Assert.NotNull(typeof(AnonymousCommentPolicyService).GetMethod("EvaluateAuthorMode", BindingFlags.Public | BindingFlags.Static));
++        Assert.NotNull(typeof(CommentModerationService).GetMethod("ResolveInitialState", BindingFlags.Public | BindingFlags.Static));
++        Assert.NotNull(typeof(CommentCommandService).GetMethod("ResolveReplyRecipientId", BindingFlags.Public | BindingFlags.Static));
++    }
++}
+diff --git a/tests/backend/Unit/CommentServiceValidationTests.cs b/tests/backend/Unit/CommentServiceValidationTests.cs
+index 892c37b12..f64cb3ca8 100644
+--- a/tests/backend/Unit/CommentServiceValidationTests.cs
++++ b/tests/backend/Unit/CommentServiceValidationTests.cs
+@@ -375,9 +375,9 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
+         int? replyingActorAccountId,
+         int? expected)
+     {
+-        int? actual = InvokePrivateStatic<int?>(
+-            "ResolveReplyRecipientId",
+-            [targetAuthorAccountId, replyingActorAccountId]);
++        int? actual = CommentCommandService.ResolveReplyRecipientId(
++            targetAuthorAccountId,
++            replyingActorAccountId);
+ 
+         Assert.Equal(expected, actual);
+     }
+diff --git a/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs b/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+index ad410a636..658d0fe76 100644
+--- a/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
++++ b/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+@@ -20,10 +20,10 @@ namespace FsusBlog.Server.Tests;
+ public sealed class LifecycleHostedBootstrapServiceTests
+ {
+     [Theory]
+-    [InlineData(Environments.Development, "")]
+-    [InlineData(Environments.Development, "relative/receipt.json")]
+-    [InlineData(Environments.Production, "")]
+-    [InlineData(Environments.Production, "relative/receipt.json")]
++    [InlineData("Development", "")]
++    [InlineData("Development", "relative/receipt.json")]
++    [InlineData("Production", "")]
++    [InlineData("Production", "relative/receipt.json")]
+     public async Task RealHost_DoesNotStartBusinessServicesAfterActualReceiptRefusal(string environmentName, string receiptPath)
+     {
+         string root = CreateTempRoot();
+diff --git a/tests/backend/Unit/RealConcurrencyHarnessTests.cs b/tests/backend/Unit/RealConcurrencyHarnessTests.cs
+index c2944327c..7f1b90736 100644
+--- a/tests/backend/Unit/RealConcurrencyHarnessTests.cs
++++ b/tests/backend/Unit/RealConcurrencyHarnessTests.cs
+@@ -3,7 +3,7 @@ namespace FsusBlog.Server.Tests.Unit;
+ public sealed class RealConcurrencyHarnessTests
+ {
+     [Fact]
+-    public void RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny()
++    public async Task RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny()
+     {
+         int started = 0;
+         Func<Task> worker = () =>
+@@ -11,9 +11,9 @@ public sealed class RealConcurrencyHarnessTests
+             Interlocked.Increment(ref started);
+             return Task.CompletedTask;
+         };
+-        Assert.Throws<ArgumentException>(() => RealConcurrencyHarness.RunAsync(worker));
+-        Assert.Throws<ArgumentException>(() => RealConcurrencyHarness.RunAsync(worker, null!));
+-        Assert.Throws<ArgumentException>(() => RealConcurrencyHarness.RunAsync<int>(() => Task.FromResult(1)));
++        await Assert.ThrowsAsync<ArgumentException>(() => RealConcurrencyHarness.RunAsync(worker));
++        await Assert.ThrowsAsync<ArgumentException>(() => RealConcurrencyHarness.RunAsync(worker, null!));
++        await Assert.ThrowsAsync<ArgumentException>(() => RealConcurrencyHarness.RunAsync<int>(() => Task.FromResult(1)));
+         Assert.Equal(0, started);
+     }
+ 
+diff --git a/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs b/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
+index 83f31686b..c8208fbb2 100644
+--- a/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
++++ b/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
+@@ -2,6 +2,8 @@ using FsusBlog.Server.Infrastructure.Security;
+ using FsusBlog.Server.Models.Security;
+ using FsusBlog.Server.Services.Security;
+ 
++using Microsoft.Extensions.Configuration;
++
+ using ConfigurationBuilder = Microsoft.Extensions.Configuration.ConfigurationBuilder;
+ using IConfiguration = Microsoft.Extensions.Configuration.IConfiguration;
+ 
+diff --git a/tests/backend/Unit/TaxonomyExactMetadataTests.cs b/tests/backend/Unit/TaxonomyExactMetadataTests.cs
+index 13d6080a3..6a3f27554 100644
+--- a/tests/backend/Unit/TaxonomyExactMetadataTests.cs
++++ b/tests/backend/Unit/TaxonomyExactMetadataTests.cs
+@@ -1,15 +1,16 @@
+-using Microsoft.AspNetCore.Http;
+-
+ using FsusBlog.Core.Algorithms;
+ using FsusBlog.Core.Cache;
++using FsusBlog.Core.Common;
+ using FsusBlog.Core.Mapping.Models;
+ using FsusBlog.Server.Infrastructure.Cache;
+-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+ using FsusBlog.Server.Infrastructure.PublicAot;
++using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+ using FsusBlog.Server.Infrastructure.Results;
+ using FsusBlog.Server.Modules.Endpoints.Binary;
+ using FsusBlog.Shared.Contracts.Outputs;
+ 
++using Microsoft.AspNetCore.Http;
++
+ using NSubstitute;
+ 
+ namespace FsusBlog.Server.Tests.Unit;
+diff --git a/tests/backend/packages.lock.json b/tests/backend/packages.lock.json
+index 6b9bfe364..47ecd9ad5 100644
+--- a/tests/backend/packages.lock.json
++++ b/tests/backend/packages.lock.json
+@@ -526,6 +526,7 @@
+             "fsusblog.server": {
+                 "type": "Project",
+                 "dependencies": {
++                    "AngleSharp": "[1.5.0, )",
+                     "BCrypt.Net-Next": "[4.1.0, )",
+                     "BouncyCastle.Cryptography": "[2.6.2, )",
+                     "Fido2": "[4.0.1, )",

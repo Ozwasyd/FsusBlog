@@ -1,0 +1,5 @@
+[csharp-style] tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs:6 using-group: using groups must be separated by one blank line [Microsoft.Extensions.Configuration.ConfigurationBuilder]
+[native-tooling-style] ok operation=lint domain=docs mode=full selected=1 checked=1 baseline=0 violations=0
+[document-lifecycle] ok documents=372
+[source-governance] failure; no runtime or release qualification
+[matrix] applicable source governance failed; qualification remains unrun

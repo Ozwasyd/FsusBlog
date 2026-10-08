@@ -1,0 +1,56 @@
+diff --git a/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs b/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
+index 2d1e27b9d..b6a233e7a 100644
+--- a/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
++++ b/tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
+@@ -4,10 +4,10 @@ using System.Runtime.InteropServices;
+ using System.Security.Cryptography;
+ using System.Text.Json;
+ 
+-using Xunit;
+-
+ using FsusBlog.Server.Infrastructure.AuthoringExtensions;
+ 
++using Xunit;
++
+ namespace FsusBlog.Server.Tests;
+ 
+ // SOURCE COMPONENT_SIMULATION: the public RPC handler calls the actual IO
+diff --git a/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs b/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
+index e4521c2f5..71ac7abcc 100644
+--- a/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
++++ b/tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
+@@ -1,9 +1,8 @@
+-using Microsoft.Extensions.Configuration;
+-
+ using FsusBlog.Server.Infrastructure.Security;
+ using FsusBlog.Server.Models.Security;
+ using FsusBlog.Server.Services.Security;
+ 
++using Microsoft.Extensions.Configuration;
+ using ConfigurationBuilder = Microsoft.Extensions.Configuration.ConfigurationBuilder;
+ using IConfiguration = Microsoft.Extensions.Configuration.IConfiguration;
+ 
+diff --git a/tests/backend/Unit/TaxonomyExactMetadataTests.cs b/tests/backend/Unit/TaxonomyExactMetadataTests.cs
+index f65b40174..6a3f27554 100644
+--- a/tests/backend/Unit/TaxonomyExactMetadataTests.cs
++++ b/tests/backend/Unit/TaxonomyExactMetadataTests.cs
+@@ -1,16 +1,16 @@
+-using Microsoft.AspNetCore.Http;
+-
+ using FsusBlog.Core.Algorithms;
+ using FsusBlog.Core.Cache;
+ using FsusBlog.Core.Common;
+ using FsusBlog.Core.Mapping.Models;
+ using FsusBlog.Server.Infrastructure.Cache;
+-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+ using FsusBlog.Server.Infrastructure.PublicAot;
++using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+ using FsusBlog.Server.Infrastructure.Results;
+ using FsusBlog.Server.Modules.Endpoints.Binary;
+ using FsusBlog.Shared.Contracts.Outputs;
+ 
++using Microsoft.AspNetCore.Http;
++
+ using NSubstitute;
+ 
+ namespace FsusBlog.Server.Tests.Unit;

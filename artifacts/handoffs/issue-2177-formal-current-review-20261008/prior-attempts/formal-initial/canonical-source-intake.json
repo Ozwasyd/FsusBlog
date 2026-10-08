@@ -1,0 +1,28 @@
+{
+  "baseSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+  "canonicalOwnerIssue": 3654,
+  "canonicalSourceHead": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+  "canonicalWholeFileBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+  "actualCanonicalFileCommit": "5d71bb2eec8c7c3645a799560e2ba28675d5357b",
+  "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+  "extraction": "First original Git-generated diff hunk only; four InlineData declaration corrections. No test body/assertion/other formatting hunk consumed.",
+  "removed": [
+    "    [InlineData(Environments.Development, \"\")]",
+    "    [InlineData(Environments.Development, \"relative/receipt.json\")]",
+    "    [InlineData(Environments.Production, \"\")]",
+    "    [InlineData(Environments.Production, \"relative/receipt.json\")]"
+  ],
+  "added": [
+    "    [InlineData(\"Development\", \"\")]",
+    "    [InlineData(\"Development\", \"relative/receipt.json\")]",
+    "    [InlineData(\"Production\", \"\")]",
+    "    [InlineData(\"Production\", \"relative/receipt.json\")]"
+  ],
+  "slicePatchSha256": "a67360ef5f4926affc991f9e2001f6afe6b766c2f9c01a3ca241d4427b9d7516",
+  "beforeFileSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029",
+  "afterFileSha256": "e749fe6a4141b71824fc127f01e8f0f35768f8789d97bf4fa81b894a4b073a46",
+  "onlyFourExactSourceLinesChanged": true,
+  "wholeCanonicalFileTransplanted": false,
+  "unrelatedStartupDetailChangesConsumed": false,
+  "testsAndAssertionsPreserved": true
+}

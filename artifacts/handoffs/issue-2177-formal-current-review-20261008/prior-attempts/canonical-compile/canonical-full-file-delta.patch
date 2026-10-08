@@ -1,0 +1,49 @@
+diff --git a/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs b/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+index ad410a636..3a5ee9974 100644
+--- a/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
++++ b/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+@@ -20,10 +20,10 @@ namespace FsusBlog.Server.Tests;
+ public sealed class LifecycleHostedBootstrapServiceTests
+ {
+     [Theory]
+-    [InlineData(Environments.Development, "")]
+-    [InlineData(Environments.Development, "relative/receipt.json")]
+-    [InlineData(Environments.Production, "")]
+-    [InlineData(Environments.Production, "relative/receipt.json")]
++    [InlineData("Development", "")]
++    [InlineData("Development", "relative/receipt.json")]
++    [InlineData("Production", "")]
++    [InlineData("Production", "relative/receipt.json")]
+     public async Task RealHost_DoesNotStartBusinessServicesAfterActualReceiptRefusal(string environmentName, string receiptPath)
+     {
+         string root = CreateTempRoot();
+@@ -113,7 +113,7 @@ public sealed class LifecycleHostedBootstrapServiceTests
+             Assert.True(File.Exists(Path.Combine(aotCacheDir, "stale.txt")));
+             Assert.False(runtimeState.SystemCachesClearedOnStartup);
+             Assert.Equal("ok", runtimeState.GetStartupTasks()["schemaMigration"].Status);
+-            Assert.Equal("compatibility_check", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
++            Assert.Equal("current_schema_verified", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
+             Assert.Equal("ok", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Status);
+             Assert.Equal("physical_projection_complete", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Detail);
+             Assert.Equal("ok", runtimeState.GetStartupTasks()["passkeyProjectionInvariant"].Status);
+@@ -162,7 +162,7 @@ public sealed class LifecycleHostedBootstrapServiceTests
+             Assert.Equal("skipped", runtimeState.GetStartupTasks()["bootstrapRollback"].Status);
+             Assert.Equal("ok", runtimeState.GetStartupTasks()["aotDiskCache"].Status);
+             Assert.Equal("cleared", runtimeState.GetStartupTasks()["aotDiskCache"].Detail);
+-            Assert.Equal("compatibility_check", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
++            Assert.Equal("current_schema_verified", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
+             Assert.Equal("no_entries", runtimeState.GetStartupTasks()["cacheInitializer"].Detail);
+             Assert.Equal("ok", runtimeState.GetStartupTasks()["bootstrap"].Status);
+             await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
+@@ -575,7 +575,10 @@ public sealed class LifecycleHostedBootstrapServiceTests
+ 
+     private sealed class BusinessHostProbe : IHostedService
+     {
+-        public int Starts { get; private set; }
++        public int Starts
++        {
++            get; private set;
++        }
+ 
+         public Task StartAsync(CancellationToken cancellationToken)
+         {

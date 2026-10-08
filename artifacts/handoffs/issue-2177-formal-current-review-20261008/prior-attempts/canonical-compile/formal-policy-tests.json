@@ -1,0 +1,33 @@
+{
+  "composedSha": "f66c82066523b6fa86b21bc70e6c0ed0403954e1",
+  "frozenComponentSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "priorCompositionSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+  "canonicalLockSha": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+  "bootstrapDeclarationSourceHead": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+  "bootstrapIntake": "exact first hunk only",
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "-p:RestoreLockedMode=true",
+    "-p:NuGetAudit=true",
+    "-m:1",
+    "-nodeReuse:false",
+    "-p:UseSharedCompilation=false",
+    "--filter",
+    "FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~AnonymousCommentPolicyTests|FullyQualifiedName~AnonymousCommentScopePolicyTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentModerationDispositionPolicyTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentPurePolicyContractTests|FullyQualifiedName~CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply",
+    "--logger",
+    "trx;LogFileName=formal-policy-tests.trx",
+    "--results-directory",
+    "/workspace/FsusBlog-2177-canonical-compile-integration/.tmp/issue-2177-canonical-compile-integration-20261008"
+  ],
+  "startedAt": "2026-10-08T10:41:44.092229+00:00",
+  "exitCode": 1,
+  "logSha256": "0b6cb46132fafd9b0d1b59f0a5e4b5be355fbd1e11baaa275ed955715be6b67e",
+  "originalProject": true,
+  "usesNoRestore": false,
+  "lockedModeWaived": false,
+  "auditEnabled": true,
+  "wholeIssueAccepted": false,
+  "qualificationEligible": false
+}

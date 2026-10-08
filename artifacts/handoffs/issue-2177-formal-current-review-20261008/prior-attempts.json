@@ -1,0 +1,33 @@
+[
+  {
+    "label": "canonical-compile",
+    "testedSha": "f66c82066523b6fa86b21bc70e6c0ed0403954e1",
+    "exitCodes": {
+      "formal-locked-restore": 0,
+      "formal-policy-tests": 1
+    },
+    "receiptsRelabeledToCurrent": false
+  },
+  {
+    "label": "formal-initial",
+    "testedSha": "a5900edd594488b35560b8825714a2e989b2b1a2",
+    "exitCodes": {
+      "formal-locked-restore": 0,
+      "formal-policy-tests": 0,
+      "source-stage": 1,
+      "range-contract": 1
+    },
+    "receiptsRelabeledToCurrent": false
+  },
+  {
+    "label": "formal-header-attempt",
+    "testedSha": "c2e1a0942e375ef0c73e0dce09b19767a0c345de",
+    "exitCodes": {
+      "formal-locked-restore": 0,
+      "formal-policy-tests": 0,
+      "source-stage": 1,
+      "range-contract": 1
+    },
+    "receiptsRelabeledToCurrent": false
+  }
+]

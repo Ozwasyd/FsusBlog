@@ -1,0 +1,376 @@
+{
+  "testedSha": "c3155d51f27286d64fc8e18eeb759f3bd765315e",
+  "wholeIssueAccepted": false,
+  "copiedArtifacts": [
+    {
+      "path": "current-scope-and-source-bindings.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/current-scope-and-source-bindings.json",
+      "bytes": 15744,
+      "sha256": "cb1a58a45293d523c3e818d4e03442cb43de5ca0697094e2f2b1a7a7e9145415"
+    },
+    {
+      "path": "docker-after-test.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/docker-after-test.json",
+      "bytes": 307,
+      "sha256": "0cfa6205f347f5b7f5433942a2b6419c586d971fec62d6cd88ec36342fe34faa"
+    },
+    {
+      "path": "docker-before-test.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/docker-before-test.json",
+      "bytes": 240,
+      "sha256": "2b6748d34f234063b5d4fdaa5a18a9d28fa7a5b42da5a6b0bf42b428a5e4955a"
+    },
+    {
+      "path": "evaluated-project-source-closure.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/evaluated-project-source-closure.json",
+      "bytes": 730318,
+      "sha256": "19d6628b667b61e7860654dfc4f8946865d3d3abc948794221e28e52c74a3714"
+    },
+    {
+      "path": "evaluation-FsusBlog.Core.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/evaluation-FsusBlog.Core.json",
+      "bytes": 100437,
+      "sha256": "6fc592723437cb76384a7a4a2680b060f35de33d447951434ead4d4f53f368c8"
+    },
+    {
+      "path": "evaluation-FsusBlog.DiLifetimeAnalyzer.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/evaluation-FsusBlog.DiLifetimeAnalyzer.json",
+      "bytes": 1126,
+      "sha256": "24260c59885b9ce4073f059deed84697304f58ddcc4bc237994339bb9d3f5233"
+    },
+    {
+      "path": "evaluation-FsusBlog.Migration.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/evaluation-FsusBlog.Migration.json",
+      "bytes": 171636,
+      "sha256": "a95d24422893baeb6dcbd38ee477e569d02eca64c735e69ec0ac38519a032d91"
+    },
+    {
+      "path": "evaluation-FsusBlog.Server.Tests.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/evaluation-FsusBlog.Server.Tests.json",
+      "bytes": 701689,
+      "sha256": "476f7c2bd85d12cb5b30a60d2a95c90dbf5ffcca84cb82e7309b17c4e20f2f56"
+    },
+    {
+      "path": "evaluation-FsusBlog.Server.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/evaluation-FsusBlog.Server.json",
+      "bytes": 986204,
+      "sha256": "a4b3fea96fdf19d7004ca43a9c38dba2efa78b78821e10249810b32049170220"
+    },
+    {
+      "path": "evaluation-FsusBlog.Shared.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/evaluation-FsusBlog.Shared.json",
+      "bytes": 129563,
+      "sha256": "7c3a14bb0cbf6e395a1db7cddc7882bfc46b686c50a3d26388cf939371f627a0"
+    },
+    {
+      "path": "formal-locked-restore.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/formal-locked-restore.json",
+      "bytes": 692,
+      "sha256": "f4aa039b71df9c73ebb1758f85dca0b8ddf8efbc1c737a0ea93186b834ca7362"
+    },
+    {
+      "path": "formal-locked-restore.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/formal-locked-restore.log",
+      "bytes": 1301,
+      "sha256": "d93141137f1d7e8668e6fdc21b51228a630484f0d2427eaa3b82cf0155d7ae8e"
+    },
+    {
+      "path": "formal-policy-bound-results.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/formal-policy-bound-results.json",
+      "bytes": 73495,
+      "sha256": "aef0c7fb145828ca2b4e44e410e25f131fb28936013df7bb3c45f243600437e9"
+    },
+    {
+      "path": "formal-policy-tests.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/formal-policy-tests.json",
+      "bytes": 1432,
+      "sha256": "cd68a17d4f0a92f7d63f536adc25a7d8a87fb9cee6eb1ddb3261369d3a105a79"
+    },
+    {
+      "path": "formal-policy-tests.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/formal-policy-tests.log",
+      "bytes": 480450,
+      "sha256": "a708e9f0d3328031ad5aadfb15234299a67e3262b9e691b45a81ff7625db2eb2"
+    },
+    {
+      "path": "formal-policy-tests.trx",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/formal-policy-tests.trx",
+      "bytes": 124367,
+      "sha256": "bf658808e0193edf25c3e73577615081aab6a6f3918623e0317d0fd85139ea95"
+    },
+    {
+      "path": "namespace-binding-correction.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/namespace-binding-correction.json",
+      "bytes": 1278,
+      "sha256": "8e1938156d5b106d3d040dcf0a65b0219b2b5506072a67f8bb25a64030669d6a"
+    },
+    {
+      "path": "namespace-order-source.patch",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/namespace-order-source.patch",
+      "bytes": 2174,
+      "sha256": "f6b226afc704fff166cf2039eb3f15374718d3bf5ddf6ca34f79b6ccd6ea944a"
+    },
+    {
+      "path": "range-contract.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/range-contract.json",
+      "bytes": 636,
+      "sha256": "36831a30a566f8686838f1bc41b714ef182b70e5976db330c2b3c2a2e847e8a3"
+    },
+    {
+      "path": "range-contract.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/range-contract.log",
+      "bytes": 117,
+      "sha256": "39eca9191439b8fe94f5204ab3151226b672d18c40c8aa72573f8dee89377f6c"
+    },
+    {
+      "path": "source-publication.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/source-publication.json",
+      "bytes": 870,
+      "sha256": "10021b1947887868b62857e6b3fb1cf5fdc79ecfc8c71a2efde1cf140847ab6d"
+    },
+    {
+      "path": "source-push.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/source-push.log",
+      "bytes": 770,
+      "sha256": "14310f185d64aa1bdab5dec8cb35002e97b4d3cef6e3ab91dacd5070f5923851"
+    },
+    {
+      "path": "source-readback.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/source-readback.log",
+      "bytes": 100,
+      "sha256": "4e8259b7ef775a82859689098e54edb5f378d10e28feabd4948d83cb9c2fce1e"
+    },
+    {
+      "path": "source-stage.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/source-stage.json",
+      "bytes": 640,
+      "sha256": "31fd8211eb455c5acd71ca00709272c50434ec20d4f8175538be645c69d00c65"
+    },
+    {
+      "path": "source-stage.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008/source-stage.log",
+      "bytes": 257,
+      "sha256": "fbb622312640fa96177a9252effe30ffda209ccbfaf03cf92ca4d77b6a66abe7"
+    },
+    {
+      "path": "prior-attempts/canonical-compile/formal-locked-restore.json",
+      "originalPath": "/workspace/FsusBlog-2177-canonical-compile-integration/.tmp/issue-2177-canonical-compile-integration-20261008/formal-locked-restore.json",
+      "bytes": 964,
+      "sha256": "731c5a5b130659919aa9e75024fd7602ee80d36cdcc437e6e7e9c55b36c5bf0e"
+    },
+    {
+      "path": "prior-attempts/canonical-compile/formal-locked-restore.log",
+      "originalPath": "/workspace/FsusBlog-2177-canonical-compile-integration/.tmp/issue-2177-canonical-compile-integration-20261008/formal-locked-restore.log",
+      "bytes": 1371,
+      "sha256": "b455484e571c268a68e24ea9174cf66208f8877e2bf3b2c505ad08acf1ee34b3"
+    },
+    {
+      "path": "prior-attempts/canonical-compile/formal-policy-tests.json",
+      "originalPath": "/workspace/FsusBlog-2177-canonical-compile-integration/.tmp/issue-2177-canonical-compile-integration-20261008/formal-policy-tests.json",
+      "bytes": 1720,
+      "sha256": "6c33e4878a8ab272706787230e3298d398b8a77215a51145e00c1399a1305ab4"
+    },
+    {
+      "path": "prior-attempts/canonical-compile/formal-policy-tests.log",
+      "originalPath": "/workspace/FsusBlog-2177-canonical-compile-integration/.tmp/issue-2177-canonical-compile-integration-20261008/formal-policy-tests.log",
+      "bytes": 508494,
+      "sha256": "0b6cb46132fafd9b0d1b59f0a5e4b5be355fbd1e11baaa275ed955715be6b67e"
+    },
+    {
+      "path": "prior-attempts/canonical-compile/canonical-source-intake.json",
+      "originalPath": "/workspace/FsusBlog-2177-canonical-compile-integration/.tmp/issue-2177-canonical-compile-integration-20261008/canonical-source-intake.json",
+      "bytes": 1511,
+      "sha256": "b818ca6254785e256591267f1c19bfcf9b6ae2e2fffd5df4c386eaa29897c9d3"
+    },
+    {
+      "path": "prior-attempts/canonical-compile/canonical-a95-source-match.json",
+      "originalPath": "/workspace/FsusBlog-2177-canonical-compile-integration/.tmp/issue-2177-canonical-compile-integration-20261008/canonical-a95-source-match.json",
+      "bytes": 541,
+      "sha256": "eaba96ca30395dcf0a976a87fb49fb11170ed53ab897f11f11fcd9eed06444ed"
+    },
+    {
+      "path": "prior-attempts/canonical-compile/canonical-four-inline-data.patch",
+      "originalPath": "/workspace/FsusBlog-2177-canonical-compile-integration/.tmp/issue-2177-canonical-compile-integration-20261008/canonical-four-inline-data.patch",
+      "bytes": 1023,
+      "sha256": "a67360ef5f4926affc991f9e2001f6afe6b766c2f9c01a3ca241d4427b9d7516"
+    },
+    {
+      "path": "prior-attempts/canonical-compile/canonical-full-file-delta.patch",
+      "originalPath": "/workspace/FsusBlog-2177-canonical-compile-integration/.tmp/issue-2177-canonical-compile-integration-20261008/canonical-full-file-delta.patch",
+      "bytes": 3101,
+      "sha256": "1a105ad10377e7bea700183452f5032353dfcdb742d098efcf92be11f24aa5be"
+    },
+    {
+      "path": "prior-attempts/formal-initial/formal-locked-restore.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/formal-locked-restore.json",
+      "bytes": 775,
+      "sha256": "2ce4c99c671d90d95a19e9510dc35cb89cc72507d5338db83dacefe479af0377"
+    },
+    {
+      "path": "prior-attempts/formal-initial/formal-locked-restore.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/formal-locked-restore.log",
+      "bytes": 1337,
+      "sha256": "0d878b087cf55dd07078a6320285df7b8c7866f4ed6a17885a47f3cf8f4dece3"
+    },
+    {
+      "path": "prior-attempts/formal-initial/formal-policy-tests.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/formal-policy-tests.json",
+      "bytes": 1523,
+      "sha256": "210b1a589f39a96b47569b2b95e416663ea0cc0a9979038ba976c14145dc01df"
+    },
+    {
+      "path": "prior-attempts/formal-initial/formal-policy-tests.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/formal-policy-tests.log",
+      "bytes": 492570,
+      "sha256": "356db39634dde7bb7cd481fa3c4cf8e92e6434be732dc762f36e897dfebb6c61"
+    },
+    {
+      "path": "prior-attempts/formal-initial/formal-policy-tests.trx",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/formal-policy-tests.trx",
+      "bytes": 125007,
+      "sha256": "a33b8fa2f087de3b011afad483987825bb362a6056141c98eb3722db14da4712"
+    },
+    {
+      "path": "prior-attempts/formal-initial/formal-policy-bound-results.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/formal-policy-bound-results.json",
+      "bytes": 42018,
+      "sha256": "eab2f102f1aaf22baa497ee1a653f6b5b32709b4e8f900a5db1f546392e53ab9"
+    },
+    {
+      "path": "prior-attempts/formal-initial/source-stage.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/source-stage.json",
+      "bytes": 582,
+      "sha256": "862ec1c22dabd8e9b4d5c7cbcbaf9efff5e38c501a26454bf576e1e3972b6fbb"
+    },
+    {
+      "path": "prior-attempts/formal-initial/source-stage.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/source-stage.log",
+      "bytes": 1082,
+      "sha256": "6ec91276b3e18e26e9ce701922a9885c1189ef8bf4ec0ab87d6b921b8bf88e8a"
+    },
+    {
+      "path": "prior-attempts/formal-initial/range-contract.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/range-contract.json",
+      "bytes": 578,
+      "sha256": "6f3aaa05208c3655f0b328878b2a4c246dcd389723e6e27272d7d4692a3d830e"
+    },
+    {
+      "path": "prior-attempts/formal-initial/range-contract.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/range-contract.log",
+      "bytes": 327,
+      "sha256": "280ecc7cd6483958f78c956caa1e3821c656e6073d8107120a640bf08696f809"
+    },
+    {
+      "path": "prior-attempts/formal-initial/canonical-source-intake.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/canonical-source-intake.json",
+      "bytes": 1511,
+      "sha256": "b818ca6254785e256591267f1c19bfcf9b6ae2e2fffd5df4c386eaa29897c9d3"
+    },
+    {
+      "path": "prior-attempts/formal-initial/canonical-a95-source-match.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/canonical-a95-source-match.json",
+      "bytes": 541,
+      "sha256": "eaba96ca30395dcf0a976a87fb49fb11170ed53ab897f11f11fcd9eed06444ed"
+    },
+    {
+      "path": "prior-attempts/formal-initial/canonical-four-inline-data.patch",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/canonical-four-inline-data.patch",
+      "bytes": 1023,
+      "sha256": "a67360ef5f4926affc991f9e2001f6afe6b766c2f9c01a3ca241d4427b9d7516"
+    },
+    {
+      "path": "prior-attempts/formal-initial/canonical-full-file-delta.patch",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/canonical-full-file-delta.patch",
+      "bytes": 3101,
+      "sha256": "1a105ad10377e7bea700183452f5032353dfcdb742d098efcf92be11f24aa5be"
+    },
+    {
+      "path": "prior-attempts/formal-initial/published-compile-prerequisite-intake.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-policy-integration/.tmp/issue-2177-formal-policy-integration-20261008/published-compile-prerequisite-intake.json",
+      "bytes": 3133,
+      "sha256": "a2df379d721e65c91835804e3127f88107ee7c833613bfc8dfd0ca2e428ec89e"
+    },
+    {
+      "path": "prior-attempts/formal-header-attempt/formal-locked-restore.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-review-source/.tmp/issue-2177-formal-review-source-20261008/formal-locked-restore.json",
+      "bytes": 699,
+      "sha256": "43fdd4665161e4e80d78743b09424ab8fea6aa2df0de22b74d0d01e3741117d9"
+    },
+    {
+      "path": "prior-attempts/formal-header-attempt/formal-locked-restore.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-review-source/.tmp/issue-2177-formal-review-source-20261008/formal-locked-restore.log",
+      "bytes": 1292,
+      "sha256": "8db34e7dc6d85777b942fc17d896ab9f8c3545710895ed2ab848f8cfad98e74f"
+    },
+    {
+      "path": "prior-attempts/formal-header-attempt/formal-policy-tests.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-review-source/.tmp/issue-2177-formal-review-source-20261008/formal-policy-tests.json",
+      "bytes": 1437,
+      "sha256": "a19da142764c8794e5b763b814da53ac52c668ae299aa1d31e5adf42e6703cfd"
+    },
+    {
+      "path": "prior-attempts/formal-header-attempt/formal-policy-tests.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-review-source/.tmp/issue-2177-formal-review-source-20261008/formal-policy-tests.log",
+      "bytes": 477734,
+      "sha256": "308ccc453b51bdd2ff023039b125f6c33e25e0068314bc7af36b479c63a50f67"
+    },
+    {
+      "path": "prior-attempts/formal-header-attempt/formal-policy-tests.trx",
+      "originalPath": "/workspace/FsusBlog-2177-formal-review-source/.tmp/issue-2177-formal-review-source-20261008/formal-policy-tests.trx",
+      "bytes": 124207,
+      "sha256": "0703976287ebc5affed51edb0f8b66317acd2cac70efad0fe4cd4a0fb9b12a9d"
+    },
+    {
+      "path": "prior-attempts/formal-header-attempt/source-stage.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-review-source/.tmp/issue-2177-formal-review-source-20261008/source-stage.json",
+      "bytes": 525,
+      "sha256": "41e1ce2f0039218ccd94c62a77939e564ac5257644959e835a238b8648808e3e"
+    },
+    {
+      "path": "prior-attempts/formal-header-attempt/source-stage.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-review-source/.tmp/issue-2177-formal-review-source-20261008/source-stage.log",
+      "bytes": 477,
+      "sha256": "8c8e8b9e0988db385296461ea251356d024da190e6b9463290013c2f9567ce3d"
+    },
+    {
+      "path": "prior-attempts/formal-header-attempt/range-contract.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-review-source/.tmp/issue-2177-formal-review-source-20261008/range-contract.json",
+      "bytes": 521,
+      "sha256": "f788d0ea57e7deb9846f801fb59247fe6132aa5c47d489743a0dda017a51e77f"
+    },
+    {
+      "path": "prior-attempts/formal-header-attempt/range-contract.log",
+      "originalPath": "/workspace/FsusBlog-2177-formal-review-source/.tmp/issue-2177-formal-review-source-20261008/range-contract.log",
+      "bytes": 123,
+      "sha256": "6f97ec1c829916c743d0133c1a5e4fa172c86c48c1291e239c14d1a408d82f6a"
+    },
+    {
+      "path": "prior-attempts/formal-header-attempt/namespace-order-correction.json",
+      "originalPath": "/workspace/FsusBlog-2177-formal-review-source/.tmp/issue-2177-formal-review-source-20261008/namespace-order-correction.json",
+      "bytes": 1154,
+      "sha256": "dcb13dc5d10b0fd543624de585b9046aabc472a8dd25cb888ec4e191ee48c4b9"
+    }
+  ],
+  "generatedArtifacts": [
+    {
+      "path": "assignment-status-current.json",
+      "bytes": 159404,
+      "sha256": "55ed15f486efb4029e691efd54ae2ca9345dd840891f4f4b1a06a6bd3df7c570"
+    },
+    {
+      "path": "current-review-source.patch",
+      "bytes": 24516,
+      "sha256": "010545d898dd0416d6be15ad68fef9e49d5ae589c0a3397c97b333be55376140"
+    },
+    {
+      "path": "handoff.json",
+      "bytes": 16063,
+      "sha256": "c1c5755ffc287703e0b2da4f60de6ac89ff7ea6021ff7a4b2141d188fcc0667e"
+    },
+    {
+      "path": "prior-attempts.json",
+      "bytes": 813,
+      "sha256": "008d06866672b474c4dab94397dce9a887590e34e7dab6ca8db16412dc0f3ea7"
+    }
+  ]
+}

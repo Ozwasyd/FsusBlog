@@ -1,0 +1,28 @@
+{
+  "composedSha": "c3155d51f27286d64fc8e18eeb759f3bd765315e",
+  "currentMasterSha": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "-p:RestoreLockedMode=true",
+    "-p:NuGetAudit=true",
+    "-m:1",
+    "-nodeReuse:false",
+    "-p:UseSharedCompilation=false",
+    "--filter",
+    "FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~AnonymousCommentPolicyTests|FullyQualifiedName~AnonymousCommentScopePolicyTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentModerationDispositionPolicyTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentPurePolicyContractTests|FullyQualifiedName~CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply",
+    "--logger",
+    "trx;LogFileName=formal-policy-tests.trx",
+    "--results-directory",
+    "/workspace/FsusBlog-2177-formal-current-review/.tmp/issue-2177-formal-current-review-20261008"
+  ],
+  "startedAt": "2026-10-08T11:14:24.954365+00:00",
+  "endedAt": "2026-10-08T11:17:20.315665+00:00",
+  "exitCode": 0,
+  "logSha256": "a708e9f0d3328031ad5aadfb15234299a67e3262b9e691b45a81ff7625db2eb2",
+  "originalProject": true,
+  "lockedModeWaived": false,
+  "usesNoRestore": false,
+  "wholeIssueAccepted": false
+}

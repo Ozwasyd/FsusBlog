@@ -1,0 +1,9 @@
+  Determining projects to restore...
+/workspace/FsusBlog-2177-canonical-compile-integration/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog-2177-canonical-compile-integration/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog-2177-canonical-compile-integration/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  Restored /workspace/FsusBlog-2177-canonical-compile-integration/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 325 ms).
+  Restored /workspace/FsusBlog-2177-canonical-compile-integration/src/core/FsusBlog.Core.csproj (in 325 ms).
+  Restored /workspace/FsusBlog-2177-canonical-compile-integration/src/shared/FsusBlog.Shared.csproj (in 2 ms).
+  Restored /workspace/FsusBlog-2177-canonical-compile-integration/tests/backend/FsusBlog.Server.Tests.csproj (in 349 ms).
+  Restored /workspace/FsusBlog-2177-canonical-compile-integration/src/migration/FsusBlog.Migration.csproj (in 326 ms).
+  Restored /workspace/FsusBlog-2177-canonical-compile-integration/src/backend/FsusBlog.Server.csproj (in 19 ms).

@@ -1,0 +1,19 @@
+diff --git a/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs b/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+index ad410a636..3a5ee9974 100644
+--- a/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
++++ b/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+@@ -20,10 +20,10 @@ namespace FsusBlog.Server.Tests;
+ public sealed class LifecycleHostedBootstrapServiceTests
+ {
+     [Theory]
+-    [InlineData(Environments.Development, "")]
+-    [InlineData(Environments.Development, "relative/receipt.json")]
+-    [InlineData(Environments.Production, "")]
+-    [InlineData(Environments.Production, "relative/receipt.json")]
++    [InlineData("Development", "")]
++    [InlineData("Development", "relative/receipt.json")]
++    [InlineData("Production", "")]
++    [InlineData("Production", "relative/receipt.json")]
+     public async Task RealHost_DoesNotStartBusinessServicesAfterActualReceiptRefusal(string environmentName, string receiptPath)
+     {
+         string root = CreateTempRoot();

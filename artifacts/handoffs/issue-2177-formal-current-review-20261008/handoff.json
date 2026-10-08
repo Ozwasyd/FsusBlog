@@ -1,0 +1,329 @@
+{
+  "purpose": "Current bounded #2177 policy component and disclosed compiler prerequisite review; no whole-issue acceptance",
+  "createdAtUtc": "2026-10-08T11:24:47.555830+00:00",
+  "sourceBranch": "codex/issue-2177-formal-current-review-20261008",
+  "testedAndRemoteVerifiedSha": "c3155d51f27286d64fc8e18eeb759f3bd765315e",
+  "masterSha": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+  "masterIsAncestor": true,
+  "mergeBase": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+  "sourceUrl": "https://github.com/Ozwasyd/FsusBlog/commit/c3155d51f27286d64fc8e18eeb759f3bd765315e",
+  "scopePaths": [
+    "artifacts/change-contract/backend-existing-reader-lock-external-naming.json",
+    "artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json",
+    "docs/architecture/comment-command-boundary.md",
+    "src/backend/Services/ArticleCommentPolicyService.cs",
+    "src/backend/Services/CommentModerationService.cs",
+    "src/backend/Services/CommentService.cs",
+    "src/backend/Services/Security/AnonymousCommentPolicyService.cs",
+    "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+    "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+    "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+    "tests/backend/Unit/CommentModerationInitialStateTests.cs",
+    "tests/backend/Unit/CommentPurePolicyContractTests.cs",
+    "tests/backend/Unit/CommentServiceValidationTests.cs",
+    "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+    "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+    "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+    "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+    "tests/backend/packages.lock.json"
+  ],
+  "pathCount": 18,
+  "frozenNineAllIdentical": true,
+  "frozenNineBindings": [
+    {
+      "path": "artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json",
+      "frozenBlob": "083ea1d65f3accdeebe8852e9678ae90424fb037",
+      "currentBlob": "083ea1d65f3accdeebe8852e9678ae90424fb037",
+      "identical": true
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "frozenBlob": "48401be64ef3b086c36db116ef69b58b5f22af3e",
+      "currentBlob": "48401be64ef3b086c36db116ef69b58b5f22af3e",
+      "identical": true
+    },
+    {
+      "path": "src/backend/Services/ArticleCommentPolicyService.cs",
+      "frozenBlob": "17dc99fed8d7375eec13da375e35650b8aaa5e40",
+      "currentBlob": "17dc99fed8d7375eec13da375e35650b8aaa5e40",
+      "identical": true
+    },
+    {
+      "path": "src/backend/Services/CommentModerationService.cs",
+      "frozenBlob": "1a9854726f4baa1a7c2ffb4dc12d02ab9c7b96f1",
+      "currentBlob": "1a9854726f4baa1a7c2ffb4dc12d02ab9c7b96f1",
+      "identical": true
+    },
+    {
+      "path": "src/backend/Services/CommentService.cs",
+      "frozenBlob": "e780e21342614401233f66d23447a168fdd26b01",
+      "currentBlob": "e780e21342614401233f66d23447a168fdd26b01",
+      "identical": true
+    },
+    {
+      "path": "src/backend/Services/Security/AnonymousCommentPolicyService.cs",
+      "frozenBlob": "0e06d3df71fa2ab10f578af6ece328cc8277c875",
+      "currentBlob": "0e06d3df71fa2ab10f578af6ece328cc8277c875",
+      "identical": true
+    },
+    {
+      "path": "tests/backend/Unit/CommentModerationInitialStateTests.cs",
+      "frozenBlob": "3b7fe6110d4fd4d1ec307107d90146c466775ea7",
+      "currentBlob": "3b7fe6110d4fd4d1ec307107d90146c466775ea7",
+      "identical": true
+    },
+    {
+      "path": "tests/backend/Unit/CommentPurePolicyContractTests.cs",
+      "frozenBlob": "e5e81c7b3abab9bc5069cd642dfe70d6ae4f5eb2",
+      "currentBlob": "e5e81c7b3abab9bc5069cd642dfe70d6ae4f5eb2",
+      "identical": true
+    },
+    {
+      "path": "tests/backend/Unit/CommentServiceValidationTests.cs",
+      "frozenBlob": "f64cb3ca8e6a81fdaf9ca1c419c833e17621a80e",
+      "currentBlob": "f64cb3ca8e6a81fdaf9ca1c419c833e17621a80e",
+      "identical": true
+    }
+  ],
+  "canonicalLockSource": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+  "canonicalLockScope": "only existing Server->AngleSharp edge and external naming manifest; package versions/content hashes unchanged",
+  "all49PackageInputsMatchCanonical": true,
+  "canonicalBootstrapSource": "a95de1defd39a46f34992bed9eee3c150d990456",
+  "bootstrapScope": "four exact InlineData constants only; full postimage equals canonical a95; all assertions/test bodies retained",
+  "bootstrapBlob": "658d0fe76ba668127527fe2a3a678c1e44484942",
+  "unrelatedF53RuntimeHunksConsumed": false,
+  "ownPublishedCompilerSources": [
+    "41739869474a6e197ebdb82e4574ba8ca38fa4e9",
+    "807f5fd6c79bc41dce7da82053ca98f216dbb405",
+    "f4817f13b5b86d51494ebfc0648a3f51f6b235bf"
+  ],
+  "ownCompilerPathBindings": [
+    {
+      "canonicalCommit": "41739869474a6e197ebdb82e4574ba8ca38fa4e9",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+      "beforeSha256": "8819d932146c109891515405e8e1b56f332bec2bce0cf0eda9e89754c1d4fb23",
+      "canonicalAfterSha256": "1df4d471859de9f64d6960d2b70e6aaa4c2738377c05fb48451049aa3ac40930",
+      "currentSourceMatchesCanonicalPostimage": true,
+      "currentBlob": "75947dd73871bab169cc9f5ed6828bbf35783a15",
+      "currentSha256": "1df4d471859de9f64d6960d2b70e6aaa4c2738377c05fb48451049aa3ac40930",
+      "identicalToOriginalOwnCommit": true,
+      "headerOnlyFollowup": false
+    },
+    {
+      "canonicalCommit": "41739869474a6e197ebdb82e4574ba8ca38fa4e9",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "beforeSha256": "b2d49ff9a5da412a2b6302a88a17a15cd75092013443cf22380a5187abab1cc1",
+      "canonicalAfterSha256": "56808fde34a4a4bf954c8314c5cb0abf39519667707f335b38a1dffc1fd2f29f",
+      "currentSourceMatchesCanonicalPostimage": true,
+      "currentBlob": "7f1b9073618a5905a13490fb9996061ae1c1d55c",
+      "currentSha256": "56808fde34a4a4bf954c8314c5cb0abf39519667707f335b38a1dffc1fd2f29f",
+      "identicalToOriginalOwnCommit": true,
+      "headerOnlyFollowup": false
+    },
+    {
+      "canonicalCommit": "41739869474a6e197ebdb82e4574ba8ca38fa4e9",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+      "beforeSha256": "e2550bab0e493ffd221023e93a44c100c7cf571f3f9b07e3b5fd0557595a90fa",
+      "canonicalAfterSha256": "41fa2b0133835f78751a938565e8f9981f1ebea60a4fadd82fc20520c3b6af2c",
+      "currentSourceMatchesCanonicalPostimage": true,
+      "currentBlob": "c8208fbb2587a25eb5c4146f1467eae47aa95262",
+      "currentSha256": "54332aae5236031e6803d7229e885079e236740a41ec2ff1cd498ca394898f61",
+      "identicalToOriginalOwnCommit": false,
+      "headerOnlyFollowup": true
+    },
+    {
+      "canonicalCommit": "41739869474a6e197ebdb82e4574ba8ca38fa4e9",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+      "beforeSha256": "5923ebdf7162b6634076aff38865ad3bda6c7b435234cdc1f4fc9e8e41e7fdc5",
+      "canonicalAfterSha256": "e7400ddcaa63dc2f9f101b6e06d9f4ebdb1cbba2c1028913849149361c402b17",
+      "currentSourceMatchesCanonicalPostimage": true,
+      "currentBlob": "6a3f275549039c8b2022500cef0710216d492eb1",
+      "currentSha256": "42a46ffb9fcd313ab5d41688cf023ca0ad39084e511fb47dec1c06f33bedae59",
+      "identicalToOriginalOwnCommit": false,
+      "headerOnlyFollowup": true
+    },
+    {
+      "canonicalCommit": "807f5fd6c79bc41dce7da82053ca98f216dbb405",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+      "beforeSha256": "be011b182551f83ead362a85fad75136bbe0a9e41c0919f68f6f65d694b6a2b2",
+      "canonicalAfterSha256": "4ea9ed213d3ee196d6982841e2ed1a0020f7741552d5687fb9cdcd35abbc4805",
+      "currentSourceMatchesCanonicalPostimage": true,
+      "currentBlob": "5a6cfb1c24caa11f3cc2aa3125c559d45476622d",
+      "currentSha256": "4ea9ed213d3ee196d6982841e2ed1a0020f7741552d5687fb9cdcd35abbc4805",
+      "identicalToOriginalOwnCommit": true,
+      "headerOnlyFollowup": false
+    },
+    {
+      "canonicalCommit": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+      "beforeSha256": "f29810a7e1ce4fa43fb3cb7b321a7de093c1561f18f54b081d12ae5d638b8ac6",
+      "canonicalAfterSha256": "c458c13b61ab2dae6a38af17b41c1811b6d950fef0ce7b4386fc5fe388214db0",
+      "currentSourceMatchesCanonicalPostimage": true,
+      "currentBlob": "b6a233e7a152f7403990b1f3bae740fe29eb2c82",
+      "currentSha256": "06e074fcea388ee9e75473f6272f506f96cbeaa7285b0c945c5ea86564d895fd",
+      "identicalToOriginalOwnCommit": false,
+      "headerOnlyFollowup": true
+    }
+  ],
+  "compilerSourceReplayCommits": [
+    "cc60ae057e00bb914306aa2ab968532c167a3520",
+    "3c687f60ad940643e597f0040e35e5190405f6fe",
+    "b174bf1bf629ed3ec9e1f7d63bcbb50321190ccd"
+  ],
+  "headerCorrectionCommit": "53a08603d86d626ca2b8f5257157af786984ffcc",
+  "headerCorrectionEvidence": "namespace-binding-correction.json",
+  "headerCorrectionPreservesAllUsingDeclarationsTestBodiesAndAssertions": true,
+  "falseFormatOnlyClaim": false,
+  "duplicateLedgerRepair": false,
+  "sdk": "10.0.302",
+  "originalBackendProject": "tests/backend/FsusBlog.Server.Tests.csproj",
+  "evaluatedProjects": 6,
+  "gitSourceInputs": 2013,
+  "producedArtifactHashCount": 57,
+  "checkExitCodes": {
+    "formal-locked-restore": 0,
+    "formal-policy-tests": 0,
+    "source-stage": 0,
+    "range-contract": 0
+  },
+  "originalFormalPolicyResult": {
+    "passed": 80,
+    "failed": 0,
+    "skipped": 0,
+    "trxRunId": "5e22efad-7c76-4d51-be3d-6f7285795d18",
+    "trxTimes": {
+      "creation": "2026-10-08T11:17:17.6200471+00:00",
+      "queuing": "2026-10-08T11:17:17.6200472+00:00",
+      "start": "2026-10-08T11:17:15.0727539+00:00",
+      "finish": "2026-10-08T11:17:20.2616224+00:00"
+    },
+    "trxSha256": "bf658808e0193edf25c3e73577615081aab6a6f3918623e0317d0fd85139ea95",
+    "originalFiveRecipientTheoryCases": [
+      {
+        "executionId": "4add3e8b-f39b-40d1-95c0-9d8097d0363c",
+        "testId": "e2ca4817-86f2-8c32-e773-eec4a54158fe",
+        "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 7, expected: null)",
+        "computerName": "a53363f2f13c",
+        "duration": "00:00:00.0004687",
+        "startTime": "2026-10-08T11:17:19.8892104+00:00",
+        "endTime": "2026-10-08T11:17:19.8892516+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Passed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "4add3e8b-f39b-40d1-95c0-9d8097d0363c"
+      },
+      {
+        "executionId": "33035f69-fcab-4ce3-90bb-6fec765c245e",
+        "testId": "1fbc43d5-7f52-30c1-57e3-c5663fa9a4b1",
+        "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: 8, expected: null)",
+        "computerName": "a53363f2f13c",
+        "duration": "00:00:00.0003596",
+        "startTime": "2026-10-08T11:17:19.8884030+00:00",
+        "endTime": "2026-10-08T11:17:19.8884773+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Passed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "33035f69-fcab-4ce3-90bb-6fec765c245e"
+      },
+      {
+        "executionId": "fe5607e4-24e9-460d-ac9f-bcbb391af9a6",
+        "testId": "04905c8f-59b1-06a8-fc63-7c0917865e3a",
+        "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 8, expected: 7)",
+        "computerName": "a53363f2f13c",
+        "duration": "00:00:00.0000031",
+        "startTime": "2026-10-08T11:17:19.8894556+00:00",
+        "endTime": "2026-10-08T11:17:19.8895005+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Passed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "fe5607e4-24e9-460d-ac9f-bcbb391af9a6"
+      },
+      {
+        "executionId": "fe582b62-c908-4e18-8c93-b01ed81435ff",
+        "testId": "90153ba3-f959-c364-3e84-9d3b2d9401a7",
+        "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: null, expected: 7)",
+        "computerName": "a53363f2f13c",
+        "duration": "00:00:00.0000147",
+        "startTime": "2026-10-08T11:17:19.8893329+00:00",
+        "endTime": "2026-10-08T11:17:19.8893712+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Passed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "fe582b62-c908-4e18-8c93-b01ed81435ff"
+      },
+      {
+        "executionId": "9cc1dcac-3968-4c3d-9761-23050e6ea60b",
+        "testId": "d399a459-d991-6e6b-86fd-2255682eb742",
+        "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: null, expected: null)",
+        "computerName": "a53363f2f13c",
+        "duration": "00:00:00.0000015",
+        "startTime": "2026-10-08T11:17:19.8895767+00:00",
+        "endTime": "2026-10-08T11:17:19.8896171+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Passed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "9cc1dcac-3968-4c3d-9761-23050e6ea60b"
+      }
+    ]
+  },
+  "strictLockedRestore": true,
+  "nugetAuditEnabled": true,
+  "usesNoRestore": false,
+  "compileItemsExcluded": false,
+  "harnessSubstituted": false,
+  "sourceGateResult": "C#14 files/0 violations; docs1 lint/0 violations; lifecycle372 pass",
+  "newResidualContainerIds": [],
+  "priorAttempts": [
+    {
+      "label": "canonical-compile",
+      "testedSha": "f66c82066523b6fa86b21bc70e6c0ed0403954e1",
+      "exitCodes": {
+        "formal-locked-restore": 0,
+        "formal-policy-tests": 1
+      },
+      "receiptsRelabeledToCurrent": false
+    },
+    {
+      "label": "formal-initial",
+      "testedSha": "a5900edd594488b35560b8825714a2e989b2b1a2",
+      "exitCodes": {
+        "formal-locked-restore": 0,
+        "formal-policy-tests": 0,
+        "source-stage": 1,
+        "range-contract": 1
+      },
+      "receiptsRelabeledToCurrent": false
+    },
+    {
+      "label": "formal-header-attempt",
+      "testedSha": "c2e1a0942e375ef0c73e0dce09b19767a0c345de",
+      "exitCodes": {
+        "formal-locked-restore": 0,
+        "formal-policy-tests": 0,
+        "source-stage": 1,
+        "range-contract": 1
+      },
+      "receiptsRelabeledToCurrent": false
+    }
+  ],
+  "retainedNugetWarning": "NU1903 SQLitePCLRaw.lib.e_sqlite3 2.1.11; audit not disabled",
+  "remainingLimits": [
+    "Full backend suite not run",
+    "Bootstrap runtime test cases not run",
+    "Held fixture audit/adversarial scenarios not run",
+    "Independent full18-path current-candidate review pending",
+    "Known separate all-repository code-intent baseline failure not rerun or waived",
+    "Original #2177 production command atomicity/privacy/nullifier/native qualification criteria remain open",
+    "No whole-chain acceptance or issue closure"
+  ],
+  "prMutationPerformed": false,
+  "prWriteBlocker": "Central coordinator queue grant required; ordinary Git source/evidence publication authorized",
+  "wholeIssueAccepted": false,
+  "wholeAssignmentComplete": false
+}

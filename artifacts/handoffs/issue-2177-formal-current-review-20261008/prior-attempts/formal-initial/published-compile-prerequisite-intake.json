@@ -1,0 +1,57 @@
+{
+  "currentComposedSha": "a5900edd594488b35560b8825714a2e989b2b1a2",
+  "priorCompositionSha": "f66c82066523b6fa86b21bc70e6c0ed0403954e1",
+  "changes": "three exact published own commits; six original test files; no new implementation or test deletion",
+  "rows": [
+    {
+      "canonicalCommit": "41739869474a6e197ebdb82e4574ba8ca38fa4e9",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+      "beforeSha256": "8819d932146c109891515405e8e1b56f332bec2bce0cf0eda9e89754c1d4fb23",
+      "canonicalAfterSha256": "1df4d471859de9f64d6960d2b70e6aaa4c2738377c05fb48451049aa3ac40930",
+      "currentSourceMatchesCanonicalPostimage": true
+    },
+    {
+      "canonicalCommit": "41739869474a6e197ebdb82e4574ba8ca38fa4e9",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "beforeSha256": "b2d49ff9a5da412a2b6302a88a17a15cd75092013443cf22380a5187abab1cc1",
+      "canonicalAfterSha256": "56808fde34a4a4bf954c8314c5cb0abf39519667707f335b38a1dffc1fd2f29f",
+      "currentSourceMatchesCanonicalPostimage": true
+    },
+    {
+      "canonicalCommit": "41739869474a6e197ebdb82e4574ba8ca38fa4e9",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+      "beforeSha256": "e2550bab0e493ffd221023e93a44c100c7cf571f3f9b07e3b5fd0557595a90fa",
+      "canonicalAfterSha256": "41fa2b0133835f78751a938565e8f9981f1ebea60a4fadd82fc20520c3b6af2c",
+      "currentSourceMatchesCanonicalPostimage": true
+    },
+    {
+      "canonicalCommit": "41739869474a6e197ebdb82e4574ba8ca38fa4e9",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+      "beforeSha256": "5923ebdf7162b6634076aff38865ad3bda6c7b435234cdc1f4fc9e8e41e7fdc5",
+      "canonicalAfterSha256": "e7400ddcaa63dc2f9f101b6e06d9f4ebdb1cbba2c1028913849149361c402b17",
+      "currentSourceMatchesCanonicalPostimage": true
+    },
+    {
+      "canonicalCommit": "807f5fd6c79bc41dce7da82053ca98f216dbb405",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+      "beforeSha256": "be011b182551f83ead362a85fad75136bbe0a9e41c0919f68f6f65d694b6a2b2",
+      "canonicalAfterSha256": "4ea9ed213d3ee196d6982841e2ed1a0020f7741552d5687fb9cdcd35abbc4805",
+      "currentSourceMatchesCanonicalPostimage": true
+    },
+    {
+      "canonicalCommit": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "sourceOwner": "this3576 chain previously published source",
+      "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+      "beforeSha256": "f29810a7e1ce4fa43fb3cb7b321a7de093c1561f18f54b081d12ae5d638b8ac6",
+      "canonicalAfterSha256": "c458c13b61ab2dae6a38af17b41c1811b6d950fef0ce7b4386fc5fe388214db0",
+      "currentSourceMatchesCanonicalPostimage": true
+    }
+  ],
+  "additionalScopeExplicit": true,
+  "selectedRuntimeTestScopeUnchanged": true
+}

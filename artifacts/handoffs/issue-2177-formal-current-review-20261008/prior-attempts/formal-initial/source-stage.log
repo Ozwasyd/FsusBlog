@@ -1,0 +1,8 @@
+[csharp-style] tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs:9 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Server.Infrastructure.AuthoringExtensions]
+[csharp-style] tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs:3 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Server.Infrastructure.Security]
+[csharp-style] tests/backend/Unit/TaxonomyExactMetadataTests.cs:3 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Core.Algorithms]
+[csharp-style] tests/backend/Unit/TaxonomyExactMetadataTests.cs:9 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Server.Infrastructure.PublicAot]
+[native-tooling-style] ok operation=lint domain=docs mode=full selected=1 checked=1 baseline=0 violations=0
+[document-lifecycle] ok documents=372
+[source-governance] failure; no runtime or release qualification
+[matrix] applicable source governance failed; qualification remains unrun

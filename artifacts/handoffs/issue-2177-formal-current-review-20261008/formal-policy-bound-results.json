@@ -1,0 +1,1435 @@
+{
+  "testedSha": "c3155d51f27286d64fc8e18eeb759f3bd765315e",
+  "currentMasterSha": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+  "trxRunId": "5e22efad-7c76-4d51-be3d-6f7285795d18",
+  "trxSha256": "bf658808e0193edf25c3e73577615081aab6a6f3918623e0317d0fd85139ea95",
+  "trxTimes": {
+    "creation": "2026-10-08T11:17:17.6200471+00:00",
+    "queuing": "2026-10-08T11:17:17.6200472+00:00",
+    "start": "2026-10-08T11:17:15.0727539+00:00",
+    "finish": "2026-10-08T11:17:20.2616224+00:00"
+  },
+  "trxCounters": {
+    "total": "80",
+    "executed": "80",
+    "passed": "80",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "selectedResults": [
+    {
+      "executionId": "b23de651-bca3-48ab-a251-0cce161fa73d",
+      "testId": "1b8c789e-f7d6-82c4-71fd-f264a93e24a5",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticleCommentPolicyServiceTests.Compose_ThreadLockIsScopedAndVersionBoundIntoSnapshot",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0043484",
+      "startTime": "2026-10-08T11:17:17.6555770+00:00",
+      "endTime": "2026-10-08T11:17:17.6556391+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "b23de651-bca3-48ab-a251-0cce161fa73d"
+    },
+    {
+      "executionId": "ca03bea9-9d47-41a7-b0b4-898eb63abcd7",
+      "testId": "dc09de5a-516e-66eb-a33a-524ca083001e",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentScopePolicyTests.LegacyOrMalformedScope_IsRejected(scope: \"comment:v1:article:0:top\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000061",
+      "startTime": "2026-10-08T11:17:17.6528104+00:00",
+      "endTime": "2026-10-08T11:17:17.6528716+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "ca03bea9-9d47-41a7-b0b4-898eb63abcd7"
+    },
+    {
+      "executionId": "cd10fd33-8bd8-47cd-86d2-3bb9ea0cae56",
+      "testId": "ad84b6fa-7504-02c5-90f8-64ddc035b0a3",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Rejected, to: Hidden, expected: True)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000029",
+      "startTime": "2026-10-08T11:17:17.6110149+00:00",
+      "endTime": "2026-10-08T11:17:17.6110837+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "cd10fd33-8bd8-47cd-86d2-3bb9ea0cae56"
+    },
+    {
+      "executionId": "14eb8cf7-f54e-47aa-a65a-a60297cfb9ce",
+      "testId": "7b1ece7b-2e30-f195-5849-84af4cd4f575",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentPolicyTests.AnonymousCommentPolicy_UpdateRejectsInvalidAuthorMode",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0004509",
+      "startTime": "2026-10-08T11:17:17.6170783+00:00",
+      "endTime": "2026-10-08T11:17:17.6171176+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "14eb8cf7-f54e-47aa-a65a-a60297cfb9ce"
+    },
+    {
+      "executionId": "0fd19b51-6a91-4ac8-b20b-91af1ee02142",
+      "testId": "500ccabd-326b-67e8-3c98-cb83b3f48865",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentScopePolicyTests.LegacyOrMalformedScope_IsRejected(scope: \"comment:v0:article:42:top\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0007878",
+      "startTime": "2026-10-08T11:17:17.6522526+00:00",
+      "endTime": "2026-10-08T11:17:17.6523211+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "0fd19b51-6a91-4ac8-b20b-91af1ee02142"
+    },
+    {
+      "executionId": "baabbcb3-a28e-4de0-a1c7-95b09b84e96d",
+      "testId": "aa02f344-d7ae-85c1-9a61-7085c7969866",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentScopePolicyTests.TopLevelScope_IsArticleBoundVersionedAndSingleUse",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0034921",
+      "startTime": "2026-10-08T11:17:17.6532985+00:00",
+      "endTime": "2026-10-08T11:17:17.6533589+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "baabbcb3-a28e-4de0-a1c7-95b09b84e96d"
+    },
+    {
+      "executionId": "9fd9be16-f557-40c4-a556-4eee5d2b0736",
+      "testId": "8d14b3a9-a6cf-da94-6328-64f3fd37968f",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitModelInputs_PreserveInitialModerationPrecedence(hidden: False, manual: False, actorReview: False, modelEnabled: False, providerAvailable: True, expectedStatus: Approved, expectedReason: \"approved_deterministic_low_risk\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000035",
+      "startTime": "2026-10-08T11:17:17.6175806+00:00",
+      "endTime": "2026-10-08T11:17:17.6176179+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "9fd9be16-f557-40c4-a556-4eee5d2b0736"
+    },
+    {
+      "executionId": "27aeac7c-ac18-4440-8d34-42ea1d388c56",
+      "testId": "ece0331a-1707-ebbd-2f82-83edb110b9e0",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.Decide_ProviderUnavailable_DefaultsFailClosedAndKeepsPending",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0004400",
+      "startTime": "2026-10-08T11:17:17.6117024+00:00",
+      "endTime": "2026-10-08T11:17:17.6117471+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "27aeac7c-ac18-4440-8d34-42ea1d388c56"
+    },
+    {
+      "executionId": "615fcdff-0fc7-4660-86af-e0cba46e833f",
+      "testId": "91bc8ec3-fdaa-ef5a-9302-ba697d0c5668",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.Decide_ScoreOnlyCleanResult_KeepsPendingForHumanReview",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0004282",
+      "startTime": "2026-10-08T11:17:17.6124935+00:00",
+      "endTime": "2026-10-08T11:17:17.6125314+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "615fcdff-0fc7-4660-86af-e0cba46e833f"
+    },
+    {
+      "executionId": "ae605a5c-b84f-4521-8c0b-b3be55f3ab07",
+      "testId": "66eb4e54-ceef-25d1-1b70-6ce818735f0a",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentPolicyTests.AnonymousCommentPolicyService_GetCurrentAsyncYieldsWhilePolicyQueryIsSlow",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.2821085",
+      "startTime": "2026-10-08T11:17:17.6172619+00:00",
+      "endTime": "2026-10-08T11:17:17.8562515+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "ae605a5c-b84f-4521-8c0b-b3be55f3ab07"
+    },
+    {
+      "executionId": "05e384c1-1fe9-41b8-b415-3833048bafad",
+      "testId": "76a2f32b-d551-337b-ddbb-dbc62bb37a0a",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitPolicyInput_PreservesAuthorModeRefusals(mode: \"legacy_server_visible_pseudonymous\", optIn: True, expected: \"anonymous_author_mode_retired\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000036",
+      "startTime": "2026-10-08T11:17:17.6500451+00:00",
+      "endTime": "2026-10-08T11:17:17.6501056+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "05e384c1-1fe9-41b8-b415-3833048bafad"
+    },
+    {
+      "executionId": "cfa7e435-e22f-4881-8fbe-9df9204dfab1",
+      "testId": "8581d67d-0ca8-ed63-1f81-3a3d6505e8d9",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ReplyRecipient_UsesObservedTargetAndSuppressesSelfReply(target: null, actor: 8, expected: null)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0004600",
+      "startTime": "2026-10-08T11:17:17.6158222+00:00",
+      "endTime": "2026-10-08T11:17:17.6158595+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "cfa7e435-e22f-4881-8fbe-9df9204dfab1"
+    },
+    {
+      "executionId": "4add3e8b-f39b-40d1-95c0-9d8097d0363c",
+      "testId": "e2ca4817-86f2-8c32-e773-eec4a54158fe",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 7, expected: null)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0004687",
+      "startTime": "2026-10-08T11:17:19.8892104+00:00",
+      "endTime": "2026-10-08T11:17:19.8892516+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "4add3e8b-f39b-40d1-95c0-9d8097d0363c"
+    },
+    {
+      "executionId": "e6c5060e-2942-45fb-93ca-db0f8dfa4bcb",
+      "testId": "3d9f11d3-d89f-b9a7-c7fc-262bb228053c",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Approved, to: Approved, expected: False)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000025",
+      "startTime": "2026-10-08T11:17:17.6087814+00:00",
+      "endTime": "2026-10-08T11:17:17.6088185+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "e6c5060e-2942-45fb-93ca-db0f8dfa4bcb"
+    },
+    {
+      "executionId": "fa395e95-0d32-41c0-8de7-613ee0c2f99f",
+      "testId": "e9890889-3b7b-e819-5657-8ae914a724da",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.Decide_AutoDisposition_CarriesAuditContext",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0005659",
+      "startTime": "2026-10-08T11:17:17.6121064+00:00",
+      "endTime": "2026-10-08T11:17:17.6121986+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "fa395e95-0d32-41c0-8de7-613ee0c2f99f"
+    },
+    {
+      "executionId": "068cb6a6-4016-435a-ab35-fdfd9d5423e2",
+      "testId": "2e9bfeef-dff6-7d79-c3ec-d35d1a4d4d37",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitPolicyInput_PreservesAuthorModeRefusals(mode: \"unknown\", optIn: True, expected: \"author_mode_invalid\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0002123",
+      "startTime": "2026-10-08T11:17:17.6494246+00:00",
+      "endTime": "2026-10-08T11:17:17.6494832+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "068cb6a6-4016-435a-ab35-fdfd9d5423e2"
+    },
+    {
+      "executionId": "db0e9ce7-3da3-4366-9881-46ae2bbdb2c7",
+      "testId": "6e7b410e-dd8a-bc29-e3a6-6b626bd5c022",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentPolicyTests.AnonymousCommentPolicy_DefaultsToZkFailClosedAndRejectsImplicitPublicMode",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0004741",
+      "startTime": "2026-10-08T11:17:17.6153689+00:00",
+      "endTime": "2026-10-08T11:17:17.6154083+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "db0e9ce7-3da3-4366-9881-46ae2bbdb2c7"
+    },
+    {
+      "executionId": "ccffb48a-27f9-4f43-b62f-47c6c9492ca9",
+      "testId": "2968eb3f-d2c9-0f25-bb09-e521396b1c30",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationInitialStateTests.ResolveInitialState_RegionReviewDoesNotReadUnusableModelConfiguration",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0034319",
+      "startTime": "2026-10-08T11:17:17.8083304+00:00",
+      "endTime": "2026-10-08T11:17:17.8131110+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "ccffb48a-27f9-4f43-b62f-47c6c9492ca9"
+    },
+    {
+      "executionId": "e915e6ba-3dfe-485f-b354-cada3cc27a0b",
+      "testId": "51e6e973-eace-8cdb-6b28-e6d21d325b88",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationInitialStateTests.ResolveInitialState_HideUntilReviewed_IsHidden",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0001600",
+      "startTime": "2026-10-08T11:17:17.8135155+00:00",
+      "endTime": "2026-10-08T11:17:17.8135726+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "e915e6ba-3dfe-485f-b354-cada3cc27a0b"
+    },
+    {
+      "executionId": "d360fb4e-1a5d-4d18-bdd5-1d45146a3209",
+      "testId": "0af5a40f-82b9-1a1c-e00d-4676ca26df7c",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticleCommentPolicyServiceTests.EvaluateWrite_UsesOneDecisionForEveryAuthorModeAndThread(enabled: True, threadLocked: False, publicEnabled: True, anonymousEnabled: False, authorMode: \"zk_anonymous\", expected: \"anonymous_comments_disabled\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0006087",
+      "startTime": "2026-10-08T11:17:17.6549546+00:00",
+      "endTime": "2026-10-08T11:17:17.6550229+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "d360fb4e-1a5d-4d18-bdd5-1d45146a3209"
+    },
+    {
+      "executionId": "fdb2b409-6569-44a3-a9de-887d5a026d2d",
+      "testId": "cc146fe6-3772-6272-be8b-e9c2f28d6f64",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitModelInputs_PreserveInitialModerationPrecedence(hidden: False, manual: False, actorReview: True, modelEnabled: True, providerAvailable: True, expectedStatus: Pending, expectedReason: \"pending_anonymous_policy\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000033",
+      "startTime": "2026-10-08T11:17:17.6176888+00:00",
+      "endTime": "2026-10-08T11:17:17.6177267+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "fdb2b409-6569-44a3-a9de-887d5a026d2d"
+    },
+    {
+      "executionId": "b608a42a-0a85-4e9f-bc63-1984bd2e30e0",
+      "testId": "32c7060d-7fdf-e09b-8052-8d38ac77eebc",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.Decide_RiskyAlreadyHidden_DoesNotRepeatTransitionOrAuditAction",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0006853",
+      "startTime": "2026-10-08T11:17:17.6114018+00:00",
+      "endTime": "2026-10-08T11:17:17.6114454+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "b608a42a-0a85-4e9f-bc63-1984bd2e30e0"
+    },
+    {
+      "executionId": "472d9889-9882-4747-9dc0-de0b14017df3",
+      "testId": "94b64d39-3521-10f9-11ae-14cbf511178f",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Hidden, to: Pending, expected: False)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000023",
+      "startTime": "2026-10-08T11:17:17.6083458+00:00",
+      "endTime": "2026-10-08T11:17:17.6083922+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "472d9889-9882-4747-9dc0-de0b14017df3"
+    },
+    {
+      "executionId": "939fbb76-5b4e-4f04-93f8-447b441c4a51",
+      "testId": "716e2a36-67f7-ad24-c598-52c9029ecf14",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.PurePolicyInputs_ArePublicWithoutFriendAssemblyOrServiceConstruction",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0002236",
+      "startTime": "2026-10-08T11:17:17.6507280+00:00",
+      "endTime": "2026-10-08T11:17:17.6507909+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "939fbb76-5b4e-4f04-93f8-447b441c4a51"
+    },
+    {
+      "executionId": "4c861110-4f1f-40e2-b7aa-a939287a1915",
+      "testId": "2e19f4d9-506d-99ab-d8e0-457bda80e0bf",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Pending, to: Rejected, expected: True)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000402",
+      "startTime": "2026-10-08T11:17:17.6076440+00:00",
+      "endTime": "2026-10-08T11:17:17.6077247+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "4c861110-4f1f-40e2-b7aa-a939287a1915"
+    },
+    {
+      "executionId": "957dcf97-1817-4340-99c6-a84f3b998d95",
+      "testId": "a532a75e-9f3c-1e6d-d579-619bd6b167eb",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentScopePolicyTests.LegacyOrMalformedScope_IsRejected(scope: \"comment:v1:article:42:thread:0\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000476",
+      "startTime": "2026-10-08T11:17:17.6526334+00:00",
+      "endTime": "2026-10-08T11:17:17.6526950+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "957dcf97-1817-4340-99c6-a84f3b998d95"
+    },
+    {
+      "executionId": "8faaf469-5145-478e-ae7d-f877f117e42e",
+      "testId": "6efe02ca-5804-c247-0f96-49d2122ed571",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentPolicyTests.AnonymousCommentPolicy_DefaultsAndValidatesConfigurableCommentLimits",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0222560",
+      "startTime": "2026-10-08T11:17:17.5667187+00:00",
+      "endTime": "2026-10-08T11:17:17.5726946+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "8faaf469-5145-478e-ae7d-f877f117e42e"
+    },
+    {
+      "executionId": "33035f69-fcab-4ce3-90bb-6fec765c245e",
+      "testId": "1fbc43d5-7f52-30c1-57e3-c5663fa9a4b1",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: 8, expected: null)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0003596",
+      "startTime": "2026-10-08T11:17:19.8884030+00:00",
+      "endTime": "2026-10-08T11:17:19.8884773+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "33035f69-fcab-4ce3-90bb-6fec765c245e"
+    },
+    {
+      "executionId": "1df9e6a3-6ad5-4e2d-a416-62e0b02eae16",
+      "testId": "fff6ab8a-6774-b9e0-8289-9aca0d8ef446",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Rejected, to: Approved, expected: True)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000034",
+      "startTime": "2026-10-08T11:17:17.5962546+00:00",
+      "endTime": "2026-10-08T11:17:17.5962966+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "1df9e6a3-6ad5-4e2d-a416-62e0b02eae16"
+    },
+    {
+      "executionId": "bae6dfc5-a233-4cc7-bdc6-ca5f8d3e1b16",
+      "testId": "cc3e0da2-ea87-1fa1-c7d0-2f8197942699",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentScopePolicyTests.LegacyOrMalformedScope_IsRejected(scope: \"comment:v1:article:42:thread:9001:extra\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0001033",
+      "startTime": "2026-10-08T11:17:17.6529900+00:00",
+      "endTime": "2026-10-08T11:17:17.6531009+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "bae6dfc5-a233-4cc7-bdc6-ca5f8d3e1b16"
+    },
+    {
+      "executionId": "3e3f6590-a213-4ce6-af2f-8630b3a0eed5",
+      "testId": "27706d43-8183-3a92-5d90-da4fa5f8ac6b",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Hidden, to: Hidden, expected: False)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000020",
+      "startTime": "2026-10-08T11:17:17.6086737+00:00",
+      "endTime": "2026-10-08T11:17:17.6087183+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "3e3f6590-a213-4ce6-af2f-8630b3a0eed5"
+    },
+    {
+      "executionId": "3dd45146-5717-43a3-ad21-1df2b66998e0",
+      "testId": "40afad01-2a9c-3cb8-0121-d0c8036538c2",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Rejected, to: Rejected, expected: False)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000029",
+      "startTime": "2026-10-08T11:17:17.5961036+00:00",
+      "endTime": "2026-10-08T11:17:17.5961772+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "3dd45146-5717-43a3-ad21-1df2b66998e0"
+    },
+    {
+      "executionId": "71919fed-a01e-424c-aa49-ec44c2395b85",
+      "testId": "13d6eea3-d524-19ce-bcca-bf8da1404691",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitModelInputs_PreserveInitialModerationPrecedence(hidden: False, manual: True, actorReview: True, modelEnabled: True, providerAvailable: True, expectedStatus: Pending, expectedReason: \"pending_region_review\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0004952",
+      "startTime": "2026-10-08T11:17:17.6173722+00:00",
+      "endTime": "2026-10-08T11:17:17.6174087+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "71919fed-a01e-424c-aa49-ec44c2395b85"
+    },
+    {
+      "executionId": "a6fdd6c1-4a65-4459-b3cf-8c0e58d2024c",
+      "testId": "dab8b9a2-0a38-36d1-a3c5-8f3426549c47",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Approved, to: Rejected, expected: True)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0034106",
+      "startTime": "2026-10-08T11:17:17.5950991+00:00",
+      "endTime": "2026-10-08T11:17:17.5952081+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "a6fdd6c1-4a65-4459-b3cf-8c0e58d2024c"
+    },
+    {
+      "executionId": "6e593838-5283-493c-bafd-c37dc5d49873",
+      "testId": "c6afc96b-2ea2-0566-27e6-77f210dabb15",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitModelInputs_PreserveInitialModerationPrecedence(hidden: False, manual: False, actorReview: False, modelEnabled: True, providerAvailable: True, expectedStatus: Pending, expectedReason: \"pending_model_review\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0008184",
+      "startTime": "2026-10-08T11:17:17.6168813+00:00",
+      "endTime": "2026-10-08T11:17:17.6173006+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "6e593838-5283-493c-bafd-c37dc5d49873"
+    },
+    {
+      "executionId": "ff1717bb-f9e9-4084-96cb-01a537861351",
+      "testId": "3671c665-bbe8-cd19-c565-2f781aec443d",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticleCommentPolicyServiceTests.Compose_InheritsSiteDefaultsAndArticleOverrideOnlyNarrowsAuthorModes",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0013175",
+      "startTime": "2026-10-08T11:17:17.6557955+00:00",
+      "endTime": "2026-10-08T11:17:17.6558571+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "ff1717bb-f9e9-4084-96cb-01a537861351"
+    },
+    {
+      "executionId": "2f589219-87a1-4050-8f52-ea22d0caea68",
+      "testId": "0d7d7518-03ec-1db0-52d6-b3ae4547b236",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentCommandBoundaryTests.Composition_MapsBothCommandContractsToOneScopedImplementation",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0180969",
+      "startTime": "2026-10-08T11:17:17.6563828+00:00",
+      "endTime": "2026-10-08T11:17:17.6564447+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "2f589219-87a1-4050-8f52-ea22d0caea68"
+    },
+    {
+      "executionId": "ee43ccc6-06bc-480a-9bcb-82bb3f7f06d0",
+      "testId": "2441e805-8065-24c0-a014-3b585c0c9941",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.Decide_AutoLowRiskApprove_CleanHighConfidenceApprovesPending",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0222113",
+      "startTime": "2026-10-08T11:17:17.5649960+00:00",
+      "endTime": "2026-10-08T11:17:17.5825627+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "ee43ccc6-06bc-480a-9bcb-82bb3f7f06d0"
+    },
+    {
+      "executionId": "fe584ae0-5451-4eab-b33f-191deca335b1",
+      "testId": "266b868b-27a5-bf76-d94e-c78170275f6e",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitPolicyInput_PreservesAuthorModeRefusals(mode: \"anonymous\", optIn: True, expected: \"anonymous_author_mode_retired\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000028",
+      "startTime": "2026-10-08T11:17:17.6502811+00:00",
+      "endTime": "2026-10-08T11:17:17.6503421+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "fe584ae0-5451-4eab-b33f-191deca335b1"
+    },
+    {
+      "executionId": "89796cce-d633-48f1-8377-936efcf28377",
+      "testId": "967cee74-a9f1-02c4-e404-2234a4cb67e4",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationInitialStateTests.ResolveInitialState_RegionManualReview_IsPending",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0001742",
+      "startTime": "2026-10-08T11:17:17.8137281+00:00",
+      "endTime": "2026-10-08T11:17:17.8137906+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "89796cce-d633-48f1-8377-936efcf28377"
+    },
+    {
+      "executionId": "f9520c62-185d-4e14-b52d-a555c1404b2d",
+      "testId": "c8e4bc15-4888-0c06-213a-ea0ab4791c6f",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentScopePolicyTests.ThreadScope_IsArticleAndRootBoundWithThreeReplyUses",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0027566",
+      "startTime": "2026-10-08T11:17:17.6535148+00:00",
+      "endTime": "2026-10-08T11:17:17.6536026+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "f9520c62-185d-4e14-b52d-a555c1404b2d"
+    },
+    {
+      "executionId": "fe5607e4-24e9-460d-ac9f-bcbb391af9a6",
+      "testId": "04905c8f-59b1-06a8-fc63-7c0917865e3a",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 8, expected: 7)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000031",
+      "startTime": "2026-10-08T11:17:19.8894556+00:00",
+      "endTime": "2026-10-08T11:17:19.8895005+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "fe5607e4-24e9-460d-ac9f-bcbb391af9a6"
+    },
+    {
+      "executionId": "b7bc9712-bccf-4455-b558-729e2ff51024",
+      "testId": "2296b0c3-d18a-c1c0-026e-5ffb5d342e74",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ReplyRecipient_UsesObservedTargetAndSuppressesSelfReply(target: 7, actor: 7, expected: null)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000078",
+      "startTime": "2026-10-08T11:17:17.6167244+00:00",
+      "endTime": "2026-10-08T11:17:17.6167770+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "b7bc9712-bccf-4455-b558-729e2ff51024"
+    },
+    {
+      "executionId": "2f2f3917-d0d6-4316-b6e5-3c94082d49a6",
+      "testId": "31eea8c7-00d7-85a4-544a-1134b4a20c45",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentPolicyTests.AnonymousCommentPolicy_EntityDefaultsAreFailClosedZkAnonymous",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0005584",
+      "startTime": "2026-10-08T11:17:17.6155008+00:00",
+      "endTime": "2026-10-08T11:17:17.6155434+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "2f2f3917-d0d6-4316-b6e5-3c94082d49a6"
+    },
+    {
+      "executionId": "f7be2c38-a01a-4256-b0da-d59716c6aa30",
+      "testId": "6fd52cc2-befd-f745-d9fc-0092823e36cd",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.Decide_ProviderUnavailable_ExplicitFailOpenApprovesOnlySafeComment",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0006163",
+      "startTime": "2026-10-08T11:17:17.6118345+00:00",
+      "endTime": "2026-10-08T11:17:17.6118735+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "f7be2c38-a01a-4256-b0da-d59716c6aa30"
+    },
+    {
+      "executionId": "3e7bb04b-5dee-451a-a38d-ee9bde47fb58",
+      "testId": "d12fd5dc-0bfa-c4fd-a946-db1bfa83d65d",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ArticleWriteDecision_UsesTheExplicitClockAtTheExactClosureBoundary",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0038749",
+      "startTime": "2026-10-08T11:17:17.6505068+00:00",
+      "endTime": "2026-10-08T11:17:17.6505700+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "3e7bb04b-5dee-451a-a38d-ee9bde47fb58"
+    },
+    {
+      "executionId": "5dee2d06-2a7b-4478-88fd-fa15e35587c4",
+      "testId": "2f6cdd66-1712-d9ab-568f-3edaf2a4b9e5",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Approved, to: Hidden, expected: True)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000023",
+      "startTime": "2026-10-08T11:17:17.5963846+00:00",
+      "endTime": "2026-10-08T11:17:17.5964511+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "5dee2d06-2a7b-4478-88fd-fa15e35587c4"
+    },
+    {
+      "executionId": "2067fa7d-27fb-4472-97df-f8d87ad5c77a",
+      "testId": "b2fb58bd-b5cc-71c9-0bce-aad34fcc8bff",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticleCommentPolicyServiceTests.EvaluateWrite_UsesOneDecisionForEveryAuthorModeAndThread(enabled: True, threadLocked: False, publicEnabled: False, anonymousEnabled: True, authorMode: \"public\", expected: \"public_comments_disabled\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000039",
+      "startTime": "2026-10-08T11:17:17.6553552+00:00",
+      "endTime": "2026-10-08T11:17:17.6554167+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "2067fa7d-27fb-4472-97df-f8d87ad5c77a"
+    },
+    {
+      "executionId": "6f752557-1038-4d31-8785-5688f55fad55",
+      "testId": "dffe3ee5-c519-a17f-15da-d00822fc0b10",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Hidden, to: Approved, expected: True)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000036",
+      "startTime": "2026-10-08T11:17:17.6085691+00:00",
+      "endTime": "2026-10-08T11:17:17.6086085+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "6f752557-1038-4d31-8785-5688f55fad55"
+    },
+    {
+      "executionId": "3daf458e-bd28-4aa3-a722-01ba3441e2d5",
+      "testId": "51fee332-71e2-b840-6038-41e21b0db962",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.Decide_HighSeverityCategory_AutoHidesEvenWhenLabelIsNotBlockedCandidate",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0008237",
+      "startTime": "2026-10-08T11:17:17.6115592+00:00",
+      "endTime": "2026-10-08T11:17:17.6115985+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "3daf458e-bd28-4aa3-a722-01ba3441e2d5"
+    },
+    {
+      "executionId": "cef590e7-4ca4-4372-a666-0ecfd8e52ff9",
+      "testId": "e30a7c3f-1bff-043a-51b8-3cf07048ee91",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentScopePolicyTests.LegacyOrMalformedScope_IsRejected(scope: \"article:42\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0002461",
+      "startTime": "2026-10-08T11:17:17.6524328+00:00",
+      "endTime": "2026-10-08T11:17:17.6525126+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "cef590e7-4ca4-4372-a666-0ecfd8e52ff9"
+    },
+    {
+      "executionId": "ab455b11-8f68-481c-8d98-ea59c1c2a389",
+      "testId": "4a1fadbe-3ec6-d358-a5fd-af1d26d9861e",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentPolicyTests.AnonymousCommentPolicy_UpdateCanExposeZkAndCuratedLanguages",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0147808",
+      "startTime": "2026-10-08T11:17:17.5950737+00:00",
+      "endTime": "2026-10-08T11:17:17.6149806+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "ab455b11-8f68-481c-8d98-ea59c1c2a389"
+    },
+    {
+      "executionId": "60ff29f3-1f10-435b-9dab-b29d024c575f",
+      "testId": "74b0c831-59b0-ccdc-d123-f4d517e92dd1",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentPolicyTests.AnonymousCommentPolicy_UpdateRejectsOutOfRangeCommentLimits",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0014620",
+      "startTime": "2026-10-08T11:17:17.6156550+00:00",
+      "endTime": "2026-10-08T11:17:17.6169253+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "60ff29f3-1f10-435b-9dab-b29d024c575f"
+    },
+    {
+      "executionId": "bbe16470-032a-4972-a77e-c1ce58addeb1",
+      "testId": "8af8fa0e-0138-fc97-e798-5e086321ce19",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitModelInputs_PreserveInitialModerationPrecedence(hidden: True, manual: True, actorReview: True, modelEnabled: True, providerAvailable: True, expectedStatus: Hidden, expectedReason: \"hidden_region_review\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000143",
+      "startTime": "2026-10-08T11:17:17.6174722+00:00",
+      "endTime": "2026-10-08T11:17:17.6175161+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "bbe16470-032a-4972-a77e-c1ce58addeb1"
+    },
+    {
+      "executionId": "187511e2-5889-4d5e-b2b0-599e876338ca",
+      "testId": "20139544-13f5-0a70-a5c4-5b89dafc15e6",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ReplyRecipient_UsesObservedTargetAndSuppressesSelfReply(target: 0, actor: 8, expected: null)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000358",
+      "startTime": "2026-10-08T11:17:17.6159648+00:00",
+      "endTime": "2026-10-08T11:17:17.6160024+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "187511e2-5889-4d5e-b2b0-599e876338ca"
+    },
+    {
+      "executionId": "213e011a-0cce-4103-b447-119a747aeedc",
+      "testId": "9d24e1b4-db6b-5dde-21c5-7602340144f5",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentScopePolicyTests.SameThreadAcrossArticles_DoesNotShareScope",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0022085",
+      "startTime": "2026-10-08T11:17:17.6513549+00:00",
+      "endTime": "2026-10-08T11:17:17.6513933+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "213e011a-0cce-4103-b447-119a747aeedc"
+    },
+    {
+      "executionId": "8b95a081-d98c-4b7d-8eba-6a34d25da371",
+      "testId": "baf72143-339d-c88b-1ac4-309e174ca55d",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticleCommentPolicyServiceTests.Compose_ClosedArticleKeepsReadStateButReportsWriteClosure",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0006650",
+      "startTime": "2026-10-08T11:17:17.6538845+00:00",
+      "endTime": "2026-10-08T11:17:17.6539496+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "8b95a081-d98c-4b7d-8eba-6a34d25da371"
+    },
+    {
+      "executionId": "fe582b62-c908-4e18-8c93-b01ed81435ff",
+      "testId": "90153ba3-f959-c364-3e84-9d3b2d9401a7",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: null, expected: 7)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000147",
+      "startTime": "2026-10-08T11:17:19.8893329+00:00",
+      "endTime": "2026-10-08T11:17:19.8893712+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "fe582b62-c908-4e18-8c93-b01ed81435ff"
+    },
+    {
+      "executionId": "d653b647-0671-4242-aae2-8f71aa8bb3cd",
+      "testId": "ccd1b2b6-f561-9d72-5e12-fbbb0443bdfe",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitPolicyInput_PreservesAuthorModeRefusals(mode: \"public\", optIn: False, expected: \"public_opt_in_required\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000088",
+      "startTime": "2026-10-08T11:17:17.6498704+00:00",
+      "endTime": "2026-10-08T11:17:17.6499342+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "d653b647-0671-4242-aae2-8f71aa8bb3cd"
+    },
+    {
+      "executionId": "0add16b0-ffe6-49a6-ba57-fe427ea33356",
+      "testId": "2b6b53e7-ae20-9457-9802-2d26ae19dab4",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticleCommentPolicyServiceTests.EvaluateWrite_UsesOneDecisionForEveryAuthorModeAndThread(enabled: True, threadLocked: True, publicEnabled: True, anonymousEnabled: True, authorMode: \"public\", expected: \"comment_thread_locked\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0003423",
+      "startTime": "2026-10-08T11:17:17.6541074+00:00",
+      "endTime": "2026-10-08T11:17:17.6542110+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "0add16b0-ffe6-49a6-ba57-fe427ea33356"
+    },
+    {
+      "executionId": "d591002c-d09c-46f4-8e0a-86c337f16e36",
+      "testId": "90c11e3b-71a7-5e8d-cb5b-aa5895c37783",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentCommandBoundaryTests.DependencyGraph_CommandDependsOnlyOnDatabaseLoggerAndNarrowPorts",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0025625",
+      "startTime": "2026-10-08T11:17:17.6566680+00:00",
+      "endTime": "2026-10-08T11:17:17.6567299+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "d591002c-d09c-46f4-8e0a-86c337f16e36"
+    },
+    {
+      "executionId": "adf23b9a-9aed-40ee-bd07-076a610d0ad2",
+      "testId": "695dac28-9efd-2c61-772f-f821e279db8e",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticleCommentPolicyServiceTests.EvaluateWrite_UsesOneDecisionForEveryAuthorModeAndThread(enabled: False, threadLocked: False, publicEnabled: True, anonymousEnabled: True, authorMode: \"public\", expected: \"comment_policy_closed\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000099",
+      "startTime": "2026-10-08T11:17:17.6551722+00:00",
+      "endTime": "2026-10-08T11:17:17.6552358+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "adf23b9a-9aed-40ee-bd07-076a610d0ad2"
+    },
+    {
+      "executionId": "9f07704d-c1c8-4bde-9d13-a37c118e9729",
+      "testId": "47970cfc-eaa6-faa6-bcba-8d24330dd267",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationInitialStateTests.ResolveInitialState_AnonymousCredentialRequiringReview_IsPending",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0002789",
+      "startTime": "2026-10-08T11:17:17.8139512+00:00",
+      "endTime": "2026-10-08T11:17:17.8140239+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "9f07704d-c1c8-4bde-9d13-a37c118e9729"
+    },
+    {
+      "executionId": "70e0e7f5-ba79-41c6-a7c3-9777774a1d8e",
+      "testId": "b3bba72d-0e04-c70a-773e-39abeee0cd71",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Hidden, to: Rejected, expected: True)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000066",
+      "startTime": "2026-10-08T11:17:17.6088822+00:00",
+      "endTime": "2026-10-08T11:17:17.6092711+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "70e0e7f5-ba79-41c6-a7c3-9777774a1d8e"
+    },
+    {
+      "executionId": "2612982e-5c7f-4290-b209-6d130544d514",
+      "testId": "e4b6fbdb-0389-b3c5-a21b-6ec1b470136a",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentCommandBoundaryTests.RuntimeShape_HasNoGenericCommentServiceType",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0006664",
+      "startTime": "2026-10-08T11:17:17.6561173+00:00",
+      "endTime": "2026-10-08T11:17:17.6562177+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "2612982e-5c7f-4290-b209-6d130544d514"
+    },
+    {
+      "executionId": "b8e17278-8c36-416b-bea5-d49bef93dc67",
+      "testId": "804ea2b8-f80a-8aaa-e92c-8656ecfd4ac4",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Rejected, to: Pending, expected: False)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000160",
+      "startTime": "2026-10-08T11:17:17.6084614+00:00",
+      "endTime": "2026-10-08T11:17:17.6085008+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "b8e17278-8c36-416b-bea5-d49bef93dc67"
+    },
+    {
+      "executionId": "0edd0fca-2fbf-4592-a5b9-fd626a940fba",
+      "testId": "ee19b3ba-927d-6ab5-b815-41f91ac314c5",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitModelInputs_PreserveInitialModerationPrecedence(hidden: False, manual: False, actorReview: False, modelEnabled: True, providerAvailable: False, expectedStatus: Pending, expectedReason: \"pending_model_provider_unavailable\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000219",
+      "startTime": "2026-10-08T11:17:17.6489645+00:00",
+      "endTime": "2026-10-08T11:17:17.6491707+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "0edd0fca-2fbf-4592-a5b9-fd626a940fba"
+    },
+    {
+      "executionId": "4c05b480-622a-492a-9c32-0a17f4e011a2",
+      "testId": "94416613-d86c-2eca-c6dd-64276cc89fff",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Approved, to: Pending, expected: False)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000148",
+      "startTime": "2026-10-08T11:17:17.6080706+00:00",
+      "endTime": "2026-10-08T11:17:17.6081133+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "4c05b480-622a-492a-9c32-0a17f4e011a2"
+    },
+    {
+      "executionId": "7acf8e07-4809-4584-87b7-7de345e4f19b",
+      "testId": "d74afc94-7d1f-7983-436c-ee95cce9adaa",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationInitialStateTests.ResolveInitialState_DeterministicLowRiskWithoutModel_IsApproved",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0001968",
+      "startTime": "2026-10-08T11:17:17.8133247+00:00",
+      "endTime": "2026-10-08T11:17:17.8133795+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "7acf8e07-4809-4584-87b7-7de345e4f19b"
+    },
+    {
+      "executionId": "cacd5590-2d48-45aa-b646-5301c1f3cac6",
+      "testId": "4cde376d-15ee-8420-2044-47a9b1f65217",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ReplyRecipient_UsesObservedTargetAndSuppressesSelfReply(target: 7, actor: 8, expected: 7)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0001076",
+      "startTime": "2026-10-08T11:17:17.6160688+00:00",
+      "endTime": "2026-10-08T11:17:17.6161097+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "cacd5590-2d48-45aa-b646-5301c1f3cac6"
+    },
+    {
+      "executionId": "1674e4d9-06a2-41bf-b2be-77bc3efcfc79",
+      "testId": "d4ccf7b2-01c4-d71f-ae3d-d9dfe4b45e12",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.Decide_RiskyHighConfidence_AutoHidesWithoutHumanReviewQueue",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0002731",
+      "startTime": "2026-10-08T11:17:17.6123230+00:00",
+      "endTime": "2026-10-08T11:17:17.6123773+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "1674e4d9-06a2-41bf-b2be-77bc3efcfc79"
+    },
+    {
+      "executionId": "88b303a4-a4a8-4074-b774-56e957531595",
+      "testId": "d01c46a6-b9f1-0b70-0433-6c53323883fb",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.Decide_RiskyBorderlineConfidence_AutoHidesAndQueuesHumanReview",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0003138",
+      "startTime": "2026-10-08T11:17:17.6119768+00:00",
+      "endTime": "2026-10-08T11:17:17.6120140+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "88b303a4-a4a8-4074-b774-56e957531595"
+    },
+    {
+      "executionId": "100cca36-0b2d-4a83-8efd-27db2f1fee93",
+      "testId": "445de96b-3b55-7c23-f4b8-782781af0c9d",
+      "testName": "FsusBlog.Server.Tests.Unit.AnonymousCommentPolicyTests.AnonymousCommentPolicy_DisabledAnonymousRejectsAnonymousAndZkModes",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0011665",
+      "startTime": "2026-10-08T11:17:17.6152198+00:00",
+      "endTime": "2026-10-08T11:17:17.6152628+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "100cca36-0b2d-4a83-8efd-27db2f1fee93"
+    },
+    {
+      "executionId": "ab418011-8c6c-4409-8ea4-6f3d07c46198",
+      "testId": "0d8e13dc-e91b-d8db-4052-295c2f5f32f3",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Pending, to: Approved, expected: True)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000037",
+      "startTime": "2026-10-08T11:17:17.6082377+00:00",
+      "endTime": "2026-10-08T11:17:17.6082772+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "ab418011-8c6c-4409-8ea4-6f3d07c46198"
+    },
+    {
+      "executionId": "9cc1dcac-3968-4c3d-9761-23050e6ea60b",
+      "testId": "d399a459-d991-6e6b-86fd-2255682eb742",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: null, expected: null)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000015",
+      "startTime": "2026-10-08T11:17:19.8895767+00:00",
+      "endTime": "2026-10-08T11:17:19.8896171+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "9cc1dcac-3968-4c3d-9761-23050e6ea60b"
+    },
+    {
+      "executionId": "7c7d3cfb-97ae-428a-990d-d9ee02f04d53",
+      "testId": "9ca31c36-d029-faf3-3968-8a6cfc1dbdaa",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Pending, to: Hidden, expected: True)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0005138",
+      "startTime": "2026-10-08T11:17:17.5958412+00:00",
+      "endTime": "2026-10-08T11:17:17.5958935+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "7c7d3cfb-97ae-428a-990d-d9ee02f04d53"
+    },
+    {
+      "executionId": "2215497e-26e8-40b6-89bc-f627303e1214",
+      "testId": "fe61b057-0453-fe5b-9175-7d84d085ac1c",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationInitialStateTests.ResolveInitialState_ModelRequired_IsPendingBeforeScoring",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.2833101",
+      "startTime": "2026-10-08T11:17:17.5691752+00:00",
+      "endTime": "2026-10-08T11:17:17.8069765+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "2215497e-26e8-40b6-89bc-f627303e1214"
+    },
+    {
+      "executionId": "cda4acbd-ca05-40a8-81bb-be5f3e1c357e",
+      "testId": "135692da-5c20-4b91-527f-ef7df74647a2",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ExplicitPolicyInput_PreservesAuthorModeRefusals(mode: \"zk_anonymous\", optIn: True, expected: \"zk_anonymous_disabled\")",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0002821",
+      "startTime": "2026-10-08T11:17:17.6496049+00:00",
+      "endTime": "2026-10-08T11:17:17.6497051+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "cda4acbd-ca05-40a8-81bb-be5f3e1c357e"
+    },
+    {
+      "executionId": "a6aff06a-abe2-4c54-b4f4-bf988f251750",
+      "testId": "bacf1818-665b-c4e6-d0a3-e816b37f1505",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentModerationDispositionPolicyTests.TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(from: Pending, to: Pending, expected: False)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000231",
+      "startTime": "2026-10-08T11:17:17.5959829+00:00",
+      "endTime": "2026-10-08T11:17:17.5960323+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "a6aff06a-abe2-4c54-b4f4-bf988f251750"
+    },
+    {
+      "executionId": "1009a069-afa7-491a-b123-7692924d436b",
+      "testId": "f142d9fd-ef77-f111-acf4-8d09bc18610b",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentPurePolicyContractTests.ReplyRecipient_UsesObservedTargetAndSuppressesSelfReply(target: 7, actor: null, expected: 7)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0032142",
+      "startTime": "2026-10-08T11:17:17.6149244+00:00",
+      "endTime": "2026-10-08T11:17:17.6157349+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "1009a069-afa7-491a-b123-7692924d436b"
+    }
+  ],
+  "originalFiveRecipientTheoryCases": [
+    {
+      "executionId": "4add3e8b-f39b-40d1-95c0-9d8097d0363c",
+      "testId": "e2ca4817-86f2-8c32-e773-eec4a54158fe",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 7, expected: null)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0004687",
+      "startTime": "2026-10-08T11:17:19.8892104+00:00",
+      "endTime": "2026-10-08T11:17:19.8892516+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "4add3e8b-f39b-40d1-95c0-9d8097d0363c"
+    },
+    {
+      "executionId": "33035f69-fcab-4ce3-90bb-6fec765c245e",
+      "testId": "1fbc43d5-7f52-30c1-57e3-c5663fa9a4b1",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: 8, expected: null)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0003596",
+      "startTime": "2026-10-08T11:17:19.8884030+00:00",
+      "endTime": "2026-10-08T11:17:19.8884773+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "33035f69-fcab-4ce3-90bb-6fec765c245e"
+    },
+    {
+      "executionId": "fe5607e4-24e9-460d-ac9f-bcbb391af9a6",
+      "testId": "04905c8f-59b1-06a8-fc63-7c0917865e3a",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: 8, expected: 7)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000031",
+      "startTime": "2026-10-08T11:17:19.8894556+00:00",
+      "endTime": "2026-10-08T11:17:19.8895005+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "fe5607e4-24e9-460d-ac9f-bcbb391af9a6"
+    },
+    {
+      "executionId": "fe582b62-c908-4e18-8c93-b01ed81435ff",
+      "testId": "90153ba3-f959-c364-3e84-9d3b2d9401a7",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: 7, replyingActorAccountId: null, expected: 7)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000147",
+      "startTime": "2026-10-08T11:17:19.8893329+00:00",
+      "endTime": "2026-10-08T11:17:19.8893712+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "fe582b62-c908-4e18-8c93-b01ed81435ff"
+    },
+    {
+      "executionId": "9cc1dcac-3968-4c3d-9761-23050e6ea60b",
+      "testId": "d399a459-d991-6e6b-86fd-2255682eb742",
+      "testName": "FsusBlog.Server.Tests.Unit.CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(targetAuthorAccountId: null, replyingActorAccountId: null, expected: null)",
+      "computerName": "a53363f2f13c",
+      "duration": "00:00:00.0000015",
+      "startTime": "2026-10-08T11:17:19.8895767+00:00",
+      "endTime": "2026-10-08T11:17:19.8896171+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "9cc1dcac-3968-4c3d-9761-23050e6ea60b"
+    }
+  ],
+  "producedAssemblyAndRestoreGraphArtifacts": [
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.deps.json",
+      "sizeBytes": 11113,
+      "sha256": "053ba757fa388e96208a2ab31d3ceb9cd3153ac22bce7f43ad42be441dc4d6b3"
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.dll",
+      "sizeBytes": 16384,
+      "sha256": "c2e1feef4f6aff0c8b65c29d1436b542deb1572bb0b6bf760fda9909f6319b3d"
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.pdb",
+      "sizeBytes": 12076,
+      "sha256": "066f2f750f49a53fe410ac4e32bd96853b17806ec50b565fc96c229f0b84b5df"
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/obj/FsusBlog.DiLifetimeAnalyzer.csproj.nuget.dgspec.json",
+      "sizeBytes": 5584,
+      "sha256": "bfcd72213c2e93dac8211e36ab170f799730cbc52cc7d9fc317591e714b3ffe6"
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/obj/project.assets.json",
+      "sizeBytes": 110433,
+      "sha256": "863aaeae2f9a56220499da9651eaa863680433d7a93ef2750e28b39b5ebc3a3f"
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Core.dll",
+      "sizeBytes": 769024,
+      "sha256": "9c0a3cc55260cdd31e68f2f63f95d3f28b8e17f99a33171d65e88786ed5b17cd"
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Core.pdb",
+      "sizeBytes": 211984,
+      "sha256": "5d4e5917ca461bf4f0a0746ab1e9ded352a7d9c15f1d70c717f16aad1be1d34e"
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.deps.json",
+      "sizeBytes": 50386,
+      "sha256": "2bc9be989d0c6615a0a1676391804396193120785d2bed49900ed2a34182f4c5"
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+      "sizeBytes": 19571200,
+      "sha256": "8b9d584d80c13b28fc798ba2eaefb476ed0162045abb12744b6eb128b0d72206"
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.pdb",
+      "sizeBytes": 3921904,
+      "sha256": "07b59e74875220af7320028b567fd4b4d43ca8803e6e2b6593483f532dc877f7"
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.runtimeconfig.json",
+      "sizeBytes": 489,
+      "sha256": "2558fd059c714bdce2d9cae59e0d892ca8e801831f30c64e2b9b988f4813737c"
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.staticwebassets.endpoints.json",
+      "sizeBytes": 51,
+      "sha256": "eb6525c892afda953a2560f151f9c5e5bc6e79ef6741d886488ac450262c91e3"
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Shared.dll",
+      "sizeBytes": 1671168,
+      "sha256": "7c59bee514a0a0fcb611414b30300a1bc8ed7e2094a3cdd5dde24fbb11c5880a"
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Shared.pdb",
+      "sizeBytes": 314536,
+      "sha256": "d775c61f3a98e41530c7b2e273115b2c30b18e93e053d5c74caa9b43580e0097"
+    },
+    {
+      "path": "src/backend/obj/FsusBlog.Server.csproj.nuget.dgspec.json",
+      "sizeBytes": 87203,
+      "sha256": "f87d53f121e41772d1b293e01843c53426c590d1362668bd2c4c55562b743c87"
+    },
+    {
+      "path": "src/backend/obj/project.assets.json",
+      "sizeBytes": 163799,
+      "sha256": "25aff5395afa1dcb5bdd30220d1c4b45b588258cb1ba220fc48e1edd46fc2460"
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Migration.deps.json",
+      "sizeBytes": 31599,
+      "sha256": "60147a0f9dfc9ff1850c3b0a524f1f7d31efd9aa621ea17ec2b0ef2aec26d860"
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Migration.dll",
+      "sizeBytes": 2581504,
+      "sha256": "c1eedc273e93ff5bf9b7a850646adfb0380d248a864ca455da25b2dca13b8b93"
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Migration.pdb",
+      "sizeBytes": 378312,
+      "sha256": "685cb17ede22d3bedafa3eb0f6a8f722d5333bcbb79b609fbd4459d24f415a6d"
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Migration.runtimeconfig.json",
+      "sizeBytes": 259,
+      "sha256": "f9bc8e9f0c46247078ed47309f19a7576b4b94e4300e9de0003917d6bd2d667a"
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Shared.dll",
+      "sizeBytes": 1671168,
+      "sha256": "7c59bee514a0a0fcb611414b30300a1bc8ed7e2094a3cdd5dde24fbb11c5880a"
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Shared.pdb",
+      "sizeBytes": 314536,
+      "sha256": "d775c61f3a98e41530c7b2e273115b2c30b18e93e053d5c74caa9b43580e0097"
+    },
+    {
+      "path": "src/migration/obj/FsusBlog.Migration.csproj.nuget.dgspec.json",
+      "sizeBytes": 48802,
+      "sha256": "4b401faca8efcdda1718082642d3e38ee0df9db5eb6a1ec902621076fec3332e"
+    },
+    {
+      "path": "src/migration/obj/project.assets.json",
+      "sizeBytes": 93152,
+      "sha256": "d0f995016183472c544ed62420f62cda3868d585701e61337e55d3a6f594f0c6"
+    },
+    {
+      "path": "src/core/bin/Debug/net10.0/FsusBlog.Core.deps.json",
+      "sizeBytes": 3029,
+      "sha256": "8fdbb4dcf3542e1c40a094428b9afa9f953552804937f20e2e76862fe68dfeee"
+    },
+    {
+      "path": "src/core/bin/Debug/net10.0/FsusBlog.Core.dll",
+      "sizeBytes": 769024,
+      "sha256": "9c0a3cc55260cdd31e68f2f63f95d3f28b8e17f99a33171d65e88786ed5b17cd"
+    },
+    {
+      "path": "src/core/bin/Debug/net10.0/FsusBlog.Core.pdb",
+      "sizeBytes": 211984,
+      "sha256": "5d4e5917ca461bf4f0a0746ab1e9ded352a7d9c15f1d70c717f16aad1be1d34e"
+    },
+    {
+      "path": "src/core/bin/Debug/net10.0/FsusBlog.Shared.dll",
+      "sizeBytes": 1671168,
+      "sha256": "7c59bee514a0a0fcb611414b30300a1bc8ed7e2094a3cdd5dde24fbb11c5880a"
+    },
+    {
+      "path": "src/core/bin/Debug/net10.0/FsusBlog.Shared.pdb",
+      "sizeBytes": 314536,
+      "sha256": "d775c61f3a98e41530c7b2e273115b2c30b18e93e053d5c74caa9b43580e0097"
+    },
+    {
+      "path": "src/core/obj/FsusBlog.Core.csproj.nuget.dgspec.json",
+      "sizeBytes": 48163,
+      "sha256": "01160a3b3ddce3090396c52789e957bcd8f7d70029e9eeed5ae09295e5321d31"
+    },
+    {
+      "path": "src/core/obj/project.assets.json",
+      "sizeBytes": 30728,
+      "sha256": "aeaaf226453fa55633b0c2de320961a486442099eabab09502822af8dd39a3e5"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Core.dll",
+      "sizeBytes": 769024,
+      "sha256": "9c0a3cc55260cdd31e68f2f63f95d3f28b8e17f99a33171d65e88786ed5b17cd"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Core.pdb",
+      "sizeBytes": 211984,
+      "sha256": "5d4e5917ca461bf4f0a0746ab1e9ded352a7d9c15f1d70c717f16aad1be1d34e"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.DiLifetimeAnalyzer.dll",
+      "sizeBytes": 16384,
+      "sha256": "c2e1feef4f6aff0c8b65c29d1436b542deb1572bb0b6bf760fda9909f6319b3d"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.DiLifetimeAnalyzer.pdb",
+      "sizeBytes": 12076,
+      "sha256": "066f2f750f49a53fe410ac4e32bd96853b17806ec50b565fc96c229f0b84b5df"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Migration.deps.json",
+      "sizeBytes": 31599,
+      "sha256": "60147a0f9dfc9ff1850c3b0a524f1f7d31efd9aa621ea17ec2b0ef2aec26d860"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Migration.dll",
+      "sizeBytes": 2581504,
+      "sha256": "c1eedc273e93ff5bf9b7a850646adfb0380d248a864ca455da25b2dca13b8b93"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Migration.pdb",
+      "sizeBytes": 378312,
+      "sha256": "685cb17ede22d3bedafa3eb0f6a8f722d5333bcbb79b609fbd4459d24f415a6d"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Migration.runtimeconfig.json",
+      "sizeBytes": 259,
+      "sha256": "f9bc8e9f0c46247078ed47309f19a7576b4b94e4300e9de0003917d6bd2d667a"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.deps.json",
+      "sizeBytes": 82075,
+      "sha256": "afbb19dca75ecdac2640809043699b9e248a734496a5fba93aa64ac1b0c87c8d"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+      "sizeBytes": 14471680,
+      "sha256": "8c699e3630a8a84106ad8db4dd6063c138713222e1f9d4b5225cd8ec68654ad3"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.pdb",
+      "sizeBytes": 2955184,
+      "sha256": "11b0676559a300f2ef19c9b92b270e26dd601cc2a90d83fbac63025a32528b6c"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.runtimeconfig.json",
+      "sizeBytes": 416,
+      "sha256": "4761a312947a31a30aec259d9ee6f10407d89806d812cd102f3b3aec250dc8b4"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.deps.json",
+      "sizeBytes": 50386,
+      "sha256": "2bc9be989d0c6615a0a1676391804396193120785d2bed49900ed2a34182f4c5"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+      "sizeBytes": 19571200,
+      "sha256": "8b9d584d80c13b28fc798ba2eaefb476ed0162045abb12744b6eb128b0d72206"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.pdb",
+      "sizeBytes": 3921904,
+      "sha256": "07b59e74875220af7320028b567fd4b4d43ca8803e6e2b6593483f532dc877f7"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.runtimeconfig.json",
+      "sizeBytes": 489,
+      "sha256": "2558fd059c714bdce2d9cae59e0d892ca8e801831f30c64e2b9b988f4813737c"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.staticwebassets.endpoints.json",
+      "sizeBytes": 51,
+      "sha256": "eb6525c892afda953a2560f151f9c5e5bc6e79ef6741d886488ac450262c91e3"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Shared.dll",
+      "sizeBytes": 1671168,
+      "sha256": "7c59bee514a0a0fcb611414b30300a1bc8ed7e2094a3cdd5dde24fbb11c5880a"
+    },
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Shared.pdb",
+      "sizeBytes": 314536,
+      "sha256": "d775c61f3a98e41530c7b2e273115b2c30b18e93e053d5c74caa9b43580e0097"
+    },
+    {
+      "path": "tests/backend/obj/FsusBlog.Server.Tests.csproj.nuget.dgspec.json",
+      "sizeBytes": 155567,
+      "sha256": "ea1f7ad6dc7e069bf64dd098ce8196ce96b822b79bbda06417ee8734da95be12"
+    },
+    {
+      "path": "tests/backend/obj/project.assets.json",
+      "sizeBytes": 291794,
+      "sha256": "57d73a972441a28d64251e9d6c7ce51eb78889e65f2887871a5a1ab27fe26801"
+    },
+    {
+      "path": "src/shared/bin/Debug/net10.0/FsusBlog.Shared.deps.json",
+      "sizeBytes": 417,
+      "sha256": "042521838f642e4bcd4d3ff5c2241dd414388980975a2a370d41a0a3ef12f284"
+    },
+    {
+      "path": "src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll",
+      "sizeBytes": 1671168,
+      "sha256": "7c59bee514a0a0fcb611414b30300a1bc8ed7e2094a3cdd5dde24fbb11c5880a"
+    },
+    {
+      "path": "src/shared/bin/Debug/net10.0/FsusBlog.Shared.pdb",
+      "sizeBytes": 314536,
+      "sha256": "d775c61f3a98e41530c7b2e273115b2c30b18e93e053d5c74caa9b43580e0097"
+    },
+    {
+      "path": "src/shared/obj/FsusBlog.Shared.csproj.nuget.dgspec.json",
+      "sizeBytes": 23821,
+      "sha256": "e53ed7aff13d03015335d77bdd15e1bdb379600d9bb1272b63fa486e5453c140"
+    },
+    {
+      "path": "src/shared/obj/project.assets.json",
+      "sizeBytes": 23016,
+      "sha256": "f131c40f5e704db1119de06fe3b3ca05177bfd3ab7adb2f116c53ecd1a7ed41b"
+    }
+  ],
+  "originalBackendProjectUsed": true,
+  "passed": 80,
+  "failed": 0,
+  "skipped": 0,
+  "fullBackendSuiteRun": false,
+  "bootstrapRuntimeTestsRun": false,
+  "heldFixtureAuditTestsRun": false,
+  "wholeIssueAccepted": false,
+  "priorHarnessResultsRebound": false
+}
