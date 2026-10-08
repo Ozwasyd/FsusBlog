@@ -464,6 +464,7 @@ async function runSelfTest()
     };
     const { createReleaseIdentityRosterFixture } = await import('../../tests/tools/support/release-readiness-test-helpers.mjs');
     manifest.releaseIdentity.identity = createReleaseIdentityRosterFixture(manifest.releaseIdentity);
+    manifest.releaseIdentity.signature = null;
     const { releaseSlot: unitSlot, ...unitManifest } = manifest.releaseIdentity;
     unitManifest.candidateId = deriveReleaseCandidateId(unitManifest);
     unitManifest.contentDigest = deriveReleaseManifestContentDigest(unitManifest);

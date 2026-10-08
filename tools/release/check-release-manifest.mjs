@@ -2,6 +2,8 @@
 import path from 'node:path';
 import process from 'node:process';
 
+import { RELEASE_ID_CONTRACT } from './release-id.mjs';
+import { verifyReleaseManifestArtifacts } from './release-manifest-signature-contract.mjs';
 import { readExplicitReleaseArtifact, readCurrentSchemaReceiptReleaseBinding, readReleaseManifest } from './release-manifest.mjs';
 
 function parseArgs(argv)
@@ -86,6 +88,18 @@ try
                 }
             }
         }
+        if (options['verify-artifacts'] !== undefined)
+        {
+            if (options['verify-artifacts'] !== 'true')
+            {
+                throw new Error('artifact verification must be explicitly true');
+            }
+            verifyReleaseManifestArtifacts({ manifest, releaseIdContract: RELEASE_ID_CONTRACT,
+                trustPolicyReference: options['trust-policy'], trustPolicySha256: options['trust-policy-sha256'],
+                readBytes: reference => readExplicitReleaseArtifact(reference,
+                    reference === manifest.currentSchema.receipt.reference ? manifest.currentSchema.receipt.sha256
+                        : findArtifactDigest(manifest.identity, reference), 64 * 1024 * 1024) });
+        }
         const slot = options.slot ?? 'candidate';
         if (!/^[a-z][a-z0-9-]{0,31}$/u.test(slot))
         {
@@ -94,6 +108,9 @@ try
         const output = {
             schema: 'fsusblog.release-deploy-input.v1',
             status: 'ok',
+            qualificationEligible: false,
+            candidateId: manifest.candidateId,
+            manifestContentDigest: manifest.contentDigest,
             manifest: manifestFile,
             releaseId: manifest.releaseId,
             createdAtUtc: manifest.createdAtUtc,
@@ -122,4 +139,24 @@ catch (error)
 {
     console.error(`[check-release-manifest] ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
+}
+
+function findArtifactDigest(value, reference)
+{
+    if (value?.reference === reference)
+    {
+        return value.sha256.slice('sha256:'.length);
+    }
+    if (value && typeof value === 'object')
+    {
+        for (const child of Object.values(value))
+        {
+            const found = findArtifactDigest(child, reference);
+            if (found)
+            {
+                return found;
+            }
+        }
+    }
+    return null;
 }
