@@ -1,0 +1,235 @@
+{
+  "originalRawSha256": "43b2144f2dcf92746ca071de4107c9315b055c99cc976561e210590e1ba20334",
+  "losslessRawArchive": "canonical-case-identity-audit.txt.gz",
+  "probes": [
+    {
+      "revision": "8b1c739cacef47995f441f096835863d377dc347",
+      "label": "baseline",
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "exitCode": 0,
+      "caseCount": 2,
+      "caseIds": [
+        "node-test:tests/tools/correctness-attempt-migration.test.mjs#all-225-correctness-producers-bind-canonical-attempt-and-ced1a75c0b",
+        "node-test:tests/tools/correctness-attempt-migration.test.mjs#matrix-and-physical-producers-fail-closed-on-a-crossed-e-f5553eb348"
+      ],
+      "diagnostics": [],
+      "nonstaticCases": [],
+      "removedBaselineIds": [],
+      "addedBaselineIds": []
+    },
+    {
+      "revision": "8b1c739cacef47995f441f096835863d377dc347",
+      "label": "baseline",
+      "path": "tests/tools/openapi-aeds-observation.test.mjs",
+      "exitCode": 0,
+      "caseCount": 38,
+      "caseIds": [
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#1-deleting-an-endpoint-while-retaining-openapi-fails-obs-a069d9b5be",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#2-missing-operationid-fails-extractor-97688fcaa5",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#3-auth-drift-is-visible-in-observation-map-fields-1f7d1e12ee",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#4-rate-limit-and-cache-metadata-are-required-observation-b08bf68cd6",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#5-response-frame-must-exist-in-aeds-protocol-json-9577439b77",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#6-source-regex-is-not-used-for-qualification-in-binary-c-f47e7c13d6",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#7-ambient-bin-debug-identity-is-refused-by-extractor-1745c69f50",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#8-reverse-generation-markers-from-checked-in-openapi-fai-ad6324bdd0",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#9-duplicate-method-path-fails-extractor-fbe5b8e441",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#arbitrary-lowercase-sha256-identity-cannot-select-an-unr-83fc48f058",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#buildopenapifrommatrix-is-retired-and-cannot-re-enter-as-63178922de",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-minimal-build-cannot-bless-an-invalid-inner-ob-89f5d65b2e",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-minimal-build-observation-uses-its-exact-sourc-c267b8bd6e",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-minimal-build-rejects-independently-changed-so-2a1875980b",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-preserves-observation-and-current-auth-63ffd70443",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-refuses-missing-validation-capabilitie-7461445c95",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-refuses-receipt-drift-and-unsafe-paths-2e03079627",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-rejects-cached-and-published-observati-23b49a20ac",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-rejects-cached-and-published-projectio-3025822379",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-runner-consumes-the-run-relative-minim-9df8ff439d",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-receipt-self-digest-and-recomputed-aggregate-s-119b8f3d3a",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#checked-in-openapi-projection-declares-compiled-observat-cb6741e6c4",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#compiled-c-observation-self-test-executes-real-loader-me-f650aa196a",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#current-error-authority-catalog-digest-and-sealed-artifa-dc30482647",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#element-nullable-and-numeric-bounds-drift-invalidates-th-fef4aa8375",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#extractor-accepts-sealed-observation-and-emits-operation-51812aa2de",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#generated-openapi-materialization-uses-the-canonical-pro-df2789319f",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#observationdigest-is-recomputed-from-sealed-content-not--71c783d61d",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#openapi-requires-the-runner-canonical-digest-and-seals-i-76d0852461",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#pre-3177-normal-producer-isolates-only-the-exact-owned-j-0a53412110",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#public-article-list-operations-retain-the-compiled-optio-b07998441b",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#receipt-cannot-self-select-contract-error-generator-prot-a002c846ec",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#registry-owns-binary-api-aeds-contract-via-openapi-aeds--7a6784e8f2",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#second-openapi-authority-search-for-matrix-generator-is--b84d2455c9",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#stale-artifact-digest-yesterday-debug-swap-fails-1047361023",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#typed-request-response-protocol-and-error-authority-coun-1e9bc2a17d",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#v5-refuses-legacy-or-incomplete-and-conflicting-element--8cfce414a0",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#v5-retains-recursive-element-nullability-primitive-bound-6639ebf844"
+      ],
+      "diagnostics": [],
+      "nonstaticCases": [],
+      "removedBaselineIds": [],
+      "addedBaselineIds": []
+    },
+    {
+      "revision": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+      "label": "original",
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "exitCode": 0,
+      "caseCount": 3,
+      "caseIds": [
+        "node-test:tests/tools/correctness-attempt-migration.test.mjs#all-current-canonical-correctness-producers-bind-attempt-4a07e86edd",
+        "node-test:tests/tools/correctness-attempt-migration.test.mjs#matrix-and-physical-producers-fail-closed-on-a-crossed-e-f5553eb348",
+        "node-test:tests/tools/correctness-attempt-migration.test.mjs#migration-rejects-a-freshly-resealed-mutation-canonical--078c3d9d78"
+      ],
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "native-table-not-closed",
+          "file": "tests/tools/correctness-attempt-migration.test.mjs",
+          "message": "native registration is not an immutable closed table at tests/tools/correctness-attempt-migration.test.mjs:35"
+        }
+      ],
+      "nonstaticCases": [
+        {
+          "id": "node-test:tests/tools/correctness-attempt-migration.test.mjs#migration-rejects-a-freshly-resealed-mutation-canonical--078c3d9d78",
+          "identity": "dynamic",
+          "dynamicCaseInfo": {
+            "generationLocation": "tests/tools/correctness-attempt-migration.test.mjs:35:5",
+            "inventoryObligation": "runtime inventory must record every executed case id after tests/tools/correctness-attempt-migration.test.mjs:35 execution"
+          }
+        }
+      ],
+      "removedBaselineIds": [
+        "node-test:tests/tools/correctness-attempt-migration.test.mjs#all-225-correctness-producers-bind-canonical-attempt-and-ced1a75c0b"
+      ],
+      "addedBaselineIds": [
+        "node-test:tests/tools/correctness-attempt-migration.test.mjs#all-current-canonical-correctness-producers-bind-attempt-4a07e86edd",
+        "node-test:tests/tools/correctness-attempt-migration.test.mjs#migration-rejects-a-freshly-resealed-mutation-canonical--078c3d9d78"
+      ]
+    },
+    {
+      "revision": "4f6ff718f1f19f2d2efe9ecf798751b393d91e06",
+      "label": "original",
+      "path": "tests/tools/openapi-aeds-observation.test.mjs",
+      "exitCode": 0,
+      "caseCount": 39,
+      "caseIds": [
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#1-deleting-an-endpoint-while-retaining-openapi-fails-obs-a069d9b5be",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#2-missing-operationid-fails-extractor-97688fcaa5",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#3-auth-drift-is-visible-in-observation-map-fields-1f7d1e12ee",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#4-rate-limit-and-cache-metadata-are-required-observation-b08bf68cd6",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#5-response-frame-must-exist-in-aeds-protocol-json-9577439b77",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#6-source-regex-is-not-used-for-qualification-in-binary-c-f47e7c13d6",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#7-ambient-bin-debug-identity-is-refused-by-extractor-1745c69f50",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#8-reverse-generation-markers-from-checked-in-openapi-fai-ad6324bdd0",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#9-duplicate-method-path-fails-extractor-fbe5b8e441",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#arbitrary-lowercase-sha256-identity-cannot-select-an-unr-83fc48f058",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#buildopenapifrommatrix-is-retired-and-cannot-re-enter-as-63178922de",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-minimal-build-cannot-bless-an-invalid-inner-ob-89f5d65b2e",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-minimal-build-observation-uses-its-exact-sourc-c267b8bd6e",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-minimal-build-rejects-independently-changed-so-2a1875980b",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-preserves-observation-and-current-auth-63ffd70443",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-refuses-missing-validation-capabilitie-7461445c95",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-refuses-receipt-drift-and-unsafe-paths-2e03079627",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-rejects-cached-and-published-observati-23b49a20ac",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-rejects-cached-and-published-projectio-3025822379",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-runner-consumes-the-run-relative-minim-9df8ff439d",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-receipt-self-digest-and-recomputed-aggregate-s-119b8f3d3a",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#checked-in-openapi-projection-declares-compiled-observat-cb6741e6c4",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#compiled-c-observation-self-test-executes-real-loader-me-f650aa196a",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#current-error-authority-catalog-digest-and-sealed-artifa-dc30482647",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#element-nullable-and-numeric-bounds-drift-invalidates-th-fef4aa8375",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#extractor-accepts-sealed-observation-and-emits-operation-51812aa2de",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#generated-openapi-materialization-uses-the-canonical-pro-df2789319f",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#normal-producer-includes-all-eight-migrated-font-theme-r-cd9ded8fc6",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#observationdigest-is-recomputed-from-sealed-content-not--71c783d61d",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#openapi-refuses-changed-runner-import-resolution-and-res-a0a6c7bf5e",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#openapi-requires-the-runner-canonical-digest-and-seals-i-76d0852461",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#public-article-list-operations-retain-the-compiled-optio-b07998441b",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#receipt-cannot-self-select-contract-error-generator-prot-a002c846ec",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#registry-owns-binary-api-aeds-contract-via-openapi-aeds--7a6784e8f2",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#second-openapi-authority-search-for-matrix-generator-is--b84d2455c9",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#stale-artifact-digest-yesterday-debug-swap-fails-1047361023",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#typed-request-response-protocol-and-error-authority-coun-1e9bc2a17d",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#v5-refuses-legacy-or-incomplete-and-conflicting-element--8cfce414a0",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#v5-retains-recursive-element-nullability-primitive-bound-6639ebf844"
+      ],
+      "diagnostics": [],
+      "nonstaticCases": [],
+      "removedBaselineIds": [
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#pre-3177-normal-producer-isolates-only-the-exact-owned-j-0a53412110"
+      ],
+      "addedBaselineIds": [
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#normal-producer-includes-all-eight-migrated-font-theme-r-cd9ded8fc6",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#openapi-refuses-changed-runner-import-resolution-and-res-a0a6c7bf5e"
+      ]
+    },
+    {
+      "revision": "b03d6e5b257cb66697354f5d96b19c775ffaa040",
+      "label": "bounded",
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "exitCode": 0,
+      "caseCount": 2,
+      "caseIds": [
+        "node-test:tests/tools/correctness-attempt-migration.test.mjs#all-225-correctness-producers-bind-canonical-attempt-and-ced1a75c0b",
+        "node-test:tests/tools/correctness-attempt-migration.test.mjs#matrix-and-physical-producers-fail-closed-on-a-crossed-e-f5553eb348"
+      ],
+      "diagnostics": [],
+      "nonstaticCases": [],
+      "removedBaselineIds": [],
+      "addedBaselineIds": []
+    },
+    {
+      "revision": "b03d6e5b257cb66697354f5d96b19c775ffaa040",
+      "label": "bounded",
+      "path": "tests/tools/openapi-aeds-observation.test.mjs",
+      "exitCode": 0,
+      "caseCount": 39,
+      "caseIds": [
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#1-deleting-an-endpoint-while-retaining-openapi-fails-obs-a069d9b5be",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#2-missing-operationid-fails-extractor-97688fcaa5",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#3-auth-drift-is-visible-in-observation-map-fields-1f7d1e12ee",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#4-rate-limit-and-cache-metadata-are-required-observation-b08bf68cd6",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#5-response-frame-must-exist-in-aeds-protocol-json-9577439b77",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#6-source-regex-is-not-used-for-qualification-in-binary-c-f47e7c13d6",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#7-ambient-bin-debug-identity-is-refused-by-extractor-1745c69f50",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#8-reverse-generation-markers-from-checked-in-openapi-fai-ad6324bdd0",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#9-duplicate-method-path-fails-extractor-fbe5b8e441",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#arbitrary-lowercase-sha256-identity-cannot-select-an-unr-83fc48f058",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#buildopenapifrommatrix-is-retired-and-cannot-re-enter-as-63178922de",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-minimal-build-cannot-bless-an-invalid-inner-ob-89f5d65b2e",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-minimal-build-observation-uses-its-exact-sourc-c267b8bd6e",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-minimal-build-rejects-independently-changed-so-2a1875980b",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-preserves-observation-and-current-auth-63ffd70443",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-refuses-missing-validation-capabilitie-7461445c95",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-refuses-receipt-drift-and-unsafe-paths-2e03079627",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-rejects-cached-and-published-observati-23b49a20ac",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-rejects-cached-and-published-projectio-3025822379",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-openapi-runner-consumes-the-run-relative-minim-9df8ff439d",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#canonical-receipt-self-digest-and-recomputed-aggregate-s-119b8f3d3a",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#checked-in-openapi-projection-declares-compiled-observat-cb6741e6c4",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#compiled-c-observation-self-test-executes-real-loader-me-f650aa196a",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#current-error-authority-catalog-digest-and-sealed-artifa-dc30482647",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#element-nullable-and-numeric-bounds-drift-invalidates-th-fef4aa8375",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#extractor-accepts-sealed-observation-and-emits-operation-51812aa2de",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#generated-openapi-materialization-uses-the-canonical-pro-df2789319f",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#observationdigest-is-recomputed-from-sealed-content-not--71c783d61d",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#openapi-refuses-changed-runner-import-resolution-and-res-a0a6c7bf5e",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#openapi-requires-the-runner-canonical-digest-and-seals-i-76d0852461",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#pre-3177-normal-producer-isolates-only-the-exact-owned-j-0a53412110",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#public-article-list-operations-retain-the-compiled-optio-b07998441b",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#receipt-cannot-self-select-contract-error-generator-prot-a002c846ec",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#registry-owns-binary-api-aeds-contract-via-openapi-aeds--7a6784e8f2",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#second-openapi-authority-search-for-matrix-generator-is--b84d2455c9",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#stale-artifact-digest-yesterday-debug-swap-fails-1047361023",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#typed-request-response-protocol-and-error-authority-coun-1e9bc2a17d",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#v5-refuses-legacy-or-incomplete-and-conflicting-element--8cfce414a0",
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#v5-retains-recursive-element-nullability-primitive-bound-6639ebf844"
+      ],
+      "diagnostics": [],
+      "nonstaticCases": [],
+      "removedBaselineIds": [],
+      "addedBaselineIds": [
+        "node-test:tests/tools/openapi-aeds-observation.test.mjs#openapi-refuses-changed-runner-import-resolution-and-res-a0a6c7bf5e"
+      ]
+    }
+  ]
+}

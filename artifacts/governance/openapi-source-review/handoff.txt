@@ -243,3 +243,8 @@ limits; verify every old case remains; assess the precise baseline failures;
 review actual historical head-bound format evidence and its current-master
 lineage limits; approve or reject SOURCE scope without granting merge/runtime
 readiness. No reviewer identity or approval is fabricated by this handoff.
+
+Canonical identity evidence is summarized in canonical-case-identity-summary.txt.
+Complete adapter output (including full per-test annotations) is archived losslessly
+as canonical-case-identity-audit.txt.gz; raw SHA-256 43b2144f2dcf92746ca071de4107c9315b055c99cc976561e210590e1ba20334.
+This packaging does not alter any source candidate or diagnostic.
