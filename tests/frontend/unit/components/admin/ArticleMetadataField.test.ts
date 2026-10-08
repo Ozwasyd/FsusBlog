@@ -343,6 +343,36 @@ describe('ArticleMetadataField cancellation and stale callback negatives', () =>
         expect(document.activeElement).toBe(input.element);
     });
 
+
+    it('returns keyboard focus to the current public control after user cancellation', async () =>
+    {
+        const { wrapper } = render();
+        await wrapper.find('textarea').setValue('pending');
+        const cancel = button(wrapper, 'Cancel');
+        (cancel.element as HTMLButtonElement).focus();
+        await cancel.trigger('click');
+        expect(document.activeElement).toBe(wrapper.find('textarea').element);
+    });
+
+    it.each(['external-focus', 'permission', 'revision', 'unmount'])('refuses cancel focus return after %s invalidation', async (change) =>
+    {
+        const { wrapper, model } = render();
+        await wrapper.find('textarea').setValue('pending');
+        const cancel = button(wrapper, 'Cancel');
+        (cancel.element as HTMLButtonElement).focus();
+        // Native dispatch allows synchronous owner changes before nextTick.
+        cancel.element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        const external = document.createElement('button');
+        external.textContent = 'Owner focus';
+        document.body.append(external);
+        external.focus();
+        if (change === 'permission') await wrapper.setProps({ enabled: false });
+        if (change === 'revision') await wrapper.setProps({ model: structuredClone(model) });
+        if (change === 'unmount') wrapper.unmount();
+        await nextTick();
+        expect(document.activeElement).toBe(external);
+    });
+
     it('captured controls cannot act after unmount', async () =>
     {
         const { wrapper, model } = render();

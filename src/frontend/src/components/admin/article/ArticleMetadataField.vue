@@ -17,6 +17,7 @@
             class="article-metadata-field__control"
         >
             <FsusUiInput
+                ref="control"
                 v-if="definition.valueType === 0 || definition.valueType === 7"
                 :model-value="text"
                 :type="definition.valueType === 0 ? 'textarea' : 'text'"
@@ -31,6 +32,7 @@
                 @update:model-value="handlers.text"
             />
             <FsusUiSwitch
+                ref="control"
                 v-else-if="definition.valueType === 2"
                 :model-value="boolean"
                 :aria-labelledby="labelId"
@@ -41,6 +43,7 @@
                 @update:model-value="handlers.boolean"
             />
             <FsusUiSelect
+                ref="control"
                 v-else-if="definition.valueType === 4 || definition.valueType === 5"
                 :model-value="definition.valueType === 4 ? single : multiple"
                 :multiple="definition.valueType === 5"
@@ -73,7 +76,7 @@
         <div class="article-metadata-field__actions">
             <FsusUiButton
                 :disabled="!dirty"
-                @click="cancel"
+                @click="cancelFromControl"
             >
                 {{ labels.cancel }}
             </FsusUiButton>
@@ -87,7 +90,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue';
 
 import type { ArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadCodecs';
 import { FsusUiButton } from '@/fsusui/button';
@@ -192,6 +195,7 @@ const options = computed(() =>
     return choices;
 });
 
+const control = shallowRef<{ focus: () => void; } | null>(null);
 const generation = ref(0);
 const text = ref('');
 const boolean = ref(false);
@@ -257,6 +261,21 @@ function cancel(): void
             }
         }
     };
+}
+
+async function cancelFromControl(event: MouseEvent): Promise<void>
+{
+    const previousFocus = document.activeElement;
+    const returnFocus = previousFocus === event.currentTarget;
+    cancel();
+    const cancelledGeneration = generation.value;
+    await nextTick();
+    if (returnFocus && !disposed && generation.value === cancelledGeneration
+        && visible.value && !blocked.value
+        && (document.activeElement === previousFocus || document.activeElement === document.body))
+    {
+        control.value?.focus();
+    }
 }
 
 watch([() => props.model, () => props.definitionId, () => props.editable, visible], cancel,
