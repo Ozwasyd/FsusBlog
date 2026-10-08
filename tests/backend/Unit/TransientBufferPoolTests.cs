@@ -2,10 +2,10 @@ using System.Buffers;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-using FsusBlog.Server.Infrastructure.Memory.Accounting;
 using FsusBlog.Server.Infrastructure.Memory.Capabilities;
 using FsusBlog.Server.Infrastructure.Memory.Contracts;
 using FsusBlog.Server.Infrastructure.Memory.Transient;
+using FsusBlog.Server.Tests.Helpers;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -14,7 +14,7 @@ public sealed class TransientBufferPoolTests
     [Fact]
     public void T08_ReturnRetainsActualBucketCharge_TrimRefundsExactlyOnce()
     {
-        var (ledger, host, _) = CreateLedger(64);
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(64);
         using var pool = new TransientBufferPool(ledger, host, TransientWorkload.RequestScratch, new(64, 8, 2, 64));
         IMemoryOwner<byte> lease = pool.TryRent(17).Value!;
         lease.Memory.Span.Fill(0xA5);
@@ -43,7 +43,7 @@ public sealed class TransientBufferPoolTests
     [Fact]
     public void T01_IndependentPoolsCompeteForTheSameFinalHostBudget()
     {
-        var (ledger, host, _) = CreateLedger(32);
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(32);
         using var first = new TransientBufferPool(ledger, host, TransientWorkload.Encoding, new(32, 8, 1, 32));
         using var second = new TransientBufferPool(ledger, host, TransientWorkload.Compression, new(32, 8, 1, 32));
         using IMemoryOwner<byte> lease = first.TryRent(17).Value!;
@@ -56,7 +56,7 @@ public sealed class TransientBufferPoolTests
     [Fact]
     public async Task T11_CanceledOuterWaitDoesNotReturnTheStillRunningConsumer()
     {
-        var (ledger, host, _) = CreateLedger(32);
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(32);
         using var pool = new TransientBufferPool(ledger, host, TransientWorkload.SocketSend, new(32, 8, 1, 32));
         IMemoryOwner<byte> lease = pool.TryRent(20).Value!;
         lease.Memory.Span[0] = 91;
@@ -85,7 +85,7 @@ public sealed class TransientBufferPoolTests
     [Fact]
     public void PinCopiesKeepBackingChargedThroughCloseAndReturnOnlyOnce()
     {
-        var (ledger, host, _) = CreateLedger(32);
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(32);
         using var pool = new TransientBufferPool(ledger, host, TransientWorkload.Recovery, new(32, 3, 0, 0));
         IMemoryOwner<byte> lease = pool.TryRent(17).Value!;
         MemoryHandle pin = lease.Memory.Pin();
@@ -118,7 +118,7 @@ public sealed class TransientBufferPoolTests
     [Fact]
     public void AutoRetention_DisableDrainsIdleCapacityAndPreservesMandatoryAdmission()
     {
-        var (ledger, host, _) = CreateLedger(32);
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(32);
         using var pool = new TransientBufferPool(ledger, host, TransientWorkload.BackgroundBuild, new(32, 2, 1, 32));
         IMemoryOwner<byte> first = pool.TryRent(17).Value!;
         first.Dispose();
@@ -138,7 +138,7 @@ public sealed class TransientBufferPoolTests
     [Fact]
     public void RepeatedParallelBurstsNeverExceedCapacityOrRetentionLimits()
     {
-        var (ledger, host, _) = CreateLedger(128);
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(128);
         using var pool = new TransientBufferPool(ledger, host, TransientWorkload.Encoding, new(64, 4, 1, 64));
         Parallel.For(0, 256, _ =>
         {
@@ -162,22 +162,10 @@ public sealed class TransientBufferPoolTests
         Assert.False(ledger.Snapshot().Faulted);
     }
 
-    internal static (MemoryReservationCoordinator Ledger, ResourceDomainId Host, ResourceDomainId Operations) CreateLedger(long bytes)
-    {
-        var host = new ResourceDomainId(Guid.NewGuid());
-        var operations = new ResourceDomainId(Guid.NewGuid());
-        var topology = new MemoryResourceTopology([
-            new(host, "host", MemoryResourceUnit.Bytes, null),
-            new(operations, "operations", MemoryResourceUnit.OperationSlots, null)
-        ]);
-        return (new(topology, [new(host, MemoryResourceUnit.Bytes, bytes),
-            new(operations, MemoryResourceUnit.OperationSlots, 4)], 1, 32, 1024), host, operations);
-    }
-
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static (MemoryHandle Copy, WeakReference Backing) CreateDisposedPinCopy()
     {
-        var (ledger, host, _) = CreateLedger(32);
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(32);
         using var pool = new TransientBufferPool(ledger, host, TransientWorkload.Recovery, new(32, 3, 0, 0));
         IMemoryOwner<byte> lease = pool.TryRent(17).Value!;
         var buffer = (TransientBufferPool.Buffer)typeof(TransientBufferLease)
