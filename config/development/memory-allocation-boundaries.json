@@ -1,0 +1,266 @@
+{
+    "schema": "fsusblog.memory-allocation-boundaries.v1",
+    "scope": "inventory-only",
+    "policy": {
+        "default": "Auto",
+        "disabled": "stop-new-probes-and-use-then-drain",
+        "required": "never-override-safety-qualification-or-budgets"
+    },
+    "authorities": [
+        {
+            "responsibility": "publication",
+            "path": "src/backend/Infrastructure/PublicAot/PublicAotArtifactCommitJournal.cs",
+            "disposition": "reuse-do-not-replace"
+        },
+        {
+            "responsibility": "revocation",
+            "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicArtifactRevocation.cs",
+            "disposition": "reuse-do-not-replace"
+        },
+        {
+            "responsibility": "queue-delivery",
+            "path": "src/backend/Infrastructure/Operations/BoundedQueueDeliveryCatalog.cs",
+            "disposition": "reuse-do-not-replace"
+        },
+        {
+            "responsibility": "configuration",
+            "path": "config/application/backend-configuration-contract.json",
+            "disposition": "reuse-do-not-replace"
+        },
+        {
+            "responsibility": "test-topology",
+            "path": "tests/matrix.yml",
+            "disposition": "reuse-do-not-replace"
+        }
+    ],
+    "traces": [
+        {
+            "id": "public-hot-snapshot",
+            "pathStatus": "baseline-reported",
+            "producer": "PublicHotReadSnapshot constructor and snapshot publication",
+            "owner": "PublicHotReadStore",
+            "consumers": "current, last-good, sticky, request artifact copies; FrozenDictionary article/list/taxonomy and HTML base/overlay/removed indexes",
+            "releaseEvent": "Managed backing becomes GC-eligible only after all strong artifact, index and request references disappear; weak retirement references do not release native backing",
+            "capacityModel": "PublicHotReadResidentAccounting upper bound; raw/br/gzip/template arrays plus object/index estimates; not an exact physical allocation ledger",
+            "frequency": "Build/publication, HTML delta/compaction and overlapping generations",
+            "asyncEscape": "BodyWriter.WriteAsync ValueTask and nonce template writes; awaiting a write is not an explicit native lease",
+            "classification": "public-immutable",
+            "eligibilityOwner": "PublicHotReadPublicationEvidence plus PublicHotReadStore visibility/revocation boundary",
+            "migrationDisposition": "candidate-only; no replacement before lease/completion and byte-oracle acceptance",
+            "observationHeadroom": "Retain managed behavior; observe build/current/LKG/sticky/overlay/reader overlap without claiming native accounting",
+            "testOwner": "tests/backend/Unit/PublicHotReadResidencyTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+                    "anchor": "private PublicHotReadSnapshot _lastGood"
+                },
+                {
+                    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+                    "anchor": "private PublicHotReadSnapshot _sticky"
+                },
+                {
+                    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+                    "anchor": "_htmlOverlayByPath"
+                },
+                {
+                    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs",
+                    "anchor": "response.BodyWriter.WriteAsync(frame"
+                }
+            ]
+        },
+        {
+            "id": "public-aot-file-read",
+            "pathStatus": "baseline-reported",
+            "producer": "PublicAotFileShellCache.TryReadEntryAsync",
+            "owner": "PublicAotFileShellCache",
+            "consumers": "PublicAotCacheEntryBinaryCodec and its decoded-entry cache; bounded memory LRU; file metadata cache; caller entry references",
+            "releaseEvent": "ArrayPool raw buffer returned in finally after decode; decoded entries and caller copies have independent managed lifetimes",
+            "capacityModel": "Requested stream.Length; actual rented raw.Length may exceed request; FileStream 64 KiB buffer; decoded entry/string/template estimates are separate",
+            "frequency": "Cold file reads; unchanged metadata avoids repeated decoding",
+            "asyncEscape": "FileStream.ReadAsync and publication/recovery WriteAsync await completion; cancellation enters finally only after awaited I/O returns",
+            "classification": "reconstructible",
+            "eligibilityOwner": "PublicAotFileShellCache journal/generation/sidecar validation",
+            "migrationDisposition": "candidate-only; existing artifact publication remains the journal authority",
+            "observationHeadroom": "Pool capacity, decoded cache, LRU, metadata and caller references must all remain in denominator",
+            "testOwner": "tests/backend/Unit/PublicAotFileShellCacheTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
+                    "anchor": "ArrayPool<byte>.Shared.Rent(length)"
+                },
+                {
+                    "path": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
+                    "anchor": "ArrayPool<byte>.Shared.Return(raw, clearArray: false)"
+                },
+                {
+                    "path": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
+                    "anchor": "_fileMetadataCache"
+                },
+                {
+                    "path": "src/backend/Infrastructure/PublicAot/PublicAotCacheEntryBinaryCodec.cs",
+                    "anchor": "DecodedCacheCapacity = 256"
+                }
+            ]
+        },
+        {
+            "id": "ordinary-cache-l1",
+            "pathStatus": "baseline-reported",
+            "producer": "CachePorts materialization and PolicyShardedCacheL1Store publication",
+            "owner": "PolicyShardedCacheL1Store",
+            "consumers": "Per-policy partitions, LRU, typed decoder read leases, caller-owned raw snapshots",
+            "releaseEvent": "Entry retirement stops acquisition; clear only after final read lease and pin hold; store Dispose retires entries",
+            "capacityModel": "Entry logical byte length and actual array capacity plus store descriptors; policy/global ceilings already exist",
+            "frequency": "Cache publication, read, invalidation, eviction and shutdown",
+            "asyncEscape": "ReadLease memory manager and pins; raw port snapshot copies escape independently",
+            "classification": "unclassified",
+            "eligibilityOwner": "CachePolicyRegistry and each existing cache policy data owner",
+            "migrationDisposition": "excluded from spill/device pending individual public/private policy classification",
+            "observationHeadroom": "Retain per-policy limits and measure actual capacity; this inventory does not control third-party Redis memory",
+            "testOwner": "tests/backend/Unit/PolicyShardedCacheL1StoreTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Cache/PolicyShardedCacheL1Store.cs",
+                    "anchor": "entry._leaseCount++"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Cache/PolicyShardedCacheL1Store.cs",
+                    "anchor": "entry._retired && entry._clearOnRelease && entry._leaseCount == 0"
+                }
+            ]
+        },
+        {
+            "id": "owned-aeds-frame",
+            "pathStatus": "baseline-reported",
+            "producer": "AedsFrameBufferWriter and OwnedAedsFrame constructors",
+            "owner": "OwnedAedsFrame",
+            "consumers": "OwnedAedsFrameReadLease, LeaseMemoryManager pins and owned frame cache ports",
+            "releaseEvent": "Retire stops new leases; ReleaseReadLease and pin disposal detach backing; final callback/ArrayPool.Return only after last hold",
+            "capacityModel": "Length distinct from Capacity; pool Rent actual array capacity and growth overlap count separately",
+            "frequency": "Encoded frame build/cache admission/read/retirement",
+            "asyncEscape": "Leased MemoryManager views and pins; producer disposal cannot free a transferred frame",
+            "classification": "unclassified",
+            "eligibilityOwner": "Existing frame producer classification and cache policy owner",
+            "migrationDisposition": "candidate-only; arbitrary AEDS payload is not automatically public",
+            "observationHeadroom": "Retain requires-clear contract and original final-release capacity callback; reserve separately from pool occupancy",
+            "testOwner": "tests/backend/Unit/OwnedAedsFrameTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/core/Algorithms/OwnedAedsFrame.cs",
+                    "anchor": "public bool TryAcquireReadLease"
+                },
+                {
+                    "path": "src/core/Algorithms/OwnedAedsFrame.cs",
+                    "anchor": "_pool.Return(release.Value.Buffer"
+                },
+                {
+                    "path": "src/core/Algorithms/AedsFrameBufferWriter.cs",
+                    "anchor": "public sealed class AedsFrameBufferWriter"
+                }
+            ]
+        },
+        {
+            "id": "notification-fanout",
+            "pathStatus": "baseline-reported",
+            "producer": "NotificationFrameCodec and SharedNotificationStreamFrame.FromOwnedBuffer",
+            "owner": "SharedNotificationStreamFrame",
+            "consumers": "NotificationStreamConnection queues and NotificationStreamFramePump; one Retain per accepted fanout target",
+            "releaseEvent": "Rejected/consumed target releases retain; zero count returns pool with clearArray true. Pump copies bytes to PipeWriter then releases frame; transport owns the copied bytes",
+            "capacityModel": "Frame.Length distinct from rented buffer.Length; per-connection queue bytes and writer copy capacity remain separate",
+            "frequency": "Per notification encode/fanout/dequeue/drop/disconnect",
+            "asyncEscape": "Connection queues retain frame; PipeWriter.GetSpan copies data before frame.Release; flushing owns separate transport buffers",
+            "classification": "private-sensitive",
+            "eligibilityOwner": "Notification stream audience/admission and original message delivery owners",
+            "migrationDisposition": "excluded from public spill/device/deduplication; preserve private audience and delivery classification",
+            "observationHeadroom": "Observe queued/in-flight/backlog and framework transport headroom; no second delivery authority",
+            "testOwner": "tests/backend/Unit/NotificationStreamFramePumpTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs",
+                    "anchor": "_pool.Return(_buffer, clearArray: true)"
+                },
+                {
+                    "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamFramePump.cs",
+                    "anchor": "frame.Memory.Span.CopyTo(writer.GetSpan(frameLength))"
+                },
+                {
+                    "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamFramePump.cs",
+                    "anchor": "frame.Release()"
+                }
+            ]
+        },
+        {
+            "id": "database-materialization",
+            "pathStatus": "baseline-reported",
+            "producer": "ArticleService.CacheAndInvalidation SqlSugar queries",
+            "owner": "ArticleService plus DbConcurrencyGate admission",
+            "consumers": "Read models, cache projections and asynchronous mutation/invalidation scopes",
+            "releaseEvent": "Managed rows/lists released by GC after query caller, projections and closures drop references; provider pool/materialization internals remain third-party",
+            "capacityModel": "ToListAsync list capacity, entities/strings, projected arrays and provider internal buffers; requested rows do not equal allocated capacity",
+            "frequency": "Per cache miss/query and rebuild",
+            "asyncEscape": "ToListAsync Tasks and downstream projection/invalidation closures",
+            "classification": "unclassified",
+            "eligibilityOwner": "ArticleService public/private read policy and established database owner",
+            "migrationDisposition": "excluded from spill until per-query classification; durable database rows are not a cache-tier migration target",
+            "observationHeadroom": "Preserve DB admission; observe provider/process headroom without claiming governance of SqlSugar/Npgsql internal allocations",
+            "testOwner": "tests/backend/Unit/ArticleServiceTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Services/ArticleService.CacheAndInvalidation.cs",
+                    "anchor": ".ToListAsync("
+                },
+                {
+                    "path": "src/backend/Infrastructure/Execution/DbConcurrencyGate.cs",
+                    "anchor": "class DbConcurrencyGate"
+                }
+            ]
+        }
+    ]
+}
