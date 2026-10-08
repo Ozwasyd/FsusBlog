@@ -21,6 +21,8 @@ const require = createRequire(path.join(path.dirname(astFile), 'package.json'));
 const ts = require('typescript');
 const printer = ts.createPrinter({ removeComments: true });
 const vitestPackageFile = path.join(toolRoot, 'src/frontend/node_modules/vitest/package.json');
+const sourceMapFile = path.join(toolRoot, 'src/frontend/node_modules/@vitest/utils/dist/source-map.js');
+const { parseErrorStacktrace } = await import(new URL('../../src/frontend/node_modules/@vitest/utils/dist/source-map.js', import.meta.url));
 
 export const frontendVitestNativeMaterialSchema = 'fsusblog.frontend-vitest-native-material.v1';
 
@@ -341,6 +343,7 @@ export async function prepareFrontendVitestOutcomeRun({ root, configFile, files,
         tools: { astDigest: sha256(regular(astFile)), nodeDigest: sha256(regular(process.execPath)),
             runnerDigest: sha256(regular(runnerFile)), reporterDigest: sha256(regular(reporterFile)), bridgeDigest: sha256(regular(moduleFile)),
             vitestPackageDigest: sha256(regular(vitestPackageFile)),
+            sourceMapDigest: sha256(regular(sourceMapFile)),
             vitestVersion, typescriptVersion: ts.version }, qualificationEligible: false });
     fs.writeFileSync(path.join(outputRoot, 'prepared.json'), JSON.stringify(prepared, null, 4), { flag: 'wx', mode: 0o444 });
     return prepared;
@@ -352,7 +355,7 @@ function validatePrepared(prepared)
     requireValue(prepared.schema === 'fsusblog.frontend-vitest-held-run.v1' && prepared.qualificationEligible === false, 'unsupported or promoted prepared material');
     equal(holdSources(prepared.root, prepared.files, prepared.configFile), prepared.heldSource, 'actual selected source');
     for (const [key, file] of [['astDigest', astFile], ['nodeDigest', process.execPath], ['runnerDigest', runnerFile],
-        ['reporterDigest', reporterFile], ['bridgeDigest', moduleFile], ['vitestPackageDigest', vitestPackageFile]])
+        ['reporterDigest', reporterFile], ['bridgeDigest', moduleFile], ['vitestPackageDigest', vitestPackageFile], ['sourceMapDigest', sourceMapFile]])
     {
         equal(sha256(regular(file)), prepared.tools[key], `held ${key}`);
     }
@@ -378,6 +381,58 @@ export async function captureFrontendVitestNativeMaterial(prepared, outputRoot)
     const material = harvestFrontendVitestNativeMaterial(prepared, outputRoot);
     fs.writeFileSync(path.join(outputRoot, 'native-material.json'), JSON.stringify(material, null, 4), { flag: 'wx', mode: 0o444 });
     return material;
+}
+
+function assertionProgress(prepared, binding, execution)
+{
+    const snapshot = execution.callback;
+    const calls = snapshot?.assertionCalls;
+    const failed = new Set();
+    const failureLocations = [];
+    const issues = [];
+    const source = repositoryFile(prepared.root, binding.source);
+    for (const [errorIndex, error] of (snapshot?.result.errors ?? []).entries())
+    {
+        if (errorIndex < execution.errorCountBeforeTry)
+        {
+            continue;
+        }
+        // Use the original parser's structured frames, never an error-message
+        // classification. Source locations locate the already planned assertion.
+        const frames = parseErrorStacktrace(structuredClone(error));
+        const matches = [];
+        for (const [assertionIndex, assertion] of binding.assertions.entries())
+        {
+            const span = assertion.location;
+            const frame = frames.find((item) => path.resolve(item.file) === source
+                && (item.line > span.start.line || item.line === span.start.line && item.column >= span.start.column)
+                && (item.line < span.end.line || item.line === span.end.line && item.column < span.end.column));
+            if (frame)
+            {
+                matches.push({ assertionIndex, frame });
+            }
+        }
+        if (matches.length !== 1 || matches[0].assertionIndex >= calls)
+        {
+            issues.push('native-error-has-no-exact-called-source-assertion');
+            continue;
+        }
+        failed.add(matches[0].assertionIndex);
+        failureLocations.push({ assertionId: binding.assertionIds[matches[0].assertionIndex],
+            errorIndex, frame: matches[0].frame });
+    }
+    const supported = snapshot !== null && Number.isSafeInteger(calls) && calls >= 0
+        && calls <= binding.assertionIds.length && issues.length === 0 && !binding.options.concurrent;
+    const skipped = snapshot?.result.pending === true || snapshot?.result.state === 'skip';
+    if (!supported)
+    {
+        issues.push('native-assertion-progress-remains-unbound');
+    }
+    return { retry: execution.retry, repeat: execution.repeat, errorCountBeforeTry: execution.errorCountBeforeTry, callback: snapshot,
+        terminal: execution.terminal, failureLocations, bindingIssues: issues,
+        assertions: binding.assertionIds.map((id, index) => ({ id,
+            status: !supported ? 'unknown' : failed.has(index) ? 'failed'
+                : index < calls ? 'passed' : skipped ? 'skipped' : 'blocked' })) };
 }
 
 /** Harvest only observed events; absence after a real abort remains explicitly blocked. */
@@ -439,6 +494,7 @@ export function harvestFrontendVitestNativeMaterial(prepared, outputRoot, proces
         requireValue(state === undefined || ['passed', 'failed', 'skipped', 'pending'].includes(state), 'unknown native terminal state');
         const status = { passed: 'passed', failed: 'failed', skipped: 'skipped' }[state] ?? 'blocked';
         const calls = actual?.observation?.assertionCalls ?? null;
+        const executions = (actual?.observation?.executions ?? []).map((execution) => assertionProgress(prepared, binding, execution));
         const issues = [];
         if (binding.options.concurrent)
         {
@@ -458,9 +514,16 @@ export function harvestFrontendVitestNativeMaterial(prepared, outputRoot, proces
         {
             issues.push('dynamic-skip-after-start-needs-executed-skip-contract');
         }
+        if (executions.some((execution) => execution.callback?.result.state === 'fail'
+            || execution.callback?.result.errors.length > 0 || execution.terminal?.result.state === 'fail'
+            || execution.terminal?.result.errors.length > 0))
+        {
+            issues.push('original-execution-failure-retained-before-native-terminal-rewrite');
+        }
         return { testId: binding.testId, suiteId: binding.suiteId, taskId: binding.taskId,
             status, executed, assertionIds: binding.assertionIds,
-            assertionCalls: calls, native: actual ?? null, bindingIssues: issues };
+            assertionCalls: calls, executions, firstExecution: executions[0] ?? null,
+            native: actual ?? null, bindingIssues: issues };
     });
     requireValue(results.size === tests.filter((item) => item.native !== null).length, 'extra native terminal result');
     return sealContentDigest({ schema: frontendVitestNativeMaterialSchema, preparedDigest: prepared.contentDigest,

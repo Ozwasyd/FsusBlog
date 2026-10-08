@@ -4,10 +4,13 @@ import { sealContentDigest } from './attempt-provenance.mjs';
 
 function nativeCase(test)
 {
+    const diagnostic = test.diagnostic();
     return { taskId: test.id, source: test.module.moduleId, name: test.name,
         location: test.location ?? null, parent: { taskId: test.parent.id,
             location: test.parent.location ?? null, name: test.parent.name ?? null },
-        options: test.options, result: test.result(), observation: test.meta().fsusOutcomeObservation ?? null };
+        options: test.options, result: test.result(), observation: test.meta().fsusOutcomeObservation ?? null,
+        nativeCounters: diagnostic === undefined ? null
+            : { retryCount: diagnostic.retryCount, repeatCount: diagnostic.repeatCount } };
 }
 
 export function nativeModule(module)
