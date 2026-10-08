@@ -14,6 +14,7 @@ public sealed class AuthoringPropertyContributionTests
     private static readonly DateTimeOffset s_now = new(2026, 10, 8, 0, 0, 0, TimeSpan.Zero);
     private static readonly ArticlePropertyDefinitionOwner s_owner = new(73, "site-a");
     private static readonly Guid s_definitionId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+    private static readonly Guid s_optionId = Guid.Parse("00000000-0000-0000-0000-000000000002");
 
     [Fact]
     public async Task Read_UsesExplicitOwnerAndReturnsOnlyRegisteredTypedValueWithoutWriting()
@@ -49,6 +50,31 @@ public sealed class AuthoringPropertyContributionTests
         Assert.False(result.CoreValueCurrent);
         Assert.Equal(ArticlePropertyValueReconciliationStatus.DefinitionInactive, result.Status);
         Assert.IsType<ArticlePropertyTextValue>(result.Value!.Value);
+        Assert.Equal(0, f.Values.Writes);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Read_RejectsEmptySingleSelectIdentityEvenWhenDefinitionIsInactive(bool inactive)
+    {
+        Fixture f = CreateSingleSelect(Guid.Empty, inactive);
+        ArticlePropertyDefinitionIntegrityException error = await Assert.ThrowsAsync<ArticlePropertyDefinitionIntegrityException>(
+            () => f.Adapter.ReadAsync(f.Binding));
+        Assert.Equal("article_property_value_storage_options_invalid", error.Message);
+        Assert.Equal(1, f.Values.Reads);
+        Assert.Equal(0, f.Values.Writes);
+    }
+
+    [Fact]
+    public async Task Read_InactiveSingleSelectRetainsHistoricalTypedValueWithoutEnablingEditor()
+    {
+        Fixture f = CreateSingleSelect(s_optionId, inactive: true);
+        AuthoringPropertyReadProjection result = await f.Adapter.ReadAsync(f.Binding);
+        Assert.False(result.CoreValueCurrent);
+        Assert.Equal(ArticlePropertyValueReconciliationStatus.DefinitionInactive, result.Status);
+        Assert.Equal(s_optionId, Assert.IsType<ArticlePropertySingleSelectValue>(result.Value!.Value).OptionId);
+        Assert.Equal(1, f.Values.Reads);
         Assert.Equal(0, f.Values.Writes);
     }
 
@@ -281,6 +307,33 @@ public sealed class AuthoringPropertyContributionTests
         var admission = new Admission();
         var binding = new AuthoringPropertyReadBinding(type.TypeId, 42, s_owner, 8, 11, 1, "request:one", "runtime:one", 3, "grant:one", s_now.AddSeconds(10));
         return new(new(values, registry, admission, new Clock()), registry, values, admission, binding, read, type);
+    }
+
+    private static Fixture CreateSingleSelect(Guid optionId, bool inactive)
+    {
+        Fixture original = Create(inactive: inactive);
+        ArticlePropertyDefinition definition = original.Read.Definitions[0] with
+        {
+            ValueType = ArticlePropertyValueType.SingleSelect,
+            Constraints = new(),
+            Options = [new(s_optionId, "Historical option", 0,
+                inactive ? ArticlePropertyOptionStatus.Deprecated : ArticlePropertyOptionStatus.Active,
+                [new("en", "Historical option")])]
+        };
+        definition = definition with
+        {
+            ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(definition)
+        };
+        AuthoringPropertyTypeContribution type = original.Type with
+        {
+            DefinitionDigest = definition.ContentDigest,
+            StorageKind = ArticlePropertyValueType.SingleSelect,
+            EditorRole = AuthoringPropertyEditorRole.SingleSelect
+        };
+        var registry = new AuthoringPropertyTypeRegistry(Extensions([]), [type]);
+        ArticlePropertyValueReadModel read = Read(definition, new ArticlePropertySingleSelectValue(optionId));
+        var values = new Values { Result = _ => Task.FromResult(read) };
+        return new(new(values, registry, original.Admission, new Clock()), registry, values, original.Admission, original.Binding, read, type);
     }
 
     private static ArticlePropertyValueReadModel Read(ArticlePropertyDefinition definition, ArticlePropertyTypedValue? value,
