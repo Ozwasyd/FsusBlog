@@ -15,8 +15,7 @@
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/architecture/comment-command-boundary.md",
-                "docs/testing.md"
+                "docs/architecture/comment-command-boundary.md"
             ],
             "reason": "Preserve the documented external configuration and generated-section identifiers in the maintained command and testing boundaries."
         }
