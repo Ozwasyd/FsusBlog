@@ -41,3 +41,32 @@ cleanup. A retry requires a new cohort and all three rounds. Until those APIs an
 verified aggregate/current-run materials are available, these source contracts do
 not create cohorts, run producers, seal qualification or expose publish credentials.
 Global matrix registration and local/CI terminal acceptance remain with their owners.
+
+## Planning and comparison material
+
+`prepareQualificationPlanMaterial()` derives exactly three resource namespaces,
+disjoint HOME/TMP/cache/runtime roots and bounded port sets. Every ordinal references
+the same immutable build, replay, temporal, envelope and fixture inputs. Its required
+authority commands, verifier, receipt schema, locator/output keys and required IDs
+come directly from the catalog, with each dynamic requirement repeated three times.
+Recomputation rejects resealed omissions, resource collisions and per-round replans.
+It performs no process launch, resource allocation or runtime write.
+
+This is planning material with `requires-verified-cohort-and-sealed-producer-dag`
+admission status. The upstream candidate/ledger verifier and canonical producer DAG
+must still admit it and supply exact dependencies, finalizer/outcome ordering and
+current-run command bindings. It is not a runnable sealed plan or an isolation proof.
+The cohort identity/refs in controlled tests are synthetic contract fixtures.
+
+`compareQualificationSemantics()` consumes exactly three ordered normalized data
+records with distinct run IDs. It compares the aggregate fingerprint, semantic state,
+semantic artifacts and failure topology exactly, without a majority or last-green
+rule. It uses the existing canonical digest function and does not normalize producer
+receipts or reinterpret volatile fields. Its output is explicitly `comparisonOnly`;
+even equality cannot grant qualification or publish authorization. The independent
+verifier must first check the complete candidate ledger, actual aggregate/producer
+refs, identity, membership, coverage, cleanup, chronology and attempt eligibility.
+
+```bash
+node --test tests/tools/release-candidate-qualification-plan.test.mjs tests/tools/release-candidate-qualification-comparison.test.mjs
+```
