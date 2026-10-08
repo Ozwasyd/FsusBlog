@@ -1,0 +1,458 @@
+using System.Collections.Immutable;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Xml;
+using System.Xml.Linq;
+
+namespace FsusBlog.Server.Services.DocumentExport;
+
+/// <summary>Verified EPUB facts for the existing provider receipt owner; this is not a second receipt authority.</summary>
+public sealed record EpubPackageValidation(
+    string ValidatorIdentity,
+    string ChapterPolicy,
+    string OutputDigest,
+    string SemanticDigest,
+    long OutputBytes,
+    int ChapterCount,
+    int NavigationCount,
+    int ResourceCount,
+    ImmutableArray<string> ObservedFeatures,
+    ImmutableArray<string> Warnings);
+
+/// <summary>
+/// Independently validates actual ZIP entries, XML structure, resource integrity,
+/// security, navigation and semantic content against the exact frozen authorities.
+/// A successful external tool exit cannot substitute for these checks.
+/// </summary>
+public static class DocumentExportEpubPackageValidator
+{
+    private static readonly XNamespace s_xhtml = "http://www.w3.org/1999/xhtml";
+    private static readonly XNamespace s_opf = "http://www.idpf.org/2007/opf";
+    private static readonly XNamespace s_dc = "http://purl.org/dc/elements/1.1/";
+    private static readonly XNamespace s_epub = "http://www.idpf.org/2007/ops";
+    private static readonly XNamespace s_svg = "http://www.w3.org/2000/svg";
+    private static readonly HashSet<string> s_elements = new(StringComparer.Ordinal)
+    {
+        "html", "head", "title", "link", "body", "main", "article", "nav", "h1", "h2", "h3", "h4", "h5", "h6",
+        "p", "div", "span", "section", "aside", "blockquote", "ul", "ol", "li", "dl", "dt", "dd", "pre", "code",
+        "kbd", "samp", "strong", "em", "b", "i", "u", "s", "del", "ins", "mark", "small", "sup", "sub", "a", "img",
+        "figure", "figcaption", "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "hr", "br", "details",
+        "summary", "abbr", "time", "q", "cite"
+    };
+    private static readonly HashSet<string> s_svgElements = new(StringComparer.Ordinal)
+    {
+        "svg", "g", "path", "line", "polyline", "polygon", "circle", "ellipse", "rect", "text", "tspan", "title", "desc"
+    };
+
+    /// <summary>Rejects invalid, corrupt, unsupported or tampered package bytes; never reads host files or network resources.</summary>
+    public static EpubPackageValidation Validate(byte[] bytes, DocumentExportFrozenInput input,
+        DocumentExportRendererResponse response, EpubPublicationMetadata metadata,
+        DocumentExportResourceBudgets budgets, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bytes);
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(response);
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(budgets);
+        cancellationToken.ThrowIfCancellationRequested();
+        DocumentExportContractValidator.Validate(input);
+        metadata.Validate(input);
+        SelfContainedHtmlDocumentExportProvider.ValidateRendererResponse(response, input);
+        if (response.Title != metadata.Title || response.ObservedFeatures.IsDefault
+            || response.ObservedFeatures.Distinct(StringComparer.Ordinal).Count() != response.ObservedFeatures.Length
+            || response.ObservedFeatures.Any(feature => !DocumentExportContractCatalog.FeatureIds.Contains(feature, StringComparer.Ordinal)))
+        {
+            throw new InvalidDataException("EPUB renderer feature or title identity is invalid.");
+        }
+        DocumentExportResourceBudgets declared = DocumentExportContractCatalog.RequireProvider("epub").Budgets;
+        if (budgets.MaxOutputBytes <= 0 || budgets.MaxOutputBytes > declared.MaxOutputBytes
+            || budgets.MaxFileCount <= 0 || budgets.MaxFileCount > declared.MaxFileCount
+            || budgets.MaxFileBytes <= 0 || budgets.MaxFileBytes > declared.MaxFileBytes
+            || budgets.MaxInputBytes <= 0 || budgets.MaxInputBytes > declared.MaxInputBytes
+            || Encoding.UTF8.GetByteCount(response.HtmlFragment) > budgets.MaxInputBytes)
+        {
+            throw new DocumentExportBudgetExceededException("EPUB validation limits exceed the registered budgets.", "resource-budget");
+        }
+        Dictionary<string, ReadOnlyMemory<byte>> entries = EpubZipValidation.Read(bytes, budgets, cancellationToken);
+        var expectedPaths = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "mimetype", "META-INF/container.xml", "EPUB/package.opf", "EPUB/nav.xhtml", "EPUB/chapter-0001.xhtml", "EPUB/reading.css"
+        };
+        var resources = new Dictionary<string, DocumentExportAsset>(StringComparer.Ordinal);
+        foreach (DocumentExportAsset asset in input.Assets)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string extension = asset.Role == "font" && asset.MediaType == "font/woff2" ? "woff2"
+                : asset.Role == "image" && asset.MediaType == "image/png" ? "png"
+                : throw new InvalidDataException("EPUB resource MIME has no qualified decoder.");
+            string path = $"EPUB/resources/r-{asset.Sha256[7..]}.{extension}";
+            expectedPaths.Add(path);
+            if (!entries.TryGetValue(path, out ReadOnlyMemory<byte> content)
+                || !content.Span.SequenceEqual(asset.Bytes.AsSpan())
+                || DocumentExportDigest.ComputeBytes(content.Span) != asset.Sha256)
+            {
+                throw new InvalidDataException("EPUB resource bytes are missing, corrupt or not frozen.");
+            }
+            EpubResourceValidation.Validate(asset, budgets.MaxFileBytes, cancellationToken);
+            resources.TryAdd(path, asset);
+        }
+        if (!expectedPaths.SetEquals(entries.Keys))
+        {
+            throw new InvalidDataException("EPUB contains missing or unowned entries.");
+        }
+        XElement container = Parse(entries["META-INF/container.xml"], budgets.MaxFileBytes, cancellationToken);
+        XNamespace containerNamespace = "urn:oasis:names:tc:opendocument:xmlns:container";
+        XElement expectedContainer = new(containerNamespace + "container", new XAttribute("version", "1.0"),
+            new XElement(containerNamespace + "rootfiles", new XElement(containerNamespace + "rootfile",
+                new XAttribute("full-path", "EPUB/package.opf"), new XAttribute("media-type", "application/oebps-package+xml"))));
+        RequireEqual(container, expectedContainer, "container");
+        XElement package = Parse(entries["EPUB/package.opf"], budgets.MaxFileBytes, cancellationToken);
+        ValidatePackage(package, metadata, resources);
+        XElement chapter = Parse(entries["EPUB/chapter-0001.xhtml"], budgets.MaxFileBytes, cancellationToken);
+        XElement navigation = Parse(entries["EPUB/nav.xhtml"], budgets.MaxFileBytes, cancellationToken);
+        var documents = new Dictionary<string, XElement>(StringComparer.Ordinal)
+        {
+            ["EPUB/chapter-0001.xhtml"] = chapter,
+            ["EPUB/nav.xhtml"] = navigation
+        };
+        foreach ((string path, XElement document) in documents)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ValidateDocument(path, document, metadata, entries, documents, cancellationToken);
+        }
+        XElement article = chapter.Element(s_xhtml + "body")?.Element(s_xhtml + "main")?.Element(s_xhtml + "article")
+            ?? throw new InvalidDataException("EPUB has no semantic reading article.");
+        EpubXmlBudget.Validate("<article>" + response.HtmlFragment + "</article>", budgets.MaxInputBytes, cancellationToken);
+        byte[] sanitized = DocumentExportHtmlSanitizer.Sanitize(response.HtmlFragment, input.Assets, Math.Min(budgets.MaxOutputBytes, EpubXmlBudget.MaximumBytes));
+        XElement expectedArticle = Parse(Encoding.UTF8.GetBytes("<article>" + Encoding.UTF8.GetString(sanitized) + "</article>"), budgets.MaxOutputBytes, cancellationToken);
+        foreach (XElement element in expectedArticle.DescendantsAndSelf())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (element.Name.Namespace == XNamespace.None)
+            {
+                element.Name = s_xhtml + element.Name.LocalName;
+            }
+            string? role = (string?)element.Attribute("role");
+            if (role is "doc-noteref" or "doc-footnote")
+            {
+                element.SetAttributeValue(s_epub + "type", role == "doc-noteref" ? "noteref" : "footnote");
+            }
+            if (element.Name == s_xhtml + "img")
+            {
+                DocumentExportAsset asset = input.Assets.Single(asset => asset.AssetId == (string?)element.Attribute("data-asset-id"));
+                element.SetAttributeValue("src", $"resources/r-{asset.Sha256[7..]}.png");
+                element.Attribute("data-asset-id")!.Remove();
+            }
+        }
+        expectedArticle.SetAttributeValue("id", "epub-reading-start");
+        RequireEqual(article, expectedArticle, "canonical content order, references and semantic markup");
+        XElement expectedBody = new(s_xhtml + "body", new XElement(s_xhtml + "main", new XElement(article)));
+        RequireEqual(chapter.Element(s_xhtml + "body")!, expectedBody, "chapter body");
+        ValidateNavigation(navigation, metadata);
+        bool svg = article.Descendants().Any(element => element.Name.Namespace == s_svg);
+        XElement chapterItem = package.Element(s_opf + "manifest")!.Elements(s_opf + "item")
+            .Single(item => (string?)item.Attribute("id") == "chapter-0001");
+        if ((string?)chapterItem.Attribute("properties") != (svg ? "svg" : null))
+        {
+            throw new InvalidDataException("EPUB SVG manifest property does not describe actual content.");
+        }
+        ValidateStyle(entries["EPUB/reading.css"], input, budgets.MaxOutputBytes);
+        string[] warnings = ["chapters:fixed-single-chapter-no-heading-facts", "fonts:reader-glyph-coverage-not-certified"];
+        string semanticDigest = DocumentExportDigest.Compute(entries.OrderBy(entry => entry.Key, StringComparer.Ordinal)
+            .Select(entry => new { Path = entry.Key, Digest = DocumentExportDigest.ComputeBytes(entry.Value.Span), Bytes = entry.Value.Length }).ToArray());
+        return new EpubPackageValidation(EpubPackageBuilder.ValidatorIdentity, EpubPackageBuilder.ChapterPolicy,
+            DocumentExportDigest.ComputeBytes(bytes), semanticDigest, bytes.LongLength, 1, 1, resources.Count,
+            response.ObservedFeatures.OrderBy(feature => feature, StringComparer.Ordinal).ToImmutableArray(), warnings.ToImmutableArray());
+    }
+
+    private static void ValidatePackage(XElement package, EpubPublicationMetadata metadata,
+        IReadOnlyDictionary<string, DocumentExportAsset> resources)
+    {
+        if (package.Name != s_opf + "package")
+        {
+            throw new InvalidDataException("EPUB package namespace is invalid.");
+        }
+        RequireAttributes(package, new Dictionary<XName, string>
+        {
+            ["version"] = "3.0",
+            ["unique-identifier"] = "publication-id",
+            ["dir"] = metadata.Direction,
+            [XNamespace.Xml + "lang"] = metadata.Language,
+            ["prefix"] = "schema: http://schema.org/"
+        });
+        if (!package.Elements().Select(element => element.Name).SequenceEqual(new[] { s_opf + "metadata", s_opf + "manifest", s_opf + "spine" }))
+        {
+            throw new InvalidDataException("EPUB package sections are missing, duplicated or reordered.");
+        }
+        RequireElementChildren(package);
+        XElement meta = package.Element(s_opf + "metadata")!;
+        var expectedMetadata = new XElement(s_opf + "metadata",
+            new XElement(s_dc + "identifier", new XAttribute("id", "publication-id"), metadata.Identifier),
+            new XElement(s_dc + "title", metadata.Title), new XElement(s_dc + "language", metadata.Language),
+            metadata.Authors.Select(author => new XElement(s_dc + "creator", author)),
+            new XElement(s_opf + "meta", new XAttribute("property", "dcterms:modified"), metadata.Modified),
+            new XElement(s_opf + "meta", new XAttribute("property", "schema:accessMode"), "textual"),
+            resources.Values.Any(asset => asset.Role == "image")
+                ? new XElement(s_opf + "meta", new XAttribute("property", "schema:accessMode"), "visual") : null,
+            new XElement(s_opf + "meta", new XAttribute("property", "schema:accessibilityFeature"), "tableOfContents"),
+            new XElement(s_opf + "meta", new XAttribute("property", "schema:accessibilityFeature"), "readingOrder"),
+            new XElement(s_opf + "meta", new XAttribute("property", "schema:accessibilitySummary"),
+                "Single canonical chapter with navigation, preserved semantic content and frozen image alternatives. Reader font coverage is not certified."));
+        RequireEqual(meta, expectedMetadata, "frozen metadata and accessibility facts");
+        XElement manifest = package.Element(s_opf + "manifest")!;
+        RequireAttributes(manifest, new Dictionary<XName, string>());
+        RequireElementChildren(manifest);
+        var expected = new Dictionary<string, (string Id, string Mime)>(StringComparer.Ordinal)
+        {
+            ["nav.xhtml"] = ("nav", "application/xhtml+xml"),
+            ["chapter-0001.xhtml"] = ("chapter-0001", "application/xhtml+xml"),
+            ["reading.css"] = ("reading-style", "text/css")
+        };
+        foreach ((string path, DocumentExportAsset asset) in resources)
+        {
+            expected.Add(path[5..], ("r-" + asset.Sha256[7..], asset.MediaType));
+        }
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (XElement item in manifest.Elements())
+        {
+            string href = (string?)item.Attribute("href") ?? string.Empty;
+            if (item.Name != s_opf + "item" || !expected.TryGetValue(href, out var fact)
+                || !seen.Add(href) || !ids.Add(fact.Id) || item.HasElements || item.Value.Length != 0)
+            {
+                throw new InvalidDataException("EPUB manifest ID, MIME, resource or closure is invalid.");
+            }
+            var attributes = new Dictionary<XName, string> { ["id"] = fact.Id, ["href"] = href, ["media-type"] = fact.Mime };
+            if (href == "nav.xhtml")
+            {
+                attributes.Add("properties", "nav");
+            }
+            else if (href == "chapter-0001.xhtml" && item.Attribute("properties") is not null)
+            {
+                attributes.Add("properties", "svg");
+            }
+            RequireAttributes(item, attributes);
+        }
+        if (!seen.SetEquals(expected.Keys))
+        {
+            throw new InvalidDataException("EPUB manifest does not cover all publication resources.");
+        }
+        RequireEqual(package.Element(s_opf + "spine")!, new XElement(s_opf + "spine",
+            new XAttribute("page-progression-direction", metadata.Direction),
+            new XElement(s_opf + "itemref", new XAttribute("idref", "chapter-0001"))), "spine order");
+    }
+
+    private static void ValidateDocument(string path, XElement document, EpubPublicationMetadata metadata,
+        IReadOnlyDictionary<string, ReadOnlyMemory<byte>> entries, IReadOnlyDictionary<string, XElement> documents, CancellationToken cancellationToken)
+    {
+        if (document.Name != s_xhtml + "html"
+            || !document.Elements().Select(element => element.Name).SequenceEqual(new[] { s_xhtml + "head", s_xhtml + "body" }))
+        {
+            throw new InvalidDataException("EPUB XHTML root or head/body closure is invalid.");
+        }
+        RequireAttributes(document, new Dictionary<XName, string>
+        {
+            ["lang"] = metadata.Language,
+            [XNamespace.Xml + "lang"] = metadata.Language,
+            ["dir"] = metadata.Direction
+        });
+        RequireElementChildren(document);
+        RequireEqual(document.Element(s_xhtml + "head")!, new XElement(s_xhtml + "head",
+            new XElement(s_xhtml + "title", metadata.Title),
+            new XElement(s_xhtml + "link", new XAttribute("rel", "stylesheet"),
+                new XAttribute("type", "text/css"), new XAttribute("href", "reading.css"))), "XHTML head");
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        var documentIds = documents.ToDictionary(item => item.Key, item => item.Value.DescendantsAndSelf()
+            .Attributes("id").Select(attribute => attribute.Value).ToHashSet(StringComparer.Ordinal), StringComparer.Ordinal);
+        foreach (XElement element in document.DescendantsAndSelf())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (element.Name.Namespace == s_xhtml ? !s_elements.Contains(element.Name.LocalName)
+                : element.Name.Namespace != s_svg || !s_svgElements.Contains(element.Name.LocalName))
+            {
+                throw new InvalidDataException("EPUB contains active or unknown markup.");
+            }
+            if (element.Attribute("id") is XAttribute id
+                && (id.Value.Length == 0 || id.Value.Length > 160
+                    || !id.Value.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or ':' or '.')
+                    || !ids.Add(id.Value)))
+            {
+                throw new InvalidDataException("EPUB XHTML IDs are malformed or duplicated.");
+            }
+            foreach (XAttribute attribute in element.Attributes().Where(attribute => !attribute.IsNamespaceDeclaration))
+            {
+                string name = attribute.Name.LocalName;
+                if (name.StartsWith("on", StringComparison.OrdinalIgnoreCase)
+                    || name is "style" or "srcset" or "srcdoc" or "formaction" or "poster" or "base" or "data-asset-id"
+                    || attribute.Name.Namespace != XNamespace.None
+                        && attribute.Name != XNamespace.Xml + "lang" && attribute.Name != s_epub + "type"
+                    || attribute.Value.Any(char.IsControl))
+                {
+                    throw new InvalidDataException("EPUB contains active, private or unknown attributes.");
+                }
+            }
+            if (element.Name == s_xhtml + "img" && (element.Attribute("alt") is null
+                || string.IsNullOrWhiteSpace((string?)element.Attribute("alt")) && (string?)element.Attribute("role") != "presentation"))
+            {
+                throw new InvalidDataException("EPUB image lacks a frozen accessible alternative.");
+            }
+            if (element.Name == s_xhtml + "a" && string.IsNullOrWhiteSpace(element.Value)
+                && string.IsNullOrWhiteSpace((string?)element.Attribute("aria-label"))
+                && !element.Descendants(s_xhtml + "img").Any(image => !string.IsNullOrWhiteSpace((string?)image.Attribute("alt"))))
+            {
+                throw new InvalidDataException("EPUB link has no accessible text.");
+            }
+        }
+        foreach (XElement element in document.DescendantsAndSelf())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (string attributeName in new[] { "aria-describedby", "aria-labelledby", "headers" })
+            {
+                if (element.Attribute(attributeName) is XAttribute attribute
+                    && attribute.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Any(id => !ids.Contains(id)))
+                {
+                    throw new InvalidDataException("EPUB accessibility or table IDREF is unresolved.");
+                }
+            }
+            foreach (string attributeName in new[] { "fill", "stroke" })
+            {
+                if (element.Attribute(attributeName) is XAttribute paint && paint.Value.Contains("url(", StringComparison.OrdinalIgnoreCase)
+                    && (!paint.Value.StartsWith("url(#", StringComparison.Ordinal) || !paint.Value.EndsWith(')')
+                        || !ids.Contains(paint.Value[5..^1])))
+                {
+                    throw new InvalidDataException("EPUB SVG resource reference is unresolved or remote.");
+                }
+            }
+            foreach (string attributeName in new[] { "href", "src" })
+            {
+                if (element.Attribute(attributeName) is not XAttribute reference)
+                {
+                    continue;
+                }
+                bool externalLink = element.Name == s_xhtml + "a" && attributeName == "href"
+                    && Uri.TryCreate(reference.Value, UriKind.Absolute, out Uri? uri)
+                    && uri.Scheme is "https" or "http" && uri.UserInfo.Length == 0;
+                if (externalLink)
+                {
+                    if ((string?)element.Attribute("rel") != "noopener noreferrer external" || (string?)element.Attribute("target") != "_blank")
+                    {
+                        throw new InvalidDataException("EPUB external link safety attributes are missing.");
+                    }
+                    continue;
+                }
+                string[] parts = reference.Value.Split('#');
+                string targetPath = parts[0].Length == 0 ? path : "EPUB/" + parts[0];
+                if (parts.Length > 2 || parts.Length == 2 && parts[1].Length == 0
+                    || !entries.ContainsKey(targetPath)
+                    || attributeName == "src" && !targetPath.StartsWith("EPUB/resources/", StringComparison.Ordinal)
+                    || parts.Length == 2 && (!documentIds.TryGetValue(targetPath, out HashSet<string>? targetIds)
+                        || !targetIds.Contains(parts[1])))
+                {
+                    throw new InvalidDataException("EPUB local link or media reference is unresolved or unsafe.");
+                }
+            }
+        }
+    }
+
+    private static void ValidateNavigation(XElement document, EpubPublicationMetadata metadata)
+    {
+        RequireEqual(document.Element(s_xhtml + "body")!, new XElement(s_xhtml + "body",
+            new XElement(s_xhtml + "nav", new XAttribute(s_epub + "type", "toc"), new XAttribute("id", "toc"),
+                new XElement(s_xhtml + "h1", metadata.Title),
+                new XElement(s_xhtml + "ol", new XElement(s_xhtml + "li", new XElement(s_xhtml + "a",
+                    new XAttribute("href", "chapter-0001.xhtml#epub-reading-start"), metadata.Title)))),
+            new XElement(s_xhtml + "nav", new XAttribute(s_epub + "type", "landmarks"),
+                new XElement(s_xhtml + "h2", "Reading order"),
+                new XElement(s_xhtml + "ol", new XElement(s_xhtml + "li", new XElement(s_xhtml + "a",
+                    new XAttribute(s_epub + "type", "bodymatter"),
+                    new XAttribute("href", "chapter-0001.xhtml#epub-reading-start"), metadata.Title))))), "navigation and landmarks");
+    }
+
+    private static void ValidateStyle(ReadOnlyMemory<byte> bytes, DocumentExportFrozenInput input, long maximumBytes)
+    {
+        string expected = Encoding.UTF8.GetString(DocumentExportReadingStyleAuthority.BuildStyleBytes(input.Assets, input.ThemeProfile, maximumBytes));
+        foreach (DocumentExportAsset font in input.Assets.Where(asset => asset.Role == "font"))
+        {
+            expected = expected.Replace($"data:{font.MediaType};base64,{Convert.ToBase64String(font.Bytes.AsSpan())}",
+                $"resources/r-{font.Sha256[7..]}.woff2", StringComparison.Ordinal);
+        }
+        string actual = new UTF8Encoding(false, true).GetString(bytes.Span);
+        if (actual != expected || actual.Contains("@import", StringComparison.OrdinalIgnoreCase)
+            || Regex.Matches(actual, "url\\(([^)]+)\\)", RegexOptions.CultureInvariant)
+                .Any(match => !input.Assets.Any(asset => asset.Role == "font"
+                    && match.Groups[1].Value == $"resources/r-{asset.Sha256[7..]}.woff2")))
+        {
+            throw new InvalidDataException("EPUB CSS drifted from frozen reading styles or references remote resources.");
+        }
+    }
+
+    private static XElement Parse(ReadOnlyMemory<byte> bytes, long maximumBytes, CancellationToken cancellationToken)
+    {
+        try
+        {
+            EpubXmlBudget.Validate(new UTF8Encoding(false, true).GetString(bytes.Span), maximumBytes, cancellationToken);
+            using var source = new MemoryStream(bytes.ToArray(), writable: false);
+            using var text = new StreamReader(source, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: false);
+            using XmlReader reader = XmlReader.Create(text, new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+                MaxCharactersInDocument = maximumBytes,
+                MaxCharactersFromEntities = 0,
+                IgnoreComments = false,
+                IgnoreProcessingInstructions = false
+            });
+            XDocument document = XDocument.Load(reader, LoadOptions.PreserveWhitespace);
+            if (document.Root is null || document.Nodes().Any(node => node != document.Root)
+                || document.Root.DescendantNodes().Any(node => node is not (XElement or XText) || node is XCData))
+            {
+                throw new InvalidDataException("EPUB XML contains prohibited document nodes.");
+            }
+            return document.Root;
+        }
+        catch (Exception exception) when (exception is XmlException or DecoderFallbackException)
+        {
+            throw new InvalidDataException("EPUB XML is malformed or not UTF-8.", exception);
+        }
+    }
+
+    private static void RequireAttributes(XElement element, IReadOnlyDictionary<XName, string> expected)
+    {
+        XAttribute[] actual = element.Attributes().Where(attribute => !attribute.IsNamespaceDeclaration).ToArray();
+        if (actual.Length != expected.Count || actual.Any(attribute => !expected.TryGetValue(attribute.Name, out string? value) || attribute.Value != value))
+        {
+            throw new InvalidDataException("EPUB package attributes are missing, extra or drifted.");
+        }
+    }
+
+    private static void RequireElementChildren(XElement element)
+    {
+        if (element.Nodes().Any(node => node is not XElement))
+        {
+            throw new InvalidDataException("EPUB structural containers contain unowned text or document nodes.");
+        }
+    }
+
+    private static void RequireEqual(XElement actual, XElement expected, string purpose)
+    {
+        static XElement Normalize(XElement source)
+        {
+            var clone = new XElement(source);
+            foreach (XElement element in clone.DescendantsAndSelf())
+            {
+                foreach (XAttribute attribute in element.Attributes().Where(attribute => attribute.IsNamespaceDeclaration).ToArray())
+                {
+                    attribute.Remove();
+                }
+                XAttribute[] ordered = element.Attributes().OrderBy(attribute => attribute.Name.ToString(), StringComparer.Ordinal).ToArray();
+                element.RemoveAttributes();
+                element.Add(ordered);
+            }
+            return clone;
+        }
+        if (!XNode.DeepEquals(Normalize(actual), Normalize(expected)))
+        {
+            throw new InvalidDataException($"EPUB {purpose} drifted from its closed frozen policy.");
+        }
+    }
+}
