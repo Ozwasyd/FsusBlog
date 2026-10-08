@@ -4,7 +4,8 @@
         {
             "id": "environment-variable",
             "paths": [
-                "src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs"
+                "src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs",
+                "tools/test/correctness-attempt-migration.mjs"
             ],
             "reason": "Preserve registered process-environment names on the existing projection owner while clarifying only XML replacement ordering and clock-relative expiry. Current-base/candidate Roslyn token, AST, signature and XML-stripped-byte equivalence confirms that executable source and external names are unchanged."
         },
@@ -12,7 +13,9 @@
             "id": "json-wire-key",
             "paths": [
                 "tests/backend/packages.lock.json",
-                "tests/governance/test-lifecycle-registry.json"
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "Preserve external NuGet and governance JSON keys while consuming only coordinator-approved supporting commits. Backend lock bytes, every distinct static ID and test file, retention replacement-edge unions, assertion mappings and frozen before evidence retain their supplied contracts; no internal renaming or new exception policy is introduced."
         }
