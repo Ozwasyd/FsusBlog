@@ -34,3 +34,10 @@ test('generated risk and challenge projections reject an omitted challenge wire 
     assert.throws(() => renderSecurityRiskPolicyCatalog(catalog, mutated), /not exhaustive/u);
     assert.notEqual(renderSecurityRiskPolicyCatalog(catalog, challenge), renderSecurityRiskPolicyCatalog(catalog.replace('BlockScore = 90;', 'BlockScore = 91;'), challenge));
 });
+
+test('risk options keep the canonical response under generated route authority', () =>
+{
+    const source = fs.readFileSync(new URL('../../src/frontend/src/api/security.ts', import.meta.url), 'utf8');
+    assert.match(source, /getRiskControlOptions\s*=\s*[^;]+requestSecurityBinary<SecurityRiskPolicy>\(\{ operationId: 'binary_get_admin_security_risk_control_options' \}/u);
+    assert.doesNotMatch(source, /SecurityRiskPolicySnapshotV2|requestSecurityBinary<SecurityRiskPolicy>\(['"]/u);
+});
