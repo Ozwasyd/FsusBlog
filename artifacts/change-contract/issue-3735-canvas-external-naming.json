@@ -68,7 +68,12 @@
                 "tools/contracts/generate-article-canvas-link-golden.mjs",
                 "tools/contracts/generate-article-canvas-link-wire.mjs",
                 "tools/test/correctness-attempt-migration.mjs",
-                "src/backend/Services/Authoring/ArticleCreateStore.cs"
+                "src/backend/Services/Authoring/ArticleCreateStore.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs",
+                "src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs"
             ],
             "reason": "Process environment spelling is external while option variables remain internal. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
         },
