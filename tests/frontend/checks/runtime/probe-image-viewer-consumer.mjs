@@ -5,11 +5,17 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-
 // Diagnostic prerequisite probe for #1892. Failures remain failures; this is
 // neither product acceptance nor permission to patch the consumer's viewer.
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const frontendRoot = path.join(repositoryRoot, 'src/frontend');
+const { resolveRuntimeBrowserTimeoutPlan } = await import(pathToFileURL(
+    path.join(repositoryRoot, 'tests/frontend/support/runtime-browser-timeout.mjs')
+).href);
+const timeoutPlan = resolveRuntimeBrowserTimeoutPlan();
+const actionTimeoutMs = Math.max(30_000, timeoutPlan.pageAuditTimeoutMs);
+const navigationTimeoutMs = Math.max(30_000, timeoutPlan.navigationTimeoutMs);
+const readinessTimeoutMs = Math.max(45_000, timeoutPlan.requestTimeoutMs * 2);
 const require = createRequire(path.join(frontendRoot, 'package.json'));
 const { renderToString } = require('@vue/server-renderer');
 const { chromium } = require('playwright');
@@ -26,7 +32,7 @@ if (!['local', 'published'].includes(mode) || args.length !== 2)
 const outputRoot = path.resolve(args[1]);
 fs.mkdirSync(outputRoot, { recursive: true });
 const digest = (file) => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-const git = (root, ...argv) => execFileSync('git', ['-C', root, ...argv], { encoding: 'utf8' }).trim();
+const git = (root, ...argv) => execFileSync('git', ['-C', root, ...argv], { encoding: 'utf8', timeout: actionTimeoutMs }).trim();
 const fixture = path.join(repositoryRoot, 'tests/frontend/fixtures/imageViewerConsumerProbe.ts');
 const report = {
     schema: 'fsusblog.image-viewer-consumer-probe.v1',
@@ -37,6 +43,7 @@ const report = {
     probeSha256: digest(fileURLToPath(import.meta.url)),
     fixtureSha256: digest(fixture),
     node: process.version,
+    timeouts: { ...timeoutPlan, actionTimeoutMs, navigationTimeoutMs, readinessTimeoutMs },
     qualificationEligible: false,
     blogAuthorities: Object.fromEntries([
         '.agents/skills/fsusblog-design-conformance/SKILL.md',
@@ -167,10 +174,13 @@ probe.app.mount('#app');`);
     browser = await chromium.launch({
         executablePath: process.env.FSUSBLOG_PROBE_CHROMIUM ?? '/usr/bin/chromium',
         headless: true,
+        timeout: Math.max(30_000, timeoutPlan.requestTimeoutMs),
         args: ['--no-sandbox']
     });
     report.browser = browser.version();
     const context = await browser.newContext({ viewport: { width: 375, height: 844 }, hasTouch: true });
+    context.setDefaultTimeout(actionTimeoutMs);
+    context.setDefaultNavigationTimeout(navigationTimeoutMs);
     page = await context.newPage();
     page.on('pageerror', (error) => errors.push(String(error)));
     page.on('console', (message) =>
@@ -180,7 +190,7 @@ probe.app.mount('#app');`);
             errors.push(message.text());
         }
     });
-    const settle = () => page.waitForFunction(() => Boolean(globalThis.window.__viewerConsumer), null, { timeout: 30000 });
+    const settle = () => page.waitForFunction(() => Boolean(globalThis.window.__viewerConsumer), null, { timeout: readinessTimeoutMs });
     const open = async () =>
     {
         if (!page.url().startsWith(url))
@@ -339,14 +349,23 @@ probe.app.mount('#app');`);
 }
 catch (error)
 {
-    report.status = 'blocked';
+    const timedOut = error.name === 'TimeoutError' || error.code === 'ETIMEDOUT';
+    report.status = timedOut ? 'failed' : 'blocked';
     report.blocker = String(error);
+    report.failure = { name: error.name, code: error.code, signal: error.signal, stack: error.stack };
+    process.exitCode = timedOut ? 1 : 2;
     if (page)
     {
-        fs.writeFileSync(path.join(outputRoot, 'blocked-document.html'), await page.content());
-        await page.screenshot({ path: path.join(outputRoot, 'blocked.png') });
+        try
+        {
+            fs.writeFileSync(path.join(outputRoot, 'blocked-document.html'), await page.content());
+            await page.screenshot({ path: path.join(outputRoot, 'blocked.png'), timeout: actionTimeoutMs });
+        }
+        catch (artifactError)
+        {
+            report.artifactError = String(artifactError);
+        }
     }
-    process.exitCode = 2;
 }
 finally
 {

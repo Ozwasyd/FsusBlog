@@ -7,6 +7,13 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url));
 const frontend = path.join(root, 'src/frontend');
+const { resolveRuntimeBrowserTimeoutPlan } = await import(path.join(root, 'tests/frontend/support/runtime-browser-timeout.mjs'));
+const timeoutPlan = resolveRuntimeBrowserTimeoutPlan();
+const actionTimeoutMs = Math.max(30_000, timeoutPlan.pageAuditTimeoutMs);
+const navigationTimeoutMs = Math.max(30_000, timeoutPlan.navigationTimeoutMs);
+const readinessTimeoutMs = Math.max(45_000, timeoutPlan.requestTimeoutMs * 2);
+// Preserve the frontend-build lane's 20-minute budget in tests/matrix.yml.
+const buildTimeoutMs = Math.max(20 * 60_000, timeoutPlan.stepDeadlineMs);
 const require = createRequire(path.join(frontend, 'package.json'));
 const { chromium } = require('playwright');
 const { preview } = require('vite');
@@ -17,7 +24,7 @@ if (!['local', 'published'].includes(mode) || !output)
 }
 const destination = path.resolve(output);
 fs.mkdirSync(destination, { recursive: true });
-const git = (directory, ...args) => execFileSync('git', ['-C', directory, ...args], { encoding: 'utf8' }).trim();
+const git = (directory, ...args) => execFileSync('git', ['-C', directory, ...args], { encoding: 'utf8', timeout: actionTimeoutMs }).trim();
 const sha = git(root, 'rev-parse', 'HEAD');
 const hash = (filename) => createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
 const report = {
@@ -25,6 +32,7 @@ const report = {
     runId: `${new Date().toISOString()}-${process.pid}`,
     mode, sha, dirty: git(root, 'status', '--porcelain'),
     qualificationEligible: false,
+    timeouts: { ...timeoutPlan, actionTimeoutMs, navigationTimeoutMs, readinessTimeoutMs, buildTimeoutMs },
     inputs: Object.fromEntries([
         'src/frontend/src/components/article/ArticleImageLightbox.vue',
         'src/frontend/src/composables/article/useArticleImageLightbox.ts',
@@ -72,6 +80,7 @@ try
     report.buildId = buildId;
     execFileSync(process.execPath, [path.join(frontend, 'node_modules/vite/bin/vite.js'), 'build', '--config', 'vite.article-lightbox-production.config.ts', '--logLevel', 'warn'], {
         cwd: frontend, env: { ...process.env, VITE_FSUSBLOG_BUILD_ID: buildId },
+        timeout: buildTimeoutMs, killSignal: 'SIGKILL',
         stdio: ['ignore', fs.openSync(path.join(destination, 'build.log'), 'w'), fs.openSync(path.join(destination, 'build-errors.log'), 'w')]
     });
     const documentPath = '/assets/__issue2379_lightbox_manual/test-fixtures/article-lightbox-production-surface.html';
@@ -95,9 +104,11 @@ try
             });
         }
     }] });
-    browser = await chromium.launch({ executablePath: '/usr/bin/chromium', headless: true, args: ['--no-sandbox'] });
+    browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_PROBE_CHROMIUM ?? '/usr/bin/chromium', headless: true, timeout: Math.max(30_000, timeoutPlan.requestTimeoutMs), args: ['--no-sandbox'] });
     report.browser = browser.version();
     page = await browser.newPage({ viewport: { width: 375, height: 844 }, hasTouch: true });
+    page.setDefaultTimeout(actionTimeoutMs);
+    page.setDefaultNavigationTimeout(navigationTimeoutMs);
     page.on('console', (message) =>
     {
         if (message.type() === 'error')
@@ -108,7 +119,7 @@ try
     page.on('pageerror', (error) => errors.push(String(error)));
     const address = server.httpServer.address();
     await page.goto(`http://127.0.0.1:${address.port}${documentPath}`);
-    await page.waitForFunction(() => globalThis.document.documentElement.dataset.articleLightboxProductionSurfaceReady === 'true');
+    await page.waitForFunction(() => globalThis.document.documentElement.dataset.articleLightboxProductionSurfaceReady === 'true', null, { timeout: readinessTimeoutMs });
     const trigger = page.locator('[data-article-lightbox-production-content] img').first();
     const dialog = page.getByRole('dialog', { name: '查看大图', exact: true });
     const close = () => dialog.getByRole('button', { name: '关闭大图', exact: true });
@@ -212,12 +223,21 @@ try
 }
 catch (error)
 {
-    report.status = 'blocked';
+    const timedOut = error.name === 'TimeoutError' || error.code === 'ETIMEDOUT';
+    report.status = timedOut ? 'failed' : 'blocked';
     report.blocker = String(error);
-    process.exitCode = 2;
+    report.failure = { name: error.name, code: error.code, signal: error.signal, stack: error.stack };
+    process.exitCode = timedOut ? 1 : 2;
     if (page)
     {
-        await page.screenshot({ path: path.join(destination, 'blocked.png') });
+        try
+        {
+            await page.screenshot({ path: path.join(destination, 'blocked.png'), timeout: actionTimeoutMs });
+        }
+        catch (artifactError)
+        {
+            report.artifactError = String(artifactError);
+        }
     }
 }
 finally
