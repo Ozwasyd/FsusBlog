@@ -245,6 +245,75 @@ describe('real Vue builder controls', () => {
         expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('服务端刷新后的查询');
     });
 
+    it.each(['query-first', 'revision-first'] as const)('recovers a clean editor, cancel focus and reopen after %s split prop orders', async order => {
+        const wrapper = builder({ submitAvailable: true });
+        const trigger = wrapper.get('[data-action="edit"]');
+        await trigger.trigger('click');
+        const latest = query();
+        latest.conditions[1]!.values = ['配对的服务端 Q8'];
+        await wrapper.setProps(order === 'query-first' ? { query: latest } : { revision: 8 });
+        await wrapper.setProps(order === 'query-first' ? { revision: 8 } : { query: latest });
+        expect(wrapper.get('input[aria-label="每页数量"]').attributes('disabled')).toBeUndefined();
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('配对的服务端 Q8');
+        await wrapper.get('[data-action="cancel"]').trigger('click');
+        const reopenedTrigger = wrapper.get('[data-action="edit"]');
+        expect(document.activeElement).toBe(reopenedTrigger.element);
+        expect(reopenedTrigger.attributes('disabled')).toBeUndefined();
+        await reopenedTrigger.trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 8, query: { ...latest, pageSize: 25 } }]]);
+    });
+
+    it.each(['query-first', 'revision-first'] as const)('preserves dirty conflict refusal and recovers after %s split prop orders', async order => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="条件 2 值 1"]').setValue('本地未提交条件');
+        const latest = query();
+        latest.conditions[1]!.values = ['配对的服务端 Q8'];
+        await wrapper.setProps(order === 'query-first' ? { query: latest } : { revision: 8 });
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        await wrapper.setProps(order === 'query-first' ? { revision: 8 } : { query: latest });
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('本地未提交条件');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        await wrapper.get('[data-action="cancel"]').trigger('click');
+        expect(document.activeElement).toBe(wrapper.get('[data-action="edit"]').element);
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('配对的服务端 Q8');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 8, query: { ...latest, pageSize: 25 } }]]);
+    });
+
+    it('refuses a query-first gap CAS even after cancel and reopen', async () => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        const latest = query();
+        latest.conditions[1]!.values = ['尚未配对的 Q8'];
+        await wrapper.setProps({ query: latest });
+        await wrapper.get('[data-action="cancel"]').trigger('click');
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        await wrapper.setProps({ revision: 8 });
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toBeUndefined();
+    });
+
+    it('accepts a complete atomic source snapshot without rewriting its revision', async () => {
+        const wrapper = builder({ submitAvailable: true });
+        const latest = query();
+        latest.conditions[1]!.values = ['原子快照 Q8'];
+        await wrapper.setProps({ revision: 8, query: latest });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 8, query: { ...latest, pageSize: 25 } }]]);
+    });
+
     it('retains dirty operands across revision conflict and refuses a stale CAS submission', async () => {
         const wrapper = builder({ submitAvailable: true });
         await wrapper.get('[data-action="edit"]').trigger('click');

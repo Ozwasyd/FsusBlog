@@ -26,6 +26,10 @@
                 role="status"
             >正在等待完整的服务端查询版本；不能将旧查询提交到新版本。</p>
             <p
+                v-else-if="queryAwaitingRevision"
+                role="status"
+            >服务端查询已更新；正在等待对应版本，暂时不能提交。</p>
+            <p
                 v-if="dirty"
                 role="status"
             >修改尚未同步到服务端。</p>
@@ -234,7 +238,7 @@ import type {
 const props = withDefaults(defineProps<{
     viewId: string;
     revision: number;
-    /** Deliver a replacement immutable query snapshot together with its revision. */
+    /** Replacement immutable query and its revision may arrive in either order. */
     query: SavedViewQueryDraft;
     definitions: SavedViewBuilderDefinitions | null;
     submitAvailable?: boolean;
@@ -259,6 +263,7 @@ const acceptedSource = ref({
 });
 let sourceQueryReference = props.query;
 const sourceReady = ref(true);
+const queryAwaitingRevision = ref(false);
 const draft = ref(cloneSavedViewDraft(props.query));
 const baseRevision = ref(props.revision);
 const baseViewId = ref(props.viewId);
@@ -276,7 +281,7 @@ const visibleConditions = computed(() => draft.value.conditions.slice(
 ));
 const availableFields = computed(() => props.definitions?.fields.slice(0, 64) ?? []);
 const canSubmit = computed(() => props.submitAvailable && editable.value
-    && !drifted.value && !['conflict', 'stale'].includes(props.commandState)
+    && !queryAwaitingRevision.value && !drifted.value && !['conflict', 'stale'].includes(props.commandState)
     && dirty.value && issues.value.length === 0);
 
 watch(() => [props.viewId, props.revision, props.query] as const, () =>
@@ -299,7 +304,14 @@ watch(() => [props.viewId, props.revision, props.query] as const, () =>
         revision: props.revision,
         query: cloneSavedViewDraft(props.query)
     };
-    sourceQueryReference = props.query;
+    // Keep the last revision-bound reference until both halves have arrived.
+    // Accepting a query-only refresh must not consume the reference needed to
+    // pair a later revision, nor permit a CAS with the old revision meanwhile.
+    if (identityChanged)
+    {
+        sourceQueryReference = props.query;
+    }
+    queryAwaitingRevision.value = !identityChanged && props.query !== sourceQueryReference;
     sourceReady.value = true;
     if (open.value && dirty.value)
     {
