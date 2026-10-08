@@ -27,10 +27,13 @@ function gatedChildren(t, currentGrant, failingPartition = null)
     const children = new Map();
     const events = [];
     let releaseAll = false;
+    let execution = null;
     const release = (id) => children.get(id)?.send('release');
     t.after(async () =>
     {
+        releaseAll = true;
         for (const child of children.values()) child.kill('SIGKILL');
+        await execution?.catch(() => {});
         await observe(() => children.size === 0);
         fs.rmSync(directory, { recursive: true, force: true });
     });
@@ -68,6 +71,7 @@ function gatedChildren(t, currentGrant, failingPartition = null)
     });
     return {
         directory, events, children, launch, release,
+        track: (running) => { execution = running; return running; },
         releaseRemaining: () =>
         {
             releaseAll = true;
@@ -84,10 +88,10 @@ for (const shrinkingResource of ['cpu', 'memory'])
         let reads = 0;
         const fixture = gatedChildren(t, () => grant);
         const admitted = () => fixture.events.filter((event) => event.type === 'admitted');
-        const running = runRollingPartitions(Array.from({ length: 8 }, (_, index) => ({ index, planningWeight: 8 - index })), [1, 1], fixture.launch, {
+        const running = fixture.track(runRollingPartitions(Array.from({ length: 8 }, (_, index) => ({ index, planningWeight: 8 - index })), [1, 1], fixture.launch, {
             initialMemoryGiBByProcess: [1, 1], potentialProcessCount: 4, potentialCpuUnits: 4, potentialMemoryGiB: 4,
             pollIntervalMs: 5, readResourceGrant: () => { reads += 1; return grant; }
-        });
+        }));
         await observe(() => admitted().length === 2);
         grant = { cpuUnits: 4, memoryGiB: 4 };
         await observe(() => admitted().length === 4);
@@ -96,7 +100,7 @@ for (const shrinkingResource of ['cpu', 'memory'])
         fixture.release(0);
         await observe(() => fixture.events.some((event) => event.type === 'terminal' && event.id === 0));
         const readsAfterTerminal = reads;
-        await observe(() => reads >= readsAfterTerminal + 5);
+        await observe(() => reads >= readsAfterTerminal + 5 || admitted().length > 4);
         assert.equal(admitted().length, 4, 'new partition must wait while active costs exceed the shrunken grant');
         assert.equal(fixture.children.size, 3, 'shrink must not kill active children');
         fixture.release(1);
@@ -129,10 +133,10 @@ test('invalid current backend grant drains real active children without admittin
     let grant = { cpuUnits: 1, memoryGiB: 1 };
     let reads = 0;
     const fixture = gatedChildren(t, () => grant);
-    const running = runRollingPartitions(Array.from({ length: 4 }, (_, index) => ({ index })), [1], fixture.launch, {
+    const running = fixture.track(runRollingPartitions(Array.from({ length: 4 }, (_, index) => ({ index })), [1], fixture.launch, {
         initialMemoryGiBByProcess: [1], potentialProcessCount: 4, potentialCpuUnits: 4, potentialMemoryGiB: 4,
         pollIntervalMs: 5, readResourceGrant: () => { reads += 1; return grant; }
-    });
+    }));
     const rejected = assert.rejects(running, /invalid live resource grant/u);
     await observe(() => fixture.events.some((event) => event.type === 'admitted'));
     grant = { cpuUnits: 0, memoryGiB: 1 };
@@ -148,10 +152,10 @@ test('real backend child failure retains independent partition execution and agg
 {
     const fixture = gatedChildren(t, () => ({ cpuUnits: 2, memoryGiB: 2 }), 1);
     fixture.releaseRemaining();
-    const outcomes = await runRollingPartitions(Array.from({ length: 4 }, (_, index) => ({ index })), [1, 1], fixture.launch, {
+    const outcomes = await fixture.track(runRollingPartitions(Array.from({ length: 4 }, (_, index) => ({ index })), [1, 1], fixture.launch, {
         initialMemoryGiBByProcess: [1, 1], potentialProcessCount: 2, potentialCpuUnits: 2, potentialMemoryGiB: 2,
         readResourceGrant: () => ({ cpuUnits: 2, memoryGiB: 2 }), pollIntervalMs: 5
-    });
+    }));
     assert.deepEqual(outcomes.map((outcome) => outcome.value.code), [0, 1, 0, 0]);
     assert.ok(aggregatePartitionExecutionFailures(outcomes) instanceof Error);
     assert.equal(fs.readdirSync(fixture.directory).length, 4);
