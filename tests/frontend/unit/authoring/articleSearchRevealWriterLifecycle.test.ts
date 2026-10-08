@@ -6,6 +6,13 @@ import { renderToString } from 'vue/server-renderer';
 import { createSSRApp, defineComponent, h, nextTick } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import * as selectionNetwork from '@/api/binaryApiClient';
+import { encodeAedsFrame } from '@/api/binaryFrame';
+import { decodeAuthorArticleSelectionRevalidationRequest, encodeAuthorArticleSelectionRevalidationResponse, type AuthorArticleSelectionRevalidationRequest } from '@/codecs/binary/authorArticleSelectionWire.generated';
+import { revalidateArticleSearchSelection } from '@/services/authoring/articleSearchSelection';
+import { privateRequestRuntime } from '@/services/privateRequestRuntime';
+import { FrameType } from '@wasm/protocol/frame';
+
 import ArticleSearchRevealStatus from '@/components/admin/article/ArticleSearchRevealStatus.vue';
 import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue';
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
@@ -14,6 +21,9 @@ import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArt
 
 // Only bootstrap/network dependencies are replaced. Search, document ownership,
 // production bindEditor, wrapper events, public editor and semantic maps are real.
+// Exercise the original envelope decoder and generated payload codec; native Wasm/HTTP are separate gates.
+vi.mock('@wasm/aeds', async original => await original<typeof import('@wasm/aeds')>());
+
 const boot = vi.hoisted(() => ({ principalId: '', push: vi.fn() }));
 vi.mock('vue-router', () => ({
     useRoute: () => ({ params: {}, query: {} }),
@@ -47,7 +57,7 @@ vi.mock('@/api/system', () => ({
 
 const cleanups: (() => void)[] = [];
 let sequence = 0;
-beforeEach(() => { boot.principalId = `search-writer-${++sequence}`; });
+beforeEach(() => { boot.principalId = `search-writer-${++sequence}`; privateRequestRuntime.resetForTests(); });
 afterEach(() =>
 {
     cleanups.splice(0).reverse().forEach(cleanup => cleanup());
@@ -351,6 +361,201 @@ describe('search reveal consumes the production Writer search lifecycle', () =>
         }
         expect(lease.isCurrent()).toBe(true);
         expect(state.session.search.currentTask).toBe(lease);
+        expect(boot.push).not.toHaveBeenCalled();
+    });
+});
+
+// Synthetic selected-ID wire vectors, not authenticated server/query receipts.
+const selectionRequest = (): AuthorArticleSelectionRevalidationRequest => ({
+    schemaVersion: 1, articleId: 27, serverRevision: '9223372036854775807',
+    requestId: '018f1ce7-093a-7a01-bbcc-123456789abc', permissionToken: 'a'.repeat(64)
+});
+const selectionReply = (request = selectionRequest(), current = true,
+    changes: Partial<Parameters<typeof encodeAuthorArticleSelectionRevalidationResponse>[0]> = {}) =>
+    encodeAedsFrame(FrameType.AuthorArticleSelectionRevalidateResponse,
+        encodeAuthorArticleSelectionRevalidationResponse({ ...request, current,
+            owner: { adminPrincipalId: '9223372036854775807', siteScope: 'PRIVATE_SELECTION_SCOPE_2319' },
+            permissionToken: current ? request.permissionToken : null, ...changes }));
+
+function pendingSelectionNetwork()
+{
+    const pending: { options: NonNullable<Parameters<typeof selectionNetwork.binaryRequest>[1]>; complete: (bytes: ArrayBuffer) => void; }[] = [];
+    const original = selectionNetwork.binaryRequest;
+    vi.spyOn(selectionNetwork, 'binaryRequest').mockImplementation((url, options) =>
+    {
+        if (url !== '/api/binary/author/articles/revalidate-selection')
+        {
+            return original(url, options);
+        }
+        expect(options).toBeDefined();
+        return new Promise<ArrayBuffer>(resolve => pending.push({ options: options!, complete: resolve }));
+    });
+    return pending;
+}
+
+describe('selected-ID transport is consumed under the original Writer search lease', () =>
+{
+    it('withholds old precision while pending and returns only the actual wire observation and retained lease', async () =>
+    {
+        const state = await openWriter();
+        const { lease: oldLease } = await state.ready();
+        const compare = state.session.binding.beginToolTask('source-compare', 'compare:selection-control');
+        const network = pendingSelectionNetwork();
+        const pending = revalidateArticleSearchSelection(selectionRequest(), state.session.search);
+        const lease = state.session.search.currentTask!;
+        await nextTick();
+        expect(oldLease.signal.aborted).toBe(true);
+        expect(lease.isCurrent()).toBe(true);
+        expect(state.status.text()).toBe('Source reveal: Unavailable');
+        expect(network).toHaveLength(1);
+        expect(network[0]!.options).toMatchObject({ method: 'POST', requiresPow: true });
+        const bytes = new Uint8Array(network[0]!.options.body as ArrayBuffer);
+        expect(bytes).toHaveLength(116);
+        expect(new DataView(bytes.buffer).getUint16(8, true)).toBe(276);
+        expect(decodeAuthorArticleSelectionRevalidationRequest(bytes.subarray(16))).toEqual(selectionRequest());
+        network[0]!.complete(selectionReply());
+        const result = await pending;
+        expect(result!.lease).toBe(lease);
+        expect(result!.selection.serverRevision).toBe('9223372036854775807');
+        expect(result!.selection.owner.adminPrincipalId).toBe('9223372036854775807');
+        expect(Object.isFrozen(result)).toBe(true);
+        expect(Object.isFrozen(result!.selection)).toBe(true);
+        expect(state.session.search.presentation).toBeNull();
+        expect(state.status.text()).toBe('Source reveal: Unavailable');
+        expect(compare.isCurrent()).toBe(true);
+        expect(state.session.search.projectCommand(result!.selection, lease)).toMatchObject({ status: 'rejected', precision: null });
+        expect(boot.push).not.toHaveBeenCalled();
+    });
+
+    it('clears availability and the selected lease on a genuine Current=false wire observation', async () =>
+    {
+        const state = await openWriter();
+        await state.ready();
+        const compare = state.session.binding.beginToolTask('source-compare', 'compare:denial-control');
+        const network = pendingSelectionNetwork();
+        const pending = revalidateArticleSearchSelection(selectionRequest(), state.session.search);
+        const lease = state.session.search.currentTask!;
+        network[0]!.complete(selectionReply(selectionRequest(), false));
+        expect(await pending).toBeNull();
+        expect(lease.signal.aborted).toBe(true);
+        await state.expectCleared();
+        expect(compare.isCurrent()).toBe(true);
+        expect(boot.push).not.toHaveBeenCalled();
+    });
+
+    it.each(['cancel', 'native-edit', 'release', 'complete', 'admin-logout', 'admin-identity-change'])
+    ('refuses a late reply after actual %s and clears only the retained search lease', async transition =>
+    {
+        const state = await openWriter();
+        await state.ready();
+        const network = pendingSelectionNetwork();
+        const pending = revalidateArticleSearchSelection(selectionRequest(), state.session.search);
+        const lease = state.session.search.currentTask!;
+        if (transition === 'cancel') state.session.search.cancel();
+        if (transition === 'native-edit') state.dispatch([{ from: 0, deleteCount: 0, insertText: 'prefix ' }]);
+        if (transition === 'release') state.session.release();
+        if (transition === 'complete') lease.complete(state.session.binding.context.sourceRevision);
+        if (transition === 'admin-logout') privateRequestRuntime.advanceForAuthTransition('admin-logout');
+        if (transition === 'admin-identity-change') privateRequestRuntime.advance('admin');
+        if (transition !== 'complete') expect(network[0]!.options.signal!.aborted).toBe(true);
+        network[0]!.complete(selectionReply());
+        expect(await pending).toBeNull();
+        await state.expectCleared();
+        expect(boot.push).not.toHaveBeenCalled();
+    });
+
+    it.each([true, false])('an obsolete Current=%s reply cannot cancel or project a newer selection', async current =>
+    {
+        const state = await openWriter();
+        const network = pendingSelectionNetwork();
+        const old = revalidateArticleSearchSelection(selectionRequest(), state.session.search);
+        const oldLease = state.session.search.currentTask!;
+        const freshRequest = { ...selectionRequest(), requestId: '11111111-1111-1111-1111-111111111111' };
+        const fresh = revalidateArticleSearchSelection(freshRequest, state.session.search);
+        const freshLease = state.session.search.currentTask!;
+        expect(oldLease.signal.aborted).toBe(true);
+        network[0]!.complete(selectionReply(selectionRequest(), current));
+        expect(await old).toBeNull();
+        expect(state.session.search.currentTask).toBe(freshLease);
+        expect(freshLease.isCurrent()).toBe(true);
+        network[1]!.complete(selectionReply(freshRequest));
+        const result = await fresh;
+        expect(result!.lease).toBe(freshLease);
+        expect(result!.selection.requestId).toBe(freshRequest.requestId);
+        expect(state.session.search.presentation).toBeNull();
+        expect(boot.push).not.toHaveBeenCalled();
+    });
+
+    it.each(['article', 'revision', 'request', 'token', 'trailing'])
+    ('preserves original protocol rejection for %s and hides old precision and private diagnostics', async fault =>
+    {
+        const state = await openWriter();
+        await state.ready();
+        const network = pendingSelectionNetwork();
+        const pending = revalidateArticleSearchSelection(selectionRequest(), state.session.search);
+        const changes: Partial<Parameters<typeof encodeAuthorArticleSelectionRevalidationResponse>[0]> = {};
+        if (fault === 'article') changes.articleId = 28;
+        if (fault === 'revision') changes.serverRevision = '1';
+        if (fault === 'request') changes.requestId = '11111111-1111-1111-1111-111111111111';
+        if (fault === 'token') changes.permissionToken = 'b'.repeat(64);
+        let frame = selectionReply(selectionRequest(), true, changes);
+        if (fault === 'trailing')
+        {
+            const payload = new Uint8Array(frame).subarray(16);
+            frame = encodeAedsFrame(FrameType.AuthorArticleSelectionRevalidateResponse, Uint8Array.from([...payload, 0]));
+        }
+        network[0]!.complete(frame);
+        await expect(pending).rejects.toThrow('author_article_selection_response_invalid');
+        await state.expectCleared();
+        for (const secret of ['PRIVATE_SELECTION_SCOPE_2319', selectionRequest().permissionToken,
+            'author_article_selection_response_invalid', 'Exact source range'])
+        {
+            expect(state.status.html()).not.toContain(secret);
+        }
+        expect(boot.push).not.toHaveBeenCalled();
+    });
+
+    it('consumes original request freezing without converting Int64 into document revision authority', async () =>
+    {
+        const state = await openWriter();
+        const network = pendingSelectionNetwork();
+        const request = selectionRequest();
+        const context = state.session.binding.context;
+        const pending = revalidateArticleSearchSelection(request, state.session.search);
+        request.serverRevision = '1';
+        request.permissionToken = 'b'.repeat(64);
+        network[0]!.complete(selectionReply());
+        const result = await pending;
+        expect(result!.selection.serverRevision).toBe('9223372036854775807');
+        expect(state.session.binding.context).toBe(context);
+        expect(result!.lease.envelope.context).toEqual(context);
+        expect(state.session.search.presentation).toBeNull();
+        expect(boot.push).not.toHaveBeenCalled();
+    });
+
+    it('retains a transport failure while clearing only its own search lease and private display', async () =>
+    {
+        const state = await openWriter();
+        await state.ready();
+        const compare = state.session.binding.beginToolTask('source-compare', 'compare:transport-failure');
+        const failure = new Error('PRIVATE_SELECTION_TRANSPORT_FAILURE_2319');
+        vi.spyOn(selectionNetwork, 'binaryRequest').mockRejectedValueOnce(failure);
+        await expect(revalidateArticleSearchSelection(selectionRequest(), state.session.search)).rejects.toBe(failure);
+        await state.expectCleared();
+        expect(state.status.html()).not.toContain(failure.message);
+        expect(compare.isCurrent()).toBe(true);
+        expect(boot.push).not.toHaveBeenCalled();
+    });
+
+    it('does not send an invalid original wire request or retain old precision after its rejection', async () =>
+    {
+        const state = await openWriter();
+        await state.ready();
+        const network = pendingSelectionNetwork();
+        await expect(revalidateArticleSearchSelection({ ...selectionRequest(), serverRevision: '9223372036854775808' },
+            state.session.search)).rejects.toThrow('author_article_selection_payload_invalid');
+        expect(network).toHaveLength(0);
+        await state.expectCleared();
         expect(boot.push).not.toHaveBeenCalled();
     });
 });
