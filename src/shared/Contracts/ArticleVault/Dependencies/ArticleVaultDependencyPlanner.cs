@@ -1,3 +1,4 @@
+using FsusBlog.Shared.Contracts.ArticleEmbeds;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 
 namespace FsusBlog.Shared.Contracts.ArticleVault.Dependencies;
@@ -7,6 +8,7 @@ public sealed record VaultDependencyPlanInput(
     PortableDependencyManifest Manifest,
     ReadOnlyMemory<byte> SourceBytes,
     IReadOnlyList<VaultDependencyNode> CurrentAuthorityNodes,
+    IReadOnlyList<VaultDependencyEdge> CurrentAuthorityEdges,
     string CurrentRelationSha256);
 
 /// <summary>Returns a whole extension or one fail-closed blocker; there is no partial article admission.</summary>
@@ -17,12 +19,16 @@ public static class ArticleVaultDependencyPlanner
 {
     public static VaultDependencyPlanBuildResult Build(
         ArticleVaultSyncPlan? syncPlan,
-        ArticleVaultPlanRequest request,
-        ArticleVaultPlanVerificationContext context,
+        ArticleVaultPlanRequest? request,
+        ArticleVaultPlanVerificationContext? context,
         IReadOnlyList<VaultDependencyPlanInput>? inputs,
         ArticleEmbedResolutionBudgetLimits budgets,
         TimeProvider? timeProvider = null)
     {
+        if (request is null || context is null)
+        {
+            return Failed("portable_dependency_current_plan_input_missing");
+        }
         ArticleVaultValidationResult canonical = ArticleVaultSyncPlanVerifier.VerifyCurrent(syncPlan,
             request.RootManifest, request.ArticleManifests, request.ServerObservations, context);
         if (!canonical.IsValid)
@@ -43,6 +49,7 @@ public static class ArticleVaultDependencyPlanner
         foreach (VaultDependencyPlanInput? input in inputs)
         {
             if (input?.Manifest?.Binding is null
+                || string.IsNullOrEmpty(input.Manifest.Binding.PortableArticleIdentity)
                 || !inputMap.TryAdd(input.Manifest.Binding.PortableArticleIdentity, input))
             {
                 return Failed("portable_dependency_input_ambiguous");
@@ -72,7 +79,7 @@ public static class ArticleVaultDependencyPlanner
                     return Failed("portable_dependency_input_missing");
                 }
                 ArticleVaultValidationResult validation = PortableDependencyVerifier.VerifyCurrent(input.Manifest,
-                    articles[item.PortableArticleIdentity], input.SourceBytes.Span, input.CurrentAuthorityNodes,
+                    articles[item.PortableArticleIdentity], input.SourceBytes.Span, input.CurrentAuthorityNodes, input.CurrentAuthorityEdges,
                     input.CurrentRelationSha256, budgets, time);
                 if (!validation.IsValid)
                 {
@@ -96,7 +103,7 @@ public static class ArticleVaultDependencyPlanner
                         return Failed("portable_dependency_required_rights_missing");
                     }
                 }
-                totalNodes += input.Manifest.Nodes.Count;
+                totalNodes += input.Manifest.Nodes.Count + 1L;
                 totalEdges += input.Manifest.Edges.Count;
                 totalBytes += input.Manifest.Source.ByteLength;
                 foreach (VaultDependencyNode node in input.Manifest.Nodes)
@@ -130,27 +137,93 @@ public static class ArticleVaultDependencyPlanner
             syncPlan.ContentSha256, syncPlan.SiteIdentity, syncPlan.VaultIdentity, budgets,
             items.OrderBy(static item => item.OperationIdentity, StringComparer.Ordinal).ToArray(),
             syncPlan.OperationOrder.ToArray(), string.Empty);
-        return new(plan with
+        plan = plan with
         {
             ContentSha256 = PortableDependencyCodec.PlanDigest(plan)
-        }, null);
+        };
+        return time.GetElapsedTime(started).TotalMilliseconds > budgets.MaxElapsedMilliseconds
+            ? Failed("portable_dependency_time_exceeded")
+            : new(plan, null);
+    }
+
+    /// <summary>Checks an extension seal without establishing current server or dependency authorization.</summary>
+    public static ArticleVaultValidationResult ValidateStructure(ArticleVaultDependencyPlan? extension)
+    {
+        if (extension is null || extension.Schema != PortableDependencySchemas.PlanExtension
+            || extension.SchemaVersion != PortableDependencySchemas.Version || extension.Items is null
+            || extension.OperationOrder is null || !ArticleEmbedAuthoringContractValidator.ValidateBudgets(extension.Budgets).IsValid
+            || !ArticleEmbedContractDigest.IsSha256(extension.SyncPlanSha256)
+            || extension.Items.Count > extension.Budgets.MaxExpandedNodes)
+        {
+            return ArticleVaultValidationResult.Invalid("portable_dependency_extension_invalid");
+        }
+        TimeProvider time = TimeProvider.System;
+        long started = time.GetTimestamp();
+        long totalNodes = 0;
+        long totalEdges = 0;
+        long totalBytes = 0;
+        HashSet<string> operations = new(StringComparer.Ordinal);
+        HashSet<string> articles = new(StringComparer.Ordinal);
+        foreach (VaultDependencyPlanItem? item in extension.Items)
+        {
+            if (item is null || item.DependencyOrder is null || string.IsNullOrEmpty(item.OperationIdentity)
+                || string.IsNullOrEmpty(item.GroupIdentity) || string.IsNullOrEmpty(item.PortableArticleIdentity)
+                || !operations.Add(item.OperationIdentity) || !articles.Add(item.PortableArticleIdentity)
+                || !PortableDependencyVerifier.ValidateStructure(item.Manifest).IsValid
+                || item.Manifest.Binding.SiteIdentity != extension.SiteIdentity
+                || item.Manifest.Binding.VaultIdentity != extension.VaultIdentity
+                || item.Manifest.Binding.PortableArticleIdentity != item.PortableArticleIdentity)
+            {
+                return ArticleVaultValidationResult.Invalid("portable_dependency_extension_invalid");
+            }
+            ArticleVaultValidationResult graph = PortableDependencyVerifier.VerifyBudgets(item.Manifest, extension.Budgets, out IReadOnlyList<string> order);
+            if (!graph.IsValid || !item.DependencyOrder.SequenceEqual(order, StringComparer.Ordinal))
+            {
+                return ArticleVaultValidationResult.Invalid("portable_dependency_extension_order_invalid");
+            }
+            totalNodes += item.Manifest.Nodes.Count + 1L;
+            totalEdges += item.Manifest.Edges.Count;
+            totalBytes += item.Manifest.Source.ByteLength + item.Manifest.Nodes.Sum(static node => node switch
+            {
+                VaultAssetDependency asset => asset.SizeBytes,
+                VaultFrozenEmbedDependency embed => embed.FrozenSourceByteLength,
+                _ => 0L
+            });
+            if (totalNodes > extension.Budgets.MaxExpandedNodes || totalEdges > extension.Budgets.MaxAuthorityMessages
+                || totalBytes > extension.Budgets.MaxSourceBytes)
+            {
+                return ArticleVaultValidationResult.Invalid("portable_dependency_size_exceeded");
+            }
+        }
+        if (extension.OperationOrder.Any(static operation => operation is null)
+            || extension.OperationOrder.Count != operations.Count
+            || !operations.SetEquals(extension.OperationOrder)
+            || extension.ContentSha256 != PortableDependencyCodec.PlanDigest(extension)
+            || time.GetElapsedTime(started).TotalMilliseconds > extension.Budgets.MaxElapsedMilliseconds)
+        {
+            return ArticleVaultValidationResult.Invalid("portable_dependency_plan_tamper_or_drift");
+        }
+        return ArticleVaultValidationResult.Valid();
     }
 
     /// <summary>Revalidates the canonical plan and all current authority facts, then independently compares the frozen extension.</summary>
     public static ArticleVaultValidationResult VerifyCurrent(
         ArticleVaultDependencyPlan? extension,
         ArticleVaultSyncPlan? syncPlan,
-        ArticleVaultPlanRequest request,
-        ArticleVaultPlanVerificationContext context,
+        ArticleVaultPlanRequest? request,
+        ArticleVaultPlanVerificationContext? context,
         IReadOnlyList<VaultDependencyPlanInput> inputs,
         ArticleEmbedResolutionBudgetLimits budgets,
         TimeProvider? timeProvider = null)
     {
-        if (extension is null || extension.Schema != PortableDependencySchemas.PlanExtension
-            || extension.SchemaVersion != PortableDependencySchemas.Version || extension.Items is null
-            || extension.OperationOrder is null || extension.Budgets != budgets)
+        ArticleVaultValidationResult structure = ValidateStructure(extension);
+        if (!structure.IsValid)
         {
-            return ArticleVaultValidationResult.Invalid("portable_dependency_extension_invalid");
+            return structure;
+        }
+        if (extension!.Budgets != budgets)
+        {
+            return ArticleVaultValidationResult.Invalid("portable_dependency_extension_budgets_drift");
         }
         VaultDependencyPlanBuildResult current = Build(syncPlan, request, context, inputs, budgets, timeProvider);
         if (current.Plan is null)
