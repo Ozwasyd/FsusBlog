@@ -2,14 +2,14 @@
 
 import { ElDrawer, ElIcon, type MarkdownEditorDispatchResult, type MarkdownEditorTransaction, type MarkdownEditorTransactionEvent } from '@ozwasyd/element-plus';
 import { flushPromises, mount } from '@vue/test-utils';
-import { defineComponent, nextTick, shallowRef } from 'vue';
+import { renderToString } from 'vue/server-renderer';
+import { createSSRApp, defineComponent, h, nextTick } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ArticleSearchRevealStatus from '@/components/admin/article/ArticleSearchRevealStatus.vue';
 import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue';
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
 import { type ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
-import { type ArticleSearchRevealPresentation } from '@/services/authoring/articleSearchRevealPresentation';
 import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
 
 // Only bootstrap/network dependencies are replaced. Search, document ownership,
@@ -120,14 +120,8 @@ async function openWriter()
     }, { affinity: 'after', viewportOffset: 0, percentage: 0.2, surface: 'source', tool: 'none' });
     const restore = (transactions?: readonly MarkdownEditorDispatchResult[]) =>
         session.binding.anchors.restore(saved, session.binding.positionBinding(), { ...restoreOptions, transactions });
-    const projection = shallowRef<ArticleSearchRevealPresentation | null>(null);
-    const unsubscribe = session.search.subscribe(value => { projection.value = value; });
-    const status = mount(defineComponent({
-        components: { ArticleSearchRevealStatus },
-        setup: () => ({ projection, labels }),
-        template: '<ArticleSearchRevealStatus v-bind="labels" :presentation="projection" />'
-    }));
-    cleanups.push(() => { unsubscribe(); status.unmount(); });
+    const status = mount(ArticleSearchRevealStatus, { props: { ...labels, search: session.search } });
+    cleanups.push(() => status.unmount());
     const begin = () =>
     {
         const lease = session.search.beginTask('search:writer-consumer', 'search:test-v1');
@@ -153,12 +147,11 @@ async function openWriter()
         await nextTick();
         expect(session.search.currentTask).toBeNull();
         expect(session.search.presentation).toBeNull();
-        expect(projection.value).toBeNull();
         expect(status.text()).toBe('Source reveal: Unavailable');
         expect(status.html()).not.toContain('Exact source range');
         expect(status.findAll('button, a, input')).toHaveLength(0);
     };
-    return { authoring, host, session, dispatch, restore, begin, ready, status, projection, expectCleared };
+    return { authoring, host, session, dispatch, restore, begin, ready, status, expectCleared };
 }
 
 describe('search reveal consumes the production Writer search lifecycle', () =>
@@ -277,6 +270,60 @@ describe('search reveal consumes the production Writer search lifecycle', () =>
         {
             expect(state.status.html()).not.toContain(secret);
         }
+        expect(lease.isCurrent()).toBe(true);
+    });
+
+    it('reads the actual runtime snapshot in SSR without retaining a subscription or serializing private context', async () =>
+    {
+        const state = await openWriter();
+        const { lease, command } = await state.ready();
+        const context = state.session.binding.context;
+        const subscribe = vi.spyOn(state.session.search, 'subscribe');
+        const html = await renderToString(createSSRApp({
+            render: () => h(ArticleSearchRevealStatus, { ...labels, search: state.session.search })
+        }));
+        expect(subscribe).not.toHaveBeenCalled();
+        expect(html).toContain('Exact source range');
+        for (const secret of ['PRIVATE_SEARCH_DRAFT_2319', command.contentDigest, context.contextDigest,
+            context.contentDigest, context.documentId, context.siteScope, context.userScope])
+        {
+            expect(html).not.toContain(secret);
+        }
+        expect(lease.isCurrent()).toBe(true);
+    });
+
+    it('unsubscribes the component while preserving the original search task', async () =>
+    {
+        const state = await openWriter();
+        const { lease } = await state.ready();
+        const original = state.session.search.subscribe.bind(state.session.search);
+        let unsubscriptions = 0;
+        // Instrument the actual unsubscribe; no owner state, lease or projection is replaced.
+        vi.spyOn(state.session.search, 'subscribe').mockImplementation(listener =>
+        {
+            const unsubscribe = original(listener);
+            return () => { unsubscriptions++; unsubscribe(); };
+        });
+        const view = mount(ArticleSearchRevealStatus, { props: { ...labels, search: state.session.search } });
+        expect(view.text()).toContain('Exact source range');
+        view.unmount();
+        expect(unsubscriptions).toBe(1);
+        expect(lease.isCurrent()).toBe(true);
+        expect(state.session.search.currentTask).toBe(lease);
+        state.session.search.refresh();
+        expect(unsubscriptions).toBe(1);
+    });
+
+    it('withholds availability when both runtime and snapshot inputs are supplied', async () =>
+    {
+        const state = await openWriter();
+        const { lease, command } = await state.ready();
+        await state.status.setProps({ presentation: state.session.search.presentation });
+        expect(state.status.text()).toBe('Source reveal: Unavailable');
+        expect(state.status.html()).not.toContain(command.contentDigest);
+        expect(state.status.html()).not.toContain('Exact source range');
+        await state.status.setProps({ presentation: undefined });
+        expect(state.status.text()).toContain('Exact source range');
         expect(lease.isCurrent()).toBe(true);
     });
 });
