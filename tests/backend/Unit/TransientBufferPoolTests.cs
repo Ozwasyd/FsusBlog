@@ -32,12 +32,12 @@ public sealed class TransientBufferPoolTests
         {
             Assert.Equal(allocation, ((TransientBufferLease)reused).Allocation);
             Assert.All(reused.Memory.ToArray(), value => Assert.Equal(0, value));
-            Assert.Single(ledger.EventWindow().Events.Where(item => item.Kind == "committed"));
+            Assert.Single(ledger.EventWindow().Events, item => item.Kind == "committed");
         }
         Assert.Equal(1, pool.Trim(1));
         Assert.Equal(0, pool.Trim(1));
         Assert.Equal(0, ledger.Snapshot().Used["host"]);
-        Assert.Single(ledger.EventWindow().Events.Where(item => item.Kind == "allocation-released"));
+        Assert.Single(ledger.EventWindow().Events, item => item.Kind == "allocation-released");
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public sealed class TransientBufferPoolTests
         copy.Dispose();
         Assert.True(pool.Drained.IsCompletedSuccessfully);
         Assert.Equal(0, ledger.Snapshot().Used["host"]);
-        Assert.Single(ledger.EventWindow().Events.Where(item => item.Kind == "allocation-released"));
+        Assert.Single(ledger.EventWindow().Events, item => item.Kind == "allocation-released");
     }
 
     [Fact]
