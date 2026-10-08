@@ -49,20 +49,20 @@ export async function probeLocaleMenuBrowserZoom({ chromium, expect, url, eviden
         const menu = page.locator('[data-locale-selector-menu]');
         const item = (code) => page.locator(`[data-locale-code="${code}"]`);
         const readFocusPaint = (element) =>
-            {
-                const style = globalThis.getComputedStyle(element);
-                const after = globalThis.getComputedStyle(element, '::after');
-                return {
-                    focusVisible: element.matches(':focus-visible'),
-                    boxShadow: style.boxShadow,
-                    outlineStyle: style.outlineStyle,
-                    outlineWidth: style.outlineWidth,
-                    afterContent: after.content,
-                    afterBorderStyle: after.borderTopStyle,
-                    afterBorderWidth: after.borderTopWidth,
-                    afterBorderColor: after.borderTopColor
-                };
+        {
+            const style = globalThis.getComputedStyle(element);
+            const after = globalThis.getComputedStyle(element, '::after');
+            return {
+                focusVisible: element.matches(':focus-visible'),
+                boxShadow: style.boxShadow,
+                outlineStyle: style.outlineStyle,
+                outlineWidth: style.outlineWidth,
+                afterContent: after.content,
+                afterBorderStyle: after.borderTopStyle,
+                afterBorderWidth: after.borderTopWidth,
+                afterBorderColor: after.borderTopColor
             };
+        };
         const hasFocusPaint = (paint) => paint.focusVisible && (paint.boxShadow !== 'none'
             || (paint.outlineStyle !== 'none' && Number.parseFloat(paint.outlineWidth) > 0)
             || (paint.afterContent !== 'none' && paint.afterBorderStyle !== 'none' && Number.parseFloat(paint.afterBorderWidth) > 0));
