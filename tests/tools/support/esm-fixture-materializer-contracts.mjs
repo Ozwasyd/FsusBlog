@@ -9,6 +9,7 @@ import {
     materializeEsmFixture,
     preflightMaterializedEsmFixture
 } from './esm-fixture-materializer.mjs';
+import { provisionLockedSchemaValidator } from './locked-schema-validator-fixture.mjs';
 
 function createTempDir(name)
 {
@@ -139,6 +140,10 @@ export function assertRuntimeAssetBoundary()
 
 export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
 {
+    if (path.resolve(repositoryRoot) === path.resolve(fixtureRoot))
+    {
+        throw new Error('scheduler fixture must be isolated from its source repository');
+    }
     const workflowDirectory = path.join(fixtureRoot, '.github/workflows');
     const testingConfigDirectory = path.join(fixtureRoot, 'config/testing');
     const testDirectory = path.join(fixtureRoot, 'tests');
@@ -150,6 +155,7 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
         fixtureRoot,
         entries: [
             'tools/run-test-matrix.mjs',
+            'tools/test-matrix/schema-validator/validate.mjs',
             'tools/test-matrix/production-build-gc.mjs',
             'tools/test/measurement-noise-envelope.mjs',
             'tools/test/attempt-runner.mjs',
@@ -160,6 +166,8 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
         ],
         // Entry-owned files read at runtime instead of imported as ESM.
         assets: [
+            'tools/test-matrix/schema-validator/package.json',
+            'tools/test-matrix/schema-validator/package-lock.json',
             'tools/test/native/execution-envelope-landlock.c',
             'tools/test-fixtures/producers/temporal-child-handshake.bash',
             'tools/test-fixtures/producers/temporal-child-handshake.cjs',
@@ -203,5 +211,13 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
         path.join(repositoryRoot, 'tests/matrix.yml'),
         path.join(testDirectory, 'matrix.yml')
     );
+    provisionLockedSchemaValidator(fixtureRoot);
+    // Full-checkout fixtures ignore node_modules by default. Their later admission seal
+    // must bind these newly provisioned runtime bytes along with the original source.
+    if (fs.existsSync(path.join(fixtureRoot, '.git')))
+    {
+        execFileSync('git', ['-c', 'core.hooksPath=/dev/null', 'add', '--force', '--',
+            'tools/test-matrix/schema-validator/node_modules'], { cwd: fixtureRoot });
+    }
     return fixture.entryFiles[0];
 }
