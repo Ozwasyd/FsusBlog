@@ -1,0 +1,10 @@
+  FsusBlog.Shared -> /workspace/FsusBlog-2177-outbox-source-only/src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll
+  FsusBlog.Core -> /workspace/FsusBlog-2177-outbox-source-only/src/core/bin/Debug/net10.0/FsusBlog.Core.dll
+  FsusBlog.DiLifetimeAnalyzer -> /workspace/FsusBlog-2177-outbox-source-only/tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.dll
+  FsusBlog.Server -> /workspace/FsusBlog-2177-outbox-source-only/src/backend/bin/Debug/net10.0/FsusBlog.Server.dll
+  InitialOutboxSourceHarness -> /workspace/FsusBlog-2177-outbox-source-only/.tmp/issue-2177-outbox-source-only-20261008/harness/bin/Debug/net10.0/FsusBlog.Server.Tests.dll
+Test run for /workspace/FsusBlog-2177-outbox-source-only/.tmp/issue-2177-outbox-source-only-20261008/harness/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/FsusBlog-2177-outbox-source-only/.tmp/issue-2177-outbox-source-only-20261008/compiled-outbox-current.trx
+
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 80 ms - FsusBlog.Server.Tests.dll (net10.0)

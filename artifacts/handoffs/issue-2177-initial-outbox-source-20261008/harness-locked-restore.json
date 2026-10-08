@@ -1,0 +1,17 @@
+{
+  "sha": "ef65043daec41df104dc65ce26cd93ff9996574f",
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "restore",
+    "/workspace/FsusBlog-2177-outbox-source-only/.tmp/issue-2177-outbox-source-only-20261008/harness/InitialOutboxSourceHarness.csproj",
+    "--locked-mode",
+    "-m:1",
+    "-nodeReuse:false"
+  ],
+  "startedAt": "2026-10-08T09:18:19.214258+00:00",
+  "seconds": 1.9574426250001125,
+  "exitCode": 0,
+  "logSha256": "744d06606374a8532f26f67592186155d725776a96df104148e29ccd8cc32eb9",
+  "qualificationEligible": false,
+  "formalMatrixAcceptance": false
+}

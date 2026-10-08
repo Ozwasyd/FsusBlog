@@ -1,0 +1,80 @@
+{
+  "kind": "ordinary-owned-source-capability-evidence-export",
+  "sourceHead": "ef65043daec41df104dc65ce26cd93ff9996574f",
+  "files": [
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/outbox-capability-handoff.json",
+      "sha256": "ab08496f8d28b18ad1b376ef00d60a97284d04155db7d196a71c6ad73c048e80",
+      "bytes": 7472,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/harness-source-binding.json",
+      "sha256": "13709844d44429c7fd9daf7a46a325a8f0ddda2050b608ae935698e5ef2c7e19",
+      "bytes": 1509,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/compiled-outbox-current.json",
+      "sha256": "5fffcb27179044de91a6ac083a46693a8dc3b73cb41b900b796c97523934132a",
+      "bytes": 1531,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/compiled-outbox-current.log",
+      "sha256": "9b6a380cac87e02d781aa3801410f4a6d63dc4b12c5097bf78f734723926c033",
+      "bytes": 1182,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/compiled-outbox-current.trx",
+      "sha256": "19d9cb0b4775aeb11ebae3b543910d92a27fe6319bd88f694c9c15a5347883d2",
+      "bytes": 31498,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/formal-locked-restore.json",
+      "sha256": "92f9ad19e8085235ea65736dd90805e8d1e171947fa7d68b855e8124af91e49c",
+      "bytes": 531,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/formal-locked-restore.log",
+      "sha256": "72773568e314fa57019185ac485f6a65151a94de002cd30dbabc7b6bc72ba3f8",
+      "bytes": 1456,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/harness-locked-restore.json",
+      "sha256": "bce6c968923af4ee3dfff9ffc4c908f8aa20d1e99d9015b6ace3e1bedf23c53d",
+      "bytes": 619,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/source-stage.json",
+      "sha256": "54c031f3fb97e453f9e4908ed7baf25d185ea4dc5cd449dc8442ed4d04545161",
+      "bytes": 571,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/source-stage.log",
+      "sha256": "03410eb2e80a8683ccdcb1aefeb8acc2272bfe2acebf14b18135dd4fdd3e065a",
+      "bytes": 256,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/range-contract.json",
+      "sha256": "9d4dbc0f62999d47b0f3275d8670a3b388c2eccf3b68247a97167a033bf32a77",
+      "bytes": 531,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-initial-outbox-source-20261008/range-contract.log",
+      "sha256": "4cc6d8f588a334811a2d8151c69c2d6b3d34bd527e432d328250150db2648297",
+      "bytes": 81,
+      "copiedByteExact": true
+    }
+  ],
+  "testsRerunForExport": false,
+  "qualificationEligible": false
+}

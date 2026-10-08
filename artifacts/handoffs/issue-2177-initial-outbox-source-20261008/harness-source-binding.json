@@ -1,0 +1,33 @@
+{
+  "candidateSha": "ef65043daec41df104dc65ce26cd93ff9996574f",
+  "purpose": "Exact existing/new test source links and full actual candidate Server project. No baseline test rewrites and no production stubs. Isolated controls, not formal backend matrix.",
+  "formalBackendProjectAcceptance": false,
+  "files": [
+    {
+      "path": "tests/backend/GlobalUsings.cs",
+      "gitBlob": "3e394db9d3ffec0ec591dde277ea41d1dd670014",
+      "sha256": "c87e4f17494a136f908d58c72a14e200e0d00b54ce39f93cbe90141277e18175"
+    },
+    {
+      "path": "tests/backend/Unit/CommentInitialOutboxContractTests.cs",
+      "gitBlob": "b07c09ce90586fe2fd21dbe4e69b4f7d7586e0b7",
+      "sha256": "8f730c1fbdd4d05000a553267131ae42e3eb6e44ae1384195237cebd47e88172"
+    },
+    {
+      "path": "tests/backend/Unit/CommentCommandBoundaryTests.cs",
+      "gitBlob": "8515ef5b52e40c9a26aba280c86fea3a16d70615",
+      "sha256": "27e765129703777a97df7a4e7e2ff4b5a12994a2d5095187b21c7fb6951ac907"
+    },
+    {
+      "path": "tests/backend/Unit/CommentMutationOutboxRuntimeStateTests.cs",
+      "gitBlob": "87a51e0b1aa4460e0f32f928f3dc68e4453d676f",
+      "sha256": "5a78186db4429b3666e9fa740e577a0595ca78221f9dbdaab8ec727552b21bfb"
+    },
+    {
+      "path": "tests/backend/Helpers/TestInfrastructure/TestTemporalContext.cs",
+      "gitBlob": "28a7c9146bff6d7a3523aae4ac27d7aac309067c",
+      "sha256": "693f89c477fcab14eaf259940d83a88dc8e29caeb4e2071b015ed4b640a06d59"
+    }
+  ],
+  "productionProject": "src/backend/FsusBlog.Server.csproj"
+}
