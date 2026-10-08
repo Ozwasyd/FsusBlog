@@ -5,7 +5,7 @@ import { test } from 'node:test';
 const { digestCanonical, defaultTimeoutPolicyDigest, qualificationTemporalContext } = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
 const { resolveTemporalEntityStream, MAX_TEMPORAL_BATCH_ENTITIES } = await import(new URL('../../tools/test/temporal-entity-stream.mjs', import.meta.url));
 
-const { createTemporalEntityTransport, verifyTemporalDomainProducerReceipt } = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
+const { createTemporalDomainProducerReceipt, createTemporalEntityTransport, verifyTemporalDomainProducerReceipt } = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
 const { validateJsonSchema } = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 
 const sourcePlanDigest = `sha256:${'b'.repeat(64)}`;
@@ -75,6 +75,11 @@ test('bounded stream retains referenced historical revision and parent relations
     });
     const schema = JSON.parse(readFileSync(new URL('../../config/testing/resolved-temporal-roles.schema.json', import.meta.url), 'utf8'));
     assert.deepEqual(validateJsonSchema(manifest, schema), []);
+    const receipt = createTemporalDomainProducerReceipt(manifest, { temporalContext });
+    const receiptSchema = JSON.parse(readFileSync(new URL('../../config/testing/temporal-domain-producer-receipt.schema.json', import.meta.url), 'utf8'));
+    assert.deepEqual(validateJsonSchema(receipt, receiptSchema), []);
+    assert.equal(receipt.schema, 'fsusblog.temporal-entity-stream-receipt.v1');
+    assert.equal(verifyTemporalDomainProducerReceipt(receipt, { artifact: manifest, temporalContext }).qualificationEligible, false);
     assert.equal(manifest.qualificationEligible, false);
     assert.equal(manifest.recordCount, 4);
     assert.equal(manifest.relationshipCount, 2);

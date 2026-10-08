@@ -8,7 +8,7 @@ import {
     TemporalContractError,
     validateTemporalContext
 } from './temporal-context.mjs';
-import { createTemporalEntityBatchReceipt, verifyResolvedTemporalEntityBatch } from './temporal-entity-stream.mjs';
+import { createTemporalEntityBatchReceipt, createTemporalEntityStreamReceipt, verifyResolvedTemporalEntityBatch, verifyResolvedTemporalEntityStream } from './temporal-entity-stream.mjs';
 import {
     readTemporalShapeCatalog,
     resolveTemporalEntityShape,
@@ -529,6 +529,10 @@ function exactRoleDocument(role, baseEpochMilliseconds, shapeRole)
 
 export function verifyResolvedTemporalArtifact(artifact, { temporalContext } = {})
 {
+    if (artifact?.schema === 'fsusblog.resolved-temporal-entity-stream.v1')
+    {
+        return verifyResolvedTemporalEntityStream(artifact, { temporalContext });
+    }
     if (artifact?.schema === 'fsusblog.resolved-temporal-entity-batch.v1')
     {
         return verifyResolvedTemporalEntityBatch(artifact, { temporalContext });
@@ -1019,6 +1023,10 @@ export function requireResolvedTemporalEntityRole(artifact, coordinate, roleId, 
 
 export function createTemporalDomainProducerReceipt(artifact, { temporalContext } = {})
 {
+    if (artifact?.schema === 'fsusblog.resolved-temporal-entity-stream.v1')
+    {
+        return createTemporalEntityStreamReceipt(artifact, { temporalContext });
+    }
     if (artifact?.schema === 'fsusblog.resolved-temporal-entity-batch.v1')
     {
         return createTemporalEntityBatchReceipt(artifact, { temporalContext });

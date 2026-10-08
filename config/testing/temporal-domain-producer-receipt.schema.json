@@ -11,6 +11,9 @@
         },
         {
             "$ref": "#/$defs/entityBatchReceipt"
+        },
+        {
+            "$ref": "#/$defs/entityStreamReceipt"
         }
     ],
     "$defs": {
@@ -1457,6 +1460,240 @@
                     "items": {
                         "$ref": "#/$defs/entityStreamRevisionReference"
                     }
+                },
+                "temporalContext": {
+                    "$ref": "#/$defs/context"
+                },
+                "resolvedArtifactDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "entityStreamReceipt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "contextIdentity",
+                "fixtureIdentity",
+                "catalog",
+                "shape",
+                "scalarRoles",
+                "scalarRolesPurpose",
+                "unsupportedFields",
+                "qualificationEligible",
+                "semanticDigest",
+                "contentDigest",
+                "streamPlan",
+                "streamPlanDigest",
+                "schema",
+                "recordCount",
+                "relationshipCount",
+                "batches",
+                "validation",
+                "temporalContext",
+                "resolvedArtifactDigest"
+            ],
+            "properties": {
+                "contextIdentity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "sourceCommit",
+                        "sourceFingerprint",
+                        "producerId",
+                        "schedulerRunId",
+                        "businessEpochUtc",
+                        "contextDigest"
+                    ],
+                    "properties": {
+                        "sourceCommit": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{40}$"
+                        },
+                        "sourceFingerprint": {
+                            "$ref": "#/$defs/digest"
+                        },
+                        "producerId": {
+                            "$ref": "#/$defs/id"
+                        },
+                        "schedulerRunId": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "businessEpochUtc": {
+                            "$ref": "#/$defs/instant"
+                        },
+                        "contextDigest": {
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                },
+                "fixtureIdentity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "producerId",
+                        "runId",
+                        "namespace",
+                        "fixtureId"
+                    ],
+                    "properties": {
+                        "producerId": {
+                            "$ref": "#/$defs/id"
+                        },
+                        "runId": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "namespace": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "fixtureId": {
+                            "$ref": "#/$defs/id"
+                        },
+                        "planDigest": {
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                },
+                "catalog": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "schema",
+                        "digest"
+                    ],
+                    "properties": {
+                        "schema": {
+                            "const": "fsusblog.temporal-shape-catalog.v1"
+                        },
+                        "digest": {
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                },
+                "shape": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "id",
+                        "digest"
+                    ],
+                    "properties": {
+                        "id": {
+                            "$ref": "#/$defs/id"
+                        },
+                        "digest": {
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                },
+                "scalarRoles": {
+                    "anyOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "$ref": "#/$defs/scalarReceipt"
+                        }
+                    ]
+                },
+                "scalarRolesPurpose": {
+                    "const": "canonical-planned-offsets"
+                },
+                "unsupportedFields": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "field",
+                            "roleId",
+                            "reason"
+                        ],
+                        "properties": {
+                            "field": {
+                                "$ref": "#/$defs/id"
+                            },
+                            "roleId": {
+                                "$ref": "#/$defs/id"
+                            },
+                            "reason": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    }
+                },
+                "qualificationEligible": {
+                    "const": false
+                },
+                "semanticDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "contentDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "streamPlan": {
+                    "$ref": "#/$defs/entityStreamPlan"
+                },
+                "streamPlanDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "schema": {
+                    "const": "fsusblog.temporal-entity-stream-receipt.v1"
+                },
+                "recordCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000
+                },
+                "relationshipCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000
+                },
+                "batches": {
+                    "type": "array",
+                    "maxItems": 20000,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "index",
+                            "inputDigest",
+                            "entityCount",
+                            "relationshipCount",
+                            "artifactDigest"
+                        ],
+                        "properties": {
+                            "index": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20000
+                            },
+                            "inputDigest": {
+                                "$ref": "#/$defs/digest"
+                            },
+                            "entityCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000
+                            },
+                            "relationshipCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000
+                            },
+                            "artifactDigest": {
+                                "$ref": "#/$defs/digest"
+                            }
+                        }
+                    }
+                },
+                "validation": {
+                    "const": "complete-ordinary-plan"
                 },
                 "temporalContext": {
                     "$ref": "#/$defs/context"

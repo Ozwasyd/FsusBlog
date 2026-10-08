@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { digestCanonical, TemporalContractError, validateTemporalContext } from './temporal-context.mjs';
-import { readTemporalDomainProducerInventory, resolveTemporalEntityRecord, resolveTemporalEntityRelations, resolveTemporalRoles } from './temporal-role-resolver.mjs';
+import { createTemporalDomainProducerReceipt, readTemporalDomainProducerInventory, resolveTemporalEntityRecord, resolveTemporalEntityRelations, resolveTemporalRoles } from './temporal-role-resolver.mjs';
 import { readTemporalShapeCatalog, resolveTemporalEntityShape } from './temporal-shape-catalog.mjs';
 
 export const MAX_TEMPORAL_BATCH_ENTITIES = 1000;
@@ -13,6 +13,7 @@ const maximumBatches = 20_000;
 const maximumParentDepth = 1024;
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const issuedBatches = new WeakMap();
+const issuedManifests = new WeakMap();
 
 function fail(message)
 {
@@ -367,8 +368,10 @@ export async function resolveTemporalEntityStream({ temporalContext, fixtureIden
         }
         const scalarRoles = binding.scalarRoleIds.length === 0 ? null : resolveTemporalRoles({ temporalContext: context,
             fixtureIdentity: fixture, shapeId: 'auth-security-messaging-account-lifecycle', roleIds: binding.scalarRoleIds });
-        return seal({ schema: 'fsusblog.resolved-temporal-entity-stream.v1', ...common, streamPlan: plan,
+        const manifest = seal({ schema: 'fsusblog.resolved-temporal-entity-stream.v1', ...common, streamPlan: plan,
             recordCount, relationshipCount, batches: descriptors, scalarRoles, validation: 'complete-ordinary-plan' });
+        issuedManifests.set(manifest, manifest.contentDigest);
+        return manifest;
     }
     catch (error)
     {
@@ -415,4 +418,30 @@ export function createTemporalEntityBatchReceipt(artifact, { temporalContext })
         temporalContext: structuredClone(validateTemporalContext(temporalContext)), resolvedArtifactDigest: artifact.contentDigest,
         contentDigest: digestCanonical({ ...value, schema: 'fsusblog.temporal-entity-batch-receipt.v1',
             temporalContext: validateTemporalContext(temporalContext), resolvedArtifactDigest: artifact.contentDigest }) });
+}
+
+/** Bind the bounded complete-plan manifest after all output handlers returned, without a runtime-success claim. */
+export function verifyResolvedTemporalEntityStream(manifest, { temporalContext })
+{
+    const context = validateTemporalContext(temporalContext);
+    const { contentDigest, ...unsigned } = manifest;
+    if (issuedManifests.get(manifest) !== contentDigest || digestCanonical(unsigned) !== contentDigest
+        || manifest.contextIdentity.contextDigest !== digestCanonical(context) || manifest.qualificationEligible !== false)
+    {
+        fail('stream receipt requires the original globally validated complete manifest/context');
+    }
+    return Object.freeze({ qualificationEligible: false, contentDigest, entityCount: manifest.recordCount,
+        streamPlanDigest: manifest.streamPlanDigest });
+}
+
+export function createTemporalEntityStreamReceipt(manifest, { temporalContext })
+{
+    verifyResolvedTemporalEntityStream(manifest, { temporalContext });
+    const value = structuredClone(manifest);
+    delete value.schema;
+    delete value.contentDigest;
+    value.scalarRoles = manifest.scalarRoles === null ? null : createTemporalDomainProducerReceipt(manifest.scalarRoles);
+    const receipt = { ...value, schema: 'fsusblog.temporal-entity-stream-receipt.v1',
+        temporalContext: structuredClone(validateTemporalContext(temporalContext)), resolvedArtifactDigest: manifest.contentDigest };
+    return Object.freeze({ ...receipt, contentDigest: digestCanonical(receipt) });
 }
