@@ -1,24 +1,31 @@
 {
   "schema": "fsusblog.task-progress-evidence.v1",
   "kind": "Executable component evidence index; not formal schema/admission/HTTP/UX/full-CI qualification",
-  "capturedAtUtc": "2026-10-08T11:50:06.575571+00:00",
-  "compiledSourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
-  "runId": "chain3735-navigation-contract-bb109c20-20261008",
+  "capturedAtUtc": "2026-10-08T14:02:03.544679+00:00",
+  "compiledSourceCommit": "6e58c2197552769695549ba278d989336d8314c4",
+  "runId": "chain3735-selection-6e58c219-20261008",
   "assemblyBinding": {
-    "path": ".tmp/chain-3735/navigation-contract-canonical/assembly-binding.json",
-    "sha256": "57e33c680e48d284e00f76132829a6248f42b5c65b0194fba3ca00a3a8156ba9"
+    "path": ".tmp/chain-3735/navigation-endpoint-authority/assembly-binding.json",
+    "sha256": "8968bb4d361f5123ef8fba3f33e27ca45b7bc48d9627d963ccedc41ddd7387b8"
   },
-  "wholeCandidateLimit": "54f completed stamped SDK, focused358 units and compiled observer290/Shared Scope reflection only. No fresh54f PG or full candidate matrix. 9bb48/PG3(2pass1fail)/recipe69extract11refuse and C3units653(652pass1fail)/PG18 retained exact historical component evidence. Old wire38 does not qualify changed Scope-v2; actual54f91 supplies current ABI proof. No schema/HTTP/session/native/product acceptance.",
+  "wholeCandidateLimit": "Compiler/units are exact6e, latest directory/projection generator checks exact115. XML-only delta and projections not recompiled as a new whole candidate. Actual HTTP/session/Postgres/renderedUX/full frontend types/CI/independent QA remain unaccepted.",
   "unitCases": {
-    "sourceSha": "bb109c208764cc00f96d3087d97bd911add70ff3",
+    "sourceSha": "6e58c2197552769695549ba278d989336d8314c4",
     "caseCounts": {
+      "AuthoringNativeAedsEndpointTests": 4,
+      "AuthorArticleQuerySourceInspectionTests": 38,
+      "AuthorArticleSelectionTransportTests": 9,
+      "AuthorArticleSelectionWireTests": 36,
       "AuthorArticleSelectionRevalidationContractTests": 26,
-      "BackendGoldenCatalogTests": 17
+      "BackendGoldenCatalogTests": 19,
+      "PodBinaryCodecTests": 105,
+      "AuthoringCanvasEndpointOwnerTests": 7,
+      "AuthoringArticleCurrentSourceReaderTests": 87
     },
     "counters": {
-      "total": "43",
-      "executed": "43",
-      "passed": "43",
+      "total": "351",
+      "executed": "351",
+      "passed": "351",
       "failed": "0",
       "error": "0",
       "timeout": "0",
@@ -34,9 +41,8 @@
       "pending": "0"
     },
     "testExit": 0,
-    "allInputsAndSixDllStable": true,
-    "rawExpandedDiscoveryExecutionParity": true,
-    "displayNormalizedLogicalExpandedParity": true,
+    "allInputsAndNineDllStable": true,
+    "actualExpandedDiscoveryExecutionParity": true,
     "failed": [],
     "acceptanceLimits": "Ordinary source and typed wire regressions only; no HTTP/PG/runtime/UX or independent QA admission."
   },
@@ -11665,7 +11671,7 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-truncated\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-truncated\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11675,7 +11681,7 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-version\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0200112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-version\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0200112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11685,12 +11691,12 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-trailing\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-trailing\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-version\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"02070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-version\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"02070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11700,17 +11706,17 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-invalid-utf8\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-invalid-utf8\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"empty-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000000000000000000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"empty-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000000000000000000000000000\"···, expectedValid: True)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: True)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11730,22 +11736,22 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-truncated\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-truncated\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count--1\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count--1\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: True)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"hundred-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"hundred-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: True)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11755,7 +11761,7 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-closed-mode\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-closed-mode\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11765,32 +11771,32 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-zero-source\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0000000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-zero-source\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0000000001000000\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-2147483647\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-2147483647\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"undo-request\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"undo-request\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: True)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-101\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-101\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-negative-revision\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff07000000ffffffff\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-negative-revision\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff07000000ffffffff\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-truncated\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-truncated\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11800,7 +11806,7 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-trailing\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-trailing\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11815,12 +11821,12 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-trailing\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-trailing\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: True)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11835,7 +11841,7 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"receipt-invalid-digest\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"receipt-invalid-digest\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11845,7 +11851,7 @@
               "error": ""
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-version\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0200112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-version\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0200112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
               "outcome": "Passed",
               "error": ""
             },
@@ -11965,19 +11971,19 @@
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"receipt-invalid-digest\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"receipt-invalid-digest\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-negative-revision\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff07000000ffffffff\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-negative-revision\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff07000000ffffffff\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: True)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-truncated\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-truncated\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
@@ -11985,7 +11991,7 @@
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-101\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-101\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
@@ -11993,15 +11999,15 @@
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-version\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0200112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-version\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0200112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-2147483647\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-2147483647\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-truncated\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-truncated\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
@@ -12013,11 +12019,11 @@
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-closed-mode\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-closed-mode\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"hundred-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"hundred-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: True)",
               "outcome": "Passed"
             },
             {
@@ -12029,15 +12035,15 @@
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-truncated\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-truncated\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-version\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"02070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-version\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"02070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-version\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0200112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-version\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0200112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
@@ -12053,15 +12059,15 @@
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count--1\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count--1\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"undo-request\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"undo-request\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: True)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-trailing\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-trailing\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
@@ -12069,15 +12075,15 @@
               "outcome": "Failed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: True)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-zero-source\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0000000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-zero-source\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0000000001000000\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: True)",
               "outcome": "Passed"
             },
             {
@@ -12085,11 +12091,11 @@
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-trailing\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-trailing\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-invalid-utf8\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-invalid-utf8\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
@@ -12105,7 +12111,7 @@
               "outcome": "Passed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-trailing\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-trailing\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
               "outcome": "Passed"
             },
             {
@@ -12113,7 +12119,7 @@
               "outcome": "Failed"
             },
             {
-              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"empty-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000000000000000000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+              "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"empty-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000000000000000000000000000\"···, expectedValid: True)",
               "outcome": "Passed"
             },
             {
@@ -13088,22 +13094,22 @@
               "src/views/admin/security/SecuritySimulator.vue(193,51): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
               "src/views/admin/security/SecuritySimulator.vue(245,64): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
               "src/views/admin/security/SecuritySimulator.vue(261,63): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
-              "src/views/user/IdentityCenter.vue(9,35): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(95,34): error TS2345: Argument of type '\"UserIdentityPasskeys\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(231,34): error TS2345: Argument of type '\"UserIdentityRecoveryKey\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(279,34): error TS2345: Argument of type '\"UserIdentityMfa\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(332,34): error TS2345: Argument of type '\"UserIdentityAnonymous\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(344,34): error TS2345: Argument of type '\"UserIdentityPublicProfile\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(403,34): error TS2345: Argument of type '\"UserIdentitySessions\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(520,34): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(9,35): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(95,34): error TS2345: Argument of type '\"UserIdentityPasskeys\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(231,34): error TS2345: Argument of type '\"UserIdentityRecoveryKey\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(279,34): error TS2345: Argument of type '\"UserIdentityMfa\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(332,34): error TS2345: Argument of type '\"UserIdentityAnonymous\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(344,34): error TS2345: Argument of type '\"UserIdentityPublicProfile\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(403,34): error TS2345: Argument of type '\"UserIdentitySessions\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(520,34): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
               "src/views/user/IdentityCenter.vue(623,10): error TS6133: 'MfaChallengeResult' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(625,10): error TS6133: 'MfaSetupStart' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(626,10): error TS6133: 'MfaSetupVerify' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(628,10): error TS6133: 'PasskeyLoginBeginResponse' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(860,54): error TS2769: No overload matches this call.",
-              "src/views/user/IdentityCenter.vue(866,36): error TS7053: Element implicitly has an 'any' type because expression of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>' can't be used to index type '{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.",
-              "src/views/user/IdentityCenter.vue(871,20): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(1352,52): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(866,36): error TS7053: Element implicitly has an 'any' type because expression of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>' can't be used to index type '{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.",
+              "src/views/user/IdentityCenter.vue(871,20): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(1352,52): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
               "../../../FsusUI/vue/packages/components/breadcrumb/src/breadcrumb.vue(25,7): error TS6133: 'breadcrumb' is declared but its value is never read.",
               "../../../FsusUI/vue/packages/components/carousel/src/carousel-item.vue(41,3): error TS6133: 'carouselItemRef' is declared but its value is never read.",
               "../../../FsusUI/vue/packages/components/carousel/src/carousel.vue(96,3): error TS6133: 'root' is declared but its value is never read.",
@@ -13400,22 +13406,22 @@
               "src/views/admin/security/SecuritySimulator.vue(193,51): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
               "src/views/admin/security/SecuritySimulator.vue(245,64): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
               "src/views/admin/security/SecuritySimulator.vue(261,63): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
-              "src/views/user/IdentityCenter.vue(9,35): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(95,34): error TS2345: Argument of type '\"UserIdentityPasskeys\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(231,34): error TS2345: Argument of type '\"UserIdentityRecoveryKey\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(279,34): error TS2345: Argument of type '\"UserIdentityMfa\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(332,34): error TS2345: Argument of type '\"UserIdentityAnonymous\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(344,34): error TS2345: Argument of type '\"UserIdentityPublicProfile\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(403,34): error TS2345: Argument of type '\"UserIdentitySessions\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(520,34): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(9,35): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(95,34): error TS2345: Argument of type '\"UserIdentityPasskeys\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(231,34): error TS2345: Argument of type '\"UserIdentityRecoveryKey\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(279,34): error TS2345: Argument of type '\"UserIdentityMfa\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(332,34): error TS2345: Argument of type '\"UserIdentityAnonymous\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(344,34): error TS2345: Argument of type '\"UserIdentityPublicProfile\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(403,34): error TS2345: Argument of type '\"UserIdentitySessions\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(520,34): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
               "src/views/user/IdentityCenter.vue(623,10): error TS6133: 'MfaChallengeResult' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(625,10): error TS6133: 'MfaSetupStart' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(626,10): error TS6133: 'MfaSetupVerify' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(628,10): error TS6133: 'PasskeyLoginBeginResponse' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(860,54): error TS2769: No overload matches this call.",
-              "src/views/user/IdentityCenter.vue(866,36): error TS7053: Element implicitly has an 'any' type because expression of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>' can't be used to index type '{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.",
-              "src/views/user/IdentityCenter.vue(871,20): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(1352,52): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(866,36): error TS7053: Element implicitly has an 'any' type because expression of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>' can't be used to index type '{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.",
+              "src/views/user/IdentityCenter.vue(871,20): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(1352,52): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
               "../../../FsusUI/vue/packages/components/breadcrumb/src/breadcrumb.vue(25,7): error TS6133: 'breadcrumb' is declared but its value is never read.",
               "../../../FsusUI/vue/packages/components/carousel/src/carousel-item.vue(41,3): error TS6133: 'carouselItemRef' is declared but its value is never read.",
               "../../../FsusUI/vue/packages/components/carousel/src/carousel.vue(96,3): error TS6133: 'root' is declared but its value is never read.",
@@ -13580,7 +13586,7 @@
               },
               "cases": [
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleBulkRegistryTests.CompleteParameterSchemasRejectTrailingNewlines(operationId: \"property.set\", validValue: \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\u00b7\u00b7\u00b7, suffix: \"\\r\\n\")",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleBulkRegistryTests.CompleteParameterSchemasRejectTrailingNewlines(operationId: \"property.set\", validValue: \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"···, suffix: \"\\r\\n\")",
                   "outcome": "Passed"
                 },
                 {
@@ -13596,7 +13602,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasDeleteRequest-trailing\", rootType: \"AuthoringCanvasDeleteRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasDeleteRequest-trailing\", rootType: \"AuthoringCanvasDeleteRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -13608,7 +13614,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasEdgesResponse-version\", rootType: \"AuthoringCanvasEdgesResponse\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasEdgesResponse-version\", rootType: \"AuthoringCanvasEdgesResponse\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -13648,7 +13654,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasUndoRedoRequest-version\", rootType: \"AuthoringCanvasUndoRedoRequest\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasUndoRedoRequest-version\", rootType: \"AuthoringCanvasUndoRedoRequest\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -13728,7 +13734,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasNodesResponse\", rootType: \"AuthoringCanvasNodesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasNodesResponse\", rootType: \"AuthoringCanvasNodesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -13740,7 +13746,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"independent-network-guid-golden\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"independent-network-guid-golden\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -13756,7 +13762,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasHistoryResponse-version\", rootType: \"AuthoringCanvasHistoryResponse\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasHistoryResponse-version\", rootType: \"AuthoringCanvasHistoryResponse\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -13792,7 +13798,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"fatal-utf8-e4b8\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"fatal-utf8-e4b8\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -13812,7 +13818,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasCoordinateAuthorityTests.StreamedScan_PreservesAtomicAndMalformedSourceGrammar(source: \":::note\\n$$unclosed\\nHidden ^inside\\n:::\\nVisible \"\u00b7\u00b7\u00b7, identity: \"outside\", claims: 1, context: \"Visible\")",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasCoordinateAuthorityTests.StreamedScan_PreservesAtomicAndMalformedSourceGrammar(source: \":::note\\n$$unclosed\\nHidden ^inside\\n:::\\nVisible \"···, identity: \"outside\", claims: 1, context: \"Visible\")",
                   "outcome": "Passed"
                 },
                 {
@@ -13820,7 +13826,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"typed-facts-all-branches-utf8\", rootType: \"AuthoringCanvasApplyRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"typed-facts-all-branches-utf8\", rootType: \"AuthoringCanvasApplyRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -13860,7 +13866,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasEdgesResponse-trailing\", rootType: \"AuthoringCanvasEdgesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasEdgesResponse-trailing\", rootType: \"AuthoringCanvasEdgesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -13936,7 +13942,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasApplyRequest-trailing\", rootType: \"AuthoringCanvasApplyRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasApplyRequest-trailing\", rootType: \"AuthoringCanvasApplyRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -13952,11 +13958,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasResolveRequest-trailing\", rootType: \"AuthoringCanvasResolveRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasResolveRequest-trailing\", rootType: \"AuthoringCanvasResolveRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasReferenceResolutionBatch\", rootType: \"AuthoringCanvasReferenceResolutionBatch\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasReferenceResolutionBatch\", rootType: \"AuthoringCanvasReferenceResolutionBatch\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -13992,7 +13998,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasResolveRequest\", rootType: \"AuthoringCanvasResolveRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasResolveRequest\", rootType: \"AuthoringCanvasResolveRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -14000,15 +14006,15 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasReferenceResolutionBatch-truncated\", rootType: \"AuthoringCanvasReferenceResolutionBatch\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasReferenceResolutionBatch-truncated\", rootType: \"AuthoringCanvasReferenceResolutionBatch\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"timestamp--62135596800000\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"timestamp--62135596800000\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"fatal-utf8-eda080\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"fatal-utf8-eda080\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14024,11 +14030,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"fatal-utf8-f4908080\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"fatal-utf8-f4908080\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasDocumentHeader-truncated\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasDocumentHeader-truncated\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14044,7 +14050,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasCreateRequest\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasCreateRequest\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -14052,7 +14058,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasUndoRedoRequest\", rootType: \"AuthoringCanvasUndoRedoRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasUndoRedoRequest\", rootType: \"AuthoringCanvasUndoRedoRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -14068,7 +14074,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasEdgesResponse-truncated\", rootType: \"AuthoringCanvasEdgesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasEdgesResponse-truncated\", rootType: \"AuthoringCanvasEdgesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14092,11 +14098,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasOperationReceipt-version\", rootType: \"AuthoringCanvasOperationReceipt\", payloadHex: \"0200112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasOperationReceipt-version\", rootType: \"AuthoringCanvasOperationReceipt\", payloadHex: \"0200112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.BlockAnchorContractTests.BlockAnchorId_RejectsNonCanonicalGrammar(value: \"\u951a\u70b9\")",
+                  "name": "FsusBlog.Server.Tests.Unit.BlockAnchorContractTests.BlockAnchorId_RejectsNonCanonicalGrammar(value: \"锚点\")",
                   "outcome": "Passed"
                 },
                 {
@@ -14128,7 +14134,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasHistoryResponse\", rootType: \"AuthoringCanvasHistoryResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasHistoryResponse\", rootType: \"AuthoringCanvasHistoryResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -14152,7 +14158,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasOperationReceipt\", rootType: \"AuthoringCanvasOperationReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasOperationReceipt\", rootType: \"AuthoringCanvasOperationReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -14172,7 +14178,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasCoordinateAuthorityTests.StreamedScan_PreservesAtomicAndMalformedSourceGrammar(source: \"$$unclosed\\n:::note\\nHidden ^inside\\n:::\\nVisible \"\u00b7\u00b7\u00b7, identity: \"outside\", claims: 1, context: \"Visible\")",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasCoordinateAuthorityTests.StreamedScan_PreservesAtomicAndMalformedSourceGrammar(source: \"$$unclosed\\n:::note\\nHidden ^inside\\n:::\\nVisible \"···, identity: \"outside\", claims: 1, context: \"Visible\")",
                   "outcome": "Passed"
                 },
                 {
@@ -14276,7 +14282,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasUndoRedoRequest-truncated\", rootType: \"AuthoringCanvasUndoRedoRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasUndoRedoRequest-truncated\", rootType: \"AuthoringCanvasUndoRedoRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14300,7 +14306,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasResolveRequest-version\", rootType: \"AuthoringCanvasResolveRequest\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasResolveRequest-version\", rootType: \"AuthoringCanvasResolveRequest\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14316,7 +14322,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasCreateRequest-version\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0200112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasCreateRequest-version\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0200112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14388,11 +14394,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasHistoryResponse-trailing\", rootType: \"AuthoringCanvasHistoryResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasHistoryResponse-trailing\", rootType: \"AuthoringCanvasHistoryResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasNodesResponse-trailing\", rootType: \"AuthoringCanvasNodesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasNodesResponse-trailing\", rootType: \"AuthoringCanvasNodesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14412,7 +14418,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasDocumentHeader-trailing\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasDocumentHeader-trailing\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14436,11 +14442,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasDocumentHeader\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasDocumentHeader\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasApplyRequest-truncated\", rootType: \"AuthoringCanvasApplyRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasApplyRequest-truncated\", rootType: \"AuthoringCanvasApplyRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14468,7 +14474,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"history-mode-apply-refused\", rootType: \"AuthoringCanvasUndoRedoRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"history-mode-apply-refused\", rootType: \"AuthoringCanvasUndoRedoRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14492,11 +14498,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasOperationReceipt-trailing\", rootType: \"AuthoringCanvasOperationReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasOperationReceipt-trailing\", rootType: \"AuthoringCanvasOperationReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasCreateRequest-truncated\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasCreateRequest-truncated\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14512,7 +14518,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasEdgesResponse\", rootType: \"AuthoringCanvasEdgesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasEdgesResponse\", rootType: \"AuthoringCanvasEdgesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -14544,15 +14550,15 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasReferenceResolutionBatch-trailing\", rootType: \"AuthoringCanvasReferenceResolutionBatch\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasReferenceResolutionBatch-trailing\", rootType: \"AuthoringCanvasReferenceResolutionBatch\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasReferenceResolutionBatch-version\", rootType: \"AuthoringCanvasReferenceResolutionBatch\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasReferenceResolutionBatch-version\", rootType: \"AuthoringCanvasReferenceResolutionBatch\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasOperationReceipt-truncated\", rootType: \"AuthoringCanvasOperationReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasOperationReceipt-truncated\", rootType: \"AuthoringCanvasOperationReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14560,11 +14566,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasCreateRequest-trailing\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasCreateRequest-trailing\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasResolveRequest-truncated\", rootType: \"AuthoringCanvasResolveRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasResolveRequest-truncated\", rootType: \"AuthoringCanvasResolveRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14576,7 +14582,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasApplyRequest\", rootType: \"AuthoringCanvasApplyRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasApplyRequest\", rootType: \"AuthoringCanvasApplyRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -14644,7 +14650,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasWriteReceipt-truncated\", rootType: \"AuthoringCanvasWriteReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasWriteReceipt-truncated\", rootType: \"AuthoringCanvasWriteReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14672,7 +14678,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasUndoRedoRequest-trailing\", rootType: \"AuthoringCanvasUndoRedoRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasUndoRedoRequest-trailing\", rootType: \"AuthoringCanvasUndoRedoRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14688,7 +14694,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasDocumentHeader-version\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasDocumentHeader-version\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14708,7 +14714,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasWriteReceipt-version\", rootType: \"AuthoringCanvasWriteReceipt\", payloadHex: \"0200112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasWriteReceipt-version\", rootType: \"AuthoringCanvasWriteReceipt\", payloadHex: \"0200112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14716,7 +14722,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasNodesResponse-truncated\", rootType: \"AuthoringCanvasNodesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasNodesResponse-truncated\", rootType: \"AuthoringCanvasNodesResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14752,11 +14758,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasWriteReceipt\", rootType: \"AuthoringCanvasWriteReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasWriteReceipt\", rootType: \"AuthoringCanvasWriteReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"fatal-utf8-c0af\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"fatal-utf8-c0af\", rootType: \"AuthoringCanvasCreateRequest\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14768,7 +14774,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasWriteReceipt-trailing\", rootType: \"AuthoringCanvasWriteReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasWriteReceipt-trailing\", rootType: \"AuthoringCanvasWriteReceipt\", payloadHex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14784,7 +14790,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleBulkRegistryTests.CompleteCanonicalParameterValuesRemainUnchanged(operationId: \"property.set\", fieldName: \"typedValueDigest\", value: \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\u00b7\u00b7\u00b7)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleBulkRegistryTests.CompleteCanonicalParameterValuesRemainUnchanged(operationId: \"property.set\", fieldName: \"typedValueDigest\", value: \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"···)",
                   "outcome": "Passed"
                 },
                 {
@@ -14792,7 +14798,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasCoordinateAuthorityTests.StreamedScan_PreservesAtomicAndMalformedSourceGrammar(source: \":::unclosed\\n$$unclosed\\nFirst ^inside\\nSecond ^in\"\u00b7\u00b7\u00b7, identity: \"inside\", claims: 2, context: \"First\")",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasCoordinateAuthorityTests.StreamedScan_PreservesAtomicAndMalformedSourceGrammar(source: \":::unclosed\\n$$unclosed\\nFirst ^inside\\nSecond ^in\"···, identity: \"inside\", claims: 2, context: \"First\")",
                   "outcome": "Passed"
                 },
                 {
@@ -14824,7 +14830,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasCoordinateAuthorityTests.StreamedScan_PreservesAtomicAndMalformedSourceGrammar(source: \"````lang\\nHidden ^inside\\n```\\nHidden ^inside\\n```\"\u00b7\u00b7\u00b7, identity: \"outside\", claims: 1, context: \"Visible\")",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasCoordinateAuthorityTests.StreamedScan_PreservesAtomicAndMalformedSourceGrammar(source: \"````lang\\nHidden ^inside\\n```\\nHidden ^inside\\n```\"···, identity: \"outside\", claims: 1, context: \"Visible\")",
                   "outcome": "Passed"
                 },
                 {
@@ -14848,7 +14854,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasNodesResponse-version\", rootType: \"AuthoringCanvasNodesResponse\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasNodesResponse-version\", rootType: \"AuthoringCanvasNodesResponse\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14936,7 +14942,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasHistoryResponse-truncated\", rootType: \"AuthoringCanvasHistoryResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasHistoryResponse-truncated\", rootType: \"AuthoringCanvasHistoryResponse\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -14964,7 +14970,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"timestamp-253402300799999\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"timestamp-253402300799999\", rootType: \"AuthoringCanvasDocumentHeader\", payloadHex: \"0100112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -14988,7 +14994,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasApplyRequest-version\", rootType: \"AuthoringCanvasApplyRequest\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthoringCanvasWireCodecTests.CrossStackGolden_UsesActualCodecAndExactBytes(name: \"AuthoringCanvasApplyRequest-version\", rootType: \"AuthoringCanvasApplyRequest\", payloadHex: \"0200112233445566778899aabbccddeeff0100000000000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -15004,7 +15010,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleBulkRegistryTests.CompleteParameterSchemasRejectTrailingNewlines(operationId: \"property.set\", validValue: \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\u00b7\u00b7\u00b7, suffix: \"\\n\")",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleBulkRegistryTests.CompleteParameterSchemasRejectTrailingNewlines(operationId: \"property.set\", validValue: \"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"···, suffix: \"\\n\")",
                   "outcome": "Passed"
                 },
                 {
@@ -15613,7 +15619,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.AuthorSavedViewContractTests.CanonicalValues_RejectSameCountStableIdentitySemanticTamper(malformedValue: \"tag:not\u00a0stable\")",
+                  "name": "FsusBlog.Server.Tests.Unit.AuthorSavedViewContractTests.CanonicalValues_RejectSameCountStableIdentitySemanticTamper(malformedValue: \"tag:not stable\")",
                   "outcome": "Passed"
                 },
                 {
@@ -16042,11 +16048,11 @@
               },
               "cases": [
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-version\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0200112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-version\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0200112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -16058,7 +16064,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"receipt-invalid-digest\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"receipt-invalid-digest\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -16070,15 +16076,15 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"undo-request\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"undo-request\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-closed-mode\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-closed-mode\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"hundred-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"hundred-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -16094,7 +16100,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count--1\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count--1\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -16102,11 +16108,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-version\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"02070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-version\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"02070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-negative-revision\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff07000000ffffffff\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-negative-revision\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff07000000ffffffff\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -16118,11 +16124,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-zero-source\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0000000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-zero-source\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0000000001000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -16130,11 +16136,11 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-truncated\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-truncated\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-truncated\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-truncated\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -16142,7 +16148,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-trailing\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-trailing\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -16150,7 +16156,7 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-101\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-101\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
@@ -16158,19 +16164,19 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-2147483647\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"history-invalid-count-2147483647\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-version\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0200112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-version\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0200112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-truncated\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest-truncated\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkRequest\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
@@ -16190,19 +16196,19 @@
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-invalid-utf8\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"request-invalid-utf8\", rootType: \"ArticleCanvasLinkRequest\", hex: \"0100112233445566778899aabbccddeeff0700000001000000\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-trailing\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkHistoryResponse-trailing\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000020000000000200000112233\"···, expectedValid: False)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"empty-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000000000000000000000000000\"\u00b7\u00b7\u00b7, expectedValid: True)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"empty-history\", rootType: \"ArticleCanvasLinkHistoryResponse\", hex: \"01070000000200000000002000000000000000000000000000\"···, expectedValid: True)",
                   "outcome": "Passed"
                 },
                 {
-                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-trailing\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"\u00b7\u00b7\u00b7, expectedValid: False)",
+                  "name": "FsusBlog.Server.Tests.Unit.ArticleCanvasLinkWireCodecTests.ActualCodec_ConsumesExactWireWitness(name: \"ArticleCanvasLinkReceipt-trailing\", rootType: \"ArticleCanvasLinkReceipt\", hex: \"0100112233445566778899aabbccddeeff0011223344556677\"···, expectedValid: False)",
                   "outcome": "Passed"
                 }
               ]
@@ -16540,12 +16546,7 @@
     "nonemptyReferenceAuthority": false,
     "policy": "Root70/transferred53/all123 unaccepted; component evidence only, tracking aggregation only, QA hold unchanged."
   },
-  "publishedSourceFrontier": {
-    "sourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
-    "currentCompiledSourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
-    "status": "Published source; exact separate SDK/unit/PG/native/frontend component results; runtime/product acceptance open",
-    "accepted": false
-  },
+  "publishedSourceFrontier": "11527d8162113d0a46a0e7ca549803815407b636",
   "compiledObserver": {
     "sourceCommit": "54f1c0ab4d3adfd6caf0b92a6d7d2b5309732a38",
     "compiledOperationCount": 290,
@@ -38759,22 +38760,22 @@
               "src/views/admin/security/SecuritySimulator.vue(193,51): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
               "src/views/admin/security/SecuritySimulator.vue(245,64): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
               "src/views/admin/security/SecuritySimulator.vue(261,63): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
-              "src/views/user/IdentityCenter.vue(9,35): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(95,34): error TS2345: Argument of type '\"UserIdentityPasskeys\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(231,34): error TS2345: Argument of type '\"UserIdentityRecoveryKey\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(279,34): error TS2345: Argument of type '\"UserIdentityMfa\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(332,34): error TS2345: Argument of type '\"UserIdentityAnonymous\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(344,34): error TS2345: Argument of type '\"UserIdentityPublicProfile\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(403,34): error TS2345: Argument of type '\"UserIdentitySessions\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(520,34): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(9,35): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(95,34): error TS2345: Argument of type '\"UserIdentityPasskeys\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(231,34): error TS2345: Argument of type '\"UserIdentityRecoveryKey\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(279,34): error TS2345: Argument of type '\"UserIdentityMfa\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(332,34): error TS2345: Argument of type '\"UserIdentityAnonymous\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(344,34): error TS2345: Argument of type '\"UserIdentityPublicProfile\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(403,34): error TS2345: Argument of type '\"UserIdentitySessions\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(520,34): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
               "src/views/user/IdentityCenter.vue(623,10): error TS6133: 'MfaChallengeResult' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(625,10): error TS6133: 'MfaSetupStart' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(626,10): error TS6133: 'MfaSetupVerify' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(628,10): error TS6133: 'PasskeyLoginBeginResponse' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(860,54): error TS2769: No overload matches this call.",
-              "src/views/user/IdentityCenter.vue(866,36): error TS7053: Element implicitly has an 'any' type because expression of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>' can't be used to index type '{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.",
-              "src/views/user/IdentityCenter.vue(871,20): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(1352,52): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(866,36): error TS7053: Element implicitly has an 'any' type because expression of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>' can't be used to index type '{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.",
+              "src/views/user/IdentityCenter.vue(871,20): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(1352,52): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
               "../../../FsusUI/vue/packages/components/breadcrumb/src/breadcrumb.vue(25,7): error TS6133: 'breadcrumb' is declared but its value is never read.",
               "../../../FsusUI/vue/packages/components/carousel/src/carousel-item.vue(41,3): error TS6133: 'carouselItemRef' is declared but its value is never read.",
               "../../../FsusUI/vue/packages/components/carousel/src/carousel.vue(96,3): error TS6133: 'root' is declared but its value is never read.",
@@ -39071,22 +39072,22 @@
               "src/views/admin/security/SecuritySimulator.vue(193,51): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
               "src/views/admin/security/SecuritySimulator.vue(245,64): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
               "src/views/admin/security/SecuritySimulator.vue(261,63): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.",
-              "src/views/user/IdentityCenter.vue(9,35): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(95,34): error TS2345: Argument of type '\"UserIdentityPasskeys\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(231,34): error TS2345: Argument of type '\"UserIdentityRecoveryKey\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(279,34): error TS2345: Argument of type '\"UserIdentityMfa\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(332,34): error TS2345: Argument of type '\"UserIdentityAnonymous\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(344,34): error TS2345: Argument of type '\"UserIdentityPublicProfile\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(403,34): error TS2345: Argument of type '\"UserIdentitySessions\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(520,34): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(9,35): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(95,34): error TS2345: Argument of type '\"UserIdentityPasskeys\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(231,34): error TS2345: Argument of type '\"UserIdentityRecoveryKey\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(279,34): error TS2345: Argument of type '\"UserIdentityMfa\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(332,34): error TS2345: Argument of type '\"UserIdentityAnonymous\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(344,34): error TS2345: Argument of type '\"UserIdentityPublicProfile\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(403,34): error TS2345: Argument of type '\"UserIdentitySessions\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(520,34): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
               "src/views/user/IdentityCenter.vue(623,10): error TS6133: 'MfaChallengeResult' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(625,10): error TS6133: 'MfaSetupStart' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(626,10): error TS6133: 'MfaSetupVerify' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(628,10): error TS6133: 'PasskeyLoginBeginResponse' is declared but its value is never read.",
               "src/views/user/IdentityCenter.vue(860,54): error TS2769: No overload matches this call.",
-              "src/views/user/IdentityCenter.vue(866,36): error TS7053: Element implicitly has an 'any' type because expression of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>' can't be used to index type '{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.",
-              "src/views/user/IdentityCenter.vue(871,20): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
-              "src/views/user/IdentityCenter.vue(1352,52): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"\u8eab\u4efd\u603b\u89c8\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"\u901a\u884c\u5bc6\u94a5\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(866,36): error TS7053: Element implicitly has an 'any' type because expression of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>' can't be used to index type '{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.",
+              "src/views/user/IdentityCenter.vue(871,20): error TS2345: Argument of type '\"UserIdentityCommentRecords\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
+              "src/views/user/IdentityCenter.vue(1352,52): error TS2345: Argument of type '\"UserIdentityOverview\"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: \"身份总览\"; readonly description: \"\"; }; readonly UserIdentityPasskeys: { readonly title: \"通行密钥\"; readonly description: \"\"; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.",
               "../../../FsusUI/vue/packages/components/breadcrumb/src/breadcrumb.vue(25,7): error TS6133: 'breadcrumb' is declared but its value is never read.",
               "../../../FsusUI/vue/packages/components/carousel/src/carousel-item.vue(41,3): error TS6133: 'carouselItemRef' is declared but its value is never read.",
               "../../../FsusUI/vue/packages/components/carousel/src/carousel.vue(96,3): error TS6133: 'root' is declared but its value is never read.",
@@ -39232,33 +39233,43 @@
   },
   "currentSourceFrontier": {
     "path": "artifacts/chain-3735/source-frontier-20261008.json",
-    "sha256": "efebd0ec86cd5ff1b9ec327b1ab53a1a3700b023e7700c4a5788b38f493d51df"
+    "sha256": "9017e8fd919afa4e4fa2461ea37029f99b18eb22bd2292e08272f8210e8b49d9"
   },
   "currentSourceFrontierSummary": {
-    "currentManagedBuild": "bb109c208764cc00f96d3087d97bd911add70ff3",
+    "publishedSource": "11527d8162113d0a46a0e7ca549803815407b636",
+    "currentManagedBuild": "6e58c2197552769695549ba278d989336d8314c4",
     "buildExit": 0,
     "errors": 0,
     "warnings": 1529,
-    "previewManagedUnits": 144,
-    "earlierF1Units": 481,
-    "earlierF1PgPassed": 44,
-    "extractorF063Units": {
-      "passed": 20,
-      "failed": 20
+    "currentFocusedUnits": 351,
+    "v5Backend": {
+      "passed": 240,
+      "failed": 43
     },
-    "extractorF063Pg": {
+    "v5Migration": {
+      "passed": 355,
+      "failed": 1
+    },
+    "v5ActualPgSourceAuthorityPassed": 44,
+    "v5ActualPgSnapshotDdl": {
       "passed": 2,
       "failed": 1
     },
     "extractorActual80": {
-      "extracted": 72,
-      "refused": 8
+      "extracted": 73,
+      "refused": 7
     },
-    "latestFullAppDiagnostics": 264,
+    "latestFullAppDiagnostics": 263,
+    "latestFullAppTestedSource": "45c991bac9a3ab4fc95a57ecbdf544222d13cffc",
+    "latestOpenApiSourceChecks": {
+      "passed": true,
+      "operations": 291,
+      "compiledHost": "6e58c2197552769695549ba278d989336d8314c4",
+      "projectionSource": "11527d8162113d0a46a0e7ca549803815407b636"
+    },
     "fullyAcceptedIssues": 0,
-    "navigationContractUnits": 26,
-    "navigationGoldenUnits": 17,
-    "navigationHttpReady": false
+    "navigationTransportSourceReady": true,
+    "navigationHttpRuntimeAccepted": false
   },
   "historicalManagedPreview275": {
     "compiledSourceCommit": "77d5a0602692da09a37ead6f544b1f09322b597a",
@@ -39700,5 +39711,705 @@
         "acceptanceLimits": "Ordinary source and typed wire regressions only; no HTTP/PG/runtime/UX or independent QA admission."
       }
     }
+  },
+  "historyBeforeV5NavigationHandoff": {
+    "capturedAtUtc": "2026-10-08T11:50:06.575571+00:00",
+    "publishedSourceCommit": {
+      "sourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
+      "currentCompiledSourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
+      "status": "Published source; exact separate SDK/unit/PG/native/frontend component results; runtime/product acceptance open",
+      "accepted": false
+    },
+    "navigationRevalidation": null
+  },
+  "acceptedIssues": 0,
+  "v5ExactConsumption": {
+    "sourceSha": "d8eec8030c3bd2da01a408fc8846dca5f983a4ea",
+    "consumedSource": "4129a891e7495d1843441933963d9d2561ffc706 then exact a16f58320d4557d431b1325afdb90c5674797c12",
+    "publishedSource": "e7847f18a137c061ada2042f5e88fb79f1551580",
+    "exactTwoLineCompilerRepair": "d8eec8030c3bd2da01a408fc8846dca5f983a4ea",
+    "backendBuildExit": 0,
+    "migrationBuildExit": 0,
+    "errors": 0,
+    "warnings": 1529,
+    "boundInputs": 2393,
+    "embeddedResources": 15,
+    "controls": 132,
+    "assemblies": 9,
+    "backendUnits": {
+      "executed": 283,
+      "passed": 240,
+      "failed": 43
+    },
+    "migrationUnits": {
+      "executed": 356,
+      "passed": 355,
+      "failed": 1,
+      "failure": "CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse: ProjectApplyJournal(MySql) did not throw"
+    },
+    "recipeExtraction": {
+      "total": 80,
+      "extracted": 73,
+      "refused": [
+        {
+          "table": "article_property_value_factset",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_property_value_entry",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_property_value_option",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_property_value_reference",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_property_value_snapshot",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_property_value_receipt",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_canvas_link_history",
+          "error": "current_schema_recipe_column_tail_unavailable"
+        }
+      ]
+    },
+    "actualPinnedPg18_6": {
+      "sourceAuthority": {
+        "passed": 44,
+        "failed": 0,
+        "containersDisposed": 2
+      },
+      "snapshotDdl": {
+        "passed": 2,
+        "failed": 1,
+        "containersDisposed": 1,
+        "failure": "CompiledCurrentRecipes_MatchOriginalPostgresRecipeEffectsAndImmutableGuards"
+      }
+    },
+    "pausedDivergentPeerPaths": [
+      "docs/testing.md",
+      "tests/backend/Fixtures/postgres-test-collections.json",
+      "tests/backend/Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs",
+      "tests/tools/check-postgres-test-collections.test.mjs"
+    ],
+    "limits": "Peer240/309/26/42 counts are not Root proof. No reseal of v4 receipts; no formal current-schema/HTTP/UX/QA acceptance."
+  },
+  "navigationRevalidation": {
+    "sourceCommit": "412d0d2ca7c219a5103e2ec453acf9f6ed613d5b",
+    "frontendCompatibilityCommit": "45c991bac9a3ab4fc95a57ecbdf544222d13cffc",
+    "latestEndpointAuthoritySourceCommit": "6e58c2197552769695549ba278d989336d8314c4",
+    "suppliedMinimalSource": "d36532bcda55d42ab90f35c88ae460237b2156b5",
+    "activeFrames": [
+      276,
+      277
+    ],
+    "family": "author-article-selection",
+    "nativePayloadError": 17,
+    "activeFrameCount": 269,
+    "maxActiveFrameId": 277,
+    "inertReservations": [],
+    "requestPayloadBytes": 100,
+    "maxResponsePayloadBytes": 626,
+    "fullFrameBounds": [
+      116,
+      642
+    ],
+    "api": "revalidateAuthorArticleSelection(request,signal?)",
+    "endpoint": "POST /api/binary/author/articles/revalidate-selection",
+    "canonicalBuild": {
+      "sourceSha": "412d0d2ca7c219a5103e2ec453acf9f6ed613d5b",
+      "exit": 0,
+      "errors": 0,
+      "warnings": 1529,
+      "inputs": 2405,
+      "embeddedResources": 15,
+      "controls": 134,
+      "dlls": 9,
+      "actualServerMigrationMetadataVerified": true
+    },
+    "unitRun": {
+      "sourceSha": "412d0d2ca7c219a5103e2ec453acf9f6ed613d5b",
+      "caseCounts": {
+        "AuthorArticleQuerySourceInspectionTests": 38,
+        "AuthorArticleSelectionTransportTests": 9,
+        "AuthorArticleSelectionWireTests": 36,
+        "AuthorArticleSelectionRevalidationContractTests": 26,
+        "BackendGoldenCatalogTests": 19,
+        "PodBinaryCodecTests": 105,
+        "AuthoringCanvasEndpointOwnerTests": 7,
+        "AuthoringArticleCurrentSourceReaderTests": 87
+      },
+      "counters": {
+        "total": "347",
+        "executed": "347",
+        "passed": "347",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "testExit": 0,
+      "allInputsAndNineDllStable": true,
+      "actualExpandedDiscoveryExecutionParity": true,
+      "failed": [],
+      "acceptanceLimits": "Ordinary source and typed wire regressions only; no HTTP/PG/runtime/UX or independent QA admission."
+    },
+    "jsRun": {
+      "sourceSha": "45c991bac9a3ab4fc95a57ecbdf544222d13cffc",
+      "nodePassed": 99,
+      "frontendPassed": 135,
+      "generatorExit": 0,
+      "protocolGeneratorExit": 0,
+      "boundInputs": 5667,
+      "sourceStable": true
+    },
+    "fullTypes": {
+      "sourceSha": "45c991bac9a3ab4fc95a57ecbdf544222d13cffc",
+      "exit": 2,
+      "diagnostics": 263,
+      "previous": 264,
+      "added": 0,
+      "removed": "own generated TS1294 parameter property",
+      "actualFsuiSha": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "requiredFsuiBaseline": "6c836baff8bc1879b487bf019359fd5e433f58ea"
+    },
+    "openApiInitial": {
+      "sourceSha": "45c991bac9a3ab4fc95a57ecbdf544222d13cffc",
+      "exit": 1,
+      "failure": "missingContracts=POST /api/binary/author/articles/revalidate-selection",
+      "preservedLog": ".tmp/chain-3735/navigation-runtime-source/openapi-readonly.log"
+    },
+    "currentEndpointAuthorityVerification": {
+      "compiledSourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+      "publishedProjectionSourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+      "backendBuildExit": 0,
+      "migrationBuildExit": 0,
+      "errors": 0,
+      "warnings": 1529,
+      "boundInputs": 2405,
+      "embeddedResources": 15,
+      "controls": 134,
+      "dlls": 9,
+      "actualServerMigrationMetadataVerified": true,
+      "expandedUnits": {
+        "executed": 351,
+        "passed": 351,
+        "failed": 0,
+        "notExecuted": 0,
+        "discoveryExecutionParity": true
+      },
+      "ownedStyle": {
+        "exit": 0,
+        "files": 2,
+        "violations": 0
+      },
+      "officialProjection": {
+        "operations": 291,
+        "initialExit": 1,
+        "initialFailure": "missing Shared operation, repaired in6e",
+        "secondExit": 1,
+        "secondFailure": "existing projection drift; full bidirectional review preserved",
+        "generatedUpdateExit": 0,
+        "finalChecks": {
+          "publishedSourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+          "compiledObservationHostSourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+          "sourceFilesStable": true,
+          "commands": [
+            {
+              "label": "openapi",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/check-openapi-sync.mjs",
+                "--no-rebuild"
+              ],
+              "startedAt": "2026-10-08T14:00:08.262749+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.541091+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/openapi.log"
+            },
+            {
+              "label": "consumers",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/check-openapi-consumers.mjs"
+              ],
+              "startedAt": "2026-10-08T14:00:13.541502+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.633634+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/consumers.log"
+            },
+            {
+              "label": "routes",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/generate-frontend-routes.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:13.633860+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.738773+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/routes.log"
+            },
+            {
+              "label": "matrix",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/generate-cross-stack-contract.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:13.739223+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.843245+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/matrix.log"
+            },
+            {
+              "label": "nav-generator",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/generate-author-article-selection-wire.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:13.843487+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:23.356076+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/nav-generator.log"
+            },
+            {
+              "label": "protocol-generator",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/frontend/generate-aeds-protocol.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:23.356479+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:23.413587+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/protocol-generator.log"
+            }
+          ],
+          "limits": "Projection/directory/generator source checks only. No compiler rerun after XML-only/projection delta; SDK/unit proof remains6e. No real HTTP/PG/UX or independent QA admission."
+        },
+        "matrixInitialExit": 1,
+        "matrixInitialFailure": "missing one handwritten test route directory entry",
+        "matrixRepair": "actual observed metadata added; original generator/check now0"
+      },
+      "limits": "Compiler/units are exact6e, latest directory/projection generator checks exact115. XML-only delta and projections not recompiled as a new whole candidate. Actual HTTP/session/Postgres/renderedUX/full frontend types/CI/independent QA remain unaccepted."
+    },
+    "actualRouteCodecConsumerReady": true,
+    "limits": [
+      "Source and ordinary compiler/unit/native checks only; controlled frontend HTTP/native adapters are not authenticated HTTP/UX admission.",
+      "Current full frontend types FAILED263; private E401 and baseline mismatch remain.",
+      "Original official OpenAPI producer only; no reconstruction of parent-withdrawn QA.",
+      "Ranked query, Rail/switcher, slug/history-generation, document epoch/portable/source semantic producers remain separate owners."
+    ],
+    "handoff": "artifacts/chain-3735/navigation-revalidation-handoff.md",
+    "publishedProjectionSourceCommit": "11527d8162113d0a46a0e7ca549803815407b636",
+    "officialOpenApiAndDirectorySourceChecksPassed": true
+  },
+  "property3665MinimalHandoff": {
+    "sourceSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+    "branch": "codex/prerequisite-3665-current-master-20261008",
+    "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+    "canonicalOriginSource": "afab85610217dacb0fca4b3ec8a062e0cd1bf801",
+    "fileCount": 11,
+    "backendBuild": {
+      "sourceSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+      "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+      "results": [
+        {
+          "stage": "restore",
+          "exit": 0
+        },
+        {
+          "stage": "build",
+          "exit": 0
+        }
+      ],
+      "inputsStable": true,
+      "boundInputCount": 1552,
+      "assemblies": [
+        {
+          "path": "src/backend/bin/Release/net10.0/FsusBlog.Shared.dll",
+          "sha256": "6c13a0d77f5f8531e292f3dba11790f04633c8dc6db342599bae1b93dc677345",
+          "bytes": 1650688
+        },
+        {
+          "path": "src/backend/bin/Release/net10.0/FsusBlog.Core.dll",
+          "sha256": "1eff2edebf0a9a2d8c8a53aa00bfc6f6a8a3201eb1eecf0ea5998a4397b5d057",
+          "bytes": 735744
+        },
+        {
+          "path": "src/backend/bin/Release/net10.0/FsusBlog.Server.dll",
+          "sha256": "1768296084f9822643b696335b3f755c0bbd71006afa7f58351866ee3c8dd0df",
+          "bytes": 18351616
+        }
+      ],
+      "acceptanceLimits": "Source prerequisite production compiler closure only; consumer61 peer evidence not rerun. No HTTP/PG/UX or independent QA acceptance."
+    },
+    "metadata": {
+      "sourceSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+      "checkedAt": "2026-10-08T13:46:11.559152+00:00",
+      "exit": 0,
+      "actualServerStampMatches": true,
+      "allThreeBuiltDllBytesUnchanged": true,
+      "metadata": "actual-metadata.json",
+      "limits": "Source prerequisite production compiler closure only; consumer61 peer evidence not rerun. No HTTP/PG/UX or independent QA acceptance.",
+      "priorInvocationErrors": [
+        "wrong cwd relative input path",
+        "missing DOTNET_CLI_HOME triggered read-only /home/agent/.dotnet; no proof from those attempts"
+      ]
+    },
+    "consumer61Evidence": "parent peer claim, not Root rerun",
+    "remoteShaVerified": true,
+    "draftPrCreation": "not attempted under existing content-write403 prohibition",
+    "limits": "Exact minimal source prerequisite; not shared protocol mutation, consumer acceptance or whole-chain completion."
+  },
+  "anonymousTicketDtoCorrection": {
+    "sourceSha": "9ed401583c04ff354c430b2ea174ccb69adb6002",
+    "files": [
+      "src/frontend/src/contracts/binaryApi.ts"
+    ],
+    "change": "remove unsupported credentialEpoch from handwritten AnonymousCommentTicketRequestDto only",
+    "wirePolicy": "AEDS2 frames198/199,circuitv5/layout6/opaquePayloadv3 unchanged",
+    "frontendFocused": {
+      "passed": 34,
+      "log": ".tmp/chain-3735/navigation-revalidation-closure/anonymous-ticket-units.log",
+      "bindingLimit": "pre-Nav current working source; not independent exact-ticket whole candidate receipt"
+    },
+    "currentPod": {
+      "sourceSha": "412d0d2ca7c219a5103e2ec453acf9f6ed613d5b",
+      "passed": 105,
+      "unitSummary": ".tmp/chain-3735/navigation-runtime-source/units/summary.json"
+    },
+    "remoteShaVerified": true
+  },
+  "newEvidenceReferences": [
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/assembly-binding.json",
+      "sha256": "461a14bc3d2ff47a62bd9fd57a14a35b16b7cf84818e8f9fa2a451567341684a"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/units/summary.json",
+      "sha256": "4c743edb8f22258d06cc8e442c9043ff5cfd225f6418f5ee5f6bca4049625045"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/migration-units/summary.json",
+      "sha256": "426f9ae30d44b0475e00260d7c251e5aba38504b0cd95fd8dd9d2dbb2f8b47da"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/recipe-extraction.json",
+      "sha256": "d79d9eb19a3697f5e562639020b86764797e4021e6c49a8e9d2699169bce9027"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/recipe-binding.json",
+      "sha256": "db9a34ea25c694ad1ed74cf8fcb8fd2bd975c9b4eb5edfc29a6a143f7efcd28a"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/pg-source-authority/results.json",
+      "sha256": "f460b02c71cf6a2d90d722c69f43f65c227348df4f6b77f52164252241f05d6e"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/pg-snapshot-ddl/results.json",
+      "sha256": "93620aa264c9c636b10040c1251a9ef56af3c87bae7c12dc34d8f5c9310ce3d9"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/assembly-binding.json",
+      "sha256": "c4f8a0fed1ff3c19ef4d1dfec815b5bdaa2569f00a3966a26e0161e5736a5eee"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/metadata-binding.json",
+      "sha256": "4baffbb5516ad79abe2266f60c3abd02923dae8b6f12152a4a6254daf783c8ca"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/units/summary.json",
+      "sha256": "552e892fdde24e983f6584ccf96052986b4f1a0313c93bfa4a3d2faabfa91bdb"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/frontend-erasable-repair/js/summary.json",
+      "sha256": "4562cd68c5908bac896788f035213cfaf27555b0dffae90e3c48c729cccb220c"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/frontend-erasable-repair/full-types/summary.json",
+      "sha256": "5e89194960dc1e2a2b82ab082237e14cb16ae992ae1bc06c8d632fdd6b15bc08"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/frontend-erasable-repair/full-types/diagnostic-comparison.json",
+      "sha256": "4d6eb437f1b3a089e36fd1db3e8749d3648a273f5edb8201dde4990323ad362c"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/openapi-readonly.log",
+      "sha256": "41648ebb776088a6111f2d489bef100fff68bbadcb676e3ab8fa4c2d5a49f1e3"
+    },
+    {
+      "path": ".tmp/chain-3735/property-3665-source-handoff/build-summary.json",
+      "sha256": "1f0dd7c543a3ac0b2880301610efff401892821d1d5b34b256abf5dd727a64e9"
+    },
+    {
+      "path": ".tmp/chain-3735/property-3665-source-handoff/metadata-binding.json",
+      "sha256": "8b14e2ba651e3e8337a7307f2bbb41d3266f8f0beec01b4ace528dea6df4718b"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/assembly-binding.json",
+      "sha256": "8968bb4d361f5123ef8fba3f33e27ca45b7bc48d9627d963ccedc41ddd7387b8"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/metadata-binding.json",
+      "sha256": "8613d1681194702e54d7e0dbac7aa80e7dc09d890bdd0855ae7afe74795c6d49"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/units/summary.json",
+      "sha256": "408769231948ffa64f7418ecbab6e884a229b997891f88268db9ddb87c992500"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/owned-style-command.json",
+      "sha256": "d1dbc3ade8fb59939be8699a757c9119f832ee6ad5fe8d5d4341dda138771c30"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/openapi/summary.json",
+      "sha256": "7127badb382eef4fc8837e7fbb575645280381bf7db31c051b8bcd4fc84e9a70"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/openapi/bidirectional-drift-review.json",
+      "sha256": "456f24df8fd69148d91e0b4656d8d46c4cc46c7248e676ab6e1a5ad8adf38089"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/products-final/summary.json",
+      "sha256": "2cd2fa9cbde59358b7da7e5109a6ecdfe90eb0d9d961f8918f75f81358d5f85e"
+    },
+    {
+      "path": ".tmp/chain-3735/property-3665-source-handoff/xml-doc-delta.json",
+      "sha256": "865c62eb2c780ac4e439c6f7e6ba8950ef19fdf38cda663621aeed686f226180"
+    }
+  ],
+  "independentQa": "Parent-withdrawn; never reconstructed or rerun; no clearance claimed.",
+  "currentEndpointAuthorityProof": {
+    "compiledSourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+    "publishedProjectionSourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+    "backendBuildExit": 0,
+    "migrationBuildExit": 0,
+    "errors": 0,
+    "warnings": 1529,
+    "boundInputs": 2405,
+    "embeddedResources": 15,
+    "controls": 134,
+    "dlls": 9,
+    "actualServerMigrationMetadataVerified": true,
+    "expandedUnits": {
+      "executed": 351,
+      "passed": 351,
+      "failed": 0,
+      "notExecuted": 0,
+      "discoveryExecutionParity": true
+    },
+    "ownedStyle": {
+      "exit": 0,
+      "files": 2,
+      "violations": 0
+    },
+    "officialProjection": {
+      "operations": 291,
+      "initialExit": 1,
+      "initialFailure": "missing Shared operation, repaired in6e",
+      "secondExit": 1,
+      "secondFailure": "existing projection drift; full bidirectional review preserved",
+      "generatedUpdateExit": 0,
+      "finalChecks": {
+        "publishedSourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+        "compiledObservationHostSourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+        "sourceFilesStable": true,
+        "commands": [
+          {
+            "label": "openapi",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/check-openapi-sync.mjs",
+              "--no-rebuild"
+            ],
+            "startedAt": "2026-10-08T14:00:08.262749+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:13.541091+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/openapi.log"
+          },
+          {
+            "label": "consumers",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/check-openapi-consumers.mjs"
+            ],
+            "startedAt": "2026-10-08T14:00:13.541502+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:13.633634+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/consumers.log"
+          },
+          {
+            "label": "routes",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/generate-frontend-routes.mjs",
+              "--check"
+            ],
+            "startedAt": "2026-10-08T14:00:13.633860+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:13.738773+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/routes.log"
+          },
+          {
+            "label": "matrix",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/generate-cross-stack-contract.mjs",
+              "--check"
+            ],
+            "startedAt": "2026-10-08T14:00:13.739223+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:13.843245+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/matrix.log"
+          },
+          {
+            "label": "nav-generator",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/generate-author-article-selection-wire.mjs",
+              "--check"
+            ],
+            "startedAt": "2026-10-08T14:00:13.843487+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:23.356076+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/nav-generator.log"
+          },
+          {
+            "label": "protocol-generator",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/frontend/generate-aeds-protocol.mjs",
+              "--check"
+            ],
+            "startedAt": "2026-10-08T14:00:23.356479+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:23.413587+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/protocol-generator.log"
+          }
+        ],
+        "limits": "Projection/directory/generator source checks only. No compiler rerun after XML-only/projection delta; SDK/unit proof remains6e. No real HTTP/PG/UX or independent QA admission."
+      },
+      "matrixInitialExit": 1,
+      "matrixInitialFailure": "missing one handwritten test route directory entry",
+      "matrixRepair": "actual observed metadata added; original generator/check now0"
+    },
+    "limits": "Compiler/units are exact6e, latest directory/projection generator checks exact115. XML-only delta and projections not recompiled as a new whole candidate. Actual HTTP/session/Postgres/renderedUX/full frontend types/CI/independent QA remain unaccepted."
+  },
+  "property3665DocumentationDelta": {
+    "sourceSha": "6f1f228d46687931b78c280121e8c07ea0961fbc",
+    "baseSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+    "recordedAt": "2026-10-08T13:54:04.313155+00:00",
+    "file": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+    "oldBlob": "bee3b880190ead838cd0bbdda8eecf2d50cab5e7",
+    "newBlob": "e40a8e0ee45b7f52e93483b4c06477bcfd77cb08",
+    "onlyFourXmlSummariesAdded": true,
+    "allNonDocumentationLinesByteEqual": true,
+    "styleExit": 0,
+    "styleLog": "xml-doc-style.log",
+    "compilerUnitRerun": "not run for comment-only delta; prior919 production compiler proof remains bound to919",
+    "peerCandidate": "4ee4b8ff7de4cef6cd6ea4fb7937d8d0a96b10b5",
+    "peer201Tests": "parent supplied claim, not Root rerun",
+    "remoteShaVerified": true
+  },
+  "historicalFieldsBefore6e": {
+    "compiledSourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
+    "runId": "chain3735-navigation-contract-bb109c20-20261008",
+    "assemblyBinding": {
+      "path": ".tmp/chain-3735/navigation-contract-canonical/assembly-binding.json",
+      "sha256": "57e33c680e48d284e00f76132829a6248f42b5c65b0194fba3ca00a3a8156ba9"
+    },
+    "unitCases": {
+      "sourceSha": "bb109c208764cc00f96d3087d97bd911add70ff3",
+      "caseCounts": {
+        "AuthorArticleSelectionRevalidationContractTests": 26,
+        "BackendGoldenCatalogTests": 17
+      },
+      "counters": {
+        "total": "43",
+        "executed": "43",
+        "passed": "43",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "testExit": 0,
+      "allInputsAndSixDllStable": true,
+      "rawExpandedDiscoveryExecutionParity": true,
+      "displayNormalizedLogicalExpandedParity": true,
+      "failed": [],
+      "acceptanceLimits": "Ordinary source and typed wire regressions only; no HTTP/PG/runtime/UX or independent QA admission."
+    },
+    "currentSourceFrontierSummary": {
+      "currentManagedBuild": "bb109c208764cc00f96d3087d97bd911add70ff3",
+      "buildExit": 0,
+      "errors": 0,
+      "warnings": 1529,
+      "previewManagedUnits": 144,
+      "earlierF1Units": 481,
+      "earlierF1PgPassed": 44,
+      "extractorF063Units": {
+        "passed": 20,
+        "failed": 20
+      },
+      "extractorF063Pg": {
+        "passed": 2,
+        "failed": 1
+      },
+      "extractorActual80": {
+        "extracted": 72,
+        "refused": 8
+      },
+      "latestFullAppDiagnostics": 264,
+      "fullyAcceptedIssues": 0,
+      "navigationContractUnits": 26,
+      "navigationGoldenUnits": 17,
+      "navigationHttpReady": false
+    }
+  },
+  "historicalFrontierReferenceBefore6e": {
+    "path": "artifacts/chain-3735/source-frontier-20261008.json",
+    "sha256": "efebd0ec86cd5ff1b9ec327b1ab53a1a3700b023e7700c4a5788b38f493d51df"
   }
 }

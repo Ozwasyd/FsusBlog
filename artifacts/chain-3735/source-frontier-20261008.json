@@ -1,7 +1,7 @@
 {
   "schema": "fsusblog.chain3735.source-frontier.v1",
-  "capturedAtUtc": "2026-10-08T12:21:53.591788+00:00",
-  "publishedSourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
+  "capturedAtUtc": "2026-10-08T14:02:03.544679+00:00",
+  "publishedSourceCommit": "11527d8162113d0a46a0e7ca549803815407b636",
   "branch": "codex/chain-3735-20261008",
   "draftPR": "https://github.com/Ozwasyd/FsusBlog/pull/3839",
   "acceptedIssues": 0,
@@ -292,6 +292,218 @@
         "-m:1",
         "-nr:false"
       ]
+    },
+    "navigation412d": {
+      "sourceSha": "412d0d2ca7c219a5103e2ec453acf9f6ed613d5b",
+      "exit": 0,
+      "errors": 0,
+      "warnings": 1529,
+      "inputs": 2405,
+      "embeddedResources": 15,
+      "controls": 134,
+      "dlls": 9,
+      "actualServerMigrationMetadataVerified": true
+    },
+    "greatestV5": {
+      "sourceSha": "d8eec8030c3bd2da01a408fc8846dca5f983a4ea",
+      "consumedSource": "4129a891e7495d1843441933963d9d2561ffc706 then exact a16f58320d4557d431b1325afdb90c5674797c12",
+      "publishedSource": "e7847f18a137c061ada2042f5e88fb79f1551580",
+      "exactTwoLineCompilerRepair": "d8eec8030c3bd2da01a408fc8846dca5f983a4ea",
+      "backendBuildExit": 0,
+      "migrationBuildExit": 0,
+      "errors": 0,
+      "warnings": 1529,
+      "boundInputs": 2393,
+      "embeddedResources": 15,
+      "controls": 132,
+      "assemblies": 9,
+      "backendUnits": {
+        "executed": 283,
+        "passed": 240,
+        "failed": 43
+      },
+      "migrationUnits": {
+        "executed": 356,
+        "passed": 355,
+        "failed": 1,
+        "failure": "CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse: ProjectApplyJournal(MySql) did not throw"
+      },
+      "recipeExtraction": {
+        "total": 80,
+        "extracted": 73,
+        "refused": [
+          {
+            "table": "article_property_value_factset",
+            "error": "current_schema_recipe_syntax_unavailable"
+          },
+          {
+            "table": "article_property_value_entry",
+            "error": "current_schema_recipe_syntax_unavailable"
+          },
+          {
+            "table": "article_property_value_option",
+            "error": "current_schema_recipe_syntax_unavailable"
+          },
+          {
+            "table": "article_property_value_reference",
+            "error": "current_schema_recipe_syntax_unavailable"
+          },
+          {
+            "table": "article_property_value_snapshot",
+            "error": "current_schema_recipe_syntax_unavailable"
+          },
+          {
+            "table": "article_property_value_receipt",
+            "error": "current_schema_recipe_syntax_unavailable"
+          },
+          {
+            "table": "article_canvas_link_history",
+            "error": "current_schema_recipe_column_tail_unavailable"
+          }
+        ]
+      },
+      "actualPinnedPg18_6": {
+        "sourceAuthority": {
+          "passed": 44,
+          "failed": 0,
+          "containersDisposed": 2
+        },
+        "snapshotDdl": {
+          "passed": 2,
+          "failed": 1,
+          "containersDisposed": 1,
+          "failure": "CompiledCurrentRecipes_MatchOriginalPostgresRecipeEffectsAndImmutableGuards"
+        }
+      },
+      "pausedDivergentPeerPaths": [
+        "docs/testing.md",
+        "tests/backend/Fixtures/postgres-test-collections.json",
+        "tests/backend/Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs",
+        "tests/tools/check-postgres-test-collections.test.mjs"
+      ],
+      "limits": "Peer240/309/26/42 counts are not Root proof. No reseal of v4 receipts; no formal current-schema/HTTP/UX/QA acceptance."
+    },
+    "navigationEndpoint6e": {
+      "compiledSourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+      "publishedProjectionSourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+      "backendBuildExit": 0,
+      "migrationBuildExit": 0,
+      "errors": 0,
+      "warnings": 1529,
+      "boundInputs": 2405,
+      "embeddedResources": 15,
+      "controls": 134,
+      "dlls": 9,
+      "actualServerMigrationMetadataVerified": true,
+      "expandedUnits": {
+        "executed": 351,
+        "passed": 351,
+        "failed": 0,
+        "notExecuted": 0,
+        "discoveryExecutionParity": true
+      },
+      "ownedStyle": {
+        "exit": 0,
+        "files": 2,
+        "violations": 0
+      },
+      "officialProjection": {
+        "operations": 291,
+        "initialExit": 1,
+        "initialFailure": "missing Shared operation, repaired in6e",
+        "secondExit": 1,
+        "secondFailure": "existing projection drift; full bidirectional review preserved",
+        "generatedUpdateExit": 0,
+        "finalChecks": {
+          "publishedSourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+          "compiledObservationHostSourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+          "sourceFilesStable": true,
+          "commands": [
+            {
+              "label": "openapi",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/check-openapi-sync.mjs",
+                "--no-rebuild"
+              ],
+              "startedAt": "2026-10-08T14:00:08.262749+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.541091+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/openapi.log"
+            },
+            {
+              "label": "consumers",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/check-openapi-consumers.mjs"
+              ],
+              "startedAt": "2026-10-08T14:00:13.541502+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.633634+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/consumers.log"
+            },
+            {
+              "label": "routes",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/generate-frontend-routes.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:13.633860+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.738773+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/routes.log"
+            },
+            {
+              "label": "matrix",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/generate-cross-stack-contract.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:13.739223+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.843245+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/matrix.log"
+            },
+            {
+              "label": "nav-generator",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/generate-author-article-selection-wire.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:13.843487+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:23.356076+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/nav-generator.log"
+            },
+            {
+              "label": "protocol-generator",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/frontend/generate-aeds-protocol.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:23.356479+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:23.413587+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/protocol-generator.log"
+            }
+          ],
+          "limits": "Projection/directory/generator source checks only. No compiler rerun after XML-only/projection delta; SDK/unit proof remains6e. No real HTTP/PG/UX or independent QA admission."
+        },
+        "matrixInitialExit": 1,
+        "matrixInitialFailure": "missing one handwritten test route directory entry",
+        "matrixRepair": "actual observed metadata added; original generator/check now0"
+      },
+      "limits": "Compiler/units are exact6e, latest directory/projection generator checks exact115. XML-only delta and projections not recompiled as a new whole candidate. Actual HTTP/session/Postgres/renderedUX/full frontend types/CI/independent QA remain unaccepted."
     }
   },
   "unitRuns": {
@@ -690,6 +902,79 @@
       "allInputsAndSixDllStable": true,
       "rawExpandedDiscoveryExecutionParity": true,
       "displayNormalizedLogicalExpandedParity": true,
+      "failed": [],
+      "acceptanceLimits": "Ordinary source and typed wire regressions only; no HTTP/PG/runtime/UX or independent QA admission."
+    },
+    "navigation412d": {
+      "sourceSha": "412d0d2ca7c219a5103e2ec453acf9f6ed613d5b",
+      "caseCounts": {
+        "AuthorArticleQuerySourceInspectionTests": 38,
+        "AuthorArticleSelectionTransportTests": 9,
+        "AuthorArticleSelectionWireTests": 36,
+        "AuthorArticleSelectionRevalidationContractTests": 26,
+        "BackendGoldenCatalogTests": 19,
+        "PodBinaryCodecTests": 105,
+        "AuthoringCanvasEndpointOwnerTests": 7,
+        "AuthoringArticleCurrentSourceReaderTests": 87
+      },
+      "counters": {
+        "total": "347",
+        "executed": "347",
+        "passed": "347",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "testExit": 0,
+      "allInputsAndNineDllStable": true,
+      "actualExpandedDiscoveryExecutionParity": true,
+      "failed": [],
+      "acceptanceLimits": "Ordinary source and typed wire regressions only; no HTTP/PG/runtime/UX or independent QA admission."
+    },
+    "navigationEndpoint6e": {
+      "sourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+      "caseCounts": {
+        "AuthoringNativeAedsEndpointTests": 4,
+        "AuthorArticleQuerySourceInspectionTests": 38,
+        "AuthorArticleSelectionTransportTests": 9,
+        "AuthorArticleSelectionWireTests": 36,
+        "AuthorArticleSelectionRevalidationContractTests": 26,
+        "BackendGoldenCatalogTests": 19,
+        "PodBinaryCodecTests": 105,
+        "AuthoringCanvasEndpointOwnerTests": 7,
+        "AuthoringArticleCurrentSourceReaderTests": 87
+      },
+      "counters": {
+        "total": "351",
+        "executed": "351",
+        "passed": "351",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "testExit": 0,
+      "allInputsAndNineDllStable": true,
+      "actualExpandedDiscoveryExecutionParity": true,
       "failed": [],
       "acceptanceLimits": "Ordinary source and typed wire regressions only; no HTTP/PG/runtime/UX or independent QA admission."
     }
@@ -1723,6 +2008,16 @@
         "No existing realbinarydecodeworkerqueue case found; notrun/blocked coverage.",
         "Published private E401/localbaseline mismatch remain; no SDK/build/sourcefix/QA/productauthority actions."
       ]
+    },
+    "latestCompleteAppTypes": {
+      "sourceSha": "45c991bac9a3ab4fc95a57ecbdf544222d13cffc",
+      "exit": 2,
+      "diagnostics": 263,
+      "previous": 264,
+      "added": 0,
+      "removed": "own generated TS1294 parameter property",
+      "actualFsuiSha": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "requiredFsuiBaseline": "6c836baff8bc1879b487bf019359fd5e433f58ea"
     }
   },
   "native275": {
@@ -6760,215 +7055,241 @@
     }
   ],
   "outstandingGates": [
-    "Root3657: actual remaining8 of80 recipes, unnamed constraints/text/uuid arrays/expression keys including COALESCE and GREATEST, DEFAULT+CHECK; strict compiler/native/catalog/qualification still fail",
-    "Root2286: supply actual articleWritingAidPolicy source to resolve3 canonical tool test failures; alias config does not include it",
-    "Full app264 real diagnostics, private package E401, FsUI f2 vs formal6c836 baseline, production build still bare vue-tsc",
-    "Root2246 and roots3560/3663: genuine portable/site identities, safe FsUI source/heading/block/range dependency projections and immutable relation index",
-    "Root1975: typed275 consumer regeneration and actual preview endpoint/HTTP/file/store receipt; bounded managed/native source alone insufficient",
-    "Formal current-schema issuer, admitted HTTP/admin-session/PoW/provider/browser UX and full CI/independent QA remain unaccepted; withdrawn QA not reconstructed",
-    "Root3657 source closure via parent: exact final d365 Shared/source reader/revalidator/facade/DI with bound unit/PG evidence; actual authenticated276/277 route/POD/decoder/TS binding pending"
+    "Root3657: seven of80 current recipes still refuse (six ArticlePropertyValue tables and article_canvas_link_history); strictPG DDL and unsupported-provider MySql negative fail. Need exact sole-owner source repair plus original acceptance, not whole-chain wait.",
+    "Root2286: actual articleWritingAidPolicy source needed for three preserved canonical tool failures.",
+    "Latest full app types exact45c:263 diagnostics, new0 after template fix; private E401, actualFsUI f2 versus required6c836 baseline and production build unaccepted.",
+    "Root2246/roots3560/3663: actual portable/site/source dependency projections and immutable relation index; genuine Rail/switcher/query/history/document epoch producers still needed per issue.",
+    "Root1975: typed275 consumer regeneration and actual preview endpoint/HTTP/file/store receipt.",
+    "Export2436: exact family/native-error/response complete-frame budget proposal absent; no IDs allocated, endpoint/DI/freezer not imported.",
+    "Formal current-schema issuer/native authority, admitted admin-session/PoW/provider/browser UX, full CI and independent acceptance remain open; parent-withdrawn QA never reconstructed.",
+    "Remaining Pin/Capture/Legacy issue prerequisites are recorded in all70 rows; no stage is admitted from source or peer counts alone."
   ],
   "navigationRevalidation": {
-    "sourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
-    "inertReservations": [
+    "sourceCommit": "412d0d2ca7c219a5103e2ec453acf9f6ed613d5b",
+    "frontendCompatibilityCommit": "45c991bac9a3ab4fc95a57ecbdf544222d13cffc",
+    "latestEndpointAuthoritySourceCommit": "6e58c2197552769695549ba278d989336d8314c4",
+    "suppliedMinimalSource": "d36532bcda55d42ab90f35c88ae460237b2156b5",
+    "activeFrames": [
       276,
       277
     ],
-    "activeFrameCount": 267,
-    "maxActiveFrameId": 275,
-    "protocolVerification": {
-      "sourceSha": "bb109c208764cc00f96d3087d97bd911add70ff3",
-      "sourceStable": true,
-      "inputs": {
-        "src/shared/Contracts/Validation/aeds-protocol.json": "086a4bf43a4f3140d1c4ba810798d73e897a7b9a2947f8a40dc18dc6d7124433",
-        "tests/tools/aeds-protocol-generation.test.mjs": "e8855a2d27a8d9c66fe70ce3ec8d2bb64c263c4d6bc1ef85c219d951d5fe218a",
-        "tools/frontend/generate-aeds-protocol.mjs": "6907017e63b0e215a6fe66b8c69664aae8257cd2cf0130a4dab99e17c3b624ea",
-        "src/core/Algorithms/AedsFrameType.cs": "d2c5de946e04f65f1ed7f9f219949bd09c51fc4a2e1ce457d5c5d2ccc891052d",
-        "src/shared/AedsFrameHeader.cs": "6ef58c634ef5502d3aac17239d427975e95aad17b43f2eb67ecb6e648ecc605b",
-        "src/frontend/wasm/web/protocol/frame.ts": "3403e5a4881cb84b4e5aacd9e4c16c2a55b5360e31aee014ec627122c34b9d13",
-        "src/frontend/wasm/aeds/include/aeds_frame.hpp": "1eeffef6cd402c4f1b633079804b9301bd3f6429563a6f3d8c46f40d677a3147",
-        "tests/backend/Fixtures/aeds-golden-catalog.json": "3936254e4b62f5d50c3c1559e65ae3923f7ff4975f6c52c0cd6e0e50bb8b7779"
-      },
-      "commands": [
-        {
-          "name": "generator",
-          "argv": [
-            "node",
-            "tools/frontend/generate-aeds-protocol.mjs",
-            "--check"
-          ],
-          "startedAt": "2026-10-08T11:45:52.961560+00:00",
-          "exitCode": 0,
-          "log": ".tmp/chain-3735/navigation-contract-canonical/generator.log"
-        },
-        {
-          "name": "tools52",
-          "argv": [
-            "node",
-            "--test",
-            "tests/tools/aeds-protocol-generation.test.mjs"
-          ],
-          "startedAt": "2026-10-08T11:45:53.156705+00:00",
-          "exitCode": 0,
-          "log": ".tmp/chain-3735/navigation-contract-canonical/tools52.log"
-        }
-      ],
-      "toolsPassed": 52,
-      "fiveProductsByteEqualPrevious006": true,
-      "activeFrameCount": 267,
-      "reservedFrameIds": [
-        276,
-        277
-      ],
-      "acceptance": "inert reservation and generator negative controls only; no active codec or route"
-    },
-    "nativeReservationRefusal": {
-      "sourceSha": "bb109c208764cc00f96d3087d97bd911add70ff3",
-      "compiler": "g++ (Debian 14.2.0-19) 14.2.0",
-      "inputCount": 18,
-      "inputs": {
-        "src/frontend/wasm/aeds/include/aeds_access_profiles.generated.hpp": "fd1d387105e378611e9ee6505d9ecd70521b4986d483227ff312c422ec311942",
-        "src/frontend/wasm/aeds/include/aeds_crc32.hpp": "74bccc2db2a7ccabc0d784f995b867e8ac2c9641dc1f437f2e786822350c7b61",
-        "src/frontend/wasm/aeds/include/aeds_decode.hpp": "9e9683dd6bdc1f1cfdd095bb93a8bde0c6a00ddd6af5b724375f1a0f2e571d68",
-        "src/frontend/wasm/aeds/include/aeds_frame.hpp": "1eeffef6cd402c4f1b633079804b9301bd3f6429563a6f3d8c46f40d677a3147",
-        "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp": "be7368e0e6a5936701c2ee3baf5f04f7d7ccfb5f40dac7b2878d3fe288d019fe",
-        "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp": "8106396d6f06df3d138c295935640d9baa8c5109dfd1a8beb3f042c694cc30a6",
-        "src/frontend/wasm/aeds/include/authoring_workspace_snapshot_wire.generated.hpp": "cf6b441d615a02592161787130fa55b357893d2b4b8df1709c702753be26b706",
-        "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp": "8c2a03ad90b2bf91cf3b1f7e36b6086b69907e120912d6ebd32cd97e6c580d2e",
-        "src/frontend/wasm/aeds/include/pod_views.hpp": "e81604cdd0f5acc20dcf46f1c9faf6ebf141bff1d2414ef1ab22edf6661cc4ce",
-        "src/frontend/wasm/aeds/include/property_value_read.generated.hpp": "78382f66ae4ed4aceaa9825204622eccdc55ba7d2afcdbe8cf51b0d98a590a54",
-        "src/frontend/wasm/aeds/include/public_representation_coordinate.hpp": "4ca6f8688c288cbc4272b3fddcd2c27b1d52a42698349322030ecd43d0e86a91",
-        "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp": "36b1a5ca94ff8b7ee0df847d97dd4362e9aa0609928e0a2f385d226928ace118",
-        "src/frontend/wasm/aeds/include/writing_aid_preference_wire.generated.hpp": "73d59b0f1fc541b3085d86dc4647d8ff9981ff8fa8d6fcc11de9a040bb6d303c",
-        "src/frontend/wasm/aeds/src/aeds_crc32.cpp": "6b98670e89d4ed3a217554b2a9b479c06a7d9b3305f3793e2d0b11795a9f375c",
-        "src/frontend/wasm/aeds/src/aeds_decode.cpp": "2ea14b65acca15dcdc8bf96d6019d6c98b92fb24dda1a4714f579e649f344681",
-        "src/frontend/wasm/aeds/src/pod_parse_article.cpp": "c20134da7777ecf6a0c59a36e507df45dab53facd8bf8cc35df9d710adc5f408",
-        "src/shared/Contracts/Validation/aeds-protocol.json": "086a4bf43a4f3140d1c4ba810798d73e897a7b9a2947f8a40dc18dc6d7124433",
-        "tests/frontend/fixtures/aeds-protocol-cpp-contract.cpp": "f74c66c2939c7cd3e34bc7b1949092c907c49af1442b1e67e0ea9057a3c877e2"
-      },
-      "compileCommand": [
-        "g++",
-        "-std=c++23",
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-I",
-        "src/frontend/wasm/aeds/include",
-        "tests/frontend/fixtures/aeds-protocol-cpp-contract.cpp",
-        "src/frontend/wasm/aeds/src/aeds_decode.cpp",
-        "src/frontend/wasm/aeds/src/aeds_crc32.cpp",
-        "src/frontend/wasm/aeds/src/pod_parse_article.cpp",
-        "-o",
-        ".tmp/chain-3735/navigation-contract-canonical/pending-navigation-native"
-      ],
-      "compileExit": 0,
-      "executableSha256": "4b91a14a57abb7b5720351e6759f297ea7224df52e8f7a790b4441bd66c660d5",
-      "negativeCommand": [
-        ".tmp/chain-3735/navigation-contract-canonical/pending-navigation-native",
-        "reject",
-        "276",
-        "277",
-        "65534",
-        "65535"
-      ],
-      "negativeExit": 0,
-      "stdout": "",
-      "stderr": "",
-      "sourceInputsAndHeadStable": true,
-      "limits": "actual production native rejection of inert reservations and unknown controls; no active codec/Wasm/HTTP or runtime admission"
-    },
-    "sharedShapeAndCorrelationUnits": 26,
-    "goldenCatalogUnits": 17,
-    "metadataVerified": {
-      "sourceSha": "bb109c208764cc00f96d3087d97bd911add70ff3",
-      "sixDllStable": true,
-      "allInputsStable": true,
-      "dllHashes": {
-        "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "e5b2b768e22ab6bc68f7befcb5c6478ca3a7845f4972992cc47232c71bb9747d",
-        "tests/backend/bin/Release/net10.0/FsusBlog.Server.dll": "57ba6bcd1ec1e8de34ea8d136a32c862cba48c20e08c8339cc95dde631bd4dbb",
-        "tests/backend/bin/Release/net10.0/FsusBlog.Core.dll": "82bed16204c27e162c40e93e84fb68763a336dcd2da4f9817efaca9d4252f423",
-        "tests/backend/bin/Release/net10.0/FsusBlog.Shared.dll": "c0a4c803d73a05ec0fcb35832c67b5900024a89a465ab25c136e9c3f30c73ec9",
-        "tests/backend/bin/Release/net10.0/FsusBlog.Migration.dll": "d5f06e96fae616f3615515158b636684faa9a40fb4408decdaae87953c296cf7",
-        "tests/backend/bin/Release/net10.0/FsusBlog.DiLifetimeAnalyzer.dll": "3a0ee01858b8daf770e510e034d99bb3f5daab1b7dcc9b5acdc05545c232beb0"
-      },
-      "actualSourceStampVerified": [
-        "FsusBlog.Server",
-        "FsusBlog.Migration"
-      ]
-    },
-    "actualRouteCodecConsumerReady": false,
-    "parentSourceRequest": {
-      "required": "explicitly authorize/supply minimal final d365 source closure with exact paths/blobs above, including predecessor-owned Shared/source/array repair; cached ancestry alone is not acceptance or permission to consume",
-      "exactOriginCommits": [
-        "da671a4929fb095b7c7c8f80233fc6f6284e2a73",
-        "459a7dd465e5c782699084ab7211b8952f08b2ad",
-        "acb0caca6708140fd15199cade699d6ed71a5bf7",
-        "d36532bcda55d42ab90f35c88ae460237b2156b5"
-      ],
-      "requestedEvidence": "exact tested source/DLL/SDK receipt + original source-inspection/selected revalidation unit controls and live PostgreSQL current/stale/revoked/deleted/archived/mid-read/cancel/repeat controls; runtime assertion evidence separate from source readiness",
-      "integrationFixtureOrigin": "1709488fbfd8c63eb274f1ad50c4c39b26581ba1 added real source fixture; final d365 adds9 selected PG scenarios. Ask exact fixture hunks/evidence; do not overwrite current integration fixture"
-    },
-    "missingProductionFiles": [
-      {
-        "path": "src/shared/Contracts/Articles/AuthorArticleQueryContracts.cs",
-        "blob": "8fa0c13c8b75c223ce8dfde8c0c274fb6141ebcc",
-        "sha256": "1cdfb38d689e1f38211fcf53ef67eb90d155ac0fc7cfdc5189be6f5b15def693",
-        "currentAbsent": true,
-        "sourceHistory": [
-          "da671a4929fb095b7c7c8f80233fc6f6284e2a73 feat(contracts): define bounded author article query ranking"
-        ]
-      },
-      {
-        "path": "src/backend/Services/Authoring/AuthorArticleQuerySourceInspection.cs",
-        "blob": "fb05d7725fddd0661ea60f0556eacc5af08891ea",
-        "sha256": "6a7806c2ddfb4f18c2e423329c45cc78bd4c475b231a8c2f8b33c9784353d061",
-        "currentAbsent": true,
-        "sourceHistory": [
-          "459a7dd465e5c782699084ab7211b8952f08b2ad feat(backend): inspect author query sources after permission admission"
-        ]
-      },
-      {
-        "path": "src/backend/Services/ArticleService.AuthorArticleQuerySource.cs",
-        "blob": "23e59a40f876137a6c545e55e3ca7c4d2ee12e1c",
-        "sha256": "b9b4f4c2df86517ee19603a468e46ad7c12c348a85e6c7d1b0d66dd5110e5074",
-        "currentAbsent": true,
-        "sourceHistory": [
-          "acb0caca6708140fd15199cade699d6ed71a5bf7 fix(backend): bind author query PostgreSQL arrays and valid history fixtures",
-          "459a7dd465e5c782699084ab7211b8952f08b2ad feat(backend): inspect author query sources after permission admission"
-        ]
-      },
-      {
-        "path": "src/backend/Services/Authoring/AuthorArticleQuerySelectionRevalidator.cs",
-        "blob": "fb30409d4e75ee36d81d0e5abdd88a1dc84e932f",
-        "sha256": "15eccbe579c02b293f802696a1ccaa2446a0fab90be0adc0c84e4cbf58c156ed",
-        "currentAbsent": true,
-        "sourceHistory": [
-          "d36532bcda55d42ab90f35c88ae460237b2156b5 feat(backend): revalidate selected articles through live source authority"
-        ]
-      }
+    "family": "author-article-selection",
+    "nativePayloadError": 17,
+    "activeFrameCount": 269,
+    "maxActiveFrameId": 277,
+    "inertReservations": [],
+    "requestPayloadBytes": 100,
+    "maxResponsePayloadBytes": 626,
+    "fullFrameBounds": [
+      116,
+      642
     ],
-    "facadeHunk": {
-      "path": "src/backend/Services/Authoring/AuthorRecentArticleHistoryApplicationFacade.cs",
-      "currentEqualsD365Parent": true,
-      "preimageSha256": "e22debc209250c7955ae8084c3c06037d7eef37a53c03b66c848b9d204235378",
-      "required": "add interface RevalidateSelectionAsync + permission/articleSource constructor injections + forwarding method using existing authenticated ResolveOwner; keep old methods"
+    "api": "revalidateAuthorArticleSelection(request,signal?)",
+    "endpoint": "POST /api/binary/author/articles/revalidate-selection",
+    "canonicalBuild": {
+      "sourceSha": "412d0d2ca7c219a5103e2ec453acf9f6ed613d5b",
+      "exit": 0,
+      "errors": 0,
+      "warnings": 1529,
+      "inputs": 2405,
+      "embeddedResources": 15,
+      "controls": 134,
+      "dlls": 9,
+      "actualServerMigrationMetadataVerified": true
     },
-    "di": {
-      "path": "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
-      "suppliedLines": [
-        202,
-        203
-      ],
-      "requiredSelectedRevalidation": "AddScoped<IAuthorArticleQuerySourceReader>(sp => sp.GetRequiredService<ArticleService>())",
-      "retainedSourceInspectionRegistration": "AddScoped<AuthorArticleQuerySourceInspection>()",
-      "existingFacadeRegistration": "keep AddScoped<IAuthorRecentArticleHistoryApplicationFacade, AuthorRecentArticleHistoryApplicationFacade>()",
-      "doNotCopy": "whole supplied DI: unrelated HistoryIdentityReader/QueryCursorCodec registrations would add extra dependencies"
+    "unitRun": {
+      "sourceSha": "412d0d2ca7c219a5103e2ec453acf9f6ed613d5b",
+      "caseCounts": {
+        "AuthorArticleQuerySourceInspectionTests": 38,
+        "AuthorArticleSelectionTransportTests": 9,
+        "AuthorArticleSelectionWireTests": 36,
+        "AuthorArticleSelectionRevalidationContractTests": 26,
+        "BackendGoldenCatalogTests": 19,
+        "PodBinaryCodecTests": 105,
+        "AuthoringCanvasEndpointOwnerTests": 7,
+        "AuthoringArticleCurrentSourceReaderTests": 87
+      },
+      "counters": {
+        "total": "347",
+        "executed": "347",
+        "passed": "347",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "testExit": 0,
+      "allInputsAndNineDllStable": true,
+      "actualExpandedDiscoveryExecutionParity": true,
+      "failed": [],
+      "acceptanceLimits": "Ordinary source and typed wire regressions only; no HTTP/PG/runtime/UX or independent QA admission."
     },
-    "limits": "DTO shape and correlation only; no authorization, source freshness, route, codec, query or UX acceptance",
-    "handoff": {
-      "path": "artifacts/chain-3735/navigation-revalidation-handoff.md",
-      "sha256": "394ce217c2bb95c5855b8c3d0c186ec5b846a28e8ed63d642333288c8f9f16f7"
-    }
+    "jsRun": {
+      "sourceSha": "45c991bac9a3ab4fc95a57ecbdf544222d13cffc",
+      "nodePassed": 99,
+      "frontendPassed": 135,
+      "generatorExit": 0,
+      "protocolGeneratorExit": 0,
+      "boundInputs": 5667,
+      "sourceStable": true
+    },
+    "fullTypes": {
+      "sourceSha": "45c991bac9a3ab4fc95a57ecbdf544222d13cffc",
+      "exit": 2,
+      "diagnostics": 263,
+      "previous": 264,
+      "added": 0,
+      "removed": "own generated TS1294 parameter property",
+      "actualFsuiSha": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "requiredFsuiBaseline": "6c836baff8bc1879b487bf019359fd5e433f58ea"
+    },
+    "openApiInitial": {
+      "sourceSha": "45c991bac9a3ab4fc95a57ecbdf544222d13cffc",
+      "exit": 1,
+      "failure": "missingContracts=POST /api/binary/author/articles/revalidate-selection",
+      "preservedLog": ".tmp/chain-3735/navigation-runtime-source/openapi-readonly.log"
+    },
+    "currentEndpointAuthorityVerification": {
+      "compiledSourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+      "publishedProjectionSourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+      "backendBuildExit": 0,
+      "migrationBuildExit": 0,
+      "errors": 0,
+      "warnings": 1529,
+      "boundInputs": 2405,
+      "embeddedResources": 15,
+      "controls": 134,
+      "dlls": 9,
+      "actualServerMigrationMetadataVerified": true,
+      "expandedUnits": {
+        "executed": 351,
+        "passed": 351,
+        "failed": 0,
+        "notExecuted": 0,
+        "discoveryExecutionParity": true
+      },
+      "ownedStyle": {
+        "exit": 0,
+        "files": 2,
+        "violations": 0
+      },
+      "officialProjection": {
+        "operations": 291,
+        "initialExit": 1,
+        "initialFailure": "missing Shared operation, repaired in6e",
+        "secondExit": 1,
+        "secondFailure": "existing projection drift; full bidirectional review preserved",
+        "generatedUpdateExit": 0,
+        "finalChecks": {
+          "publishedSourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+          "compiledObservationHostSourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+          "sourceFilesStable": true,
+          "commands": [
+            {
+              "label": "openapi",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/check-openapi-sync.mjs",
+                "--no-rebuild"
+              ],
+              "startedAt": "2026-10-08T14:00:08.262749+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.541091+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/openapi.log"
+            },
+            {
+              "label": "consumers",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/check-openapi-consumers.mjs"
+              ],
+              "startedAt": "2026-10-08T14:00:13.541502+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.633634+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/consumers.log"
+            },
+            {
+              "label": "routes",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/generate-frontend-routes.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:13.633860+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.738773+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/routes.log"
+            },
+            {
+              "label": "matrix",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/generate-cross-stack-contract.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:13.739223+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:13.843245+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/matrix.log"
+            },
+            {
+              "label": "nav-generator",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/contracts/generate-author-article-selection-wire.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:13.843487+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:23.356076+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/nav-generator.log"
+            },
+            {
+              "label": "protocol-generator",
+              "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+              "argv": [
+                "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+                "tools/frontend/generate-aeds-protocol.mjs",
+                "--check"
+              ],
+              "startedAt": "2026-10-08T14:00:23.356479+00:00",
+              "exit": 0,
+              "finishedAt": "2026-10-08T14:00:23.413587+00:00",
+              "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/protocol-generator.log"
+            }
+          ],
+          "limits": "Projection/directory/generator source checks only. No compiler rerun after XML-only/projection delta; SDK/unit proof remains6e. No real HTTP/PG/UX or independent QA admission."
+        },
+        "matrixInitialExit": 1,
+        "matrixInitialFailure": "missing one handwritten test route directory entry",
+        "matrixRepair": "actual observed metadata added; original generator/check now0"
+      },
+      "limits": "Compiler/units are exact6e, latest directory/projection generator checks exact115. XML-only delta and projections not recompiled as a new whole candidate. Actual HTTP/session/Postgres/renderedUX/full frontend types/CI/independent QA remain unaccepted."
+    },
+    "actualRouteCodecConsumerReady": true,
+    "limits": [
+      "Source and ordinary compiler/unit/native checks only; controlled frontend HTTP/native adapters are not authenticated HTTP/UX admission.",
+      "Current full frontend types FAILED263; private E401 and baseline mismatch remain.",
+      "Original official OpenAPI producer only; no reconstruction of parent-withdrawn QA.",
+      "Ranked query, Rail/switcher, slug/history-generation, document epoch/portable/source semantic producers remain separate owners."
+    ],
+    "handoff": "artifacts/chain-3735/navigation-revalidation-handoff.md",
+    "publishedProjectionSourceCommit": "11527d8162113d0a46a0e7ca549803815407b636",
+    "officialOpenApiAndDirectorySourceChecksPassed": true
   },
   "currentIssueRefresh": {
     "readAtUtc": "2026-10-08T11:45:15.285232+00:00",
@@ -7026,7 +7347,7 @@
       },
       {
         "issue": 2233,
-        "title": "feat(article-editor): \u5b9e\u73b0 article Quick Switcher \u4e0e unique open-or-activate workspace intent",
+        "title": "feat(article-editor): 实现 article Quick Switcher 与 unique open-or-activate workspace intent",
         "state": "open",
         "updatedAt": "2026-10-08T05:52:15Z",
         "commentsRead": 1,
@@ -7044,24 +7365,9 @@
     ]
   },
   "latestMasterFetch": {
-    "sha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
-    "previousSha": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
-    "command": [
-      "git",
-      "-c",
-      "credential.helper=",
-      "-c",
-      "credential.helper=!gh auth git-credential",
-      "fetch",
-      "origin",
-      "master"
-    ],
-    "identity": "same existing authorized gh credential; read-only fetch",
-    "sourceDelta": [
-      "artifacts/change-contract/backend-existing-reader-lock-external-naming.json",
-      "tests/backend/packages.lock.json"
-    ],
-    "consumedIntoRoot": false
+    "sha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+    "consumedIntoRoot": false,
+    "delta": "Current master comment-policy source/governance/unit fixtures; eleven-file prerequisite isolated on this baseline."
   },
   "masterFetchHistory": [
     {
@@ -7080,6 +7386,26 @@
       ],
       "identity": "same existing authorized gh credential; read-only fetch",
       "sourceDelta": "Governance/docs and ArticleMetadataPropertyList/PublicBlogLayoutShell/articleDocumentContext/tests; no Canvas/AEDS/source-reader overlap. No merge/rebase or unsupplied sibling source consumed."
+    },
+    {
+      "sha": "1787fe43953a275ee25a481e1eec7c8dbbd5852f",
+      "previousSha": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+      "command": [
+        "git",
+        "-c",
+        "credential.helper=",
+        "-c",
+        "credential.helper=!gh auth git-credential",
+        "fetch",
+        "origin",
+        "master"
+      ],
+      "identity": "same existing authorized gh credential; read-only fetch",
+      "sourceDelta": [
+        "artifacts/change-contract/backend-existing-reader-lock-external-naming.json",
+        "tests/backend/packages.lock.json"
+      ],
+      "consumedIntoRoot": false
     }
   ],
   "export2436ProtocolQueue": {
@@ -7107,5 +7433,605 @@
     "blockedBy": "original proposal exact family labels/native error and response complete-frame limit not supplied; source/run-bound83 execution receipt pending",
     "wireActivationReady": false,
     "accepted": false
+  },
+  "historyBeforeV5NavigationHandoff": {
+    "capturedAtUtc": "2026-10-08T12:21:53.591788+00:00",
+    "publishedSourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
+    "navigationRevalidation": {
+      "sourceCommit": "bb109c208764cc00f96d3087d97bd911add70ff3",
+      "inertReservations": [
+        276,
+        277
+      ],
+      "activeFrameCount": 267,
+      "maxActiveFrameId": 275,
+      "protocolVerification": {
+        "sourceSha": "bb109c208764cc00f96d3087d97bd911add70ff3",
+        "sourceStable": true,
+        "inputs": {
+          "src/shared/Contracts/Validation/aeds-protocol.json": "086a4bf43a4f3140d1c4ba810798d73e897a7b9a2947f8a40dc18dc6d7124433",
+          "tests/tools/aeds-protocol-generation.test.mjs": "e8855a2d27a8d9c66fe70ce3ec8d2bb64c263c4d6bc1ef85c219d951d5fe218a",
+          "tools/frontend/generate-aeds-protocol.mjs": "6907017e63b0e215a6fe66b8c69664aae8257cd2cf0130a4dab99e17c3b624ea",
+          "src/core/Algorithms/AedsFrameType.cs": "d2c5de946e04f65f1ed7f9f219949bd09c51fc4a2e1ce457d5c5d2ccc891052d",
+          "src/shared/AedsFrameHeader.cs": "6ef58c634ef5502d3aac17239d427975e95aad17b43f2eb67ecb6e648ecc605b",
+          "src/frontend/wasm/web/protocol/frame.ts": "3403e5a4881cb84b4e5aacd9e4c16c2a55b5360e31aee014ec627122c34b9d13",
+          "src/frontend/wasm/aeds/include/aeds_frame.hpp": "1eeffef6cd402c4f1b633079804b9301bd3f6429563a6f3d8c46f40d677a3147",
+          "tests/backend/Fixtures/aeds-golden-catalog.json": "3936254e4b62f5d50c3c1559e65ae3923f7ff4975f6c52c0cd6e0e50bb8b7779"
+        },
+        "commands": [
+          {
+            "name": "generator",
+            "argv": [
+              "node",
+              "tools/frontend/generate-aeds-protocol.mjs",
+              "--check"
+            ],
+            "startedAt": "2026-10-08T11:45:52.961560+00:00",
+            "exitCode": 0,
+            "log": ".tmp/chain-3735/navigation-contract-canonical/generator.log"
+          },
+          {
+            "name": "tools52",
+            "argv": [
+              "node",
+              "--test",
+              "tests/tools/aeds-protocol-generation.test.mjs"
+            ],
+            "startedAt": "2026-10-08T11:45:53.156705+00:00",
+            "exitCode": 0,
+            "log": ".tmp/chain-3735/navigation-contract-canonical/tools52.log"
+          }
+        ],
+        "toolsPassed": 52,
+        "fiveProductsByteEqualPrevious006": true,
+        "activeFrameCount": 267,
+        "reservedFrameIds": [
+          276,
+          277
+        ],
+        "acceptance": "inert reservation and generator negative controls only; no active codec or route"
+      },
+      "nativeReservationRefusal": {
+        "sourceSha": "bb109c208764cc00f96d3087d97bd911add70ff3",
+        "compiler": "g++ (Debian 14.2.0-19) 14.2.0",
+        "inputCount": 18,
+        "inputs": {
+          "src/frontend/wasm/aeds/include/aeds_access_profiles.generated.hpp": "fd1d387105e378611e9ee6505d9ecd70521b4986d483227ff312c422ec311942",
+          "src/frontend/wasm/aeds/include/aeds_crc32.hpp": "74bccc2db2a7ccabc0d784f995b867e8ac2c9641dc1f437f2e786822350c7b61",
+          "src/frontend/wasm/aeds/include/aeds_decode.hpp": "9e9683dd6bdc1f1cfdd095bb93a8bde0c6a00ddd6af5b724375f1a0f2e571d68",
+          "src/frontend/wasm/aeds/include/aeds_frame.hpp": "1eeffef6cd402c4f1b633079804b9301bd3f6429563a6f3d8c46f40d677a3147",
+          "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp": "be7368e0e6a5936701c2ee3baf5f04f7d7ccfb5f40dac7b2878d3fe288d019fe",
+          "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp": "8106396d6f06df3d138c295935640d9baa8c5109dfd1a8beb3f042c694cc30a6",
+          "src/frontend/wasm/aeds/include/authoring_workspace_snapshot_wire.generated.hpp": "cf6b441d615a02592161787130fa55b357893d2b4b8df1709c702753be26b706",
+          "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp": "8c2a03ad90b2bf91cf3b1f7e36b6086b69907e120912d6ebd32cd97e6c580d2e",
+          "src/frontend/wasm/aeds/include/pod_views.hpp": "e81604cdd0f5acc20dcf46f1c9faf6ebf141bff1d2414ef1ab22edf6661cc4ce",
+          "src/frontend/wasm/aeds/include/property_value_read.generated.hpp": "78382f66ae4ed4aceaa9825204622eccdc55ba7d2afcdbe8cf51b0d98a590a54",
+          "src/frontend/wasm/aeds/include/public_representation_coordinate.hpp": "4ca6f8688c288cbc4272b3fddcd2c27b1d52a42698349322030ecd43d0e86a91",
+          "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp": "36b1a5ca94ff8b7ee0df847d97dd4362e9aa0609928e0a2f385d226928ace118",
+          "src/frontend/wasm/aeds/include/writing_aid_preference_wire.generated.hpp": "73d59b0f1fc541b3085d86dc4647d8ff9981ff8fa8d6fcc11de9a040bb6d303c",
+          "src/frontend/wasm/aeds/src/aeds_crc32.cpp": "6b98670e89d4ed3a217554b2a9b479c06a7d9b3305f3793e2d0b11795a9f375c",
+          "src/frontend/wasm/aeds/src/aeds_decode.cpp": "2ea14b65acca15dcdc8bf96d6019d6c98b92fb24dda1a4714f579e649f344681",
+          "src/frontend/wasm/aeds/src/pod_parse_article.cpp": "c20134da7777ecf6a0c59a36e507df45dab53facd8bf8cc35df9d710adc5f408",
+          "src/shared/Contracts/Validation/aeds-protocol.json": "086a4bf43a4f3140d1c4ba810798d73e897a7b9a2947f8a40dc18dc6d7124433",
+          "tests/frontend/fixtures/aeds-protocol-cpp-contract.cpp": "f74c66c2939c7cd3e34bc7b1949092c907c49af1442b1e67e0ea9057a3c877e2"
+        },
+        "compileCommand": [
+          "g++",
+          "-std=c++23",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-I",
+          "src/frontend/wasm/aeds/include",
+          "tests/frontend/fixtures/aeds-protocol-cpp-contract.cpp",
+          "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+          "src/frontend/wasm/aeds/src/aeds_crc32.cpp",
+          "src/frontend/wasm/aeds/src/pod_parse_article.cpp",
+          "-o",
+          ".tmp/chain-3735/navigation-contract-canonical/pending-navigation-native"
+        ],
+        "compileExit": 0,
+        "executableSha256": "4b91a14a57abb7b5720351e6759f297ea7224df52e8f7a790b4441bd66c660d5",
+        "negativeCommand": [
+          ".tmp/chain-3735/navigation-contract-canonical/pending-navigation-native",
+          "reject",
+          "276",
+          "277",
+          "65534",
+          "65535"
+        ],
+        "negativeExit": 0,
+        "stdout": "",
+        "stderr": "",
+        "sourceInputsAndHeadStable": true,
+        "limits": "actual production native rejection of inert reservations and unknown controls; no active codec/Wasm/HTTP or runtime admission"
+      },
+      "sharedShapeAndCorrelationUnits": 26,
+      "goldenCatalogUnits": 17,
+      "metadataVerified": {
+        "sourceSha": "bb109c208764cc00f96d3087d97bd911add70ff3",
+        "sixDllStable": true,
+        "allInputsStable": true,
+        "dllHashes": {
+          "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "e5b2b768e22ab6bc68f7befcb5c6478ca3a7845f4972992cc47232c71bb9747d",
+          "tests/backend/bin/Release/net10.0/FsusBlog.Server.dll": "57ba6bcd1ec1e8de34ea8d136a32c862cba48c20e08c8339cc95dde631bd4dbb",
+          "tests/backend/bin/Release/net10.0/FsusBlog.Core.dll": "82bed16204c27e162c40e93e84fb68763a336dcd2da4f9817efaca9d4252f423",
+          "tests/backend/bin/Release/net10.0/FsusBlog.Shared.dll": "c0a4c803d73a05ec0fcb35832c67b5900024a89a465ab25c136e9c3f30c73ec9",
+          "tests/backend/bin/Release/net10.0/FsusBlog.Migration.dll": "d5f06e96fae616f3615515158b636684faa9a40fb4408decdaae87953c296cf7",
+          "tests/backend/bin/Release/net10.0/FsusBlog.DiLifetimeAnalyzer.dll": "3a0ee01858b8daf770e510e034d99bb3f5daab1b7dcc9b5acdc05545c232beb0"
+        },
+        "actualSourceStampVerified": [
+          "FsusBlog.Server",
+          "FsusBlog.Migration"
+        ]
+      },
+      "actualRouteCodecConsumerReady": false,
+      "parentSourceRequest": {
+        "required": "explicitly authorize/supply minimal final d365 source closure with exact paths/blobs above, including predecessor-owned Shared/source/array repair; cached ancestry alone is not acceptance or permission to consume",
+        "exactOriginCommits": [
+          "da671a4929fb095b7c7c8f80233fc6f6284e2a73",
+          "459a7dd465e5c782699084ab7211b8952f08b2ad",
+          "acb0caca6708140fd15199cade699d6ed71a5bf7",
+          "d36532bcda55d42ab90f35c88ae460237b2156b5"
+        ],
+        "requestedEvidence": "exact tested source/DLL/SDK receipt + original source-inspection/selected revalidation unit controls and live PostgreSQL current/stale/revoked/deleted/archived/mid-read/cancel/repeat controls; runtime assertion evidence separate from source readiness",
+        "integrationFixtureOrigin": "1709488fbfd8c63eb274f1ad50c4c39b26581ba1 added real source fixture; final d365 adds9 selected PG scenarios. Ask exact fixture hunks/evidence; do not overwrite current integration fixture"
+      },
+      "missingProductionFiles": [
+        {
+          "path": "src/shared/Contracts/Articles/AuthorArticleQueryContracts.cs",
+          "blob": "8fa0c13c8b75c223ce8dfde8c0c274fb6141ebcc",
+          "sha256": "1cdfb38d689e1f38211fcf53ef67eb90d155ac0fc7cfdc5189be6f5b15def693",
+          "currentAbsent": true,
+          "sourceHistory": [
+            "da671a4929fb095b7c7c8f80233fc6f6284e2a73 feat(contracts): define bounded author article query ranking"
+          ]
+        },
+        {
+          "path": "src/backend/Services/Authoring/AuthorArticleQuerySourceInspection.cs",
+          "blob": "fb05d7725fddd0661ea60f0556eacc5af08891ea",
+          "sha256": "6a7806c2ddfb4f18c2e423329c45cc78bd4c475b231a8c2f8b33c9784353d061",
+          "currentAbsent": true,
+          "sourceHistory": [
+            "459a7dd465e5c782699084ab7211b8952f08b2ad feat(backend): inspect author query sources after permission admission"
+          ]
+        },
+        {
+          "path": "src/backend/Services/ArticleService.AuthorArticleQuerySource.cs",
+          "blob": "23e59a40f876137a6c545e55e3ca7c4d2ee12e1c",
+          "sha256": "b9b4f4c2df86517ee19603a468e46ad7c12c348a85e6c7d1b0d66dd5110e5074",
+          "currentAbsent": true,
+          "sourceHistory": [
+            "acb0caca6708140fd15199cade699d6ed71a5bf7 fix(backend): bind author query PostgreSQL arrays and valid history fixtures",
+            "459a7dd465e5c782699084ab7211b8952f08b2ad feat(backend): inspect author query sources after permission admission"
+          ]
+        },
+        {
+          "path": "src/backend/Services/Authoring/AuthorArticleQuerySelectionRevalidator.cs",
+          "blob": "fb30409d4e75ee36d81d0e5abdd88a1dc84e932f",
+          "sha256": "15eccbe579c02b293f802696a1ccaa2446a0fab90be0adc0c84e4cbf58c156ed",
+          "currentAbsent": true,
+          "sourceHistory": [
+            "d36532bcda55d42ab90f35c88ae460237b2156b5 feat(backend): revalidate selected articles through live source authority"
+          ]
+        }
+      ],
+      "facadeHunk": {
+        "path": "src/backend/Services/Authoring/AuthorRecentArticleHistoryApplicationFacade.cs",
+        "currentEqualsD365Parent": true,
+        "preimageSha256": "e22debc209250c7955ae8084c3c06037d7eef37a53c03b66c848b9d204235378",
+        "required": "add interface RevalidateSelectionAsync + permission/articleSource constructor injections + forwarding method using existing authenticated ResolveOwner; keep old methods"
+      },
+      "di": {
+        "path": "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+        "suppliedLines": [
+          202,
+          203
+        ],
+        "requiredSelectedRevalidation": "AddScoped<IAuthorArticleQuerySourceReader>(sp => sp.GetRequiredService<ArticleService>())",
+        "retainedSourceInspectionRegistration": "AddScoped<AuthorArticleQuerySourceInspection>()",
+        "existingFacadeRegistration": "keep AddScoped<IAuthorRecentArticleHistoryApplicationFacade, AuthorRecentArticleHistoryApplicationFacade>()",
+        "doNotCopy": "whole supplied DI: unrelated HistoryIdentityReader/QueryCursorCodec registrations would add extra dependencies"
+      },
+      "limits": "DTO shape and correlation only; no authorization, source freshness, route, codec, query or UX acceptance",
+      "handoff": {
+        "path": "artifacts/chain-3735/navigation-revalidation-handoff.md",
+        "sha256": "394ce217c2bb95c5855b8c3d0c186ec5b846a28e8ed63d642333288c8f9f16f7"
+      }
+    }
+  },
+  "publishedSourceFrontier": "11527d8162113d0a46a0e7ca549803815407b636",
+  "v5ExactConsumption": {
+    "sourceSha": "d8eec8030c3bd2da01a408fc8846dca5f983a4ea",
+    "consumedSource": "4129a891e7495d1843441933963d9d2561ffc706 then exact a16f58320d4557d431b1325afdb90c5674797c12",
+    "publishedSource": "e7847f18a137c061ada2042f5e88fb79f1551580",
+    "exactTwoLineCompilerRepair": "d8eec8030c3bd2da01a408fc8846dca5f983a4ea",
+    "backendBuildExit": 0,
+    "migrationBuildExit": 0,
+    "errors": 0,
+    "warnings": 1529,
+    "boundInputs": 2393,
+    "embeddedResources": 15,
+    "controls": 132,
+    "assemblies": 9,
+    "backendUnits": {
+      "executed": 283,
+      "passed": 240,
+      "failed": 43
+    },
+    "migrationUnits": {
+      "executed": 356,
+      "passed": 355,
+      "failed": 1,
+      "failure": "CurrentControlShape_MissingOrUnknownTablesAndUnsupportedProviderRefuse: ProjectApplyJournal(MySql) did not throw"
+    },
+    "recipeExtraction": {
+      "total": 80,
+      "extracted": 73,
+      "refused": [
+        {
+          "table": "article_property_value_factset",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_property_value_entry",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_property_value_option",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_property_value_reference",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_property_value_snapshot",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_property_value_receipt",
+          "error": "current_schema_recipe_syntax_unavailable"
+        },
+        {
+          "table": "article_canvas_link_history",
+          "error": "current_schema_recipe_column_tail_unavailable"
+        }
+      ]
+    },
+    "actualPinnedPg18_6": {
+      "sourceAuthority": {
+        "passed": 44,
+        "failed": 0,
+        "containersDisposed": 2
+      },
+      "snapshotDdl": {
+        "passed": 2,
+        "failed": 1,
+        "containersDisposed": 1,
+        "failure": "CompiledCurrentRecipes_MatchOriginalPostgresRecipeEffectsAndImmutableGuards"
+      }
+    },
+    "pausedDivergentPeerPaths": [
+      "docs/testing.md",
+      "tests/backend/Fixtures/postgres-test-collections.json",
+      "tests/backend/Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs",
+      "tests/tools/check-postgres-test-collections.test.mjs"
+    ],
+    "limits": "Peer240/309/26/42 counts are not Root proof. No reseal of v4 receipts; no formal current-schema/HTTP/UX/QA acceptance."
+  },
+  "property3665MinimalHandoff": {
+    "sourceSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+    "branch": "codex/prerequisite-3665-current-master-20261008",
+    "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+    "canonicalOriginSource": "afab85610217dacb0fca4b3ec8a062e0cd1bf801",
+    "fileCount": 11,
+    "backendBuild": {
+      "sourceSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+      "baseSha": "1cd4e060acedfd7838a477842685e0052d8e4107",
+      "results": [
+        {
+          "stage": "restore",
+          "exit": 0
+        },
+        {
+          "stage": "build",
+          "exit": 0
+        }
+      ],
+      "inputsStable": true,
+      "boundInputCount": 1552,
+      "assemblies": [
+        {
+          "path": "src/backend/bin/Release/net10.0/FsusBlog.Shared.dll",
+          "sha256": "6c13a0d77f5f8531e292f3dba11790f04633c8dc6db342599bae1b93dc677345",
+          "bytes": 1650688
+        },
+        {
+          "path": "src/backend/bin/Release/net10.0/FsusBlog.Core.dll",
+          "sha256": "1eff2edebf0a9a2d8c8a53aa00bfc6f6a8a3201eb1eecf0ea5998a4397b5d057",
+          "bytes": 735744
+        },
+        {
+          "path": "src/backend/bin/Release/net10.0/FsusBlog.Server.dll",
+          "sha256": "1768296084f9822643b696335b3f755c0bbd71006afa7f58351866ee3c8dd0df",
+          "bytes": 18351616
+        }
+      ],
+      "acceptanceLimits": "Source prerequisite production compiler closure only; consumer61 peer evidence not rerun. No HTTP/PG/UX or independent QA acceptance."
+    },
+    "metadata": {
+      "sourceSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+      "checkedAt": "2026-10-08T13:46:11.559152+00:00",
+      "exit": 0,
+      "actualServerStampMatches": true,
+      "allThreeBuiltDllBytesUnchanged": true,
+      "metadata": "actual-metadata.json",
+      "limits": "Source prerequisite production compiler closure only; consumer61 peer evidence not rerun. No HTTP/PG/UX or independent QA acceptance.",
+      "priorInvocationErrors": [
+        "wrong cwd relative input path",
+        "missing DOTNET_CLI_HOME triggered read-only /home/agent/.dotnet; no proof from those attempts"
+      ]
+    },
+    "consumer61Evidence": "parent peer claim, not Root rerun",
+    "remoteShaVerified": true,
+    "draftPrCreation": "not attempted under existing content-write403 prohibition",
+    "limits": "Exact minimal source prerequisite; not shared protocol mutation, consumer acceptance or whole-chain completion."
+  },
+  "anonymousTicketDtoCorrection": {
+    "sourceSha": "9ed401583c04ff354c430b2ea174ccb69adb6002",
+    "files": [
+      "src/frontend/src/contracts/binaryApi.ts"
+    ],
+    "change": "remove unsupported credentialEpoch from handwritten AnonymousCommentTicketRequestDto only",
+    "wirePolicy": "AEDS2 frames198/199,circuitv5/layout6/opaquePayloadv3 unchanged",
+    "frontendFocused": {
+      "passed": 34,
+      "log": ".tmp/chain-3735/navigation-revalidation-closure/anonymous-ticket-units.log",
+      "bindingLimit": "pre-Nav current working source; not independent exact-ticket whole candidate receipt"
+    },
+    "currentPod": {
+      "sourceSha": "412d0d2ca7c219a5103e2ec453acf9f6ed613d5b",
+      "passed": 105,
+      "unitSummary": ".tmp/chain-3735/navigation-runtime-source/units/summary.json"
+    },
+    "remoteShaVerified": true
+  },
+  "newEvidenceReferences": [
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/assembly-binding.json",
+      "sha256": "461a14bc3d2ff47a62bd9fd57a14a35b16b7cf84818e8f9fa2a451567341684a"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/units/summary.json",
+      "sha256": "4c743edb8f22258d06cc8e442c9043ff5cfd225f6418f5ee5f6bca4049625045"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/migration-units/summary.json",
+      "sha256": "426f9ae30d44b0475e00260d7c251e5aba38504b0cd95fd8dd9d2dbb2f8b47da"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/recipe-extraction.json",
+      "sha256": "d79d9eb19a3697f5e562639020b86764797e4021e6c49a8e9d2699169bce9027"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/recipe-binding.json",
+      "sha256": "db9a34ea25c694ad1ed74cf8fcb8fd2bd975c9b4eb5edfc29a6a143f7efcd28a"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/pg-source-authority/results.json",
+      "sha256": "f460b02c71cf6a2d90d722c69f43f65c227348df4f6b77f52164252241f05d6e"
+    },
+    {
+      "path": ".tmp/chain-3735/greatest-v5-final/pg-snapshot-ddl/results.json",
+      "sha256": "93620aa264c9c636b10040c1251a9ef56af3c87bae7c12dc34d8f5c9310ce3d9"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/assembly-binding.json",
+      "sha256": "c4f8a0fed1ff3c19ef4d1dfec815b5bdaa2569f00a3966a26e0161e5736a5eee"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/metadata-binding.json",
+      "sha256": "4baffbb5516ad79abe2266f60c3abd02923dae8b6f12152a4a6254daf783c8ca"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/units/summary.json",
+      "sha256": "552e892fdde24e983f6584ccf96052986b4f1a0313c93bfa4a3d2faabfa91bdb"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/frontend-erasable-repair/js/summary.json",
+      "sha256": "4562cd68c5908bac896788f035213cfaf27555b0dffae90e3c48c729cccb220c"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/frontend-erasable-repair/full-types/summary.json",
+      "sha256": "5e89194960dc1e2a2b82ab082237e14cb16ae992ae1bc06c8d632fdd6b15bc08"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/frontend-erasable-repair/full-types/diagnostic-comparison.json",
+      "sha256": "4d6eb437f1b3a089e36fd1db3e8749d3648a273f5edb8201dde4990323ad362c"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-runtime-source/openapi-readonly.log",
+      "sha256": "41648ebb776088a6111f2d489bef100fff68bbadcb676e3ab8fa4c2d5a49f1e3"
+    },
+    {
+      "path": ".tmp/chain-3735/property-3665-source-handoff/build-summary.json",
+      "sha256": "1f0dd7c543a3ac0b2880301610efff401892821d1d5b34b256abf5dd727a64e9"
+    },
+    {
+      "path": ".tmp/chain-3735/property-3665-source-handoff/metadata-binding.json",
+      "sha256": "8b14e2ba651e3e8337a7307f2bbb41d3266f8f0beec01b4ace528dea6df4718b"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/assembly-binding.json",
+      "sha256": "8968bb4d361f5123ef8fba3f33e27ca45b7bc48d9627d963ccedc41ddd7387b8"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/metadata-binding.json",
+      "sha256": "8613d1681194702e54d7e0dbac7aa80e7dc09d890bdd0855ae7afe74795c6d49"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/units/summary.json",
+      "sha256": "408769231948ffa64f7418ecbab6e884a229b997891f88268db9ddb87c992500"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/owned-style-command.json",
+      "sha256": "d1dbc3ade8fb59939be8699a757c9119f832ee6ad5fe8d5d4341dda138771c30"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/openapi/summary.json",
+      "sha256": "7127badb382eef4fc8837e7fbb575645280381bf7db31c051b8bcd4fc84e9a70"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/openapi/bidirectional-drift-review.json",
+      "sha256": "456f24df8fd69148d91e0b4656d8d46c4cc46c7248e676ab6e1a5ad8adf38089"
+    },
+    {
+      "path": ".tmp/chain-3735/navigation-endpoint-authority/products-final/summary.json",
+      "sha256": "2cd2fa9cbde59358b7da7e5109a6ecdfe90eb0d9d961f8918f75f81358d5f85e"
+    },
+    {
+      "path": ".tmp/chain-3735/property-3665-source-handoff/xml-doc-delta.json",
+      "sha256": "865c62eb2c780ac4e439c6f7e6ba8950ef19fdf38cda663621aeed686f226180"
+    }
+  ],
+  "independentQa": "Parent-withdrawn; never reconstructed or rerun; no clearance claimed.",
+  "currentEndpointAuthorityProof": {
+    "compiledSourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+    "publishedProjectionSourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+    "backendBuildExit": 0,
+    "migrationBuildExit": 0,
+    "errors": 0,
+    "warnings": 1529,
+    "boundInputs": 2405,
+    "embeddedResources": 15,
+    "controls": 134,
+    "dlls": 9,
+    "actualServerMigrationMetadataVerified": true,
+    "expandedUnits": {
+      "executed": 351,
+      "passed": 351,
+      "failed": 0,
+      "notExecuted": 0,
+      "discoveryExecutionParity": true
+    },
+    "ownedStyle": {
+      "exit": 0,
+      "files": 2,
+      "violations": 0
+    },
+    "officialProjection": {
+      "operations": 291,
+      "initialExit": 1,
+      "initialFailure": "missing Shared operation, repaired in6e",
+      "secondExit": 1,
+      "secondFailure": "existing projection drift; full bidirectional review preserved",
+      "generatedUpdateExit": 0,
+      "finalChecks": {
+        "publishedSourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+        "compiledObservationHostSourceSha": "6e58c2197552769695549ba278d989336d8314c4",
+        "sourceFilesStable": true,
+        "commands": [
+          {
+            "label": "openapi",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/check-openapi-sync.mjs",
+              "--no-rebuild"
+            ],
+            "startedAt": "2026-10-08T14:00:08.262749+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:13.541091+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/openapi.log"
+          },
+          {
+            "label": "consumers",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/check-openapi-consumers.mjs"
+            ],
+            "startedAt": "2026-10-08T14:00:13.541502+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:13.633634+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/consumers.log"
+          },
+          {
+            "label": "routes",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/generate-frontend-routes.mjs",
+              "--check"
+            ],
+            "startedAt": "2026-10-08T14:00:13.633860+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:13.738773+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/routes.log"
+          },
+          {
+            "label": "matrix",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/generate-cross-stack-contract.mjs",
+              "--check"
+            ],
+            "startedAt": "2026-10-08T14:00:13.739223+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:13.843245+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/matrix.log"
+          },
+          {
+            "label": "nav-generator",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/contracts/generate-author-article-selection-wire.mjs",
+              "--check"
+            ],
+            "startedAt": "2026-10-08T14:00:13.843487+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:23.356076+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/nav-generator.log"
+          },
+          {
+            "label": "protocol-generator",
+            "sourceSha": "11527d8162113d0a46a0e7ca549803815407b636",
+            "argv": [
+              "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+              "tools/frontend/generate-aeds-protocol.mjs",
+              "--check"
+            ],
+            "startedAt": "2026-10-08T14:00:23.356479+00:00",
+            "exit": 0,
+            "finishedAt": "2026-10-08T14:00:23.413587+00:00",
+            "log": ".tmp/chain-3735/navigation-endpoint-authority/products-final/protocol-generator.log"
+          }
+        ],
+        "limits": "Projection/directory/generator source checks only. No compiler rerun after XML-only/projection delta; SDK/unit proof remains6e. No real HTTP/PG/UX or independent QA admission."
+      },
+      "matrixInitialExit": 1,
+      "matrixInitialFailure": "missing one handwritten test route directory entry",
+      "matrixRepair": "actual observed metadata added; original generator/check now0"
+    },
+    "limits": "Compiler/units are exact6e, latest directory/projection generator checks exact115. XML-only delta and projections not recompiled as a new whole candidate. Actual HTTP/session/Postgres/renderedUX/full frontend types/CI/independent QA remain unaccepted."
+  },
+  "property3665DocumentationDelta": {
+    "sourceSha": "6f1f228d46687931b78c280121e8c07ea0961fbc",
+    "baseSha": "919421b73828e3d1a032f6da2048431fffbf6743",
+    "recordedAt": "2026-10-08T13:54:04.313155+00:00",
+    "file": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+    "oldBlob": "bee3b880190ead838cd0bbdda8eecf2d50cab5e7",
+    "newBlob": "e40a8e0ee45b7f52e93483b4c06477bcfd77cb08",
+    "onlyFourXmlSummariesAdded": true,
+    "allNonDocumentationLinesByteEqual": true,
+    "styleExit": 0,
+    "styleLog": "xml-doc-style.log",
+    "compilerUnitRerun": "not run for comment-only delta; prior919 production compiler proof remains bound to919",
+    "peerCandidate": "4ee4b8ff7de4cef6cd6ea4fb7937d8d0a96b10b5",
+    "peer201Tests": "parent supplied claim, not Root rerun",
+    "remoteShaVerified": true
   }
 }
