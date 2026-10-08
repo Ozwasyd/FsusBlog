@@ -10,6 +10,58 @@ namespace FsusBlog.Server.Tests.Unit;
 // UNIT SIMULATION ONLY: Controlled driver barriers prove owner behavior, not native qualification.
 public sealed class GpuMemoryDeviceTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task SourceReleaseFailureTerminatesWaitsWithoutRetryingOrClaimingDrain(bool reuseStaging, bool loseEpoch)
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        fixture.Driver.Completion = GpuCompletion.Complete;
+        if (reuseStaging)
+        {
+            using var warmup = device.TryAllocate(fixture.Content, 8, new(1)).Value!;
+            device.TryUpload(warmup, new Source(fixture.Content, new byte[8]), warmup.Location);
+            device.PollCompletions();
+        }
+        using var allocation = device.TryAllocate(fixture.Content, 8, new(2)).Value!;
+        var cleanupError = new InvalidOperationException("Controlled CPU source-owner release failure.");
+        var source = new Source(fixture.Content, new byte[8]) { DisposeFailure = cleanupError };
+        using var operation = device.TryUpload(allocation, source, allocation.Location).Value!;
+        if (loseEpoch)
+        {
+            device.InvalidateEpoch();
+        }
+        device.PollCompletions();
+        Assert.Equal(loseEpoch ? MemoryFailure.DeviceLost : MemoryFailure.OwnershipViolation,
+            (await operation.WaitAsync().WaitAsync(TimeSpan.FromSeconds(5))).Failure);
+        Assert.Same(cleanupError, operation.CleanupFailure);
+        Assert.Equal(1, source.Disposals);
+        Assert.False(source.Released);
+        int frees = fixture.Driver.Frees;
+        device.Dispose();
+        var drainError = await Assert.ThrowsAsync<InvalidOperationException>(() => device.Drained);
+        if (!loseEpoch)
+        {
+            Assert.Same(cleanupError, drainError.InnerException);
+        }
+        for (int index = 0; index < 3; index++)
+        {
+            operation.Dispose();
+            device.Dispose();
+            device.PollCompletions();
+        }
+        Assert.Equal(1, source.Disposals);
+        Assert.Equal(frees, fixture.Driver.Frees);
+        Assert.Equal(0, fixture.Driver.Disposals);
+        Assert.True(device.Drained.IsFaulted);
+        Assert.Equal(1, device.Snapshot().QuarantinedOperations);
+        Assert.Equal(8, fixture.Ledger.Snapshot().Used["device"]);
+        Assert.Equal(8, fixture.Ledger.Snapshot().Used["host"]);
+        Assert.Equal(0, fixture.Ledger.Snapshot().Used["slots"]);
+    }
+
     [Fact]
     public async Task DrainedWaitCancellationDoesNotReleasePendingDmaOrCancelDeviceDrain()
     {
@@ -760,7 +812,23 @@ public sealed class GpuMemoryDeviceTests
             get; private set;
         }
         public ReadOnlyMemory<byte> Memory => Released ? throw new ObjectDisposedException(nameof(Source)) : bytes;
-        public void Dispose() => Released = true;
+        public Exception? DisposeFailure
+        {
+            get; init;
+        }
+        public int Disposals
+        {
+            get; private set;
+        }
+        public void Dispose()
+        {
+            Disposals++;
+            if (DisposeFailure is not null)
+            {
+                throw DisposeFailure;
+            }
+            Released = true;
+        }
     }
 
     private sealed class MappingDriver(IGpuDriverSession session) : IGpuMappedDriverApi

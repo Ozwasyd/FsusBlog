@@ -36,6 +36,7 @@ public sealed class GpuMemoryDevice : IDisposable
     private bool _faulted;
     private bool _disposed;
     private bool _disposeRequested;
+    private Exception? _drainFailure;
     private int _externalHolds;
 
     public GpuMemoryDevice(IGpuDriverSession driver, MemoryReservationCoordinator ledger,
@@ -537,7 +538,7 @@ public sealed class GpuMemoryDevice : IDisposable
     private bool IsCurrentLocked(GpuAllocation allocation)
         => !_faulted && !_disposed && allocation.Location.Epoch == _epoch && _allocations.Contains(allocation);
 
-    private void FaultLocked()
+    private void FaultLocked(Exception? cause = null)
     {
         if (!_faulted)
         {
@@ -548,6 +549,7 @@ public sealed class GpuMemoryDevice : IDisposable
             }
             _faulted = true;
             _accepting = false;
+            _drainFailure = cause;
         }
         FailDrainLocked();
     }
@@ -557,7 +559,7 @@ public sealed class GpuMemoryDevice : IDisposable
         if (_disposeRequested && _faulted && !_drained.Task.IsCompleted)
         {
             _drained.TrySetException(new InvalidOperationException(
-                "GPU resource drain is unproven after an ownership or driver fault; uncertain custody remains retained."));
+                "GPU resource drain is unproven after an ownership or driver fault; uncertain custody remains retained.", _drainFailure));
         }
     }
 
@@ -662,7 +664,19 @@ public sealed class GpuMemoryDevice : IDisposable
         {
             operation.Reservation.Dispose();
         }
-        operation.Source?.Dispose();
+        try
+        {
+            operation.Source?.Dispose();
+        }
+        catch (Exception exception)
+        {
+            // Completion proves DMA stopped, but a failed source-owner release does not prove its custody drained.
+            operation.CleanupFailure = exception;
+            operation.Quarantined = true;
+            FaultLocked(exception);
+            operation.Finish(failure ?? MemoryFailure.OwnershipViolation);
+            return;
+        }
         operation.Staging.Busy = false;
         operation.Allocation.Holds--;
         _operations.Remove(operation);
