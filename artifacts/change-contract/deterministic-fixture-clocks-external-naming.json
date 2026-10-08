@@ -22,6 +22,8 @@
             "paths": [
                 "config/testing/resolved-temporal-roles.schema.json",
                 "config/testing/temporal-domain-producer-inventory.json",
+                "config/testing/temporal-domain-producer-receipt.schema.json",
+                "config/testing/temporal-producer-bindings.json",
                 "config/testing/temporal-shape-catalog.json",
                 "config/testing/temporal-shape-catalog.schema.json"
             ],

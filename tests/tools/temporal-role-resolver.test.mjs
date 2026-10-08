@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 const {defaultTimeoutPolicyDigest, qualificationTemporalContext, semanticOutcomeDigest} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
-const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, readTemporalDomainProducerInventory, requireResolvedTemporalRole, requireResolvedTemporalEntityRole, resolveTemporalEntityRoles, resolveTemporalRoles, resolveTemporalRolesForProducer, validateTemporalDomainProducerInventory, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
+const {createTemporalEntityTransport, verifyTemporalDomainProducerReceipt, createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, readTemporalDomainProducerInventory, requireResolvedTemporalRole, requireResolvedTemporalEntityRole, resolveTemporalEntityRoles, resolveTemporalRoles, resolveTemporalRolesForProducer, validateTemporalDomainProducerInventory, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const sourceCommit = 'a'.repeat(40);
 const sourceFingerprint = `sha256:${'b'.repeat(64)}`;
@@ -640,4 +640,48 @@ test('minimal scale xs source plan is schema valid and refuses its real historic
     assert.deepEqual(validateJsonSchema(entityPlan, { $ref: '#/$defs/entityPlan', $defs: schema.$defs }), []);
     assert.throws(() => resolveOrdinaryEntityPlan(entityPlan, 'scale-data'),
         (error) => error.reasonCode === 'temporal.invariant-mismatch');
+});
+
+test('ordinary entity receipt transport binds exact histories context and unsupported source fields', () =>
+{
+    const temporalContext = context('development-demo');
+    const artifact = resolveOrdinaryEntityPlan();
+    const receipt = createTemporalDomainProducerReceipt(artifact, { temporalContext });
+    assert.equal(receipt.schema, 'fsusblog.temporal-entity-producer-receipt.v1');
+    assert.equal(receipt.qualificationEligible, false);
+    assert.equal(receipt.plan.contentDigest, artifact.entityPlanDigest);
+    assert.equal(receipt.entities[2].roles.find((role) => role.roleId === 'article.publication').applicability, 'not-generated');
+    assert.equal(receipt.entities[3].roles.find((role) => role.roleId === 'comment.edited').applicability, 'null');
+    assert.deepEqual(receipt.unsupportedFields, artifact.unsupportedFields);
+    const schema = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/testing/temporal-domain-producer-receipt.schema.json'), 'utf8'));
+    assert.deepEqual(validateJsonSchema(receipt, schema), []);
+    assert.equal(verifyTemporalDomainProducerReceipt(receipt, { artifact, temporalContext }).qualificationEligible, false);
+    const transport = createTemporalEntityTransport({ artifact, temporalContext });
+    assert.equal(transport.receiptFileName, 'temporal-domain-producer-receipt.json');
+    assert.equal(JSON.parse(transport.environment.FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON).contentDigest, artifact.contentDigest);
+    assert.equal(JSON.parse(transport.environment.FSUSBLOG_TEMPORAL_CONTEXT_JSON).producerId, 'development-demo');
+    for (const mutate of [
+        (value) =>
+        {
+            value.qualificationEligible = true;
+        },
+        (value) =>
+        {
+            value.entities[3].roles[1].applicability = 'not-generated';
+        },
+        (value) =>
+        {
+            value.plan.contentDigest = `sha256:${'0'.repeat(64)}`;
+        },
+        (value) =>
+        {
+            value.contextIdentity.sourceCommit = '0'.repeat(40);
+        }
+    ])
+    {
+        const invalid = structuredClone(receipt);
+        mutate(invalid);
+        assert.throws(() => verifyTemporalDomainProducerReceipt(invalid, { artifact, temporalContext }), /producer receipt differs/u);
+    }
+    assert.throws(() => createTemporalDomainProducerReceipt(artifact), /requires its original temporal context/u);
 });

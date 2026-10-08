@@ -19,6 +19,7 @@ export const POSTGRES_TEMPORAL_ROLES_SCHEMA = 'fsusblog.postgres-temporal-roles.
 export const DOTNET_TEMPORAL_ROLES_SCHEMA = 'fsusblog.dotnet-temporal-roles.v1';
 export const BROWSER_TEMPORAL_ROLES_SCHEMA = 'fsusblog.browser-temporal-roles.v1';
 export const TEMPORAL_DOMAIN_PRODUCER_RECEIPT_SCHEMA = 'fsusblog.temporal-domain-producer-receipt.v1';
+export const TEMPORAL_ENTITY_PRODUCER_RECEIPT_SCHEMA = 'fsusblog.temporal-entity-producer-receipt.v1';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const producerInventoryPath = path.join(
@@ -1003,9 +1004,34 @@ export function requireResolvedTemporalEntityRole(artifact, coordinate, roleId, 
     return role;
 }
 
-export function createTemporalDomainProducerReceipt(artifact)
+export function createTemporalDomainProducerReceipt(artifact, { temporalContext } = {})
 {
-    verifyResolvedTemporalArtifact(artifact);
+    verifyResolvedTemporalArtifact(artifact, { temporalContext });
+    if (artifact.schema === 'fsusblog.resolved-temporal-entities.v1')
+    {
+        const receipt = {
+            schema: TEMPORAL_ENTITY_PRODUCER_RECEIPT_SCHEMA,
+            qualificationEligible: false,
+            fixtureIdentity: structuredClone(artifact.fixtureIdentity),
+            temporalContext: structuredClone(validateTemporalContext(temporalContext)),
+            contextIdentity: structuredClone(artifact.contextIdentity),
+            catalog: structuredClone(artifact.catalog),
+            shape: structuredClone(artifact.shape),
+            plan: { schema: artifact.entityPlan.schema, sourcePlanDigest: artifact.entityPlan.sourcePlanDigest,
+                contentDigest: artifact.entityPlanDigest, distribution: structuredClone(artifact.entityPlan.distribution) },
+            entities: artifact.entities.map((entity) =>
+            {
+                const value = structuredClone(entity);
+                return { ...value, contentDigest: digestCanonical(value) };
+            }),
+            scalarRolesPurpose: artifact.scalarRolesPurpose,
+            scalarRoles: artifact.scalarRoles === null ? null : createTemporalDomainProducerReceipt(artifact.scalarRoles),
+            unsupportedFields: structuredClone(artifact.unsupportedFields),
+            semanticDigest: artifact.semanticDigest,
+            resolvedArtifactDigest: artifact.contentDigest
+        };
+        return Object.freeze({ ...receipt, contentDigest: digestCanonical(receipt) });
+    }
     const receipt = {
         schema: TEMPORAL_DOMAIN_PRODUCER_RECEIPT_SCHEMA,
         producerId: artifact.fixtureIdentity.producerId,
@@ -1024,6 +1050,35 @@ export function createTemporalDomainProducerReceipt(artifact)
         resolvedArtifactDigest: artifact.contentDigest
     };
     return Object.freeze({ ...receipt, contentDigest: digestCanonical(receipt) });
+}
+
+/** Reconstruct the ordinary receipt from the original complete plan and context; no execution is implied. */
+export function verifyTemporalDomainProducerReceipt(receipt, { artifact, temporalContext } = {})
+{
+    const expected = createTemporalDomainProducerReceipt(artifact, { temporalContext });
+    if (digestCanonical(expected) !== digestCanonical(receipt))
+    {
+        fail('temporal.producer-receipt-mismatch', 'producer receipt differs from the original resolved plan/context');
+    }
+    return Object.freeze({ schema: expected.schema, contentDigest: expected.contentDigest,
+        resolvedArtifactDigest: expected.resolvedArtifactDigest,
+        ...(expected.qualificationEligible === false ? { qualificationEligible: false } : {}) });
+}
+
+/** Prepare the existing producer file/env carriers without declaring generation or runtime acceptance. */
+export function createTemporalEntityTransport({ artifact, temporalContext })
+{
+    if (artifact?.schema !== 'fsusblog.resolved-temporal-entities.v1')
+    {
+        fail('temporal.resolver-input-invalid', 'entity transport requires the ordinary entity artifact');
+    }
+    const receipt = createTemporalDomainProducerReceipt(artifact, { temporalContext });
+    return Object.freeze({ schema: 'fsusblog.temporal-entity-transport.v1', qualificationEligible: false,
+        receiptFileName: 'temporal-domain-producer-receipt.json', receipt,
+        artifactDigest: artifact.contentDigest, receiptDigest: receipt.contentDigest,
+        environment: Object.freeze({ FSUSBLOG_TEMPORAL_CONTEXT_JSON: JSON.stringify(receipt.temporalContext),
+            FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON: JSON.stringify(artifact),
+            FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST: artifact.contentDigest }) });
 }
 
 export function projectTemporalRolesForPostgres(artifact)
