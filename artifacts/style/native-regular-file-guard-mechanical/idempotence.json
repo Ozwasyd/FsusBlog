@@ -9,7 +9,7 @@
     "paths": [
         "src/shared/Algorithms/IO/NativeRegularFileGuard.cs"
     ],
-    "firstPassTreeSha256": "ef9c4df0fa2cbbe65d3fff13d6160cb8fe32487cb4f32ce0e5683d38b1e63b63",
-    "secondPassTreeSha256": "ef9c4df0fa2cbbe65d3fff13d6160cb8fe32487cb4f32ce0e5683d38b1e63b63",
+    "firstPassTreeSha256": "5a70e29796c5d8b17556742b62db82254803aac6bcb032ef7325c95a82d901bc",
+    "secondPassTreeSha256": "5a70e29796c5d8b17556742b62db82254803aac6bcb032ef7325c95a82d901bc",
     "idempotent": true
 }
