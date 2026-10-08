@@ -4640,8 +4640,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "contentDigest": "sha256:9827add9c6816cd6ab8cda8dd83ec9b748343a718b81f3448587766ffa7c2592",
-            "indexDigest": "sha256:9827add9c6816cd6ab8cda8dd83ec9b748343a718b81f3448587766ffa7c2592"
+            "contentDigest": "sha256:c327717f1dbefb23899889068d11ea13de3ce65af0dc103c8ccb8f8dc969fa1a",
+            "indexDigest": "sha256:c327717f1dbefb23899889068d11ea13de3ce65af0dc103c8ccb8f8dc969fa1a"
         },
         {
             "path": "tools/test-matrix/schema-validator/package.json",
