@@ -2092,6 +2092,40 @@
             ]
         },
         {
+            "id": "memory-ledger-metadata",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "MemoryReservationCoordinator bounded entry set, resource topology and fixed event ring",
+            "producer": "MemoryReservationCoordinator request normalization and immutable accounting-event snapshots",
+            "consumers": "Reservation and allocation charge tokens plus snapshot/event-window callers",
+            "releaseEvent": "Reservation disposal or allocation-owner final disposal releases its resource vector; ring slot replacement drops only that event reference; snapshot caller references remain managed",
+            "capacityModel": "Finite entryLimit/eventCapacity/domain roster; caller charge amounts are resource constraints, not exact CLR metadata object sizes",
+            "frequency": "Per vector admission, commit, release and explicit diagnostic snapshot",
+            "asyncEscape": "Tokens can escape asynchronously; a converted reservation never releases its allocation charge; actual backing lifetime is delegated to its final owner",
+            "classification": "ephemeral-scratch",
+            "eligibilityOwner": "MemoryReservationCoordinator controls metadata only; no payload eligibility or migration authority",
+            "migrationDisposition": "Metadata remains managed; payload migration never authorized here",
+            "exclusionReason": "Control metadata is outside admitted payload backing; its CLR overhead needs bounded metadata policy and process headroom",
+            "observationHeadroom": "Observe metadata heap and event snapshots separately; resource-vector totals do not claim exact CLR heap accounting",
+            "testOwner": "tests/backend/Unit/MemoryReservationCoordinatorTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                    "anchor": "public sealed class MemoryReservationCoordinator"
+                }
+            ]
+        },
+        {
             "id": "notification-fanout",
             "sourcePaths": [
                 "src/backend/Infrastructure/NotificationStream/NotificationFrameCodec.cs",

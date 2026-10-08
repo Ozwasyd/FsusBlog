@@ -95,6 +95,23 @@ public sealed class MemoryResourceTopology
         }
     }
 
+    public int DomainCount => _domains.Count;
+    public MemoryResourceUnit Unit(ResourceDomainId id) => _domains[id].Unit;
+
+    public IEnumerable<MemoryResourceDomain> ConstraintChain(ResourceDomainId id)
+    {
+        MemoryResourceDomain current = _domains[id];
+        while (true)
+        {
+            yield return current;
+            if (current.ContainingDomain is not ResourceDomainId parent)
+            {
+                yield break;
+            }
+            current = _domains[parent];
+        }
+    }
+
     public string CapacityIdentity(ResourceDomainId id) => _domains[id].CapacityIdentity;
 
     public bool SharesCapacityOrContainment(ResourceDomainId left, ResourceDomainId right)
