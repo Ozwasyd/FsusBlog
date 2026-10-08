@@ -145,6 +145,33 @@ public sealed class AuthorSavedViewRequestBindingTests
     }
 
     [Fact]
+    public async Task AutomationWithoutAuthenticatedRequest_CannotReadOrWritePrivateViews()
+    {
+        var fixture = new Fixture();
+        fixture.Accessor.HttpContext = null;
+        await Assert.ThrowsAsync<AuthorSavedViewAccessDeniedException>(() => fixture.Facade.GetResponseAsync(Guid.NewGuid()));
+        await Assert.ThrowsAsync<AuthorSavedViewAccessDeniedException>(() => fixture.Facade.ListResponseAsync(null, 25));
+        await Assert.ThrowsAsync<AuthorSavedViewAccessDeniedException>(() => fixture.Facade.ApplyRequestAsync(
+            new AuthorSavedViewCreateRequest(Guid.NewGuid(), 0, Guid.NewGuid(), "Saved", Query())));
+        Assert.Empty(fixture.Persistence.Owners);
+        Assert.Equal(0, fixture.Persistence.Commits);
+    }
+
+    [Fact]
+    public async Task MissingDependency_RemainsRejectedByExistingValidatorBeforeCommit()
+    {
+        var fixture = new Fixture();
+        AuthorSavedViewQuery query = Query() with
+        {
+            Conditions = [new(new(AuthorSavedViewFieldKind.Category, "category:1"), "identity.equals", ["1"])]
+        };
+        await Assert.ThrowsAsync<AuthorSavedViewDependencyException>(() => fixture.Facade.ApplyRequestAsync(
+            new AuthorSavedViewCreateRequest(Guid.NewGuid(), 0, Guid.NewGuid(), "Missing dependency", query)));
+        Assert.Empty(fixture.Persistence.Views);
+        Assert.Equal(0, fixture.Persistence.Commits);
+    }
+
+    [Fact]
     public void Codec_DecodesOnlyTrustedOperationAndAllNineClosedShapes()
     {
         Guid id = Guid.NewGuid();
@@ -201,6 +228,13 @@ public sealed class AuthorSavedViewRequestBindingTests
         nested = nested.Replace("\"schemaVersion\":1", "\"schemaVersion\":1,\"sql\":\"private-value\"", StringComparison.Ordinal);
         Assert.Throws<AuthorSavedViewValidationException>(() => AuthorSavedViewRequestCodec.Decode(
             AuthorSavedViewRequestOperation.Create, Encoding.UTF8.GetBytes(nested)));
+
+        Guid id = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        string reorder = Encoding.UTF8.GetString(JsonSerializer.SerializeToUtf8Bytes(new AuthorSavedViewReorderRequest(
+            17, Guid.NewGuid(), [id], new Dictionary<Guid, long> { [id] = 19 }), s_json));
+        reorder = reorder.Replace($"\"{id:D}\":19", $"\"{id:D}\":19,\"{id.ToString("D").ToUpperInvariant()}\":20", StringComparison.Ordinal);
+        Assert.Throws<AuthorSavedViewValidationException>(() => AuthorSavedViewRequestCodec.Decode(
+            AuthorSavedViewRequestOperation.Reorder, Encoding.UTF8.GetBytes(reorder)));
     }
 
     [Fact]

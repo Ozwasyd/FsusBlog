@@ -55,7 +55,27 @@ public static class AuthorSavedViewRequestCodec
     }
 
     private static T Read<T>(JsonDocument document) where T : AuthorSavedViewCommandRequest
-        => document.RootElement.Deserialize<T>(s_options) ?? throw InvalidRequest();
+    {
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+        {
+            throw InvalidRequest();
+        }
+        if (document.RootElement.TryGetProperty("expectedViewRevisions", out JsonElement revisions)
+            && revisions.ValueKind == JsonValueKind.Object)
+        {
+            var identities = new HashSet<Guid>();
+            foreach (JsonProperty revision in revisions.EnumerateObject())
+            {
+                // Distinct JSON spellings can name the same Guid dictionary key.
+                // Reject aliases before deserialization can overwrite a CAS coordinate.
+                if (!Guid.TryParseExact(revision.Name, "D", out Guid identity) || !identities.Add(identity))
+                {
+                    throw InvalidRequest();
+                }
+            }
+        }
+        return document.RootElement.Deserialize<T>(s_options) ?? throw InvalidRequest();
+    }
 
     private static void RejectDuplicateProperties(JsonElement element, ref int remainingNodes)
     {
