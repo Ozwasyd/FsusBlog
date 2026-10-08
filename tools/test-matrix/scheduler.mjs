@@ -19,13 +19,12 @@ import {
     resumeCurrentRunEvidenceCheckpoint
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
 } from '../test/current-run-evidence-checkpoint.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler validates canonical current-run locator inputs.
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Finalizer admission consumes exact current-run bindings.
+import { locateCurrentRunEvidence } from '../test/current-run-evidence-locator.mjs';
 import {
     validateCurrentRunEvidenceContext,
     validateEvidenceLocatorRegistry
 } from '../test/evidence-location-contract.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Finalizer admission consumes exact current-run bindings.
-import { locateCurrentRunEvidence } from '../test/current-run-evidence-locator.mjs';
 import {
     loadPhysicalExecutionProcessPolicy,
     residentServiceTransferSchema,
