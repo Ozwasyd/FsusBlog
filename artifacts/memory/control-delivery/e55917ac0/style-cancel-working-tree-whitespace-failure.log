@@ -1,0 +1,3 @@
+[csharp-style] dotnet format whitespace rejected selected files: /workspace/.tmp-mem-3444-compliant/tests/backend/Unit/ReservedAedsTransientCompositionTests.cs(237,40): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s\s\s\s\s'. [/workspace/.tmp-mem-3444-compliant]
+/workspace/.tmp-mem-3444-compliant/tests/backend/Unit/ReservedAedsTransientCompositionTests.cs(237,42): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s\s\s\s\s\s\s\s\s'. [/workspace/.tmp-mem-3444-compliant]
+/workspace/.tmp-mem-3444-compliant/tests/backend/Unit/ReservedAedsTransientCompositionTests.cs(237,60): error WHITESPACE: Fix whitespace formatting. Replace 1 characters with '\n\s\s\s\s\s\s\s\s'. [/workspace/.tmp-mem-3444-compliant]

@@ -1,0 +1,1 @@
+[csharp-style] src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs:16 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Server.Infrastructure.Memory.Transient]

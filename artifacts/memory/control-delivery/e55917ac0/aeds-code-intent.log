@@ -1,0 +1,7 @@
+{
+  "paths": [
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs",
+    "tests/backend/Unit/ReservedAedsTransientCompositionTests.cs"
+  ],
+  "errors": []
+}
