@@ -1190,7 +1190,8 @@ test('re-review: short-circuit class write is rejected or modeled', () =>
     }
     catch (error)
     {
-        assert.match(error.message, /composition-collection-source|control-legality/u); return;
+        assert.match(error.message, /composition-collection-source|control-legality/u);
+        return;
     }
     assert.ok(result.outputs.some((branch) => branch.mutations.some((write) => write.binding.classValue === 'conditional')));
 });
