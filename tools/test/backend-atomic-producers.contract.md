@@ -66,6 +66,7 @@ full host CPU isolation still belongs to the existing resource/measurement autho
 ## Canonical compiler and attempt bridge
 
 `backend-atomic-bridge.mjs` supplies `compileBackendAtomicBridge(input)`,
+`prepareBackendAtomicBridge(binding, input, options)`,
 `executeBackendAtomicBridge(binding, input, options)` and
 `verifyBackendAtomicExecution(result, expectedDigest, binding, input, options)`.
 Input supplies the same domain plans and selected digests, source root, canonical matrix
@@ -77,6 +78,59 @@ Canonical command-source, input-closure and resource materials carry the origina
 `sourceRef`; fixture material carries `profileId`. Native state material carries its
 original `sourceRef`. These sealed fields preserve domain provenance within the existing
 canonical authority material. An unrelated executable producer refuses before execution.
+
+`prepareBackendAtomicBridge(binding, input, options)` is a synchronous private
+in-memory interface. It extracts the original pre-executor prefix unchanged:
+recompilation and full binding equality, selected binding digest, compiled DAG
+validation, current source/worktree/run and profile equality, callable external
+verifier type, exact-one envelope/replay/temporal digest for each physical child
+and Release prerequisite, and the original Release/readiness environment equality.
+It does not invoke authority callbacks. Original compilation can read genuine
+source references, schema and retry registry, and caller-supplied replay bytes;
+preparation does not generate or replace those inputs.
+
+The return value is:
+
+```js
+{
+    compiled, // binding.compiled, including original coordination steps
+    sourceBindingDigest, // binding.contentDigest
+    producerIds, // sorted actual executable step IDs, including genuine prerequisites
+    producerContexts, // only those IDs, with each original context object retained
+    context, // options.context, retaining its original identity
+    qualificationEligible: false
+}
+```
+
+Executable membership comes from the framework's `isAtomicExecutable`, so
+logical projections and always-run finalizers are not producer contexts. Contexts,
+callbacks and environments remain the original private objects; preparation
+neither clones nor freezes them and preserves any existing frozen environment.
+This return value is not serialized proof, a receipt or authority admission.
+Capacity, finalizer operations and the global executor context remain caller-owned.
+Preparation allocates no attempt, writes no checkpoint or receipt, publishes no
+result, performs no terminal readback and grants no qualification.
+
+The execution wrapper calls preparation, then its single existing canonical
+executor call. Original terminal projection, failure preservation and readback
+remain unchanged. The positive real-input control
+`prepareBackendAtomicBridge(binding, input, options)` remains UNRUN until the owner
+supplies the existing genuine input and private options; the synthetic compiler
+fixture is not used. The explicit allowlist in
+`tests/tools/backend-atomic-prepare.test.mjs` runs only static extraction, framework
+source identity and unchanged execution/projection/readback checks. Static PASS
+is not a real-input preparation or executor acceptance result.
+
+Consumer integration retains the instructions published at
+`a3a7b51af346ecaed00add62f9f1ff4d4d36a44d`,
+`tools/test-matrix/atomic-failure/README.md`: compare every original fragment step
+with the canonical whole graph, retain original global context, capacity and
+finalizers, and consume the original scoped contexts as private capabilities.
+Integrate the actual framework dependency
+`2eda290cc6098971b685b3fb1465d7193bd3dde2` unchanged before loading the bridge.
+No selected/job-scoped dispatch port, second runner or qualification is added.
+Final source integration, consumer wiring, draft PRs and GitHub content remain
+with the original integration owner.
 
 Execution requires independently selected `expectedBindingDigest`, exact source/run/
 worktree context and profile, original per-producer envelope/replay/temporal references,
