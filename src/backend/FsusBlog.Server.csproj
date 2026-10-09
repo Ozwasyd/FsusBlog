@@ -29,11 +29,6 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 
-	<!-- The frozen 3663 prototype duplicates the canonical candidate-review partial. -->
-	<ItemGroup>
-		<Compile Remove="Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs" />
-	</ItemGroup>
-
 	<ItemGroup>
 		<AssemblyMetadata Include="FsusBlog.PublishReadyToRun" Value="$(PublishReadyToRun)" />
 		<AssemblyMetadata Include="FsusBlog.ReadyToRunUseCrossgen2" Value="$(ReadyToRunUseCrossgen2)" />
