@@ -133,3 +133,16 @@ ID is silently substituted for the generated export `sourceVersion`. There is no
 current authenticated export catalog/source projection wire route. Request
 preparation, article navigation and route/bootstrap activation therefore remain
 unbound until those original inputs are supplied.
+
+The original binding exposes `FreezeDecodedRequestAsync(context, actor, request, ct)`
+for an endpoint-level consumer that already read the existing request POD. It never
+reads a frame; the original body-reading `FreezeRequestAsync` delegates to this same
+handoff. Both paths retain cancellation checks and the exact frozen-request match.
+Only known catalog source/capacity refusals become the original uniform job denial;
+unrelated failures and cancellation propagate. No input is repaired or resealed.
+An endpoint must choose one body reader: the original binding, or the forthcoming
+private selection adapter returning the decoded request. It must never run both.
+The adapter cannot be injected back into the binding's freezer/full source reader;
+the full reader directly consumes the catalog with the actor already admitted.
+This seam creates no public options response and does not activate a route or
+supply the missing complete properties/assets/fonts/renderer source authority.

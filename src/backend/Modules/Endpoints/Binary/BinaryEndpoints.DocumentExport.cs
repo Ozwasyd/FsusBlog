@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -25,6 +26,10 @@ public interface IDocumentExportEndpointBinding
     Task<DocumentExportJobActor> ResolveActorAsync(HttpContext context, CancellationToken cancellationToken);
     Task<(DocumentExportTask Task, DocumentExportFrozenInput Input)> FreezeRequestAsync(
         HttpContext context, DocumentExportJobActor actor, CancellationToken cancellationToken);
+    /// <summary>Freeze a previously decoded request without reading the HTTP body again.</summary>
+    Task<(DocumentExportTask Task, DocumentExportFrozenInput Input)> FreezeDecodedRequestAsync(
+        HttpContext context, DocumentExportJobActor actor, DocumentExportRequestCoreModel request,
+        CancellationToken cancellationToken);
     Task<string> ReadTaskIdAsync(HttpContext context, CancellationToken cancellationToken);
     BinaryFrameResult WriteSnapshot(DocumentExportJobSnapshot snapshot, IAedsEncoder encoder);
     BinaryFrameResult WritePage(ImmutableArray<DocumentExportJobSnapshot> snapshots,

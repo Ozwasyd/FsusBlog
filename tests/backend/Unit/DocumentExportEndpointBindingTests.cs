@@ -1,9 +1,13 @@
+using System.Buffers;
+
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
+using FsusBlog.Server.Services.DocumentExport.Sources;
 
 using NSubstitute;
 
@@ -116,6 +120,149 @@ public sealed class DocumentExportEndpointBindingTests
             {
                 ContentDigest = "sha256:" + new string('0', 64)
             }));
+    }
+
+    [Fact]
+    public async Task DecodedAdmission_FreezesOnceWithoutReadingFrames()
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        DocumentExportRequestCoreModel request = Request(task);
+        var actor = new DocumentExportJobActor(input.UserId, input.SiteScope, "existing-session");
+        var context = new DefaultHttpContext();
+        var freezer = Substitute.For<IDocumentExportRequestFreezer>();
+        var requestContext = Substitute.For<IBinaryEndpointRequestContext>();
+        freezer.FreezeAsync(context, actor, request, default).Returns((task, input));
+        IDocumentExportEndpointBinding binding = new DocumentExportEndpointBinding(freezer, requestContext);
+
+        Assert.Equal((task, input), await binding.FreezeDecodedRequestAsync(context, actor, request, default));
+        await freezer.Received(1).FreezeAsync(context, actor, request, default);
+        Assert.Empty(requestContext.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task FrameAdmission_ReadsOnceAndUsesTheDecodedHandoff()
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        DocumentExportRequestCoreModel request = Request(task);
+        var actor = new DocumentExportJobActor(input.UserId, input.SiteScope, "existing-session");
+        var encoder = new AedsEncoder();
+        var context = new DefaultHttpContext
+        {
+            RequestServices = new ServiceCollection().AddSingleton<IAedsEncoder>(encoder).BuildServiceProvider()
+        };
+        var bytes = new ArrayBufferWriter<byte>();
+        PodBinaryCodec.WriteDocumentExportRequest(request, bytes);
+        var freezer = Substitute.For<IDocumentExportRequestFreezer>();
+        var requestContext = Substitute.For<IBinaryEndpointRequestContext>();
+        freezer.FreezeAsync(context, actor, request, default).Returns((task, input));
+        requestContext.ReadFrameAsync(context, encoder, AedsFrameType.DocumentExportRequest,
+            default, PodBinaryCodec.MaximumDocumentExportRequestFrameBytes)
+            .Returns(BinaryRequestPayload.Success(bytes.WrittenMemory, AedsFrameType.DocumentExportRequest));
+        var binding = new DocumentExportEndpointBinding(freezer, requestContext);
+
+        Assert.Equal((task, input), await binding.FreezeRequestAsync(context, actor, default));
+        await requestContext.Received(1).ReadFrameAsync(context, encoder, AedsFrameType.DocumentExportRequest,
+            default, PodBinaryCodec.MaximumDocumentExportRequestFrameBytes);
+        await freezer.Received(1).FreezeAsync(context, actor, request, default);
+    }
+
+    [Fact]
+    public async Task DecodedAdmission_RejectsChangedCoordinateWithoutReadingFrames()
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        DocumentExportRequestCoreModel request = Request(task);
+        request = request with
+        {
+            Source = request.Source with
+            {
+                SourceVersion = request.Source.SourceVersion + 1
+            }
+        };
+        var actor = new DocumentExportJobActor(input.UserId, input.SiteScope, "existing-session");
+        var context = new DefaultHttpContext();
+        var freezer = Substitute.For<IDocumentExportRequestFreezer>();
+        var requestContext = Substitute.For<IBinaryEndpointRequestContext>();
+        freezer.FreezeAsync(context, actor, request, default).Returns((task, input));
+        var binding = new DocumentExportEndpointBinding(freezer, requestContext);
+
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() =>
+            binding.FreezeDecodedRequestAsync(context, actor, request, default));
+        Assert.Empty(requestContext.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DecodedAdmission_PreservesCancellationBeforeAndAfterFreeze(bool cancelAfterFreeze)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        DocumentExportRequestCoreModel request = Request(task);
+        var actor = new DocumentExportJobActor(input.UserId, input.SiteScope, "existing-session");
+        var context = new DefaultHttpContext();
+        var freezer = Substitute.For<IDocumentExportRequestFreezer>();
+        var requestContext = Substitute.For<IBinaryEndpointRequestContext>();
+        using var cancellation = new CancellationTokenSource();
+        freezer.FreezeAsync(context, actor, request, cancellation.Token).Returns(_ =>
+        {
+            cancellation.Cancel();
+            return Task.FromResult((task, input));
+        });
+        if (!cancelAfterFreeze)
+        {
+            cancellation.Cancel();
+        }
+        var binding = new DocumentExportEndpointBinding(freezer, requestContext);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            binding.FreezeDecodedRequestAsync(context, actor, request, cancellation.Token));
+        Assert.Equal(cancelAfterFreeze ? 1 : 0, freezer.ReceivedCalls().Count());
+        Assert.Empty(requestContext.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DecodedAdmission_MapsOnlyKnownCatalogRefusals(bool capacity)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        DocumentExportRequestCoreModel request = Request(task);
+        var actor = new DocumentExportJobActor(input.UserId, input.SiteScope, "existing-session");
+        var context = new DefaultHttpContext();
+        var freezer = Substitute.For<IDocumentExportRequestFreezer>();
+        var requestContext = Substitute.For<IBinaryEndpointRequestContext>();
+        Exception refusal = capacity ? new DocumentExportSourceCapacityException() : new DocumentExportSourceDeniedException();
+        freezer.FreezeAsync(context, actor, request, default)
+            .Returns(Task.FromException<(DocumentExportTask, DocumentExportFrozenInput)>(refusal));
+        var binding = new DocumentExportEndpointBinding(freezer, requestContext);
+
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() =>
+            binding.FreezeDecodedRequestAsync(context, actor, request, default));
+        Assert.Empty(requestContext.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task DecodedAdmission_PropagatesUnrelatedFailures()
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        DocumentExportRequestCoreModel request = Request(task);
+        var actor = new DocumentExportJobActor(input.UserId, input.SiteScope, "existing-session");
+        var context = new DefaultHttpContext();
+        var freezer = Substitute.For<IDocumentExportRequestFreezer>();
+        var requestContext = Substitute.For<IBinaryEndpointRequestContext>();
+        var failure = new InvalidOperationException("controlled-unrelated-failure");
+        freezer.FreezeAsync(context, actor, request, default)
+            .Returns(Task.FromException<(DocumentExportTask, DocumentExportFrozenInput)>(failure));
+        var binding = new DocumentExportEndpointBinding(freezer, requestContext);
+
+        Assert.Same(failure, await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            binding.FreezeDecodedRequestAsync(context, actor, request, default)));
+        Assert.Empty(requestContext.ReceivedCalls());
     }
 
     private static DocumentExportRequestCoreModel Request(DocumentExportTask task)

@@ -10,6 +10,7 @@ using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
+using FsusBlog.Server.Services.DocumentExport.Sources;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
@@ -82,12 +83,30 @@ internal sealed class DocumentExportEndpointBinding(
         {
             throw new DocumentExportJobDeniedException();
         }
+        return await FreezeDecodedRequestAsync(context, actor, request, cancellationToken);
+    }
+
+    public async Task<(DocumentExportTask Task, DocumentExportFrozenInput Input)> FreezeDecodedRequestAsync(
+        HttpContext context, DocumentExportJobActor actor, DocumentExportRequestCoreModel request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(actor);
+        ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
-        (DocumentExportTask task, DocumentExportFrozenInput input) =
-            await freezer.FreezeAsync(context, actor, request, cancellationToken);
+        (DocumentExportTask Task, DocumentExportFrozenInput Input) frozen;
+        try
+        {
+            frozen = await freezer.FreezeAsync(context, actor, request, cancellationToken);
+        }
+        catch (Exception exception) when (exception is DocumentExportSourceDeniedException
+            or DocumentExportSourceCapacityException)
+        {
+            throw new DocumentExportJobDeniedException();
+        }
         cancellationToken.ThrowIfCancellationRequested();
-        RequireFrozenRequestMatch(request, actor, task, input);
-        return (task, input);
+        RequireFrozenRequestMatch(request, actor, frozen.Task, frozen.Input);
+        return frozen;
     }
 
     public async Task<string> ReadTaskIdAsync(HttpContext context, CancellationToken cancellationToken)
