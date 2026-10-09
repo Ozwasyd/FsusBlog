@@ -648,6 +648,90 @@ test('canonical framework export rejects declared signatures without an actual r
     assert.throws(() => state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias')), /no actual callable definition/);
 });
 
+test('canonical Vue binding exposes the original actual provide inject and reactive imports', () =>
+{
+    const s = source();
+    const files = [
+        ['tabs/src/tabs.tsx', 'provide'],
+        ['tabs/src/tab-pane.vue', 'inject'],
+        ['tabs/src/tab-pane.vue', 'reactive']
+    ];
+    for (const [path, name] of files)
+    {
+        const file = resolve(fsusUIRoot, 'vue/packages/components', path);
+        const record = s.resolver.parse(file);
+        const candidates = [];
+        function visit(node)
+        {
+            if (s.resolver.ts.isCallExpression(node) && s.resolver.ts.isIdentifier(node.expression)
+                && record.imports.get(node.expression.text)?.name === name)
+            {
+                candidates.push(node.expression);
+            }
+            s.resolver.ts.forEachChild(node, visit);
+        }
+        record.scripts.forEach(({ ast }) => visit(ast));
+        assert.ok(candidates.length);
+        candidates.forEach((callee) => assert.equal(s.vueBinding(record, callee, name), true));
+    }
+});
+
+test('canonical Vue binding preserves actual aliases and rejects a mismatched export or unrelated import', () =>
+{
+    const file = fixture("import {provide as actual} from 'vue';import {provide as foreign} from 'other';actual(1);foreign(1);", 'ts');
+    const s = source();
+    const record = s.resolver.parse(file);
+    assert.equal(s.vueBinding(record, frameworkCallee(s, file, 'actual'), 'provide'), true);
+    assert.equal(s.vueBinding(record, frameworkCallee(s, file, 'actual'), 'inject'), false);
+    assert.equal(s.vueBinding(record, frameworkCallee(s, file, 'foreign'), 'provide'), false);
+});
+
+test('canonical Vue binding rejects cloned and foreign records and synthetic or cloned callee ASTs', () =>
+{
+    const file = fixture("import {provide} from 'vue';provide(1);", 'ts');
+    const s = source();
+    const record = s.resolver.parse(file);
+    const callee = frameworkCallee(s, file, 'provide');
+    assert.throws(() => s.vueBinding({ ...record }, callee, 'provide'), /foreign Vue binding record/);
+    assert.throws(() => s.vueBinding(source().resolver.parse(file), callee, 'provide'), /foreign Vue binding record/);
+    for (const value of [{ ...callee }, s.expression('provide', file)])
+    {
+        assert.throws(() => s.vueBinding(record, value, 'provide'), /unowned source proof node/);
+    }
+});
+
+test('canonical Vue binding retains the original mutation and shadow rejection', () =>
+{
+    for (const text of ["import {provide} from 'vue';provide=foreign;provide(1);",
+        "import {provide} from 'vue';function owner(provide){provide(1);}"])
+    {
+        const file = fixture(text, 'ts');
+        const s = source();
+        assert.throws(() => s.vueBinding(s.resolver.parse(file), frameworkCallee(s, file, 'provide'), 'provide'), /mutated\/shadowed render binding/);
+    }
+});
+
+test('canonical Vue binding refuses type only imports without manufacturing a runtime export', () =>
+{
+    for (const text of ["import type {provide} from 'vue';provide(1);", "import {type provide} from 'vue';provide(1);"])
+    {
+        const file = fixture(text, 'ts');
+        const s = source();
+        assert.equal(s.vueBinding(s.resolver.parse(file), frameworkCallee(s, file, 'provide'), 'provide'), false);
+    }
+});
+
+test('canonical Vue binding rejects stale source bytes while retaining the original callee', () =>
+{
+    const file = fixture("import {provide} from 'vue';provide(1);", 'ts');
+    const s = source();
+    const record = s.resolver.parse(file);
+    const callee = frameworkCallee(s, file, 'provide');
+    assert.equal(s.vueBinding(record, callee, 'provide'), true);
+    writeFileSync(file, record.content + '\n// changed original source\n');
+    assert.throws(() => s.vueBinding(record, callee, 'provide'), /Vue binding source inputs changed/);
+});
+
 test('central original graph joins actual RouterView route suppliers while retaining unbound rendered and permission gaps', () =>
 {
     const { s, routes, owner, outlet, leaf } = routerGraph();

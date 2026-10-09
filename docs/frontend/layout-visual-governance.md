@@ -438,6 +438,12 @@ route observation from the same per-archetype source instance. Its
 `frameworkTargetBindings` and reachable backing sources enter the original graph
 digest; original unresolved selector/rendered errors remain. The join does not
 choose a route, substitute a native tag or establish runtime/permission state.
+`source.vueBinding(record, actualCalleeAST, exportedName)` exposes the original
+Vue named-import and unchanged-binding check. It requires the original resolver
+record and callee AST and unchanged source inputs; aliases retain their actual
+export name, while foreign records, cloned expressions, type-only imports and
+mutated or shadowed bindings cannot establish identity. A true result identifies
+the import only, without proving framework effects, state or readonly behavior.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state

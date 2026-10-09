@@ -2447,7 +2447,21 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         return code;
     }
-    const api = { resolver, parse, graph, instrument, importFile, componentFile, expression, nodes, records, errors, resolveTargetInputs };
+    function publicVueBinding(record, node, exportedName)
+    {
+        if (!record?.file || resolver.parse(record.file) !== record)
+        {
+            fail('foreign Vue binding record');
+        }
+        resolver.sourceStep(record.file, node);
+        if (resolver.sourceBindings().errors.length)
+        {
+            fail('Vue binding source inputs changed');
+        }
+        return vueBinding(record, node, exportedName);
+    }
+    const api = { resolver, parse, graph, instrument, importFile, componentFile, expression, nodes, records, errors,
+        resolveTargetInputs, vueBinding: publicVueBinding };
     return api;
 }
 
