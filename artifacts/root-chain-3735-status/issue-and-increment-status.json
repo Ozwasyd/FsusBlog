@@ -53,13 +53,15 @@
   "newIncrements": [
     {
       "coverage": "facts-only upload transport",
-      "source": "6edc4e20cc1ce4054c5c5356902dbc3fb9828025",
-      "evidenceHead": "67cebeb0bd666255c50302b9391730783f9db551",
+      "source": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+      "evidenceHead": "61a11c53cc471a0852bcd3c1df75655aab4331aa",
       "branch": "codex/shared-upload-facts-transport-20261009",
       "sourceStatus": "implemented; original1975 provider consumption and true eight-field receipt producer remain elsewhere",
       "actualControls": "protocol52, frontend27, productionnative31 + wrongcount4, products5, sourceStyle7files/0, OpenAPI292 source-observation at4cf; exact immutable bindings retained",
       "failed": "current6ed strictSDK1529 errors/0changed diagnostics; 9new cases/discoveryUNRUN. Fulltypes4cf290 errors/0changedAPIadapterregistry",
-      "artifacts": "artifacts/shared-upload-facts-transport"
+      "artifacts": "artifacts/shared-upload-facts-transport",
+      "neutralImportRepair": "Exact existing alias moved to neutral binaryApi contract, three files only; current-source frontend27 PASS. Original boundary exit1: exact five baseline violations unchanged; target removed. Original negative extra edge refused/cleanup passed. Prior SDK6ed/fulltypes4cf bindings unchanged.",
+      "repairArtifacts": "artifacts/shared-upload-facts-transport/import-boundary-repair"
     },
     {
       "coverage": "canonical Graph node source/DI",
@@ -92,22 +94,32 @@
       "coverage": "Package bounded independent wire module release",
       "source": "9d1f98d0279bb65c51140a762f7c0b9d75da1614",
       "branch": "codex/shared-package-wire-release-20261009",
-      "implementationStatus": "precise inactive release option only, no transport orDIactivated",
+      "implementationStatus": "Inactive bounded release; exclusive seven NEW module files now assigned by parent to task01a120e7-71f6-74d2-861c-92c8abaea004. Root retains central registries/routes/DI; no parallel file edits or activation.",
       "allocation": "request288/response289 owner allocation only, not active ABI/frame",
       "blocker": "full exact canonical SiteIdentity SystemService implementation plus qualified lifecycle/scopes; closed nested wire validator missing; frontend revised exact dependencies needed",
-      "artifacts": "artifacts/shared-package-wire-release"
+      "artifacts": "artifacts/shared-package-wire-release",
+      "exclusiveNewModulePaths": [
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewWireValidation.cs",
+        "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
+        "src/frontend/wasm/aeds/include/article_package_candidate_review_wire.hpp",
+        "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
+        "tests/tools/article-package-candidate-review-wire.test.mjs",
+        "tests/native/ArticlePackageCandidateReviewWireTests.cpp"
+      ]
     },
     {
       "coverage": "Vault REQUEST-only typed bounded module",
-      "source": "2de89a7656b4a9a1e0982629b44b45f5999d37a6",
+      "source": "1fc2a2153b0f3a96f3a7628b3847b86c0e75072d",
       "branch": "codex/chain-3735-vault-current-review-wire",
       "status": "published10NEWpaths; requestpayload3176/whole3192; no global286/287/frame/nativeerror/HTTPregistration",
       "blocker": "original3582/2120 Shared approved readonly six-field response projection/closed nested validators and actual trusted input acquisition; no opaque JSON/substitute6blobresponse",
       "managedEvidence": "worker unauthorized alternate project executed31; explicitly excluded, qualifiedManaged0. Project/initialfailure/rawTRX/provenance preserved; execution stopped. This does not substitute original strictSDK",
-      "allowedPayloadEvidence": "published2de source-bound Node29/native35 ordinary payload controls0; production originalCorelibrary lockedrestore0/build0/188warnings/0errors. No global286/287/error21 admission or managed TestSDK pass.",
-      "evidenceHead": "d1765f7c19800c96ee0293ce160059ff5b737a0c",
+      "allowedPayloadEvidence": "Current1fc source-bound Node29PASS; prior native35 and normal originalCore0errors188warnings remain at2de unchanged blobs; no rebind. No global286/287/error21 admission or managed TestSDK pass.",
+      "evidenceHead": "1b6a1ed3902a15b6a922e88766e5e836f69372f2",
       "artifacts": "artifacts/article-vault/chain-3735-current-review-wire-request",
-      "styleGate": "BLOCKED actual @vue/tsconfig/tsconfig.dom.json absent after task-local official locked style-toolchain install; not PASS."
+      "styleGate": "PASS actual official toolchain: two source files/zero diagnostics; proper fsusblog-client package codec export/file dependency replaces forbidden relative-parent import. Original 29 cases/16 assertions preserved.",
+      "repairArtifacts": "artifacts/article-vault/chain-3735-current-review-wire-request/root-style-repair"
     }
   ],
   "earlierDeliveredSource": {
@@ -148,8 +160,56 @@
     "parent": "abb28c41213f6ea506a6b4dcb64f30b7451384b7",
     "head": "0e9dffa95be042e0dd05da4529aedd2380427ede",
     "branch": "task/3654-vault-enrollment-compatibility",
-    "scope": "readonly review of22exactpreimages/productionminimum in progress; no sourceconsumption yet",
+    "scope": "Consumed exact eleven production preimages/postimages; seven support paths already byte-identical; four original managed test/fixture paths not consumed. All22 checked.",
     "supplierBuild": "0errors1507warnings; tests0 atthiscandidate; priorb98sixunqualified",
-    "sourceAdmission": "generation events remain unqualified; no documentepochderivation or secondauthority"
+    "sourceAdmission": "generation events remain unqualified; no documentepochderivation or secondauthority",
+    "rootSource": "7f6de58cc5df33ecae0e0c8a66022055dc7afb44",
+    "rootEvidenceHead": "6cacdefc07dacb90b6d52786a88b917f42eb9e41",
+    "rootBranch": "codex/shared-graph-generation-enrollment-20261009",
+    "productionControls": "original locked restore0 and normal Server build0errors323warnings/0changed-file diagnostics at7f; manageddiscovery/bodiesUNRUN",
+    "reservedArticleRevisionPersistence": "968d8179278cd5b5ce760cdbc8c5c3f613428bda preserved whole; no older supplier substitution",
+    "artifacts": "artifacts/shared-graph-generation-enrollment"
+  },
+  "newValidatedGraphReader": {
+    "supplierExactSource": "66021723dff4949a54985e63545b746eee9e9d9a",
+    "parentReportedIndependentVerification": "112/112 original cases:29unit83realPG, plus11collection controls; exact source/run supplier evidence, not root re-execution",
+    "rootSource": "0a6160a3d0dc2e2b26595d521cd4754d8bc21896",
+    "branch": "codex/shared-graph-validated-reader-20261009",
+    "scope": "Only existing SqlArticleGraphAdmissionReader.cs byte-exact supplierblob ce03fb04aa02b1e1a673b770876275498fc07e5a; existing solehost/nodeconsumer/resolver/generation remain unchanged",
+    "limits": [
+      "READ COMMITTED statement observations",
+      "caller lifecycle ownership/serialization",
+      "references do not seal server transaction incarnation",
+      "no atomic latest fence",
+      "range/trusted using, two inherited method names, generated history and held SOURCE still block whole supplier branch qualification"
+    ],
+    "actualRootControls": "Original normal production lockedrestore0, Server0errors323warnings/0changed-file diagnostics. Root manageddiscovery/bodiesUNRUN; no duplicate112 rerun.",
+    "newRawMetadataReaderOwner": {
+      "task": "01a120f0-6a70-725e-ba07-7af45e1ad024",
+      "exclusivePaths": [
+        "src/backend/Services/Authoring/SqlArticleGraphPersistedMetadataReader.cs",
+        "tests/backend/Unit/SqlArticleGraphPersistedMetadataReaderTests.cs"
+      ],
+      "scope": "actual numeric current/publication membership facts only; no Graph keys/AND-OR/root filters/relations/Published activation. Root waits exact source; no parallel edits."
+    },
+    "artifacts": "artifacts/shared-graph-validated-reader",
+    "evidenceHead": "f3fee7dd59e576fa148de57fffdd3bcdd3d742b3"
+  },
+  "updatedAtUtc": "2026-10-09T14:00:40.673250+00:00",
+  "newFontThemeBorrowComment": {
+    "source": "e1f2a4a7b94d1274744284b944cff591aefee413",
+    "branch": "codex/shared-font-theme-borrow-comment-20261009",
+    "path": "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp",
+    "scope": "Exactly one PayloadView borrow/lifetime comment replacement; all other bytes including ABI/structures/assertions identical. No allocation/performance guarantee or evidence fabrication.",
+    "controls": "Original source code-intent checker before1error/exit1 atmaster9d, afterexit0/5487files19registered atsourcee1f; checker/exceptions untouched. No native runtime, held audit or content API.",
+    "artifacts": "artifacts/shared-font-theme-borrow-comment",
+    "evidenceHead": "c230c5009406b75edece37aef93cf3c72c429433"
+  },
+  "remotePublicationVerified": {
+    "facts": "61a11c53cc471a0852bcd3c1df75655aab4331aa",
+    "generation": "6cacdefc07dacb90b6d52786a88b917f42eb9e41",
+    "boundedReader": "f3fee7dd59e576fa148de57fffdd3bcdd3d742b3",
+    "vaultRequest": "1b6a1ed3902a15b6a922e88766e5e836f69372f2",
+    "fontThemeComment": "c230c5009406b75edece37aef93cf3c72c429433"
   }
 }
