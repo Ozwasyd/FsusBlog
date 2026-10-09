@@ -101,7 +101,12 @@ export function useArticleInternalLinkLifecycle(options: LifecycleOptions)
         previewRequest.value = null;
         previewPresentation.value = null;
     };
-    const clearRequests = (): void => { cancelSearch(); cancelHeadings(); cancelPreview(); };
+    const clearRequests = (): void =>
+    {
+        cancelSearch();
+        cancelHeadings();
+        cancelPreview();
+    };
     const close = (): void =>
     {
         clearRequests();
@@ -145,7 +150,10 @@ export function useArticleInternalLinkLifecycle(options: LifecycleOptions)
             {
                 const previewOnly = phase.value === 'preview';
                 close();
-                if (previewOnly) closed();
+                if (previewOnly)
+                {
+                    closed();
+                }
             };
             context.signal.addEventListener('abort', abort, { once: true });
             removeCommandAbort = () => context.signal.removeEventListener('abort', abort);
@@ -159,15 +167,23 @@ export function useArticleInternalLinkLifecycle(options: LifecycleOptions)
     };
     const openFromCommand = (context: CommandContext, captureOptions: ArticleAnchorCaptureOptions): boolean =>
     {
-        if (!capture(context, captureOptions)) return false;
+        if (!capture(context, captureOptions))
+        {
+            return false;
+        }
         phase.value = 'picker';
         return true;
     };
 
     const requestSearch = async (request: SearchRequest): Promise<boolean> =>
     {
-        if (phase.value !== 'picker' || request.sessionKey !== sessionKey.value || current() === null) return false;
-        cancelSearch(); cancelHeadings(); cancelPreview();
+        if (phase.value !== 'picker' || request.sessionKey !== sessionKey.value || current() === null)
+        {
+            return false;
+        }
+        cancelSearch();
+        cancelHeadings();
+        cancelPreview();
         const loader = options.loaders.value;
         if (loader === null)
         {
@@ -179,18 +195,29 @@ export function useArticleInternalLinkLifecycle(options: LifecycleOptions)
         searchResult.value = { requestKey: request.requestKey, state: 'loading', articles: [], message: null };
         task.signal.addEventListener('abort', () =>
         {
-            if (searchTask === task) { searchTask = null; searchResult.value = null; cancelHeadings(); }
+            if (searchTask === task)
+            {
+                searchTask = null;
+                searchResult.value = null;
+                cancelHeadings();
+            }
         }, { once: true });
         try
         {
             const result = await loader.search(request, task.signal);
-            if (searchTask !== task || !task.isCurrent() || current() === null || result.requestKey !== request.requestKey) return false;
+            if (searchTask !== task || !task.isCurrent() || current() === null || result.requestKey !== request.requestKey)
+            {
+                return false;
+            }
             searchResult.value = result;
             return true;
         }
         catch
         {
-            if (searchTask === task && task.isCurrent()) searchResult.value = { requestKey: request.requestKey, state: 'error', articles: [], message: '文章查询不可用。' };
+            if (searchTask === task && task.isCurrent())
+            {
+                searchResult.value = { requestKey: request.requestKey, state: 'error', articles: [], message: '文章查询不可用。' };
+            }
             return false;
         }
     };
@@ -199,40 +226,62 @@ export function useArticleInternalLinkLifecycle(options: LifecycleOptions)
         if (phase.value !== 'picker' || request.sessionKey !== sessionKey.value || current() === null
             || searchResult.value?.state !== 'ready' || !searchTask?.isCurrent()
             || !searchResult.value.articles.some(article => article.id === request.articleId && article.revision === request.articleRevision
-                && article.unavailableText === null && article.headingsAction === request.action && request.action != null)) return false;
+                && article.unavailableText === null && article.headingsAction === request.action && request.action != null))
+        {
+            return false;
+        }
         cancelHeadings();
         const loader = options.loaders.value;
-        if (loader === null) return false;
+        if (loader === null)
+        {
+            return false;
+        }
         const task = options.owner.beginTask('feature', 'internal-link:headings', 'internal-link-lifecycle:v1');
         headingTask = task;
         headingResult.value = { requestKey: request.requestKey, articleId: request.articleId, articleRevision: request.articleRevision,
             state: 'loading', headings: [], message: null };
         task.signal.addEventListener('abort', () =>
         {
-            if (headingTask === task) { headingTask = null; headingResult.value = null; }
+            if (headingTask === task)
+            {
+                headingTask = null;
+                headingResult.value = null;
+            }
         }, { once: true });
         try
         {
             const result = await loader.headings(request, task.signal);
             if (headingTask !== task || !task.isCurrent() || current() === null || result.requestKey !== request.requestKey
-                || result.articleId !== request.articleId || result.articleRevision !== request.articleRevision) return false;
+                || result.articleId !== request.articleId || result.articleRevision !== request.articleRevision)
+            {
+                return false;
+            }
             headingResult.value = result;
             return true;
         }
         catch
         {
-            if (headingTask === task && task.isCurrent()) headingResult.value = { requestKey: request.requestKey, articleId: request.articleId,
-                articleRevision: request.articleRevision, state: 'error', headings: [], message: '章节查询不可用。' };
+            if (headingTask === task && task.isCurrent())
+            {
+                headingResult.value = { requestKey: request.requestKey, articleId: request.articleId,
+                    articleRevision: request.articleRevision, state: 'error', headings: [], message: '章节查询不可用。' };
+            }
             return false;
         }
     };
     const requestPreview = async (intent: PreviewIntent): Promise<boolean> =>
     {
         if ((phase.value !== 'picker' && phase.value !== 'preview') || current() === null || !intent.targetKey
-            || intent.targetKey !== options.previewTarget.value) return false;
+            || intent.targetKey !== options.previewTarget.value)
+        {
+            return false;
+        }
         cancelPreview();
         const loader = options.loaders.value;
-        if (loader === null) return false;
+        if (loader === null)
+        {
+            return false;
+        }
         const task = options.owner.beginTask('feature', 'internal-link:preview', 'internal-link-lifecycle:v1');
         previewTask = task;
         const request = Object.freeze({ targetKey: intent.targetKey, signal: task.signal });
@@ -240,25 +289,39 @@ export function useArticleInternalLinkLifecycle(options: LifecycleOptions)
         previewPresentation.value = { request, state: 'loading' };
         task.signal.addEventListener('abort', () =>
         {
-            if (previewTask === task) { previewTask = null; previewRequest.value = null; previewPresentation.value = null; }
+            if (previewTask === task)
+            {
+                previewTask = null;
+                previewRequest.value = null;
+                previewPresentation.value = null;
+            }
         }, { once: true });
         try
         {
             const content = await loader.preview(intent, task.signal);
-            if (previewTask !== task || !task.isCurrent() || current() === null) return false;
+            if (previewTask !== task || !task.isCurrent() || current() === null)
+            {
+                return false;
+            }
             previewPresentation.value = content === null ? { request, state: 'empty' } : { request, state: 'ready', content };
             return true;
         }
         catch
         {
-            if (previewTask === task && task.isCurrent()) previewPresentation.value = { request, state: 'error' };
+            if (previewTask === task && task.isCurrent())
+            {
+                previewPresentation.value = { request, state: 'error' };
+            }
             return false;
         }
     };
     const openPreviewFromCommand = (context: CommandContext, captureOptions: ArticleAnchorCaptureOptions, intent: PreviewIntent): Promise<boolean> =>
     {
         if (options.loaders.value === null || !intent.targetKey || intent.targetKey !== options.previewTarget.value
-            || !capture(context, captureOptions)) return Promise.resolve(false);
+            || !capture(context, captureOptions))
+        {
+            return Promise.resolve(false);
+        }
         phase.value = 'preview';
         return requestPreview(intent);
     };
@@ -271,24 +334,36 @@ export function useArticleInternalLinkLifecycle(options: LifecycleOptions)
         if (!captured || runtime === null || !result.accepted || result.revision <= captured.revision
             || result.beforeRevision !== captured.revision || !result.positionMap
             || result.documentIdentity?.id !== runtime.context.documentId || result.documentIdentity.epoch !== runtime.context.documentEpoch
-            || result.revision !== runtime.context.sourceRevision || result.value !== runtime.positionBinding().map.source) return false;
+            || result.revision !== runtime.context.sourceRevision || result.value !== runtime.positionBinding().map.source)
+        {
+            return false;
+        }
         captured.transactions.push(result);
         captured.revision = result.revision;
         return true;
     };
     const closed = (): boolean =>
     {
-        if (phase.value !== 'closing' || !captured) return false;
+        if (phase.value !== 'closing' || !captured)
+        {
+            return false;
+        }
         const runtime = current();
         const saved = captured;
         try
         {
-            if (runtime === null) return false;
+            if (runtime === null)
+            {
+                return false;
+            }
             const command = runtime.anchors.restore(saved.anchor, runtime.positionBinding(), {
                 ...options.restoreOptions(), origin: 'tool', transactions: saved.transactions
             });
             if (command.status !== 'ready' || !command.range || !['exact', 'rebased'].includes(command.kind ?? '')
-                || command.rebase.some(outcome => outcome !== 'mapped')) return false;
+                || command.rebase.some(outcome => outcome !== 'mapped'))
+            {
+                return false;
+            }
             const result = runtime.dispatchTransaction(runtime.context, { changes: [], history: 'skip', origin: 'programmatic',
                 expectedRevision: runtime.context.sourceRevision, documentIdentity: options.owner.documentIdentity,
                 selection: { ...command.range, direction: command.direction } });
@@ -305,47 +380,104 @@ export function useArticleInternalLinkLifecycle(options: LifecycleOptions)
     };
     const cancel = (event: PickerCancel): void =>
     {
-        if (event.sessionKey !== sessionKey.value) return;
-        if (event.scope === 'picker') close();
-        else if (event.scope === 'search' && event.searchRequestKey === searchResult.value?.requestKey) { cancelSearch(); cancelHeadings(); }
-        else if (event.scope === 'headings' && event.headingRequestKey === headingResult.value?.requestKey) cancelHeadings();
+        if (event.sessionKey !== sessionKey.value)
+        {
+            return;
+        }
+        if (event.scope === 'picker')
+        {
+            close();
+        }
+        else if (event.scope === 'search' && event.searchRequestKey === searchResult.value?.requestKey)
+        {
+            cancelSearch();
+            cancelHeadings();
+        }
+        else if (event.scope === 'headings' && event.headingRequestKey === headingResult.value?.requestKey)
+        {
+            cancelHeadings();
+        }
     };
     const select = (event: PickerSelect): false =>
     {
         if (phase.value === 'picker' && event.sessionKey === sessionKey.value
-            && event.searchRequestKey === searchResult.value?.requestKey) close();
+            && event.searchRequestKey === searchResult.value?.requestKey)
+        {
+            close();
+        }
         // No canonical target+URL authority is published for this adapter. Never
         // execute an opaque action or substitute an example URL/Markdown token.
         return false;
     };
-    const updateModelValue = (value: boolean): void => { if (!value && phase.value === 'picker') close(); };
+    const updateModelValue = (value: boolean): void =>
+    {
+        if (!value && phase.value === 'picker')
+        {
+            close();
+        }
+    };
     const dismissPreview = (event: Readonly<{ request: ArticleInternalLinkPreviewRequest; }>): boolean =>
     {
-        if (event.request !== previewRequest.value) return false;
+        if (event.request !== previewRequest.value)
+        {
+            return false;
+        }
         cancelPreview();
-        if (phase.value !== 'preview') return true;
+        if (phase.value !== 'preview')
+        {
+            return true;
+        }
         close();
         return closed();
     };
     const unsubscribe = options.owner.subscribeContext(context =>
     {
-        if (!captured) return;
-        if (context === null || context.documentId !== captured.anchor.document.documentId
-            || context.documentEpoch !== captured.anchor.document.documentEpoch) revoke();
-        else clearRequests();
+        if (!captured)
+        {
+            return;
+        }
+        if (context?.documentId !== captured.anchor.document.documentId
+            || context.documentEpoch !== captured.anchor.document.documentEpoch)
+        {
+            revoke();
+        }
+        else
+        {
+            clearRequests();
+        }
     });
     const stopWatch = watch([options.runtime, options.enabled, options.loaders], () =>
     {
-        if (current() === null) revoke();
-        else clearRequests();
+        if (current() === null)
+        {
+            revoke();
+        }
+        else
+        {
+            clearRequests();
+        }
     }, { flush: 'sync' });
     const stopTargetWatch = watch(options.previewTarget, () =>
     {
         cancelPreview();
-        if (phase.value === 'preview') { close(); closed(); }
+        if (phase.value === 'preview')
+        {
+            close();
+            closed();
+        }
     }, { flush: 'sync' });
-    const dispose = (): void => { disposed = true; unsubscribe(); stopWatch(); stopTargetWatch(); revoke(); };
-    if (getCurrentScope()) onScopeDispose(dispose);
+    const dispose = (): void =>
+    {
+        disposed = true;
+        unsubscribe();
+        stopWatch();
+        stopTargetWatch();
+        revoke();
+    };
+    if (getCurrentScope())
+    {
+        onScopeDispose(dispose);
+    }
     return { openFromCommand, openPreviewFromCommand, requestSearch, requestHeadings, requestPreview,
         observeTransaction, cancel, select, updateModelValue, closed, dismissPreview,
         // The component's open event is notification only; never open the target twice.
