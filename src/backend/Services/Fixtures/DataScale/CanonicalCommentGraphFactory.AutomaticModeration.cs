@@ -101,6 +101,9 @@ public static partial class CanonicalCommentGraphFactory
                     || item.CurrentComment.Id <= 0 || item.CurrentComment.ArticleId != intent.ArticleId
                     || !Enum.IsDefined(item.CurrentComment.ModerationStatus)
                     || item.Region != binding.Comments[commentIndex].PolicyFacts.Region
+                    || item.CurrentComment.AuthorMode != binding.Comments[commentIndex].PolicyFacts.Actor.AuthorMode
+                    || item.CurrentComment.UserId != binding.Comments[commentIndex].PolicyFacts.Actor.UserId
+                    || item.CurrentComment.AnonymousRequiresModeration != binding.Comments[commentIndex].PolicyFacts.Actor.RequiresModeration
                     || !request.Policies.AuthorMode.Allowed || request.Policies.ArticleWrite?.Allowed != true
                     || !request.Policies.RegionCanPublish
                     || (commentIndex == previousCommentIndex && item.CurrentComment.Id != previousCommentId)

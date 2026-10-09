@@ -4,7 +4,9 @@
         {
             "id": "environment-variable",
             "paths": [
-                "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphFactory.AutomaticModeration.cs"
+                "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphFactory.AutomaticModeration.cs",
+                "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphFactory.cs",
+                "src/backend/Services/Fixtures/DataScale/CommentScaleAutomaticModerationFacts.cs"
             ],
             "reason": "Preserve diagnostic contract identifiers while consuming the original production automatic moderation policy without copying its business rules or generating events."
         }
