@@ -41,6 +41,7 @@
                 :id="`${instanceId}-results`"
                 ref="resultList"
                 class="internal-link-picker__results"
+                role="region"
                 :aria-label="activeArticle ? '文章章节' : '文章结果'"
                 :aria-busy="state === 'loading'"
                 tabindex="-1"
