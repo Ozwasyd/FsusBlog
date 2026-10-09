@@ -1,0 +1,168 @@
+{
+  "schema": "fsusblog.attachment-cleanup-import-order-evidence.v1",
+  "base": "7940920e6575bd30837ba685d1b894b83abc03bc",
+  "combinedPreimage": "edee05ee688f16c559665ffe84eb8dbf3abb6ac1",
+  "paths": [
+    {
+      "path": "src/backend/Services/FileService.AttachmentCleanup.cs",
+      "preimageBlob": "47b62bd41484c1477d6ab179dd50ba727a518ffe",
+      "postimageBlob": "024185e0e0c0f1be77af0bb4b524c2f7ab2f8b4a",
+      "preimageSha256": "3aa1e5992993c15b483ebea09fad4b8a43cc6b89eedaae870147a43017e0cbb6",
+      "postimageSha256": "91dd38e8689368d98d02d225fa38a125b2b06829ae5af385777034b6f94ff311",
+      "bodySha256": "cf76d3da09d9c60f842a2ca761f2d6506f42cc105cdcfc061ad0162d17ed016c",
+      "bodyByteIdentical": true,
+      "ordinaryImportsUnchanged": true,
+      "ordinaryImports": [
+        "using FsusBlog.Core.Common;",
+        "using FsusBlog.Server.Contracts.Assets;",
+        "using FsusBlog.Server.Entities;",
+        "using FsusBlog.Server.Models.Dtos;",
+        "using FsusBlog.Server.Services.Articles;",
+        "using Microsoft.Extensions.DependencyInjection;",
+        "using SqlSugar;"
+      ]
+    },
+    {
+      "path": "tests/backend/Unit/AttachmentCleanupObservationTests.cs",
+      "preimageBlob": "0331d55b781d5c09eb78f2ffeddcebbda4d890b4",
+      "postimageBlob": "67f1904bc0659ac0e4114b144516b1fc4a86543d",
+      "preimageSha256": "8863a79eba95a03790b67c85b8c980645dc229ab4a29af0443c88d7906938451",
+      "postimageSha256": "2995eeaa1af85ede96fb5b78eae1cb7a97feca76e1040724cc401c60102e3fe1",
+      "bodySha256": "63ceb8fcee203d93f06ebb4eb168e12e44bb0496d4a2cf6caa61a83a8848f0db",
+      "bodyByteIdentical": true,
+      "ordinaryImportsUnchanged": true,
+      "ordinaryImports": [
+        "using FsusBlog.Core.Common;",
+        "using FsusBlog.Server.Contracts.Assets;",
+        "using FsusBlog.Server.Entities;",
+        "using FsusBlog.Server.Models.Dtos;",
+        "using FsusBlog.Server.Services.Articles;",
+        "using FsusBlog.Server.Services;",
+        "using Microsoft.AspNetCore.Http;",
+        "using Microsoft.Extensions.DependencyInjection;",
+        "using Microsoft.Extensions.Logging.Abstractions;",
+        "using SqlSugar;",
+        "using System.Security.Cryptography;"
+      ]
+    }
+  ],
+  "formatter": {
+    "identity": "check-csharp-style",
+    "version": "5b2c7b161eafb9eaee6b4bcb1690fb6d00de916a",
+    "command": "node tools/dotnet/check-csharp-style.mjs --mode full --file src/backend/Services/FileService.AttachmentCleanup.cs --file tests/backend/Unit/AttachmentCleanupObservationTests.cs --fix"
+  },
+  "firstPassTreeSha256": "5f21f81d7993a0ca70a6b5bb3ff078a8f96d2a9d3fc4e4f6d25c169a45016e9c",
+  "secondPassTreeSha256": "5f21f81d7993a0ca70a6b5bb3ff078a8f96d2a9d3fc4e4f6d25c169a45016e9c",
+  "idempotent": true,
+  "semanticProof": "Only distinct ordinary compilation-unit namespace imports are permuted. Imports are neither aliases nor static/global directives; their set and the entire namespace-and-body byte sequence are identical. No declaration, binding input, runtime code, cancellation handling, test setup or assertion changes.",
+  "sourceCommit": "e446d8248a1ca0d17ad6a72bb14c5c92be01a57a",
+  "classification": {
+    "commitType": "refactor",
+    "structuralEquivalenceOnly": true,
+    "formatOnlyClaim": false,
+    "blameIgnoreRegistration": "not applicable: original format-only gate rejects reordered C# tokens",
+    "originalFormatOnlyGate": "Format-only diff changes non-whitespace or quoted-value tokens: src/backend/Services/FileService.AttachmentCleanup.cs, tests/backend/Unit/AttachmentCleanupObservationTests.cs"
+  },
+  "checks": {
+    "preimageStyle": {
+      "exitCode": 1,
+      "violations": 2,
+      "rules": [
+        "using-order"
+      ]
+    },
+    "postimageStyle": {
+      "command": "node tools/dotnet/check-csharp-style.mjs --mode full --file src/backend/Services/FileService.AttachmentCleanup.cs --file tests/backend/Unit/AttachmentCleanupObservationTests.cs",
+      "exitCode": 0,
+      "checkedFiles": 2,
+      "violations": 0
+    },
+    "sourceDiff": {
+      "insertions": 10,
+      "deletions": 10,
+      "changedPaths": 2,
+      "onlyCompilationUnitImports": true
+    },
+    "commitContract": {
+      "command": "node tools/governance/check-change-contract.mjs --range 7940920e6575bd30837ba685d1b894b83abc03bc..e446d8248a1ca0d17ad6a72bb14c5c92be01a57a",
+      "exitCode": 0
+    },
+    "compile": {
+      "command": "dotnet build tests/backend/FsusBlog.Server.Tests.csproj --no-restore -c Debug -m:1 -p:FSUSBLOG_PRODUCTION_BUILD_ROOT=/workspace/FsusBlog/.tmp/attachment-cleanup-recording-1975-20261009-0945/build",
+      "sdk": "10.0.401",
+      "exitCode": 0,
+      "errors": 0,
+      "warnings": 598,
+      "ownedPathDiagnostics": 0,
+      "runtimeTestsExecuted": false
+    },
+    "diffCheck": {
+      "command": "git diff --check 7940920e6575bd30837ba685d1b894b83abc03bc..e446d8248a1ca0d17ad6a72bb14c5c92be01a57a",
+      "exitCode": 0
+    }
+  },
+  "runtimeTests": {
+    "status": "UNRUN for import-order successor; reused frozen source evidence by byte-identical bodies and unchanged ordinary import sets",
+    "originalHead": "7940920e6575bd30837ba685d1b894b83abc03bc",
+    "project": "tests/backend/FsusBlog.Server.Tests.csproj",
+    "fqns": [
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingInvalidUploadFacts_RefusesScheduling",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.FirstRecording_ReadsActualCommittedQueue",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RepeatedRecording_PreservesOriginalGrace",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.ReferencedRecording_RefusesWithoutRemovingReferences",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingAfterLastReferenceRemoved_ReusesCanonicalQueue",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RestoredReference_RefusesLateRecording",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingTransactionFailure_RollsBackAndRecovers",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingCancellationAfterScheduling_ThrowsAndRollsBack",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.PostCommitReferenceRestore_RefusesRecordingReceipt",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.UnreferencedCompletedUpload_RequiresCanonicalScheduling",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.LastReferenceRemoved_ObservesOriginalQueueWithoutRescheduling",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RepeatedObservation_ReusesDurableSchedule",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.StillReferenced_RefusesRecorded",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RestoredReference_CancelsReceipt",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.ChangedAssetVersion_RequiresObservation",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.ChangedQueueMarker_RefusesRecorded",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.TransactionFailure_RefusesReceipt",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.CancellationBeforeObservation_Throws",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.CancellationAfterQueueRead_Throws",
+      "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.MissingAuthorityAndAbortedSession_RefuseReceipt"
+    ],
+    "caseCount": 20,
+    "passed": 20,
+    "failed": 0,
+    "skipped": 0,
+    "exactSelection": true,
+    "originalFixture": "SchemaMigrationPostgresCollectionB / PostgresSchemaMigrationFixture / PostgresSqlSugarTestClient",
+    "qualification": "ordinary bounded original-project cases only; not production cleanup qualification",
+    "evidenceDigests": {
+      "preflight-postfix.json": "a794499d44e6a1f4d2e9d30a13ee18e5b2422aafa7111b159dfd4557c2d2c1cb",
+      "verification-first.json": "4e240147047bec5eb4f6ad8802d77f9ed4e7a54c8f05afbc92783ed3fddc6bdf",
+      "verification-postfix.json": "e6501a0fad56ae118592a4e5311468568ac62b9ed4919ed4c2bf1e1ef61f3e22",
+      "results-first/attachment-cleanup-recording.trx": "ae7843d953ce119bd6c5316ee7102d4c9a6bf7835c4503f55c2e04eec642b564",
+      "results-postfix/attachment-cleanup-recording-postfix.trx": "00c3bd138caf24312cacbf316cdc07a80227ac96f7211e9e66395aae4be6bdf5"
+    }
+  },
+  "preservedFirstFailures": [
+    "Observation predecessor: 10 passed / 1 failed; followed by unchanged cases 11/11 pass after source cancellation fix",
+    "Recording predecessor: 19 passed / 1 failed; followed by unchanged cases 20/20 pass after source native-validation cancellation-state fix",
+    "Import-order preimage: original style exit 1 with two using-order violations",
+    "Initial import-order commit-message check rejected duplicate Refs footers; corrected to one combined footer, no source changes"
+  ],
+  "excluded": [
+    "Database test reruns",
+    "Whole suites",
+    "Held receipt/custody/concurrency/security audits",
+    "Production cleanup loads",
+    "Actual user asset deletion",
+    "GitHub contents API and PR/comment/body/label/ready/merge writes",
+    "Package publication"
+  ],
+  "historicalHandoff": true,
+  "publication": {
+    "branch": "attachment-cleanup-import-order-1975-20261009",
+    "method": "ordinary independent source git push only",
+    "sourceParentUnchanged": true,
+    "sharedOwnerFilesUnchanged": true,
+    "metadataOnlyFollowup": true
+  }
+}

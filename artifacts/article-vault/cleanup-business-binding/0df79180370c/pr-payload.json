@@ -1,0 +1,16 @@
+{
+  "title": "feat(backend): bind original upload cleanup observations",
+  "requestedBase": "master",
+  "reviewSourceBase": "69477c07466ff159e35b26d469dcdd2fefc13601",
+  "reviewSourceHead": "0df79180370cd5bc19cf8c3a4b66ea98111ef9da",
+  "headBranch": "codex/chain-1975-cleanup-business-binding",
+  "draft": true,
+  "proposedLabels": [
+    "release-note:internal"
+  ],
+  "bodyFile": "artifacts/article-vault/cleanup-business-binding/0df79180370c/pull-request-body.md",
+  "contentApiWriteAuthorized": false,
+  "fullMasterDiffIndependentlyReviewableSmallPr": false,
+  "fullCleanupSourceIncrementReadyForReview": true,
+  "qualification": false
+}

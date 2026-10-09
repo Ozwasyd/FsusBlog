@@ -1,0 +1,86 @@
+{
+  "sourceSha": "0df79180370cd5bc19cf8c3a4b66ea98111ef9da",
+  "sdk": "10.0.401",
+  "node": "v24.19.0",
+  "runtimeTestsRerun": false,
+  "redisDiagnosticsOptIn": false,
+  "ordinaryEvidenceReusedFrom": "cceae3d9c41823f069eb143f9043bb03de343f11",
+  "reusedPositiveCases": 2,
+  "reusedFocusedCases": 28,
+  "qualification": false,
+  "runs": [
+    {
+      "phase": "build",
+      "command": [
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--verbosity",
+        "minimal"
+      ],
+      "exitCode": 0,
+      "startUtc": "2026-10-09T10:58:57.841604+00:00",
+      "stopUtc": "2026-10-09T11:00:41.973238+00:00",
+      "log": "/workspace/chain-1975-evidence/cleanup-import-integration/build.log",
+      "warningLines": 3060,
+      "logSha256": "b333d47578543706293c5db321a9ed0519b4844cdd6c508a84076eee5b3aaf31",
+      "reportedWarnings": 1530,
+      "reportedErrors": 0,
+      "warningLineExplanation": "dotnet build repeats diagnostics in its summary; 3060 warning lines, reported1530 warnings, not zero-warning"
+    },
+    {
+      "phase": "discovery",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--list-tests",
+        "--filter",
+        "FullyQualifiedName~FsusBlog.Server.Tests.AttachmentCleanupObservationTests|FullyQualifiedName~FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests"
+      ],
+      "exitCode": 0,
+      "startUtc": "2026-10-09T11:00:41.975466+00:00",
+      "stopUtc": "2026-10-09T11:00:44.756658+00:00",
+      "log": "/workspace/chain-1975-evidence/cleanup-import-integration/discovery.log",
+      "warningLines": 0,
+      "logSha256": "dcee393d9ffb67625305722d2a00d001430da81fceba4253b2b32e7771d680e1",
+      "discoveredFqns": [
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingInvalidUploadFacts_RefusesScheduling",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.FirstRecording_ReadsActualCommittedQueue",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RepeatedRecording_PreservesOriginalGrace",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.ReferencedRecording_RefusesWithoutRemovingReferences",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingAfterLastReferenceRemoved_ReusesCanonicalQueue",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RestoredReference_RefusesLateRecording",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingTransactionFailure_RollsBackAndRecovers",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingCancellationAfterScheduling_ThrowsAndRollsBack",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.PostCommitReferenceRestore_RefusesRecordingReceipt",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.UnreferencedCompletedUpload_RequiresCanonicalScheduling",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.LastReferenceRemoved_ObservesOriginalQueueWithoutRescheduling",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RepeatedObservation_ReusesDurableSchedule",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.StillReferenced_RefusesRecorded",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RestoredReference_CancelsReceipt",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.ChangedAssetVersion_RequiresObservation",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.ChangedQueueMarker_RefusesRecorded",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.TransactionFailure_RefusesReceipt",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.CancellationBeforeObservation_Throws",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.CancellationAfterQueueRead_Throws",
+        "FsusBlog.Server.Tests.AttachmentCleanupObservationTests.MissingAuthorityAndAbortedSession_RefuseReceipt",
+        "FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.InterfaceConsumer_RecordsAndReobservesOriginalDurableQueue",
+        "FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.RestoredReference_PreservesOriginalRefusalAndCancelsQueue",
+        "FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.WrongPrincipal_StopsBeforeAnyRecording",
+        "FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.LateOwnerChange_SuppressesObservationAfterRealCommit",
+        "FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.WrongToken_PreservesOriginalNotFound",
+        "FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.CancellationBeforeBinding_CannotSchedule",
+        "FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.WrongCleanupCoordinates_RefuseBeforeScheduling",
+        "FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.StaleVersion_PreservesStateChangedWithoutScheduling"
+      ],
+      "counts": {
+        "AttachmentCleanupObservationTests": 20,
+        "CurrentUploadAssetCleanupBindingTests": 8
+      }
+    }
+  ]
+}

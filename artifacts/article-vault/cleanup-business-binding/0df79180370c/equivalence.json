@@ -1,0 +1,61 @@
+{
+  "base": "edee05ee688f16c559665ffe84eb8dbf3abb6ac1",
+  "supplierSource": "e446d8248a1ca0d17ad6a72bb14c5c92be01a57a",
+  "supplierEvidence": "732f70d860e35d127173693de446fd83edaf6109",
+  "fetchedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "classification": "structural-equivalence refactor; not Format-only qualification",
+  "runtimeRerun": false,
+  "rows": [
+    {
+      "file": "src/backend/Services/FileService.AttachmentCleanup.cs",
+      "preimageBlob": "47b62bd41484c1477d6ab179dd50ba727a518ffe",
+      "postimageBlob": "024185e0e0c0f1be77af0bb4b524c2f7ab2f8b4a",
+      "preimageSha256": "3aa1e5992993c15b483ebea09fad4b8a43cc6b89eedaae870147a43017e0cbb6",
+      "postimageSha256": "91dd38e8689368d98d02d225fa38a125b2b06829ae5af385777034b6f94ff311",
+      "importsUnchanged": true,
+      "namespaceToEofUnchanged": true
+    },
+    {
+      "file": "tests/backend/Unit/AttachmentCleanupObservationTests.cs",
+      "preimageBlob": "0331d55b781d5c09eb78f2ffeddcebbda4d890b4",
+      "postimageBlob": "67f1904bc0659ac0e4114b144516b1fc4a86543d",
+      "preimageSha256": "8863a79eba95a03790b67c85b8c980645dc229ab4a29af0443c88d7906938451",
+      "postimageSha256": "2995eeaa1af85ede96fb5b78eae1cb7a97feca76e1040724cc401c60102e3fe1",
+      "importsUnchanged": true,
+      "namespaceToEofUnchanged": true
+    }
+  ],
+  "sourceSha": "0df79180370cd5bc19cf8c3a4b66ea98111ef9da",
+  "sourceStyle": {
+    "command": [
+      "node",
+      "tools/dotnet/check-csharp-style.mjs",
+      "--file",
+      "src/backend/Interfaces/IFileService.cs",
+      "--file",
+      "src/backend/Services/Authoring/CurrentUploadAssetCleanupBindingReader.cs",
+      "--file",
+      "src/backend/Services/FileService.AttachmentCleanup.cs",
+      "--file",
+      "tests/backend/Unit/AttachmentCleanupObservationTests.cs",
+      "--file",
+      "tests/backend/Unit/CurrentUploadAssetCleanupBindingTests.cs"
+    ],
+    "exitCode": 0,
+    "files": 5,
+    "violations": 0
+  },
+  "sourceHashes": {
+    "src/backend/Interfaces/IFileService.cs": "e79a461b79d86c0413c3491c29065b5e3351f22f3a70b5f55ec520f7ad2ec291",
+    "src/backend/Services/Authoring/CurrentUploadAssetCleanupBindingReader.cs": "a56ea997764ad5f19a8f6842f018c0a928eeb9d32bc829ebbb66114b3447df4e",
+    "src/backend/Services/FileService.AttachmentCleanup.cs": "91dd38e8689368d98d02d225fa38a125b2b06829ae5af385777034b6f94ff311",
+    "tests/backend/Unit/AttachmentCleanupObservationTests.cs": "2995eeaa1af85ede96fb5b78eae1cb7a97feca76e1040724cc401c60102e3fe1",
+    "tests/backend/Unit/CurrentUploadAssetCleanupBindingTests.cs": "8474934aaf659e00d43a0c23645b638e71aa28a28b1141a0731f9e4b66aa2325"
+  },
+  "checkerSha256": "172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1",
+  "sourceIncrementalPaths": [
+    "src/backend/Services/FileService.AttachmentCleanup.cs",
+    "tests/backend/Unit/AttachmentCleanupObservationTests.cs"
+  ],
+  "qualification": false
+}

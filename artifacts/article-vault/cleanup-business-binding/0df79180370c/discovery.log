@@ -1,0 +1,30 @@
+Test run for /workspace/chain1975-cleanup-business-binding/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+The following Tests are available:
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingInvalidUploadFacts_RefusesScheduling
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.FirstRecording_ReadsActualCommittedQueue
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RepeatedRecording_PreservesOriginalGrace
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.ReferencedRecording_RefusesWithoutRemovingReferences
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingAfterLastReferenceRemoved_ReusesCanonicalQueue
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RestoredReference_RefusesLateRecording
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingTransactionFailure_RollsBackAndRecovers
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RecordingCancellationAfterScheduling_ThrowsAndRollsBack
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.PostCommitReferenceRestore_RefusesRecordingReceipt
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.UnreferencedCompletedUpload_RequiresCanonicalScheduling
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.LastReferenceRemoved_ObservesOriginalQueueWithoutRescheduling
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RepeatedObservation_ReusesDurableSchedule
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.StillReferenced_RefusesRecorded
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.RestoredReference_CancelsReceipt
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.ChangedAssetVersion_RequiresObservation
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.ChangedQueueMarker_RefusesRecorded
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.TransactionFailure_RefusesReceipt
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.CancellationBeforeObservation_Throws
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.CancellationAfterQueueRead_Throws
+    FsusBlog.Server.Tests.AttachmentCleanupObservationTests.MissingAuthorityAndAbortedSession_RefuseReceipt
+    FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.InterfaceConsumer_RecordsAndReobservesOriginalDurableQueue
+    FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.RestoredReference_PreservesOriginalRefusalAndCancelsQueue
+    FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.WrongPrincipal_StopsBeforeAnyRecording
+    FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.LateOwnerChange_SuppressesObservationAfterRealCommit
+    FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.WrongToken_PreservesOriginalNotFound
+    FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.CancellationBeforeBinding_CannotSchedule
+    FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.WrongCleanupCoordinates_RefuseBeforeScheduling
+    FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests.StaleVersion_PreservesStateChangedWithoutScheduling
