@@ -222,6 +222,37 @@ public sealed class LinuxCgroupDirectoryReader : IDisposable
         }
     }
 
+    /// <summary>
+    /// Reads a selected native v1 memory.stat key through this descriptor owner.
+    /// Unsupported controller versions remain Unknown without reading a v2 file;
+    /// parsing does not establish a process domain or qualified admission headroom.
+    /// </summary>
+    public LinuxCgroupV1StatCapture CaptureV1Stat(string key, Span<byte> admittedScratch)
+    {
+        LinuxCgroupV1StatCapture unavailable = LinuxCgroupV1StatParser.Parse(ReadOnlySpan<byte>.Empty, key, Identity);
+        ValidateScratch(true, admittedScratch);
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            Span<byte> scratch = admittedScratch[..(_maximumScalarBytes + 1)];
+            try
+            {
+                if (Identity.Version != 1)
+                {
+                    return unavailable;
+                }
+                var read = ReadRaw("memory.stat", scratch);
+                return read.Item1 == MemoryObservationState.Available
+                    ? LinuxCgroupV1StatParser.Parse(scratch[..read.Item2], key, Identity)
+                    : unavailable with { State = read.Item1 };
+            }
+            finally
+            {
+                scratch.Clear();
+            }
+        }
+    }
+
     private void ValidateScratch(bool knownField, Span<byte> scratch)
     {
         if (!knownField || scratch.Length <= _maximumScalarBytes)

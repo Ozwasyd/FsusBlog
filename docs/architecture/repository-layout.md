@@ -424,8 +424,14 @@ Bytes, event counts and cumulative PSI microseconds have separate units. High
 events are distinct from max/OOM events; major faults are not attributed to swap.
 Key order is not assumed; duplicates, missing keys, overflow and unknown target
 formats cannot produce zero. PSI averages are checked for the supported native
-format, while returned totals retain microseconds. v1 counters remain unavailable
-instead of interpreting combined RSS/swap-cache or substituting a v2 format.
+format, while returned totals retain microseconds. The v2 counter surface keeps
+v1 counters unavailable instead of interpreting combined RSS/swap-cache or
+substituting a v2 format. The separate `CaptureV1Stat` surface uses the same native
+directory owner, fixed memory.stat read, overflow byte and used-scratch clearing.
+`LinuxCgroupV1StatParser` preserves native keys, local/total/hierarchical-limit
+scopes and units. A v2 directory returns Unknown without a v1 read. Actual v1
+runtime evidence, context binding and qualification remain required.
+
 `LinuxCgroupTimedCounterReader` borrows that directory owner for one counter read
 and records the UTC and monotonic endpoints around the actual read, with an
 explicit caller-supplied duration bound. Clock reversal, frequency changes,
@@ -437,6 +443,31 @@ is not disposed. Source identity includes a process-instance identity. A read
 window does not supply an exact point timestamp, a rate, a qualified process
 binding or a production default for sampling costs. Existing context/ancestor
 binding, admitted metadata lifetime and frozen P01/P02 limits remain required.
+`LinuxCgroupCounterNormalizer` consumes agreeing raw directory/context identities
+to distinguish byte-gauge changes from cumulative counter resets. Its contexts
+do not timestamp counters, so every result leaves `PerSecond` absent; source
+comparison alone does not establish sample freshness or directory-to-roster binding.
+The timed reader's comparison checks its actual read windows and capture freshness
+before calling that normalizer. Fresh contexts cannot rescue missing, stale or
+discontinuous counter windows; these composed results still provide no rate.
+
+`LinuxVmStatActivityReader` calls `LinuxVmStatActivityParser` on an actual bounded
+read of `/proc/vmstat`, with operation-owned file disposal and caller-owned admitted
+scratch cleared on all exits. It retains independent swap page and major-fault
+fields, actual read endpoints and `Environment.SystemPageSize` for checked swap
+byte conversion. An overflow byte refuses truncated input; unavailable fields and
+invalid clocks retain nonnumeric states. These are unqualified host counters,
+separate from the existing meminfo/status occupancy source. The reader adds no
+timer, process attribution, swap-thrashing classification, public diagnostics or
+production defaults. Complete host/domain binding, admitted metadata costs and
+frozen sampling/performance limits remain required.
+
+`LinuxZramMemoryStatParser` accepts captured text, an explicit supported layout
+identity and capture validity. Its current layout retains five byte fields and
+four page counts separately. Parsing neither discovers a device nor supplies a
+device identity, reset epoch, sample window or physical headroom. A genuine
+version-bound device read owner and runtime evidence remain required.
+
 These raw counters do not classify thrashing, grant headroom or qualify a process
 domain. Native meanings follow the [cgroup v2 interfaces](https://docs.kernel.org/admin-guide/cgroup-v2.html),
 [PSI interface](https://docs.kernel.org/accounting/psi.html) and
