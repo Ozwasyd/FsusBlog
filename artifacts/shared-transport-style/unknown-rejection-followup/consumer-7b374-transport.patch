@@ -1,0 +1,53 @@
+--- a/src/frontend/src/api/binaryApiClient.ts
++++ b/src/frontend/src/api/binaryApiClient.ts
+@@ -238,6 +238,18 @@
+             entry.waiters.delete(waiter);
+         };
+ 
++        const completeWaiter = <T>(complete: (value: T) => void) => (value: T) =>
++        {
++            if (settled)
++            {
++                return;
++            }
++
++            settled = true;
++            cleanup();
++            complete(value);
++        };
++
+         const onAbort = () =>
+         {
+             if (settled)
+@@ -258,28 +270,11 @@
+         signal?.addEventListener('abort', onAbort, { once: true });
+ 
+         entry.promise.then(
+-            (result) =>
++            completeWaiter<AppResult<ArrayBuffer>>((result) =>
+             {
+-                if (settled)
+-                {
+-                    return;
+-                }
+-
+-                settled = true;
+-                cleanup();
+                 resolve(cloneBinaryRequestResult(result));
+-            },
+-            (reason) =>
+-            {
+-                if (settled)
+-                {
+-                    return;
+-                }
+-
+-                settled = true;
+-                cleanup();
+-                reject(reason);
+-            }
++            }),
++            completeWaiter<unknown>(reject)
+         );
+ 
+         if (signal?.aborted)

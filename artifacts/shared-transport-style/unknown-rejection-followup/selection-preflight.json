@@ -1,0 +1,237 @@
+{
+  "kind": "ordinary explicit original Vitest selection preflight; not acceptance harness",
+  "sourceCommit": "d61f0977e1f8a45873ac33122c028461d22e5a80",
+  "expectedCount": 34,
+  "cases": [
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient credentials handling strips auth-bearing headers when credentials are omitted"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient credentials handling adds csrf token from document metadata for credentialed mutations"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient credentials handling exposes a cloned response-header snapshot to contract-aware callers"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient credentials handling does not merge requests whose callers each require response metadata"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient pow abort handling buildBinaryPowHeaders passes signal to pow challenge fetch"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient pow abort handling buildBinaryPowHeaders gives browser pow enough time for release acceptance difficulty"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient pow abort handling buildBinaryPowHeaders aborts before calculate when signal is aborted after challenge"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient pow abort handling aborted pow header construction rejects as AbortError"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient pow abort handling binary request does not send business request after pow abort"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient one-time pow headers uses fresh one-time pow headers for concurrent builds with same scope"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient one-time pow headers builds independent pow headers for different pow scopes"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient one-time pow headers single abort only cancels its own pow build"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient one-time pow headers builds a fresh pow header after success"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient one-time pow headers builds a fresh pow header after failure"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient binary request in-flight dedupe dedupes concurrent identical binary GET requests"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient binary request in-flight dedupe does not dedupe different binary request bodies"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient risk challenge proof transport attaches the three typed proof headers and commits an accepted response"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient risk challenge proof transport restores a reservation when cancellation happens before fetch"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient risk challenge proof transport marks an in-flight network failure terminal instead of restoring it"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient risk challenge proof transport settles server proof outcome expired as expired"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient risk challenge proof transport settles server proof outcome replayed_or_missing as replayed"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient risk challenge proof transport settles server proof outcome binding_mismatch as binding_mismatch"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient risk challenge proof transport settles server proof outcome revoked as revoked"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "name": "binaryApiClient risk challenge proof transport settles server proof outcome rejected as rejected"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "name": "binaryApiClient transport rejection and option preservation cancels one waiter without cancelling its peer and removes the listener before rejection"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "name": "binaryApiClient transport rejection and option preservation cancels the shared fetch after the final waiter is cleaned and ignores its late rejection"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "name": "binaryApiClient transport rejection and option preservation strips proof and observer without mutating input or changing proof settlement and fetch options"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "name": "binaryApiClient transport rejection and option preservation preserves the original shared 'TypeError' rejection value and cleans every waiter"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "name": "binaryApiClient transport rejection and option preservation preserves the original shared 'AbortError' rejection value and cleans every waiter"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "name": "binaryApiClient transport rejection and option preservation preserves the original shared 'string' rejection value and cleans every waiter"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "name": "binaryApiClient transport rejection and option preservation preserves the original shared 'number' rejection value and cleans every waiter"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "name": "binaryApiClient transport rejection and option preservation preserves the original shared 'null' rejection value and cleans every waiter"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "name": "binaryApiClient transport rejection and option preservation preserves the original shared 'undefined' rejection value and cleans every waiter"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "name": "binaryApiClient transport rejection and option preservation preserves the original shared 'object' rejection value and cleans every waiter"
+    }
+  ],
+  "reviewedHooks": [
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "line": 69,
+      "hook": "beforeEach(() => {"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "line": 80,
+      "hook": "afterEach(() => {"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "line": 152,
+      "hook": "beforeEach(() => {"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "line": 163,
+      "hook": "afterEach(() => {"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "line": 233,
+      "hook": "beforeEach(() => {"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "line": 244,
+      "hook": "afterEach(() => {"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "line": 340,
+      "hook": "beforeEach(() => {"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "line": 350,
+      "hook": "afterEach(() => {"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "line": 387,
+      "hook": "beforeEach(() => {"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClient.test.ts",
+      "line": 391,
+      "hook": "afterEach(() => {"
+    },
+    {
+      "file": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "line": 30,
+      "hook": "afterEach(() =>"
+    },
+    {
+      "file": "tests/frontend/support/unit/setup.ts",
+      "line": 16,
+      "hook": "beforeEach((context) => {"
+    },
+    {
+      "file": "tests/frontend/support/unit/setup.ts",
+      "line": 20,
+      "hook": "afterEach((context) => {"
+    },
+    {
+      "file": "tests/frontend/support/unit/setup.ts",
+      "line": 42,
+      "hook": "afterAll(() => {"
+    },
+    {
+      "file": "tests/frontend/support/unit/setup.ts",
+      "line": 46,
+      "hook": "beforeAll(async () => {"
+    }
+  ],
+  "config": "src/frontend/vitest.config.ts",
+  "setup": "tests/frontend/support/unit/setup.ts",
+  "heldCasesSelected": 0,
+  "binding": {
+    "tests/frontend/unit/api/binaryApiClient.test.ts": "527881fb24244de4089533234c5a47567215d5899a55fbcdf7fd6e3f48545984",
+    "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts": "0e763545f16d754ecd1cc3b7d498e1aabffa3189bcda1fb0b49c0fc11e297637",
+    "src/frontend/vitest.config.ts": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+    "tests/frontend/support/unit/setup.ts": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a"
+  },
+  "collectionExit": 0,
+  "filteredCollectionExit": 0,
+  "collectedCount": 34,
+  "filteredCount": 34,
+  "testNamePattern": "(?:^| )(?:binaryApiClient\\ credentials\\ handling\\ strips\\ auth\\-bearing\\ headers\\ when\\ credentials\\ are\\ omitted|binaryApiClient\\ credentials\\ handling\\ adds\\ csrf\\ token\\ from\\ document\\ metadata\\ for\\ credentialed\\ mutations|binaryApiClient\\ credentials\\ handling\\ exposes\\ a\\ cloned\\ response\\-header\\ snapshot\\ to\\ contract\\-aware\\ callers|binaryApiClient\\ credentials\\ handling\\ does\\ not\\ merge\\ requests\\ whose\\ callers\\ each\\ require\\ response\\ metadata|binaryApiClient\\ pow\\ abort\\ handling\\ buildBinaryPowHeaders\\ passes\\ signal\\ to\\ pow\\ challenge\\ fetch|binaryApiClient\\ pow\\ abort\\ handling\\ buildBinaryPowHeaders\\ gives\\ browser\\ pow\\ enough\\ time\\ for\\ release\\ acceptance\\ difficulty|binaryApiClient\\ pow\\ abort\\ handling\\ buildBinaryPowHeaders\\ aborts\\ before\\ calculate\\ when\\ signal\\ is\\ aborted\\ after\\ challenge|binaryApiClient\\ pow\\ abort\\ handling\\ aborted\\ pow\\ header\\ construction\\ rejects\\ as\\ AbortError|binaryApiClient\\ pow\\ abort\\ handling\\ binary\\ request\\ does\\ not\\ send\\ business\\ request\\ after\\ pow\\ abort|binaryApiClient\\ one\\-time\\ pow\\ headers\\ uses\\ fresh\\ one\\-time\\ pow\\ headers\\ for\\ concurrent\\ builds\\ with\\ same\\ scope|binaryApiClient\\ one\\-time\\ pow\\ headers\\ builds\\ independent\\ pow\\ headers\\ for\\ different\\ pow\\ scopes|binaryApiClient\\ one\\-time\\ pow\\ headers\\ single\\ abort\\ only\\ cancels\\ its\\ own\\ pow\\ build|binaryApiClient\\ one\\-time\\ pow\\ headers\\ builds\\ a\\ fresh\\ pow\\ header\\ after\\ success|binaryApiClient\\ one\\-time\\ pow\\ headers\\ builds\\ a\\ fresh\\ pow\\ header\\ after\\ failure|binaryApiClient\\ binary\\ request\\ in\\-flight\\ dedupe\\ dedupes\\ concurrent\\ identical\\ binary\\ GET\\ requests|binaryApiClient\\ binary\\ request\\ in\\-flight\\ dedupe\\ does\\ not\\ dedupe\\ different\\ binary\\ request\\ bodies|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ attaches\\ the\\ three\\ typed\\ proof\\ headers\\ and\\ commits\\ an\\ accepted\\ response|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ restores\\ a\\ reservation\\ when\\ cancellation\\ happens\\ before\\ fetch|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ marks\\ an\\ in\\-flight\\ network\\ failure\\ terminal\\ instead\\ of\\ restoring\\ it|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ settles\\ server\\ proof\\ outcome\\ expired\\ as\\ expired|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ settles\\ server\\ proof\\ outcome\\ replayed_or_missing\\ as\\ replayed|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ settles\\ server\\ proof\\ outcome\\ binding_mismatch\\ as\\ binding_mismatch|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ settles\\ server\\ proof\\ outcome\\ revoked\\ as\\ revoked|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ settles\\ server\\ proof\\ outcome\\ rejected\\ as\\ rejected|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ cancels\\ one\\ waiter\\ without\\ cancelling\\ its\\ peer\\ and\\ removes\\ the\\ listener\\ before\\ rejection|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ cancels\\ the\\ shared\\ fetch\\ after\\ the\\ final\\ waiter\\ is\\ cleaned\\ and\\ ignores\\ its\\ late\\ rejection|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ strips\\ proof\\ and\\ observer\\ without\\ mutating\\ input\\ or\\ changing\\ proof\\ settlement\\ and\\ fetch\\ options|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'TypeError'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'AbortError'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'string'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'number'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'null'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'undefined'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'object'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter)$",
+  "preflightPassed": true,
+  "caseBodiesExecutedDuringPreflight": 0,
+  "runtime": "Node24.16.0 / Vitest4.1.11 / happy-dom20.9.0"
+}

@@ -1,0 +1,17 @@
+{
+  "mode": "collection only; no test body/hook execution",
+  "arguments": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/FsusBlog-transport-style/src/frontend/node_modules/vitest/vitest.mjs",
+    "list",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/api/binaryApiClient.test.ts",
+    "../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+    "--json",
+    "/workspace/FsusBlog-transport-style/artifacts/shared-transport-style/unknown-rejection-followup/collected-cases.json",
+    "--maxWorkers",
+    "1"
+  ],
+  "exitCode": 1
+}

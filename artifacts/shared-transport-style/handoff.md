@@ -1,3 +1,7 @@
+# Superseded rejection annotation; historical initial evidence retained
+
+The Error annotation and source recommendation below are superseded by [the unknown-rejection correction](unknown-rejection-followup/handoff.md) at d61f0977e1f8a45873ac33122c028461d22e5a80. Earlier30-case reports retain their original SHA only. Before any future test execution, verify the exact nonempty positive fully qualified selection, expected case count and every selected hook; preflight failure stops execution, held cases stay unrun. The historical broad two-file command below is not authorization to skip that preflight.
+
 # Shared binary transport ordinary source handoff
 
 Related to [#3735](https://github.com/Ozwasyd/FsusBlog/issues/3735), [#2325](https://github.com/Ozwasyd/FsusBlog/issues/2325) and [#1889](https://github.com/Ozwasyd/FsusBlog/issues/1889). Source commit **dea86a509b185cdb75bdc2146f1fc1b8ee71e075** on `codex/shared-transport-style-20261009`; verified master base **537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea**. This is a separate current-base transport delivery; frozen registration, Canvas and metadata-consumer branches are unchanged.
