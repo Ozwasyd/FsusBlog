@@ -14,140 +14,22 @@
         "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
         "src/shared/Contracts/Schema/CurrentSchemaModel.cs"
     ],
-    "firstPassTreeSha256": "434e9750659b77485e1ce103360d511b6f347ac13b0d6e356cb88d520f12ed16",
-    "secondPassTreeSha256": "434e9750659b77485e1ce103360d511b6f347ac13b0d6e356cb88d520f12ed16",
     "idempotent": true,
-    "executionEvidenceSourceRevision": "fd965b0c59fb7dc635e3bc4b2980c9d82e0a9394",
-    "executionEvidenceMetadataHead": "8e13f0248241ff9f37bf9dc7b325b09dafabb42b",
-    "originalEvidence": "artifacts/style/issue-1688-v4-six-upstream-format-20261009.json",
-    "originalEvidenceSha256": "70f1a526d9e0b256d6b5e3f0b54b2d134e37c0a2894f3737210d48d98885122d",
-    "formatterExecutedInConsumer": false,
-    "sourceConsumerByteEqualityVerified": true,
-    "consumerParent": "51a88f3a3b5fc7a902dbaf719568e20fa2fcb8f5",
-    "actualConsumerRoslynEquivalence": {
-        "schema": "fsusblog.roslyn-format-equivalence.v1",
-        "parserAssemblyVersion": "5.9.0.0",
-        "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
-        "paths": [
-            {
-                "path": "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
-                "tokenCount": 2694,
-                "beforeTokenSha256": "7c1079b183de7f3cd8826e6dd8c0e0dc1cf740da1f70247cfd29bdcda5a83fb8",
-                "afterTokenSha256": "7c1079b183de7f3cd8826e6dd8c0e0dc1cf740da1f70247cfd29bdcda5a83fb8",
-                "beforeAnchoredTriviaSha256": "b7b50014f67755c40eb268b9afc8321c54b4d0e430ff07adcc4227f26b709ed3",
-                "afterAnchoredTriviaSha256": "b7b50014f67755c40eb268b9afc8321c54b4d0e430ff07adcc4227f26b709ed3",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            },
-            {
-                "path": "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
-                "tokenCount": 3800,
-                "beforeTokenSha256": "69bb1e21c6dc4460f26001751be1362cb7a81ae0a7e9a9f5840d9c4e980133f4",
-                "afterTokenSha256": "69bb1e21c6dc4460f26001751be1362cb7a81ae0a7e9a9f5840d9c4e980133f4",
-                "beforeAnchoredTriviaSha256": "c7427b6a8bcc2e46c4c9c69f4b49df2139b13711d4e2cde1e4de8b33d791353e",
-                "afterAnchoredTriviaSha256": "c7427b6a8bcc2e46c4c9c69f4b49df2139b13711d4e2cde1e4de8b33d791353e",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            },
-            {
-                "path": "src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs",
-                "tokenCount": 4374,
-                "beforeTokenSha256": "be5a3306afadf464e3ce40c48559389f6d2a3aae0c4eecd67501033d2fe7a1e7",
-                "afterTokenSha256": "be5a3306afadf464e3ce40c48559389f6d2a3aae0c4eecd67501033d2fe7a1e7",
-                "beforeAnchoredTriviaSha256": "4c9ddc0b089978fa20e3a76b005d2832840fff85ae9c311f1a1e80811adc1c69",
-                "afterAnchoredTriviaSha256": "4c9ddc0b089978fa20e3a76b005d2832840fff85ae9c311f1a1e80811adc1c69",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            },
-            {
-                "path": "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs",
-                "tokenCount": 1506,
-                "beforeTokenSha256": "8614f8accd641d61e7d56f37fc460be14b2effb817190b07511b9219dcc1c313",
-                "afterTokenSha256": "8614f8accd641d61e7d56f37fc460be14b2effb817190b07511b9219dcc1c313",
-                "beforeAnchoredTriviaSha256": "bbd334a76f4e4ac5b488c701c160b7504775e4f4d7561c0103851f8553416e97",
-                "afterAnchoredTriviaSha256": "bbd334a76f4e4ac5b488c701c160b7504775e4f4d7561c0103851f8553416e97",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            },
-            {
-                "path": "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
-                "tokenCount": 4813,
-                "beforeTokenSha256": "b0498b533c67ca5488192bbec3a94c760c7c0c5f167785a6b70cd6b86b35eceb",
-                "afterTokenSha256": "b0498b533c67ca5488192bbec3a94c760c7c0c5f167785a6b70cd6b86b35eceb",
-                "beforeAnchoredTriviaSha256": "31a3f06b391b4538e8d61b694124fa44dbef4bf0b0e609eb6ef59046a13efea8",
-                "afterAnchoredTriviaSha256": "31a3f06b391b4538e8d61b694124fa44dbef4bf0b0e609eb6ef59046a13efea8",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            },
-            {
-                "path": "src/shared/Contracts/Schema/CurrentSchemaModel.cs",
-                "tokenCount": 1201,
-                "beforeTokenSha256": "d045fa9d8cf5335eaa00a84a8c9bdfce70c1c3baa93b21a186be8273d09082c9",
-                "afterTokenSha256": "d045fa9d8cf5335eaa00a84a8c9bdfce70c1c3baa93b21a186be8273d09082c9",
-                "beforeAnchoredTriviaSha256": "e7817f50eba57a133b8f8312f6b3ca5b4a0094ca195818cd350fc9918fa4fcbc",
-                "afterAnchoredTriviaSha256": "e7817f50eba57a133b8f8312f6b3ca5b4a0094ca195818cd350fc9918fa4fcbc",
-                "tokensEquivalent": true,
-                "anchoredTriviaEquivalent": true,
-                "syntaxErrorCount": 0
-            }
-        ],
-        "equivalent": true
+    "firstPassTreeSha256": "c06ca46fdb2a92e1075f4e154a7aa72a24ae813585b7b4bb21725ce91e85e168",
+    "secondPassTreeSha256": "c06ca46fdb2a92e1075f4e154a7aa72a24ae813585b7b4bb21725ce91e85e168",
+    "originalConsumerExecutionEvidence": "artifacts/style/issue-1688-v4-six-pre-xml-idempotence-20261009.json",
+    "originalConsumerExecutionEvidenceSha256": "03b84e5249041fd6e4ba1cab2df0f8c533622d848475b5f6e34ca6d063ecdbda",
+    "originalProducerEvidence": "artifacts/style/issue-1688-v4-six-upstream-format-20261009.json",
+    "currentCandidateExecution": {
+        "sourceRevision": "51c4cde9d2b1cabf623ef8d4c5861b266ce1bff2",
+        "firstPassExitCode": 0,
+        "secondPassExitCode": 0,
+        "sourceFilesChangedByEitherPass": 0,
+        "command": "dotnet format whitespace --folder --include src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs src/shared/Contracts/Schema/CurrentSchemaModel.cs --verbosity minimal",
+        "firstPassLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "secondPassLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
-    "actualConsumerPreimageProof": {
-        "providerSource": "fd965b0c59fb7dc635e3bc4b2980c9d82e0a9394",
-        "providerMetadata": "8e13f0248241ff9f37bf9dc7b325b09dafabb42b",
-        "consumerParent": "51a88f3a3b5fc7a902dbaf719568e20fa2fcb8f5",
-        "sourceFiles": [
-            {
-                "path": "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
-                "preimageBlob": "1bf18e4c5b71cc688d89c36d463b15459f4c5e3c",
-                "postimageBlob": "26956adacd643c1bbd26f05d5dd1ffe8d5cdc1a5"
-            },
-            {
-                "path": "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
-                "preimageBlob": "6478ddb3477e86681642d650e742d84cde4906e6",
-                "postimageBlob": "c8ef94464eaa475dc4a38b6d1ee6a7c88acb4b2a"
-            },
-            {
-                "path": "src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs",
-                "preimageBlob": "62ccd18d69964f0ab306f8b5c4937f924088df03",
-                "postimageBlob": "638211aaaba5c7e07bf1454aa02442bba97b9322"
-            },
-            {
-                "path": "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs",
-                "preimageBlob": "e4cdc0fdd2a728bf527599fbe52483dbb34b2052",
-                "postimageBlob": "772076bf22b11403eb0d619d0e796e901260547d"
-            },
-            {
-                "path": "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
-                "preimageBlob": "ae15ed5ef6ac934d55dfa3248212fe8e8b42f24b",
-                "postimageBlob": "e7c65f0966a7ddc30ae0a82b869070da6e28805a"
-            },
-            {
-                "path": "src/shared/Contracts/Schema/CurrentSchemaModel.cs",
-                "preimageBlob": "5cb947728edbc87ce797477e7bdd76c27aa349e8",
-                "postimageBlob": "94e8847f6e1a9c15c5e0bfd47c926006e63cc3c9"
-            }
-        ],
-        "protectedFourFileBlobs": {
-            "src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs": "9ff51fecd8fdb7eb17b686ede2f049b1e19e3448",
-            "src/shared/Contracts/Schema/CurrentSchemaOwnedTargetArtifact.cs": "9a4744f9f33726a6c793f4b9e2f1d25d51a7a977",
-            "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs": "8cc7ff7d4653c328825a61d5918f30dc191afb2a",
-            "src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs": "f409d3344a64384edb257b7f4b009f7b678cca79"
-        },
-        "protectedFourFilesUnchanged": true,
-        "sourceConsumerByteEqualityVerified": true,
-        "digest": "434e9750659b77485e1ce103360d511b6f347ac13b0d6e356cb88d520f12ed16",
-        "providerWideAf4AncestryConsumed": false,
-        "formatterExecutedInConsumer": false
-    },
-    "modelVersion": "fsusblog.current-schema.v4",
-    "generatorVersion": "fsusblog.current-schema-projection.v4",
-    "backendSchemaReceiptNativeTestsExecuted": 0,
+    "bindingReason": "The existing commit-range gate hashes final candidate content including added XML summaries. Actual two unchanged original-command passes bind the current candidate while preserving original source execution evidence and format-only revision identity.",
+    "documentationSourceEvidence": "artifacts/style/issue-1688-v4-schema-xml-consumer-20261009.json",
     "qualificationEligible": false
 }
