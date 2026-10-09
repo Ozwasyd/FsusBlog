@@ -1,0 +1,1450 @@
+[
+  {
+    "archetype": "public/feed",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/BlogLayout.vue",
+    "offset": 272,
+    "line": 10,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/BlogLayout.vue:272"
+  },
+  {
+    "archetype": "public/feed",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "public/feed",
+    "file": "/workspace/FsusUI/vue/packages/components/input/src/input.vue",
+    "offset": 3009,
+    "line": 87,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+  },
+  {
+    "archetype": "public/feed",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "public/feed",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "public/feed",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "public/feed",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "public/feed",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "public/feed",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/BlogLayout.vue",
+    "offset": 272,
+    "line": 10,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/BlogLayout.vue:272"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/input/src/input.vue",
+    "offset": 3009,
+    "line": 87,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/article/ArticleDetailHeader.vue",
+    "offset": 2017,
+    "line": 51,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] ambiguous dynamic component /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/article/ArticleDetailHeader.vue:2017"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue",
+    "offset": 5371,
+    "line": 153,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] ambiguous dynamic component /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue:5371"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/image-viewer/src/image-viewer.vue",
+    "offset": 1927,
+    "line": 69,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/image-viewer/src/image-viewer.vue: unbound finite component binding mode"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "5f6554f2bdced23703c6d88a"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "public/reading",
+    "file": "/workspace/FsusUI/vue/packages/components/dialog/src/dialog-content.vue",
+    "offset": 531,
+    "line": 17,
+    "reason": "unbound-component-prop-source",
+    "property": "closeIcon",
+    "callNode": "669b7ac2dd5396f3f5c7be72",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dialog/src/dialog.vue#closeIcon"
+  },
+  {
+    "archetype": "public/index",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/BlogLayout.vue",
+    "offset": 272,
+    "line": 10,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/BlogLayout.vue:272"
+  },
+  {
+    "archetype": "public/index",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "public/index",
+    "file": "/workspace/FsusUI/vue/packages/components/input/src/input.vue",
+    "offset": 3009,
+    "line": 87,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+  },
+  {
+    "archetype": "public/index",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/public/PublicReadingPageFrame.vue",
+    "offset": 15,
+    "line": 2,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/public/PublicReadingPageFrame.vue: unresolved component expression as"
+  },
+  {
+    "archetype": "public/index",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "public/index",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "public/index",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "public/index",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "public/index",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "public/index",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "public/document",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/BlogLayout.vue",
+    "offset": 272,
+    "line": 10,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/BlogLayout.vue:272"
+  },
+  {
+    "archetype": "public/document",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "public/document",
+    "file": "/workspace/FsusUI/vue/packages/components/input/src/input.vue",
+    "offset": 3009,
+    "line": 87,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+  },
+  {
+    "archetype": "public/document",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/public/PublicReadingPageFrame.vue",
+    "offset": 15,
+    "line": 2,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/public/PublicReadingPageFrame.vue: unresolved component expression as"
+  },
+  {
+    "archetype": "public/document",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "public/document",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "public/document",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "public/document",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "public/document",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "public/document",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "public/filter-search",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/BlogLayout.vue",
+    "offset": 272,
+    "line": 10,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/BlogLayout.vue:272"
+  },
+  {
+    "archetype": "public/filter-search",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "public/filter-search",
+    "file": "/workspace/FsusUI/vue/packages/components/input/src/input.vue",
+    "offset": 3009,
+    "line": 87,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+  },
+  {
+    "archetype": "public/filter-search",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "public/filter-search",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "public/filter-search",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "public/filter-search",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "public/filter-search",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "public/filter-search",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue",
+    "offset": 1812,
+    "line": 58,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/IdentityCenter.vue",
+    "offset": 228,
+    "line": 9,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/IdentityCenter.vue",
+    "offset": 4123,
+    "line": 94,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusUI/vue/packages/components/input/src/input.vue",
+    "offset": 3009,
+    "line": 87,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/IdentityCenter.vue",
+    "offset": 10261,
+    "line": 230,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/IdentityCenter.vue",
+    "offset": 12244,
+    "line": 278,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/IdentityCenter.vue",
+    "offset": 14162,
+    "line": 331,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/IdentityCenter.vue",
+    "offset": 14615,
+    "line": 343,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/IdentityCenter.vue",
+    "offset": 17166,
+    "line": 402,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/IdentityCenter.vue",
+    "offset": 22596,
+    "line": 519,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "identity/identity-settings",
+    "file": "/workspace/FsusUI/vue/packages/components/dialog/src/dialog-content.vue",
+    "offset": 531,
+    "line": 17,
+    "reason": "unbound-component-prop-source",
+    "property": "closeIcon",
+    "callNode": "669b7ac2dd5396f3f5c7be72",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dialog/src/dialog.vue#closeIcon"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue",
+    "offset": 1812,
+    "line": 58,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/Messages.vue",
+    "offset": 1300,
+    "line": 31,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/input/src/input.vue",
+    "offset": 3009,
+    "line": 87,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/Messages.vue",
+    "offset": 1787,
+    "line": 41,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/select.vue",
+    "offset": 8694,
+    "line": 228,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/select/src/select.vue: unresolved component expression iconComponent"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/options.ts",
+    "offset": 668,
+    "line": 25,
+    "reason": "unknown-render-source",
+    "message": "unknown script render flow /workspace/FsusUI/vue/packages/components/select/src/options.ts:668"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/options.ts",
+    "offset": 1664,
+    "line": 55,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] escaped script render constant /workspace/FsusUI/vue/packages/components/select/src/options.ts#children"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/Messages.vue",
+    "offset": 3583,
+    "line": 82,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/views/user/Messages.vue",
+    "offset": 4004,
+    "line": 91,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "identity/inbox-takeover",
+    "file": "/workspace/FsusUI/vue/packages/components/dialog/src/dialog-content.vue",
+    "offset": 531,
+    "line": 17,
+    "reason": "unbound-component-prop-source",
+    "property": "closeIcon",
+    "callNode": "669b7ac2dd5396f3f5c7be72",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dialog/src/dialog.vue#closeIcon"
+  },
+  {
+    "archetype": "admin/dashboard",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "admin/dashboard",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+    "offset": 297,
+    "line": 10,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "admin/dashboard",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue",
+    "offset": 1812,
+    "line": 58,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+  },
+  {
+    "archetype": "admin/dashboard",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "admin/dashboard",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "admin/dashboard",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "admin/dashboard",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "admin/dashboard",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "admin/dashboard",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "admin/dashboard",
+    "file": "/workspace/FsusUI/vue/packages/components/dialog/src/dialog-content.vue",
+    "offset": 531,
+    "line": 17,
+    "reason": "unbound-component-prop-source",
+    "property": "closeIcon",
+    "callNode": "669b7ac2dd5396f3f5c7be72",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dialog/src/dialog.vue#closeIcon"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+    "offset": 297,
+    "line": 10,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue",
+    "offset": 1812,
+    "line": 58,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/select.vue",
+    "offset": 8694,
+    "line": 228,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/select/src/select.vue: unresolved component expression iconComponent"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/input/src/input.vue",
+    "offset": 3009,
+    "line": 87,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/options.ts",
+    "offset": 668,
+    "line": 25,
+    "reason": "unknown-render-source",
+    "message": "unknown script render flow /workspace/FsusUI/vue/packages/components/select/src/options.ts:668"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/options.ts",
+    "offset": 1664,
+    "line": 55,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] escaped script render constant /workspace/FsusUI/vue/packages/components/select/src/options.ts#children"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+    "offset": 8415,
+    "line": 326,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown/reserved script render attribute /workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8426"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+    "offset": 8481,
+    "line": 327,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown/reserved script render attribute /workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8492"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+    "offset": 8547,
+    "line": 328,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown/reserved script render attribute /workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8559"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+    "offset": 8617,
+    "line": 329,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8617: slots.footer && (\n            <Footer {...footerProps}>{{ default: slots.footer }}</Footer>\n          )"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+    "offset": 8733,
+    "line": 332,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8733: unref(showEmpty) && (\n            <Empty class={ns.e('empty')} style={unref(emptyStyle)}>\n              {{ default: slots.empty }}\n            </Empty>\n          )"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+    "offset": 8909,
+    "line": 337,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8909: slots.overlay && (\n            <Overlay class={ns.e('overlay')}>\n              {{ default: slots.overlay }}\n            </Overlay>\n          )"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/table-v2/src/components/auto-resizer.tsx",
+    "offset": 578,
+    "line": 20,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/table-v2/src/components/auto-resizer.tsx:578: slots.default?.({\n            height: height.value,\n            width: width.value,\n          })"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/pagination/src/pagination.ts",
+    "offset": 13640,
+    "line": 464,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] escaped script render constant /workspace/FsusUI/vue/packages/components/pagination/src/pagination.ts#navigationChildren"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/pagination/src/pagination.ts",
+    "offset": 13982,
+    "line": 475,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] escaped script render constant /workspace/FsusUI/vue/packages/components/pagination/src/pagination.ts#informationChildren"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/pagination/src/pagination.ts",
+    "offset": 15047,
+    "line": 518,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] escaped script render constant /workspace/FsusUI/vue/packages/components/pagination/src/pagination.ts#rootChildren"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "admin/collection",
+    "file": "/workspace/FsusUI/vue/packages/components/dialog/src/dialog-content.vue",
+    "offset": 531,
+    "line": 17,
+    "reason": "unbound-component-prop-source",
+    "property": "closeIcon",
+    "callNode": "669b7ac2dd5396f3f5c7be72",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dialog/src/dialog.vue#closeIcon"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+    "offset": 297,
+    "line": 10,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue",
+    "offset": 1812,
+    "line": 58,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/input/src/input.vue",
+    "offset": 3009,
+    "line": 87,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+    "offset": 498,
+    "line": 19,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] ambiguous dynamic component /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:498"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/select.vue",
+    "offset": 8694,
+    "line": 228,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/select/src/select.vue: unresolved component expression iconComponent"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/options.ts",
+    "offset": 668,
+    "line": 25,
+    "reason": "unknown-render-source",
+    "message": "unknown script render flow /workspace/FsusUI/vue/packages/components/select/src/options.ts:668"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/options.ts",
+    "offset": 1664,
+    "line": 55,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] escaped script render constant /workspace/FsusUI/vue/packages/components/select/src/options.ts#children"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/admin/article/ArticleWriteSidebar.vue",
+    "offset": 1757,
+    "line": 45,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] mutated/shadowed render binding /workspace/FsusUI/vue/packages/components/date-picker/index.ts#_DatePicker"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/slider/src/marker.ts",
+    "offset": 1035,
+    "line": 39,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slider/src/marker.ts:1035: label.value"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/admin/article/ArticleWriteInspectorRail.vue",
+    "offset": 796,
+    "line": 21,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/admin/article/ArticleWriteInspectorRail.vue: unbound finite component binding view"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/admin/article/ArticleWriteInspectorShell.vue",
+    "offset": 958,
+    "line": 30,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] ambiguous dynamic component /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/components/admin/article/ArticleWriteInspectorShell.vue:958"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "admin/form",
+    "file": "/workspace/FsusUI/vue/packages/components/dialog/src/dialog-content.vue",
+    "offset": 531,
+    "line": 17,
+    "reason": "unbound-component-prop-source",
+    "property": "closeIcon",
+    "callNode": "669b7ac2dd5396f3f5c7be72",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dialog/src/dialog.vue#closeIcon"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+    "offset": 297,
+    "line": 10,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue",
+    "offset": 1812,
+    "line": 58,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/input/src/input.vue",
+    "offset": 3009,
+    "line": 87,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/select.vue",
+    "offset": 8694,
+    "line": 228,
+    "reason": "unknown-component-source",
+    "message": "[control-legality] /workspace/FsusUI/vue/packages/components/select/src/select.vue: unresolved component expression iconComponent"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/options.ts",
+    "offset": 668,
+    "line": 25,
+    "reason": "unknown-render-source",
+    "message": "unknown script render flow /workspace/FsusUI/vue/packages/components/select/src/options.ts:668"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/select/src/options.ts",
+    "offset": 1664,
+    "line": 55,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] escaped script render constant /workspace/FsusUI/vue/packages/components/select/src/options.ts#children"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/slider/src/marker.ts",
+    "offset": 1035,
+    "line": 39,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slider/src/marker.ts:1035: label.value"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/tabs/src/tab-nav.tsx",
+    "offset": 8632,
+    "line": 311,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/tabs/src/tab-nav.tsx:8632: props.panes.map((pane, index) => {\n        const uid = pane.uid\n        const disabled = pane.props.disabled\n        const tabName = pane.props.name ?? pane.index ?? `${index}`\n        const closable = !disabled && (pane.isClosable || props.editable)\n        pane.index = `${index}`\n\n        const btnClose = closable ? (\n          <ElIcon\n            class=\"is-icon-close\"\n            // `onClick` not exist when generate dts\n            // eslint-disable-next-line @typescript-eslint/ban-ts-comment\n            // @ts-ignore\n            onClick={(ev: MouseEvent) => emit('tabRemove', pane, ev)}\n          >\n            <Close />\n          </ElIcon>\n        ) : null\n\n        const tabLabelContent = pane.slots.label?.() || pane.props.label\n        const tabindex = !disabled && pane.active ? 0 : -1\n\n        return (\n          <div\n            ref={`tab-${uid}`}\n            class={[\n              ns.e('item'),\n              ns.is(rootTabs.props.tabPosition),\n              ns.is('active', pane.active),\n              ns.is('disabled', disabled),\n              ns.is('closable', closable),\n              ns.is('focus', isFocus.value),\n            ]}\n            id={`tab-${tabName}`}\n            key={`tab-${uid}`}\n            aria-controls={`pane-${tabName}`}\n            role=\"tab\"\n            aria-selected={pane.active}\n            tabindex={tabindex}\n            onFocus={() => setFocus()}\n            onBlur={() => removeFocus()}\n            onClick={(ev: MouseEvent) => {\n              removeFocus()\n              emit('tabClick', pane, tabName, ev)\n            }}\n            onKeydown={(ev: KeyboardEvent) => {\n              if (\n                closable &&\n                (ev.code === EVENT_CODE.delete ||\n                  ev.code === EVENT_CODE.backspace)\n              ) {\n                emit('tabRemove', pane, ev)\n              }\n            }}\n          >\n            {...[tabLabelContent, btnClose]}\n          </div>\n        )\n      })"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "admin/settings",
+    "file": "/workspace/FsusUI/vue/packages/components/dialog/src/dialog-content.vue",
+    "offset": 531,
+    "line": 17,
+    "reason": "unbound-component-prop-source",
+    "property": "closeIcon",
+    "callNode": "669b7ac2dd5396f3f5c7be72",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dialog/src/dialog.vue#closeIcon"
+  },
+  {
+    "archetype": "admin/console",
+    "file": "/workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx",
+    "offset": 1069,
+    "line": 44,
+    "reason": "unknown-render-source",
+    "message": "[composition-source] unknown script render output /workspace/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+  },
+  {
+    "archetype": "admin/console",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+    "offset": 297,
+    "line": 10,
+    "reason": "route-name-visual-branch"
+  },
+  {
+    "archetype": "admin/console",
+    "file": "/workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue",
+    "offset": 1812,
+    "line": 58,
+    "reason": "unknown-component-source",
+    "message": "[composition-source] unbound template component binding /workspace/FsusBlog-2099-geometry-integration/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+  },
+  {
+    "archetype": "admin/console",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "f158080caeca77be3744b65d"
+  },
+  {
+    "archetype": "admin/console",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 13,
+    "line": 2,
+    "reason": "unbound-native-prop-source",
+    "property": "tag",
+    "callNode": "2b611a1e085c576f63a0b834"
+  },
+  {
+    "archetype": "admin/console",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "admin/console",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 836,
+    "line": 30,
+    "reason": "unbound-component-prop-source",
+    "property": "loadingIcon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon"
+  },
+  {
+    "archetype": "admin/console",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "f158080caeca77be3744b65d",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "admin/console",
+    "file": "/workspace/FsusUI/vue/packages/components/button/src/button.vue",
+    "offset": 949,
+    "line": 34,
+    "reason": "unbound-component-prop-source",
+    "property": "icon",
+    "callNode": "2b611a1e085c576f63a0b834",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon"
+  },
+  {
+    "archetype": "admin/console",
+    "file": "/workspace/FsusUI/vue/packages/components/dialog/src/dialog-content.vue",
+    "offset": 531,
+    "line": 17,
+    "reason": "unbound-component-prop-source",
+    "property": "closeIcon",
+    "callNode": "669b7ac2dd5396f3f5c7be72",
+    "message": "[composition-source] unknown component input spread /workspace/FsusUI/vue/packages/components/dialog/src/dialog.vue#closeIcon"
+  }
+]

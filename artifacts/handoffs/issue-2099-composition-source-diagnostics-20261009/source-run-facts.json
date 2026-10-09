@@ -1,0 +1,372 @@
+{
+  "sourceCommit": "175248a681a590e4f05fe7d57878147776810c68",
+  "sourceTree": "657c9845b93f3e8da92e3c492dcd68c2b9027832",
+  "worktreeDigest": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48",
+  "analyzerDigest": "9d72a05d9df63d2f2f7cff63dc87b87cade2fafb4aa0bf2957383f3f62abbbf5",
+  "sourceScanStartedAt": "2026-10-09T10:18:25Z",
+  "sourceScanEndedAt": "2026-10-09T10:18:42Z",
+  "originalFullReceiptSha256": "b778e72b80d84e9ce4a8009a5d756df108536af495dbdf0bbcfd27ec5dd5aed2",
+  "originalFullReceiptBytes": 17860958,
+  "all166OriginalErrorsSha256": "978a4621ce5b6a3be32b4359058200933535fb37e8ad23d58f11ee90d94653a1",
+  "errorsByReason": {
+    "unknown-component-source": 35,
+    "unknown-render-source": 33,
+    "unbound-native-prop-source": 25,
+    "unbound-component-prop-source": 56,
+    "route-name-visual-branch": 17
+  },
+  "errorsByRepository": {
+    "FsusBlog": 37,
+    "FsusUI": 129
+  },
+  "identities": [
+    {
+      "archetype": "public/feed",
+      "sourceDigest": "3c45f324720a981b3b6bcd18db1ae9a0977c5baf5801f9afa60a5302e5b51a7b",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "public/reading",
+      "sourceDigest": "8812a3ea830c65beb744dccd5a0da569dcc478a1cd633a1d68b31a81c0a796bf",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "public/index",
+      "sourceDigest": "4ce5b4222ff71cd33ab8b2342bb800575d06696f2e05d45b247a1d29ffbcadaf",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "public/document",
+      "sourceDigest": "d1d94aa8b8cdc97e89d3882d362da8bb44fa06e279408982ecd601422da49679",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "public/filter-search",
+      "sourceDigest": "a360cc4ae309668cf24518edfd5ce05bb3c5e0de9d4e29fa246ba676717acbff",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "identity/identity-settings",
+      "sourceDigest": "9e57eb9e629aa4721f4b72dc46c433728bf86fbb882736fa8eb24282f43f6be1",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "identity/inbox-takeover",
+      "sourceDigest": "0fd18f370786628e4e472c7bcdaea55764ed74140ad7f852d8aa4bb0536d127b",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "admin/dashboard",
+      "sourceDigest": "503c5220ad410ce8d1bf748cfe84134486f64158ca50a8b6a82e224f7f7c03e8",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "admin/collection",
+      "sourceDigest": "7bcfd1919384cc48cc77a46f03a3fad9e12b029797e7d45e8a4912fd6c74e162",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "admin/form",
+      "sourceDigest": "ef0f29fe07d46e8ffd50aece0ef760e7b44e6acbb0c95804537f4992b74ce9a0",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "admin/settings",
+      "sourceDigest": "ca016ec9da02c583222134adbe048c45b1eae2a38311adaedf524548d444df3f",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "admin/console",
+      "sourceDigest": "e3b62a50eb37d52bcf77a4b8eaadc8f87a61cdddf59f2a798bb5b07b2be177e4",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    }
+  ],
+  "pendingStateBindings": 91,
+  "nullFixtureRefs": 79,
+  "privatePackageAccess": {
+    "package": "@ozwasyd/element-plus@1.5.1",
+    "result": "401 Unauthorized",
+    "notRetried": true,
+    "sourceScanMode": "local",
+    "publishedPrivatePackageModeNotExecuted": true,
+    "localSourceIsNotPublishedQualification": true
+  },
+  "parserFacts": {
+    "typescript": "6.0.3",
+    "vueSfc": "3.5.33",
+    "vueDom": "3.5.33",
+    "exactLockedPublicDependencyClosure": 24,
+    "manifestOrLockEdited": false,
+    "originalParserRootPreserved": true
+  },
+  "testsExecuted": 0,
+  "browserTestsExecuted": 0,
+  "qualified": false,
+  "fullVisualVerified": false,
+  "fullGeometryVerified": false,
+  "diagnosticsNotDeducedFromPrivate401": true
+}

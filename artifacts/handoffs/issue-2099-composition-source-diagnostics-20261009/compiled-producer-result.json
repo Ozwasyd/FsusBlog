@@ -1,0 +1,56 @@
+{
+  "sourceCommit": "175248a681a590e4f05fe7d57878147776810c68",
+  "command": "node tools/test-inventory/produce.mjs",
+  "nodeVersion": "24.16.0",
+  "dotnetSdk": "10.0.302",
+  "RestoreLockedMode": true,
+  "startedAt": "2026-10-09T10:18:24Z",
+  "endedAt": "2026-10-09T10:21:05Z",
+  "producerSha256": "53519cd6f1efb08aa489a334e46726a83337b52626870041e65cea50319d5007",
+  "producerUnmodified": true,
+  "exitCode": 1,
+  "backendBuildExitCode": 0,
+  "backendBuildEvidence": "Original producer reached migration build only after its backend spawnSync status was zero. No backend test execution is implied.",
+  "migrationBuildExitCode": 1,
+  "migrationErrors": [
+    {
+      "file": "tests/migration/OfflineMigrationExpandSafetyTests.cs",
+      "line": 79,
+      "column": 17,
+      "code": "CS0246",
+      "missingType": "CreateTableStep"
+    },
+    {
+      "file": "tests/migration/OfflineMigrationExpandSafetyTests.cs",
+      "line": 80,
+      "column": 17,
+      "code": "CS0246",
+      "missingType": "AddColumnStep"
+    }
+  ],
+  "originalOwnerCommit": "34c4718b77554beb9334b3171e4bcb3be7bfc0c8",
+  "originalOwnerIssueRefs": [
+    3764,
+    1599,
+    2636
+  ],
+  "testedAndMasterTestBlob": "a3488d045e47a976015c9b5c0675b74f779bb614",
+  "testedAndMasterDslBlob": "bc5bc3b0ec03c2b1b2461fe86e220e34d044591a",
+  "actualExistingDslTypes": [
+    "EnsureTableStep(string TableName, string CreateSql)",
+    "EnsureColumnStep(string TableName, string ColumnName, string ColumnDefinition)"
+  ],
+  "migrationSourceNotModified": true,
+  "inventoryWritten": false,
+  "inventorySourceFiles": null,
+  "inventoryCases": null,
+  "roslynDiscoveryReached": false,
+  "originalInventoryConsumerExitCode": 1,
+  "testsExecuted": 0,
+  "receiptRefusalTestsExecuted": 0,
+  "concurrencyTestsExecuted": 0,
+  "securityTestsExecuted": 0,
+  "browserTestsExecuted": 0,
+  "databaseTestsExecuted": 0,
+  "qualified": false
+}

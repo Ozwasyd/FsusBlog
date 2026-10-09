@@ -1,0 +1,81 @@
+{
+  "sourceCommit": "175248a681a590e4f05fe7d57878147776810c68",
+  "suppliedIncrements": [
+    {
+      "suppliedCommit": "b174bf1bf629ed3ec9e1f7d63bcbb50321190ccd",
+      "consumedPublishedCommit": "00ad96e3b1ef22f313b524a3c83e0b6ea57f1b64",
+      "matchedSourcePreimagesAndPostimages": [
+        {
+          "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+          "matchedPreimage": "138d80eff65c921dce392bfb0223bcb1f8913305",
+          "expectedPostimage": "2d1e27b9d98cd35fb60f43499d4e04894b4108c8"
+        }
+      ]
+    },
+    {
+      "suppliedCommit": "cc60ae057e00bb914306aa2ab968532c167a3520",
+      "consumedPublishedCommit": "5773fb5986a4bb90c8be31cd16c287e0973bca23",
+      "matchedSourcePreimagesAndPostimages": [
+        {
+          "path": "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+          "matchedPreimage": "b4b75d123280e843d563e3cdeb17dfc0444c4ca5",
+          "expectedPostimage": "75947dd73871bab169cc9f5ed6828bbf35783a15"
+        },
+        {
+          "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+          "matchedPreimage": "c2944327c23e7962d04279e51ff7e186c2098de0",
+          "expectedPostimage": "7f1b9073618a5905a13490fb9996061ae1c1d55c"
+        },
+        {
+          "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+          "matchedPreimage": "83f31686bd38f8f573de5c4b4a4fda405a2599d4",
+          "expectedPostimage": "e4521c2f5d864f29b8eb4a46481ab32f5131d34e"
+        },
+        {
+          "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+          "matchedPreimage": "13d6080a3dddc728dee6dfe061b97773912f1097",
+          "expectedPostimage": "f65b401745fe6405e5eb7d0f0bc88864b5eeac39"
+        }
+      ]
+    },
+    {
+      "suppliedCommit": "3c687f60ad940643e597f0040e35e5190405f6fe",
+      "consumedPublishedCommit": "0c20577bcb97cdc2af37a75bcbf94b7caebb6dfc",
+      "matchedSourcePreimagesAndPostimages": [
+        {
+          "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+          "matchedPreimage": "4908b5ffc5527f045c7661244284a977cddd1684",
+          "expectedPostimage": "5a6cfb1c24caa11f3cc2aa3125c559d45476622d"
+        }
+      ]
+    },
+    {
+      "suppliedCommit": "53a08603d86d626ca2b8f5257157af786984ffcc",
+      "consumedPublishedCommit": "175248a681a590e4f05fe7d57878147776810c68",
+      "matchedSourcePreimagesAndPostimages": [
+        {
+          "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+          "matchedPreimage": "2d1e27b9d98cd35fb60f43499d4e04894b4108c8",
+          "expectedPostimage": "b6a233e7a152f7403990b1f3bae740fe29eb2c82"
+        },
+        {
+          "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+          "matchedPreimage": "e4521c2f5d864f29b8eb4a46481ab32f5131d34e",
+          "expectedPostimage": "c8208fbb2587a25eb5c4146f1467eae47aa95262"
+        },
+        {
+          "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+          "matchedPreimage": "f65b401745fe6405e5eb7d0f0bc88864b5eeac39",
+          "expectedPostimage": "6a3f275549039c8b2022500cef0710216d492eb1"
+        }
+      ]
+    }
+  ],
+  "blameIgnoreBlobPreserved": "6af6fb4ca0c9938008d7bb205abd45f9af6653ea",
+  "sharedStylePoliciesEdited": false,
+  "sourceBodiesManuallyEdited": false,
+  "sourceTreesPreservedDuringLocalFooterCorrection": true,
+  "namespaceSourceCommitChangeClass": "behavior",
+  "formatOnlyEquivalenceClaimed": false,
+  "originalCorrectedCommitRangeExitCode": 0
+}
