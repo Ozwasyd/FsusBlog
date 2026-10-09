@@ -148,7 +148,8 @@ public sealed class UploadAssetFactsEndpointBodyTests
     {
         var context = new DefaultHttpContext
         {
-            User = Principal(withPermission: true), RequestServices = services
+            User = Principal(withPermission: true),
+            RequestServices = services
         };
         context.Request.Body = stream;
         context.Request.ContentType = "application/octet-stream";
