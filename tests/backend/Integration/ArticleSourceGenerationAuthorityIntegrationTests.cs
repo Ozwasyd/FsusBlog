@@ -393,6 +393,10 @@ public sealed class ArticleSourceGenerationAuthorityIntegrationTests(PostgresSch
         current = await ArticleLifecycleTransitionWriter.DeleteAsync(db, Configuration(),
             new ArticleLifecycleTransitionWriter.DeleteRequest(
                 articleId, current.Version.RevisionId, s_now.AddMinutes(2), adminId, "source-clock"));
+        // The original writer retains the publication snapshot with an optional absent version.
+        // Enrollment must preserve this actual absence rather than synthesize metadata facts.
+        Assert.True(current.Version.ResponsibilitySnapshotId > 0);
+        Assert.Null(current.Version.ResponsibilityVersion);
         await EnrollAsync(current);
         current = await ArticleLifecycleTransitionWriter.RestoreAsync(db, Configuration(),
             new ArticleLifecycleTransitionWriter.RestoreRequest(
