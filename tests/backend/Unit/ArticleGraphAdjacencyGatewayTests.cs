@@ -166,10 +166,22 @@ public sealed class ArticleGraphAdjacencyGatewayTests
         private AdjacencyObservation _observation = new(s_actor, 1, 1, 1, "document:graph-boundary",
             ArticleRelationQueryScope.Authoring, "permission:1", "site:1", "session:1");
         public Dictionary<AdjacencyPermissionCoordinate, int> PermissionReads { get; } = [];
-        public int Observations { get; private set; }
-        public bool DenySource { get; set; }
-        public bool DenyRepeatedSource { get; set; }
-        public string? ChangeAtReadClosure { get; set; }
+        public int Observations
+        {
+            get; private set;
+        }
+        public bool DenySource
+        {
+            get; set;
+        }
+        public bool DenyRepeatedSource
+        {
+            get; set;
+        }
+        public string? ChangeAtReadClosure
+        {
+            get; set;
+        }
 
         public Task<AdjacencyObservation?> ObserveAsync(ArticleRelationActorContext actor,
             ArticleRelationQueryScope scope, CancellationToken cancellationToken)
