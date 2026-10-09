@@ -1,0 +1,918 @@
+{
+  "base": "master",
+  "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "templateSource": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea:.github/PULL_REQUEST_TEMPLATE.md",
+  "requiredExistingLabel": "release-note:internal",
+  "draftCount": 7,
+  "drafts": [
+    {
+      "branch": "codex/chain-3612-census-current",
+      "head": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+      "baseBranch": "master",
+      "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "changedPaths": [
+        "config/testing/release-final-execution-authority-index.json",
+        "docs/api.md",
+        "docs/api/aeds-only-policy.md",
+        "docs/api/quick-reference.md",
+        "docs/api/schemas-and-errors.md",
+        "docs/api/stability.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/overview.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "docs/releases/release-identity.md",
+        "docs/testing.md",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/tools/generated-fact-sections.test.mjs",
+        "tests/tools/native-tooling-style.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+        "tests/tools/test-matrix-topology-observation.test.mjs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tools/fact-extractors/test-matrix/extract.mjs"
+      ],
+      "changedPathCount": 27,
+      "role": "source",
+      "existingPr": null,
+      "registeredExternalNamingMatches": [
+        {
+          "id": "environment-variable",
+          "paths": [
+            "tools/docs/behavior-document-consistency-final.mjs",
+            "tools/docs/generated-fact-sections/renderers.mjs",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "post-runtime-observation-authority",
+          "paths": [
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "content-doc-exactness-authority",
+          "paths": [
+            "docs/architecture/overview.md"
+          ]
+        },
+        {
+          "id": "auth-security-doc-exactness-authority",
+          "paths": [
+            "docs/api/schemas-and-errors.md",
+            "docs/architecture/overview.md",
+            "tools/docs/generated-fact-sections/renderers.mjs"
+          ]
+        },
+        {
+          "id": "json-wire-key",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+          ]
+        },
+        {
+          "id": "css-like-contract",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "docs/api/aeds-only-policy.md",
+            "docs/api/quick-reference.md",
+            "docs/api/schemas-and-errors.md",
+            "docs/api/stability.md",
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/architecture/overview.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "docs/releases/release-identity.md"
+          ]
+        }
+      ],
+      "title": "test(contracts): bind the typed OpenAPI route census",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "type:maintenance",
+        "area:tooling",
+        "area:docs",
+        "area:contracts",
+        "status:blocked",
+        "evidence:needs-tests"
+      ],
+      "body": "## Linked Issue\n\nRefs #3612\n\nRelated to [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). **WIP draft; no issue is accepted or closed.**\n\n## Scope Summary\n\n- WIP source retention: consume the exact typed OpenAPI census from 44aa8ec232288b9c18c684f434fc3d82dfd8095b. Keep the already matching canonical observer lock and the inherited OpenAPI/scanner/literal-renderer/generated closure. Comment bounds and release bundle-order remain at their pre-owner-output state on this head.\n- Exact remote head: `b64c6ad904f284e95104954ebc8612298cbf33a4`; source branch: `codex/chain-3612-census-current`; target: `master`, observed at `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`. Review merge-base: `aaba7b8c84ecfb336c71443e30d9fd82d21fb16d`. [Complete 27-path comparison](https://github.com/Ozwasyd/FsusBlog/compare/aaba7b8c84ecfb336c71443e30d9fd82d21fb16d...b64c6ad904f284e95104954ebc8612298cbf33a4). This is a retained predecessor; [the complete current successor](https://github.com/Ozwasyd/FsusBlog/tree/codex/chain-3612-release-review-current) has a different tested SHA and must not be merged as an additional independent implementation.\n- Inherited prerequisites are part of this complete scope: canonical observer lock/replay and minimal receipt owners, matrix extractor/fixture and generated authority, scoped four-field scanner and regressions, plus current generated documentation. No prerequisite source is omitted from the review merely because it predates the latest increment.\n\nComplete changed-path scope:\n\n- `config/testing/release-final-execution-authority-index.json`\n- `docs/api.md`\n- `docs/api/aeds-only-policy.md`\n- `docs/api/quick-reference.md`\n- `docs/api/schemas-and-errors.md`\n- `docs/api/stability.md`\n- `docs/architecture/monolithic-distributed-boundary.md`\n- `docs/architecture/overview.md`\n- `docs/releases/blue-green-deployment-runbook.md`\n- `docs/releases/release-identity.md`\n- `docs/testing.md`\n- `tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `tests/tools/behavior-document-consistency-final.test.mjs`\n- `tests/tools/generated-fact-sections.test.mjs`\n- `tests/tools/native-tooling-style.test.mjs`\n- `tests/tools/openapi-aeds-observation.test.mjs`\n- `tests/tools/release-final-static-boundary.test.mjs`\n- `tests/tools/support/zero-legacy-scanner-fixture.mjs`\n- `tests/tools/test-matrix-topology-observation.test.mjs`\n- `tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json`\n- `tools/docs/behavior-document-consistency-final.mjs`\n- `tools/docs/generated-fact-sections/renderers.mjs`\n- `tools/fact-extractors/test-matrix/extract.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests:\n- [ ] Targeted frontend checks:\n- [x] Other: PASS on b64c6ad904f284e95104954ebc8612298cbf33a4: OpenAPI/fact controls 57/57, ordinary controls 134/134, zero skips, and seven genuine compiled OpenAPI self-test groups. SDK 10.0.302 minimal build and all eight fact observations succeed; standalone prose verifies 37 claims.\n- [x] Other: FAIL on b64c6ad904f284e95104954ebc8612298cbf33a4: original whole admission and generated check exit 1 at the two comment bounds and release bundle-order regions. Ten-document Markdownlint retains 48 inherited diagnostics. Original matrix validation refuses producer-inventory drift; the unchanged baseline reproduces that refusal.\n- [x] Other: UNRUN after the generated failure: integrated prose/mutation phases and complete CI/native qualification. The 321-control result belongs to 3de72226437c9940eef09cc36f833ce3210a292f, not this head.\n- [ ] Other: Remote required checks, trusted-base complete PR metadata validation and current-master qualification are unresolved; missing checks are not passes.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [ ] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: unresolved\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [ ] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: no measured performance, product runtime, native, release or whole-CI qualification claim\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: bind the typed OpenAPI route census\n\n## Generated Output\n\n- Generator source: tools/docs/generate-fact-sections.mjs, config/contracts/behavior-fact-extractors.json, config/contracts/generated-fact-sections.json, tools/fact-extractors/runner.mjs, tools/fact-extractors/test-matrix/extract.mjs, tools/test-matrix/generate-release-final-execution-authority.mjs, tools/docs/generated-fact-sections/generator.mjs, tools/docs/generated-fact-sections/renderers.mjs\n- Generated outputs: config/testing/release-final-execution-authority-index.json, docs/api.md, docs/api/aeds-only-policy.md, docs/api/quick-reference.md, docs/api/schemas-and-errors.md, docs/api/stability.md, docs/architecture/monolithic-distributed-boundary.md, docs/architecture/overview.md, docs/releases/blue-green-deployment-runbook.md, docs/releases/release-identity.md, docs/testing.md, tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: unresolved\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: publish this WIP draft for review immediately; retain the exact source ref and evidence identities. No merge, deployment, issue closure, trusted-policy promotion or cross-branch conflict resolution is authorized.\n- Rollback: retain the predecessor refs and receipts; any later correction is separately reviewed. Do not rewrite published history or rebind old receipts to a new SHA.\n- Deferred work: accepted prerequisite evidence, original rejection/mutation controls, full integrated admission/matrix/CI, formal style, generated/naming metadata, independent review and current-master acceptance.\n- Known limitations: the result of one SHA does not qualify another. Physical preparation/recovery obligations remain unresolved, with no successful native descriptor or zero-residue claim. Generated-binding and exact external-naming manifests are unresolved; this draft is not claimed green under Change Contract. Mechanical-separation and complete TODO/FIXME review are also unresolved.\n\n## Notes For Reviewers\n\nOwnership and prerequisites: this review covers [#3612](https://github.com/Ozwasyd/FsusBlog/issues/3612), [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). The original canonical owners remain [#3537](https://github.com/Ozwasyd/FsusBlog/issues/3537), [#3540](https://github.com/Ozwasyd/FsusBlog/issues/3540), [#3534](https://github.com/Ozwasyd/FsusBlog/issues/3534), [#3610](https://github.com/Ozwasyd/FsusBlog/issues/3610) and [#3611](https://github.com/Ozwasyd/FsusBlog/issues/3611). Comment and release products come from [#3576](https://github.com/Ozwasyd/FsusBlog/issues/3576) and [#2225](https://github.com/Ozwasyd/FsusBlog/issues/2225) when included in this head. Their independent acceptance is not inferred from source availability.\n\nApplicable acceptance remains: compile and verify the exact public-error prose state; validate canonical minimal and separate OpenAPI receipt paths with all original stale/source/run/artifact/projection refusals; preserve all four qualification-only field rules and non-qualification behavior without a DocClaim waiver; run original generated/prose/mutation, lifecycle, matrix/static and change-contract gates; obtain independent review and later current-master acceptance. All three issues remain WIP.\n\nReview checkbox applicability: this diff changes JavaScript governance, tests, lockfiles and generated Markdown/JSON, not C# product code, user-visible UI, wire/ABI, database execution or security policy. C# mapping and UI/database/security/ABI items record this scope review, not runtime acceptance. UI evidence is not applicable. No format-only or performance claim is made, so formatter/idempotence/blame/performance fields are `none`. The linter-run checkbox records the executions above, including failures. No default policy was overridden. The exact registered naming-surface coverage and a valid changed generated-binding manifest still require their owners; no diagnostic summary is substituted for those schemas.\n\nNext commands: after draft creation, inspect `gh pr view <number> --repo Ozwasyd/FsusBlog --json headRefOid,baseRefOid,labels,statusCheckRollup,reviewDecision` and reconcile the public metadata with the exact submitted SHA. Pending original acceptance in a qualified environment, the original commands are `node tools/docs/behavior-doc-static-admission.mjs --run-id <fresh-current-source-run>`, `node tools/run-test-matrix.mjs validate`, and `./tools/test.sh fast`. These commands have not been rerun for this handoff. Native, adversarial-control, matrix and whole-CI qualification remain UNRUN where noted above.\n\n[Public candidate binding proof](https://github.com/Ozwasyd/FsusBlog/blob/60051d8376e42580758c92b386e1e0081ca19f57/artifacts/governance/chain-3612-release-owner-handoff/current-product-proof.json) belongs to `bfca0bd79319554b9f61b06d4b30af5726179cc3` only; it is not a pass for another branch or for the evidence-only commit that stores it. Two inherited comment-document MD022 errors were introduced by [db1c168a7a29e1e9f5c7d98f606a1e33110340eb](https://github.com/Ozwasyd/FsusBlog/commit/db1c168a7a29e1e9f5c7d98f606a1e33110340eb), related to [#1756](https://github.com/Ozwasyd/FsusBlog/issues/1756). They remain with their original authored-prose owner; this review neither edits nor waives them.\n",
+      "bodySha256": "c96428689370300eced2b91aa6e68f8a9201866787a34687d2a7a91451406ab6",
+      "metadataValidation": "UNRUN for this handoff; generated/naming binding unresolved; no fabricated gate pass."
+    },
+    {
+      "branch": "codex/chain-3612-comment-owner-current",
+      "head": "78cec93493af843b543584b3b2e0f1895a467277",
+      "baseBranch": "master",
+      "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "changedPaths": [
+        "config/testing/release-final-execution-authority-index.json",
+        "docs/api.md",
+        "docs/api/aeds-only-policy.md",
+        "docs/api/quick-reference.md",
+        "docs/api/schemas-and-errors.md",
+        "docs/api/stability.md",
+        "docs/architecture/comment-command-boundary.md",
+        "docs/architecture/comment-query-boundary.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/overview.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "docs/releases/release-identity.md",
+        "docs/testing.md",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/tools/generated-fact-sections.test.mjs",
+        "tests/tools/native-tooling-style.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+        "tests/tools/test-matrix-topology-observation.test.mjs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tools/fact-extractors/test-matrix/extract.mjs"
+      ],
+      "changedPathCount": 29,
+      "role": "source",
+      "existingPr": null,
+      "registeredExternalNamingMatches": [
+        {
+          "id": "environment-variable",
+          "paths": [
+            "tools/docs/behavior-document-consistency-final.mjs",
+            "tools/docs/generated-fact-sections/renderers.mjs",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "post-runtime-observation-authority",
+          "paths": [
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "content-doc-exactness-authority",
+          "paths": [
+            "docs/architecture/comment-command-boundary.md",
+            "docs/architecture/overview.md"
+          ]
+        },
+        {
+          "id": "auth-security-doc-exactness-authority",
+          "paths": [
+            "docs/api/schemas-and-errors.md",
+            "docs/architecture/overview.md",
+            "tools/docs/generated-fact-sections/renderers.mjs"
+          ]
+        },
+        {
+          "id": "json-wire-key",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+          ]
+        },
+        {
+          "id": "css-like-contract",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "docs/api/aeds-only-policy.md",
+            "docs/api/quick-reference.md",
+            "docs/api/schemas-and-errors.md",
+            "docs/api/stability.md",
+            "docs/architecture/comment-command-boundary.md",
+            "docs/architecture/comment-query-boundary.md",
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/architecture/overview.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "docs/releases/release-identity.md"
+          ]
+        }
+      ],
+      "title": "docs(docs): preserve generated comment bounds",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "type:maintenance",
+        "area:tooling",
+        "area:docs",
+        "area:contracts",
+        "status:blocked",
+        "evidence:needs-tests"
+      ],
+      "body": "## Linked Issue\n\nRefs #3612\n\nRelated to [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). **WIP draft; no issue is accepted or closed.**\n\n## Scope Summary\n\n- WIP source retention: consume d5a2e80e37dfa428cb40a51eb2491650be2e1c62, changing only the generated child-limit and maximum-depth comparison literals. All four sections across the two comment documents preserve markers and exterior prose. The inherited canonical observer/scanner/renderer/census closure remains in this PR scope. The later release product is absent from this head.\n- Exact remote head: `78cec93493af843b543584b3b2e0f1895a467277`; source branch: `codex/chain-3612-comment-owner-current`; target: `master`, observed at `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`. Review merge-base: `aaba7b8c84ecfb336c71443e30d9fd82d21fb16d`. [Complete 29-path comparison](https://github.com/Ozwasyd/FsusBlog/compare/aaba7b8c84ecfb336c71443e30d9fd82d21fb16d...78cec93493af843b543584b3b2e0f1895a467277). This is a retained predecessor; [the complete current successor](https://github.com/Ozwasyd/FsusBlog/tree/codex/chain-3612-release-review-current) has a different tested SHA and must not be merged as an additional independent implementation.\n- Inherited prerequisites are part of this complete scope: canonical observer lock/replay and minimal receipt owners, matrix extractor/fixture and generated authority, scoped four-field scanner and regressions, plus current generated documentation. No prerequisite source is omitted from the review merely because it predates the latest increment.\n\nComplete changed-path scope:\n\n- `config/testing/release-final-execution-authority-index.json`\n- `docs/api.md`\n- `docs/api/aeds-only-policy.md`\n- `docs/api/quick-reference.md`\n- `docs/api/schemas-and-errors.md`\n- `docs/api/stability.md`\n- `docs/architecture/comment-command-boundary.md`\n- `docs/architecture/comment-query-boundary.md`\n- `docs/architecture/monolithic-distributed-boundary.md`\n- `docs/architecture/overview.md`\n- `docs/releases/blue-green-deployment-runbook.md`\n- `docs/releases/release-identity.md`\n- `docs/testing.md`\n- `tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `tests/tools/behavior-document-consistency-final.test.mjs`\n- `tests/tools/generated-fact-sections.test.mjs`\n- `tests/tools/native-tooling-style.test.mjs`\n- `tests/tools/openapi-aeds-observation.test.mjs`\n- `tests/tools/release-final-static-boundary.test.mjs`\n- `tests/tools/support/zero-legacy-scanner-fixture.mjs`\n- `tests/tools/test-matrix-topology-observation.test.mjs`\n- `tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json`\n- `tools/docs/behavior-document-consistency-final.mjs`\n- `tools/docs/generated-fact-sections/renderers.mjs`\n- `tools/fact-extractors/test-matrix/extract.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests:\n- [ ] Targeted frontend checks:\n- [x] Other: PASS on 78cec93493af843b543584b3b2e0f1895a467277: lifecycle 372, DocClaim 121, prose governance and increment commit-range checks; read-only marker/exterior proof covers two documents/four sections and matches the two saved canonical expected bodies.\n- [x] Other: FAIL on 78cec93493af843b543584b3b2e0f1895a467277: two-document Markdownlint exits 1 on two inherited MD022 heading boundaries. The release bundle-order region still contains raw arrows on this source head.\n- [x] Other: UNRUN on this head: fresh SDK/fact observations and full admission/matrix/CI. The 1435 identical measured build inputs support continuity with b64c6ad904f284e95104954ebc8612298cbf33a4; they do not rebind its receipts to this head.\n- [ ] Other: Remote required checks, trusted-base complete PR metadata validation and current-master qualification are unresolved; missing checks are not passes.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [ ] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: unresolved\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [ ] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: no measured performance, product runtime, native, release or whole-CI qualification claim\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve generated comment bounds\n\n## Generated Output\n\n- Generator source: tools/docs/generate-fact-sections.mjs, config/contracts/behavior-fact-extractors.json, config/contracts/generated-fact-sections.json, tools/fact-extractors/runner.mjs, tools/fact-extractors/test-matrix/extract.mjs, tools/test-matrix/generate-release-final-execution-authority.mjs, tools/docs/generated-fact-sections/generator.mjs, tools/docs/generated-fact-sections/renderers.mjs\n- Generated outputs: config/testing/release-final-execution-authority-index.json, docs/api.md, docs/api/aeds-only-policy.md, docs/api/quick-reference.md, docs/api/schemas-and-errors.md, docs/api/stability.md, docs/architecture/comment-command-boundary.md, docs/architecture/comment-query-boundary.md, docs/architecture/monolithic-distributed-boundary.md, docs/architecture/overview.md, docs/releases/blue-green-deployment-runbook.md, docs/releases/release-identity.md, docs/testing.md, tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: unresolved\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: publish this WIP draft for review immediately; retain the exact source ref and evidence identities. No merge, deployment, issue closure, trusted-policy promotion or cross-branch conflict resolution is authorized.\n- Rollback: retain the predecessor refs and receipts; any later correction is separately reviewed. Do not rewrite published history or rebind old receipts to a new SHA.\n- Deferred work: accepted prerequisite evidence, original rejection/mutation controls, full integrated admission/matrix/CI, formal style, generated/naming metadata, independent review and current-master acceptance.\n- Known limitations: the result of one SHA does not qualify another. Physical preparation/recovery obligations remain unresolved, with no successful native descriptor or zero-residue claim. Generated-binding and exact external-naming manifests are unresolved; this draft is not claimed green under Change Contract. Mechanical-separation and complete TODO/FIXME review are also unresolved.\n\n## Notes For Reviewers\n\nOwnership and prerequisites: this review covers [#3612](https://github.com/Ozwasyd/FsusBlog/issues/3612), [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). The original canonical owners remain [#3537](https://github.com/Ozwasyd/FsusBlog/issues/3537), [#3540](https://github.com/Ozwasyd/FsusBlog/issues/3540), [#3534](https://github.com/Ozwasyd/FsusBlog/issues/3534), [#3610](https://github.com/Ozwasyd/FsusBlog/issues/3610) and [#3611](https://github.com/Ozwasyd/FsusBlog/issues/3611). Comment and release products come from [#3576](https://github.com/Ozwasyd/FsusBlog/issues/3576) and [#2225](https://github.com/Ozwasyd/FsusBlog/issues/2225) when included in this head. Their independent acceptance is not inferred from source availability.\n\nApplicable acceptance remains: compile and verify the exact public-error prose state; validate canonical minimal and separate OpenAPI receipt paths with all original stale/source/run/artifact/projection refusals; preserve all four qualification-only field rules and non-qualification behavior without a DocClaim waiver; run original generated/prose/mutation, lifecycle, matrix/static and change-contract gates; obtain independent review and later current-master acceptance. All three issues remain WIP.\n\nReview checkbox applicability: this diff changes JavaScript governance, tests, lockfiles and generated Markdown/JSON, not C# product code, user-visible UI, wire/ABI, database execution or security policy. C# mapping and UI/database/security/ABI items record this scope review, not runtime acceptance. UI evidence is not applicable. No format-only or performance claim is made, so formatter/idempotence/blame/performance fields are `none`. The linter-run checkbox records the executions above, including failures. No default policy was overridden. The exact registered naming-surface coverage and a valid changed generated-binding manifest still require their owners; no diagnostic summary is substituted for those schemas.\n\nNext commands: after draft creation, inspect `gh pr view <number> --repo Ozwasyd/FsusBlog --json headRefOid,baseRefOid,labels,statusCheckRollup,reviewDecision` and reconcile the public metadata with the exact submitted SHA. Pending original acceptance in a qualified environment, the original commands are `node tools/docs/behavior-doc-static-admission.mjs --run-id <fresh-current-source-run>`, `node tools/run-test-matrix.mjs validate`, and `./tools/test.sh fast`. These commands have not been rerun for this handoff. Native, adversarial-control, matrix and whole-CI qualification remain UNRUN where noted above.\n\n[Public candidate binding proof](https://github.com/Ozwasyd/FsusBlog/blob/60051d8376e42580758c92b386e1e0081ca19f57/artifacts/governance/chain-3612-release-owner-handoff/current-product-proof.json) belongs to `bfca0bd79319554b9f61b06d4b30af5726179cc3` only; it is not a pass for another branch or for the evidence-only commit that stores it. Two inherited comment-document MD022 errors were introduced by [db1c168a7a29e1e9f5c7d98f606a1e33110340eb](https://github.com/Ozwasyd/FsusBlog/commit/db1c168a7a29e1e9f5c7d98f606a1e33110340eb), related to [#1756](https://github.com/Ozwasyd/FsusBlog/issues/1756). They remain with their original authored-prose owner; this review neither edits nor waives them.\n",
+      "bodySha256": "d03d3c404b9d6855818c63bd32ba4986b1911a6ff6a89ce10ad3c18ffb67ad95",
+      "metadataValidation": "UNRUN for this handoff; generated/naming binding unresolved; no fabricated gate pass."
+    },
+    {
+      "branch": "codex/chain-3612-generated-current",
+      "head": "0a66cab341a78585f9b726672f2aa1241c5709a2",
+      "baseBranch": "master",
+      "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "changedPaths": [
+        "config/testing/release-final-execution-authority-index.json",
+        "docs/api.md",
+        "docs/api/aeds-only-policy.md",
+        "docs/api/quick-reference.md",
+        "docs/api/schemas-and-errors.md",
+        "docs/api/stability.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/overview.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "docs/releases/release-identity.md",
+        "docs/testing.md",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+        "tests/tools/test-matrix-topology-observation.test.mjs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/fact-extractors/test-matrix/extract.mjs"
+      ],
+      "changedPathCount": 24,
+      "role": "source",
+      "existingPr": null,
+      "registeredExternalNamingMatches": [
+        {
+          "id": "environment-variable",
+          "paths": [
+            "tools/docs/behavior-document-consistency-final.mjs",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "post-runtime-observation-authority",
+          "paths": [
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "content-doc-exactness-authority",
+          "paths": [
+            "docs/architecture/overview.md"
+          ]
+        },
+        {
+          "id": "auth-security-doc-exactness-authority",
+          "paths": [
+            "docs/api/schemas-and-errors.md",
+            "docs/architecture/overview.md"
+          ]
+        },
+        {
+          "id": "json-wire-key",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+          ]
+        },
+        {
+          "id": "css-like-contract",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "docs/api/aeds-only-policy.md",
+            "docs/api/quick-reference.md",
+            "docs/api/schemas-and-errors.md",
+            "docs/api/stability.md",
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/architecture/overview.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "docs/releases/release-identity.md"
+          ]
+        }
+      ],
+      "title": "docs(api): preserve compiled BehaviorDoc fact sections",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "type:maintenance",
+        "area:tooling",
+        "area:docs",
+        "area:contracts",
+        "status:blocked",
+        "evidence:needs-tests"
+      ],
+      "body": "## Linked Issue\n\nRefs #3612\n\nRelated to [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). **WIP draft; no issue is accepted or closed.**\n\n## Scope Summary\n\n- WIP source retention: regenerate the owned current API/architecture/release/testing fact sections from genuine compiled observations through the original generator, retaining the canonical minimal OpenAPI receipt and scoped scanner prerequisites. Authored prose is preserved. This head precedes the coordinated literal-renderer repair and later typed-census/comment/release output increments.\n- Exact remote head: `0a66cab341a78585f9b726672f2aa1241c5709a2`; source branch: `codex/chain-3612-generated-current`; target: `master`, observed at `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`. Review merge-base: `aaba7b8c84ecfb336c71443e30d9fd82d21fb16d`. [Complete 24-path comparison](https://github.com/Ozwasyd/FsusBlog/compare/aaba7b8c84ecfb336c71443e30d9fd82d21fb16d...0a66cab341a78585f9b726672f2aa1241c5709a2). This is a retained predecessor; [the complete current successor](https://github.com/Ozwasyd/FsusBlog/tree/codex/chain-3612-release-review-current) has a different tested SHA and must not be merged as an additional independent implementation.\n- Inherited prerequisites are part of this complete scope: canonical observer lock/replay and minimal receipt owners, matrix extractor/fixture and generated authority, scoped four-field scanner and regressions, plus current generated documentation. No prerequisite source is omitted from the review merely because it predates the latest increment.\n\nComplete changed-path scope:\n\n- `config/testing/release-final-execution-authority-index.json`\n- `docs/api.md`\n- `docs/api/aeds-only-policy.md`\n- `docs/api/quick-reference.md`\n- `docs/api/schemas-and-errors.md`\n- `docs/api/stability.md`\n- `docs/architecture/monolithic-distributed-boundary.md`\n- `docs/architecture/overview.md`\n- `docs/releases/blue-green-deployment-runbook.md`\n- `docs/releases/release-identity.md`\n- `docs/testing.md`\n- `tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `tests/tools/behavior-document-consistency-final.test.mjs`\n- `tests/tools/openapi-aeds-observation.test.mjs`\n- `tests/tools/release-final-static-boundary.test.mjs`\n- `tests/tools/support/zero-legacy-scanner-fixture.mjs`\n- `tests/tools/test-matrix-topology-observation.test.mjs`\n- `tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json`\n- `tools/docs/behavior-document-consistency-final.mjs`\n- `tools/fact-extractors/test-matrix/extract.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests:\n- [ ] Targeted frontend checks:\n- [x] Other: PASS on 0a66cab341a78585f9b726672f2aa1241c5709a2: 129 focused controls, zero failures/skips; genuine SDK 10.0.302 original integrated BehaviorDoc admission and receipt verifier exit 0, with eight observations, 34 generated documents, 37 prose claims and all 35 original mutation cases. Its admission content digest is 0be526f34678c5994c94ede2b9592251358755f7e6c76939ffcf3889352be5cb. This historical result remains bound only to this exact head.\n- [x] Other: PASS on 0a66cab341a78585f9b726672f2aa1241c5709a2: authored preservation, current generated check, lifecycle and increment commit contract. The original stale-receipt negative exits 1 as intended.\n- [x] Other: FAIL on 0a66cab341a78585f9b726672f2aa1241c5709a2: actual docs lint has 452 diagnostics versus 401 on unchanged baseline, including 51 generated literal-HTML errors. That canonical-renderer gap is repaired only in later source branches.\n- [x] Other: UNRUN on this head: full matrix/CI, native qualification, independent review and current-master acceptance. No new test or held action was run for this draft handoff.\n- [ ] Other: Remote required checks, trusted-base complete PR metadata validation and current-master qualification are unresolved; missing checks are not passes.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [ ] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: unresolved\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [ ] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: no measured performance, product runtime, native, release or whole-CI qualification claim\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve compiled BehaviorDoc fact sections\n\n## Generated Output\n\n- Generator source: tools/docs/generate-fact-sections.mjs, config/contracts/behavior-fact-extractors.json, config/contracts/generated-fact-sections.json, tools/fact-extractors/runner.mjs, tools/fact-extractors/test-matrix/extract.mjs, tools/test-matrix/generate-release-final-execution-authority.mjs, tools/docs/generated-fact-sections/generator.mjs, tools/docs/generated-fact-sections/renderers.mjs\n- Generated outputs: config/testing/release-final-execution-authority-index.json, docs/api.md, docs/api/aeds-only-policy.md, docs/api/quick-reference.md, docs/api/schemas-and-errors.md, docs/api/stability.md, docs/architecture/monolithic-distributed-boundary.md, docs/architecture/overview.md, docs/releases/blue-green-deployment-runbook.md, docs/releases/release-identity.md, docs/testing.md, tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: unresolved\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: publish this WIP draft for review immediately; retain the exact source ref and evidence identities. No merge, deployment, issue closure, trusted-policy promotion or cross-branch conflict resolution is authorized.\n- Rollback: retain the predecessor refs and receipts; any later correction is separately reviewed. Do not rewrite published history or rebind old receipts to a new SHA.\n- Deferred work: accepted prerequisite evidence, original rejection/mutation controls, full integrated admission/matrix/CI, formal style, generated/naming metadata, independent review and current-master acceptance.\n- Known limitations: the result of one SHA does not qualify another. Physical preparation/recovery obligations remain unresolved, with no successful native descriptor or zero-residue claim. Generated-binding and exact external-naming manifests are unresolved; this draft is not claimed green under Change Contract. Mechanical-separation and complete TODO/FIXME review are also unresolved.\n\n## Notes For Reviewers\n\nOwnership and prerequisites: this review covers [#3612](https://github.com/Ozwasyd/FsusBlog/issues/3612), [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). The original canonical owners remain [#3537](https://github.com/Ozwasyd/FsusBlog/issues/3537), [#3540](https://github.com/Ozwasyd/FsusBlog/issues/3540), [#3534](https://github.com/Ozwasyd/FsusBlog/issues/3534), [#3610](https://github.com/Ozwasyd/FsusBlog/issues/3610) and [#3611](https://github.com/Ozwasyd/FsusBlog/issues/3611). Comment and release products come from [#3576](https://github.com/Ozwasyd/FsusBlog/issues/3576) and [#2225](https://github.com/Ozwasyd/FsusBlog/issues/2225) when included in this head. Their independent acceptance is not inferred from source availability.\n\nApplicable acceptance remains: compile and verify the exact public-error prose state; validate canonical minimal and separate OpenAPI receipt paths with all original stale/source/run/artifact/projection refusals; preserve all four qualification-only field rules and non-qualification behavior without a DocClaim waiver; run original generated/prose/mutation, lifecycle, matrix/static and change-contract gates; obtain independent review and later current-master acceptance. All three issues remain WIP.\n\nReview checkbox applicability: this diff changes JavaScript governance, tests, lockfiles and generated Markdown/JSON, not C# product code, user-visible UI, wire/ABI, database execution or security policy. C# mapping and UI/database/security/ABI items record this scope review, not runtime acceptance. UI evidence is not applicable. No format-only or performance claim is made, so formatter/idempotence/blame/performance fields are `none`. The linter-run checkbox records the executions above, including failures. No default policy was overridden. The exact registered naming-surface coverage and a valid changed generated-binding manifest still require their owners; no diagnostic summary is substituted for those schemas.\n\nNext commands: after draft creation, inspect `gh pr view <number> --repo Ozwasyd/FsusBlog --json headRefOid,baseRefOid,labels,statusCheckRollup,reviewDecision` and reconcile the public metadata with the exact submitted SHA. Pending original acceptance in a qualified environment, the original commands are `node tools/docs/behavior-doc-static-admission.mjs --run-id <fresh-current-source-run>`, `node tools/run-test-matrix.mjs validate`, and `./tools/test.sh fast`. These commands have not been rerun for this handoff. Native, adversarial-control, matrix and whole-CI qualification remain UNRUN where noted above.\n\n[Public candidate binding proof](https://github.com/Ozwasyd/FsusBlog/blob/60051d8376e42580758c92b386e1e0081ca19f57/artifacts/governance/chain-3612-release-owner-handoff/current-product-proof.json) belongs to `bfca0bd79319554b9f61b06d4b30af5726179cc3` only; it is not a pass for another branch or for the evidence-only commit that stores it. Two inherited comment-document MD022 errors were introduced by [db1c168a7a29e1e9f5c7d98f606a1e33110340eb](https://github.com/Ozwasyd/FsusBlog/commit/db1c168a7a29e1e9f5c7d98f606a1e33110340eb), related to [#1756](https://github.com/Ozwasyd/FsusBlog/issues/1756). They remain with their original authored-prose owner; this review neither edits nor waives them.\n",
+      "bodySha256": "fe9aa79f5f4734c6c9273e115f45d12410c610b62d2f87afb263fb00a0c34d0e",
+      "metadataValidation": "UNRUN for this handoff; generated/naming binding unresolved; no fabricated gate pass."
+    },
+    {
+      "branch": "codex/chain-3612-release-owner-current",
+      "head": "29cd0b3d734511bda329148cb3712dea9238f71f",
+      "baseBranch": "master",
+      "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "changedPaths": [
+        "config/testing/release-final-execution-authority-index.json",
+        "docs/api.md",
+        "docs/api/aeds-only-policy.md",
+        "docs/api/quick-reference.md",
+        "docs/api/schemas-and-errors.md",
+        "docs/api/stability.md",
+        "docs/architecture/comment-command-boundary.md",
+        "docs/architecture/comment-query-boundary.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/overview.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "docs/releases/release-identity.md",
+        "docs/testing.md",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/tools/generated-fact-sections.test.mjs",
+        "tests/tools/native-tooling-style.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+        "tests/tools/test-matrix-topology-observation.test.mjs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tools/fact-extractors/test-matrix/extract.mjs"
+      ],
+      "changedPathCount": 29,
+      "role": "source",
+      "existingPr": null,
+      "registeredExternalNamingMatches": [
+        {
+          "id": "environment-variable",
+          "paths": [
+            "tools/docs/behavior-document-consistency-final.mjs",
+            "tools/docs/generated-fact-sections/renderers.mjs",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "post-runtime-observation-authority",
+          "paths": [
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "content-doc-exactness-authority",
+          "paths": [
+            "docs/architecture/comment-command-boundary.md",
+            "docs/architecture/overview.md"
+          ]
+        },
+        {
+          "id": "auth-security-doc-exactness-authority",
+          "paths": [
+            "docs/api/schemas-and-errors.md",
+            "docs/architecture/overview.md",
+            "tools/docs/generated-fact-sections/renderers.mjs"
+          ]
+        },
+        {
+          "id": "json-wire-key",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+          ]
+        },
+        {
+          "id": "css-like-contract",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "docs/api/aeds-only-policy.md",
+            "docs/api/quick-reference.md",
+            "docs/api/schemas-and-errors.md",
+            "docs/api/stability.md",
+            "docs/architecture/comment-command-boundary.md",
+            "docs/architecture/comment-query-boundary.md",
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/architecture/overview.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "docs/releases/release-identity.md"
+          ]
+        }
+      ],
+      "title": "docs(release): preserve generated bundle-order output",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "type:maintenance",
+        "area:tooling",
+        "area:docs",
+        "area:contracts",
+        "status:blocked",
+        "evidence:needs-tests"
+      ],
+      "body": "## Linked Issue\n\nRefs #3612\n\nRelated to [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). **WIP draft; no issue is accepted or closed.**\n\n## Scope Summary\n\n- WIP source retention: consume the exact release bundle-order output from e0edaf15de4189b7832a6c04bbee723f523ba667. The source declaration offered in 5d320109c107237932cb7c7fa60fc979ffc7bec2 is already present. One generated line escapes four arrows; exterior bytes and adjacent deployment content are unchanged. This published predecessor is retained; the identical-tree successor corrects the standalone commit reference footer.\n- Exact remote head: `29cd0b3d734511bda329148cb3712dea9238f71f`; source branch: `codex/chain-3612-release-owner-current`; target: `master`, observed at `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`. Review merge-base: `aaba7b8c84ecfb336c71443e30d9fd82d21fb16d`. [Complete 29-path comparison](https://github.com/Ozwasyd/FsusBlog/compare/aaba7b8c84ecfb336c71443e30d9fd82d21fb16d...29cd0b3d734511bda329148cb3712dea9238f71f). This is a retained predecessor; [the complete current successor](https://github.com/Ozwasyd/FsusBlog/tree/codex/chain-3612-release-review-current) has a different tested SHA and must not be merged as an additional independent implementation.\n- Inherited prerequisites are part of this complete scope: canonical observer lock/replay and minimal receipt owners, matrix extractor/fixture and generated authority, scoped four-field scanner and regressions, plus current generated documentation. No prerequisite source is omitted from the review merely because it predates the latest increment.\n\nComplete changed-path scope:\n\n- `config/testing/release-final-execution-authority-index.json`\n- `docs/api.md`\n- `docs/api/aeds-only-policy.md`\n- `docs/api/quick-reference.md`\n- `docs/api/schemas-and-errors.md`\n- `docs/api/stability.md`\n- `docs/architecture/comment-command-boundary.md`\n- `docs/architecture/comment-query-boundary.md`\n- `docs/architecture/monolithic-distributed-boundary.md`\n- `docs/architecture/overview.md`\n- `docs/releases/blue-green-deployment-runbook.md`\n- `docs/releases/release-identity.md`\n- `docs/testing.md`\n- `tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `tests/tools/behavior-document-consistency-final.test.mjs`\n- `tests/tools/generated-fact-sections.test.mjs`\n- `tests/tools/native-tooling-style.test.mjs`\n- `tests/tools/openapi-aeds-observation.test.mjs`\n- `tests/tools/release-final-static-boundary.test.mjs`\n- `tests/tools/support/zero-legacy-scanner-fixture.mjs`\n- `tests/tools/test-matrix-topology-observation.test.mjs`\n- `tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json`\n- `tools/docs/behavior-document-consistency-final.mjs`\n- `tools/docs/generated-fact-sections/renderers.mjs`\n- `tools/fact-extractors/test-matrix/extract.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests:\n- [ ] Targeted frontend checks:\n- [x] Other: PASS on 29cd0b3d734511bda329148cb3712dea9238f71f: SDK 10.0.302, five real compiled hosts, cache miss, eight uncached fact extractors; original generated check passes 34 documents/84 sections and original prose verifies 37 prose claims, zero diagnostics. All three selected bodies match its own current receipts.\n- [x] Other: FAIL on 29cd0b3d734511bda329148cb3712dea9238f71f: commit-range contract rejects the inline reference footer. Three-document Markdownlint exits 1 with two inherited MD022 headings. The corrected footer and independently generated successor receipts belong only to bfca0bd79319554b9f61b06d4b30af5726179cc3.\n- [x] Other: UNRUN on this head: complete integrated admission/mutation, matrix/full CI, independent review and current-master qualification.\n- [ ] Other: Remote required checks, trusted-base complete PR metadata validation and current-master qualification are unresolved; missing checks are not passes.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [ ] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: unresolved\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [ ] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: no measured performance, product runtime, native, release or whole-CI qualification claim\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve generated bundle-order output\n\n## Generated Output\n\n- Generator source: tools/docs/generate-fact-sections.mjs, config/contracts/behavior-fact-extractors.json, config/contracts/generated-fact-sections.json, tools/fact-extractors/runner.mjs, tools/fact-extractors/test-matrix/extract.mjs, tools/test-matrix/generate-release-final-execution-authority.mjs, tools/docs/generated-fact-sections/generator.mjs, tools/docs/generated-fact-sections/renderers.mjs\n- Generated outputs: config/testing/release-final-execution-authority-index.json, docs/api.md, docs/api/aeds-only-policy.md, docs/api/quick-reference.md, docs/api/schemas-and-errors.md, docs/api/stability.md, docs/architecture/comment-command-boundary.md, docs/architecture/comment-query-boundary.md, docs/architecture/monolithic-distributed-boundary.md, docs/architecture/overview.md, docs/releases/blue-green-deployment-runbook.md, docs/releases/release-identity.md, docs/testing.md, tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: unresolved\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: publish this WIP draft for review immediately; retain the exact source ref and evidence identities. No merge, deployment, issue closure, trusted-policy promotion or cross-branch conflict resolution is authorized.\n- Rollback: retain the predecessor refs and receipts; any later correction is separately reviewed. Do not rewrite published history or rebind old receipts to a new SHA.\n- Deferred work: accepted prerequisite evidence, original rejection/mutation controls, full integrated admission/matrix/CI, formal style, generated/naming metadata, independent review and current-master acceptance.\n- Known limitations: the result of one SHA does not qualify another. Physical preparation/recovery obligations remain unresolved, with no successful native descriptor or zero-residue claim. Generated-binding and exact external-naming manifests are unresolved; this draft is not claimed green under Change Contract. Mechanical-separation and complete TODO/FIXME review are also unresolved.\n\n## Notes For Reviewers\n\nOwnership and prerequisites: this review covers [#3612](https://github.com/Ozwasyd/FsusBlog/issues/3612), [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). The original canonical owners remain [#3537](https://github.com/Ozwasyd/FsusBlog/issues/3537), [#3540](https://github.com/Ozwasyd/FsusBlog/issues/3540), [#3534](https://github.com/Ozwasyd/FsusBlog/issues/3534), [#3610](https://github.com/Ozwasyd/FsusBlog/issues/3610) and [#3611](https://github.com/Ozwasyd/FsusBlog/issues/3611). Comment and release products come from [#3576](https://github.com/Ozwasyd/FsusBlog/issues/3576) and [#2225](https://github.com/Ozwasyd/FsusBlog/issues/2225) when included in this head. Their independent acceptance is not inferred from source availability.\n\nApplicable acceptance remains: compile and verify the exact public-error prose state; validate canonical minimal and separate OpenAPI receipt paths with all original stale/source/run/artifact/projection refusals; preserve all four qualification-only field rules and non-qualification behavior without a DocClaim waiver; run original generated/prose/mutation, lifecycle, matrix/static and change-contract gates; obtain independent review and later current-master acceptance. All three issues remain WIP.\n\nReview checkbox applicability: this diff changes JavaScript governance, tests, lockfiles and generated Markdown/JSON, not C# product code, user-visible UI, wire/ABI, database execution or security policy. C# mapping and UI/database/security/ABI items record this scope review, not runtime acceptance. UI evidence is not applicable. No format-only or performance claim is made, so formatter/idempotence/blame/performance fields are `none`. The linter-run checkbox records the executions above, including failures. No default policy was overridden. The exact registered naming-surface coverage and a valid changed generated-binding manifest still require their owners; no diagnostic summary is substituted for those schemas.\n\nNext commands: after draft creation, inspect `gh pr view <number> --repo Ozwasyd/FsusBlog --json headRefOid,baseRefOid,labels,statusCheckRollup,reviewDecision` and reconcile the public metadata with the exact submitted SHA. Pending original acceptance in a qualified environment, the original commands are `node tools/docs/behavior-doc-static-admission.mjs --run-id <fresh-current-source-run>`, `node tools/run-test-matrix.mjs validate`, and `./tools/test.sh fast`. These commands have not been rerun for this handoff. Native, adversarial-control, matrix and whole-CI qualification remain UNRUN where noted above.\n\n[Public candidate binding proof](https://github.com/Ozwasyd/FsusBlog/blob/60051d8376e42580758c92b386e1e0081ca19f57/artifacts/governance/chain-3612-release-owner-handoff/current-product-proof.json) belongs to `bfca0bd79319554b9f61b06d4b30af5726179cc3` only; it is not a pass for another branch or for the evidence-only commit that stores it. Two inherited comment-document MD022 errors were introduced by [db1c168a7a29e1e9f5c7d98f606a1e33110340eb](https://github.com/Ozwasyd/FsusBlog/commit/db1c168a7a29e1e9f5c7d98f606a1e33110340eb), related to [#1756](https://github.com/Ozwasyd/FsusBlog/issues/1756). They remain with their original authored-prose owner; this review neither edits nor waives them.\n",
+      "bodySha256": "4932976a6be206e6a37eb388e6d071b121ac970ffbbade3729a9d508f11792fb",
+      "metadataValidation": "UNRUN for this handoff; generated/naming binding unresolved; no fabricated gate pass."
+    },
+    {
+      "branch": "codex/chain-3612-release-review-current",
+      "head": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "baseBranch": "master",
+      "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "changedPaths": [
+        "config/testing/release-final-execution-authority-index.json",
+        "docs/api.md",
+        "docs/api/aeds-only-policy.md",
+        "docs/api/quick-reference.md",
+        "docs/api/schemas-and-errors.md",
+        "docs/api/stability.md",
+        "docs/architecture/comment-command-boundary.md",
+        "docs/architecture/comment-query-boundary.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/overview.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "docs/releases/release-identity.md",
+        "docs/testing.md",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/tools/generated-fact-sections.test.mjs",
+        "tests/tools/native-tooling-style.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+        "tests/tools/test-matrix-topology-observation.test.mjs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tools/fact-extractors/test-matrix/extract.mjs"
+      ],
+      "changedPathCount": 29,
+      "role": "source",
+      "existingPr": null,
+      "registeredExternalNamingMatches": [
+        {
+          "id": "environment-variable",
+          "paths": [
+            "tools/docs/behavior-document-consistency-final.mjs",
+            "tools/docs/generated-fact-sections/renderers.mjs",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "post-runtime-observation-authority",
+          "paths": [
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "content-doc-exactness-authority",
+          "paths": [
+            "docs/architecture/comment-command-boundary.md",
+            "docs/architecture/overview.md"
+          ]
+        },
+        {
+          "id": "auth-security-doc-exactness-authority",
+          "paths": [
+            "docs/api/schemas-and-errors.md",
+            "docs/architecture/overview.md",
+            "tools/docs/generated-fact-sections/renderers.mjs"
+          ]
+        },
+        {
+          "id": "json-wire-key",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+          ]
+        },
+        {
+          "id": "css-like-contract",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "docs/api/aeds-only-policy.md",
+            "docs/api/quick-reference.md",
+            "docs/api/schemas-and-errors.md",
+            "docs/api/stability.md",
+            "docs/architecture/comment-command-boundary.md",
+            "docs/architecture/comment-query-boundary.md",
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/architecture/overview.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "docs/releases/release-identity.md"
+          ]
+        }
+      ],
+      "title": "fix(governance): align current BehaviorDoc facts and prose",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "type:maintenance",
+        "area:tooling",
+        "area:docs",
+        "area:contracts",
+        "status:blocked",
+        "evidence:needs-tests"
+      ],
+      "body": "## Linked Issue\n\nRefs #3612\n\nRelated to [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). **WIP draft; no issue is accepted or closed.**\n\n## Scope Summary\n\n- Current WIP source: retain the canonical minimal OpenAPI receipt and scoped four-field scanner owners; consume canonical literal rendering, typed route census, two comment bounds and the release bundle-order product. The final release change is one generated line containing four escaped arrows. Exterior prose, markers and the adjacent deployment region are preserved.\n- Exact remote head: `bfca0bd79319554b9f61b06d4b30af5726179cc3`; source branch: `codex/chain-3612-release-review-current`; target: `master`, observed at `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`. Review merge-base: `aaba7b8c84ecfb336c71443e30d9fd82d21fb16d`. [Complete 29-path comparison](https://github.com/Ozwasyd/FsusBlog/compare/aaba7b8c84ecfb336c71443e30d9fd82d21fb16d...bfca0bd79319554b9f61b06d4b30af5726179cc3).\n- Inherited prerequisites are part of this complete scope: canonical observer lock/replay and minimal receipt owners, matrix extractor/fixture and generated authority, scoped four-field scanner and regressions, plus current generated documentation. No prerequisite source is omitted from the review merely because it predates the latest increment.\n\nComplete changed-path scope:\n\n- `config/testing/release-final-execution-authority-index.json`\n- `docs/api.md`\n- `docs/api/aeds-only-policy.md`\n- `docs/api/quick-reference.md`\n- `docs/api/schemas-and-errors.md`\n- `docs/api/stability.md`\n- `docs/architecture/comment-command-boundary.md`\n- `docs/architecture/comment-query-boundary.md`\n- `docs/architecture/monolithic-distributed-boundary.md`\n- `docs/architecture/overview.md`\n- `docs/releases/blue-green-deployment-runbook.md`\n- `docs/releases/release-identity.md`\n- `docs/testing.md`\n- `tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `tests/tools/behavior-document-consistency-final.test.mjs`\n- `tests/tools/generated-fact-sections.test.mjs`\n- `tests/tools/native-tooling-style.test.mjs`\n- `tests/tools/openapi-aeds-observation.test.mjs`\n- `tests/tools/release-final-static-boundary.test.mjs`\n- `tests/tools/support/zero-legacy-scanner-fixture.mjs`\n- `tests/tools/test-matrix-topology-observation.test.mjs`\n- `tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json`\n- `tools/docs/behavior-document-consistency-final.mjs`\n- `tools/docs/generated-fact-sections/renderers.mjs`\n- `tools/fact-extractors/test-matrix/extract.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests:\n- [ ] Targeted frontend checks:\n- [x] Other: PASS on bfca0bd79319554b9f61b06d4b30af5726179cc3: original SDK 10.0.302 minimal producer, five genuine compiled hosts, cache miss; all eight original uncached fact extractors return ok. Minimal receipt content digest: 1b84431ce37dbff0cdcec6b44df053c52d8570c1b7b838903bc549ec6d6ee264.\n- [x] Other: PASS on bfca0bd79319554b9f61b06d4b30af5726179cc3: original generated CLI checks 34 documents and 84 sections; original prose CLI verifies 37 prose claims from 121 located claims, with zero diagnostics. All three previously blocked bodies match current canonical rendering. Compiled OpenAPI observes 274 operation-status-authority-bound operations. Bytes, sizes and mtimes of all 34 documents remain unchanged.\n- [x] Other: PASS on bfca0bd79319554b9f61b06d4b30af5726179cc3: full commit-range and whitespace checks. Lifecycle 372, DocClaim 121 and prose-governance checks passed on 29cd0b3d734511bda329148cb3712dea9238f71f; identical tree c87b777ae82077d67acb0dfbc920567cafe8b553 establishes source-input continuity, not receipt rebinding.\n- [x] Other: FAIL on 29cd0b3d734511bda329148cb3712dea9238f71f, whose tree is identical to this head: three-document Markdownlint exits 1 for two inherited MD022 headings. Full admission, held rejection/mutation controls, matrix/full CI, independent review and current-master qualification are UNRUN on this head.\n- [ ] Other: Remote required checks, trusted-base complete PR metadata validation and current-master qualification are unresolved; missing checks are not passes.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [ ] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: unresolved\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [ ] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: no measured performance, product runtime, native, release or whole-CI qualification claim\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: align current BehaviorDoc facts and prose\n\n## Generated Output\n\n- Generator source: tools/docs/generate-fact-sections.mjs, config/contracts/behavior-fact-extractors.json, config/contracts/generated-fact-sections.json, tools/fact-extractors/runner.mjs, tools/fact-extractors/test-matrix/extract.mjs, tools/test-matrix/generate-release-final-execution-authority.mjs, tools/docs/generated-fact-sections/generator.mjs, tools/docs/generated-fact-sections/renderers.mjs\n- Generated outputs: config/testing/release-final-execution-authority-index.json, docs/api.md, docs/api/aeds-only-policy.md, docs/api/quick-reference.md, docs/api/schemas-and-errors.md, docs/api/stability.md, docs/architecture/comment-command-boundary.md, docs/architecture/comment-query-boundary.md, docs/architecture/monolithic-distributed-boundary.md, docs/architecture/overview.md, docs/releases/blue-green-deployment-runbook.md, docs/releases/release-identity.md, docs/testing.md, tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: unresolved\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: publish this WIP draft for review immediately; retain the exact source ref and evidence identities. No merge, deployment, issue closure, trusted-policy promotion or cross-branch conflict resolution is authorized.\n- Rollback: retain the predecessor refs and receipts; any later correction is separately reviewed. Do not rewrite published history or rebind old receipts to a new SHA.\n- Deferred work: accepted prerequisite evidence, original rejection/mutation controls, full integrated admission/matrix/CI, formal style, generated/naming metadata, independent review and current-master acceptance.\n- Known limitations: the result of one SHA does not qualify another. Physical preparation/recovery obligations remain unresolved, with no successful native descriptor or zero-residue claim. Generated-binding and exact external-naming manifests are unresolved; this draft is not claimed green under Change Contract. Mechanical-separation and complete TODO/FIXME review are also unresolved.\n\n## Notes For Reviewers\n\nOwnership and prerequisites: this review covers [#3612](https://github.com/Ozwasyd/FsusBlog/issues/3612), [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). The original canonical owners remain [#3537](https://github.com/Ozwasyd/FsusBlog/issues/3537), [#3540](https://github.com/Ozwasyd/FsusBlog/issues/3540), [#3534](https://github.com/Ozwasyd/FsusBlog/issues/3534), [#3610](https://github.com/Ozwasyd/FsusBlog/issues/3610) and [#3611](https://github.com/Ozwasyd/FsusBlog/issues/3611). Comment and release products come from [#3576](https://github.com/Ozwasyd/FsusBlog/issues/3576) and [#2225](https://github.com/Ozwasyd/FsusBlog/issues/2225) when included in this head. Their independent acceptance is not inferred from source availability.\n\nApplicable acceptance remains: compile and verify the exact public-error prose state; validate canonical minimal and separate OpenAPI receipt paths with all original stale/source/run/artifact/projection refusals; preserve all four qualification-only field rules and non-qualification behavior without a DocClaim waiver; run original generated/prose/mutation, lifecycle, matrix/static and change-contract gates; obtain independent review and later current-master acceptance. All three issues remain WIP.\n\nReview checkbox applicability: this diff changes JavaScript governance, tests, lockfiles and generated Markdown/JSON, not C# product code, user-visible UI, wire/ABI, database execution or security policy. C# mapping and UI/database/security/ABI items record this scope review, not runtime acceptance. UI evidence is not applicable. No format-only or performance claim is made, so formatter/idempotence/blame/performance fields are `none`. The linter-run checkbox records the executions above, including failures. No default policy was overridden. The exact registered naming-surface coverage and a valid changed generated-binding manifest still require their owners; no diagnostic summary is substituted for those schemas.\n\nNext commands: after draft creation, inspect `gh pr view <number> --repo Ozwasyd/FsusBlog --json headRefOid,baseRefOid,labels,statusCheckRollup,reviewDecision` and reconcile the public metadata with the exact submitted SHA. Pending original acceptance in a qualified environment, the original commands are `node tools/docs/behavior-doc-static-admission.mjs --run-id <fresh-current-source-run>`, `node tools/run-test-matrix.mjs validate`, and `./tools/test.sh fast`. These commands have not been rerun for this handoff. Native, adversarial-control, matrix and whole-CI qualification remain UNRUN where noted above.\n\n[Public candidate binding proof](https://github.com/Ozwasyd/FsusBlog/blob/60051d8376e42580758c92b386e1e0081ca19f57/artifacts/governance/chain-3612-release-owner-handoff/current-product-proof.json) belongs to `bfca0bd79319554b9f61b06d4b30af5726179cc3` only; it is not a pass for another branch or for the evidence-only commit that stores it. Two inherited comment-document MD022 errors were introduced by [db1c168a7a29e1e9f5c7d98f606a1e33110340eb](https://github.com/Ozwasyd/FsusBlog/commit/db1c168a7a29e1e9f5c7d98f606a1e33110340eb), related to [#1756](https://github.com/Ozwasyd/FsusBlog/issues/1756). They remain with their original authored-prose owner; this review neither edits nor waives them.\n",
+      "bodySha256": "e580e5235db3414a579c1e32d290ba80f9f3a5cafefbe7ebee603f113aeba543",
+      "metadataValidation": "UNRUN for this handoff; generated/naming binding unresolved; no fabricated gate pass."
+    },
+    {
+      "branch": "codex/chain-3612-renderer-canonical",
+      "head": "3de72226437c9940eef09cc36f833ce3210a292f",
+      "baseBranch": "master",
+      "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "changedPaths": [
+        "config/testing/release-final-execution-authority-index.json",
+        "docs/api.md",
+        "docs/api/aeds-only-policy.md",
+        "docs/api/quick-reference.md",
+        "docs/api/schemas-and-errors.md",
+        "docs/api/stability.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/overview.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "docs/releases/release-identity.md",
+        "docs/testing.md",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/tools/generated-fact-sections.test.mjs",
+        "tests/tools/native-tooling-style.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+        "tests/tools/test-matrix-topology-observation.test.mjs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tools/fact-extractors/test-matrix/extract.mjs"
+      ],
+      "changedPathCount": 27,
+      "role": "source",
+      "existingPr": null,
+      "registeredExternalNamingMatches": [
+        {
+          "id": "environment-variable",
+          "paths": [
+            "tools/docs/behavior-document-consistency-final.mjs",
+            "tools/docs/generated-fact-sections/renderers.mjs",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "post-runtime-observation-authority",
+          "paths": [
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "content-doc-exactness-authority",
+          "paths": [
+            "docs/architecture/overview.md"
+          ]
+        },
+        {
+          "id": "auth-security-doc-exactness-authority",
+          "paths": [
+            "docs/api/schemas-and-errors.md",
+            "docs/architecture/overview.md",
+            "tools/docs/generated-fact-sections/renderers.mjs"
+          ]
+        },
+        {
+          "id": "json-wire-key",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+          ]
+        },
+        {
+          "id": "css-like-contract",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "docs/api/aeds-only-policy.md",
+            "docs/api/quick-reference.md",
+            "docs/api/schemas-and-errors.md",
+            "docs/api/stability.md",
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/architecture/overview.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "docs/releases/release-identity.md"
+          ]
+        }
+      ],
+      "title": "fix(docs): synchronize canonical literal fact rendering",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "type:maintenance",
+        "area:tooling",
+        "area:docs",
+        "area:contracts",
+        "status:blocked",
+        "evidence:needs-tests"
+      ],
+      "body": "## Linked Issue\n\nRefs #3612\n\nRelated to [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). **WIP draft; no issue is accepted or closed.**\n\n## Scope Summary\n\n- WIP source retention: consume canonical renderer 4c3debe800a97455e92e4ff77db8a2b98056e550, refresh the existing registered closure through its producer and regenerate the owned API sections. Literal compiler names are escaped through the renderer. The scoped scanner, runtime/OpenAPI prerequisites and five canonical host locks are retained. This successor corrects the predecessor commit reference metadata without changing its tree.\n- Exact remote head: `3de72226437c9940eef09cc36f833ce3210a292f`; source branch: `codex/chain-3612-renderer-canonical`; target: `master`, observed at `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`. Review merge-base: `aaba7b8c84ecfb336c71443e30d9fd82d21fb16d`. [Complete 27-path comparison](https://github.com/Ozwasyd/FsusBlog/compare/aaba7b8c84ecfb336c71443e30d9fd82d21fb16d...3de72226437c9940eef09cc36f833ce3210a292f). This is a retained predecessor; [the complete current successor](https://github.com/Ozwasyd/FsusBlog/tree/codex/chain-3612-release-review-current) has a different tested SHA and must not be merged as an additional independent implementation.\n- Inherited prerequisites are part of this complete scope: canonical observer lock/replay and minimal receipt owners, matrix extractor/fixture and generated authority, scoped four-field scanner and regressions, plus current generated documentation. No prerequisite source is omitted from the review merely because it predates the latest increment.\n\nComplete changed-path scope:\n\n- `config/testing/release-final-execution-authority-index.json`\n- `docs/api.md`\n- `docs/api/aeds-only-policy.md`\n- `docs/api/quick-reference.md`\n- `docs/api/schemas-and-errors.md`\n- `docs/api/stability.md`\n- `docs/architecture/monolithic-distributed-boundary.md`\n- `docs/architecture/overview.md`\n- `docs/releases/blue-green-deployment-runbook.md`\n- `docs/releases/release-identity.md`\n- `docs/testing.md`\n- `tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `tests/tools/behavior-document-consistency-final.test.mjs`\n- `tests/tools/generated-fact-sections.test.mjs`\n- `tests/tools/native-tooling-style.test.mjs`\n- `tests/tools/openapi-aeds-observation.test.mjs`\n- `tests/tools/release-final-static-boundary.test.mjs`\n- `tests/tools/support/zero-legacy-scanner-fixture.mjs`\n- `tests/tools/test-matrix-topology-observation.test.mjs`\n- `tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json`\n- `tools/docs/behavior-document-consistency-final.mjs`\n- `tools/docs/generated-fact-sections/renderers.mjs`\n- `tools/fact-extractors/test-matrix/extract.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests:\n- [ ] Targeted frontend checks:\n- [x] Other: PASS on 3de72226437c9940eef09cc36f833ce3210a292f: 321 original controls, zero failures/skips; genuine SDK minimal build and eight facts; ordinary lifecycle, range and source-diff checks. Introduced literal HTML diagnostics are removed by canonical rendering.\n- [x] Other: FAIL on 3de72226437c9940eef09cc36f833ce3210a292f: whole admission/generated check still rejects the two comment bounds and release bundle-order. Actual docs lint retains 48 inherited diagnostics; original matrix producer-inventory validation fails.\n- [x] Other: UNRUN after the generated failure: integrated prose/mutation acceptance, whole CI, native qualification and independent review. Later typed-census/comment/release changes and their evidence are not present on this head.\n- [ ] Other: Remote required checks, trusted-base complete PR metadata validation and current-master qualification are unresolved; missing checks are not passes.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [ ] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: unresolved\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [ ] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: no measured performance, product runtime, native, release or whole-CI qualification claim\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: synchronize canonical literal fact rendering\n\n## Generated Output\n\n- Generator source: tools/docs/generate-fact-sections.mjs, config/contracts/behavior-fact-extractors.json, config/contracts/generated-fact-sections.json, tools/fact-extractors/runner.mjs, tools/fact-extractors/test-matrix/extract.mjs, tools/test-matrix/generate-release-final-execution-authority.mjs, tools/docs/generated-fact-sections/generator.mjs, tools/docs/generated-fact-sections/renderers.mjs\n- Generated outputs: config/testing/release-final-execution-authority-index.json, docs/api.md, docs/api/aeds-only-policy.md, docs/api/quick-reference.md, docs/api/schemas-and-errors.md, docs/api/stability.md, docs/architecture/monolithic-distributed-boundary.md, docs/architecture/overview.md, docs/releases/blue-green-deployment-runbook.md, docs/releases/release-identity.md, docs/testing.md, tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: unresolved\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: publish this WIP draft for review immediately; retain the exact source ref and evidence identities. No merge, deployment, issue closure, trusted-policy promotion or cross-branch conflict resolution is authorized.\n- Rollback: retain the predecessor refs and receipts; any later correction is separately reviewed. Do not rewrite published history or rebind old receipts to a new SHA.\n- Deferred work: accepted prerequisite evidence, original rejection/mutation controls, full integrated admission/matrix/CI, formal style, generated/naming metadata, independent review and current-master acceptance.\n- Known limitations: the result of one SHA does not qualify another. Physical preparation/recovery obligations remain unresolved, with no successful native descriptor or zero-residue claim. Generated-binding and exact external-naming manifests are unresolved; this draft is not claimed green under Change Contract. Mechanical-separation and complete TODO/FIXME review are also unresolved.\n\n## Notes For Reviewers\n\nOwnership and prerequisites: this review covers [#3612](https://github.com/Ozwasyd/FsusBlog/issues/3612), [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). The original canonical owners remain [#3537](https://github.com/Ozwasyd/FsusBlog/issues/3537), [#3540](https://github.com/Ozwasyd/FsusBlog/issues/3540), [#3534](https://github.com/Ozwasyd/FsusBlog/issues/3534), [#3610](https://github.com/Ozwasyd/FsusBlog/issues/3610) and [#3611](https://github.com/Ozwasyd/FsusBlog/issues/3611). Comment and release products come from [#3576](https://github.com/Ozwasyd/FsusBlog/issues/3576) and [#2225](https://github.com/Ozwasyd/FsusBlog/issues/2225) when included in this head. Their independent acceptance is not inferred from source availability.\n\nApplicable acceptance remains: compile and verify the exact public-error prose state; validate canonical minimal and separate OpenAPI receipt paths with all original stale/source/run/artifact/projection refusals; preserve all four qualification-only field rules and non-qualification behavior without a DocClaim waiver; run original generated/prose/mutation, lifecycle, matrix/static and change-contract gates; obtain independent review and later current-master acceptance. All three issues remain WIP.\n\nReview checkbox applicability: this diff changes JavaScript governance, tests, lockfiles and generated Markdown/JSON, not C# product code, user-visible UI, wire/ABI, database execution or security policy. C# mapping and UI/database/security/ABI items record this scope review, not runtime acceptance. UI evidence is not applicable. No format-only or performance claim is made, so formatter/idempotence/blame/performance fields are `none`. The linter-run checkbox records the executions above, including failures. No default policy was overridden. The exact registered naming-surface coverage and a valid changed generated-binding manifest still require their owners; no diagnostic summary is substituted for those schemas.\n\nNext commands: after draft creation, inspect `gh pr view <number> --repo Ozwasyd/FsusBlog --json headRefOid,baseRefOid,labels,statusCheckRollup,reviewDecision` and reconcile the public metadata with the exact submitted SHA. Pending original acceptance in a qualified environment, the original commands are `node tools/docs/behavior-doc-static-admission.mjs --run-id <fresh-current-source-run>`, `node tools/run-test-matrix.mjs validate`, and `./tools/test.sh fast`. These commands have not been rerun for this handoff. Native, adversarial-control, matrix and whole-CI qualification remain UNRUN where noted above.\n\n[Public candidate binding proof](https://github.com/Ozwasyd/FsusBlog/blob/60051d8376e42580758c92b386e1e0081ca19f57/artifacts/governance/chain-3612-release-owner-handoff/current-product-proof.json) belongs to `bfca0bd79319554b9f61b06d4b30af5726179cc3` only; it is not a pass for another branch or for the evidence-only commit that stores it. Two inherited comment-document MD022 errors were introduced by [db1c168a7a29e1e9f5c7d98f606a1e33110340eb](https://github.com/Ozwasyd/FsusBlog/commit/db1c168a7a29e1e9f5c7d98f606a1e33110340eb), related to [#1756](https://github.com/Ozwasyd/FsusBlog/issues/1756). They remain with their original authored-prose owner; this review neither edits nor waives them.\n",
+      "bodySha256": "2cd39a72446c69b581defc9e4c710c347531145ecdf2d0f5bf6dcafdb93e8d1e",
+      "metadataValidation": "UNRUN for this handoff; generated/naming binding unresolved; no fabricated gate pass."
+    },
+    {
+      "branch": "codex/chain-3612-renderer-current",
+      "head": "18ba896217137b005add9b087ca76564b405913b",
+      "baseBranch": "master",
+      "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "changedPaths": [
+        "config/testing/release-final-execution-authority-index.json",
+        "docs/api.md",
+        "docs/api/aeds-only-policy.md",
+        "docs/api/quick-reference.md",
+        "docs/api/schemas-and-errors.md",
+        "docs/api/stability.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/overview.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "docs/releases/release-identity.md",
+        "docs/testing.md",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/tools/generated-fact-sections.test.mjs",
+        "tests/tools/native-tooling-style.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+        "tests/tools/test-matrix-topology-observation.test.mjs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tools/fact-extractors/test-matrix/extract.mjs"
+      ],
+      "changedPathCount": 27,
+      "role": "source",
+      "existingPr": null,
+      "registeredExternalNamingMatches": [
+        {
+          "id": "environment-variable",
+          "paths": [
+            "tools/docs/behavior-document-consistency-final.mjs",
+            "tools/docs/generated-fact-sections/renderers.mjs",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "post-runtime-observation-authority",
+          "paths": [
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "tools/fact-extractors/test-matrix/extract.mjs"
+          ]
+        },
+        {
+          "id": "content-doc-exactness-authority",
+          "paths": [
+            "docs/architecture/overview.md"
+          ]
+        },
+        {
+          "id": "auth-security-doc-exactness-authority",
+          "paths": [
+            "docs/api/schemas-and-errors.md",
+            "docs/architecture/overview.md",
+            "tools/docs/generated-fact-sections/renderers.mjs"
+          ]
+        },
+        {
+          "id": "json-wire-key",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+          ]
+        },
+        {
+          "id": "css-like-contract",
+          "paths": [
+            "config/testing/release-final-execution-authority-index.json",
+            "docs/api/aeds-only-policy.md",
+            "docs/api/quick-reference.md",
+            "docs/api/schemas-and-errors.md",
+            "docs/api/stability.md",
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/architecture/overview.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "docs/releases/release-identity.md"
+          ]
+        }
+      ],
+      "title": "fix(docs): preserve literal fact rendering source",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "type:maintenance",
+        "area:tooling",
+        "area:docs",
+        "area:contracts",
+        "status:blocked",
+        "evidence:needs-tests"
+      ],
+      "body": "## Linked Issue\n\nRefs #3612\n\nRelated to [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). **WIP draft; no issue is accepted or closed.**\n\n## Scope Summary\n\n- WIP source retention: preserve the published literal-renderer/API-product predecessor. It has the same tree as 3de72226437c9940eef09cc36f833ce3210a292f, whose separate branch corrects two standalone commit reference footers. The inherited observer/scanner, locks and producer closure remain in scope; this branch has not acquired the later census/comment/release increments.\n- Exact remote head: `18ba896217137b005add9b087ca76564b405913b`; source branch: `codex/chain-3612-renderer-current`; target: `master`, observed at `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`. Review merge-base: `aaba7b8c84ecfb336c71443e30d9fd82d21fb16d`. [Complete 27-path comparison](https://github.com/Ozwasyd/FsusBlog/compare/aaba7b8c84ecfb336c71443e30d9fd82d21fb16d...18ba896217137b005add9b087ca76564b405913b). This is a retained predecessor; [the complete current successor](https://github.com/Ozwasyd/FsusBlog/tree/codex/chain-3612-release-review-current) has a different tested SHA and must not be merged as an additional independent implementation.\n- Inherited prerequisites are part of this complete scope: canonical observer lock/replay and minimal receipt owners, matrix extractor/fixture and generated authority, scoped four-field scanner and regressions, plus current generated documentation. No prerequisite source is omitted from the review merely because it predates the latest increment.\n\nComplete changed-path scope:\n\n- `config/testing/release-final-execution-authority-index.json`\n- `docs/api.md`\n- `docs/api/aeds-only-policy.md`\n- `docs/api/quick-reference.md`\n- `docs/api/schemas-and-errors.md`\n- `docs/api/stability.md`\n- `docs/architecture/monolithic-distributed-boundary.md`\n- `docs/architecture/overview.md`\n- `docs/releases/blue-green-deployment-runbook.md`\n- `docs/releases/release-identity.md`\n- `docs/testing.md`\n- `tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `tests/tools/behavior-document-consistency-final.test.mjs`\n- `tests/tools/generated-fact-sections.test.mjs`\n- `tests/tools/native-tooling-style.test.mjs`\n- `tests/tools/openapi-aeds-observation.test.mjs`\n- `tests/tools/release-final-static-boundary.test.mjs`\n- `tests/tools/support/zero-legacy-scanner-fixture.mjs`\n- `tests/tools/test-matrix-topology-observation.test.mjs`\n- `tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json`\n- `tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json`\n- `tools/docs/behavior-document-consistency-final.mjs`\n- `tools/docs/generated-fact-sections/renderers.mjs`\n- `tools/fact-extractors/test-matrix/extract.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests:\n- [ ] Targeted frontend checks:\n- [x] Other: PASS on 18ba896217137b005add9b087ca76564b405913b: genuine SDK minimal build and all eight source-bound fact observations. Actual renderer products remove the introduced literal HTML lint diagnostics.\n- [x] Other: FAIL on 18ba896217137b005add9b087ca76564b405913b: whole admission/generated check rejects two comment bounds and release bundle-order; docs lint retains 48 inherited diagnostics. Range contract rejects two original commit reference footers, retained in this published history.\n- [x] Other: UNRUN on this head: later 321-control canonical rerun, integrated prose/mutation acceptance, whole CI, current-master qualification and independent review. Identical source bytes do not transfer the successor receipt identity.\n- [ ] Other: Remote required checks, trusted-base complete PR metadata validation and current-master qualification are unresolved; missing checks are not passes.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [ ] Mechanical formatting separated from logic\n- [x] `.git-blame-ignore-revs` updated when applicable\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: unresolved\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [ ] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: no measured performance, product runtime, native, release or whole-CI qualification claim\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve literal fact rendering source\n\n## Generated Output\n\n- Generator source: tools/docs/generate-fact-sections.mjs, config/contracts/behavior-fact-extractors.json, config/contracts/generated-fact-sections.json, tools/fact-extractors/runner.mjs, tools/fact-extractors/test-matrix/extract.mjs, tools/test-matrix/generate-release-final-execution-authority.mjs, tools/docs/generated-fact-sections/generator.mjs, tools/docs/generated-fact-sections/renderers.mjs\n- Generated outputs: config/testing/release-final-execution-authority-index.json, docs/api.md, docs/api/aeds-only-policy.md, docs/api/quick-reference.md, docs/api/schemas-and-errors.md, docs/api/stability.md, docs/architecture/monolithic-distributed-boundary.md, docs/architecture/overview.md, docs/releases/blue-green-deployment-runbook.md, docs/releases/release-identity.md, docs/testing.md, tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: unresolved\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: publish this WIP draft for review immediately; retain the exact source ref and evidence identities. No merge, deployment, issue closure, trusted-policy promotion or cross-branch conflict resolution is authorized.\n- Rollback: retain the predecessor refs and receipts; any later correction is separately reviewed. Do not rewrite published history or rebind old receipts to a new SHA.\n- Deferred work: accepted prerequisite evidence, original rejection/mutation controls, full integrated admission/matrix/CI, formal style, generated/naming metadata, independent review and current-master acceptance.\n- Known limitations: the result of one SHA does not qualify another. Physical preparation/recovery obligations remain unresolved, with no successful native descriptor or zero-residue claim. Generated-binding and exact external-naming manifests are unresolved; this draft is not claimed green under Change Contract. Mechanical-separation and complete TODO/FIXME review are also unresolved.\n\n## Notes For Reviewers\n\nOwnership and prerequisites: this review covers [#3612](https://github.com/Ozwasyd/FsusBlog/issues/3612), [#3536](https://github.com/Ozwasyd/FsusBlog/issues/3536) and [#3533](https://github.com/Ozwasyd/FsusBlog/issues/3533). The original canonical owners remain [#3537](https://github.com/Ozwasyd/FsusBlog/issues/3537), [#3540](https://github.com/Ozwasyd/FsusBlog/issues/3540), [#3534](https://github.com/Ozwasyd/FsusBlog/issues/3534), [#3610](https://github.com/Ozwasyd/FsusBlog/issues/3610) and [#3611](https://github.com/Ozwasyd/FsusBlog/issues/3611). Comment and release products come from [#3576](https://github.com/Ozwasyd/FsusBlog/issues/3576) and [#2225](https://github.com/Ozwasyd/FsusBlog/issues/2225) when included in this head. Their independent acceptance is not inferred from source availability.\n\nApplicable acceptance remains: compile and verify the exact public-error prose state; validate canonical minimal and separate OpenAPI receipt paths with all original stale/source/run/artifact/projection refusals; preserve all four qualification-only field rules and non-qualification behavior without a DocClaim waiver; run original generated/prose/mutation, lifecycle, matrix/static and change-contract gates; obtain independent review and later current-master acceptance. All three issues remain WIP.\n\nReview checkbox applicability: this diff changes JavaScript governance, tests, lockfiles and generated Markdown/JSON, not C# product code, user-visible UI, wire/ABI, database execution or security policy. C# mapping and UI/database/security/ABI items record this scope review, not runtime acceptance. UI evidence is not applicable. No format-only or performance claim is made, so formatter/idempotence/blame/performance fields are `none`. The linter-run checkbox records the executions above, including failures. No default policy was overridden. The exact registered naming-surface coverage and a valid changed generated-binding manifest still require their owners; no diagnostic summary is substituted for those schemas.\n\nNext commands: after draft creation, inspect `gh pr view <number> --repo Ozwasyd/FsusBlog --json headRefOid,baseRefOid,labels,statusCheckRollup,reviewDecision` and reconcile the public metadata with the exact submitted SHA. Pending original acceptance in a qualified environment, the original commands are `node tools/docs/behavior-doc-static-admission.mjs --run-id <fresh-current-source-run>`, `node tools/run-test-matrix.mjs validate`, and `./tools/test.sh fast`. These commands have not been rerun for this handoff. Native, adversarial-control, matrix and whole-CI qualification remain UNRUN where noted above.\n\n[Public candidate binding proof](https://github.com/Ozwasyd/FsusBlog/blob/60051d8376e42580758c92b386e1e0081ca19f57/artifacts/governance/chain-3612-release-owner-handoff/current-product-proof.json) belongs to `bfca0bd79319554b9f61b06d4b30af5726179cc3` only; it is not a pass for another branch or for the evidence-only commit that stores it. Two inherited comment-document MD022 errors were introduced by [db1c168a7a29e1e9f5c7d98f606a1e33110340eb](https://github.com/Ozwasyd/FsusBlog/commit/db1c168a7a29e1e9f5c7d98f606a1e33110340eb), related to [#1756](https://github.com/Ozwasyd/FsusBlog/issues/1756). They remain with their original authored-prose owner; this review neither edits nor waives them.\n",
+      "bodySha256": "1cb342c934782962d84edb6a2114b3585a871233156d4a23afb9a1ebf59677eb",
+      "metadataValidation": "UNRUN for this handoff; generated/naming binding unresolved; no fabricated gate pass."
+    }
+  ],
+  "alreadyDraftPr": [
+    {
+      "branch": "codex/chain-3612-current-acceptance",
+      "head": "8e3b0cb5422b7eb354d3eddcd8eb725d981e4f30",
+      "baseBranch": "master",
+      "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+      "changedPaths": [
+        "artifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "artifacts/change-contract/shared-governance-external-naming.json",
+        "benchmarks/core/packages.lock.json",
+        "config/testing/correctness-attempt-producers.json",
+        "docs/testing.md",
+        "tests/backend/packages.lock.json",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/governance/test-lifecycle-registry.json",
+        "tests/test-retention-replacements.json",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/tools/correctness-attempt-migration.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/test-matrix-topology-observation.test.mjs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/fact-extractors/test-matrix/extract.mjs",
+        "tools/test/correctness-attempt-migration.mjs"
+      ],
+      "changedPathCount": 21,
+      "role": "source",
+      "existingPr": {
+        "baseRefName": "master",
+        "headRefName": "codex/chain-3612-current-acceptance",
+        "headRefOid": "8e3b0cb5422b7eb354d3eddcd8eb725d981e4f30",
+        "isDraft": true,
+        "labels": [
+          {
+            "id": "LA_kwDORUCP9c8AAAACsTFyaQ",
+            "name": "release-note:internal",
+            "description": "Internal/tooling entry excluded from user-facing categories.",
+            "color": "c5def5"
+          }
+        ],
+        "number": 3877,
+        "state": "OPEN",
+        "title": "fix(governance): bind OpenAPI admission and matrix fixture identities",
+        "url": "https://github.com/Ozwasyd/FsusBlog/pull/3877"
+      }
+    }
+  ],
+  "evidenceOnlyBranches": [
+    {
+      "branch": "codex/chain-3612-portable-owner-handoff",
+      "head": "40bee2cb5cf9b90e873443b888efa323ab7e6785",
+      "baseBranch": "master",
+      "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "changedPaths": [
+        "artifacts/governance/chain-3612-portable-owner-handoff/authored-lint-ownership.json",
+        "artifacts/governance/chain-3612-portable-owner-handoff/content.comment.child-limit.actual.txt",
+        "artifacts/governance/chain-3612-portable-owner-handoff/content.comment.child-limit.expected.txt",
+        "artifacts/governance/chain-3612-portable-owner-handoff/content.comment.child-limit.fact.json",
+        "artifacts/governance/chain-3612-portable-owner-handoff/content.comment.max-depth.actual.txt",
+        "artifacts/governance/chain-3612-portable-owner-handoff/content.comment.max-depth.expected.txt",
+        "artifacts/governance/chain-3612-portable-owner-handoff/content.comment.max-depth.fact.json",
+        "artifacts/governance/chain-3612-portable-owner-handoff/generated-region-diagnostics.json",
+        "artifacts/governance/chain-3612-portable-owner-handoff/handoff.txt",
+        "artifacts/governance/chain-3612-portable-owner-handoff/release.production-bundle-order.actual.txt",
+        "artifacts/governance/chain-3612-portable-owner-handoff/release.production-bundle-order.expected.txt",
+        "artifacts/governance/chain-3612-portable-owner-handoff/release.production-bundle-order.fact.json",
+        "config/testing/release-final-execution-authority-index.json",
+        "docs/api.md",
+        "docs/api/aeds-only-policy.md",
+        "docs/api/quick-reference.md",
+        "docs/api/schemas-and-errors.md",
+        "docs/api/stability.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/overview.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "docs/releases/release-identity.md",
+        "docs/testing.md",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/tools/generated-fact-sections.test.mjs",
+        "tests/tools/native-tooling-style.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+        "tests/tools/test-matrix-topology-observation.test.mjs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tools/fact-extractors/test-matrix/extract.mjs"
+      ],
+      "changedPathCount": 39,
+      "role": "evidence-only",
+      "existingPr": null
+    },
+    {
+      "branch": "codex/chain-3612-release-owner-handoff",
+      "head": "60051d8376e42580758c92b386e1e0081ca19f57",
+      "baseBranch": "master",
+      "baseSnapshotSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "changedPaths": [
+        "artifacts/governance/chain-3612-release-owner-handoff/claim-accounting.json",
+        "artifacts/governance/chain-3612-release-owner-handoff/current-product-proof.json",
+        "artifacts/governance/chain-3612-release-owner-handoff/draft-pr-body.md",
+        "artifacts/governance/chain-3612-release-owner-handoff/inherited-lint-owner-routing.json",
+        "artifacts/governance/chain-3612-release-owner-handoff/review-scope.json",
+        "artifacts/governance/chain-3612-release-owner-handoff/same-tree-source-doc-evidence.json",
+        "artifacts/governance/chain-3612-release-owner-handoff/source-offer-continuity.json",
+        "artifacts/governance/chain-3612-release-owner-handoff/source-products.json",
+        "artifacts/governance/chain-3612-release-owner-handoff/summary.json",
+        "config/testing/release-final-execution-authority-index.json",
+        "docs/api.md",
+        "docs/api/aeds-only-policy.md",
+        "docs/api/quick-reference.md",
+        "docs/api/schemas-and-errors.md",
+        "docs/api/stability.md",
+        "docs/architecture/comment-command-boundary.md",
+        "docs/architecture/comment-query-boundary.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/overview.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "docs/releases/release-identity.md",
+        "docs/testing.md",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/tools/generated-fact-sections.test.mjs",
+        "tests/tools/native-tooling-style.test.mjs",
+        "tests/tools/openapi-aeds-observation.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+        "tests/tools/test-matrix-topology-observation.test.mjs",
+        "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tools/fact-extractors/test-matrix/extract.mjs"
+      ],
+      "changedPathCount": 38,
+      "role": "evidence-only",
+      "existingPr": null
+    }
+  ],
+  "testsRerun": 0,
+  "githubContentWrites": 0
+}

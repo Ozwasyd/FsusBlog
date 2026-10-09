@@ -1,0 +1,145 @@
+{
+  "primaryHead": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+  "canonicalPeer": "3de72226437c9940eef09cc36f833ce3210a292f",
+  "rows": [
+    {
+      "branch": "codex/chain-3612-census-current",
+      "head": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+      "parents": [
+        "3de72226437c9940eef09cc36f833ce3210a292f"
+      ],
+      "tree": "b20063ba2975c8fa28e0bedff12cc4a4737c937c",
+      "primaryHead": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "isGraphAncestorOfPrimary": true,
+      "uniqueHistoryCommitsNotInPrimary": [],
+      "sameCompleteTreeAsPrimary": false,
+      "sameCompleteTreeAsCanonicalAncestor": false,
+      "sameTreePeer": null,
+      "relationship": "exact graph ancestor; all commits are reachable from the primary head",
+      "sourceAbsorbed": true,
+      "independentAdditionalSourceImplementation": false,
+      "draftDisposition": "Retained predecessor draft, fully source-absorbed; do not treat as an independent implementation to merge",
+      "acceptance": "Source ancestry/tree evidence only; no runtime/admission/review/merge acceptance."
+    },
+    {
+      "branch": "codex/chain-3612-comment-owner-current",
+      "head": "78cec93493af843b543584b3b2e0f1895a467277",
+      "parents": [
+        "b64c6ad904f284e95104954ebc8612298cbf33a4"
+      ],
+      "tree": "39df3b8ac3d5bacbbb865671a08684be9e4d6ef9",
+      "primaryHead": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "isGraphAncestorOfPrimary": true,
+      "uniqueHistoryCommitsNotInPrimary": [],
+      "sameCompleteTreeAsPrimary": false,
+      "sameCompleteTreeAsCanonicalAncestor": false,
+      "sameTreePeer": null,
+      "relationship": "exact graph ancestor; all commits are reachable from the primary head",
+      "sourceAbsorbed": true,
+      "independentAdditionalSourceImplementation": false,
+      "draftDisposition": "Retained predecessor draft, fully source-absorbed; do not treat as an independent implementation to merge",
+      "acceptance": "Source ancestry/tree evidence only; no runtime/admission/review/merge acceptance."
+    },
+    {
+      "branch": "codex/chain-3612-generated-current",
+      "head": "0a66cab341a78585f9b726672f2aa1241c5709a2",
+      "parents": [
+        "552d257b83d0f15fd8052cae68f5308265d44c8a"
+      ],
+      "tree": "2ff388416f9898d76eaadf52751155ef43adf350",
+      "primaryHead": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "isGraphAncestorOfPrimary": true,
+      "uniqueHistoryCommitsNotInPrimary": [],
+      "sameCompleteTreeAsPrimary": false,
+      "sameCompleteTreeAsCanonicalAncestor": false,
+      "sameTreePeer": null,
+      "relationship": "exact graph ancestor; all commits are reachable from the primary head",
+      "sourceAbsorbed": true,
+      "independentAdditionalSourceImplementation": false,
+      "draftDisposition": "Retained predecessor draft, fully source-absorbed; do not treat as an independent implementation to merge",
+      "acceptance": "Source ancestry/tree evidence only; no runtime/admission/review/merge acceptance."
+    },
+    {
+      "branch": "codex/chain-3612-release-owner-current",
+      "head": "29cd0b3d734511bda329148cb3712dea9238f71f",
+      "parents": [
+        "78cec93493af843b543584b3b2e0f1895a467277"
+      ],
+      "tree": "c87b777ae82077d67acb0dfbc920567cafe8b553",
+      "primaryHead": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "isGraphAncestorOfPrimary": false,
+      "uniqueHistoryCommitsNotInPrimary": [
+        "29cd0b3d734511bda329148cb3712dea9238f71f"
+      ],
+      "sameCompleteTreeAsPrimary": true,
+      "sameCompleteTreeAsCanonicalAncestor": false,
+      "sameTreePeer": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "relationship": "not a graph ancestor; complete tree identical to primary head; standalone reference footer is corrected on the primary sibling",
+      "sourceAbsorbed": true,
+      "independentAdditionalSourceImplementation": false,
+      "draftDisposition": "Retained predecessor draft, fully source-absorbed; do not treat as an independent implementation to merge",
+      "acceptance": "Source ancestry/tree evidence only; no runtime/admission/review/merge acceptance."
+    },
+    {
+      "branch": "codex/chain-3612-release-review-current",
+      "head": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "parents": [
+        "78cec93493af843b543584b3b2e0f1895a467277"
+      ],
+      "tree": "c87b777ae82077d67acb0dfbc920567cafe8b553",
+      "primaryHead": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "isGraphAncestorOfPrimary": true,
+      "uniqueHistoryCommitsNotInPrimary": [],
+      "sameCompleteTreeAsPrimary": true,
+      "sameCompleteTreeAsCanonicalAncestor": false,
+      "sameTreePeer": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "relationship": "current head",
+      "sourceAbsorbed": true,
+      "independentAdditionalSourceImplementation": false,
+      "draftDisposition": "Primary complete-source draft",
+      "acceptance": "Source ancestry/tree evidence only; no runtime/admission/review/merge acceptance."
+    },
+    {
+      "branch": "codex/chain-3612-renderer-canonical",
+      "head": "3de72226437c9940eef09cc36f833ce3210a292f",
+      "parents": [
+        "3792d03d4c9a63240fadc08fb50eafe5335b3f05"
+      ],
+      "tree": "bb60f65fb3d73c20ece8d9aa92ef86c7fbdc8cc8",
+      "primaryHead": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "isGraphAncestorOfPrimary": true,
+      "uniqueHistoryCommitsNotInPrimary": [],
+      "sameCompleteTreeAsPrimary": false,
+      "sameCompleteTreeAsCanonicalAncestor": true,
+      "sameTreePeer": "3de72226437c9940eef09cc36f833ce3210a292f",
+      "relationship": "exact graph ancestor; all commits are reachable from the primary head",
+      "sourceAbsorbed": true,
+      "independentAdditionalSourceImplementation": false,
+      "draftDisposition": "Retained predecessor draft, fully source-absorbed; do not treat as an independent implementation to merge",
+      "acceptance": "Source ancestry/tree evidence only; no runtime/admission/review/merge acceptance."
+    },
+    {
+      "branch": "codex/chain-3612-renderer-current",
+      "head": "18ba896217137b005add9b087ca76564b405913b",
+      "parents": [
+        "8c19fb71284837e4be91a9820f42326bf1898d58"
+      ],
+      "tree": "bb60f65fb3d73c20ece8d9aa92ef86c7fbdc8cc8",
+      "primaryHead": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "isGraphAncestorOfPrimary": false,
+      "uniqueHistoryCommitsNotInPrimary": [
+        "18ba896217137b005add9b087ca76564b405913b",
+        "8c19fb71284837e4be91a9820f42326bf1898d58"
+      ],
+      "sameCompleteTreeAsPrimary": false,
+      "sameCompleteTreeAsCanonicalAncestor": true,
+      "sameTreePeer": "3de72226437c9940eef09cc36f833ce3210a292f",
+      "relationship": "not a graph ancestor; complete tree identical to the corrected canonical commit, which is a graph ancestor of the primary head",
+      "sourceAbsorbed": true,
+      "independentAdditionalSourceImplementation": false,
+      "draftDisposition": "Retained predecessor draft, fully source-absorbed; do not treat as an independent implementation to merge",
+      "acceptance": "Source ancestry/tree evidence only; no runtime/admission/review/merge acceptance."
+    }
+  ],
+  "existingPr3877": "Existing source draft is recorded in ready-to-submit payload inventory. No complete absorption or supersession claim is made for its different head by this seven-draft handoff."
+}
