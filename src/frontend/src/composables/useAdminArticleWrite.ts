@@ -1245,7 +1245,7 @@ export function useAdminArticleWrite()
             const owners = previewOwners.value;
             // No editable responsibility fields exist in ArticleParams. Only a real live owner can supply them.
             // Explicitly missing current input never falls back to saved-revision history.
-            return owners && editorRuntimeBinding === owners.binding
+            return owners?.binding === editorRuntimeBinding
                 ? owners.readAttribution().responsibility : null;
         },
         readCurrentSiteAuthor: () => siteConfig.value?.author
@@ -1262,7 +1262,7 @@ export function useAdminArticleWrite()
             {
                 throw new Error('article-preview-owner-unavailable');
             }
-            return ArticlePreviewSourceAdmission.attachRuntime(owners.binding, previewCurrentAuthorities.read);
+            return ArticlePreviewSourceAdmission.attachRuntime(owners.binding, () => previewCurrentAuthorities.read());
         },
         readRequest: () => buildServerDraftRequest(
             buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
