@@ -38,7 +38,8 @@ test('missing reports remain explicit for both success and WARN exit codes', asy
     const { reportPaths } = await createReports(context);
     for (const scannerExitCode of [0, 2])
     {
-        const outcome = await publishBaselineResult({ target: 'http://example.invalid', scannerExitCode, reportPaths }, async () => {});
+        const outcome = await publishBaselineResult({ target: 'http://example.invalid', scannerExitCode, reportPaths }, async () =>
+        {});
         assert.deepEqual(outcome.result.reportPaths, []);
         assert.deepEqual(outcome.result.missingReportPaths, reportPaths);
         assert.equal(outcome.result.scannerExitCode, scannerExitCode);
@@ -83,7 +84,8 @@ test('retains callback errors and raw primary failure under the existing exit po
     for (const scannerExitCode of [0, 1, 2, 3, 125])
     {
         const input = { target: 'http://example.invalid', scannerExitCode, reportPaths };
-        const clean = await publishBaselineResult(input, async () => {});
+        const clean = await publishBaselineResult(input, async () =>
+        {});
         const failed = await publishBaselineResult(input, async () =>
         {
             throw failure;
