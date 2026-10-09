@@ -308,7 +308,16 @@ geometry/state and visual owners remain required. This analyzer neither runs the
 complete geometry/state matrix nor issues visual adjudication.
 
 The separate geometry owner supplies `composition-geometry`; its actual module
-is included in the canonical analyzer source digest closure. Its public exports
+and the supplied `composition-order-geometry` and
+`composition-overflow-geometry` modules are included in the original analyzer
+source digest closure. Their package exports expose the actual supplied modules;
+a module digest alone does not replace the complete source graph. The order
+comparator checks bounded peer block flow and declared ancestry; the overflow
+comparator checks document horizontal bounds and bounded inner scroll extents.
+Both retain unsupported results and diagnostic-only qualification. Raw capture
+or comparator calls require original source/DOM admission before consumption.
+Neither changes the pending/null state matrix nor grants full geometry or
+visual verification. The existing `composition-geometry` public exports
 are `captureCompositionGeometry()`,
 `compareCompositionGeometry({ archetype, domObservation, geometryObservation })`
 and the guarded page caller below. The caller consumes the same current inputs,
