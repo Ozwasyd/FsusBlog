@@ -1,0 +1,11 @@
+{
+    "discoveredSha": "259a3b09dfefa4309fae826d6144c10c8ddce982",
+    "counts": {
+        "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts": 16,
+        "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts": 20,
+        "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts": 34
+    },
+    "expectedCases": 70,
+    "exactFiles": true,
+    "frontendBytesUnchangedByAuthNamespaceRepair": true
+}

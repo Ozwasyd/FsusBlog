@@ -1,0 +1,323 @@
+{
+    "capturedUtc": "2026-10-09T14:02:10.850355+00:00",
+    "publishedSource": "1525e2ad0ea56350f34a368c8f2107706d342759",
+    "branch": "codex/chain-3663-group-property-recheck",
+    "masterReadOnlyVerified": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "frontendTestedSha": "e8bd8da3b0c7010daf1afb45a99d25aefa1f0529",
+    "backendTestedSha": "1525e2ad0ea56350f34a368c8f2107706d342759",
+    "frontendSourceUnchangedSinceItsTest": true,
+    "checks": {
+        "isolated-host-project-build": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "--no-restore",
+                "--no-incremental"
+            ],
+            "testedSha": "1525e2ad0ea56350f34a368c8f2107706d342759",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T13:46:19.743441+00:00",
+            "endUtc": "2026-10-09T13:47:26.788885+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/isolated-host-project-build.log"
+        },
+        "isolated-host-csharp-style": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+                "--root",
+                "/workspace/FsusBlog-group-property-recheck-3663",
+                "--mode",
+                "strict-full",
+                "--file",
+                "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs",
+                "--file",
+                "tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs",
+                "--file",
+                "tests/backend/Unit/ArticlePackageCandidateReviewReadServiceTests.cs"
+            ],
+            "testedSha": "1525e2ad0ea56350f34a368c8f2107706d342759",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T13:46:21.009890+00:00",
+            "endUtc": "2026-10-09T13:46:33.001233+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/isolated-host-csharp-style.log"
+        },
+        "backend-original32-isolated": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "test",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "--no-build",
+                "--no-restore",
+                "--filter",
+                "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CurrentExactScope_UsesOriginalProducerAndPreservesObservedCoordinates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.FinalRevisionDrift_IsRefusedEvenWhenIdentityIsUnchanged|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.StatelessReplay_RequiresSamePlanAndContextRatherThanRefreshingThem|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.PermissionDenialAndOversizeEnvelope_DoNotCallReader|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.ScopeChangeAfterProjection_IsRefusedWithoutUrlNormalization|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.UpdateHint_Int64StaysExactAndExecutionStillHasNoAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CancelAndOwnerFailure_NeverFabricateBindingOrDefaultIdentity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DeniedIdentity_ReturnsOriginalApiErrorBeforeBodyOrReader|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.ClosedPairMissing_RefusesBeforeTypedBodyAndCanonicalReader|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.OversizeFrame_RefusesBeforeBodyAndReader|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.CallerOrRequestAbort_ProducesNoFrameBodyOrIdentityRead|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError",
+                "--logger",
+                "trx;LogFileName=backend-original32-isolated.trx",
+                "--results-directory",
+                "/workspace/chain-3663-evidence/authenticated-read-host-20261009/trx"
+            ],
+            "testedSha": "1525e2ad0ea56350f34a368c8f2107706d342759",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T13:51:19.153429+00:00",
+            "endUtc": "2026-10-09T13:51:23.201991+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/backend-original32-isolated.log"
+        },
+        "frontend-original70-corrected": {
+            "command": [
+                "node_modules/.bin/vitest",
+                "run",
+                "--config",
+                "vitest.config.ts",
+                "../../tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts",
+                "../../tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts",
+                "../../tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts",
+                "--reporter=json",
+                "--outputFile=/workspace/chain-3663-evidence/authenticated-read-host-20261009/frontend70-corrected-results.json"
+            ],
+            "testedSha": "e8bd8da3b0c7010daf1afb45a99d25aefa1f0529",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T13:32:54.212170+00:00",
+            "endUtc": "2026-10-09T13:33:16.364406+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/frontend-original70-corrected.log"
+        },
+        "final-frontend-source-style": {
+            "command": [
+                "node",
+                "tools/frontend/check-frontend-style.mjs",
+                "--root",
+                "/workspace/FsusBlog-group-property-recheck-3663",
+                "--mode",
+                "strict-full",
+                "--file",
+                "src/frontend/src/api/types/articlePackageCandidateRead.ts",
+                "--file",
+                "src/frontend/src/composables/useArticlePackageCandidateReadHost.ts"
+            ],
+            "testedSha": "e8bd8da3b0c7010daf1afb45a99d25aefa1f0529",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T13:37:40.666352+00:00",
+            "endUtc": "2026-10-09T13:37:46.966929+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/final-frontend-source-style.log"
+        },
+        "current-original-matrix-plan": {
+            "command": [
+                "bash",
+                "tools/test.sh",
+                "ci-tier",
+                "backend-fast",
+                "--plan-only"
+            ],
+            "testedSha": "e8bd8da3b0c7010daf1afb45a99d25aefa1f0529",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T13:37:39.382593+00:00",
+            "endUtc": "2026-10-09T13:39:17.299090+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/current-original-matrix-plan.log"
+        },
+        "isolated-current-resource": {
+            "command": [
+                "node",
+                "--input-type=module",
+                "-e",
+                "import {sampleLinuxCgroupV2HeadroomBytes} from './tools/test/system-memory.mjs'; console.log(JSON.stringify({headroomBytes:sampleLinuxCgroupV2HeadroomBytes()}));"
+            ],
+            "testedSha": "1525e2ad0ea56350f34a368c8f2107706d342759",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T13:51:18.974690+00:00",
+            "endUtc": "2026-10-09T13:51:19.030148+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/isolated-current-resource.log"
+        },
+        "original-frontend-app-typecheck": {
+            "command": [
+                "node_modules/.bin/vue-tsc",
+                "--noEmit",
+                "-p",
+                "tsconfig.app.json",
+                "--pretty",
+                "false"
+            ],
+            "testedSha": "7193319290abf6283a69c0ebe22c070a0ba0ee46",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T13:30:04.299184+00:00",
+            "endUtc": "2026-10-09T13:30:31.511659+00:00",
+            "exitCode": 2,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/original-frontend-app-typecheck.log"
+        },
+        "final-source-change-contract": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-source-pr-handoff-3663/tools/governance/check-change-contract.mjs",
+                "--root",
+                "/workspace/FsusBlog-group-property-recheck-3663",
+                "--range",
+                "76f900f3266560af64e05f6936d4096f76577361..HEAD"
+            ],
+            "testedSha": "1525e2ad0ea56350f34a368c8f2107706d342759",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T14:02:08.997358+00:00",
+            "endUtc": "2026-10-09T14:02:10.825383+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/final-source-change-contract.log"
+        },
+        "markdown-new-handoff": {
+            "command": [
+                "markdownlint-cli2",
+                "--config",
+                ".markdownlint-cli2.jsonc",
+                "--no-globs",
+                ":artifacts/article-packages/chain-3663-authenticated-read-host-20261009/README.md"
+            ],
+            "testedSha": "1525e2ad0ea56350f34a368c8f2107706d342759",
+            "cleanBefore": false,
+            "startUtc": "2026-10-09T14:05:36.232202+00:00",
+            "endUtc": "2026-10-09T14:05:36.448672+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": false,
+            "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/markdown-new-handoff.log"
+        }
+    },
+    "issueStates": {
+        "3663": {
+            "accepted": false,
+            "state": "open",
+            "status": "OPEN: original31 remains bound to74c without rerun or retarget. Current original project compilation and selected consumer/host controls pass; cgroup sample and normal matrix plan-only pass. Full root-required runtime matrix, independent exact-delivery/current-master review and required PR/master gates remain unaccepted."
+        },
+        "2398": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: sole finite codec, version registry, property/metadata/taxonomy/asset components implemented; accepted complete V1 root and legitimate source admission remain."
+        },
+        "2408": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same finite components and selected historical DTO bridge; complete manifests/provenance/privacy/version acceptance remain."
+        },
+        "2400": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: finite frozen export writer/property planner; complete canonical source, assets, frozen/permission/runtime gate remain."
+        },
+        "2410": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same finite export source; original frozen plan and accepted schema/export runtime remain."
+        },
+        "2402": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: finite intake/bytes/ZIP source exists; accepted export/schema and formal complete preflight remain."
+        },
+        "2411": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: finite intake exists; original full schema/rights/plan preflight unaccepted."
+        },
+        "2404": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted preflight and real resolution/definition/permission inputs missing."
+        },
+        "2413": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted preflight and canonical resolution/replan authority missing."
+        },
+        "2405": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted plan and canonical atomic executor/rollback/recovery/outbox/audit gates missing."
+        },
+        "2415": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted plan and original execution/recovery/permission authority missing."
+        },
+        "2406": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: exact frontend three-file revision0ea8b524 and two-file controller3335910 consumed; backend/shared projection preserved. Exact canonical corrected declaration adc2e500 adds InitializationRequired; consumer refuses every non-Current state, including it. New typed frontend connection requires the original authenticated AEDS port, retains only sequence intent/context echo, forwards AbortSignal and rejects mismatched/late reads; real original component event recovery is tested. Original frontend70/70 on e8bd8da3 and backend32/32 (22consumer+10dormant endpoint) on1525e2ad; original build0errors/1511warnings. Full app typecheck exit2 with313 diagnostics; own new TS source diagnostics0, not full-type acceptance. Shared route/DI source unchanged; unapplied exact handoff only to3735. Dormant endpoint prototype predates new wire-task assignment and is held for seven-path ownership comparison; no further endpoint/wire expansion. Canonical storage/security qualification, closed-pair ABI+positive AEDS, production I/O cancellation and independent rendered UX/resolution/execution remain unaccepted."
+        },
+        "2418": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: exact frontend three-file revision0ea8b524 and two-file controller3335910 consumed; backend/shared projection preserved. Exact canonical corrected declaration adc2e500 adds InitializationRequired; consumer refuses every non-Current state, including it. New typed frontend connection requires the original authenticated AEDS port, retains only sequence intent/context echo, forwards AbortSignal and rejects mismatched/late reads; real original component event recovery is tested. Original frontend70/70 on e8bd8da3 and backend32/32 (22consumer+10dormant endpoint) on1525e2ad; original build0errors/1511warnings. Full app typecheck exit2 with313 diagnostics; own new TS source diagnostics0, not full-type acceptance. Shared route/DI source unchanged; unapplied exact handoff only to3735. Dormant endpoint prototype predates new wire-task assignment and is held for seven-path ownership comparison; no further endpoint/wire expansion. Canonical storage/security qualification, closed-pair ABI+positive AEDS, production I/O cancellation and independent rendered UX/resolution/execution remain unaccepted."
+        },
+        "2407": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted replacement and migration acceptance absent; no legacy retirement."
+        },
+        "2409": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: terminal whole-chain/native/mutation/performance/caption acceptance."
+        },
+        "2420": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: terminal whole-chain qualification and independent runtime acceptance."
+        }
+    },
+    "trackingIssues": [],
+    "allAccepted": false,
+    "canonicalAuthorityQualified": false,
+    "productionIoCancellationQualified": false,
+    "sharedWireDiApplied": false,
+    "newWireOwner": "01a120e7-71f6-74d2-861c-92c8abaea004",
+    "wireOwnerReleasedSevenPathsNotYetSuppliedForExactComparison": true,
+    "dormantPrototypePathsHeld": [
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs",
+        "tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs"
+    ],
+    "noNewWireTaskFilesEditedAfterAssignment": true,
+    "sourceProposalsOnly": [
+        "root-3735-authoring-hook-proposal.patch",
+        "root-3735-di-proposal.patch",
+        "root-3735-endpoint-contract-proposal.json"
+    ],
+    "externalRequests": [
+        "canonical adc2e500 security/compatibility/PostgreSQL acceptance evidence",
+        "sole3735 closed frame pair/ABI/DI handoff",
+        "new wire task exact seven-path scope and supplied source/evidence before consumer binding",
+        "production authenticated I/O cancellation and formal rendered acceptance"
+    ],
+    "negativeRecordsPreserved": [
+        "original-project-build:4 missing original-helper namespace errors",
+        "original-project-build-corrected:new CS8604 warning, repaired in actual endpoint",
+        "frontend-original70:69/70, actual event-path recovery fixture repaired",
+        "backend-original32:31/32, default Production host-filter HTML not AEDS",
+        "host-diagnostic-original1:HTML334bytes, no frame header, magic mismatch; original production AllowedHosts retained",
+        "original-frontend-typecheck:empty solution exit0 not app validation",
+        "original-frontend-app-typecheck:exit2/313 diagnostics, unwaived"
+    ],
+    "old26_31_813_20NotRetargetedOrRepeated": true,
+    "publicationApiWrites": false,
+    "noMasterPushMergeDeploymentOrProductionResources": true
+}

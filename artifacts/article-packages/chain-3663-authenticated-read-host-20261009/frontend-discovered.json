@@ -1,0 +1,282 @@
+[
+  {
+    "name": "inactive authenticated candidate read host > owns only exact wire fields and forwards original intent, Int64 and echoed coordinates to the page read",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > refuses request-id mismatch without replacing the seed or granting execution",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > refuses page-index mismatch without replacing the seed or granting execution",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > refuses page-size mismatch without replacing the seed or granting execution",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > refuses generation mismatch without replacing the seed or granting execution",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > refuses mapping mismatch without replacing the seed or granting execution",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > refuses scope-revision mismatch without replacing the seed or granting execution",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > refuses digest mismatch without replacing the seed or granting execution",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > refuses execution mismatch without replacing the seed or granting execution",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > rejects malformed seed lifecycle coordinates",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > rejects malformed seed generation coordinates",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > rejects malformed seed scope coordinates",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > clear aborts an ignored seed and settles its waiter; late completion cannot restore it",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > a new seed aborts an outstanding page; a late previous page cannot replace the new sequence",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > empty-review reseeding recovers the real frozen component after an identified page error",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "inactive authenticated candidate read host > scope disposal aborts and settles the initial seed without a successful review",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > starts empty and cannot invoke a read without a provided projection",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > seeds one readonly page without an intake, plan store or execution capability",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > passes the complete frozen identity and owned signal, then publishes its exact ready completion",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > actually aborts and settles cancellation even when the supplied promise ignores abort",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > rejects old and mismatched cancellations after a same-coordinate retry",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > ignores late rejection while a newer request owns the page",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > aborts a pending read and clears completion before replacing a context",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > lets only the newest overlapping context seed survive its empty tick",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > does not start a page read during the empty context transition",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > finishes mismatched digest responses as identified read errors",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > finishes mismatched page responses as identified read errors",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > finishes mismatched size responses as identified read errors",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > finishes mismatched refusal responses as identified read errors",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > contains synchronous port throws as identified errors without exposing private details",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > does not infer cancellation authority from an unsolicited AbortError",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > ignores duplicate active and completed request IDs without creating another read",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > scope disposal aborts and prevents future contexts, calls or late results",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > wires the frozen component event to the callable port and renders only the exact returned page",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > wires owned cancellation, re-enables the frozen view and rejects late promise refill",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "useArticlePackageCandidateReview ordinary host controls > lets the frozen view observe empty review before same-candidate error recovery",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > labels the finite candidate, original summary, assertions and unresolved hints accurately",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > shows new identity requirements without implying a created identity or resolved target",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > never enables or emits execution for complete structurally valid hints, clicks or keys",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > handles zero supplied candidates without inventing a zero-article validated plan",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > announces loading and error states and keeps the execution refusal",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > keeps stale/refusal semantics for caller_interval_not_started",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > keeps stale/refusal semantics for caller_interval_expired",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > keeps stale/refusal semantics for caller_interval_current",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > renders only one supplied page for 1000 hints with semantic headings, list and live pagination",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > requests digest-bound pages only, blocks repeated requests and focuses arrived hints through loading",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > returns focus to the review heading after a failed page read",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > handles final pages and plan replacement without stealing outside focus",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 0",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 1",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 2",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 3",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 4",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 5",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 6",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 7",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > keeps a size-50 request pending when the same digest and page arrives with size 25",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > finishes a cancelled loading-to-ready read while retaining the original page",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > does not infer cancellation or accept a response from an uncorrelated ready transition",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > ignores late success, error and duplicate cancellation after retrying the same page",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > ignores cancellation with mismatched request identity 0",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > ignores cancellation with mismatched request identity 1",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > ignores cancellation with mismatched request identity 2",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > ignores cancellation with mismatched request identity 3",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > ignores unsolicited and duplicate success while a different page is pending",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > invalidates an outstanding completion when the host replaces the candidate context",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > clears the completion slot for a new context and rejects an old response mirrored into review",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > recovers an identified error through an empty context without accepting its late duplicate",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > ignores an exact request echo with a mismatched projected digest",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > ignores an exact request echo with a mismatched projected page",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  }
+]

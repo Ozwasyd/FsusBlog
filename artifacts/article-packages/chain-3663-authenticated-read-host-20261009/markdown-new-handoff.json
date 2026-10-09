@@ -1,0 +1,17 @@
+{
+    "command": [
+        "markdownlint-cli2",
+        "--config",
+        ".markdownlint-cli2.jsonc",
+        "--no-globs",
+        ":artifacts/article-packages/chain-3663-authenticated-read-host-20261009/README.md"
+    ],
+    "testedSha": "1525e2ad0ea56350f34a368c8f2107706d342759",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T14:05:36.232202+00:00",
+    "endUtc": "2026-10-09T14:05:36.448672+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/markdown-new-handoff.log"
+}

@@ -1,0 +1,29 @@
+{
+    "candidate": "e8bd8da3b0c7010daf1afb45a99d25aefa1f0529",
+    "expectedCases": 32,
+    "exactMethods": 14,
+    "classCases": {
+        "ArticlePackageCandidateReviewReadServiceTests": 22,
+        "ArticlePackageCandidateReadEndpointTests": 10
+    },
+    "sources": {
+        "tests/backend/Unit/ArticlePackageCandidateReviewReadServiceTests.cs": "8ebfc34179d2a34e11c4ffecb6c078670c89f252d48a1e105b29d48a57a3774b",
+        "tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs": "3c9f39c1103db0f9923686af72236b6136a3691b149f300a62b62fed6bc13bd3",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs": "9c61f64889c4d87954feedf9cbc6f0f1c4925b7a6b8db1a82a9b635700ea8a45",
+        "src/backend/Services/Authoring/ArticlePackageCandidateReviewReadService.cs": "cd13a3ff651968e26199055ce21212fe35a16f329834b4f1c090484ee1ad1163",
+        "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs": "4821cc46efdb834c7bc84f548303f58e6ca6808fa1592749634582dea6b210d3",
+        "src/backend/Interfaces/ISystemSiteIdentityReader.cs": "ee6371258149f8fc98b5540b7092a8751cde8adca73e22d405d7fc4c411159c6",
+        "tests/backend/FsusBlog.Server.Tests.csproj": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c",
+        "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b",
+        "tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs": "3ef41868a0c41c1784ec9f3a51b16aa67c17a18be76ca3f36e4e9d4571d8fcb9"
+    },
+    "assemblies": {
+        "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "340d1f470b11dae5cdd82f0fdc3ca40001a95080bcf9c4303321fa7d514766d7",
+        "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "5c0a2944b008304c8c8a94135ae21e29cac1e560aa714ba4acd05d8cff201719",
+        "src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll": "9db5b3f618395d30378afa305025436a3173e4a997455c54d0e87b606060b970"
+    },
+    "moduleInitializer": "Original Redis diagnostics opt-in absent; returns with no subscriber",
+    "entryPoint": "Original vstest; public AOT crash-worker StartupObject is not invoked",
+    "resources": "Controlled reader, claims, memory ZIP and body stream; one disposable TestServer with original permission metadata and explicit controlled scheme; no DB, migration, real tokens, production host activation or native decoder qualification",
+    "boundary": "Endpoint positive body/response cannot run without actual original registry closed-pair owner; no substitute frame tested as success"
+}

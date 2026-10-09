@@ -1,0 +1,10 @@
+{
+    "candidate": "7193319290abf6283a69c0ebe22c070a0ba0ee46",
+    "actualFullAppErrors": 313,
+    "newOwnSourceErrors": [],
+    "suppliedModuleErrors": [
+        "src/components/admin/article-packages/ArticlePackageCandidateReview.vue(117,26): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations."
+    ],
+    "emptySolutionExit0NotAppQualification": true,
+    "fullAppTypecheckAccepted": false
+}

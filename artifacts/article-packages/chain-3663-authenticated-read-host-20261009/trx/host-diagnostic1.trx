@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="0af99d54-dea4-446e-8642-e1769aaa3267" name="@bad473dbf38b 2026-10-09 13:45:00" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-09T13:45:00.8468718+00:00" queuing="2026-10-09T13:45:00.8468719+00:00" start="2026-10-09T13:44:58.2395588+00:00" finish="2026-10-09T13:45:00.8528435+00:00" />
+  <TestSettings name="default" id="8ac110f7-23b5-49b7-99a6-660ee262cd67">
+    <Deployment runDeploymentRoot="_bad473dbf38b_2026-10-09_13_45_00" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="d710698c-796c-4209-97bd-86833f9441f2" testId="1594c1ba-5abc-f776-60e5-1c9f4ce8e4ed" testName="FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError" computerName="bad473dbf38b" duration="00:00:00.1720123" startTime="2026-10-09T13:45:00.5798801+00:00" endTime="2026-10-09T13:45:00.7410391+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d710698c-796c-4209-97bd-86833f9441f2">
+      <Output>
+        <ErrorInfo>
+          <Message>Controlled host response: contentType=text/html; length=334; frameHeader=False; decoder=AEDS magic mismatch</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError() in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs:line 124
+   at FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError() in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs:line 130
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError" storage="/workspace/fsusblog-group-property-recheck-3663/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="1594c1ba-5abc-f776-60e5-1c9f4ce8e4ed">
+      <Execution id="d710698c-796c-4209-97bd-86833f9441f2" />
+      <TestMethod codeBase="/workspace/FsusBlog-group-property-recheck-3663/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests" name="DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="1594c1ba-5abc-f776-60e5-1c9f4ce8e4ed" executionId="d710698c-796c-4209-97bd-86833f9441f2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="1" executed="1" passed="0" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.10)
+[xUnit.net 00:00:00.36]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:01.83]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:01.89]   Starting:    FsusBlog.Server.Tests
+[xUnit.net 00:00:02.11]       Controlled host response: contentType=text/html; length=334; frameHeader=False; decoder=AEDS magic mismatch
+[xUnit.net 00:00:02.11]       Stack Trace:
+[xUnit.net 00:00:02.11]         /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs(124,0): at FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError()
+[xUnit.net 00:00:02.11]         /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs(130,0): at FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError()
+[xUnit.net 00:00:02.11]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:02.12]   Finished:    FsusBlog.Server.Tests
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="bad473dbf38b" outcome="Error" timestamp="2026-10-09T13:45:00.7445255+00:00">
+        <Text>[xUnit.net 00:00:02.11]     FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

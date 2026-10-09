@@ -1,0 +1,19 @@
+{
+    "command": [
+        "dotnet",
+        "format",
+        "whitespace",
+        "--folder",
+        "--include",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs",
+        "tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs"
+    ],
+    "testedSha": "854681c25db7b1b5403c45e08a8b67025b3af7b6",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T13:24:09.467401+00:00",
+    "endUtc": "2026-10-09T13:24:11.349148+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/new-host-format.log"
+}

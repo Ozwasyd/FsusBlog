@@ -1,0 +1,29 @@
+{
+    "applied": false,
+    "entryProposal": {
+        "method": "POST",
+        "path": "/api/binary/author/article-packages/candidate-review",
+        "operationId": "binary_post_author_article_packages_candidate_review",
+        "requestFrame": "ArticlePackageCandidateReviewReadRequest",
+        "requestType": "FsusBlog.Shared.Contracts.ArticlePackages.ArticlePackageCandidateReviewReadRequest",
+        "requestEncoding": "utf8-json",
+        "responseFrame": "ArticlePackageCandidateReviewReadResponse",
+        "errorFrame": "ApiError",
+        "successStatus": 200
+    },
+    "dedicatedNumericFrameValues": null,
+    "numericAllocationOwner": "root #3735",
+    "protocolRegistry": "src/shared/Contracts/Validation/aeds-protocol.json",
+    "endpointRegistry": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+    "CSharpEnum": "src/core/Algorithms/AedsFrameType.cs",
+    "frontendEnum": "src/frontend/wasm/web/protocol/frame.ts",
+    "generatedOpenApi": "src/shared/Contracts/Validation/fsusblog.openapi.json (existing producer only)",
+    "consumerCSRequest": "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewReadContracts.cs",
+    "consumerTsContract": "src/frontend/src/api/types/articlePackageCandidateRead.ts",
+    "requestLimitBytes": 1048576,
+    "decodedArchiveLimitBytes": 524288,
+    "pageSizeMax": 50,
+    "requiredPermission": "article.write",
+    "canonicalImplementationSupplier": "adc2e50070ffecbd1e003e7a051450c2dea6ff1f",
+    "canonicalQualification": false
+}

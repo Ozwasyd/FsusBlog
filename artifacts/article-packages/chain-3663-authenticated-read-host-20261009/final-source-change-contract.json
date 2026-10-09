@@ -1,0 +1,18 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-source-pr-handoff-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-group-property-recheck-3663",
+        "--range",
+        "76f900f3266560af64e05f6936d4096f76577361..HEAD"
+    ],
+    "testedSha": "1525e2ad0ea56350f34a368c8f2107706d342759",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T14:02:08.997358+00:00",
+    "endUtc": "2026-10-09T14:02:10.825383+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/final-source-change-contract.log"
+}

@@ -1,0 +1,17 @@
+{
+    "command": [
+        "bash",
+        "tools/test.sh",
+        "ci-tier",
+        "backend-fast",
+        "--plan-only"
+    ],
+    "testedSha": "e8bd8da3b0c7010daf1afb45a99d25aefa1f0529",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T13:37:39.382593+00:00",
+    "endUtc": "2026-10-09T13:39:17.299090+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/current-original-matrix-plan.log"
+}

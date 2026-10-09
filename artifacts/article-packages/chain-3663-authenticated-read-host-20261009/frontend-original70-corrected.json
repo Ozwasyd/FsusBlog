@@ -1,0 +1,21 @@
+{
+    "command": [
+        "node_modules/.bin/vitest",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts",
+        "../../tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts",
+        "../../tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts",
+        "--reporter=json",
+        "--outputFile=/workspace/chain-3663-evidence/authenticated-read-host-20261009/frontend70-corrected-results.json"
+    ],
+    "testedSha": "e8bd8da3b0c7010daf1afb45a99d25aefa1f0529",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T13:32:54.212170+00:00",
+    "endUtc": "2026-10-09T13:33:16.364406+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/frontend-original70-corrected.log"
+}

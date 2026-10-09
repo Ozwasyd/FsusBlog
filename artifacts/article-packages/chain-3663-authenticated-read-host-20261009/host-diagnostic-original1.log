@@ -1,0 +1,13 @@
+Test run for /workspace/FsusBlog-group-property-recheck-3663/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:02.11]     FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError [172 ms]
+  Error Message:
+   Controlled host response: contentType=text/html; length=334; frameHeader=False; decoder=AEDS magic mismatch
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError() in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs:line 124
+   at FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError() in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs:line 130
+--- End of stack trace from previous location ---
+Results File: /workspace/chain-3663-evidence/authenticated-read-host-20261009/trx/host-diagnostic1.trx
+
+Failed!  - Failed:     1, Passed:     0, Skipped:     0, Total:     1, Duration: 172 ms - FsusBlog.Server.Tests.dll (net10.0)

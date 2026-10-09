@@ -1,0 +1,16 @@
+{
+    "command": [
+        "node",
+        "--input-type=module",
+        "-e",
+        "import {sampleLinuxCgroupV2HeadroomBytes} from './tools/test/system-memory.mjs'; console.log(JSON.stringify({headroomBytes:sampleLinuxCgroupV2HeadroomBytes()}));"
+    ],
+    "testedSha": "259a3b09dfefa4309fae826d6144c10c8ddce982",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T13:27:02.820906+00:00",
+    "endUtc": "2026-10-09T13:27:02.904337+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/current-resource-preflight.log"
+}

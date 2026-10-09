@@ -1,0 +1,21 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--list-tests",
+        "--filter",
+        "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CurrentExactScope_UsesOriginalProducerAndPreservesObservedCoordinates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.FinalRevisionDrift_IsRefusedEvenWhenIdentityIsUnchanged|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.StatelessReplay_RequiresSamePlanAndContextRatherThanRefreshingThem|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.PermissionDenialAndOversizeEnvelope_DoNotCallReader|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.ScopeChangeAfterProjection_IsRefusedWithoutUrlNormalization|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.UpdateHint_Int64StaysExactAndExecutionStillHasNoAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CancelAndOwnerFailure_NeverFabricateBindingOrDefaultIdentity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DeniedIdentity_ReturnsOriginalApiErrorBeforeBodyOrReader|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.ClosedPairMissing_RefusesBeforeTypedBodyAndCanonicalReader|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.OversizeFrame_RefusesBeforeBodyAndReader|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.CallerOrRequestAbort_ProducesNoFrameBodyOrIdentityRead|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError"
+    ],
+    "testedSha": "e8bd8da3b0c7010daf1afb45a99d25aefa1f0529",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T13:35:57.274473+00:00",
+    "endUtc": "2026-10-09T13:36:00.882454+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/backend-original-discovery.log"
+}

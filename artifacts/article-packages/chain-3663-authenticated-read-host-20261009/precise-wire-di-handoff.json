@@ -1,0 +1,21 @@
+{
+    "sourceCandidate": "e8bd8da3b0c7010daf1afb45a99d25aefa1f0529",
+    "sharedFilesNotEdited": true,
+    "proposalPreimages": {
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.cs": "aa7c0c69ca6910cd864e4e3f904a45e24401952e",
+        "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs": "6138f3b208d98d1392d6511abfff1985630a5f88",
+        "src/shared/Contracts/Validation/aeds-protocol.json": "983a35bd57ff8da6a0718bc2282ea9b764432402",
+        "src/shared/Contracts/Validation/aeds-endpoint-contracts.json": "9ac7eef625f560e17d0247495f6594dab813939d"
+    },
+    "actualReaderSignature": "Task<SystemSiteIdentityReadModel> ISystemSiteIdentityReader.ReadCurrentSiteIdentityAsync(CancellationToken)",
+    "actualNewState": "InitializationRequired is never Current and remains refused",
+    "frontendResponse": "requestId, original review, identity/lifecycleVersion/generation/mappingRevision/scopeRevision echo",
+    "noLegacyGenericFrameSubstitute": true,
+    "activationRequires": [
+        "canonical security review and actual PostgreSQL collection qualification",
+        "sole original frame owner closed-pair allocation and ABI parity",
+        "original host hook and qualified existing SystemService reader DI",
+        "typed AEDS positive/negative body/response/RequestAborted tests",
+        "real authenticated browser I/O cancellation and independent rendered acceptance"
+    ]
+}

@@ -1,0 +1,17 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore"
+    ],
+    "testedSha": "0cae6f90913f9b57e1714f4b8bce5ec1afce4993",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T13:40:42.951062+00:00",
+    "endUtc": "2026-10-09T13:43:08.052225+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/host-diagnostic-project-build.log"
+}

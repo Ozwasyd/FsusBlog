@@ -1,0 +1,24 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+        "--root",
+        "/workspace/FsusBlog-group-property-recheck-3663",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs",
+        "--file",
+        "tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs",
+        "--file",
+        "tests/backend/Unit/ArticlePackageCandidateReviewReadServiceTests.cs"
+    ],
+    "testedSha": "259a3b09dfefa4309fae826d6144c10c8ddce982",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T13:26:07.681915+00:00",
+    "endUtc": "2026-10-09T13:26:18.351173+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/authenticated-read-host-20261009/new-host-csharp-style-corrected.log"
+}

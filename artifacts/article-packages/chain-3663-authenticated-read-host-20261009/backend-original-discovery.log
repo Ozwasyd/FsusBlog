@@ -1,0 +1,34 @@
+Test run for /workspace/FsusBlog-group-property-recheck-3663/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+The following Tests are available:
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DeniedIdentity_ReturnsOriginalApiErrorBeforeBodyOrReader(input: "anonymous", status: 401)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DeniedIdentity_ReturnsOriginalApiErrorBeforeBodyOrReader(input: "non-admin", status: 403)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DeniedIdentity_ReturnsOriginalApiErrorBeforeBodyOrReader(input: "invalid-id", status: 403)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DeniedIdentity_ReturnsOriginalApiErrorBeforeBodyOrReader(input: "missing-session", status: 403)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DeniedIdentity_ReturnsOriginalApiErrorBeforeBodyOrReader(input: "missing-permission", status: 403)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.ClosedPairMissing_RefusesBeforeTypedBodyAndCanonicalReader
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.OversizeFrame_RefusesBeforeBodyAndReader
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.CallerOrRequestAbort_ProducesNoFrameBodyOrIdentityRead(requestAborted: False)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.CallerOrRequestAbort_ProducesNoFrameBodyOrIdentityRead(requestAborted: True)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReadEndpointTests.DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CurrentExactScope_UsesOriginalProducerAndPreservesObservedCoordinates
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent(state: Absent)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent(state: MigrationRequired)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent(state: Ambiguous)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent(state: Malformed)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent(state: UnsupportedVersion)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent(state: InitializationRequired)
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused(change: "missing-identity")
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused(change: "missing-generation")
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused(change: "unsupported-lifecycle")
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused(change: "missing-mapping")
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused(change: "wrong-scope")
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused(change: "duplicate-scope")
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused(change: "future-scope-revision")
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.FinalRevisionDrift_IsRefusedEvenWhenIdentityIsUnchanged(change: "generation")
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.FinalRevisionDrift_IsRefusedEvenWhenIdentityIsUnchanged(change: "mapping")
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.FinalRevisionDrift_IsRefusedEvenWhenIdentityIsUnchanged(change: "scope-revision")
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.StatelessReplay_RequiresSamePlanAndContextRatherThanRefreshingThem
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.PermissionDenialAndOversizeEnvelope_DoNotCallReader
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.ScopeChangeAfterProjection_IsRefusedWithoutUrlNormalization
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.UpdateHint_Int64StaysExactAndExecutionStillHasNoAuthority
+    FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CancelAndOwnerFailure_NeverFabricateBindingOrDefaultIdentity

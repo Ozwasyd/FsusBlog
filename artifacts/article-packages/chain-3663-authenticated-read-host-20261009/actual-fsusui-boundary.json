@@ -1,0 +1,23 @@
+{
+    "candidate": "259a3b09dfefa4309fae826d6144c10c8ddce982",
+    "uiRoot": "/workspace/FsusUI",
+    "uiHead": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "uiOrigin": "https://github.com/Ozwasyd/FsusUI.git",
+    "uiDirty": false,
+    "originalResolver": "src/frontend/scripts/fsusui-root.mjs (no override or replacement)",
+    "files": {
+        ".agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+        "docs/index.md": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18",
+        "docs/design.md": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+        "docs/design/governance.md": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+        "docs/design/change-classification.md": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+        "docs/workflows/visual-change.md": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+        "docs/consumers/design-integration.md": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+        "vue/packages/element-plus/index.ts": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+        "vue/packages/components/index.ts": "517ba975128dcee601af5342a84ffb8559beffdf7dc7932a15a18875056df6c3",
+        "vue/packages/components/button/index.ts": "b3dc158977a6724e547893979e7188a443361a67516f713768bf976eca902538"
+    },
+    "publicApi": "element-plus index exports components; components index exports button; button publicly exports ElButton via withInstall",
+    "compatibilityOnly": true,
+    "noRenderedOrProductionIoQualification": true
+}

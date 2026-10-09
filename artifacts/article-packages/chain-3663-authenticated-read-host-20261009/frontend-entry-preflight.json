@@ -1,0 +1,15 @@
+{
+    "candidate": "259a3b09dfefa4309fae826d6144c10c8ddce982",
+    "originalVitestConfig": "src/frontend/vitest.config.ts",
+    "setupFile": "tests/frontend/support/unit/setup.ts",
+    "setupDigest": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a",
+    "setupBoundary": "Happy DOM, animation frame support, locale graph reset/import and mocked WASM decoder/PoW; no real production decoder or cancellation receipt",
+    "selected": [
+        "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts",
+        "tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts",
+        "tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts"
+    ],
+    "expectedCases": 70,
+    "data": "controlled opaque ZIP text and read promises; no browser package parsing, actual credentials or runtime endpoint",
+    "resource": "current original cgroup sample passes"
+}
