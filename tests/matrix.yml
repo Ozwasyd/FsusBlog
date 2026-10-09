@@ -11427,7 +11427,7 @@ tiers:
           ]
       requiresBootstrap: "none"
       requiresNode: true
-      requiresDotnet: false
+      requiresDotnet: true
       requiresPlaywright: "none"
       cacheProfile: "none"
       timeoutMinutes: 2
