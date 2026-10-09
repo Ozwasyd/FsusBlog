@@ -1,0 +1,25 @@
+{
+    "canonicalSource": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+    "preimageBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+    "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+    "replacements": [
+        {
+            "before": "[InlineData(Environments.Development, \"\")]",
+            "after": "[InlineData(\"Development\", \"\")]"
+        },
+        {
+            "before": "[InlineData(Environments.Development, \"relative/receipt.json\")]",
+            "after": "[InlineData(\"Development\", \"relative/receipt.json\")]"
+        },
+        {
+            "before": "[InlineData(Environments.Production, \"\")]",
+            "after": "[InlineData(\"Production\", \"\")]"
+        },
+        {
+            "before": "[InlineData(Environments.Production, \"relative/receipt.json\")]",
+            "after": "[InlineData(\"Production\", \"relative/receipt.json\")]"
+        }
+    ],
+    "changedMethodOrAssertions": false,
+    "executingBootstrapTests": false
+}
