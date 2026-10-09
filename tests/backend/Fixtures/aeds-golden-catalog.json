@@ -286,6 +286,7 @@
     { "name": "WritingAidPreferenceSnapshotResponse", "value": 272, "family": "writing-aid-preference" },
     { "name": "WritingAidPreferenceUpdateRequest", "value": 273, "family": "writing-aid-preference" },
     { "name": "WritingAidPreferenceReceiptResponse", "value": 274, "family": "writing-aid-preference" },
-    { "name": "UploadAssetPreview", "value": 275, "family": "upload-response" }
+    { "name": "UploadAssetPreview", "value": 275, "family": "upload-response" },
+    { "name": "UploadAssetFacts", "value": 285, "family": "upload-response" }
   ]
 }

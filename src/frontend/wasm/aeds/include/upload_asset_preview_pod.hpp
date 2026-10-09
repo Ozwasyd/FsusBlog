@@ -60,7 +60,7 @@ inline bool Hex(std::string_view value, std::size_t size)
     return true;
 }
 
-inline bool Parse(const std::uint8_t* p, std::size_t length)
+inline bool ParseAssetHeader(const std::uint8_t* p, std::size_t length, bool factsOnly)
 {
     if (p == nullptr || length < sizeof(Header))
         return false;
@@ -70,7 +70,7 @@ inline bool Parse(const std::uint8_t* p, std::size_t length)
     for (std::size_t i = 0; i < 9; ++i)
         if (!Field(p + offsets[i], sizes[i], f[i]))
             return false;
-    if (f[0] != "fsusblog.upload-asset-preview.v1" || !Hex(f[1], 32) || f[2].size() != 36)
+    if (f[0] != (factsOnly ? "fsusblog.upload-asset-facts.v1" : "fsusblog.upload-asset-preview.v1") || !Hex(f[1], 32) || f[2].size() != 36)
         return false;
     std::size_t j = 0;
     for (std::size_t i = 0; i < 36; ++i)
@@ -97,8 +97,18 @@ inline bool Parse(const std::uint8_t* p, std::size_t length)
         return false;
     const auto size = U32(p + 544), width = U32(p + 552), height = U32(p + 556);
     constexpr std::uint32_t MaxPreviewBytes = 8u * 1024u * 1024u - 16u - sizeof(Header);
-    return U32(p + 548) == 0 && size > 0 && size <= MaxPreviewBytes && length - sizeof(Header) == size
+    return U32(p + 548) == 0 && size > 0 && size <= (factsOnly ? 20u * 1024u * 1024u : MaxPreviewBytes)
+           && (factsOnly ? length == sizeof(Header) : length - sizeof(Header) == size)
            && width <= 0x7fffffffu && height <= 0x7fffffffu && (width == 0) == (height == 0) && U32(p + 752) <= 1024
            && U32(p + 756) == 0 && Hex(f[6], 64) && Hex(f[7], 64) && Hex(f[8], 64);
+}
+inline bool Parse(const std::uint8_t* p, std::size_t length)
+{
+    return ParseAssetHeader(p, length, false);
+}
+
+inline bool ParseFacts(const std::uint8_t* p, std::size_t length)
+{
+    return ParseAssetHeader(p, length, true);
 }
 } // namespace FsusBlog::Pod::UploadPreview

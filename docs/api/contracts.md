@@ -1769,10 +1769,34 @@ URLs are not an article intent or resource-operation grant.
 
 The attachment upload consumer uses status and protected frame275 preview to
 observe completed native bytes and canonical asset/reference facts. There is no
-public facts-only route corresponding to the existing internal
-`IFileService.ObserveCommittedUploadAsync(UploadSessionAccess, sha256, ct)` for
-committed images larger than8,387,832 bytes. That consumer reports
-`upload_facts_only_transport_missing`, preserving the original20MiB policy.
+facts-only integration in that consumer until its original owner switches to the
+new read port below; its current `upload_facts_only_transport_missing` refusal
+continues to preserve the original20MiB policy.
+
+### Completed upload facts
+
+`POST /api/binary/upload/{uploadId}/facts` calls the original
+`IFileService.ObserveCommittedUploadAsync(UploadSessionAccess, string sha256, CancellationToken)`.
+It retains admin authentication, ArticleWrite, PoW and original owner/token/expiry
+checks. Its request is the existing `UploadCompleteRequest` with exactly64 payload
+bytes (80 including the AEDS header); the response is `private, no-store`.
+
+`UploadAssetFacts` is the distinct canonical frame285 with native error20. Its
+`fsusblog.upload-asset-facts.v1` payload is exactly760 bytes (776 framed), reusing
+the preview field offsets and closed validation. `SizeBytes` is a positive Int64
+bounded by the original20MiB upload limit. There are no appended image bytes,
+private reference rows, owner credentials, source keys, captions or receiptRef.
+The response carries uploadId, canonical AssetId/public path, MIME/extension,
+size/dimensions, SHA256, asset-version/reference-ledger digests and reference-row
+count. Nonzero reserved bytes or AEDS flags, malformed fields, truncation and
+trailing bytes refuse. Preview retains its original schema and byte-size limit.
+
+Frontend `readCommittedUploadFacts(uploadId, uploadToken, sha256, signal?)` uses the
+generated admin binary route and verifies response uploadId/SHA binding after the
+read. Cancellation propagates to the original observer. That observer still
+verifies original native file bytes on the server; the facts route does not
+transfer those bytes. Upload observations do not create the eight-field
+`AttachmentReferenceFacts` receipt or grant an article reference operation.
 
 The original abort response acknowledges session deletion with `aborted`; it
 contains no atomic committed AssetId/reference or cleanup outcome. A client whose

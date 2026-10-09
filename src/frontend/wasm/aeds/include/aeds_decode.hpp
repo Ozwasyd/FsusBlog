@@ -25,6 +25,7 @@ enum class ErrorCode : std::uint8_t
     WritingAidPreferencePayloadInvalid = 15,
     // Reserved for the UploadAssetPreview owner; no preview frame or codec is admitted here.
     UploadAssetPreviewPayloadInvalid = 16,
+    UploadAssetFactsPayloadInvalid = 20,
     FontThemePayloadInvalid = 10
 };
 

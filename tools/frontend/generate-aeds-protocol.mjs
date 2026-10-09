@@ -327,6 +327,14 @@ export function renderAedsProtocolOutputs(manifest)
     ];
 }
 
+function formatTsFrameProduct(source)
+{
+    // Preserve the original renderer oracle; canonical CLI products follow repository style.
+    return source.replace(/^ {2}/gmu, '    ')
+        .replace(',\n} as const;', '\n} as const;')
+        .replace('): boolean {', '): boolean\n{');
+}
+
 async function main()
 {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -335,8 +343,10 @@ async function main()
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
     const outputs = renderAedsProtocolOutputs(manifest);
     let drift = false;
-    for (const [relativePath, expected] of outputs)
+    for (const [relativePath, rendered] of outputs)
     {
+        const expected = relativePath === 'src/frontend/wasm/web/protocol/frame.ts'
+            ? formatTsFrameProduct(rendered) : rendered;
         const absolutePath = path.join(root, relativePath);
         const current = await readFile(absolutePath, 'utf8');
         if (current === expected)

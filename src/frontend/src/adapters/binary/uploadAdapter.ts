@@ -107,11 +107,24 @@ function readIsoDate(payload: Uint8Array, offset: number): string
     return new Date(readInt64Number(payload, offset)).toISOString().replace('.000Z', 'Z');
 }
 
+export type UploadAssetFactsViewModel = Omit<UploadAssetPreviewViewModel, 'schema' | 'bytes'> & { schema: 'fsusblog.upload-asset-facts.v1'; };
+
+export function mapUploadAssetFactsFromPayload(payload: Uint8Array): UploadAssetFactsViewModel
+{
+    return { ...readUploadAssetHeader(payload, 'fsusblog.upload-asset-facts.v1', 20971520n, false), schema: 'fsusblog.upload-asset-facts.v1' };
+}
+
 export function mapUploadAssetPreviewFromPayload(payload: Uint8Array): UploadAssetPreviewViewModel
+{
+    return { ...readUploadAssetHeader(payload, 'fsusblog.upload-asset-preview.v1', 8387832n, true),
+        schema: 'fsusblog.upload-asset-preview.v1', bytes: payload.slice(760) };
+}
+
+function readUploadAssetHeader(payload: Uint8Array, expectedSchema: string, maximumSize: bigint, includesBytes: boolean): Omit<UploadAssetPreviewViewModel, 'schema' | 'bytes'>
 {
     const invalid = (): never =>
     {
-        throw createAppError(AppErrorCode.ProtocolFailure, 'upload_asset_preview_invalid');
+        throw createAppError(AppErrorCode.ProtocolFailure, includesBytes ? 'upload_asset_preview_invalid' : 'upload_asset_facts_invalid');
     };
     if (payload.byteLength < 760)
     {
@@ -149,17 +162,17 @@ export function mapUploadAssetPreviewFromPayload(payload: Uint8Array): UploadAss
     const mime = new Map([['.png', 'image/png'], ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'],
         ['.gif', 'image/gif'], ['.webp', 'image/webp'], ['.ico', 'image/x-icon']]).get(extension);
     const canonicalId = `${uploadId.slice(0, 8)}-${uploadId.slice(8, 12)}-${uploadId.slice(12, 16)}-${uploadId.slice(16, 20)}-${uploadId.slice(20)}`;
-    if (schema !== 'fsusblog.upload-asset-preview.v1' || !/^[0-9a-f]{32}$/u.test(uploadId)
+    if (schema !== expectedSchema || !/^[0-9a-f]{32}$/u.test(uploadId)
         || assetId !== canonicalId || !mime || mimeType !== mime
         || publicUrl !== `/uploads/illustration/${uploadId}${extension}`
-        || size <= 0n || size > 8387832n || BigInt(payload.byteLength - 760) !== size
+        || size <= 0n || size > maximumSize || (includesBytes ? BigInt(payload.byteLength - 760) !== size : payload.byteLength !== 760)
         || width < 0 || height < 0 || (width === 0) !== (height === 0)
         || referenceRowCount < 0 || referenceRowCount > 1024 || view.getInt32(756, true) !== 0
         || ![sha256, assetVersionSha256, referenceLedgerSha256].every(value => /^[0-9a-f]{64}$/u.test(value)))
     {
         invalid();
     }
-    return { schema: 'fsusblog.upload-asset-preview.v1', uploadId, assetId, publicUrl, mimeType, extension,
+    return { uploadId, assetId, publicUrl, mimeType, extension,
         sizeBytes: Number(size), width, height, sha256, assetVersionSha256, referenceLedgerSha256,
-        referenceRowCount, bytes: payload.slice(760) };
+        referenceRowCount };
 }

@@ -1578,6 +1578,14 @@
           "responseFrame": "UploadComplete"
         },
         {
+          "method": "POST",
+          "path": "/upload/{uploadId}/preview",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "UploadCompleteRequest",
+          "responseFrame": "UploadAssetPreview"
+        },
+        {
           "method": "DELETE",
           "path": "/upload/{uploadId}",
           "auth": "admin",
@@ -2976,6 +2984,21 @@
           "cache": "no-store",
           "rateLimit": "none",
           "operationId": "binary_author_workspace_snapshot_mutate"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "frontendWrapper": "src/frontend/src/api/uploadFacts.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/upload/{uploadId}/facts",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "UploadCompleteRequest",
+          "responseFrame": "UploadAssetFacts"
         }
       ]
     }

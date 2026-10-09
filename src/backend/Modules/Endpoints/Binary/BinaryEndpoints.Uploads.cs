@@ -38,6 +38,8 @@ public static partial class BinaryEndpoints
             .RequireAdminPermission(AdminPermissions.ArticleWrite)
             .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
+        MapBinaryUploadAssetFactsEndpoints(uploadGroup);
+
         uploadGroup.MapPost("/init", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IFileService fileService,

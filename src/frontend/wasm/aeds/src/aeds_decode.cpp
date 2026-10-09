@@ -70,6 +70,8 @@ const char* ToErrorString(ErrorCode errorCode)
             return "writing_aid_preference_payload_invalid";
         case ErrorCode::UploadAssetPreviewPayloadInvalid:
             return "upload_asset_preview_payload_invalid";
+        case ErrorCode::UploadAssetFactsPayloadInvalid:
+            return "upload_asset_facts_payload_invalid";
         case ErrorCode::AuthoringCanvasPayloadInvalid:
             return "authoring_canvas_payload_invalid";
         case ErrorCode::ArticlePayloadInvalid:
@@ -129,6 +131,12 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         return MakeError(ErrorCode::FrameTypeUnsupported);
     }
 
+    if (FrameType == static_cast<std::uint16_t>(FrameType::UploadAssetFacts)
+        && (PayloadLength != sizeof(FsusBlog::Pod::UploadPreview::Header) || ReadU16Le(frame + 6) != 0))
+    {
+        return MakeError(ErrorCode::UploadAssetFactsPayloadInvalid);
+    }
+
     const std::uint8_t* payload = frame + kHeaderSize;
     const std::uint16_t PayloadCrc = ComputeCrc16(payload, PayloadLength);
     if (PayloadCrc != PayloadCrc16)
@@ -178,6 +186,12 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         && !ValidateWritingAidPreferencePayload(FrameType, payload, PayloadLength))
     {
         return MakeError(ErrorCode::WritingAidPreferencePayloadInvalid);
+    }
+
+    if (FrameType == static_cast<std::uint16_t>(FrameType::UploadAssetFacts)
+        && !FsusBlog::Pod::UploadPreview::ParseFacts(payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::UploadAssetFactsPayloadInvalid);
     }
 
     if (FrameType == 275 && !FsusBlog::Pod::UploadPreview::Parse(payload, PayloadLength))
