@@ -1,0 +1,40 @@
+{
+  "typescriptVersion": "6.0.3",
+  "results": [
+    {
+      "file": "src/frontend/src/api/uploadFacts.ts",
+      "runtimeEmissionIdentical": true,
+      "preimageRuntimeSha256": "e7f145cd6dfe8541a39151b4a79f8c3eb539206f9eea6b350f16edab2a95d478",
+      "postimageRuntimeSha256": "e7f145cd6dfe8541a39151b4a79f8c3eb539206f9eea6b350f16edab2a95d478",
+      "emitterScope": "official TS6 removeComments, no sourceMap; emission comparison, not full application typecheck"
+    },
+    {
+      "file": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "runtimeEmissionIdentical": true,
+      "preimageRuntimeSha256": "bc2be98ee27a382d6d65c85efdc95c87659f9af153a816630210ea0269e1bcae",
+      "postimageRuntimeSha256": "bc2be98ee27a382d6d65c85efdc95c87659f9af153a816630210ea0269e1bcae",
+      "emitterScope": "official TS6 removeComments, no sourceMap; emission comparison, not full application typecheck"
+    },
+    {
+      "file": "src/frontend/src/contracts/binaryApi.ts",
+      "runtimeEmissionIdentical": true,
+      "preimageRuntimeSha256": "80e225f89e4f0fe40657d116527de593b11c6895802c6c73ff0929eb7d6e84ad",
+      "postimageRuntimeSha256": "80e225f89e4f0fe40657d116527de593b11c6895802c6c73ff0929eb7d6e84ad",
+      "emitterScope": "official TS6 removeComments, no sourceMap; emission comparison, not full application typecheck"
+    }
+  ],
+  "originalAliasText": "export type UploadAssetFactsViewModel = Omit<UploadAssetPreviewViewModel, 'schema' | 'bytes'> & { schema: 'fsusblog.upload-asset-facts.v1'; };",
+  "movedAliasText": "export type UploadAssetFactsViewModel = Omit<UploadAssetPreviewViewModel, 'schema' | 'bytes'> & { schema: 'fsusblog.upload-asset-facts.v1'; };",
+  "aliasTextIdentical": true,
+  "existingContractPrefixByteIdentical": true,
+  "actualRelevantDeclarationTypeEquality": {
+    "diagnostics": 0,
+    "exact": true,
+    "bothDirections": true,
+    "bytesAbsent": true,
+    "scope": "original actual PreviewViewModel declaration extracted by AST and exact alias, original whole-contract prefix separately byte-checked; scoped type equality, no package/API stubs or full application qualification"
+  },
+  "current54EvidenceNotRerun": true,
+  "originalRuntimeExecutionSha": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+  "qualification": false
+}

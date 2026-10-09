@@ -1,0 +1,8 @@
+{
+  "compression": "gzip lossless, mtime0",
+  "originalSha256": "2d29624da7e762b2d9f11758dbcc53f996820835af36661e422864344b91a59d",
+  "reason": "Raw git patch context blank lines have a required single prefix space; adding verbatim patch triggered artifact diff-check. Original patch preserved losslessly as gzip; no source change or checker exception.",
+  "initialArtifactDiffCheckExit": 2,
+  "rawFailureLogsAlsoLosslesslyCompressed": true,
+  "secondArtifactDiffCheckExit": 2
+}

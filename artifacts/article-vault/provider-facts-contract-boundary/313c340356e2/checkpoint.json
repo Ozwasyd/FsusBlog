@@ -1,0 +1,26 @@
+{
+  "utc": "2026-10-09T14:25:04.210176+00:00",
+  "localHead": "8fa653df73646f720c735ad4b54b649e869a9b9e",
+  "remoteHead": "8fa653df73646f720c735ad4b54b649e869a9b9e",
+  "dirtyPaths": [
+    "src/frontend/src/adapters/binary/uploadAdapter.ts",
+    "src/frontend/src/api/uploadFacts.ts",
+    "src/frontend/src/contracts/binaryApi.ts"
+  ],
+  "lastCompletedCommand": "official TS6 relevant-declaration equality and three runtime emission comparisons",
+  "lastCompletedExit": 0,
+  "guard": {
+    "exit": 1,
+    "diagnosticCount": 5,
+    "newFactsEdgeAbsent": true
+  },
+  "negativeControl": {
+    "exit": 0
+  },
+  "sourceDiffStyle": {
+    "exit": 1,
+    "reason": "original checker accepts JavaScript ESLint source files only; TypeScript requires strict checks"
+  },
+  "currentlyRunning": "original strict style checker, three exact TypeScript files",
+  "qualification": false
+}

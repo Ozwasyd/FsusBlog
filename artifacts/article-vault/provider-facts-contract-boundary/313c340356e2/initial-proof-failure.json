@@ -1,0 +1,7 @@
+{
+  "actualExitCode": 1,
+  "diagnosticCount": 6,
+  "reason": "Whole contract copies in disposable directory lacked original relative/alias module resolution for SupportedLocale, writingAidPreferenceWire.generated, commentPolicy. Raw stderr only in tool output; no raw log fabricated.",
+  "nextActionTaken": "Scoped equality compiles exact actual referenced interface and identical moved alias; entire remaining contract prefix stays byte-verified. Existing full application failures remain separate, not waived.",
+  "script": "initial-whole-contract-probe.mjs"
+}

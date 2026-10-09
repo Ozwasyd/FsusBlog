@@ -1,0 +1,56 @@
+{
+  "sourceSha": "313c340356e2c8f8fc1bcceb550b6526871c12c6",
+  "incrementalBase": "8fa653df73646f720c735ad4b54b649e869a9b9e",
+  "supplierSource": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "branch": "codex/chain-1975-provider-facts-only",
+  "sourcePublicationVerified": true,
+  "sourcePaths": [
+    "src/frontend/src/adapters/binary/uploadAdapter.ts",
+    "src/frontend/src/api/uploadFacts.ts",
+    "src/frontend/src/contracts/binaryApi.ts"
+  ],
+  "sourcePathCount": 3,
+  "fetchedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "aliasMoveOnly": true,
+  "runtimeEmissionFilesIdentical": 3,
+  "actualRelevantTypeEqualityDiagnostics": 0,
+  "fullApplicationTypecheckRerun": false,
+  "guard": {
+    "exit": 1,
+    "diagnostics": 5,
+    "factsEdgeAbsent": true,
+    "remainingFailures": "fontAdmin x2, themeAdmin x2, authoringCanvas runtime codec import"
+  },
+  "negativeControlExit": 0,
+  "strictStyle": {
+    "exit": 0,
+    "files": 3,
+    "violations": 0
+  },
+  "original54": {
+    "testedSource": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+    "artifact": "artifacts/article-vault/provider-facts-only/98dc5c4e01f5",
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0,
+    "rerun": false,
+    "retagged": false,
+    "reuseBasis": "all original provider/test/setup hashes unchanged; exact three type-only hunks, runtime emissions identical, alias and actual relevant declarations identical"
+  },
+  "fullTypes": {
+    "testedSource": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+    "baseline": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+    "currentExit": 2,
+    "baselineExit": 2,
+    "diagnosticsEach": 271,
+    "newDiagnostics": 0,
+    "qualification": false,
+    "rerun": false
+  },
+  "supplier27Inherited": false,
+  "wholeChainQualification": false,
+  "contentApiWrites": false,
+  "prCreatedOrUpdated": false,
+  "migrationTerminalBlocked": true,
+  "nextGate": "canonical current compiled operation registry + asset-precutover/native profile, isolated destructive apply/repeat/restore; #1976 waits for #1975 acceptance"
+}

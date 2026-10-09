@@ -1,0 +1,42 @@
+[
+  {
+    "file": "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts",
+    "sha256": "b185dea802e8ecd12cfcdd0592c184e42b54ce9fbf9931d70ef4a24c41432536",
+    "unchangedFromOriginal54": true
+  },
+  {
+    "file": "tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts",
+    "sha256": "839cf18f0a4f0e9725215e99ffe8f624290ca918ae7879425151354d09f662aa",
+    "unchangedFromOriginal54": true
+  },
+  {
+    "file": "tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts",
+    "sha256": "b28d147ac61ed7c73047136261b3d178f0f4e3331057eb7c1ef59bcfc915318d",
+    "unchangedFromOriginal54": true
+  },
+  {
+    "file": "tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts",
+    "sha256": "ebb445d2b9e0b12ed0f26a3309880f3e7bdba9a7c891c6b960ef6c92a2216daa",
+    "unchangedFromOriginal54": true
+  },
+  {
+    "file": "tests/frontend/unit/api/upload.test.ts",
+    "sha256": "d3c7d9f39e390dd944b60b024c037ab4c45de32068aa3462e11469f3353e4ffd",
+    "unchangedFromOriginal54": true
+  },
+  {
+    "file": "src/frontend/vitest.config.ts",
+    "sha256": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+    "unchangedFromOriginal54": true
+  },
+  {
+    "file": "src/frontend/vitest.shared.mjs",
+    "sha256": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
+    "unchangedFromOriginal54": true
+  },
+  {
+    "file": "tests/frontend/support/unit/setup.ts",
+    "sha256": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a",
+    "unchangedFromOriginal54": true
+  }
+]

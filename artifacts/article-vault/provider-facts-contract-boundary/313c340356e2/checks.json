@@ -1,0 +1,75 @@
+[
+  {
+    "command": "node tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+    "exitCode": 1,
+    "log": "guard.log",
+    "diagnostics": 5,
+    "newFactsEdgeAbsent": true
+  },
+  {
+    "command": "node tests/frontend/checks/static/check-binary-import-boundaries-fixture.mjs",
+    "exitCode": 0,
+    "log": "negative-control.log"
+  },
+  {
+    "command": "node /workspace/chain-1975-evidence/facts-contract-boundary/verify-equivalence.mjs",
+    "exitCode": 0,
+    "result": "equivalence.json",
+    "scope": "actual relevant-declaration type equality and runtime emission only"
+  },
+  {
+    "command": "node tools/frontend/check-frontend-style.mjs --mode source-diff --base 8fa653df73646f720c735ad4b54b649e869a9b9e --file src/frontend/src/api/uploadFacts.ts --file src/frontend/src/adapters/binary/uploadAdapter.ts --file src/frontend/src/contracts/binaryApi.ts",
+    "exitCode": 1,
+    "log": "style-source-diff.log",
+    "reason": "original source-diff accepts JavaScript only; TypeScript requires strict checks"
+  },
+  {
+    "command": "node tools/frontend/check-frontend-style.mjs --file src/frontend/src/api/uploadFacts.ts --file src/frontend/src/adapters/binary/uploadAdapter.ts --file src/frontend/src/contracts/binaryApi.ts",
+    "exitCode": 0,
+    "log": "style-strict.log",
+    "actuallyInspectedFiles": 3,
+    "violations": 0
+  },
+  {
+    "name": "incremental-contract",
+    "command": [
+      "node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "8fa653df73646f720c735ad4b54b649e869a9b9e..313c340356e2c8f8fc1bcceb550b6526871c12c6"
+    ],
+    "cwd": "/workspace/chain1975-provider-facts-only",
+    "startUtc": "2026-10-09T14:26:00.002647+00:00",
+    "stopUtc": "2026-10-09T14:26:01.045194+00:00",
+    "exitCode": 0,
+    "sourceSha": "313c340356e2c8f8fc1bcceb550b6526871c12c6"
+  },
+  {
+    "name": "provider-range-contract",
+    "command": [
+      "node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "4cfdbbf9542f14eab305642aabb968fb6b3179bd..313c340356e2c8f8fc1bcceb550b6526871c12c6"
+    ],
+    "cwd": "/workspace/chain1975-provider-facts-only",
+    "startUtc": "2026-10-09T14:26:01.045219+00:00",
+    "stopUtc": "2026-10-09T14:26:02.076219+00:00",
+    "exitCode": 0,
+    "sourceSha": "313c340356e2c8f8fc1bcceb550b6526871c12c6"
+  },
+  {
+    "name": "diff-check",
+    "command": [
+      "git",
+      "diff",
+      "--check",
+      "8fa653df73646f720c735ad4b54b649e869a9b9e..313c340356e2c8f8fc1bcceb550b6526871c12c6"
+    ],
+    "cwd": "/workspace/chain1975-provider-facts-only",
+    "startUtc": "2026-10-09T14:26:02.076239+00:00",
+    "stopUtc": "2026-10-09T14:26:02.079190+00:00",
+    "exitCode": 0,
+    "sourceSha": "313c340356e2c8f8fc1bcceb550b6526871c12c6"
+  }
+]

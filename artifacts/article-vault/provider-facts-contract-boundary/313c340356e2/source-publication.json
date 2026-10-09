@@ -1,0 +1,13 @@
+{
+  "utc": "2026-10-09T14:25:36.662803+00:00",
+  "sourceSha": "313c340356e2c8f8fc1bcceb550b6526871c12c6",
+  "remoteSha": "313c340356e2c8f8fc1bcceb550b6526871c12c6",
+  "branch": "codex/chain-1975-provider-facts-only",
+  "base": "8fa653df73646f720c735ad4b54b649e869a9b9e",
+  "paths": [
+    "src/frontend/src/api/uploadFacts.ts",
+    "src/frontend/src/adapters/binary/uploadAdapter.ts",
+    "src/frontend/src/contracts/binaryApi.ts"
+  ],
+  "qualification": false
+}

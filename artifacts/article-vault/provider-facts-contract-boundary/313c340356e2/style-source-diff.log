@@ -1,0 +1,1 @@
+[frontend-style] source-diff currently accepts JavaScript ESLint source files only; other source kinds require strict checks

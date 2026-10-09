@@ -1,0 +1,32 @@
+{
+  "base": "8fa653df73646f720c735ad4b54b649e869a9b9e",
+  "supplierSource": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "supplierParent": "67cebeb0bd666255c50302b9391730783f9db551",
+  "fetchedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "rows": [
+    {
+      "file": "src/frontend/src/api/uploadFacts.ts",
+      "preimageBlob": "0c16998759e5ee5329a034b9bfea88459b69bf81",
+      "postimageBlob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+      "preimageSha256": "daeb28bf7fa2b02c8b0e73f608551cb0463a700f973c399a9b1d13a9ab8c84e9",
+      "postimageSha256": "71fa46399352fb4854ee5db21b5ffaec46a489f70fa439c19cc432fb111ad76b"
+    },
+    {
+      "file": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "preimageBlob": "1b56396b6b7902453170bdf6bdc6eca287a531a9",
+      "postimageBlob": "981e816ba993c9e0e9ec4111d829b8c6445937af",
+      "preimageSha256": "26916a61e37e29158e7e0cfd0a8dc85d6e71da324286ec1a6620922296e54775",
+      "postimageSha256": "343481a69ff4112a5d78fa2b97592b5809722e580e66f00b73d7e8d804b138f9"
+    },
+    {
+      "file": "src/frontend/src/contracts/binaryApi.ts",
+      "preimageBlob": "7d314a7730688e7562383feefcaacf75e53b9a4b",
+      "postimageBlob": "2c3f7ae2e39fe620496aefa21648e06652895a83",
+      "preimageSha256": "5f84f86cdae46b76b8b91db1c20551cf3ec6c711b1b62ca44e68c4ad6246e029",
+      "postimageSha256": "a25f913f0e88392f728b241ec2704dcb4e4c3110d07c24767cecb8e8d2630473"
+    }
+  ],
+  "exactThreeHunksOnly": true,
+  "allOtherContractFieldsPreserved": true,
+  "qualification": false
+}
