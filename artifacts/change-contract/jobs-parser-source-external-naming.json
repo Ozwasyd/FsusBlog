@@ -8,6 +8,29 @@
                 "config/testing/release-final-execution-authority-index.json"
             ],
             "reason": "Preserve the canonical execution-authority JSON keys for the existing ordinary blame metadata handler and the exact unchanged format-parser load declaration; regenerated output binds this candidate without changing planner or parser behavior."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+                "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs",
+                "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs",
+                "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+                "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+                "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+                "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs",
+                "src/backend/Services/DocumentExport/Jobs/DocumentExportJobPolicy.cs",
+                "src/backend/Services/DocumentExport/Jobs/DocumentExportJobRepository.cs",
+                "src/backend/Services/DocumentExport/Jobs/DocumentExportJobService.cs",
+                "src/backend/Services/DocumentExport/Pdf/PdfDocumentExportAttemptEvidence.cs",
+                "src/backend/Services/DocumentExport/Pdf/PdfDocumentExportJobProvider.cs",
+                "src/backend/Services/DocumentExport/Pdf/PdfDocumentExportProvider.cs",
+                "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs",
+                "tools/test-matrix/blame-ignore-source.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/source-governance.mjs"
+            ],
+            "reason": "Preserve the existing environment-variable registry boundary for every changed src/**/*.cs and tools/**/*.mjs path in the complete inherited Jobs/resource/PDF and metadata-port source. DocumentExportSandbox.MinimalEnvironment retains HOME, TMPDIR, LANG and PWD; prImpactCallerContext/prImpactConsumerEnvironment retain FSUSBLOG_BASE_REF, FSUSBLOG_PR_EVENT_NAME, FSUSBLOG_PR_PLAN_DIGEST, FSUSBLOG_SMART_GATE_FULL and FSUSBLOG_CI_STAGE; source-governance reads process.env.PATH. The remaining listed files are registered consumers or contract/resource/lifecycle helpers, rather than new direct environment readers. Internal C# and JavaScript identifiers retain repository naming. This declaration preserves existing external spelling and exact registered paths; it does not admit the held blame SOURCE port or exempt other source conventions."
         }
     ]
 }
