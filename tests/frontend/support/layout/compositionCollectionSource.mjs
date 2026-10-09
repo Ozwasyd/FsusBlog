@@ -87,6 +87,20 @@ export function createCompositionCollectionSource(source)
             fail(`ambiguous/unknown binding ${file}#${name}`);
         }
         const found = matches[0];
+        const scope = ts.isVariableDeclaration(found) && ts.isVariableStatement(found.parent.parent)
+            ? found.parent.parent.parent : ts.isFunctionDeclaration(found) ? found.parent : null;
+        if (use && scope)
+        {
+            let visible = false;
+            for (let owner = use.parent; owner; owner = owner.parent)
+            {
+                visible ||= owner === scope;
+            }
+            if (!visible)
+            {
+                fail(`out-of-scope collection binding ${file}#${name}`);
+            }
+        }
         if (use && ts.isVariableDeclaration(found) && found.getStart() >= use.getStart())
         {
             fail(`collection used before declaration ${file}#${name}`);
@@ -123,6 +137,10 @@ export function createCompositionCollectionSource(source)
         }
         // The canonical helper owns immutable import/export/function resolution.
         // Its success grants no purity, argument escape or collection identity.
+        if (ts.isIdentifier(expression) && !resolver.parse(file).imports.has(expression.text))
+        {
+            declaration(file, expression.text, expression);
+        }
         const target = resolver.resolveSourceFunction(file, expression);
         readonlyReferences(file, expression.text, new Set([expression]));
         return { ...target, importSteps: [step(file, expression), step(target.file, target.fn)] };

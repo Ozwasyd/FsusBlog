@@ -238,7 +238,7 @@ test('actual Pagination information callback and root class helper retain unreso
     const file = resolve(fsusUIRoot, 'vue/packages/components/pagination/src/pagination.ts');
     const record = state.source.resolver.parse(file);
     const information = record.variables.get('informationChildren');
-    assert.throws(() => state.module.collect(file, information), /effectful collection callback/u);
+    assert.throws(() => state.module.collect(file, information), /unbound collection callback read/u);
     const helper = find(record, (node) => state.ts.isFunctionDeclaration(node) && node.name?.text === 'addClass', state.ts)[0];
     const effects = state.module.callbackEffects(file, helper);
     assert.deepEqual(effects.writes.map((entry) => entry.path), [['element', 'props'], ['element', 'props', 'class']]);
@@ -268,6 +268,8 @@ test('collection rejects a push after its output use', () => reject("const child
 test('collection rejects a sparse authored array', () => reject('const children=[,];'));
 test('collection rejects a spread of an opaque array', () => reject('const children=[...unknown];'));
 test('collection rejects a shadowed array binding', () => reject("const children=['safe'];function other(){const children=[unknown];}"));
+test('collection rejects an array borrowed from another function scope', () => reject("function other(){const children=['safe'];}"));
+test('collection rejects an array borrowed from an expired block scope', () => reject("if(flag){const children=['safe'];}"));
 test('collection map rejects unknown runtime item identity', () => reject('const children=unknown.map(item=><div/>);'));
 test('collection map rejects a supplied object item identity', () => reject('const children=[{label:unknown}].map(item=><div>{item.label}</div>);'));
 test('collection map rejects callback writes', () => reject("const children=['safe'].map(item=>{item.label=unknown;return <div/>;});"));
@@ -279,6 +281,7 @@ test('collection map rejects index inference across conditional suppliers', () =
 test('collection map rejects index inference after a conditional filter', () => reject("const children=['a','b'].filter(item=>flag).map((item,index)=><div>{index}</div>);"));
 test('collection map rejects an opaque callback even for an empty input', () => reject('const children=[].map(unknown);'));
 test('collection map rejects a mutated named callback through canonical immutability', () => reject("const callback=item=><div/>;callback=unknown;const children=['a'].map(callback);"));
+test('collection map rejects a callback borrowed from another lexical scope', () => reject("function other(){const callback=item=><div/>;}const children=['a'].map(callback);"));
 test('collection map rejects order dependent callback statements', () => reject("const children=['safe'].map(item=>{if(flag)return <div/>;return unknown;});"));
 
 test('empty collection input rejects a supplied nonempty opaque label', () =>
