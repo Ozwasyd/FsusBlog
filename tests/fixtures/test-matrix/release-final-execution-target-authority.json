@@ -2395,8 +2395,8 @@
         },
         {
             "path": "tools/check-gate-integrity.sh",
-            "contentDigest": "sha256:bf9e24d61c2fc75d6e669f073f51dce7fa7d4b00dbaf3222fce3ba3fbafd08ed",
-            "indexDigest": "sha256:bf9e24d61c2fc75d6e669f073f51dce7fa7d4b00dbaf3222fce3ba3fbafd08ed"
+            "contentDigest": "sha256:93977b86b41acfd077ff0dd8687a4edafc09a5aab9dac28683130f40bf5c2c27",
+            "indexDigest": "sha256:93977b86b41acfd077ff0dd8687a4edafc09a5aab9dac28683130f40bf5c2c27"
         },
         {
             "path": "tools/check-postgres-test-collections.mjs",
