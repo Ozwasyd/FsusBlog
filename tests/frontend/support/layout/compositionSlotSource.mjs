@@ -62,7 +62,7 @@ export function createCompositionSlotSource({ source })
     }
     function declarationOf(identifier)
     {
-        let scope = identifier.parent;
+        let scope = identifier?.parent;
         while (scope)
         {
             let names = [];
@@ -147,7 +147,29 @@ export function createCompositionSlotSource({ source })
         };
         const contains = (node) =>
         {
-            if (ts.isIdentifier(node) && node.text === name && declarationOf(node) === declaration)
+            if (ts.isTypeNode(node))
+            {
+                return false;
+            }
+            if (ts.isFunctionLike(node))
+            {
+                let owner = declaration.parent;
+                while (owner && owner !== node)
+                {
+                    owner = owner.parent;
+                }
+                if (owner === node)
+                {
+                    // A binding created inside this function is not a captured
+                    // value when the function itself is passed to its creator.
+                    return false;
+                }
+            }
+            const parent = node.parent;
+            const key = parent && ((ts.isPropertyAccessExpression(parent) && parent.name === node)
+                || (ts.isPropertyAssignment(parent) && parent.name === node)
+                || (ts.isMethodDeclaration(parent) && parent.name === node));
+            if (ts.isIdentifier(node) && !key && node.text === name && declarationOf(node) === declaration)
             {
                 return true;
             }
@@ -168,8 +190,8 @@ export function createCompositionSlotSource({ source })
             {
                 fail(`mutated source binding ${record.file}#${name}`);
             }
-            if (ts.isCallExpression(node) && ((!ts.isIdentifier(node.expression) && refers(node.expression))
-                || node.arguments.some(refers)))
+            if ((ts.isCallExpression(node) || ts.isNewExpression(node))
+                && ((!ts.isIdentifier(node.expression) && refers(node.expression)) || node.arguments?.some(contains)))
             {
                 context.escapes.push({ file: record.file, node, name, declaration });
             }
@@ -266,69 +288,99 @@ export function createCompositionSlotSource({ source })
         {
             fail('async/generator callback');
         }
-        const value = { file, node, env: new Map(env) };
+        const value = { file, node, env };
         closures.add(value);
         return value;
+    }
+    function childEnvironment(parent, context, scope)
+    {
+        const env = new Map();
+        context.parents.set(env, parent);
+        if (scope)
+        {
+            context.scopes.set(env, scope);
+        }
+        return env;
+    }
+    function constantEnvironment(env, owner, context)
+    {
+        let current = env;
+        let outer = env;
+        while (current)
+        {
+            if (context.scopes.get(current) === owner)
+            {
+                return current;
+            }
+            outer = current;
+            current = context.parents.get(current);
+        }
+        return outer;
     }
     function lexical(file, identifier, env, context)
     {
         const name = identifier.text;
         const binding = declarationOf(identifier);
-        if (binding && env.has(binding))
+        let frame = env;
+        while (binding && frame)
         {
-            return env.get(binding);
+            if (frame.has(binding))
+            {
+                return frame.get(binding);
+            }
+            frame = context.parents.get(frame);
         }
         const record = resolver.parse(file);
-        let scope = identifier.parent;
-        while (scope)
+        const declaration = binding?.parent;
+        if (declaration && (ts.isParameter(declaration) || ts.isBindingElement(declaration)))
         {
-            if (ts.isBlock(scope) || ts.isSourceFile(scope))
+            fail(`unknown runtime value ${file}#${name}: unbound lexical parameter`);
+        }
+        if (declaration && (ts.isVariableDeclaration(declaration) || ts.isFunctionDeclaration(declaration)))
+        {
+            readonly(record, name, binding, context);
+            if (ts.isFunctionDeclaration(declaration))
             {
-                const declarations = scope.statements.flatMap((statement) => ts.isVariableStatement(statement)
-                    ? statement.declarationList.declarations.filter((entry) => ts.isIdentifier(entry.name) && entry.name.text === name)
-                    : ts.isFunctionDeclaration(statement) && statement.name?.text === name ? [statement] : []);
-                if (declarations.length)
-                {
-                    if (declarations.length !== 1)
-                    {
-                        fail(`ambiguous source binding ${file}#${name}`);
-                    }
-                    const declaration = declarations[0];
-                    if (context.constants.has(declaration))
-                    {
-                        return context.constants.get(declaration);
-                    }
-                    readonly(record, name, declaration.name, context);
-                    if (ts.isFunctionDeclaration(declaration))
-                    {
-                        // This actual lexical declaration may be nested and capture
-                        // the render frame; the top-level resolver interface cannot
-                        // represent that environment. Its body is still the same
-                        // owned AST, and every invocation checks parameters/effects.
-                        return closure(file, declaration, env);
-                    }
-                    if (!(declaration.parent.flags & ts.NodeFlags.Const) || !declaration.initializer
-                        || declaration.getStart() > identifier.getStart())
-                    {
-                        fail(`unbound source constant ${file}#${name}`);
-                    }
-                    const key = `${file}:${declaration.getStart()}`;
-                    if (context.active.has(key))
-                    {
-                        fail(`cyclic source constant ${key}`);
-                    }
-                    context.active.add(key);
-                    const result = evaluate(file, declaration.initializer, env, context);
-                    context.active.delete(key);
-                    context.constants.set(declaration, result);
-                    if (context.ownedScopes.has(declaration.parent.parent.parent))
-                    {
-                        scratchDeclaration(declaration, result, context);
-                    }
-                    return result;
-                }
+                return closure(file, declaration, env);
             }
-            scope = scope.parent;
+            let owner = declaration.parent;
+            while (owner && !ts.isBlock(owner) && !ts.isSourceFile(owner))
+            {
+                owner = owner.parent;
+            }
+            const initialized = context.locations.some((location) => location.file === file
+                && location.node.getStart() >= declaration.end && (location.node === owner || (() =>
+            {
+                let scope = location.node.parent;
+                while (scope && scope !== owner)
+                {
+                    if (ts.isFunctionLike(scope) && (ts.isFunctionDeclaration(scope) || scope.getStart() < declaration.end))
+                    {
+                        return false;
+                    }
+                    scope = scope.parent;
+                }
+                return scope === owner;
+            })()));
+            if (!(declaration.parent.flags & ts.NodeFlags.Const) || !declaration.initializer || !initialized)
+            {
+                fail(`unbound source constant ${file}#${name}`);
+            }
+            const key = `${file}:${declaration.getStart()}`;
+            if (context.active.has(key))
+            {
+                fail(`cyclic source constant ${key}`);
+            }
+            context.active.add(key);
+            const value = evaluate(file, declaration.initializer, env, context);
+            context.active.delete(key);
+            constantEnvironment(env, owner, context).set(binding, value);
+            context.constants.set(declaration, value);
+            if (context.ownedScopes.has(owner))
+            {
+                scratchDeclaration(declaration, value, context);
+            }
+            return value;
         }
         const imported = record.imports.get(name);
         if (imported)
@@ -475,7 +527,7 @@ export function createCompositionSlotSource({ source })
                 }
                 else if (setup && ts.isExpressionStatement(statement) && ts.isCallExpression(statement.expression)
                     && ts.isIdentifier(statement.expression.expression) && statement.expression.expression.text === 'defineOptions'
-                    && !declarationOf(statement.expression.expression.expression) && statement.expression.arguments.length === 1)
+                    && !declarationOf(statement.expression.expression) && statement.expression.arguments.length === 1)
                 {
                     options = statement.expression.arguments[0];
                 }
@@ -512,7 +564,7 @@ export function createCompositionSlotSource({ source })
         componentTypes.add(type);
         return type;
     }
-    function invoke(value, args, context, allowVoid = false)
+    function invoke(value, args, context, allowVoid = false, location)
     {
         if (!value || !closures.has(value))
         {
@@ -555,7 +607,11 @@ export function createCompositionSlotSource({ source })
             }
         };
         args.forEach(protect);
-        const env = new Map(value.env);
+        if (location)
+        {
+            context.locations.push(location);
+        }
+        const env = childEnvironment(value.env, context, node);
         for (let index = 0; index < node.parameters.length; index++)
         {
             const parameter = node.parameters[index];
@@ -569,6 +625,10 @@ export function createCompositionSlotSource({ source })
         context.ownedScopes.add(node.body);
         const result = ts.isBlock(node.body) ? flow(file, node.body, env, context) : { returned: true, value: evaluate(file, node.body, env, context) };
         context.active.delete(key);
+        if (location)
+        {
+            context.locations.pop();
+        }
         if (!result.returned && !allowVoid)
         {
             fail(`callback may fall through ${key}`);
@@ -625,7 +685,7 @@ export function createCompositionSlotSource({ source })
         if (ts.isBlock(node))
         {
             context.ownedScopes.add(node);
-            const local = new Map(env);
+            const local = childEnvironment(env, context, node);
             for (const [index, statement] of node.statements.entries())
             {
                 const result = flow(file, statement, local, context);
@@ -684,7 +744,7 @@ export function createCompositionSlotSource({ source })
                 {
                     fail('bounded helper iteration limit');
                 }
-                const local = new Map(env);
+                const local = childEnvironment(env, context, node);
                 bindPattern(file, node.initializer.declarations[0].name, item, local, context);
                 const result = flow(file, node.statement, local, context);
                 if (result.returned)
@@ -930,7 +990,7 @@ export function createCompositionSlotSource({ source })
                     {
                         fail('unbound iterator callback');
                     }
-                    array.forEach((entry, index) => invoke(callback, [entry, index, array].slice(0, callback.node.parameters.length), context, true));
+                    array.forEach((entry, index) => invoke(callback, [entry, index, array].slice(0, callback.node.parameters.length), context, true, { file, node }));
                     return undefined;
                 }
                 if (callee.name.text === 'push' && context.scratch.has(array) && !context.inputs.has(array))
@@ -1025,7 +1085,7 @@ export function createCompositionSlotSource({ source })
                         {
                             fail(`unproved directive effect ${hook}`);
                         }
-                        invoke(callback, [], context, true);
+                        invoke(callback, [], context, true, { file, node });
                     }
                 }
                 return originalVNode;
@@ -1036,7 +1096,7 @@ export function createCompositionSlotSource({ source })
                 return undefined;
             }
             return invoke(callback, node.arguments.map((argument) => evaluate(file, argument, env, context)), context,
-                ts.isExpressionStatement(node.parent) || context.effectInvocation === node);
+                ts.isExpressionStatement(node.parent) || context.effectInvocation === node, { file, node });
         }
         fail(`unknown source value/effects ${file}:${node.getStart()}: ${node.getText()}`);
     }
@@ -1061,6 +1121,44 @@ export function createCompositionSlotSource({ source })
         }
         return value;
     }
+    function componentCapture(escape, context)
+    {
+        const binding = escape.declaration.parent;
+        if (!ts.isImportSpecifier(binding) && !ts.isImportClause(binding))
+        {
+            return false;
+        }
+        const node = escape.node;
+        const render = source.records.get(escape.file)?.renderSource;
+        if (!render || node.getStart() !== render.componentOffset || controlDigest(node.getText()) !== render.componentDigest
+            || !ts.isCallExpression(node) || !vueApi(escape.file, node.expression, 'defineComponent', context))
+        {
+            return false;
+        }
+        let direct = false;
+        const visit = (candidate) =>
+        {
+            if (ts.isFunctionLike(candidate))
+            {
+                return;
+            }
+            if (ts.isIdentifier(candidate) && declarationOf(candidate) === escape.declaration)
+            {
+                direct = true;
+            }
+            ts.forEachChild(candidate, visit);
+        };
+        node.arguments.forEach(visit);
+        if (direct)
+        {
+            return false;
+        }
+        // The genuine Vue constructor stores these actual setup/render closures;
+        // it does not execute their captured component import. VNode/array values
+        // and direct constructor arguments never receive this exemption.
+        step(escape.file, node, context);
+        return true;
+    }
     function result(value, context, inputs = {})
     {
         const unresolved = (entry) =>
@@ -1082,7 +1180,8 @@ export function createCompositionSlotSource({ source })
         for (const escape of context.escapes)
         {
             if (!context.calls.has(escape.node) && !context.skipped.has(escape.node)
-                && !(inputs.proofScope === 'helper-invocation' && context.scratchDeclarations.has(escape.declaration)))
+                && !(inputs.proofScope === 'helper-invocation' && context.scratchDeclarations.has(escape.declaration))
+                && !componentCapture(escape, context))
             {
                 fail(`unproved source escape ${escape.file}#${escape.name}`);
             }
@@ -1099,8 +1198,8 @@ export function createCompositionSlotSource({ source })
         return proof;
     }
     const context = () => ({ steps: [], effects: [], active: new Set(), calls: new Set(), escapes: [], guards: new Set(),
-        constants: new Map(), skipped: new WeakSet(), scratch: new WeakSet(), inputs: new WeakSet(), allocations: new WeakSet(),
-        scratchDeclarations: new Set(), ownedScopes: new Set(), operations: 0 });
+        constants: new Map(), parents: new WeakMap(), scopes: new WeakMap(), skipped: new WeakSet(), scratch: new WeakSet(), inputs: new WeakSet(), allocations: new WeakSet(),
+        scratchDeclarations: new Set(), ownedScopes: new Set(), locations: [], operations: 0 });
     function canonicalNode(graph, id)
     {
         const node = graph.nodes.find((entry) => entry.id === id);
@@ -1143,7 +1242,10 @@ export function createCompositionSlotSource({ source })
         {
             fail('slot supplier component identity changed');
         }
-        const supplied = evaluate(record.file, children[0].expression, new Map(), ctx);
+        ctx.locations.push({ file: record.file, node: supplier });
+        const env = new Map();
+        ctx.scopes.set(env, supplier.getSourceFile());
+        const supplied = evaluate(record.file, children[0].expression, env, ctx);
         const callback = closures.has(supplied) && name === 'default' ? supplied
             : supplied && typeof supplied === 'object' && !Array.isArray(supplied) && !vnodes.has(supplied)
                 && Object.hasOwn(supplied, name) ? supplied[name] : null;
@@ -1256,7 +1358,10 @@ export function createCompositionSlotSource({ source })
     function proveValue({ file, node })
     {
         const ctx = context();
-        return result(evaluate(file, node, new Map(), ctx), ctx);
+        ctx.locations.push({ file, node });
+        const env = new Map();
+        ctx.scopes.set(env, node.getSourceFile());
+        return result(evaluate(file, node, env, ctx), ctx);
     }
     // This proves only the selected actual nested invocation. Persistent setup
     // cache updates, emits and other render effects remain outside this result.
@@ -1296,7 +1401,9 @@ export function createCompositionSlotSource({ source })
         ctx.steps.push(...bound.context.steps);
         ctx.ownedScopes.add(render.body);
         ctx.effectInvocation = invocation;
+        ctx.locations.push({ file, node: invocation });
         const env = new Map([[slots.name, { [name]: bound.value }]]);
+        ctx.scopes.set(env, render.body);
         const output = evaluate(file, invocation, env, ctx);
         return result(output, ctx, { proofScope: 'helper-invocation', callNode: call.id, property: name,
             callPath: binding.callPath, inputDigest: binding.inputDigest, supplierProofDigest: binding.proofDigest,
@@ -1353,6 +1460,8 @@ export function createCompositionSlotSource({ source })
         }
         readonly(resolver.parse(file), parameter.name.text, parameter.name, ctx);
         const env = new Map([[parameter.name, { [binding.property]: bound.value }]]);
+        ctx.scopes.set(env, setup.body);
+        ctx.locations.push({ file, node });
         return result(evaluate(file, node, env, ctx), ctx, { callNode: call.id, property: binding.property,
             callPath: binding.callPath, inputDigest: binding.inputDigest, supplierProofDigest: binding.proofDigest });
     }
