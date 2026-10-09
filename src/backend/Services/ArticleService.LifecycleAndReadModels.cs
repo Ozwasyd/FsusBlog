@@ -85,7 +85,7 @@ public partial class ArticleService
                         },
                         ct);
                 }
-            });
+            }, ct);
             ct.ThrowIfCancellationRequested();
             mutationCommitted = result.IsSuccess && success;
             if (mutationCommitted && IsArticleVaultGroupTransaction)

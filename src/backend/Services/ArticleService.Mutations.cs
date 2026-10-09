@@ -507,7 +507,7 @@ public partial class ArticleService
                         tagIds,
                         ArticleMutationVisibility.From(status)),
                     ct);
-            });
+            }, ct);
 
             mutationCommitted = result.IsSuccess && articleUpdated;
             ct.ThrowIfCancellationRequested();
