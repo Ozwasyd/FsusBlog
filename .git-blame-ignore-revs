@@ -42,3 +42,6 @@ f3169d1ac313325b3b6f1873f8e813398d85ac32
 
 # Canonical schema four-file consumer; original full run at af4a8e32.
 2563e0ad63dea0e7eb52017a44e7c26344e8bfc4
+
+# Six remaining v4 schema source whitespace recovery for #1688 and #3657.
+fd965b0c59fb7dc635e3bc4b2980c9d82e0a9394
