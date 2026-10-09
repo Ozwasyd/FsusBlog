@@ -42,7 +42,16 @@ public partial class PublicHotReadStore
                 failure = retention.Failure;
             }
         }
-        expired?.Dispose();
+        try
+        {
+            expired?.Dispose();
+        }
+        catch
+        {
+            hold?.Dispose();
+            hold = null;
+            throw;
+        }
         return selected;
     }
 
