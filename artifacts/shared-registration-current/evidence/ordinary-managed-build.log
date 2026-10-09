@@ -1,0 +1,13 @@
+  FsusBlog.Shared -> /workspace/FsusBlog-registration-current/src/shared/bin/Release/net10.0/FsusBlog.Shared.dll
+  FsusBlog.Core -> /workspace/FsusBlog-registration-current/src/core/bin/Release/net10.0/FsusBlog.Core.dll
+/workspace/FsusBlog-registration-current/src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs(342,19): error CS0246: The type or namespace name 'ArticlePropertyDefinitionJournalEntry' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog-registration-current/artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj]
+/workspace/FsusBlog-registration-current/src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs(344,35): error CS0234: The type or namespace name 'Entities' does not exist in the namespace 'FsusBlog.Server' (are you missing an assembly reference?) [/workspace/FsusBlog-registration-current/artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj]
+
+Build FAILED.
+
+/workspace/FsusBlog-registration-current/src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs(342,19): error CS0246: The type or namespace name 'ArticlePropertyDefinitionJournalEntry' could not be found (are you missing a using directive or an assembly reference?) [/workspace/FsusBlog-registration-current/artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj]
+/workspace/FsusBlog-registration-current/src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs(344,35): error CS0234: The type or namespace name 'Entities' does not exist in the namespace 'FsusBlog.Server' (are you missing an assembly reference?) [/workspace/FsusBlog-registration-current/artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj]
+    0 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:01.40

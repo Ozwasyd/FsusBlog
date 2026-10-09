@@ -1,0 +1,6 @@
+  Determining projects to restore...
+  Restored /workspace/FsusBlog-registration-current/src/shared/FsusBlog.Shared.csproj (in 173 ms).
+  Restored /workspace/FsusBlog-registration-current/src/core/FsusBlog.Core.csproj (in 322 ms).
+  Restored /workspace/FsusBlog-registration-current/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 335 ms).
+  Restored /workspace/FsusBlog-registration-current/src/backend/FsusBlog.Server.csproj (in 352 ms).
+  Restored /workspace/FsusBlog-registration-current/artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj (in 138 ms).

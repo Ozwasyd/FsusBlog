@@ -1,0 +1,131 @@
+(node:7056) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all new cross-stack wire witnesses round-trip or refuse their actual malformed bytes (21.974987ms)
+✔ apply request exact bytes independently prove network UUID, closed enum and 64-bit LE revision layout (0.350792ms)
+✔ ArticleCanvasLinkRequest refuses every truncation, oversized root and canonical scalar violations (10.247866ms)
+✔ ArticleCanvasLinkReceipt refuses every truncation, oversized root and canonical scalar violations (21.700007ms)
+✔ ArticleCanvasLinkHistoryResponse refuses every truncation, oversized root and canonical scalar violations (23.352826ms)
+✔ request refuses unsafe number and noncanonical revision strings; history refuses 101 entries before emission (1.13785ms)
+✔ actual native generated read parser agrees with complete shared positive and negative witnesses (8768.082235ms)
+(node:7058) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ closed selected-article wire: request-int64-max (8.313811ms)
+✔ closed selected-article wire: response-current-1 (4.366671ms)
+✔ closed selected-article wire: response-denied-2 (1.717063ms)
+✔ closed selected-article wire: response-current-3 (3.426947ms)
+✔ closed selected-article wire: response-current-4 (4.365552ms)
+✔ closed selected-article wire: response-current-5 (11.594982ms)
+✔ closed selected-article wire: response-current-6 (11.603253ms)
+✔ closed selected-article wire: request-schema (0.457571ms)
+✔ closed selected-article wire: request-article-zero (0.329879ms)
+✔ closed selected-article wire: request-article-negative (0.404608ms)
+✔ closed selected-article wire: request-revision-zero (0.171024ms)
+✔ closed selected-article wire: request-revision-negative (0.21429ms)
+✔ closed selected-article wire: request-guid-empty (0.191478ms)
+✔ closed selected-article wire: request-token-length (0.127464ms)
+✔ closed selected-article wire: request-token-uppercase (0.151646ms)
+✔ closed selected-article wire: request-token-invalid-utf8 (0.280841ms)
+✔ closed selected-article wire: request-trailing (0.100475ms)
+✔ closed selected-article wire: request-truncated (0.141375ms)
+✔ closed selected-article wire: response-bool (0.090959ms)
+✔ closed selected-article wire: response-principal-zero (0.078052ms)
+✔ closed selected-article wire: response-principal-negative (0.074599ms)
+✔ closed selected-article wire: response-scope-length-negative (0.090439ms)
+✔ closed selected-article wire: response-scope-length-overflow (0.248146ms)
+✔ closed selected-article wire: response-scope-utf8 (0.104255ms)
+✔ closed selected-article wire: response-token-presence (0.104355ms)
+✔ closed selected-article wire: response-denied-token (0.109403ms)
+✔ closed selected-article wire: response-current-missing-token (0.12029ms)
+✔ closed selected-article wire: response-scope-empty (0.357922ms)
+✔ closed selected-article wire: response-scope-129 (0.159276ms)
+✔ closed selected-article wire: response-scope-trim (0.191884ms)
+✔ closed selected-article wire: response-scope-nbsp (0.148555ms)
+✔ closed selected-article wire: response-scope-control (0.131616ms)
+✔ closed selected-article wire: response-surrogate (0.22826ms)
+✔ closed selected-article wire: response-trailing (0.183131ms)
+✔ closed selected-article wire: response-truncated (0.142998ms)
+✔ encoder rejects number coercion, owner injection, malformed Unicode and correlation changes (0.655755ms)
+✔ production dispatcher enforces selection error17 and retains unknown/retired/header/CRC negative controls (7800.359243ms)
+(node:7081) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all thirteen roots match frozen cross-stack bytes and refuse the frozen malformed controls (11.682765ms)
+✔ generated AuthoringCanvasCreateRequest round-trips and refuses every truncation, schema and trailing bytes (2.436058ms)
+✔ generated AuthoringCanvasDocumentHeader round-trips and refuses every truncation, schema and trailing bytes (4.257934ms)
+✔ generated AuthoringCanvasListResponse round-trips and refuses every truncation, schema and trailing bytes (0.878737ms)
+✔ generated AuthoringCanvasNodesResponse round-trips and refuses every truncation, schema and trailing bytes (2.321484ms)
+✔ generated AuthoringCanvasEdgesResponse round-trips and refuses every truncation, schema and trailing bytes (4.303705ms)
+✔ generated AuthoringCanvasApplyRequest round-trips and refuses every truncation, schema and trailing bytes (5.783402ms)
+✔ generated AuthoringCanvasOperationReceipt round-trips and refuses every truncation, schema and trailing bytes (20.067133ms)
+✔ generated AuthoringCanvasUndoRedoRequest round-trips and refuses every truncation, schema and trailing bytes (7.130706ms)
+✔ generated AuthoringCanvasHistoryResponse round-trips and refuses every truncation, schema and trailing bytes (7.556976ms)
+✔ generated AuthoringCanvasDeleteRequest round-trips and refuses every truncation, schema and trailing bytes (0.419154ms)
+✔ generated AuthoringCanvasWriteReceipt round-trips and refuses every truncation, schema and trailing bytes (10.544121ms)
+✔ generated AuthoringCanvasResolveRequest round-trips and refuses every truncation, schema and trailing bytes (3.497057ms)
+✔ generated AuthoringCanvasReferenceResolutionBatch round-trips and refuses every truncation, schema and trailing bytes (19.28161ms)
+✔ create request matches independent network-Guid / little-endian scalar golden bytes (0.534119ms)
+✔ UTF8 decoding is fatal and preserves BOM and paired supplementary scalars (0.70377ms)
+✔ string lengths check UTF16 characters and declared byte bounds before slicing (1.119894ms)
+✔ Int64 stays exact above Number.MAX_SAFE_INTEGER and refuses noncanonical/out-of-range strings (0.821561ms)
+✔ DateTime wire bounds exactly match existing UnixMs POD timestamps (1.254832ms)
+✔ geometry and viewport refuse nonfinite and out-of-bound doubles during encode and decode (0.844404ms)
+✔ closed enums and strict nullable / boolean markers reject substituted values (0.710697ms)
+✔ digest bytes are lowercase 64-byte hexadecimal rather than arbitrary text (0.422967ms)
+✔ array count and physical element widths refuse claimed allocation before reading members (1.346473ms)
+✔ fact payload preserves optional typed branches and omits untrusted content digests (1.033119ms)
+✔ aggregate Before plus After facts are bounded across commands, on both encoding and decoding (693.559379ms)
+✔ 8 MiB global payload cap refuses excessive valid bounded nested nodes (210.335068ms)
+✔ resolution receipt nested coordinate, open intent, projection reference and UTF8 context are preserved (1.543773ms)
+✔ generator binds current frame, enum, constructor and domain budgets and refuses owner drift (47.318358ms)
+✔ actual native typed snapshot parser agrees with complete shared positive and negative witnesses (12048.316811ms)
+(node:7216) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all independently produced typed golden bytes round trip or fail closed (73.419427ms)
+✔ zero/one/hundred tabs preserve reference-only layout and single ownership (4.985765ms)
+✔ safe longs are numbers and reject precision loss, fractions and coercion (1.175077ms)
+✔ closed commands prohibit scope authority, unknown properties and serialized layout fallback (5.18461ms)
+✔ every small request and response truncation plus payload budgets reject (84.205735ms)
+✔ receipt association rejects stable identity, source, revision and count mismatches (1.142827ms)
+✔ UTF8 and boolean encoding rejects malformed strings and coerced scalars (5.502576ms)
+(node:7230) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all independent POD/domain/receipt golden cases retain exact bytes or fail closed (84.136539ms)
+✔ original upstream 96-byte Snapshot and 80-byte Update ABI remains exact (1.067358ms)
+✔ every truncation and every Snapshot or Receipt single-byte bit substitution refuses (168.240066ms)
+✔ authenticated owner coordinates are only an explicit external expected value, never inferred actor (0.798353ms)
+✔ write command has no owner/device authority and rejects unknown keys, coercion or JSON fallback (0.608911ms)
+✔ real digests and initialize revision/default transition checks apply before encoding (28.64115ms)
+✔ bounded exact UTF8/UTF16 and cross-language escape-sensitive vectors preserve scope (4.992742ms)
+✔ both sole family producers detect current source/output drift (10604.160531ms)
+✔ actual private native decoder agrees on all goldens and rejects unknown family, then removes temporary build (1361.218576ms)
+✖ production DecodeFrame preserves exact AEDS2 header/CRC/errors and writing-aid error15 (5135.393401ms)
+ℹ tests 90
+ℹ suites 0
+ℹ pass 89
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26761.07426
+
+✖ failing tests:
+
+test at tests/tools/writing-aid-preference-wire.test.mjs:62:1
+✖ production DecodeFrame preserves exact AEDS2 header/CRC/errors and writing-aid error15 (5135.393401ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (file:///workspace/FsusBlog-registration-current/tests/tools/writing-aid-preference-wire.test.mjs:74:156)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

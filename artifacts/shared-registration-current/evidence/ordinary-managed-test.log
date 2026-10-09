@@ -1,0 +1,5 @@
+Test run for /workspace/FsusBlog-registration-current/artifacts/shared-registration-current/ordinary-managed/bin/Release/net10.0/OrdinaryManaged.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /tmp/chain-3735-current-registration/managed-results/ordinary-managed.trx
+
+Passed!  - Failed:     0, Passed:   374, Skipped:     0, Total:   374, Duration: 565 ms - OrdinaryManaged.dll (net10.0)
