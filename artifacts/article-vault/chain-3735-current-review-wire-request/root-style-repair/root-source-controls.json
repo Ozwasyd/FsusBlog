@@ -1,0 +1,44 @@
+{
+  "sourceCommit": "1fc2a2153b0f3a96f3a7628b3847b86c0e75072d",
+  "previousSource": "2de89a7656b4a9a1e0982629b44b45f5999d37a6",
+  "previousEvidenceHead": "d1765f7c19800c96ee0293ce160059ff5b737a0c",
+  "sourceDelta": [
+    "src/frontend/package.json",
+    "src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts",
+    "tests/tools/article-vault-current-review-wire.test.mjs",
+    "tests/tools/package.json"
+  ],
+  "change": "Declare a private client codec package export and actual tests/tools file dependency; import the production codec through that package. Apply actual source formatter and split original test statements. No parser copy/wrapper/cast/rule exception.",
+  "nodeControls": {
+    "exitCode": 0,
+    "passed": 29,
+    "skipped": 0,
+    "sourceCommit": "1fc2a2153b0f3a96f3a7628b3847b86c0e75072d",
+    "sameOriginalAssertionCount": 16
+  },
+  "style": {
+    "exitCode": 0,
+    "files": 2,
+    "violations": 0,
+    "initialActualViolationsPreserved": true,
+    "dependencySetup": "actual ignored node_modules directories with per-package links to source-pinned current environment dependencies; no whole-directory symlink"
+  },
+  "oldNativeCoreSharedBindings": "byte-identical original source blobs; old35 native and originalCore0errors188warnings remain bound2de, not rebound to a new managed or runtime acceptance",
+  "qualifiedManagedTests": 0,
+  "excludedManaged": "original worker alternate31 excluded; exactproject, initialfailure and TRX archived unchanged",
+  "globalAdmission": "NONE: no286/287/error21/HTTP/current input grant",
+  "responseBlocker": "original owner-approved Shared six-field response projection and closed nested validators; actual trusted-input acquisition absent",
+  "removedTaskNativeBinaries": [
+    {
+      "path": "/tmp/chain-3735-vault-current-review-native",
+      "sha256BeforeRemoval": "8089dddf71f4a6021db97040a9f8de78a166cabc6d93c12bf6d51cd26d557b67",
+      "taskOwnedBinaryRemoved": true
+    },
+    {
+      "path": "/tmp/chain-3735-vault-current-review-native-published",
+      "sha256BeforeRemoval": "8089dddf71f4a6021db97040a9f8de78a166cabc6d93c12bf6d51cd26d557b67",
+      "taskOwnedBinaryRemoved": true
+    }
+  ],
+  "contentApiWrites": 0
+}

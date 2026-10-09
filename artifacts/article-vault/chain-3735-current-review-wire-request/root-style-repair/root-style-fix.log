@@ -1,0 +1,10 @@
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:5:117 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `article-vault-current-review-wire.test.mjs` to same directory as `../../src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts` or consider making `../../src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts` a package.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:42:52 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:53:46 eslint/@stylistic/max-statements-per-line: This line has 3 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:56:52 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:59:44 eslint/@stylistic/max-statements-per-line: This line has 3 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:61:34 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:63:36 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:68:35 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:70:32 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:72:51 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.

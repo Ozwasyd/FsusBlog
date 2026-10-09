@@ -1,0 +1,15 @@
+{
+  "sourceCommit": "1fc2a2153b0f3a96f3a7628b3847b86c0e75072d",
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/article-vault-current-review-wire.test.mjs"
+  ],
+  "cwd": "/workspace/FsusBlog-vault-current-review-wire",
+  "startedAtUtc": "2026-10-09T13:43:57.794244+00:00",
+  "endedAtUtc": "2026-10-09T13:43:58.156172+00:00",
+  "exitCode": 0,
+  "seconds": 0.362,
+  "stdoutArtifact": "published-root-node-controls.log",
+  "runtimeQualification": false
+}

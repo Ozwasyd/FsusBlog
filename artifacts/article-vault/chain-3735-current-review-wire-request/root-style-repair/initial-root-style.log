@@ -1,0 +1,40 @@
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:22:107 eslint/@stylistic/member-delimiter-style: Expected a semicolon.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:54:78 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:60:118 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:68:38 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:72:120 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:73:38 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:74:82 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:77:58 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:88:54 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:91:57 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:91:57 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:91:59 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:91:100 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:124:96 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:130:72 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:131:13 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:131:13 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:131:15 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:131:80 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:132:15 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:132:15 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:132:32 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:135:75 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:139:59 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:143:46 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts:156:54 eslint/curly: Expected { after 'if' condition.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:5:117 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `article-vault-current-review-wire.test.mjs` to same directory as `../../src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts` or consider making `../../src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts` a package.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:42:52 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:49:41 eslint/curly: Expected { after 'for-of'.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:50:46 eslint/@stylistic/max-statements-per-line: This line has 3 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:53:52 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:56:44 eslint/@stylistic/max-statements-per-line: This line has 3 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:58:34 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:60:36 eslint/@stylistic/max-statements-per-line: This line has 3 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:60:92 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:60:92 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:60:137 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:62:35 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:64:32 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/article-vault-current-review-wire.test.mjs:66:51 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
