@@ -3,8 +3,9 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { loadCompositionInputs } from '../frontend/support/layout/compositionContracts.mjs';
-import { captureCompositionDom } from '../frontend/support/layout/compositionDom.mjs';
+import { loadCompositionInputs } from '@fsusblog/layout-governance/composition-contracts';
+import { captureCompositionDom } from '@fsusblog/layout-governance/composition-dom';
+
 import { captureCompositionGeometry, probeCompositionGeometryPage } from '../frontend/support/layout/compositionGeometry.mjs';
 import { captureCompositionOrderGeometry, compareCompositionOrderGeometry } from '../frontend/support/layout/compositionOrderGeometry.mjs';
 
@@ -184,13 +185,31 @@ test('order geometry malformed contracts and observations remain explicit', () =
         rejected(observation);
     }
     for (const mutate of [
-        (contract) => { contract.contentOrder = []; },
-        (contract) => { contract.contentOrder.push(contract.contentOrder[0]); },
-        (contract) => { contract.contentOrder[0] = 'unknown-region'; },
-        (contract) => { contract.firstFoldInvariants = null; },
-        (contract) => { contract.allowedSurfaceNesting.pairs = [null]; },
-        (contract) => { contract.allowedSurfaceNesting.pairs = [{ parentRegionId: contract.contentOrder[0], childRegionId: contract.contentOrder[1] },
-            { parentRegionId: contract.contentOrder[1], childRegionId: contract.contentOrder[0] }]; }
+        (contract) =>
+        {
+            contract.contentOrder = [];
+        },
+        (contract) =>
+        {
+            contract.contentOrder.push(contract.contentOrder[0]);
+        },
+        (contract) =>
+        {
+            contract.contentOrder[0] = 'unknown-region';
+        },
+        (contract) =>
+        {
+            contract.firstFoldInvariants = null;
+        },
+        (contract) =>
+        {
+            contract.allowedSurfaceNesting.pairs = [null];
+        },
+        (contract) =>
+        {
+            contract.allowedSurfaceNesting.pairs = [{ parentRegionId: contract.contentOrder[0], childRegionId: contract.contentOrder[1] },
+                { parentRegionId: contract.contentOrder[1], childRegionId: contract.contentOrder[0] }];
+        }
     ])
     {
         const observation = fixture();
@@ -229,12 +248,30 @@ test('order geometry invalid rects and capture correspondence never pass', () =>
         rejected(observation);
     }
     for (const mutate of [
-        (observation) => { observation.orderObservation.viewport.width += 1; },
-        (observation) => { observation.orderObservation.url += 'changed'; },
-        (observation) => { observation.orderObservation.scroll.y += 1; },
-        (observation) => { observation.orderObservation.nodes[0].rect.top += 1; },
-        (observation) => { observation.geometryObservation.nodes[0].computedVisibility.opacity = 'NaN'; },
-        (observation) => { observation.orderObservation.rootLayouts = []; }
+        (observation) =>
+        {
+            observation.orderObservation.viewport.width += 1;
+        },
+        (observation) =>
+        {
+            observation.orderObservation.url += 'changed';
+        },
+        (observation) =>
+        {
+            observation.orderObservation.scroll.y += 1;
+        },
+        (observation) =>
+        {
+            observation.orderObservation.nodes[0].rect.top += 1;
+        },
+        (observation) =>
+        {
+            observation.geometryObservation.nodes[0].computedVisibility.opacity = 'NaN';
+        },
+        (observation) =>
+        {
+            observation.orderObservation.rootLayouts = [];
+        }
     ])
     {
         const observation = fixture();
