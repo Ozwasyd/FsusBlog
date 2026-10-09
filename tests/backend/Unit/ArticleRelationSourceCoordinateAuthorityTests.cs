@@ -18,6 +18,11 @@ public sealed class ArticleRelationSourceCoordinateAuthorityTests
                 () => _authority.ReadRevisionAsync(null!, article, revision));
             await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
                 () => _authority.ProvisionRevisionAsync(null!, article, revision));
+            if (article <= 0)
+            {
+                await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
+                    () => _authority.ProvisionImportedArticleAsync(null!, article, PortableIdentity));
+            }
         }
     }
 
@@ -40,6 +45,8 @@ public sealed class ArticleRelationSourceCoordinateAuthorityTests
             ArticleRelationSourceCoordinateException exception = await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
                 () => _authority.ProvisionImportedRevisionAsync(null!, 1, 1, identity));
             Assert.Equal("article_relation_article_identity_invalid", exception.Message);
+            await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
+                () => _authority.ProvisionImportedArticleAsync(null!, 1, identity));
         }
     }
 
@@ -53,6 +60,7 @@ public sealed class ArticleRelationSourceCoordinateAuthorityTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _authority.FindArticleAsync(db, PortableIdentity, cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _authority.ProvisionRevisionAsync(db, 1, 1, cancellation.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _authority.ProvisionImportedRevisionAsync(db, 1, 1, PortableIdentity, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _authority.ProvisionImportedArticleAsync(db, 1, PortableIdentity, cancellation.Token));
     }
 
     [Fact]
@@ -66,6 +74,9 @@ public sealed class ArticleRelationSourceCoordinateAuthorityTests
         // The original codec accepts this positive identity before transaction admission refuses it.
         exception = await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
             () => _authority.ProvisionImportedRevisionAsync(db, 1, 1, PortableIdentity));
+        Assert.Equal("article_relation_caller_transaction_required", exception.Message);
+        exception = await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
+            () => _authority.ProvisionImportedArticleAsync(db, 1, PortableIdentity));
         Assert.Equal("article_relation_caller_transaction_required", exception.Message);
     }
 
