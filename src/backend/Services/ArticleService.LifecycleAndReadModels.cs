@@ -54,6 +54,7 @@ public partial class ArticleService
             bool success = false;
             ArticleMutationTransactionResult result = await ExecuteArticleMutationTransactionAsync(async () =>
             {
+                using var callerCancellation = new FsusBlog.Server.Services.Articles.ArticleCreateMutationAuthority.CallerCancellationScope(_db);
                 await EnterArticleSourceMutationTransactionAsync(ct).ConfigureAwait(false);
                 int updated = await _db.Ado.ExecuteCommandAsync(
                     """
@@ -137,6 +138,7 @@ public partial class ArticleService
         bool success = false;
         var result = await _db.Ado.UseTranAsync(async () =>
         {
+            using var callerCancellation = new FsusBlog.Server.Services.Articles.ArticleCreateMutationAuthority.CallerCancellationScope(_db);
             await EnterArticleSourceMutationTransactionAsync(ct).ConfigureAwait(false);
             int updated = await _db.Ado.ExecuteCommandAsync(
                 """
@@ -211,6 +213,7 @@ public partial class ArticleService
 
         var result = await _db.Ado.UseTranAsync(async () =>
         {
+            using var callerCancellation = new FsusBlog.Server.Services.Articles.ArticleCreateMutationAuthority.CallerCancellationScope(_db);
             await EnterArticleSourceMutationTransactionAsync(ct).ConfigureAwait(false);
             bool locked = await LockDeletedArticleForMutationAsync(id, state.RowVersion);
             if (!locked)
@@ -260,6 +263,7 @@ public partial class ArticleService
         ct.ThrowIfCancellationRequested();
         var result = await _db.Ado.UseTranAsync(async () =>
         {
+            using var callerCancellation = new FsusBlog.Server.Services.Articles.ArticleCreateMutationAuthority.CallerCancellationScope(_db);
             await EnterArticleSourceMutationTransactionAsync(ct).ConfigureAwait(false);
             List<TrashArticleRow> lockedTrashArticles = await LoadTrashArticlesForUpdateAsync(ct);
             if (lockedTrashArticles.Count == 0)

@@ -146,6 +146,7 @@ public partial class ArticleService
             before,
             after,
             createdAt);
+        using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(_db);
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         await _db.Insertable(outbox).ExecuteCommandAsync(ct).ConfigureAwait(false);
         await ArticleSourceGenerationAuthority.RecordMutationAsync(_db, outbox.EventId, ct).ConfigureAwait(false);
@@ -379,6 +380,7 @@ public partial class ArticleService
             ArticleVersionCoordinates? noChangeVersion = null;
             ArticleMutationTransactionResult result = await ExecuteArticleMutationTransactionAsync(async () =>
             {
+                using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(_db);
                 await EnterArticleSourceMutationTransactionAsync(ct).ConfigureAwait(false);
                 ArticlePublicationValidationResult validation = await _publicationValidator.ValidateAsync(
                     new ArticlePublicationValidationInput(

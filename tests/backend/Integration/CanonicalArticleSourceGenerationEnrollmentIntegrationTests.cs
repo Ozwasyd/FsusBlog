@@ -204,6 +204,7 @@ public sealed class CanonicalArticleSourceGenerationEnrollmentIntegrationTests(P
         await blocker.Ado.ExecuteCommandAsync("SELECT pg_advisory_xact_lock(1179866444, 2);");
         await db.Ado.BeginTranAsync();
         await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db);
+        CancellationToken? originalCancellation = db.Ado.CancellationToken;
         using var canceled = new CancellationTokenSource();
         Task<ArticleCreateMutationAuthority.Result> writing = CreateAsync(db, canceled.Token);
         await WaitForAdvisoryWaitAsync(db.CurrentConnectionConfig.ConnectionString,
@@ -211,6 +212,7 @@ public sealed class CanonicalArticleSourceGenerationEnrollmentIntegrationTests(P
         Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(blocker));
         canceled.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => writing);
+        Assert.Equal(originalCancellation, db.Ado.CancellationToken);
         await db.Ado.RollbackTranAsync();
         await blocker.Ado.RollbackTranAsync();
         Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));

@@ -45,6 +45,7 @@ public sealed class PostgresArticleCreatePersistence(
     {
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(payload);
+        using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
         ArticleCreateReceipt? replayed = await TryReplayAsync(
             command.Actor.AdminPrincipalId, command.RequestId, requestDigest, cancellationToken)
             .ConfigureAwait(false);

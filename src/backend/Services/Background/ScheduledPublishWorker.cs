@@ -191,6 +191,7 @@ public sealed class ScheduledPublishWorker(
         int insertedOutboxEvents = 0;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
+            using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
             await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken)
                 .ConfigureAwait(false);
             var due = new List<ScheduledPublicationCandidate>();

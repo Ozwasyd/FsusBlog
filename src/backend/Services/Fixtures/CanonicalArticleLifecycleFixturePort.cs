@@ -260,6 +260,7 @@ public sealed class CanonicalArticleLifecycleFixturePort(
             fenceEstablished = true;
             var transaction = await db.Ado.UseTranAsync(async () =>
             {
+                using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
                 await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken)
                     .ConfigureAwait(false);
                 await db.Ado.ExecuteCommandAsync(
@@ -428,6 +429,7 @@ public sealed class CanonicalArticleLifecycleFixturePort(
             fenceEstablished = true;
             var transaction = await db.Ado.UseTranAsync(async () =>
             {
+                using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
                 await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken)
                     .ConfigureAwait(false);
                 // Serialize with the production transition and re-read the original authority

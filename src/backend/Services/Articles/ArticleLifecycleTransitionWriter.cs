@@ -149,6 +149,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
         await ArticleCreateMutationAuthority.RequireSourceMutationTransactionAsync(db, cancellationToken)
             .ConfigureAwait(false);
         await RequireActiveAdminAsync(db, request.CreatedByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
@@ -255,6 +256,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
         await ArticleCreateMutationAuthority.RequireSourceMutationTransactionAsync(db, cancellationToken)
             .ConfigureAwait(false);
         await RequireActiveAdminAsync(db, request.CreatedByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
@@ -476,6 +478,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
         await ArticleCreateMutationAuthority.RequireSourceMutationTransactionAsync(db, cancellationToken)
             .ConfigureAwait(false);
         await RequireActiveAdminAsync(db, request.DeletedByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
@@ -571,6 +574,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
         await ArticleCreateMutationAuthority.RequireSourceMutationTransactionAsync(db, cancellationToken)
             .ConfigureAwait(false);
         await RequireActiveAdminAsync(db, request.RestoredByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
@@ -766,6 +770,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
         await ArticleCreateMutationAuthority.RequireSourceMutationTransactionAsync(db, cancellationToken)
             .ConfigureAwait(false);
         if (request.TargetRevisionId <= 0 || string.IsNullOrWhiteSpace(request.RollbackReason))
@@ -943,6 +948,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
         await ArticleCreateMutationAuthority.RequireSourceMutationTransactionAsync(db, cancellationToken)
             .ConfigureAwait(false);
         await RequireActiveAdminAsync(db, request.PublishedByAdminPrincipalId, cancellationToken).ConfigureAwait(false);

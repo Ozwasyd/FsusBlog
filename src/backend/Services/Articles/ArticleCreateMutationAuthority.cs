@@ -63,6 +63,7 @@ public static class ArticleCreateMutationAuthority
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(request);
+        using var callerCancellation = new CallerCancellationScope(db);
         await RequireSourceMutationTransactionAsync(db, cancellationToken).ConfigureAwait(false);
 
         string title = ArticleProductionNormalizers.NormalizeText(
@@ -270,5 +271,12 @@ public static class ArticleCreateMutationAuthority
         var (connection, transaction) = ArticleSourceGenerationAuthority.RequireTransaction(db);
         await ArticleSourceGenerationPersistence.RequireLockAsync(connection, transaction, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    internal sealed class CallerCancellationScope(ISqlSugarClient db) : IDisposable
+    {
+        private readonly CancellationToken? _previousCancellation = db.Ado.CancellationToken;
+
+        public void Dispose() => db.Ado.CancellationToken = _previousCancellation;
     }
 }
