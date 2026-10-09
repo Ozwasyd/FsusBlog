@@ -1488,3 +1488,138 @@ test('effect boundary: opaque partition caller cannot borrow literal operation s
     const state = actualPagination(':layout="unknown"');
     assert.throws(() => state.module.partitionCollection(state.file, state.loop, state.componentCall, state.bindings), /nonliteral collection input/u);
 });
+
+test('effect review EF1: direct await cannot close the original parameter source', () =>
+{
+    assert.equal(reviewReadonly('async function owner(props){await props;}').readonly, false);
+});
+test('effect review EF1: deferred async capture cannot close the original parameter source', () =>
+{
+    assert.equal(reviewReadonly('function owner(props){const callback=async()=>{await props;};foreign(callback);}').readonly, false);
+});
+test('effect review EF2: call arguments retain origins after each earlier argument effect', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign(alias=item,alias);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments.map((argument) => argument.path), [['item'], ['item']]);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'call-argument').map((entry) => entry.path), [['item'], ['item']]);
+});
+test('effect review EF2: new arguments retain origins after each earlier argument effect', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;new Unknown(alias=item,alias);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments.map((argument) => argument.path), [['item'], ['item']]);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'call-argument').map((entry) => entry.path), [['item'], ['item']]);
+});
+test('effect review EF3: runtime class heritage cannot be erased as type syntax', () =>
+{
+    unknownFramework('export function wrap(value){class Carrier extends value{}return 1;}');
+});
+test('effect review EF3: runtime enum initialization cannot be erased as type syntax', () =>
+{
+    unknownFramework('export function wrap(value){enum Mode{A=value}return 1;}');
+});
+test('ordered effect: an earlier argument keeps its value when a later argument rebinds the alias', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign(alias,alias=item);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments.map((argument) => argument.path), [['other'], ['item']]);
+});
+test('ordered effect: aggregate elements retain their individually evaluated source origins', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign([alias,alias=item]);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments[0].paths, [['other'], ['item']]);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'call-argument').map((entry) => entry.path), [['other'], ['item']]);
+});
+test('ordered effect: object initializer values retain their individually evaluated source origins', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign({first:alias,next:alias=item});};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments[0].paths, [['other'], ['item']]);
+});
+test('ordered effect: receiver provenance is captured before argument rebinding', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;alias.send(alias=item,alias);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].path, ['other','send']);
+    assert.deepEqual(result.calls[0].arguments.map((argument) => argument.path), [['item'], ['item']]);
+    assert.ok(result.escapes.some((entry) => entry.kind === 'method-receiver' && entry.path.join('.') === 'other.send'));
+});
+test('ordered effect: computed receiver retains its object before key expression mutation', () =>
+{
+    const state = local("const callback=(item,other)=>{let alias=other;alias[(alias=item,'send')](alias);};const children=[];");
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].path, ['other','*']);
+    assert.deepEqual(result.calls[0].arguments[0].path, ['item']);
+});
+test('ordered effect: nested calls preserve argument snapshots and source invocation order', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign(alias,inner(alias=item),alias);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls.map((entry) => entry.expression), ['inner','foreign']);
+    assert.deepEqual(result.calls[0].arguments[0].path, ['item']);
+    assert.deepEqual(result.calls[1].arguments.map((argument) => argument.path), [['other'], null, ['item']]);
+});
+test('ordered effect: spread carrier retains its earlier input before a later alias assignment', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign(...alias,alias=item);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments.map((argument) => argument.path), [['other'], ['item']]);
+});
+test('shared effect boundary: void wrapping cannot hide await from parameter closure', () =>
+{
+    assert.equal(reviewReadonly('async function owner(props){void(await props);}').readonly, false);
+});
+test('shared effect boundary: tagged template cannot hide a selected parameter consumer', () =>
+{
+    assert.equal(reviewReadonly('function owner(props){props`text`;}').readonly, false);
+});
+test('shared effect boundary: runtime heritage remains unknown in parameter closure', () =>
+{
+    assert.equal(reviewReadonly('function owner(props){class Carrier extends props{}return 1;}').readonly, false);
+});
+test('shared effect boundary: runtime enum remains unknown in parameter closure', () =>
+{
+    assert.equal(reviewReadonly('function owner(props){enum Mode{A=props}return 1;}').readonly, false);
+});
+test('shared effect boundary: runtime namespace initialization remains unknown', () =>
+{
+    unknownFramework('export function wrap(value){namespace Holder{export const member=value;}return 1;}');
+});
+test('shared effect boundary: erased interface and type alias grant no runtime reads', () =>
+{
+    const result = checkedFramework('export function wrap(value){interface Holder extends Unknown{member:typeof value;}type Alias=typeof value;return 1;}');
+    assert.equal(result.readonly, true);
+    assert.equal(result.closureComplete, true);
+    assert.deepEqual(result.functions[0].effects.freeReads, []);
+});
+test('shared effect boundary: erased implements cannot erase actual class heritage', () =>
+{
+    const result = unknownFramework('export function wrap(value){class Carrier extends value implements Unknown{}return 1;}');
+    assert.ok(result.functions[0].effects.reads.some((entry) => entry.path?.[0] === 'value'));
+    assert.ok(!result.functions[0].effects.freeReads.some((entry) => entry.path?.[0] === 'Unknown'));
+});
+test('shared effect boundary: ambient type signature creates no runtime declaration effects', () =>
+{
+    const result = checkedFramework('declare class Carrier extends Unknown{}export function wrap(value:Carrier){return 1;}');
+    assert.equal(result.readonly, true);
+    assert.equal(result.closureComplete, true);
+});
+test('shared effect boundary: actual heritage free binding is retained as a runtime read', () =>
+{
+    const result = unknownFramework('export function wrap(value){class Carrier extends Unknown{}return 1;}');
+    assert.ok(result.functions[0].effects.freeReads.some((entry) => entry.path?.[0] === 'Unknown'));
+});
+test('shared effect boundary: resolved class dependency retains the original runtime heritage gap', () =>
+{
+    const state = frameworkFixture('export function wrap(value){return new Carrier(value);}class Carrier extends Base{constructor(value){super(value);}}class Base{constructor(value){}}');
+    const actual = state.source.resolver.resolveFrameworkExport(state.file, state.call.expression);
+    const dependency = actual.dependencies.find((entry) => entry.classDeclaration?.heritageClauses?.length);
+    assert.ok(dependency);
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    const inherited = state.source.resolver.sourceStep(dependency.file, dependency.classDeclaration.heritageClauses[0]);
+    assert.ok(result.openEffects.some((entry) => entry.source?.digest === inherited.digest && entry.required.includes('heritage')));
+    assert.equal(result.closureComplete, false);
+    assert.equal(result.readonly, false);
+});

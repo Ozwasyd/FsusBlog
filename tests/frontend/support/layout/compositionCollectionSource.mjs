@@ -112,6 +112,60 @@ export function createCompositionCollectionSource(source)
     {
         return [...(fn.parameters ?? []).flatMap((parameter) => parameter.initializer ? [parameter.initializer] : []), fn.body ?? fn];
     }
+    function typeOnly(node)
+    {
+        if (ts.isExpressionWithTypeArguments(node))
+        {
+            const heritage = node.parent;
+            return ts.isHeritageClause(heritage) && (heritage.token !== ts.SyntaxKind.ExtendsKeyword
+                || !(ts.isClassDeclaration(heritage.parent) || ts.isClassExpression(heritage.parent)));
+        }
+        return ts.isTypeNode(node) || ts.isTypeAliasDeclaration(node) || ts.isInterfaceDeclaration(node)
+            || ts.isHeritageClause(node) && (node.token !== ts.SyntaxKind.ExtendsKeyword
+                || !(ts.isClassDeclaration(node.parent) || ts.isClassExpression(node.parent)))
+            || node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.DeclareKeyword)
+            || ts.isImportEqualsDeclaration(node) && node.isTypeOnly;
+    }
+    function walkRuntime(node, visitor)
+    {
+        if (typeOnly(node))
+        {
+            return;
+        }
+        visitor(node);
+        ts.forEachChild(node, (child) => walkRuntime(child, visitor));
+    }
+    // Both effect consumers use this original-compiler syntax boundary.
+    // A TS node can carry runtime code: class extends, enum, namespace and
+    // decorators must not be erased merely because their syntax is typed.
+    const expressionKinds = new Set(['Identifier', 'ThisKeyword', 'NullKeyword', 'TrueKeyword', 'FalseKeyword',
+        'StringLiteral', 'NumericLiteral', 'BigIntLiteral', 'RegularExpressionLiteral', 'NoSubstitutionTemplateLiteral',
+        'ArrayLiteralExpression', 'ObjectLiteralExpression', 'PropertyAccessExpression', 'ElementAccessExpression',
+        'CallExpression', 'NewExpression', 'ParenthesizedExpression', 'FunctionExpression', 'ArrowFunction',
+        'PrefixUnaryExpression', 'PostfixUnaryExpression', 'BinaryExpression', 'ConditionalExpression',
+        'TemplateExpression', 'TypeOfExpression', 'VoidExpression', 'DeleteExpression', 'SpreadElement',
+        'AsExpression', 'TypeAssertionExpression', 'NonNullExpression', 'SatisfiesExpression', 'CommaListExpression',
+        'JsxElement', 'JsxSelfClosingElement', 'JsxFragment'].map((kind) => ts.SyntaxKind[kind]));
+    function unsupportedEffect(node)
+    {
+        if (typeOnly(node))
+        {
+            return null;
+        }
+        if (ts.isClassDeclaration(node) || ts.isHeritageClause(node) || ts.isEnumDeclaration(node) || ts.isModuleDeclaration(node)
+            || ts.isImportEqualsDeclaration(node) || ts.isDecorator(node) || ts.isClassStaticBlockDeclaration(node))
+        {
+            return 'actual runtime declaration, heritage, decorator or static initialization effects remain unproved';
+        }
+        if (ts.isExpressionNode(node) && !expressionKinds.has(node.kind)
+            || ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node) || ts.isWithStatement(node)
+            || ts.isFunctionLike(node) && (node.asteriskToken
+                || node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword)))
+        {
+            return 'actual unsupported expression, binding or deferred effects and value flow remain unproved';
+        }
+        return null;
+    }
     function declaration(file, name, use)
     {
         const matches = [];
@@ -207,6 +261,8 @@ export function createCompositionCollectionSource(source)
         const bindings = new Set();
         const aliases = new Map();
         const aliasBindings = new Map();
+        const evaluatedValues = new WeakMap();
+        const evaluatedBindings = new WeakMap();
         const parameters = fn.parameters.map((parameter) =>
         {
             if (!ts.isIdentifier(parameter.name) || !openParameters && (parameter.initializer || parameter.dotDotDotToken))
@@ -217,7 +273,7 @@ export function createCompositionCollectionSource(source)
             return parameter.name.text;
         });
         const localDeclarations = [...fn.parameters];
-        effectRegions(fn).forEach((region) => walk(region, (node) =>
+        effectRegions(fn).forEach((region) => walkRuntime(region, (node) =>
         {
             if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && ts.isIdentifier(node.name))
             {
@@ -269,6 +325,17 @@ export function createCompositionCollectionSource(source)
             {
                 return [];
             }
+            if (evaluatedValues.has(node))
+            {
+                return evaluatedValues.get(node);
+            }
+            if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+            {
+                const key = ts.isPropertyAccessExpression(node) ? node.name : unwrap(node.argumentExpression);
+                const name = ts.isPropertyAccessExpression(node) || key && (ts.isStringLiteral(key) || ts.isNumericLiteral(key))
+                    ? key.text : '*';
+                return origins(node.expression).map((origin) => [...origin, name]);
+            }
             const parts = path(node);
             if (parts)
             {
@@ -319,6 +386,14 @@ export function createCompositionCollectionSource(source)
             if (!node)
             {
                 return [];
+            }
+            if (evaluatedBindings.has(node))
+            {
+                return evaluatedBindings.get(node);
+            }
+            if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+            {
+                return originBindings(node.expression);
             }
             const root = rootIdentifier(node);
             if (root)
@@ -411,18 +486,6 @@ export function createCompositionCollectionSource(source)
                 originBindings: [...new Set(originBindings(originNode))].map((owner) => step(file, owner)), ...extra };
         };
         const writeOrigins = (node) => ts.isIdentifier(unwrap(node)) ? [[unwrap(node).text]] : origins(node);
-        // Syntax coverage is over original compiler nodes, never API names or
-        // type annotations. These kinds have value/effect handlers below (or
-        // remain output syntax for the canonical render visitor). Everything
-        // else is explicit unknown evidence, rather than an empty effect list.
-        const expressionKinds = new Set(['Identifier', 'ThisKeyword', 'NullKeyword', 'TrueKeyword', 'FalseKeyword',
-            'StringLiteral', 'NumericLiteral', 'BigIntLiteral', 'RegularExpressionLiteral', 'NoSubstitutionTemplateLiteral',
-            'ArrayLiteralExpression', 'ObjectLiteralExpression', 'PropertyAccessExpression', 'ElementAccessExpression',
-            'CallExpression', 'NewExpression', 'ParenthesizedExpression', 'FunctionExpression', 'ArrowFunction',
-            'PrefixUnaryExpression', 'PostfixUnaryExpression', 'BinaryExpression', 'ConditionalExpression',
-            'TemplateExpression', 'TypeOfExpression', 'VoidExpression', 'DeleteExpression', 'SpreadElement',
-            'AsExpression', 'TypeAssertionExpression', 'NonNullExpression', 'SatisfiesExpression', 'CommaListExpression',
-            'JsxElement', 'JsxSelfClosingElement', 'JsxFragment'].map((kind) => ts.SyntaxKind[kind]));
         function returned(expression, kind = 'return')
         {
             for (const target of origins(expression))
@@ -432,15 +495,15 @@ export function createCompositionCollectionSource(source)
         }
         function inspectEffects(node)
         {
-            if (ts.isTypeNode(node))
+            if (typeOnly(node))
             {
                 return;
             }
-            if (ts.isExpressionNode(node) && !expressionKinds.has(node.kind)
-                || ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node) || ts.isWithStatement(node))
+            const unsupported = unsupportedEffect(node);
+            if (unsupported)
             {
                 unresolved.push({ ...step(file, node), kind: ts.SyntaxKind[node.kind],
-                    required: 'actual unsupported expression or binding effects and value flow remain unproved' });
+                    required: unsupported });
             }
             if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
                 && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
@@ -465,23 +528,6 @@ export function createCompositionCollectionSource(source)
                     writes.push(entry(node, target, { operator: 'delete' }, node.expression));
                 }
             }
-            if (ts.isCallExpression(node) || ts.isNewExpression(node))
-            {
-                calls.push(entry(node, rooted(node.expression), { expression: node.expression.getText(),
-                    arguments: (node.arguments ?? []).map((argument) => ({ ...step(file, argument), path: rooted(argument), paths: origins(argument), expression: argument.getText() })) }));
-                for (const argument of node.arguments ?? [])
-                {
-                    for (const target of origins(argument))
-                    {
-                        escapes.push(entry(argument, target, { kind: 'call-argument' }));
-                    }
-                }
-                const target = rooted(node.expression);
-                if (target)
-                {
-                    escapes.push(entry(node.expression, target, { kind: 'method-receiver' }));
-                }
-            }
             if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
                 && !((ts.isPropertyAccessExpression(node.parent) || ts.isElementAccessExpression(node.parent)) && node.parent.expression === node))
             {
@@ -499,12 +545,12 @@ export function createCompositionCollectionSource(source)
                 && !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)
                 && node.parent.tagName !== node)
             {
-                let typeOnly = false;
+                let annotation = false;
                 for (let owner = node.parent; owner && owner !== fn.body; owner = owner.parent)
                 {
-                    typeOnly ||= ts.isTypeNode(owner) || ts.isTypeAliasDeclaration(owner) || ts.isInterfaceDeclaration(owner);
+                    annotation ||= typeOnly(owner);
                 }
-                if (!typeOnly)
+                if (!annotation)
                 {
                     freeReads.push(entry(node, rooted(node)));
                 }
@@ -514,7 +560,7 @@ export function createCompositionCollectionSource(source)
                 for (const parameter of parameters)
                 {
                     let captured = false;
-                    walk(node.body, (child) =>
+                    walkRuntime(node.body, (child) =>
                     {
                         if (ts.isIdentifier(child) && !(ts.isPropertyAccessExpression(child.parent) && child.parent.name === child))
                         {
@@ -527,7 +573,34 @@ export function createCompositionCollectionSource(source)
                     }
                 }
             }
-            ts.forEachChild(node, inspectEffects);
+            if (ts.isCallExpression(node) || ts.isNewExpression(node))
+            {
+                // The callee/receiver is evaluated first, then each argument
+                // in order. Freeze each result immediately; a later argument
+                // must not rewrite the provenance of an already-read value.
+                inspectEffects(node.expression);
+                const receiver = rooted(node.expression);
+                const receiverEscape = receiver && entry(node.expression, receiver, { kind: 'method-receiver' });
+                const call = entry(node, receiver, { expression: node.expression.getText(), arguments: [] });
+                for (const argument of node.arguments ?? [])
+                {
+                    inspectEffects(argument);
+                    call.arguments.push({ ...entry(argument, rooted(argument)), paths: origins(argument), expression: argument.getText() });
+                    for (const target of origins(argument))
+                    {
+                        escapes.push(entry(argument, target, { kind: 'call-argument' }));
+                    }
+                }
+                if (receiverEscape)
+                {
+                    escapes.push(receiverEscape);
+                }
+                calls.push(call);
+            }
+            else
+            {
+                ts.forEachChild(node, inspectEffects);
+            }
             if (ts.isReturnStatement(node) && node.expression)
             {
                 returned(node.expression);
@@ -558,6 +631,11 @@ export function createCompositionCollectionSource(source)
                     updateAlias(binding, node.operatorToken.kind === ts.SyntaxKind.EqualsToken || logical ? node.right : null,
                         logical || guardedAssignment(node, binding));
                 }
+            }
+            if (ts.isExpressionNode(node))
+            {
+                evaluatedBindings.set(node, [...originBindings(node)]);
+                evaluatedValues.set(node, origins(node).map((origin) => [...origin]));
             }
         }
         effectRegions(fn).forEach(inspectEffects);
@@ -985,7 +1063,7 @@ export function createCompositionCollectionSource(source)
         }
         function implicitEffects(ownerFile, fn, definition)
         {
-            effectRegions(fn).forEach((region) => walk(region, (node) =>
+            effectRegions(fn).forEach((region) => walkRuntime(region, (node) =>
             {
                 if (ts.isBinaryExpression(node) && ![ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken,
                     ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken,
@@ -1036,6 +1114,17 @@ export function createCompositionCollectionSource(source)
             const members = [];
             const fields = [];
             const fieldBindings = [];
+            for (const heritage of definition.heritageClauses ?? [])
+            {
+                walkRuntime(heritage, (node) =>
+                {
+                    const required = unsupportedEffect(node);
+                    if (required)
+                    {
+                        openEffects.push({ definition: owned, source: step(dependency.file, node), required });
+                    }
+                });
+            }
             for (const member of definition.members)
             {
                 const memberSource = step(dependency.file, member);
@@ -1186,8 +1275,25 @@ export function createCompositionCollectionSource(source)
             const writes = [];
             const escapes = [];
             const relevant = (parts) => parts?.[0] === root && (!property || parts.length === 1 || parts[1] === property || parts[1] === '*');
-            effectRegions(owner).forEach((region) => walk(region, (node) =>
+            effectRegions(owner).forEach((region) => walkRuntime(region, (node) =>
             {
+                const unsupported = unsupportedEffect(node);
+                if (unsupported)
+                {
+                    let affected = false;
+                    walkRuntime(node, (reference) =>
+                    {
+                        if (ts.isIdentifier(reference) && reference.text === root && !excluded.has(reference)
+                            && !(ts.isPropertyAccessExpression(reference.parent) && reference.parent.name === reference))
+                        {
+                            affected ||= relevant(valueUse(reference).parts);
+                        }
+                    });
+                    if (affected)
+                    {
+                        unresolved.push({ ...step(ownerFile, node), kind: ts.SyntaxKind[node.kind], required: unsupported });
+                    }
+                }
                 if ((ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isBindingElement(node))
                     && ts.isIdentifier(node.name) && node.name.text === root && node !== seed)
                 {
@@ -1306,7 +1412,8 @@ export function createCompositionCollectionSource(source)
         inspect(file, fn, index);
         return proof({ kind: seed ? 'binding-source-closure' : 'parameter-source-closure', property, functions, edges, unresolved, frameworkClosures,
             readonly: !unresolved.length && functions.every((entry) => !entry.writes.length && !entry.escapes.length),
-            renderProven: false }, steps);
+            effectScope: 'selected original parameter/property source effects; unrelated function purity remains unproved',
+            qualificationEligible: false, renderProven: false }, steps);
     }
     function parameterClosure(file, fn, index = 0, property = null, bindings = new Map())
     {
