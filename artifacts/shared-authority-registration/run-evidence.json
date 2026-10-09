@@ -1,0 +1,269 @@
+{
+  "kind": "ordinary-source-integration-evidence-not-qualification",
+  "runId": "shared-authority-registration-20261009-cb53ddb3db11",
+  "testedSourceCommit": "cb53ddb3db115118a168737c4e7f0e59aa42766b",
+  "fetchedMasterBase": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "branch": "codex/shared-coordinate-registration-20261009",
+  "newRootCommitPaths": [
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs"
+  ],
+  "completeSourceScope": [
+    "src/backend/Entities/ArticleRelationSourceCoordinate.cs",
+    "src/backend/Entities/ArticleSourceGeneration.cs",
+    "src/backend/Entities/ArticleSourceMutation.cs",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "src/backend/Services/Articles/ArticleSourceCursor.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationAuthority.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationPersistence.cs",
+    "src/backend/Services/Authoring/ArticlePropertySavedViewDependencyProvider.cs",
+    "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs",
+    "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs",
+    "tests/backend/Integration/ArticlePropertySavedViewDependencyProviderIntegrationTests.cs",
+    "tests/backend/Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs",
+    "tests/backend/Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs",
+    "tests/backend/Unit/ArticlePropertySavedViewDependencyProviderTests.cs",
+    "tests/backend/Unit/ArticleRelationSourceCoordinateAuthorityTests.cs",
+    "tests/backend/Unit/ArticleRelationSourceCoordinateMigrationDefinitionTests.cs",
+    "tests/backend/Unit/ArticleSourceGenerationAuthorityTests.cs",
+    "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs"
+  ],
+  "suppliedProducerByteBindings": [
+    {
+      "family": "coordinate",
+      "path": "src/backend/Entities/ArticleRelationSourceCoordinate.cs",
+      "suppliedCommit": "5c827c1cf0cd209007b301bac9967fa403066114",
+      "sha256": "e9c09f97719aaf2419772f51e2aaba7903fb5d621cd79564d6c52e3db7fadc9f",
+      "byteExact": true
+    },
+    {
+      "family": "coordinate",
+      "path": "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs",
+      "suppliedCommit": "5c827c1cf0cd209007b301bac9967fa403066114",
+      "sha256": "aaea6824c89884a7b1e93f6c46a867eb0b5f413585124e316152f1b76dc3a551",
+      "byteExact": true
+    },
+    {
+      "family": "coordinate",
+      "path": "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs",
+      "suppliedCommit": "5c827c1cf0cd209007b301bac9967fa403066114",
+      "sha256": "41f0737ca276a9849738d1ef7f950a24066d7e247d2aa07c0fc18ea69958dcad",
+      "byteExact": true
+    },
+    {
+      "family": "coordinate",
+      "path": "tests/backend/Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs",
+      "suppliedCommit": "5c827c1cf0cd209007b301bac9967fa403066114",
+      "sha256": "9daed5900358c58b27c59420e3a74e38722da1e4372e2175a497547a7a4334dd",
+      "byteExact": true
+    },
+    {
+      "family": "coordinate",
+      "path": "tests/backend/Unit/ArticleRelationSourceCoordinateAuthorityTests.cs",
+      "suppliedCommit": "5c827c1cf0cd209007b301bac9967fa403066114",
+      "sha256": "8c45b73c2f8c7b9a74706e066551fa98bbbf6de050d0a30d17ad4b818595d06f",
+      "byteExact": true
+    },
+    {
+      "family": "coordinate",
+      "path": "tests/backend/Unit/ArticleRelationSourceCoordinateMigrationDefinitionTests.cs",
+      "suppliedCommit": "5c827c1cf0cd209007b301bac9967fa403066114",
+      "sha256": "8e3cbeb8ef7e8ae2032cb3b2711cdc8119f2f4762f27591a5d5b60dcec4f5ed3",
+      "byteExact": true
+    },
+    {
+      "family": "generation",
+      "path": "src/backend/Entities/ArticleSourceGeneration.cs",
+      "suppliedCommit": "83e1f302b13e0ab3d37d47746365cd57c3ff9174",
+      "sha256": "fbceb775214986b33712c9e8f7feb8bc5734a023beefc961210c738490645e73",
+      "byteExact": true
+    },
+    {
+      "family": "generation",
+      "path": "src/backend/Entities/ArticleSourceMutation.cs",
+      "suppliedCommit": "83e1f302b13e0ab3d37d47746365cd57c3ff9174",
+      "sha256": "3a012f724b8417b4704a07fa6aebd12cc802a0832391d0852c8311c2e0632da0",
+      "byteExact": true
+    },
+    {
+      "family": "generation",
+      "path": "src/backend/Services/Articles/ArticleSourceCursor.cs",
+      "suppliedCommit": "83e1f302b13e0ab3d37d47746365cd57c3ff9174",
+      "sha256": "7fb240162e93cc93e2503e2aa0f332e77703cd87447b182e840488b52e316829",
+      "byteExact": true
+    },
+    {
+      "family": "generation",
+      "path": "src/backend/Services/Articles/ArticleSourceGenerationAuthority.cs",
+      "suppliedCommit": "83e1f302b13e0ab3d37d47746365cd57c3ff9174",
+      "sha256": "edb130f31bf5797899927e1f32adedf8e85a24aee3f4d3426d24a41861e7debc",
+      "byteExact": true
+    },
+    {
+      "family": "generation",
+      "path": "src/backend/Services/Articles/ArticleSourceGenerationPersistence.cs",
+      "suppliedCommit": "83e1f302b13e0ab3d37d47746365cd57c3ff9174",
+      "sha256": "56fb25ef28ef0ee823fbbab65f5863e3a3f9531e533f140ffc7be1e73efae9bc",
+      "byteExact": true
+    },
+    {
+      "family": "generation",
+      "path": "tests/backend/Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs",
+      "suppliedCommit": "83e1f302b13e0ab3d37d47746365cd57c3ff9174",
+      "sha256": "0fc995daf8cdaab3f8f35bd0a8a16ba527f23f92ee6c620c5ec79f716773e7f4",
+      "byteExact": true
+    },
+    {
+      "family": "generation",
+      "path": "tests/backend/Unit/ArticleSourceGenerationAuthorityTests.cs",
+      "suppliedCommit": "83e1f302b13e0ab3d37d47746365cd57c3ff9174",
+      "sha256": "b5e3c4ea46b594f7fb0530432073486c3733023ccb384545bb6c107aeb6219cf",
+      "byteExact": true
+    },
+    {
+      "family": "property",
+      "path": "src/backend/Services/Authoring/ArticlePropertySavedViewDependencyProvider.cs",
+      "suppliedCommit": "a8e59a12702dc5101927fbcc66d83967984ed597",
+      "sha256": "9d88a2f6c878b5a4ddbd0f549abf70d6eff268906c00d05e6396c3d3356c679f",
+      "byteExact": true
+    },
+    {
+      "family": "property",
+      "path": "tests/backend/Integration/ArticlePropertySavedViewDependencyProviderIntegrationTests.cs",
+      "suppliedCommit": "a8e59a12702dc5101927fbcc66d83967984ed597",
+      "sha256": "a30eb86cf8bb086b9e036b617304e442adf9a26cef18907ae205e5577868b106",
+      "byteExact": true
+    },
+    {
+      "family": "property",
+      "path": "tests/backend/Unit/ArticlePropertySavedViewDependencyProviderTests.cs",
+      "suppliedCommit": "a8e59a12702dc5101927fbcc66d83967984ed597",
+      "sha256": "3520f46006300ca735e3e4f3c7c6bad095d666ed98e769b6d2d0594114660e42",
+      "byteExact": true
+    }
+  ],
+  "generationEvidenceBinding": {
+    "testedSource": "a02f154356858d6199808cdbf8b5a362e44494fd",
+    "published": "83e1f302b13e0ab3d37d47746365cd57c3ff9174",
+    "reportedPassed": 56,
+    "reportedPostgresPassed": 33,
+    "status": "reported by producer/coordinator; not rerun or rebound here",
+    "ciConfigurationRead": "403 reported by producer/coordinator; not retried through any route; raw denied-read response not supplied to this root"
+  },
+  "coordinateEvidenceBinding": {
+    "source": "5c827c1cf0cd209007b301bac9967fa403066114",
+    "draftPr": 4117,
+    "reportedUnitPassed": 7,
+    "reportedPostgresPassed": 13,
+    "status": "reported producer evidence in current draft body; not rerun or rebound here"
+  },
+  "propertyEvidenceBinding": {
+    "source": "a8e59a12702dc5101927fbcc66d83967984ed597",
+    "reportedUnitUnrun": 11,
+    "reportedPostgresUnrun": 4,
+    "retainedFailures": [
+      "two NU1903 audit errors",
+      "unregistered PG-class admission preflight"
+    ],
+    "status": "unaccepted; child source is unchanged"
+  },
+  "currentChecks": {
+    "lockedRestore": {
+      "command": [
+        "bash",
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode",
+        "-v",
+        "minimal"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 8.159260988235474,
+      "environment": {
+        "DOTNET_ROOT": "/tmp/chain-3735-tooling/dotnet",
+        "FSUSBLOG_DATA_ROOT": "/workspace/FsusBlog-coordinate-registration/.tmp/shared-coordinate-registration/data",
+        "FSUSBLOG_DOTNET_DEPENDENCY_CACHE_ROOT": "/tmp/shared-authority-integration-cache"
+      },
+      "auditOverride": false
+    },
+    "strictOriginalTestBuild": {
+      "command": [
+        "bash",
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "-warnaserror",
+        "-v",
+        "minimal"
+      ],
+      "exitCode": 1,
+      "elapsedSeconds": 200.81395077705383,
+      "sourceCommit": "cb53ddb3db115118a168737c4e7f0e59aa42766b",
+      "auditOverride": false,
+      "testBodiesExecuted": 0
+    },
+    "sourceDiffCheck": {
+      "exitCode": 0
+    },
+    "selectedUnits": {
+      "expected": 19,
+      "executed": 0,
+      "status": "BLOCKED after strict build failure; no looser flags or diagnostic host"
+    },
+    "heldTestBodies": 0,
+    "rootWhitespace": {
+      "command": [
+        "bash",
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "format",
+        "whitespace",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--verify-no-changes",
+        "--include",
+        "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+        "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs",
+        "--verbosity",
+        "quiet"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 6.80289888381958,
+      "sourceCommit": "cb53ddb3db115118a168737c4e7f0e59aa42766b",
+      "auditOverride": false
+    }
+  },
+  "writerPathsByteExactBase": [
+    "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
+    "src/backend/Services/Articles/ArticleCreateMutationAuthority.cs",
+    "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs",
+    "src/backend/Services/ArticleService.Mutations.cs",
+    "src/backend/Services/ArticleService.ArticleVaultWriter.cs",
+    "src/backend/Services/ArticleService.ArticleVaultTransaction.cs"
+  ],
+  "schemaRegistration": "NOT IMPLEMENTED: current entity target lacks definition integrity constraints and real current recipe/product registration; no legacy catalog or classification product appended/resealed",
+  "notRun": [
+    "19 selected unit bodies and executable test discovery",
+    "all PG integration tests in this root",
+    "HTTP/browser/rendered UX",
+    "full frontend types/build",
+    "held audits and qualification",
+    "CI and current-schema native admission"
+  ],
+  "rawArtifactSha256": {
+    "root-whitespace.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "restore.log": "17e04413e152c2dc0969d021e494dd8c2ebd5c80664b3686ad061eb7278700c1",
+    "audit-diagnostics.json": "a5e2f4bc19d64709d80cbbeacd7f72616ba2e17568b46671375c914fd15d367d",
+    "preflight.json": "cf455f3c2e60393eadb8b02373465ad0ada882083f2338c3ec09617236f37805",
+    "strict-build-diagnostics.json": "c3a3240935cfb874918af0d41e1d43d02479f3c7d4060c82e344df10153d1b23",
+    "strict-test-build.log": "a70c77b2f5711a60f4b7af36c8370ca0e0c2eb6ec7f68fa8aa0d8b36646af003",
+    "restore-result.json": "f40d485e090a6a09d46e240ede3a8722ab90ede0cc02abee3f027fcb33a50384",
+    "root-whitespace-result.json": "562432046dc1ed88df44952068a020f63111b2ca5c3b53017dc8ef582839700f",
+    "strict-test-build-result.json": "392e1ec30589ab2fbc075d4d2f51edcc47df2cf779df724a0781d973a28626eb",
+    "positive.filter": "8d2e8a5e163ba1bcda0a8c428d78690e4d872618929d29427fa8b87be87cf4dc"
+  }
+}

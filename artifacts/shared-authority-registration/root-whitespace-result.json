@@ -1,0 +1,21 @@
+{
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "dotnet",
+    "format",
+    "whitespace",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--verify-no-changes",
+    "--include",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs",
+    "--verbosity",
+    "quiet"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 6.80289888381958,
+  "sourceCommit": "cb53ddb3db115118a168737c4e7f0e59aa42766b",
+  "auditOverride": false
+}

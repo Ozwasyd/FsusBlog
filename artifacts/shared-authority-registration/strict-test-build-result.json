@@ -1,0 +1,18 @@
+{
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "dotnet",
+    "build",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "-warnaserror",
+    "-v",
+    "minimal"
+  ],
+  "exitCode": 1,
+  "elapsedSeconds": 200.81395077705383,
+  "sourceCommit": "cb53ddb3db115118a168737c4e7f0e59aa42766b",
+  "auditOverride": false,
+  "testBodiesExecuted": 0
+}

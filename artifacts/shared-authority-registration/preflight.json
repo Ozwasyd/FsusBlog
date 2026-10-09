@@ -1,0 +1,53 @@
+{
+  "runId": "shared-coordinate-registration-20261009",
+  "sourceCommit": "cb53ddb3db115118a168737c4e7f0e59aa42766b",
+  "expectedCount": 19,
+  "positiveFullyQualifiedCases": [
+    "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.InvalidNumericCoordinatesFailBeforeDatabaseAccess",
+    "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.LookupRejectsNoncanonicalArticleIdentityBeforeDatabaseAccess",
+    "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.ImportRejectsNoncanonicalArticleIdentityBeforeDatabaseAccess",
+    "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.CancellationStopsEveryOperationBeforeNativeAccess",
+    "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.ProvisioningRequiresCallerTransactionWithoutOpeningConnection",
+    "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.UnsupportedProviderCannotAcquireSourceAuthority",
+    "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateMigrationDefinitionTests.DefinitionIsTransactionalAndContainsNoBackfillOrRegistration",
+    "FsusBlog.Server.Tests.Unit.AuthoringCanvasServiceRegistrationTests.RuntimeDomainServices_ResolveOneProductionReferenceAuthority",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.All_Eight_Types_Cardinalities_And_Flags_Keep_Execution_Closed",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Original_Store_Filters_Deleted_And_Only_Actual_Deprecated_Is_Retired",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Site_Definitions_Use_Actual_Actor_And_Other_Users_Are_Never_Read",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Missing_Or_Mismatched_Request_Fails_Before_Property_Read",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Request_Drift_Across_Await_Revokes_Fact",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Observed_Schema_Drift_And_Owner_Collision_Are_Closed",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Stable_Ids_And_Revision_Digest_Track_Metadata_Without_Values",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Cancellation_Propagates_Before_And_After_Read",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Other_Kinds_Return_Null_With_Zero_Property_Reads",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Original_Catalog_Validator_Reject_Duplicate_And_Unavailable_Execution",
+    "FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Original_Store_And_Provider_Refuse_Owner_Identity_And_Digest_Tampering"
+  ],
+  "files": [
+    {
+      "path": "tests/backend/Unit/ArticleRelationSourceCoordinateAuthorityTests.cs",
+      "count": 6,
+      "sha256": "8c45b73c2f8c7b9a74706e066551fa98bbbf6de050d0a30d17ad4b818595d06f"
+    },
+    {
+      "path": "tests/backend/Unit/ArticleRelationSourceCoordinateMigrationDefinitionTests.cs",
+      "count": 1,
+      "sha256": "8e3cbeb8ef7e8ae2032cb3b2711cdc8119f2f4762f27591a5d5b60dcec4f5ed3"
+    },
+    {
+      "path": "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs",
+      "count": 1,
+      "sha256": "bb013976f5887734420c17f3f1668bc136196b999d48a1cd21fbcf3047699872"
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePropertySavedViewDependencyProviderTests.cs",
+      "count": 11,
+      "sha256": "3520f46006300ca735e3e4f3c7c6bad095d666ed98e769b6d2d0594114660e42"
+    }
+  ],
+  "filter": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.InvalidNumericCoordinatesFailBeforeDatabaseAccess|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.LookupRejectsNoncanonicalArticleIdentityBeforeDatabaseAccess|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.ImportRejectsNoncanonicalArticleIdentityBeforeDatabaseAccess|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.CancellationStopsEveryOperationBeforeNativeAccess|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.ProvisioningRequiresCallerTransactionWithoutOpeningConnection|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.UnsupportedProviderCannotAcquireSourceAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateMigrationDefinitionTests.DefinitionIsTransactionalAndContainsNoBackfillOrRegistration|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringCanvasServiceRegistrationTests.RuntimeDomainServices_ResolveOneProductionReferenceAuthority|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.All_Eight_Types_Cardinalities_And_Flags_Keep_Execution_Closed|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Original_Store_Filters_Deleted_And_Only_Actual_Deprecated_Is_Retired|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Site_Definitions_Use_Actual_Actor_And_Other_Users_Are_Never_Read|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Missing_Or_Mismatched_Request_Fails_Before_Property_Read|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Request_Drift_Across_Await_Revokes_Fact|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Observed_Schema_Drift_And_Owner_Collision_Are_Closed|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Stable_Ids_And_Revision_Digest_Track_Metadata_Without_Values|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Cancellation_Propagates_Before_And_After_Read|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Other_Kinds_Return_Null_With_Zero_Property_Reads|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Original_Catalog_Validator_Reject_Duplicate_And_Unavailable_Execution|FullyQualifiedName=FsusBlog.Server.Tests.ArticlePropertySavedViewDependencyProviderTests.Original_Store_And_Provider_Refuse_Owner_Identity_And_Digest_Tampering",
+  "hooks": [],
+  "resourceAdmission": "All selected sources, property helpers, original registration method and TestTemporalContext.FromEnvironment reviewed. No collection fixtures, lifecycle hooks, DB/browser/native/network access or held gate. DI test resolves original store/catalog and requires absent-request PermissionRevoked. Property unit helpers use NSubstitute persistence with the real canonical store and fixed business clock; coordinate unit clients remain closed port1/SQLite in-memory objects without native database access.",
+  "heldTestBodies": 0,
+  "integrationAdmission": "UNRUN. Four property PG tests have original unregistered collection classification; no guessed shard. Coordinate/generation PG parent results are not rebound."
+}

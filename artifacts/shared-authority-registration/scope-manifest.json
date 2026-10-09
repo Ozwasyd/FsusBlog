@@ -1,0 +1,43 @@
+{
+  "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "sourceCommit": "cb53ddb3db115118a168737c4e7f0e59aa42766b",
+  "sourcePaths": [
+    "src/backend/Entities/ArticleRelationSourceCoordinate.cs",
+    "src/backend/Entities/ArticleSourceGeneration.cs",
+    "src/backend/Entities/ArticleSourceMutation.cs",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "src/backend/Services/Articles/ArticleSourceCursor.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationAuthority.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationPersistence.cs",
+    "src/backend/Services/Authoring/ArticlePropertySavedViewDependencyProvider.cs",
+    "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs",
+    "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs",
+    "tests/backend/Integration/ArticlePropertySavedViewDependencyProviderIntegrationTests.cs",
+    "tests/backend/Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs",
+    "tests/backend/Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs",
+    "tests/backend/Unit/ArticlePropertySavedViewDependencyProviderTests.cs",
+    "tests/backend/Unit/ArticleRelationSourceCoordinateAuthorityTests.cs",
+    "tests/backend/Unit/ArticleRelationSourceCoordinateMigrationDefinitionTests.cs",
+    "tests/backend/Unit/ArticleSourceGenerationAuthorityTests.cs",
+    "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs"
+  ],
+  "evidencePaths": [
+    "artifacts/shared-authority-registration/audit-diagnostics.json",
+    "artifacts/shared-authority-registration/draft-pr-proposal.md",
+    "artifacts/shared-authority-registration/handoff.md",
+    "artifacts/shared-authority-registration/positive.filter",
+    "artifacts/shared-authority-registration/preflight.json",
+    "artifacts/shared-authority-registration/restore-result.json",
+    "artifacts/shared-authority-registration/restore.log",
+    "artifacts/shared-authority-registration/root-whitespace-result.json",
+    "artifacts/shared-authority-registration/root-whitespace.log",
+    "artifacts/shared-authority-registration/run-evidence.json",
+    "artifacts/shared-authority-registration/strict-build-diagnostics.json",
+    "artifacts/shared-authority-registration/strict-test-build-result.json",
+    "artifacts/shared-authority-registration/strict-test-build.log",
+    "artifacts/shared-authority-registration/scope-manifest.json"
+  ],
+  "fullPrPathCount": 32,
+  "sourcePathCount": 18,
+  "evidencePathCount": 14
+}

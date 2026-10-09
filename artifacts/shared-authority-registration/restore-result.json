@@ -1,0 +1,20 @@
+{
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "dotnet",
+    "restore",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--locked-mode",
+    "-v",
+    "minimal"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 8.159260988235474,
+  "environment": {
+    "DOTNET_ROOT": "/tmp/chain-3735-tooling/dotnet",
+    "FSUSBLOG_DATA_ROOT": "/workspace/FsusBlog-coordinate-registration/.tmp/shared-coordinate-registration/data",
+    "FSUSBLOG_DOTNET_DEPENDENCY_CACHE_ROOT": "/tmp/shared-authority-integration-cache"
+  },
+  "auditOverride": false
+}

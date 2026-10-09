@@ -1,0 +1,32 @@
+
+Welcome to .NET 10.0!
+---------------------
+SDK Version: 10.0.401
+
+Telemetry
+---------
+The .NET tools collect usage data in order to help us improve your experience. It is collected by Microsoft and shared with the community. You can opt-out of telemetry by setting the DOTNET_CLI_TELEMETRY_OPTOUT environment variable to '1' or 'true' using your favorite shell.
+
+Read more about .NET CLI Tools telemetry: https://aka.ms/dotnet-cli-telemetry
+
+----------------
+Installed an ASP.NET Core HTTPS development certificate.
+To trust the certificate, run 'dotnet dev-certs https --trust'
+Learn about HTTPS: https://aka.ms/dotnet-https
+
+----------------
+Write your first app: https://aka.ms/dotnet-hello-world
+Find out what's new: https://aka.ms/dotnet-whats-new
+Explore documentation: https://aka.ms/dotnet-docs
+Report issues and find source on GitHub: https://github.com/dotnet/core
+Use 'dotnet --help' to see available commands or visit: https://aka.ms/dotnet-cli
+--------------------------------------------------------------------------------------
+  Determining projects to restore...
+  Restored /workspace/FsusBlog-coordinate-registration/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 1.27 sec).
+  Restored /workspace/FsusBlog-coordinate-registration/src/core/FsusBlog.Core.csproj (in 1.27 sec).
+  Restored /workspace/FsusBlog-coordinate-registration/src/backend/FsusBlog.Server.csproj (in 1.29 sec).
+  Restored /workspace/FsusBlog-coordinate-registration/src/shared/FsusBlog.Shared.csproj (in 6 ms).
+/workspace/FsusBlog-coordinate-registration/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog-coordinate-registration/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog-coordinate-registration/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  Restored /workspace/FsusBlog-coordinate-registration/src/migration/FsusBlog.Migration.csproj (in 4.96 sec).
+  Restored /workspace/FsusBlog-coordinate-registration/tests/backend/FsusBlog.Server.Tests.csproj (in 3.67 sec).

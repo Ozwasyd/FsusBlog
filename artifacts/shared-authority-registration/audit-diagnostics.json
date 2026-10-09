@@ -1,0 +1,8 @@
+{
+  "lockedRestoreAuditWarnings": 2,
+  "strictBuildAuditErrors": [
+    "/workspace/FsusBlog-coordinate-registration/src/migration/FsusBlog.Migration.csproj : error NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q",
+    "/workspace/FsusBlog-coordinate-registration/tests/backend/FsusBlog.Server.Tests.csproj : error NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q"
+  ],
+  "auditOverride": false
+}
