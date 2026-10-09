@@ -1,0 +1,117 @@
+Test run for /workspace/chain-3663-evidence/group-property-recheck/harness/bin/Debug/net10.0/PropertyCodec.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.61]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "audit-chain") [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "revision") [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "option") [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "audit-hash") [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "snapshot") [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "definition") [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "reconciliation") [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "factset") [FAIL]
+[xUnit.net 00:00:00.64]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.StableGroupRechecksEveryArticleWithoutGrantingAuthorityOrWriting [FAIL]
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "audit-chain") [139 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(String field) in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 391
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "revision") [5 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(String field) in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 391
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "option") [2 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(String field) in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 391
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "audit-hash") [1 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(String field) in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 391
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "snapshot") [1 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(String field) in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 391
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "definition") [1 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(String field) in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 391
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "reconciliation") [1 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(String field) in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 391
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(field: "factset") [1 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(String field) in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 391
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.StableGroupRechecksEveryArticleWithoutGrantingAuthorityOrWriting [20 ms]
+  Error Message:
+   NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 3 calls matching:
+	ReadAsync(42, ArticlePropertyDefinitionOwner { UserId = 42, SiteScope = primary-site }, 7, any CancellationToken)
+Actually received 2 matching calls:
+	ReadAsync(42, ArticlePropertyDefinitionOwner { UserId = 42, SiteScope = primary-site }, 7, System.Threading.CancellationToken)
+	ReadAsync(42, ArticlePropertyDefinitionOwner { UserId = 42, SiteScope = primary-site }, 7, System.Threading.CancellationToken)
+Received 2 non-matching calls (non-matching arguments indicated with '*' characters):
+	ReadAsync(42, ArticlePropertyDefinitionOwner { UserId = 42, SiteScope = primary-site }, *8*, System.Threading.CancellationToken)
+	ReadAsync(42, ArticlePropertyDefinitionOwner { UserId = 42, SiteScope = primary-site }, *8*, System.Threading.CancellationToken)
+
+  Stack Trace:
+     at NSubstitute.Core.ReceivedCallsExceptionThrower.Throw(ICallSpecification callSpecification, IEnumerable`1 matchingCalls, IEnumerable`1 nonMatchingCalls, Quantity requiredQuantity)
+   at NSubstitute.Routing.Handlers.CheckReceivedCallsHandler.Handle(ICall call)
+   at NSubstitute.Routing.Route.Handle(ICall call)
+   at NSubstitute.Core.CallRouter.Route(ICall call)
+   at NSubstitute.Proxies.CastleDynamicProxy.CastleForwardingInterceptor.Intercept(IInvocation invocation)
+   at Castle.DynamicProxy.AbstractInvocation.Proceed()
+   at NSubstitute.Proxies.CastleDynamicProxy.ProxyIdInterceptor.Intercept(IInvocation invocation)
+   at Castle.DynamicProxy.AbstractInvocation.Proceed()
+   at Castle.Proxies.ObjectProxy.ReadAsync(Int64 actorAdminPrincipalId, ArticlePropertyDefinitionOwner owner, Int32 articleId, CancellationToken cancellationToken)
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.StableGroupRechecksEveryArticleWithoutGrantingAuthorityOrWriting() in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 462
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.67]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerReauthorizesEarlyArticleAfterLaterRead [FAIL]
+[xUnit.net 00:00:00.67]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerCancellationDuringFinalReadCannotReturnPlan [FAIL]
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerReauthorizesEarlyArticleAfterLaterRead [5 ms]
+  Error Message:
+   Assert.Throws() Failure: No exception was thrown
+Expected: typeof(FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionAccessDeniedException)
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerReauthorizesEarlyArticleAfterLaterRead() in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 412
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerCancellationDuringFinalReadCannotReturnPlan [3 ms]
+  Error Message:
+   Assert.ThrowsAny() Failure: No exception was thrown
+Expected: typeof(System.OperationCanceledException)
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerCancellationDuringFinalReadCannotReturnPlan() in /workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 439
+--- End of stack trace from previous location ---
+Results File: /workspace/chain-3663-evidence/group-property-recheck/counterexample-trx/_bad473dbf38b_2026-10-09_06_58_22_net10.0.trx
+
+Failed!  - Failed:    11, Passed:     0, Skipped:     0, Total:    11, Duration: 220 ms - PropertyCodec.Tests.dll (net10.0)

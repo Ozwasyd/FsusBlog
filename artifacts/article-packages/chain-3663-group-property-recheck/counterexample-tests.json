@@ -1,0 +1,24 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--filter",
+        "FullyQualifiedName~GroupPlanner|FullyQualifiedName~StableGroup",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/workspace/chain-3663-evidence/group-property-recheck/counterexample-trx"
+    ],
+    "testedSha": "149fb214c28d6fe7a14cd18c7e707b921089b8dc",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T06:58:20.887468+00:00",
+    "endUtc": "2026-10-09T06:58:22.782800+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/group-property-recheck/counterexample-tests.log"
+}

@@ -1,0 +1,15 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "--info"
+    ],
+    "testedSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T07:04:36.332311+00:00",
+    "endUtc": "2026-10-09T07:04:36.542458+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/group-property-recheck/current-sdk.log"
+}

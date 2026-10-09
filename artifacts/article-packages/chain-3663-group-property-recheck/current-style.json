@@ -1,0 +1,24 @@
+{
+    "command": [
+        "/workspace/toolchains/chain-3663/node/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+        "--root",
+        "/workspace/FsusBlog-group-property-recheck-3663",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs",
+        "--file",
+        "tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs"
+    ],
+    "testedSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T07:00:35.966347+00:00",
+    "endUtc": "2026-10-09T07:00:42.201741+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/group-property-recheck/current-style.log"
+}

@@ -1,0 +1,18 @@
+{
+    "command": [
+        "/workspace/toolchains/chain-3663/node/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-source-pr-handoff-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-group-property-recheck-3663",
+        "--range",
+        "3d177f17fa34bdf322447f1ea917469d2c938869..HEAD"
+    ],
+    "testedSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T07:00:35.958800+00:00",
+    "endUtc": "2026-10-09T07:00:37.703293+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/group-property-recheck/current-commit-range.log"
+}

@@ -1,0 +1,263 @@
+{
+  "testedSourceSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+  "baseSha": "3d177f17fa34bdf322447f1ea917469d2c938869",
+  "verifiedMasterBeforeWork": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "capturedUtc": "2026-10-09T07:02:48.370549+00:00",
+  "sourceCount": 110,
+  "counterexample": {
+    "path": "counterexample-trx/_bad473dbf38b_2026-10-09_06_58_22_net10.0.trx",
+    "sha256": "7685b96c983a11cb88e2fd44287d079d15196858e159adae08e170947ff1330f",
+    "counters": {
+      "total": "11",
+      "executed": "11",
+      "passed": "0",
+      "failed": "11",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "classCounts": {
+      "FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests": 11
+    }
+  },
+  "current": {
+    "path": "current-trx/_bad473dbf38b_2026-10-09_07_01_31_net10.0.trx",
+    "sha256": "bb55a9736af186c246b3b668eedb07a93e442c2453d7e678b6b479a7f6d14837",
+    "counters": {
+      "total": "628",
+      "executed": "628",
+      "passed": "628",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "classCounts": {
+      "FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests": 69,
+      "FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests": 87,
+      "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests": 54,
+      "FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests": 43,
+      "FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests": 60,
+      "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests": 91,
+      "FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests": 64,
+      "FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests": 57,
+      "FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests": 38,
+      "FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests": 35,
+      "FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests": 30
+    }
+  },
+  "checks": {
+    "counterexample-strict-build": {
+      "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj",
+        "--no-restore",
+        "--no-incremental",
+        "-warnaserror"
+      ],
+      "testedSha": "df092d07d2e5bca1062c89109fc86d81d31b9ff6",
+      "cleanBefore": true,
+      "startUtc": "2026-10-09T06:57:22.705153+00:00",
+      "endUtc": "2026-10-09T06:57:32.465048+00:00",
+      "exitCode": 1,
+      "shaUnchanged": true,
+      "cleanAfter": true,
+      "log": "counterexample-strict-build.log"
+    },
+    "counterexample-fixed-build": {
+      "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj",
+        "--no-restore",
+        "--no-incremental",
+        "-warnaserror"
+      ],
+      "testedSha": "149fb214c28d6fe7a14cd18c7e707b921089b8dc",
+      "cleanBefore": true,
+      "startUtc": "2026-10-09T06:58:07.027194+00:00",
+      "endUtc": "2026-10-09T06:58:15.714547+00:00",
+      "exitCode": 0,
+      "shaUnchanged": true,
+      "cleanAfter": true,
+      "log": "counterexample-fixed-build.log"
+    },
+    "counterexample-tests": {
+      "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--filter",
+        "FullyQualifiedName~GroupPlanner|FullyQualifiedName~StableGroup",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/workspace/chain-3663-evidence/group-property-recheck/counterexample-trx"
+      ],
+      "testedSha": "149fb214c28d6fe7a14cd18c7e707b921089b8dc",
+      "cleanBefore": true,
+      "startUtc": "2026-10-09T06:58:20.887468+00:00",
+      "endUtc": "2026-10-09T06:58:22.782800+00:00",
+      "exitCode": 1,
+      "shaUnchanged": true,
+      "cleanAfter": true,
+      "log": "counterexample-tests.log"
+    },
+    "current-strict-build": {
+      "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj",
+        "--no-restore",
+        "--no-incremental",
+        "-warnaserror"
+      ],
+      "testedSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+      "cleanBefore": true,
+      "startUtc": "2026-10-09T07:00:16.104380+00:00",
+      "endUtc": "2026-10-09T07:00:20.551149+00:00",
+      "exitCode": 0,
+      "shaUnchanged": true,
+      "cleanAfter": true,
+      "log": "current-strict-build.log"
+    },
+    "current-locked-restore": {
+      "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "restore",
+        "/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj",
+        "--locked-mode",
+        "-warnaserror",
+        "-p:NuGetAudit=true",
+        "-p:NuGetAuditMode=all",
+        "-p:NuGetAuditLevel=low"
+      ],
+      "testedSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+      "cleanBefore": true,
+      "startUtc": "2026-10-09T07:01:07.453508+00:00",
+      "endUtc": "2026-10-09T07:01:08.361414+00:00",
+      "exitCode": 0,
+      "shaUnchanged": true,
+      "cleanAfter": true,
+      "log": "current-locked-restore.log"
+    },
+    "current-style": {
+      "command": [
+        "/workspace/toolchains/chain-3663/node/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+        "--root",
+        "/workspace/FsusBlog-group-property-recheck-3663",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs",
+        "--file",
+        "tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs"
+      ],
+      "testedSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+      "cleanBefore": true,
+      "startUtc": "2026-10-09T07:00:35.966347+00:00",
+      "endUtc": "2026-10-09T07:00:42.201741+00:00",
+      "exitCode": 0,
+      "shaUnchanged": true,
+      "cleanAfter": true,
+      "log": "current-style.log"
+    },
+    "current-docs": {
+      "command": [
+        "markdownlint-cli2",
+        "--config",
+        ".markdownlint-cli2.jsonc",
+        "--no-globs",
+        ":docs/api/contracts.md"
+      ],
+      "testedSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+      "cleanBefore": true,
+      "startUtc": "2026-10-09T07:00:35.975661+00:00",
+      "endUtc": "2026-10-09T07:00:36.663533+00:00",
+      "exitCode": 1,
+      "shaUnchanged": true,
+      "cleanAfter": true,
+      "log": "current-docs.log"
+    },
+    "current-commit-range": {
+      "command": [
+        "/workspace/toolchains/chain-3663/node/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-source-pr-handoff-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-group-property-recheck-3663",
+        "--range",
+        "3d177f17fa34bdf322447f1ea917469d2c938869..HEAD"
+      ],
+      "testedSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+      "cleanBefore": true,
+      "startUtc": "2026-10-09T07:00:35.958800+00:00",
+      "endUtc": "2026-10-09T07:00:37.703293+00:00",
+      "exitCode": 0,
+      "shaUnchanged": true,
+      "cleanAfter": true,
+      "log": "current-commit-range.log"
+    },
+    "current-tests": {
+      "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--filter",
+        "FullyQualifiedName~ArticlePackageManifestPropertyCodecTests|FullyQualifiedName~ArticlePackagePropertyMapperTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~ArticlePackageAssetMetadataMapperTests|FullyQualifiedName~ArticlePackageManifestTaxonomyCodecTests|FullyQualifiedName~ArticlePackageInventoryTests|FullyQualifiedName~ArticlePackageManifestMetadataCodecTests|FullyQualifiedName~ArticlePackageManifestCandidateCodecTests|FullyQualifiedName~ArticlePackageManifestCandidatePlannerTests|FullyQualifiedName~ArticlePackageFrozenExportCandidateWriterTests|FullyQualifiedName~ArticlePackageCurrentPropertyReaderTests",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/workspace/chain-3663-evidence/group-property-recheck/current-trx"
+      ],
+      "testedSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+      "cleanBefore": true,
+      "startUtc": "2026-10-09T07:01:29.532302+00:00",
+      "endUtc": "2026-10-09T07:01:38.190925+00:00",
+      "exitCode": 0,
+      "shaUnchanged": true,
+      "cleanAfter": true,
+      "log": "current-tests.log"
+    }
+  },
+  "assemblySha256": "2272c50b73935edcbe09c1ae90ff8a2945a1b026c5cd5908d8885b47b9211dce",
+  "admission": "Managed component proof only. Not atomic group snapshot, DB, native/provider, original project/full matrix, independent runtime or issue acceptance.",
+  "notRun": [
+    "Held original trust audits/full matrices",
+    "Original SQL/audit persistence graph and Server-project qualification",
+    "Native/provider/product/HTTP/DB runtime and independent acceptance"
+  ],
+  "docs": "FAIL, 26 inherited diagnostics unwaived",
+  "claims": "Released asset collection and version registry paths unchanged; no worker commits delivered/consumed."
+}

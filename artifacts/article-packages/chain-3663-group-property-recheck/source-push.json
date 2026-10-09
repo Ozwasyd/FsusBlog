@@ -1,0 +1,17 @@
+{
+    "command": [
+        "git",
+        "push",
+        "-u",
+        "origin",
+        "codex/chain-3663-group-property-recheck"
+    ],
+    "testedSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T07:02:46.644292+00:00",
+    "endUtc": "2026-10-09T07:02:48.384026+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/group-property-recheck/source-push.log"
+}

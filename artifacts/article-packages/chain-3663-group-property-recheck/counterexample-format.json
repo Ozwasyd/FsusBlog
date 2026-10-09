@@ -1,0 +1,22 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "format",
+        "whitespace",
+        "/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj",
+        "--no-restore",
+        "--include",
+        "/workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs",
+        "--verbosity",
+        "quiet"
+    ],
+    "testedSha": "df092d07d2e5bca1062c89109fc86d81d31b9ff6",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T06:57:51.757714+00:00",
+    "endUtc": "2026-10-09T06:57:54.033146+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/group-property-recheck/counterexample-format.log"
+}

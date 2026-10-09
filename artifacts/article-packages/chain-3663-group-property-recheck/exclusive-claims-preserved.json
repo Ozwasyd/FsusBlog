@@ -1,0 +1,21 @@
+{
+  "baseSha": "3d177f17fa34bdf322447f1ea917469d2c938869",
+  "currentSourceSha": "983dd6eef8aab4eab5173d1abea3baf2b972a6b2",
+  "releasedPaths": [
+    "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetSetContracts.cs",
+    "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetSetCodec.cs",
+    "tests/backend/Unit/ArticlePackageManifestAssetSetCodecTests.cs",
+    "src/shared/Contracts/ArticlePackages/ArticlePackageVersionRegistry.cs",
+    "tests/backend/Unit/ArticlePackageVersionRegistryTests.cs",
+    "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+    "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs"
+  ],
+  "changedPaths": [
+    "docs/api/contracts.md",
+    "src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs",
+    "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs",
+    "tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs"
+  ],
+  "overlap": [],
+  "bothWorkerSourceCommits": "Not delivered; not consumed or treated as complete"
+}

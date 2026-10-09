@@ -1,0 +1,23 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "format",
+        "whitespace",
+        "/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj",
+        "--no-restore",
+        "--include",
+        "/workspace/FsusBlog-group-property-recheck-3663/src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs",
+        "/workspace/FsusBlog-group-property-recheck-3663/src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs",
+        "--verbosity",
+        "quiet"
+    ],
+    "testedSha": "149fb214c28d6fe7a14cd18c7e707b921089b8dc",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T06:59:46.795323+00:00",
+    "endUtc": "2026-10-09T06:59:48.824503+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/group-property-recheck/diagnostic-product-format.log"
+}

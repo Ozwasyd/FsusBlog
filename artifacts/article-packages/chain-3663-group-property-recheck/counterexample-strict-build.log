@@ -1,0 +1,14 @@
+/workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs(501,93): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj]
+/workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs(501,95): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj]
+/workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs(501,116): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj]
+  PropertyCodec.Tests -> /workspace/chain-3663-evidence/group-property-recheck/harness/bin/Debug/net10.0/PropertyCodec.Tests.dll
+
+Build FAILED.
+
+/workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs(501,93): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj]
+/workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs(501,95): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj]
+/workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs(501,116): error IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/group-property-recheck/harness/PropertyCodec.Tests.csproj]
+    0 Warning(s)
+    3 Error(s)
+
+Time Elapsed 00:00:09.53
