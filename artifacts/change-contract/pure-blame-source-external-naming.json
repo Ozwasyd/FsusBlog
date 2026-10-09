@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/release-final-execution-authority-index.json"
+            ],
+            "reason": "Preserve original canonical execution authority and exact format parser binding fields; no authority roster is reduced."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/blame-ignore-source.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/source-governance.mjs"
+            ],
+            "reason": "Preserve original caller environment and branded blame-source interfaces without changing the excluded replacement/graft mechanism."
+        }
+    ]
+}
