@@ -1,0 +1,32 @@
+{
+  "behaviorSourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "sourceBranch": "codex/issue-2099-geometry-integration-20261009",
+  "baseCommit": "7499b5bd82d3ce888672abc2e054bb08736da08d",
+  "path": "tests/tools/ux-viewport-plan.test.mjs",
+  "baseStrictDiagnostics": 349,
+  "candidateStrictDiagnostics": 349,
+  "preimagePairs": 349,
+  "identicalDiagnosticLineText": 341,
+  "fiveNumericUpdateLineDiagnostics": 8,
+  "newLineDiagnostics": 0,
+  "introducedUnpairedDiagnostics": 0,
+  "sourceUnitGate": {
+    "exitCode": 1,
+    "existing": 160,
+    "unexpected": 189,
+    "sourceCheckPassed": false,
+    "qualification": false,
+    "notOverriddenByThisAccounting": true
+  },
+  "wholeStylePassed": false,
+  "sourceChangesApplied": false,
+  "noFixNeededForIntroducedErrorScope": true,
+  "sourceRulePolicyBaselineSupplierFilesUnchanged": true,
+  "unchangedSuiteReruns": false,
+  "original25ReceiptBoundTo": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "nextAction": "Inherited module requires separate original-owner format authority; original source-unit proof gate still refuses189. No source/policy workaround.",
+  "originalFullWipEvidenceCommit": "fa2568ce14022df08fcc8c0ec5adfb6e77df5b9d",
+  "fullGeometryVerified": false,
+  "wholeIssueAccepted": false,
+  "gitContentApiWrites": false
+}

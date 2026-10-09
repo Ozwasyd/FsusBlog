@@ -1,0 +1,36 @@
+{
+  "behaviorSourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "purpose": "preimage accounting, not replacement gate",
+  "files": [
+    {
+      "path": "diagnostic-preimage-classification.json",
+      "bytes": 152365,
+      "sha256": "6e30c2958b3d3f1b7638eba4856f94c6ce769b8fbae3bbeee575b666f25b29cf"
+    },
+    {
+      "path": "handoff.json",
+      "bytes": 1295,
+      "sha256": "7c7d3156205f067cb3f8bd29f236116c763609dca880bd8d758ed9b7e2ba47fe"
+    },
+    {
+      "path": "pr-body.md",
+      "bytes": 25459,
+      "sha256": "de2c193f9bbbacc73a7efb5da035740eb38a7eb5e19a800ac813b351e3d24e69"
+    },
+    {
+      "path": "source-diff-command-result.json",
+      "bytes": 536,
+      "sha256": "961d37b5b6fa2e83c574a01eae875623c62515cd478fee0e97629e027995af94"
+    },
+    {
+      "path": "source-diff.json",
+      "bytes": 1519625,
+      "sha256": "66362ce49829fd73e3458a230d57e6b062bf09a22643454050ca5434347c96ee"
+    },
+    {
+      "path": "source-diff.log",
+      "bytes": 21333,
+      "sha256": "b5e75e86904c270fe9c827d10b07439940c468f644e21d03708bde6c747e774b"
+    }
+  ]
+}
