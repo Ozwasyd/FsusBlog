@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 415,
+      "estimatedFacts": 525,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -188,6 +188,18 @@
         {
           "path": "Integration/ChallengeV2DurableReplayIssue2040IntegrationTests.cs",
           "class": "ChallengeV2DurableReplayIssue2040IntegrationTests"
+        },
+        {
+          "path": "Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs",
+          "class": "ArticleRelationSourceCoordinateAuthorityIntegrationTests"
+        },
+        {
+          "path": "Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs",
+          "class": "ArticleSourceGenerationAuthorityIntegrationTests"
+        },
+        {
+          "path": "Integration/SqlArticleGraphAdmissionReaderIntegrationTests.cs",
+          "class": "SqlArticleGraphAdmissionReaderIntegrationTests"
         }
       ]
     },
