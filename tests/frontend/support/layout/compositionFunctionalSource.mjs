@@ -1,15 +1,12 @@
-import { controlDigest } from '@fsusblog/control-legality/source';
+import { controlDigest } from '../../../../tools/frontend/control-legality/source.mjs';
 
 /** Bounded AST helpers for the original composition renderer, never a second graph. */
 export function createCompositionFunctionalSource({ resolver })
 {
     const { ts, dom } = resolver;
     const reserved = new Set(['data-fsus-composition-node', 'data-fsus-composition-call']);
-    const bindings = new WeakSet();
-    const fail = (record, message) =>
-    {
-        throw new Error(`[composition-source] ${message} ${record.file}`);
-    };
+    const bindings = new WeakMap();
+    const fail = (record, message) => { throw new Error(`[composition-source] ${message} ${record.file}`); };
     function unwrap(node)
     {
         while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node)
@@ -70,6 +67,13 @@ export function createCompositionFunctionalSource({ resolver })
     }
     function reference(node)
     {
+        for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent)
+        {
+            if (ts.isTypeNode(ancestor) || ts.isInterfaceDeclaration(ancestor))
+            {
+                return false;
+            }
+        }
         const parent = node.parent;
         return !(parent && ((ts.isPropertyAccessExpression(parent) && parent.name === node)
             || ((ts.isPropertyAssignment(parent) || ts.isJsxAttribute(parent)) && parent.name === node)
@@ -165,6 +169,139 @@ export function createCompositionFunctionalSource({ resolver })
         names(pattern).forEach((identifier) => readonly(record, identifier.text, identifier));
         return pattern;
     }
+    function effects(record, expression, slots = null)
+    {
+        function walk(node)
+        {
+            if (ts.isFunctionLike(node))
+            {
+                return;
+            }
+            const assignment = ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+            const update = (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+                && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator);
+            if (assignment || update || ts.isDeleteExpression(node))
+            {
+                fail(record, 'unbound functional write effects');
+            }
+            if (ts.isTaggedTemplateExpression(node) || ts.isNewExpression(node) || ts.isCallExpression(node) && !(slots
+                && ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression)
+                && node.expression.expression.text === slots && !node.arguments.length && !node.typeArguments?.length))
+            {
+                fail(record, 'unbound functional call effects');
+            }
+            ts.forEachChild(node, walk);
+        }
+        walk(expression);
+    }
+    function propAliases(record, render, props)
+    {
+        const identifiers = new Map((props ? names(props) : []).map((node) => [node.text, node]));
+        const candidates = [];
+        function collect(node)
+        {
+            if (ts.isFunctionLike(node))
+            {
+                return;
+            }
+            if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name) && node.initializer)
+            {
+                candidates.push(node);
+            }
+            ts.forEachChild(node, collect);
+        }
+        collect(render.body);
+        const facts = [];
+        const proved = new Set();
+        let changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (const declaration of candidates)
+            {
+                const supplier = identifiers.get(root(declaration.initializer));
+                if (!supplier || proved.has(declaration))
+                {
+                    continue;
+                }
+                if (!(declaration.parent.flags & ts.NodeFlags.Const) || supplier.getStart() >= declaration.getStart())
+                {
+                    fail(record, 'mutable/uninitialized functional props alias');
+                }
+                proved.add(declaration);
+                changed = true;
+                for (const identifier of names(declaration.name))
+                {
+                    readonly(record, identifier.text, identifier);
+                    identifiers.set(identifier.text, identifier);
+                    facts.push(Object.freeze({ name: identifier.text, declaration: Object.freeze(step(record, declaration)),
+                        supplier: Object.freeze(step(record, declaration.initializer)) }));
+                }
+            }
+        }
+        return { identifiers: [...identifiers.values()], facts: Object.freeze(facts) };
+    }
+    function dependencies(record, render)
+    {
+        const found = new Map();
+        const active = new Set();
+        const declarationsUsed = [];
+        function collect(node)
+        {
+            if (ts.isTypeNode(node))
+            {
+                return;
+            }
+            if (ts.isIdentifier(node) && reference(node))
+            {
+                const matches = declarations(record, node.text);
+                let declaration = matches.length === 1 ? matches[0].parent : null;
+                while (declaration && (ts.isBindingElement(declaration) || ts.isObjectBindingPattern(declaration)
+                    || ts.isArrayBindingPattern(declaration)))
+                {
+                    declaration = declaration.parent;
+                }
+                const variable = declaration && ts.isVariableDeclaration(declaration)
+                    && ts.isVariableStatement(declaration.parent.parent) && ts.isSourceFile(declaration.parent.parent.parent);
+                const fn = declaration && ts.isFunctionDeclaration(declaration) && ts.isSourceFile(declaration.parent);
+                const imported = record.imports.has(node.text);
+                if ((variable || fn || imported) && node !== matches[0]
+                    && declaration?.initializer !== render && !found.has(node.text))
+                {
+                    if (active.has(node.text))
+                    {
+                        fail(record, 'cyclic functional module dependency');
+                    }
+                    readonly(record, node.text, matches[0]);
+                    resolver.assertImmutableBinding(record.file, node.text);
+                    active.add(node.text);
+                    let source = declaration;
+                    if (imported)
+                    {
+                        while (source && !ts.isImportDeclaration(source)) source = source.parent;
+                    }
+                    if (!source)
+                    {
+                        fail(record, 'unknown functional module dependency');
+                    }
+                    const initializer = variable ? declaration.initializer : fn ? declaration : null;
+                    if (initializer)
+                    {
+                        effects(record, initializer);
+                        collect(initializer);
+                    }
+                    declarationsUsed.push(source);
+                    found.set(node.text, Object.freeze({ name: node.text, declaration: Object.freeze(step(record, source)),
+                        initializer: initializer ? Object.freeze(step(record, initializer)) : null }));
+                    active.delete(node.text);
+                }
+            }
+            ts.forEachChild(node, collect);
+        }
+        collect(render.body);
+        return { facts: Object.freeze([...found.values()]), declarations: declarationsUsed };
+    }
     function bind(record, expression)
     {
         if (resolver.parse(record.file) !== record)
@@ -223,7 +360,8 @@ export function createCompositionFunctionalSource({ resolver })
         }
         // Passing a props object or a destructured field to arbitrary code can
         // mutate it. A type annotation cannot make such a supplier readonly.
-        for (const identifier of props ? names(props) : [])
+        const aliases = propAliases(record, render, props);
+        for (const identifier of aliases.identifiers)
         {
             noEscape(record, identifier.text, identifier, (node) =>
             {
@@ -240,21 +378,8 @@ export function createCompositionFunctionalSource({ resolver })
                         || ts.isPrefixUnaryExpression(parent) && parent.operator === ts.SyntaxKind.ExclamationToken));
             });
         }
-        function effects(node)
-        {
-            if (ts.isFunctionLike(node))
-            {
-                return;
-            }
-            if (ts.isNewExpression(node) || ts.isCallExpression(node) && !(slots
-                && ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression)
-                && node.expression.expression.text === slots.text && !node.arguments.length && !node.typeArguments?.length))
-            {
-                fail(record, 'unbound functional call effects');
-            }
-            ts.forEachChild(node, effects);
-        }
-        effects(render.body);
+        effects(record, render.body, slots?.text);
+        const closure = dependencies(record, render);
         const branches = [];
         const conditions = [];
         function flow(node, paths)
@@ -293,7 +418,8 @@ export function createCompositionFunctionalSource({ resolver })
             branches.push({ node: render.body, conditional: [], step: step(record, render.body) });
         }
         const steps = [step(record, declaration), step(record, render), ...render.parameters.map((node) => step(record, node)),
-            ...metadata, ...branches.map((branch) => branch.step)];
+            ...metadata, ...branches.map((branch) => branch.step), ...aliases.facts.map((entry) => entry.declaration),
+            ...closure.facts.map((entry) => entry.declaration)];
         branches.forEach((branch) =>
         {
             branch.conditional.forEach(Object.freeze);
@@ -302,21 +428,26 @@ export function createCompositionFunctionalSource({ resolver })
             Object.freeze(branch);
         });
         steps.forEach(Object.freeze);
+        // Supplier steps bind local source facts only. Imported definitions and
+        // the complete current-file closure remain the canonical resolver's job.
         const proofFacts = Object.freeze({ steps, render: Object.freeze(step(record, render)), props: props?.getText() ?? null,
             slots: slots?.text ?? null,
             branches: Object.freeze(branches.map((branch) => Object.freeze({
                 source: branch.node ? Object.freeze(step(record, branch.node)) : null, conditional: branch.conditional }))),
-            conditions: Object.freeze(conditions.map((node) => Object.freeze(step(record, node)))) });
+            conditions: Object.freeze(conditions.map((node) => Object.freeze(step(record, node)))),
+            aliases: aliases.facts, dependencies: closure.facts });
         const binding = Object.freeze({ call: render, setup: render, render, props, slots: slots?.text ?? null,
             branches: Object.freeze(branches), conditions: Object.freeze(conditions), steps: Object.freeze(steps),
             proofFacts, proofDigest: controlDigest(proofFacts), functional: true });
-        bindings.add(binding);
+        bindings.set(binding, { record, declarations: closure.declarations });
         return binding;
     }
     function check(record, node, binding)
     {
-        if (!bindings.has(binding) || resolver.parse(record.file) !== record
-            || binding.render.getSourceFile() !== node.getSourceFile())
+        const context = bindings.get(binding);
+        if (!context || context.record !== record || resolver.parse(record.file) !== record
+            || binding.render.getSourceFile() !== node.getSourceFile()
+            || !within(node, binding.render) && !context.declarations.some((declaration) => within(node, declaration)))
         {
             fail(record, 'foreign functional binding/input');
         }
@@ -394,6 +525,7 @@ export function createCompositionFunctionalSource({ resolver })
     }
     function fields(record, properties, binding, seen = new Set())
     {
+        check(record, binding.render, binding);
         const result = [];
         const keys = new Set();
         for (const property of properties)

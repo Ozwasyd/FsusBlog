@@ -4,8 +4,8 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { controlDigest, createControlSourceResolver } from '@fsusblog/control-legality/source';
-import { createCompositionFunctionalSource } from '@fsusblog/layout-governance/composition-functional-source';
+import { controlDigest, createControlSourceResolver } from '../../tools/frontend/control-legality/source.mjs';
+import { createCompositionFunctionalSource } from '../frontend/support/layout/compositionFunctionalSource.mjs';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;
@@ -41,10 +41,7 @@ function find(s, predicate)
     const nodes = [];
     function visit(node)
     {
-        if (predicate(node))
-        {
-            nodes.push(node);
-        }
+        if (predicate(node)) nodes.push(node);
         s.ts.forEachChild(node, visit);
     }
     s.record.scripts.forEach(({ ast }) => visit(ast));
@@ -185,6 +182,114 @@ test('functional native constant output preserves the original JSX node and sour
     assert.deepEqual(s.functional.componentOrigin(s.record, node.tagName, true), { kind: 'native', name: 'button' });
 });
 
+test('destructured lexical prop aliases retain readonly scalar attribute sources', () =>
+{
+    const s = fixture('export default (props)=> { const {class: klass}=props; return <div class={klass}/>; };');
+    const binding = s.binding();
+    assert.equal(s.functional.fields(s.record, opening(s).attributes.properties, binding)[0].initializer.expression.getText(), 'klass');
+});
+
+test('block-return proof digest binds the actual module-level VNode constant', () =>
+{
+    const s = fixture('const child=<div/>; export default ()=> { return child; };');
+    const first = s.binding();
+    assert.equal(s.functional.outputValue(s.record, first.branches[0].node, first).getText(), '<div/>');
+    writeFileSync(s.record.file, s.record.content.replace('<div/>', '<nav/>'));
+    const changed = source(s.record.file);
+    const second = changed.binding();
+    assert.equal(first.render.getText(), second.render.getText());
+    assert.equal(first.render.getStart(), second.render.getStart());
+    assert.equal(changed.functional.outputValue(changed.record, second.branches[0].node, second).getText(), '<nav/>');
+    assert.notEqual(first.proofDigest, second.proofDigest);
+    assert.ok(s.resolver.sourceBindings().errors.some((entry) => entry.reason === 'parsed-source-changed-during-scan'));
+});
+
+test('closed spread proof digest binds a changed module-level title value', () =>
+{
+    const s = fixture('const extra={title:"one"}; export default ()=> { return <div {...extra}/>; };');
+    const first = s.binding();
+    assert.equal(s.functional.fields(s.record, opening(s).attributes.properties, first)[0].initializer.text, 'one');
+    writeFileSync(s.record.file, s.record.content.replace('"one"', '"two"'));
+    const changed = source(s.record.file);
+    const second = changed.binding();
+    assert.equal(first.render.getText(), second.render.getText());
+    assert.equal(first.render.getStart(), second.render.getStart());
+    assert.equal(changed.functional.fields(changed.record, opening(changed).attributes.properties, second)[0].initializer.text, 'two');
+    assert.notEqual(first.proofDigest, second.proofDigest);
+});
+
+test('module constant proof closure follows actual transitive scalar supplier declarations', () =>
+{
+    const s = fixture('const title="one"; const extra={title}; export default ()=> { return <div {...extra}/>; };');
+    const first = s.binding();
+    assert.deepEqual(first.proofFacts.dependencies.map((entry) => entry.name), ['title', 'extra']);
+    for (const entry of first.proofFacts.dependencies)
+    {
+        const declaration = find(s, (node) => s.ts.isVariableDeclaration(node) && node.name.getText() === entry.name)[0];
+        assert.deepEqual(entry.declaration, s.resolver.sourceStep(s.record.file, declaration));
+        assert.deepEqual(entry.initializer, s.resolver.sourceStep(s.record.file, declaration.initializer));
+        assert.ok(Object.isFrozen(entry) && Object.isFrozen(entry.declaration) && Object.isFrozen(entry.initializer));
+    }
+    writeFileSync(s.record.file, s.record.content.replace('"one"', '"two"'));
+    const changed = source(s.record.file);
+    const second = changed.binding();
+    assert.equal(first.render.getText(), second.render.getText());
+    assert.notEqual(first.proofDigest, second.proofDigest);
+});
+
+function reviewSource(text, file = resolve(directory, `Review-${randomUUID()}.tsx`))
+{
+    writeFileSync(file, text);
+    const s = source(file);
+    return { ...s, bind: s.binding };
+}
+
+for (const [name, text] of [
+    ['tagged template initializer helper effects', 'export default ()=>{ const value=unknown`payload`; return <div/>; };'],
+    ['tagged template guard helper effects', 'export default ()=>{ if(unknown`payload`) return <div/>; return <span/>; };'],
+    ['unknown assignment effects in initializer', 'export default ()=>{ const value=(external.flag=true); return <div/>; };'],
+    ['destructured props alias member mutation', 'export default (props)=>{ const {child}=props; const value=(child.flag=true); return <div/>; };'],
+    ['destructured props alias deletion', 'export default (props)=>{ const {child}=props; const value=delete child.flag; return <div/>; };']
+])
+{
+    test(`independent refusal: ${name}`, () =>
+    {
+        const s = reviewSource(text);
+        assert.throws(() => s.bind(), /\[(?:composition-source|control-legality)\]/);
+    });
+}
+
+test('proofDigest must distinguish dereferenced closed spread field facts', () =>
+{
+    const file = resolve(directory, 'spread-digest.tsx');
+    const a = reviewSource('const extra={title:"old"}; export default ()=> <div {...extra}/>;', file);
+    const ba = a.bind();
+    const fa = a.functional.fields(a.record, find(a, a.ts.isJsxSelfClosingElement)[0].attributes.properties, ba);
+    const b = reviewSource('const extra={title:"new"}; export default ()=> <div {...extra}/>;', file);
+    const bb = b.bind();
+    const fb = b.functional.fields(b.record, find(b, b.ts.isJsxSelfClosingElement)[0].attributes.properties, bb);
+    assert.notEqual(fa[0].initializer.getText(), fb[0].initializer.getText());
+    assert.notEqual(ba.proofDigest, bb.proofDigest);
+});
+
+test('block return module constant output facts must affect proofDigest', () =>
+{
+    const file = resolve(directory, 'ReviewOwner.tsx');
+    function observe(tag)
+    {
+        const s = reviewSource(`const child=<${tag}/>; export default ()=>{return child;};`, file);
+        const binding = s.bind();
+        const output = s.functional.outputValue(s.record, binding.branches[0].node, binding);
+        return { binding, output, record: s.record };
+    }
+    const a = observe('div');
+    const b = observe('nav');
+    assert.equal(a.output.getText(), '<div/>');
+    assert.equal(b.output.getText(), '<nav/>');
+    assert.notEqual(a.record.content, b.record.content);
+    assert.notEqual(a.binding.proofDigest, b.binding.proofDigest);
+});
+
 const negatives = [
     ['metadata-only object impostor', 'const Owner={displayName:"ElTableV2Footer"}; export default Owner;', 'bind'],
     ['typed runtime call impostor', 'const Owner: FunctionalComponent = unknown(); Owner.displayName="ElTableV2Footer"; export default Owner;', 'bind'],
@@ -238,7 +343,20 @@ const negatives = [
     ['context rest supplier', 'export default (_, {...slots})=> <div/>;', 'bind'],
     ['unbound outer slot context', 'const leak=slots.default(); export default (_, {slots})=> <div>{slots.default?.()}</div>;', 'bind'],
     ['uninitialized VNode constant', 'export default ()=> { return child; const child=<div/>; };', 'output'],
-    ['external package identity impostor', 'import Child from "unproved-runtime-package"; export default ()=> <Child/>;', 'target']
+    ['external package identity impostor', 'import Child from "unproved-runtime-package"; export default ()=> <Child/>;', 'target'],
+    ['tagged template initializer call', 'export default ()=> { const ignored=mutator`payload`; return <div/>; };', 'bind'],
+    ['tagged template return call', 'export default ()=> mutator`payload`;', 'bind'],
+    ['external member assignment initializer', 'export default ()=> { const ignored=(external.flag=true); return <div/>; };', 'bind'],
+    ['external member delete initializer', 'export default ()=> { const ignored=delete external.flag; return <div/>; };', 'bind'],
+    ['external member increment initializer', 'export default ()=> { const ignored=external.flag++; return <div/>; };', 'bind'],
+    ['destructured prop alias assignment initializer', 'export default (props)=> { const {child}=props; const ignored=(child.flag=true); return <div/>; };', 'bind'],
+    ['destructured prop alias delete initializer', 'export default (props)=> { const {child}=props; const ignored=delete child.flag; return <div/>; };', 'bind'],
+    ['transitive destructured alias delete initializer', 'export default (props)=> { const {child}=props; const {leaf}=child; const ignored=delete leaf.flag; return <div/>; };', 'bind'],
+    ['destructured alias deferred mutation', 'export default (props)=> { const {child}=props; const callback=()=>child.flag=true; return <div/>; };', 'bind'],
+    ['destructured alias deferred delete', 'export default (props)=> { const {child}=props; const callback=()=>delete child.flag; return <div/>; };', 'bind'],
+    ['destructured alias escaped callback', 'export default (props)=> { const {child}=props; const callback=()=>consume(child); return <div/>; };', 'bind'],
+    ['module spread supplier tagged call effects', 'const extra={title:mutator`payload`}; export default ()=> { return <div {...extra}/>; };', 'bind'],
+    ['module spread supplier assignment effects', 'const extra={title:(external.flag=true)}; export default ()=> { return <div {...extra}/>; };', 'bind']
 ];
 for (const [name, text, operation] of negatives)
 {
@@ -248,36 +366,23 @@ for (const [name, text, operation] of negatives)
         assert.throws(() =>
         {
             const binding = s.binding();
-            if (operation === 'output')
-            {
-                s.functional.outputValue(s.record, binding.branches[0].node, binding);
-            }
-            if (operation === 'target')
-            {
-                s.functional.componentOrigin(s.record, opening(s).tagName, true);
-            }
-            if (operation === 'fields')
-            {
-                s.functional.fields(s.record, opening(s).attributes.properties, binding);
-            }
+            if (operation === 'output') s.functional.outputValue(s.record, binding.branches[0].node, binding);
+            if (operation === 'target') s.functional.componentOrigin(s.record, opening(s).tagName, true);
+            if (operation === 'fields') s.functional.fields(s.record, opening(s).attributes.properties, binding);
         }, /\[composition-source\]/);
     });
 }
 
 test('functional helpers reject foreign AST records and counterfeit bindings', () =>
 {
-    const s = fixture('export default ()=> <div/>;');
+    const s = fixture('const injected=<span/>; export default ()=> <div/>;');
     const binding = s.binding();
-    assert.throws(() =>
-    {
-        binding.slots = 'injected';
-    }, TypeError);
-    assert.throws(() =>
-    {
-        binding.branches[0].node = null;
-    }, TypeError);
+    assert.throws(() => { binding.slots = 'injected'; }, TypeError);
+    assert.throws(() => { binding.branches[0].node = null; }, TypeError);
     assert.throws(() => s.functional.bind({ ...s.record }, s.render), /noncanonical functional record/);
     assert.throws(() => s.functional.outputValue(s.record, binding.branches[0].node, { ...binding }), /foreign functional binding/);
+    assert.throws(() => s.functional.fields(s.record, [], { ...binding }), /foreign functional binding/);
+    assert.throws(() => s.functional.outputValue(s.record, opening(s), binding), /foreign functional binding/);
     const other = fixture('export default ()=> <span/>;');
     assert.throws(() => s.functional.outputValue(other.record, other.render, binding), /foreign functional binding/);
 });

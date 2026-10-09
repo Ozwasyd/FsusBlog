@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import test from 'node:test';
 
-import { createCompositionSlotSource } from '@fsusblog/layout-governance/composition-slot-source';
 import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
+
+import { createCompositionSlotSource } from '../frontend/support/layout/compositionSlotSource.mjs';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;
@@ -163,7 +164,7 @@ test('ordinary callback rejects opaque calls and source array mutation', () =>
     for (const body of ['opaque(children);return children;', 'children.push(h("span",{},[]));return children;',
         'children[0].props.title="Changed";return children;'])
     {
-        assert.throws(() => expressionProof(`import {h} from "vue";const callback=(children:VNode[])=>{${body}};const result=callback([h("button",{},[])]);`), /unknown runtime|unknown runtime field|mutated source binding/);
+        assert.throws(() => expressionProof(`import {h} from "vue";const callback=(children:VNode[])=>{${body}};const result=callback([h("button",{},[])]);`), /unknown runtime|mutated source array|mutated source binding/);
     }
 });
 
@@ -227,11 +228,11 @@ test('actual Options supplier retains unproved helper escape without blessing re
         && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'default' && ts.isIdentifier(node.expression.expression));
     const binding = slots.bindSlot({ graph, callNode: call.id });
     assert.equal(binding.callNode, call.id);
-    assert.throws(() => slots.invokeSlot({ graph, binding, file: owner, invocation }), /unbound finite component binding/);
+    assert.throws(() => slots.invokeSlot({ graph, binding, file: owner, invocation }), /unproved source escape/);
     assert.ok(graph.errors.some((error) => error.message?.includes('escaped script render constant')));
     const helperCall = find(source, owner, (node) => ts.isCallExpression(node) && node.expression.getText() === 'filterOptions'
         && node.arguments[0]?.getText() === 'children[0]?.children');
-    assert.throws(() => slots.proveValue({ file: owner, node: helperCall }), /unknown component source function body.*filterOptions/);
+    assert.throws(() => slots.proveValue({ file: owner, node: helperCall }), /unknown runtime value.*slots/);
 });
 
 test('actual OnlyChild clone and directive expression retains unresolved supplier context', () =>
@@ -284,4 +285,161 @@ test('ordinary local source increment does not modify canonical graph errors or 
     slots.bindSlot({ graph, callNode: call.id });
     assert.equal(JSON.stringify(graph), before);
     assert.equal('fullGeometryVerified' in graph, false);
+});
+
+function actualOptions(markup, mutation = null)
+{
+    const { source, slots } = tools();
+    const original = resolve(fsusUIRoot, 'vue/packages/components/select/src/options.ts');
+    const owner = mutation ? fixture(mutation(readFileSync(original, 'utf8'))) : original;
+    const importPath = relative(directory, owner).replaceAll('\\', '/');
+    const file = fixture(`<script setup>import Owner from "${importPath.startsWith('.') ? importPath : './' + importPath}";import {ElOption as Option} from "@ozwasyd/element-plus";</script><template><Owner>${markup}</Owner></template>`, `${randomUUID()}.vue`);
+    const graph = source.graph([file]);
+    const call = graph.nodes.find((node) => node.file === file && node.tag === 'Owner');
+    const ts = source.resolver.ts;
+    const invocation = find(source, owner, (node) => ts.isCallExpression(node) && node.expression.getText() === 'filterOptions'
+        && node.arguments[0]?.getText() === 'children[0]?.children');
+    return { source, slots, graph, call, owner, invocation, original };
+}
+
+test('actual Options nested helper proves finite native descendants and readonly callbacks', () =>
+{
+    const { slots, graph, call, owner, invocation, original } = actualOptions('<div><section><button>Choice</button></section></div>');
+    const errors = JSON.stringify(graph.errors);
+    const proof = slots.proveHelperCall({ graph, callNode: call.id, file: owner, invocation });
+    assert.equal(proof.proofScope, 'helper-invocation');
+    assert.deepEqual(proof.value, { absent: true });
+    assert.equal(proof.supplierValue[0].target.name, 'div');
+    assert.equal(proof.supplierValue[0].children[0].target.name, 'section');
+    assert.ok(proof.effects.length >= 3);
+    assert.ok(proof.steps.some((entry) => entry.file === original && entry.offset === invocation.getStart()));
+    assert.equal(JSON.stringify(graph.errors), errors);
+});
+
+test('actual Options label helper proves declared component runtime name and scratch append', () =>
+{
+    const { slots, graph, call, owner, invocation } = actualOptions('<div><Option label="Actual" value="literal"/></div>');
+    const proof = slots.proveHelperCall({ graph, callNode: call.id, file: owner, invocation });
+    assert.deepEqual(proof.scratchValues, [['Actual']]);
+    assert.equal(proof.supplierValue[0].children[0].target.publicName, 'ElOption');
+    assert.ok(proof.effects.some((effect) => effect.kind === 'local-scratch-append'));
+    assert.ok(proof.steps.some((entry) => entry.file.endsWith('/select/src/option.vue')));
+});
+
+test('actual Options helper mutation of supplied children remains rejected', () =>
+{
+    const { slots, graph, call, owner, invocation } = actualOptions('<div><button>Choice</button></div>', (text) =>
+        text.replace(';(children as VNode[]).forEach((item) => {', ';(children as VNode[]).forEach((item) => { children.push(item);'));
+    assert.throws(() => slots.proveHelperCall({ graph, callNode: call.id, file: owner, invocation }), /mutated source array/);
+});
+
+test('ordinary lexical nested helper separates captured collection from same named parameter', () =>
+{
+    const proof = expressionProof('import {h} from "vue";const render=()=>{const children=[h("button",{},[])];function identity(children:VNode[]){return children;}return identity(children);};const result=render();');
+    assert.equal(proof.value[0].target.name, 'button');
+    assert.equal(proof.effects.length, 2);
+});
+
+test('actual Options comparison helper binds array entries and runtime inequality', () =>
+{
+    const { source } = tools();
+    const file = resolve(fsusUIRoot, 'vue/packages/components/select/src/options.ts');
+    const ts = source.resolver.ts;
+    const helper = find(source, file, (node) => ts.isFunctionDeclaration(node) && node.name?.text === 'isSameOptions');
+    assert.equal(expressionProof(`${helper.getText()}const result=isSameOptions(["Actual"],["Actual"]);`).value, true);
+    assert.equal(expressionProof(`${helper.getText()}const result=isSameOptions(["Actual"],["Different"]);`).value, false);
+});
+
+test('ordinary helper rejects counterfeit array methods and scratch VNode aliases', () =>
+{
+    assert.throws(() => expressionProof('const Array={isArray:()=>true};const result=Array.isArray({});'), /shadowed\/unknown Array intrinsic/);
+    assert.throws(() => expressionProof('const array={forEach:(callback)=>callback(null)};const result=array.forEach(()=>null);'), /opaque collection method/);
+    assert.throws(() => expressionProof('import {h} from "vue";const render=()=>{const scratch=[];scratch.push(h("button",{},[]));return h("div",{},[]);};const result=render();'), /unproved scratch payload alias/);
+    assert.throws(() => expressionProof('import {h} from "vue";const render=()=>{const children=[];children.push("Changed");return children;};const result=render();'), /mutated source array/);
+});
+
+
+test('ordinary lexical callback rejects borrowed captured value under a block shadow', () =>
+{
+    assert.throws(() => expressionProof('const helper=(label)=>{if(true){const label=opaque();return label;}return label;};const result=helper("Actual");'), /unknown runtime value.*opaque/);
+    assert.equal(expressionProof('const helper=(label)=>{if(true){const label="Own";return label;}return label;};const result=helper("Borrowed");').value, 'Own');
+});
+
+test('ordinary runtime component name rejects an unrelated defineComponent declaration', () =>
+{
+    const child = fixture('import {defineComponent} from "vue";const decoy=defineComponent({name:"ElOption"});export default defineComponent({setup(){return()=>null;}});');
+    assert.throws(() => expressionProof(`import {h} from "vue";import Child from "./${child.split('/').at(-1)}";const result=h(Child,{},[]).type.name;`), /ambiguous component runtime name/);
+});
+
+
+function scriptSlotFixture(output = 'h("button",{title:label},[])', payload = '{label:"Actual"}', mutation = '', imports = '')
+{
+    const { source, slots } = tools();
+    const owner = fixture(`import {defineComponent} from "vue";export default defineComponent({setup(_, {slots}){return()=>slots.cell?.(${payload});}});`);
+    const file = fixture(`${imports}import {defineComponent,h} from "vue";import Owner from "./${owner.split('/').at(-1)}";export default defineComponent({setup(){const slotObject={cell:({label})=>${output}};${mutation}return()=> <Owner>{slotObject}</Owner>;}});`);
+    const graph = source.graph([file]);
+    const call = graph.nodes.find((entry) => entry.file === file && entry.tag === 'Owner');
+    assert.ok(call, 'canonical graph contains actual JSX owner call');
+    const ts = source.resolver.ts;
+    const invocation = find(source, owner, (node) => ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'cell');
+    return { source, slots, graph, call, owner, file, invocation };
+}
+
+test('ordinary JSX scoped slot object binds actual supplier and component payload', () =>
+{
+    const { slots, graph, call, owner, file, invocation } = scriptSlotFixture();
+    const errors = JSON.stringify(graph.errors);
+    const binding = slots.bindSlot({ graph, callNode: call.id, name: 'cell' });
+    assert.equal(binding.proofScope, 'slot-supplier-binding');
+    assert.equal(binding.callbackPending, true);
+    assert.equal(binding.value.file, file);
+    const proof = slots.invokeSlot({ graph, binding, file: owner, invocation });
+    assert.equal(proof.value.target.name, 'button');
+    assert.equal(proof.value.props.title, 'Actual');
+    assert.equal(proof.supplierProofDigest, binding.proofDigest);
+    assert.ok(proof.steps.some((entry) => entry.file === file));
+    assert.ok(proof.steps.some((entry) => entry.file === owner));
+    assert.equal(JSON.stringify(graph.errors), errors);
+});
+
+test('ordinary JSX slot callback preserves own public component instead of supplier owner', () =>
+{
+    const { slots, graph, call, owner, invocation } = scriptSlotFixture('h(Child,{title:label},[])', undefined, '', 'import {FsusTaskPageHeader as Child} from "@ozwasyd/element-plus";');
+    const binding = slots.bindSlot({ graph, callNode: call.id, name: 'cell' });
+    const proof = slots.invokeSlot({ graph, binding, file: owner, invocation });
+    assert.equal(proof.value.target.publicName, 'FsusTaskPageHeader');
+    assert.notEqual(proof.value.definition, owner);
+    assert.equal(proof.value.props.title, 'Actual');
+});
+
+test('ordinary JSX slot object rejects mutated supplier and opaque callback effects', () =>
+{
+    const mutated = scriptSlotFixture(undefined, undefined, 'slotObject.cell=opaque;');
+    assert.throws(() => mutated.slots.bindSlot({ graph: mutated.graph, callNode: mutated.call.id, name: 'cell' }), /mutated|unbound finite component binding/);
+    const opaque = scriptSlotFixture('opaque(label)');
+    const binding = opaque.slots.bindSlot({ graph: opaque.graph, callNode: opaque.call.id, name: 'cell' });
+    assert.throws(() => opaque.slots.invokeSlot({ graph: opaque.graph, binding, file: opaque.owner, invocation: opaque.invocation }), /unknown runtime value.*opaque/);
+    const unknown = scriptSlotFixture(undefined, '{label:measurement.value}');
+    const unknownBinding = unknown.slots.bindSlot({ graph: unknown.graph, callNode: unknown.call.id, name: 'cell' });
+    assert.throws(() => unknown.slots.invokeSlot({ graph: unknown.graph, binding: unknownBinding, file: unknown.owner, invocation: unknown.invocation }), /unknown runtime value.*measurement/);
+});
+
+
+test('actual AutoResizer JSX supplier binds while original measurement payload remains unknown', () =>
+{
+    const { source, slots } = tools();
+    const owner = resolve(fsusUIRoot, 'vue/packages/components/table-v2/src/components/auto-resizer.tsx');
+    const importPath = relative(directory, owner).replaceAll('\\', '/');
+    const file = fixture(`import {defineComponent,h} from "vue";import Auto from "${importPath}";export default defineComponent({setup(){return()=> <Auto>{{default:({height,width})=>h("div",{title:width},[])}}</Auto>;}});`);
+    const graph = source.graph([file]);
+    const call = graph.nodes.find((entry) => entry.file === file && entry.tag === 'Auto');
+    assert.equal(call.definition, owner);
+    const before = JSON.stringify(graph.errors);
+    const binding = slots.bindSlot({ graph, callNode: call.id });
+    assert.equal(binding.callbackPending, true);
+    assert.equal(binding.value.file, file);
+    const ts = source.resolver.ts;
+    const invocation = find(source, owner, (node) => ts.isCallExpression(node) && node.expression.getText() === 'slots.default');
+    assert.throws(() => slots.invokeSlot({ graph, binding, file: owner, invocation }), /unknown runtime value.*height/);
+    assert.equal(JSON.stringify(graph.errors), before);
 });

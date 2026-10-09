@@ -3,10 +3,10 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { loadCompositionInputs } from '../frontend/support/layout/compositionContracts.mjs';
-import { captureCompositionDom } from '../frontend/support/layout/compositionDom.mjs';
-import { captureCompositionGeometry, probeCompositionGeometryPage } from '../frontend/support/layout/compositionGeometry.mjs';
-import { captureCompositionOrderGeometry, compareCompositionOrderGeometry } from '../frontend/support/layout/compositionOrderGeometry.mjs';
+import { loadCompositionInputs } from '@fsusblog/layout-governance/composition-contracts';
+import { captureCompositionDom } from '@fsusblog/layout-governance/composition-dom';
+import { captureCompositionGeometry, probeCompositionGeometryPage } from '@fsusblog/layout-governance/composition-geometry';
+import { captureCompositionOrderGeometry, compareCompositionOrderGeometry } from '@fsusblog/layout-governance/composition-order-geometry';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const inputs = loadCompositionInputs({ repositoryRoot });
@@ -15,10 +15,11 @@ const requireFrontend = createRequire(resolve(repositoryRoot, 'src/frontend/pack
 
 // These numeric observations and narrowed contracts exercise bounded logic only.
 // They do not supply admitted source ownership, state binding or product evidence.
-function fixture()
+function fixture(sourceArchetype = feed, completeOrder = false)
 {
-    const archetype = structuredClone(feed);
-    archetype.compositionContract.contentOrder = feed.compositionContract.contentOrder.slice(0, 2);
+    const archetype = structuredClone(sourceArchetype);
+    archetype.compositionContract.contentOrder = completeOrder
+        ? [...sourceArchetype.compositionContract.contentOrder] : sourceArchetype.compositionContract.contentOrder.slice(0, 2);
     const contract = archetype.compositionContract;
     const regions = [contract.primaryRegion, ...contract.allowedSecondaryRegions];
     const layout = { writingMode: 'horizontal-tb', direction: 'ltr', transform: 'none', translate: 'none', rotate: 'none',
@@ -30,14 +31,13 @@ function fixture()
             owner, region: id, inheritedOwner: owner, inheritedRegion: id, hidden: false, visible: true };
     });
     const page = { url: 'https://numeric-fixture.invalid/', viewport: { width: 100, height: 80 } };
-    const observation = { archetype, domObservation: { ...page, nodes: structuredClone(nodes) },
-        geometryObservation: { ...page, scroll: { x: 0, y: 0 }, nodes: nodes.map((node) => ({ ...node,
+    const observation = { archetype, domObservation: { ...structuredClone(page), nodes: structuredClone(nodes) },
+        geometryObservation: { ...structuredClone(page), scroll: { x: 0, y: 0 }, nodes: nodes.map((node) => ({ ...node,
             computedVisibility: { display: 'block', visibility: 'visible', opacity: '1', contentVisibility: 'visible' } })) },
-        orderObservation: { ...page, scroll: { x: 0, y: 0 }, rootLayouts: [structuredClone(layout), structuredClone(layout)],
+        orderObservation: { ...structuredClone(page), scroll: { x: 0, y: 0 }, rootLayouts: [structuredClone(layout), structuredClone(layout)],
             nodes: nodes.map((node) => ({ ...node, layout: structuredClone(layout),
                 computedVisibility: { display: 'block', visibility: 'visible', opacity: '1', contentVisibility: 'visible' } })) } };
-    setRect(observation, 0, 0, 0, 20, 20);
-    setRect(observation, 1, 0, 20, 20, 20);
+    nodes.forEach((node) => setRect(observation, node.index, 0, node.index * 20, 20, 20));
     return observation;
 }
 
@@ -184,13 +184,31 @@ test('order geometry malformed contracts and observations remain explicit', () =
         rejected(observation);
     }
     for (const mutate of [
-        (contract) => { contract.contentOrder = []; },
-        (contract) => { contract.contentOrder.push(contract.contentOrder[0]); },
-        (contract) => { contract.contentOrder[0] = 'unknown-region'; },
-        (contract) => { contract.firstFoldInvariants = null; },
-        (contract) => { contract.allowedSurfaceNesting.pairs = [null]; },
-        (contract) => { contract.allowedSurfaceNesting.pairs = [{ parentRegionId: contract.contentOrder[0], childRegionId: contract.contentOrder[1] },
-            { parentRegionId: contract.contentOrder[1], childRegionId: contract.contentOrder[0] }]; }
+        (contract) =>
+        {
+            contract.contentOrder = [];
+        },
+        (contract) =>
+        {
+            contract.contentOrder.push(contract.contentOrder[0]);
+        },
+        (contract) =>
+        {
+            contract.contentOrder[0] = 'unknown-region';
+        },
+        (contract) =>
+        {
+            contract.firstFoldInvariants = null;
+        },
+        (contract) =>
+        {
+            contract.allowedSurfaceNesting.pairs = [null];
+        },
+        (contract) =>
+        {
+            contract.allowedSurfaceNesting.pairs = [{ parentRegionId: contract.contentOrder[0], childRegionId: contract.contentOrder[1] },
+                { parentRegionId: contract.contentOrder[1], childRegionId: contract.contentOrder[0] }];
+        }
     ])
     {
         const observation = fixture();
@@ -229,12 +247,30 @@ test('order geometry invalid rects and capture correspondence never pass', () =>
         rejected(observation);
     }
     for (const mutate of [
-        (observation) => { observation.orderObservation.viewport.width += 1; },
-        (observation) => { observation.orderObservation.url += 'changed'; },
-        (observation) => { observation.orderObservation.scroll.y += 1; },
-        (observation) => { observation.orderObservation.nodes[0].rect.top += 1; },
-        (observation) => { observation.geometryObservation.nodes[0].computedVisibility.opacity = 'NaN'; },
-        (observation) => { observation.orderObservation.rootLayouts = []; }
+        (observation) =>
+        {
+            observation.orderObservation.viewport.width += 1;
+        },
+        (observation) =>
+        {
+            observation.orderObservation.url += 'changed';
+        },
+        (observation) =>
+        {
+            observation.orderObservation.scroll.y += 1;
+        },
+        (observation) =>
+        {
+            observation.orderObservation.nodes[0].rect.top += 1;
+        },
+        (observation) =>
+        {
+            observation.geometryObservation.nodes[0].computedVisibility.opacity = 'NaN';
+        },
+        (observation) =>
+        {
+            observation.orderObservation.rootLayouts = [];
+        }
     ])
     {
         const observation = fixture();
@@ -267,6 +303,75 @@ test('order geometry numeric declared nesting is not flattened into sibling orde
         observation[capture].nodes[1].parent = 0;
     }
     rejected(observation, 'declared-region-ancestry-mismatch');
+});
+
+test('order geometry numeric nested root and ancestor mixed modes remain unresolved', () =>
+{
+    const nested = inputs.matrix.archetypes.find((entry) => entry.kind === 'filter-search');
+    for (const location of ['html', 'body', 'search-filter', 'content-results', 'unmarked-ancestor'])
+    {
+        const observation = fixture(nested, true);
+        setRect(observation, 1, 0, 20, 20, 60);
+        setRect(observation, 3, 0, 80, 20, 20);
+        for (const capture of [observation.domObservation, observation.geometryObservation, observation.orderObservation])
+        {
+            for (const node of capture.nodes)
+            {
+                const pair = nested.compositionContract.allowedSurfaceNesting.pairs.find((entry) => entry.childRegionId === node.region);
+                node.parent = pair ? capture.nodes.find((entry) => entry.region === pair.parentRegionId).index : null;
+            }
+            const ancestor = { ...structuredClone(capture.nodes[0]), index: 0, parent: null, tag: 'main',
+                sourceNode: 'numeric-unmarked-ancestor', owner: null, region: null, inheritedOwner: null, inheritedRegion: null };
+            capture.nodes = [ancestor, ...capture.nodes.map((node) => ({ ...node,
+                index: node.index + 1, parent: node.parent === null ? 0 : node.parent + 1 }))];
+        }
+        setRect(observation, 0, 0, 0, 20, 100);
+        const baseline = compareCompositionOrderGeometry(observation);
+        assert.equal(baseline.observationsPassed, true, location);
+        assert.ok(baseline.relationships.some((relation) => relation.childRegionId === 'search-filter' && relation.passed));
+        const layout = location === 'html' ? observation.orderObservation.rootLayouts[0]
+            : location === 'body' ? observation.orderObservation.rootLayouts[1]
+                : observation.orderObservation.nodes.find((node) => location === 'unmarked-ancestor' ? node.tag === 'main' : node.region === location).layout;
+        layout.writingMode = 'vertical-rl';
+        const result = rejected(observation, 'unsupported-flow-arrangement');
+        assert.deepEqual(result.relationships, [], location);
+    }
+});
+
+test('order geometry null and sparse evidence returns malformed diagnostics', () =>
+{
+    rejected(null, 'missing-or-malformed-content-order-contract');
+    for (const hole of ['all', 0, 1])
+    {
+        const observation = fixture();
+        if (hole === 'all')
+        {
+            observation.orderObservation.rootLayouts = new Array(2);
+        }
+        else
+        {
+            delete observation.orderObservation.rootLayouts[hole];
+        }
+        rejected(observation, 'missing-or-malformed-observations');
+    }
+    for (const capture of ['domObservation', 'geometryObservation', 'orderObservation'])
+    {
+        const nullCapture = fixture();
+        nullCapture[capture] = null;
+        rejected(nullCapture, 'missing-or-malformed-observations');
+        const sparseNodes = fixture();
+        delete sparseNodes[capture].nodes[1];
+        rejected(sparseNodes, 'missing-or-malformed-observations');
+    }
+    for (const field of ['contentOrder', 'firstFoldInvariants', 'allowedSecondaryRegions'])
+    {
+        const observation = fixture();
+        delete observation.archetype.compositionContract[field][0];
+        rejected(observation, 'missing-or-malformed-content-order-contract');
+    }
+    const sparsePairs = fixture();
+    sparsePairs.archetype.compositionContract.allowedSurfaceNesting.pairs = new Array(1);
+    rejected(sparsePairs, 'missing-or-malformed-content-order-contract');
 });
 
 test('order geometry pending runtime guard still refuses before browser evaluation', async () =>
@@ -347,6 +452,12 @@ test('order geometry real Chromium fixtures observe responsive flow and explicit
     assert.equal(nestedResult.observationsPassed, true);
     assert.ok(nestedResult.relationships.some((relation) => relation.kind === 'declared-ancestry'));
     assert.ok(!nestedResult.relationships.some((relation) => relation.beforeRegionId === 'search-filter' || relation.afterRegionId === 'search-filter'));
+    for (const css of ['html{writing-mode:vertical-rl!important}body{writing-mode:horizontal-tb}',
+        'body{writing-mode:vertical-rl}', 'main{writing-mode:vertical-rl}',
+        '[data-fsus-region="content-results"]{writing-mode:vertical-rl}', '[data-fsus-region="search-filter"]{writing-mode:vertical-rl}'])
+    {
+        rejected(await observe(markup(nested, css), nested), 'unsupported-flow-arrangement');
+    }
     rejected(await observe(markup(nested, '', 'horizontal-tb', 'ltr', true), nested), 'declared-region-ancestry-mismatch');
     for (const css of ['main{transform:translateX(1px)}', 'main{columns:2}', 'main{column-width:80px}', 'html{rotate:0deg}'])
     {
