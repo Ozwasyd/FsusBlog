@@ -12,6 +12,8 @@ const expressionTreePatch = Buffer.from(source(policy.expressionTreePatchPath));
 const callerStart = laneSource.indexOf('RunBackendMutationWithConfig() {');
 const callerEnd = laneSource.indexOf('\n}\n', callerStart) + 3;
 const caller = laneSource.slice(callerStart, callerEnd);
+const producerBlock = caller.match(/ {4}Run node "\$ROOT_DIR\/tools\/mutation\/stryker-tool\.mjs" run \\\n(?:.*\\\n)*.*\n/u)[0];
+const boundReportBlock = caller.match(/ {8}Run node "\$ROOT_DIR\/tools\/test\/check-stryker-report\.mjs" \\\n(?:.*\\\n)*.*\n/u)[0];
 
 // Source/policy controls only: no bootstrap, package operation, custody artifact
 // or mutation execution. The canonical runner is imported only for its validator.
@@ -133,5 +135,87 @@ test('ordinary mutation governance delegates the obsolete restore check and reta
         'must pass the report output directory through the supported CLI option', 'backend mutation runner must export the dedicated MSBuild marker'])
     {
         assert.ok(governance.includes(retained), retained);
+    }
+});
+
+test('ordinary mutation soundness rejects legal alternate declaration overrides', () =>
+{
+    for (const declaration of ['RunBackendMutationWithConfig ()', 'function RunBackendMutationWithConfig',
+        'function RunBackendMutationWithConfig()', 'RunBackendMutationWithConfig\n()',
+        'RunBackendMutationWithConfi\\g ()', '"RunBackendMutationWithConfig" ()'])
+    {
+        const override = `${declaration} { command dotnet tool run dotnet-stryker; }`;
+        assert.notDeepEqual(verify({ laneSource: `${caller}\n${override}` }), [], declaration);
+    }
+    for (const override of ['RunBackendMutationWithConfig() ( return 0; )',
+        'function RunBackendMutationWithConfig ( return 0; )',
+        'RunBackendMutationWithConfig() if false; then return 0; fi'])
+    {
+        assert.notDeepEqual(verify({ laneSource: `${caller}\n${override}` }), [], override);
+    }
+});
+
+test('ordinary mutation soundness rejects all additional producer and report invocations', () =>
+{
+    for (const extra of [producerBlock.replace('--working-directory "$workingDir"', '--working-directory "$otherDir"'),
+        boundReportBlock.replace('--tool-binding "$outputDir/tool-binding.json"', '--tool-binding "$otherBinding"')])
+    {
+        assert.notDeepEqual(verify({ laneSource: caller.replace('\n}', `\n${extra}\n}`) }), []);
+    }
+});
+
+test('ordinary mutation soundness rejects command and environment wrapped tool fallbacks', () =>
+{
+    for (const extra of ['command dotnet tool restore', 'env OTHER=1 dotnet tool run dotnet-stryker',
+        'Run env OTHER=1 dotnet tool install dotnet-stryker', 'command "dotnet" tool restore',
+        'OTHER=1 dotnet tool run dotnet-stryker'])
+    {
+        assert.notDeepEqual(verify({ laneSource: caller.replace('\n}', `\n    ${extra}\n}`) }), [], extra);
+    }
+});
+
+test('ordinary mutation soundness rejects early exits and unreachable canonical calls', () =>
+{
+    for (const changed of [caller.replace(producerBlock, `    return 0\n${producerBlock}`),
+        caller.replace(producerBlock, `    if false; then\n${producerBlock}    fi\n`),
+        caller.replace('if [[ -n "$authorityTier" || -n "$authorityOut" ]]; then', 'if false; then')])
+    {
+        assert.notDeepEqual(verify({ laneSource: changed }), []);
+    }
+});
+
+test('ordinary mutation soundness rejects variable origin reassignment and producer report ordering drift', () =>
+{
+    for (const changed of [caller.replace('find "$outputDir/logs" -maxdepth', 'find "$outputDir/logs"\n            -maxdepth'),
+        caller.replace('strykerTraceArgs=()', 'strykerTraceArgs= ()'),
+        caller.replace('< <(', '< < ('),
+        caller.replace('local configPath="$1"', 'local configPath="$2"'),
+        caller.replace('local outputDir="$2"', 'local outputDir="$3"'),
+        caller.replace('local workingDir="${4:-$ROOT_DIR}"', 'local workingDir="$otherRoot"'),
+        caller.replace(producerBlock, `${producerBlock}    outputDir="$otherDir"\n`),
+        caller.replace(producerBlock, `${producerBlock}    configPath="$otherConfig"\n`),
+        caller.replace(producerBlock, '').replace(boundReportBlock, `${boundReportBlock}${producerBlock}`)])
+    {
+        assert.notDeepEqual(verify({ laneSource: changed }), []);
+    }
+});
+
+test('ordinary mutation soundness refuses unsupported caller control and dynamic evaluation', () =>
+{
+    for (const extra of ['eval "$dynamic"', 'source "$otherFile"', 'while true; do return 0; done',
+        'RunBackendMutationWithConfig () { return 0; }', 'trap "return 0" DEBUG'])
+    {
+        assert.notDeepEqual(verify({ laneSource: caller.replace(producerBlock, `    ${extra}\n${producerBlock}`) }), [], extra);
+    }
+});
+
+test('ordinary mutation soundness accepts supported declaration spacing and equivalent source layout', () =>
+{
+    for (const changed of [caller.replace('RunBackendMutationWithConfig() {', 'RunBackendMutationWithConfig () {'),
+        caller.replace('RunBackendMutationWithConfig() {', 'function RunBackendMutationWithConfig() {'),
+        caller.replace('RunBackendMutationWithConfig() {', 'function RunBackendMutationWithConfig {'),
+        caller.replace(/\n/gu, '\r\n'), caller.replace(/^ {4}/gmu, '\t')])
+    {
+        assert.deepEqual(verify({ laneSource: changed }), []);
     }
 });
