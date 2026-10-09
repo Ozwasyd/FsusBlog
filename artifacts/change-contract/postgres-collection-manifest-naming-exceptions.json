@@ -6,7 +6,7 @@
             "paths": [
                 "tests/backend/Fixtures/postgres-test-collections.json"
             ],
-            "reason": "preserve the caller-visible PostgreSQL collection IDs and manifest JSON keys while registering the three actual coordinate, source-generation and Graph reader classes for #3657 on the Shared consumer, preserving property membership and source-derived case totals"
+            "reason": "preserve caller-visible PostgreSQL collection IDs and manifest JSON keys while rebinding source estimates to the two actual P1 Graph admission freshness Facts on the Shared consumer for #3657, retaining all existing property, generation and Graph memberships"
         }
     ]
 }
