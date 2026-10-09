@@ -90,3 +90,33 @@ test('exported registration rejects executable expressions spreads accessors and
         assert.throws(() => parse(changed), /unsupported expression|rejects spread|duplicate or non-string/);
     }
 });
+
+
+test('exported registration rejects module function class import and block Object bindings', () =>
+{
+    for (const declaration of [
+        'function Object() {}', 'class Object {}', 'export function Object() {}',
+        'export default function Object() {}', 'export default class Object {}',
+        "import Object from './never-executed.mjs';", 'var Object;',
+        'if (true) { var Object; }', 'for (var Object of []) {}'
+    ])
+    {
+        assert.throws(() => parse(`${source}\n${declaration}\n`), /cannot shadow Object/);
+    }
+    assert.deepEqual(parse(`${source}\nfunction scoped(Object) { return Object; }\n`), parse());
+    assert.deepEqual(parse(`${source}\nconst scoped = (Object) => Object;\n`), parse());
+});
+
+test('exported registration rejects all destructuring Object binding patterns', () =>
+{
+    for (const declaration of [
+        'const { Object } = globalThis;', 'const { value: Object } = globalThis;',
+        'const { value: { Object } } = globalThis;', 'const [Object] = [];',
+        'const [...Object] = [];', 'const { ...Object } = globalThis;',
+        'const { Object = null } = globalThis;', 'const [Object = null] = [];',
+        'for (var { Object } of []) {}'
+    ])
+    {
+        assert.throws(() => parse(`${source}\n${declaration}\n`), /cannot shadow Object/);
+    }
+});

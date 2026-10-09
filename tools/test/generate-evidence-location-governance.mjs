@@ -7,8 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const { loadCanonicalRequiredEvidenceCatalog } = await import(new URL('../test-matrix/required-evidence-catalog.mjs', import.meta.url));
 
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Validate exported requests against the existing locator schema.
-import { validateJsonSchema } from '../test-matrix/schema-validator/validate.mjs';
+const { validateJsonSchema } = await import(new URL('../test-matrix/schema-validator/validate.mjs', import.meta.url));
 
 import {
     governanceContentDigest,
@@ -415,26 +414,75 @@ export function parseEmbeddedEvidenceRegistration(source, producerSource, export
         throw new Error('unrecognized embedded registration source/export');
     }
     const ast = registrationParser.parse(source, { ecmaVersion: 2025, sourceType: 'module' });
+    function bindsObject(pattern)
+    {
+        if (!pattern)
+        {
+            return false;
+        }
+        if (pattern.type === 'Identifier')
+        {
+            return pattern.name === 'Object';
+        }
+        if (pattern.type === 'ObjectPattern')
+        {
+            return pattern.properties.some((property) => bindsObject(property.type === 'RestElement'
+                ? property.argument : property.value));
+        }
+        if (pattern.type === 'ArrayPattern')
+        {
+            return pattern.elements.some(bindsObject);
+        }
+        if (pattern.type === 'AssignmentPattern')
+        {
+            return bindsObject(pattern.left);
+        }
+        return pattern.type === 'RestElement' && bindsObject(pattern.argument);
+    }
+    function rejectModuleObjectBinding(node)
+    {
+        if (!node || typeof node !== 'object')
+        {
+            return;
+        }
+        if ((['FunctionDeclaration', 'ClassDeclaration'].includes(node.type) && bindsObject(node.id))
+            || (node.type === 'ImportDeclaration' && node.specifiers.some((item) => bindsObject(item.local)))
+            || (node.type === 'VariableDeclaration' && node.declarations.some((item) => bindsObject(item.id))))
+        {
+            throw new Error('embedded registration cannot shadow Object');
+        }
+        // Function parameters/bodies and class bodies have their own scopes.
+        // At module level also inspect nested blocks, conservatively refusing
+        // lexical bindings there as well as var bindings hoisted to the module.
+        if (['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression',
+            'ClassDeclaration', 'ClassExpression'].includes(node.type))
+        {
+            return;
+        }
+        for (const child of Object.values(node))
+        {
+            if (Array.isArray(child))
+            {
+                child.forEach(rejectModuleObjectBinding);
+            }
+            else if (child?.type)
+            {
+                rejectModuleObjectBinding(child);
+            }
+        }
+    }
+    rejectModuleObjectBinding(ast);
     const declarations = new Map();
     const exported = [];
     for (const statement of ast.body)
     {
         const declaration = statement.type === 'ExportNamedDeclaration' ? statement.declaration : statement;
-        if (statement.type === 'ImportDeclaration'
-            && statement.specifiers.some((item) => item.local.name === 'Object'))
-        {
-            throw new Error('embedded registration cannot shadow Object');
-        }
         if (declaration?.type === 'VariableDeclaration')
         {
             for (const item of declaration.declarations)
             {
                 if (item.id.type === 'Identifier')
                 {
-                    if (item.id.name === 'Object')
-                    {
-                        throw new Error('embedded registration cannot shadow Object');
-                    }
                     declarations.set(item.id.name, { kind: declaration.kind, init: item.init });
                     if (statement.type === 'ExportNamedDeclaration' && item.id.name === exportName)
                     {
