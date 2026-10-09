@@ -1,0 +1,27 @@
+{
+    "candidateBeforeCommit": "bc8ca20124659555408f9658c976a09da0e7c484",
+    "testClass": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests",
+    "expectedMethods": 11,
+    "expectedCases": 26,
+    "source": {
+        "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProducer.cs": "ce500192fb0080cf2b80f07230efaf952fda8c9be896610b2da34d8011e94ef7",
+        "tests/backend/Unit/ArticlePackageImportCandidateReviewProducerTests.cs": "20541210c5d2959f79cb29e41986636c9fed7ae9be33861a7cc9573b0abba25f",
+        "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b",
+        "tests/backend/FsusBlog.Server.Tests.csproj": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c",
+        "tests/backend/xunit.runner.json": "8c79472a6d99eb1a7b26c4f748ab2d4ba5b27e748eba2ccf3301164c04d4fafa",
+        "tests/backend/Unit/ArticlePackageImportCandidateByteTests.cs": "03e89232d2194118b650f9d991d44c7ec56ec4cff6cb8a1f8f2afa712e240b31"
+    },
+    "resources": "Controlled ClaimsPrincipal/HttpContext; official in-memory ZipArchive; original finite-byte fixture/reader/planner/projection; bounded1000 articles; no DB/Redis/native process/browser/store/network/file extraction",
+    "fixtureHooks": "New class has no fixture/collection/constructor hooks. Original Redis ModuleInitializer returns unless explicit diagnostic opt-in; opt-in absent. Original test project/testhost retained.",
+    "redisDiagnosticOptInPresent": false,
+    "productionSiteBindingQualified": false,
+    "preservedRoot31Selected813Frontend20Rerun": false,
+    "testedSource": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "caseCount": 26,
+    "methodCount": 11,
+    "compiledAssemblies": {
+        "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "d97acaee4ae56448ff3ebfca9dfb54759dfa875348c43926c91d68ebd0b12e07",
+        "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "3cd1c5cf1bc488f24ee8df6f1cde94cb293dd28fb78da015f61bf8655644ce7b",
+        "tests/backend/bin/Debug/net10.0/FsusBlog.Shared.dll": "505ffdb36fb5c710a424ffbc21dcf8124e161a1119359872b34be66b5ad96f08"
+    }
+}

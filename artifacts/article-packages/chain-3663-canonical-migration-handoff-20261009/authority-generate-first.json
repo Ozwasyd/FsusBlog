@@ -1,0 +1,14 @@
+{
+    "command": [
+        "node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "testedSha": "ea7af16db7e20d5474b44cac2e5358ec61d80f37",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T11:34:47.432930+00:00",
+    "endUtc": "2026-10-09T11:36:25.790535+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/canonical-migration-handoff-20261009/authority-generate-first.log"
+}

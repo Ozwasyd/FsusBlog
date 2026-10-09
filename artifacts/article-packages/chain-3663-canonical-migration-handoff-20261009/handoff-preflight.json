@@ -1,0 +1,29 @@
+{
+    "capturedUtc": "2026-10-09T11:34:16.380913+00:00",
+    "beforeSource": "ea7af16db7e20d5474b44cac2e5358ec61d80f37",
+    "master": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "supplier": "fae117436a4c829748c04c6381d86db6be764e76",
+    "supplierParent": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+    "selectedOnly": [
+        {
+            "path": "tools/test/correctness-attempt-migration.mjs",
+            "ownAndSupplierPreimage": "03cc98b74786d6a2d4c80337b57dd093f74ebb39",
+            "supplierPostimage": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212"
+        },
+        {
+            "path": "tests/tools/correctness-attempt-migration.test.mjs",
+            "ownAndSupplierPreimage": "470d1c518eb69e2e370570d6393b66ad00969afd",
+            "supplierPostimage": "18a47e207c8a340b346e6ea421d94de38a9d6050"
+        }
+    ],
+    "patchSha256": "4a1fe74794802c3a20096528339da9caed776320fc1f335aead8a8fe4c0a6932",
+    "excludedSupplierFile": "config/testing/correctness-attempt-producers.json",
+    "ownInventoryEntries": 226,
+    "outputsBefore": {
+        "config/testing/correctness-attempt-producers.json": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json": "61b6e3450377e71428e9f58f4471360a96efd5e944dbb69454973f7ba256cd78"
+    },
+    "protectedSourceCount": 1399,
+    "completeIndependentIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+    "nodeExecutableSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd"
+}

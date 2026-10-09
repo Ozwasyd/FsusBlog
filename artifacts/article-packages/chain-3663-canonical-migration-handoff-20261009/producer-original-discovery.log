@@ -1,0 +1,28 @@
+Test run for /workspace/FsusBlog-group-property-recheck-3663/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+The following Tests are available:
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ServerContext_ComposesOriginalZipPlanAndBoundedDisabledProjection(count: 1, pageIndex: 0, pageSize: 1)
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ServerContext_ComposesOriginalZipPlanAndBoundedDisabledProjection(count: 1000, pageIndex: 19, pageSize: 50)
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingAuthentication_RefusesBeforeObserverOrArchive(change: "anonymous")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingAuthentication_RefusesBeforeObserverOrArchive(change: "non-admin")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingAuthentication_RefusesBeforeObserverOrArchive(change: "id-invalid")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingAuthentication_RefusesBeforeObserverOrArchive(change: "session-missing")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingAuthentication_RefusesBeforeObserverOrArchive(change: "permission-missing")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestContext_CannotSelectDifferentServerBinding(change: "actor")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestContext_CannotSelectDifferentServerBinding(change: "site")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestContext_CannotSelectDifferentServerBinding(change: "permission-context")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingOrUrlSite_ProducesNoDefaultIdentity(change: "missing")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingOrUrlSite_ProducesNoDefaultIdentity(change: "url")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ChangedFinalObservation_RefusesCompleteCandidate(change: "actor")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ChangedFinalObservation_RefusesCompleteCandidate(change: "site")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ChangedFinalObservation_RefusesCompleteCandidate(change: "permission-context")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ChangedFinalObservation_RefusesCompleteCandidate(change: "missing")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.OriginalRefusals_ReturnNoPartialProjection(change: "zip", reason: "article_package_zip_byte_budget_exceeded")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.OriginalRefusals_ReturnNoPartialProjection(change: "policy", reason: "article_package_import_request_invalid")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.OriginalRefusals_ReturnNoPartialProjection(change: "interval", reason: "article_package_import_request_invalid")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.OriginalRefusals_ReturnNoPartialProjection(change: "page", reason: "article_package_candidate_review_invalid")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestRevokedDuringTargetCopy_RefusesBeforeFinalObserver
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.FinalRequestMovement_RefusesEvenWhenContextValueIsUnchanged(change: "session")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.FinalRequestMovement_RefusesEvenWhenContextValueIsUnchanged(change: "request")
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.CancelledAndRepeatedCalls_RefuseWithoutPartialOutputThenRecover
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.AuthenticationMovementAtProjectionTime_IsCheckedBeforeReturn
+    FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.CanonicalReaderFailure_IsNotConvertedToAContextOrSuccessfulReview

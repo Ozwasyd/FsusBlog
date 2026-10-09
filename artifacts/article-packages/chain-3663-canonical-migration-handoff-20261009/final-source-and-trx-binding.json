@@ -1,0 +1,44 @@
+{
+    "source": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "protectedCount": 1399,
+    "changedProtectedInputsOnlyCoveredSuppliedPostimage": [
+        "tools/test/correctness-attempt-migration.mjs"
+    ],
+    "unchangedProtectedInputCount": 1398,
+    "bothSuppliedSourceAndRegressionPostimagesVerifiedSeparately": {
+        "tools/test/correctness-attempt-migration.mjs": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+        "tests/tools/correctness-attempt-migration.test.mjs": "18a47e207c8a340b346e6ea421d94de38a9d6050"
+    },
+    "unchangedFrozenSixBlobs": {
+        "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs": "e36842251889f60ca1d59b26d566444ca5b245d3",
+        "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs": "64712805fcc89d0b5d77341437883553a7fa3ed3",
+        "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs": "5a6e12b5ab55bff67378674df76d64c865df2588",
+        "src/frontend/src/api/types/articlePackageCandidateReview.ts": "545fce7f5c8ba019ad9cf8f2211d19e30b64d082",
+        "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue": "c80fe791006c040c0d7eb49d1587868fd21c9d23",
+        "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts": "99256efb3998dfe123eb9dcc95da97f90b63d0ef"
+    },
+    "producerTrxCases": 26,
+    "producerTrxCounters": {
+        "total": "26",
+        "executed": "26",
+        "passed": "26",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "compiledAssembliesStillMatch": true,
+    "inventoryBytesUnchanged": true,
+    "completeIndependentIndexUnchanged": true,
+    "productionSiteBindingQualified": false,
+    "matrixResourceQualified": false
+}

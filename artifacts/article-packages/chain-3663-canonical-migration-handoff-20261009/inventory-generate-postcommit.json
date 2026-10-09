@@ -1,0 +1,15 @@
+{
+    "command": [
+        "node",
+        "tools/test/generate-correctness-attempt-producers.mjs",
+        "--write"
+    ],
+    "testedSha": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T11:53:21.490542+00:00",
+    "endUtc": "2026-10-09T11:53:21.606990+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/canonical-migration-handoff-20261009/inventory-generate-postcommit.log"
+}

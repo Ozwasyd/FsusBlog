@@ -1,0 +1,21 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--list-tests",
+        "--filter",
+        "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ServerContext_ComposesOriginalZipPlanAndBoundedDisabledProjection|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingAuthentication_RefusesBeforeObserverOrArchive|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestContext_CannotSelectDifferentServerBinding|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingOrUrlSite_ProducesNoDefaultIdentity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ChangedFinalObservation_RefusesCompleteCandidate|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.OriginalRefusals_ReturnNoPartialProjection|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestRevokedDuringTargetCopy_RefusesBeforeFinalObserver|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.FinalRequestMovement_RefusesEvenWhenContextValueIsUnchanged|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.CancelledAndRepeatedCalls_RefuseWithoutPartialOutputThenRecover|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.AuthenticationMovementAtProjectionTime_IsCheckedBeforeReturn|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.CanonicalReaderFailure_IsNotConvertedToAContextOrSuccessfulReview"
+    ],
+    "testedSha": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T11:53:20.326657+00:00",
+    "endUtc": "2026-10-09T11:53:23.277596+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/canonical-migration-handoff-20261009/producer-original-discovery.log"
+}

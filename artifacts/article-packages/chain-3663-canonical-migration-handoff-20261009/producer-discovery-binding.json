@@ -1,0 +1,8 @@
+{
+    "testedSha": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "discoveredCases": 26,
+    "discoveredMethods": 11,
+    "positiveExactFqnAndCaseCountMatch": true,
+    "sourceAndAssembliesStillMatch": true,
+    "emptyOrWideFallback": false
+}

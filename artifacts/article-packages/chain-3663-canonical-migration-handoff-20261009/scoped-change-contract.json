@@ -1,0 +1,18 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-source-pr-handoff-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-group-property-recheck-3663",
+        "--range",
+        "ea7af16db7e20d5474b44cac2e5358ec61d80f37..HEAD"
+    ],
+    "testedSha": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T11:55:03.840919+00:00",
+    "endUtc": "2026-10-09T11:55:05.370747+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/canonical-migration-handoff-20261009/scoped-change-contract.log"
+}

@@ -1,0 +1,10 @@
+✔ all 225 correctness producers bind canonical attempt and external authorities (141.707114ms)
+✔ matrix and physical producers fail closed on a crossed execution owner (13.792282ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 268.059449

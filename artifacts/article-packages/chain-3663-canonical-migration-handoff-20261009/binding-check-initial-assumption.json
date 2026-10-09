@@ -1,0 +1,10 @@
+{
+    "assertionFailed": "Incorrectly expected both supplied files inside old1399 protected roster; that roster omits tests/tools regression file",
+    "actualChangedProtectedPaths": [
+        "tools/test/correctness-attempt-migration.mjs"
+    ],
+    "approvedPathsInOldRoster": [
+        "tools/test/correctness-attempt-migration.mjs"
+    ],
+    "correctedCheck": "Verify only covered source changes in1399 roster, and independently verify both supplied postimage Git blobs. No source/result was changed."
+}

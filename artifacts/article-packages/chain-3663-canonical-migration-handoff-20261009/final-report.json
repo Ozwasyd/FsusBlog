@@ -1,0 +1,292 @@
+{
+    "schema": "fsusblog.chain-3663.canonical-migration-handoff.v1",
+    "capturedUtc": "2026-10-09T12:06:05.870914+00:00",
+    "testedSourceSha": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "branch": "codex/chain-3663-group-property-recheck",
+    "masterReadOnlyVerified": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "supplier": "fae117436a4c829748c04c6381d86db6be764e76",
+    "consumedCommits": {
+        "exactTwoFileHandoff": "bc8ca20124659555408f9658c976a09da0e7c484",
+        "originalGeneratedAuthority": "374a533d1f5fa6928b1ecc415b5d2f4343395554",
+        "boundedReadonlyProducer": "018fe311aa6a214cc698281edcac23e6cd4704cf"
+    },
+    "handoff": {
+        "capturedUtc": "2026-10-09T11:34:16.380913+00:00",
+        "beforeSource": "ea7af16db7e20d5474b44cac2e5358ec61d80f37",
+        "master": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+        "supplier": "fae117436a4c829748c04c6381d86db6be764e76",
+        "supplierParent": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+        "selectedOnly": [
+            {
+                "path": "tools/test/correctness-attempt-migration.mjs",
+                "ownAndSupplierPreimage": "03cc98b74786d6a2d4c80337b57dd093f74ebb39",
+                "supplierPostimage": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212"
+            },
+            {
+                "path": "tests/tools/correctness-attempt-migration.test.mjs",
+                "ownAndSupplierPreimage": "470d1c518eb69e2e370570d6393b66ad00969afd",
+                "supplierPostimage": "18a47e207c8a340b346e6ea421d94de38a9d6050"
+            }
+        ],
+        "patchSha256": "4a1fe74794802c3a20096528339da9caed776320fc1f335aead8a8fe4c0a6932",
+        "excludedSupplierFile": "config/testing/correctness-attempt-producers.json",
+        "ownInventoryEntries": 226,
+        "outputsBefore": {
+            "config/testing/correctness-attempt-producers.json": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+            "tests/fixtures/test-matrix/release-final-execution-target-authority.json": "61b6e3450377e71428e9f58f4471360a96efd5e944dbb69454973f7ba256cd78"
+        },
+        "protectedSourceCount": 1399,
+        "completeIndependentIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+        "nodeExecutableSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd"
+    },
+    "fixedPoint": {
+        "source": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+        "originalAuthorityGeneratorPostcommitFixedPoint": true,
+        "originalInventoryGeneratorPostcommitFixedPoint": true,
+        "inventoryByteUnchanged": true,
+        "all226EntriesAnd8SourceDigestsUnchanged": true,
+        "completeIndependentIndexByteUnchanged": true,
+        "authorityFixtureChangedOnlyCanonicalMigrationContentIndexDigests": true,
+        "qualificationClaim": false
+    },
+    "bindings": {
+        "source": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+        "protectedCount": 1399,
+        "changedProtectedInputsOnlyCoveredSuppliedPostimage": [
+            "tools/test/correctness-attempt-migration.mjs"
+        ],
+        "unchangedProtectedInputCount": 1398,
+        "bothSuppliedSourceAndRegressionPostimagesVerifiedSeparately": {
+            "tools/test/correctness-attempt-migration.mjs": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+            "tests/tools/correctness-attempt-migration.test.mjs": "18a47e207c8a340b346e6ea421d94de38a9d6050"
+        },
+        "unchangedFrozenSixBlobs": {
+            "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs": "e36842251889f60ca1d59b26d566444ca5b245d3",
+            "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs": "64712805fcc89d0b5d77341437883553a7fa3ed3",
+            "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs": "5a6e12b5ab55bff67378674df76d64c865df2588",
+            "src/frontend/src/api/types/articlePackageCandidateReview.ts": "545fce7f5c8ba019ad9cf8f2211d19e30b64d082",
+            "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue": "c80fe791006c040c0d7eb49d1587868fd21c9d23",
+            "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts": "99256efb3998dfe123eb9dcc95da97f90b63d0ef"
+        },
+        "producerTrxCases": 26,
+        "producerTrxCounters": {
+            "total": "26",
+            "executed": "26",
+            "passed": "26",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+        },
+        "compiledAssembliesStillMatch": true,
+        "inventoryBytesUnchanged": true,
+        "completeIndependentIndexUnchanged": true,
+        "productionSiteBindingQualified": false,
+        "matrixResourceQualified": false
+    },
+    "checks": {
+        "originalMigrationTests": {
+            "exitCode": 0,
+            "tests": 2,
+            "passed": 2,
+            "historicalNamesAndNegativeControlsRetained": true
+        },
+        "originalProjectBuild": {
+            "exitCode": 0,
+            "sdk": "10.0.302",
+            "warnings": 1511,
+            "errors": 0,
+            "noRestoreNoIncremental": true
+        },
+        "newProducerOriginalDiscovery": {
+            "exitCode": 0,
+            "methods": 11,
+            "cases": 26,
+            "positiveExactMatch": true,
+            "noEmptyOrWideFallback": true
+        },
+        "newProducerOriginalRun": {
+            "exitCode": 0,
+            "passed": 26,
+            "failed": 0,
+            "skipped": 0,
+            "trx": "trx/producer-original26.trx"
+        },
+        "newSourceStyle": "PASS files2/violations0; initial15 formatting diagnostics fixed only in new file, raw failed receipt preserved",
+        "scopedChangeContract": "PASS ea7af..018fe311",
+        "matrixPlan": {
+            "exitCode": 1,
+            "error": "Linux cgroup memory invalid path: /..",
+            "migration225BlockerCleared": true,
+            "runtimeCallbacksLaunched": false
+        },
+        "originalRealMemorySampler": {
+            "exitCode": 1,
+            "error": "Linux cgroup memory invalid path: /..",
+            "fakeInputsOrFallback": false
+        },
+        "fullCI": "NOT RUN/not accepted",
+        "publicationBinding": "NOT REACHED/not accepted/no hand-fill",
+        "productionSiteBinding": "NOT IMPLEMENTED HERE/not accepted; sole canonical task pending supplied exact API",
+        "sourceCommitDiffCheck": {
+            "exitCode": 0,
+            "range": "ea7af..018fe311"
+        },
+        "completeStagedEvidenceDiffCheck": {
+            "exitCode": 2,
+            "unwaived": true,
+            "reason": "Two blank context marker lines8/14 in original supplied unified patch have trailing spaces; raw bytes and patchSHA preserved"
+        },
+        "markdownEvidence": {
+            "exitCode": 0,
+            "files": [
+                "README.md",
+                "site-context-contract.md"
+            ]
+        }
+    },
+    "realCgroupEvidence": {
+        "capturedUtc": "2026-10-09T11:58:56.378369+00:00",
+        "source": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+        "originalReader": "tools/test/system-memory.mjs#sampleLinuxCgroupV2HeadroomBytes",
+        "readerSha256": "e347e43ec94bda1b8b97e6e3b75147845e021d87af03a04bc3e1844d42301f63",
+        "probePid": 233337,
+        "selfMembership": "0::/\n",
+        "pid1Membership": "0::/\n",
+        "cgroup2MountLines": [
+            "206 205 0:24 /.. /sys/fs/cgroup ro,nosuid,nodev,noexec,relatime master:8 - cgroup2 cgroup2 rw,nsdelegate"
+        ],
+        "visibleMemoryMaxRaw": "17179869184\n",
+        "visibleMemoryCurrentRaw": "4341768192\n",
+        "visibleCpuMaxRaw": "400000 100000\n",
+        "visibleMembershipContainsProbePid": false,
+        "visibleMembershipZeroPidCount": 0,
+        "capabilities": [
+            "CapEff:\t0000000000000000",
+            "CapBnd:\t0000000000000000",
+            "NoNewPrivs:\t1"
+        ],
+        "mountReadOnly": true,
+        "memoryOrCpuGrantQualified": false,
+        "noResourceFallbackOverride": true,
+        "smallestNextAction": "Qualified executor with canonical cgroup mount root and actual delegated resource hierarchy, or canonical memory-owner source/evidence proving this real namespace mapping without normalizing traversal or inventing headroom. No remount/delegation or host resource mutation performed."
+    },
+    "sourceMetadataGuardFailure": "Initial old1399 roster coverage assertion incorrectly expected both supplied files in roster; regression file is outside that roster. Corrected independent check verifies both exact postimage Git blobs plus all covered unchanged inputs. Failure and correction recorded, no source/results changed.",
+    "previousEvidencePreserved": "../chain-3663-authority-producer-replay-20261009; old225 failure and108 hashes unchanged",
+    "runtimeReceiptsNotRelabelled": {
+        "source": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+        "requiredRootCases": 31,
+        "selectedBackendCases": 813,
+        "selectedFrontendCases": 20,
+        "rerun": false
+    },
+    "canonicalSiteOwner": {
+        "task": "01a12083-5888-74c3-bd48-2d091c82b02d",
+        "owner": "existingSystemService/SystemConfig sole authority",
+        "exclusiveFiles": 7,
+        "readerSignatureSupplied": false,
+        "guessedCall": false,
+        "contractDocument": "site-context-contract.md"
+    },
+    "minimalNextActions": [
+        "Qualified actual cgroup topology or canonical memory mapping implementation/evidence; no unsafe path normalization or invented limits",
+        "Consume sole canonical site reader/guarded-binding exact supplied commit/API when published, then add actual adapter and production positive tests without a duplicate authority",
+        "Original AEDS route/frame/read source after real port, then actual product fixture UX and formal whole-package authorities",
+        "Parent controls publication metadata; no PR/body/comment/label/ready/merge writes here"
+    ],
+    "issueStates": {
+        "3663": {
+            "accepted": false,
+            "state": "open",
+            "status": "Required original31 PASS31/31 on74c, not rerun. Exact canonical migration source consumed, original migration2/2 PASS on018fe311;226 inventory bytes/index unchanged and original generators fixed point. Normal matrix plan FAIL actualLinux cgroup mount-root /..; original real memory sampler reproduces. Later/fullmatrix, publication binding, independent current-master/PR/merge gates remain unaccepted."
+        },
+        "2398": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: sole finite codec, version registry, property/metadata/taxonomy/asset components implemented; accepted complete V1 root and legitimate source admission remain."
+        },
+        "2408": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same finite components and selected historical DTO bridge; complete manifests/provenance/privacy/version acceptance remain."
+        },
+        "2400": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: finite frozen export writer/property planner; complete canonical source, assets, frozen/permission/runtime gate remain."
+        },
+        "2410": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same finite export source; original frozen plan and accepted schema/export runtime remain."
+        },
+        "2402": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: finite intake/bytes/ZIP source exists; accepted export/schema and formal complete preflight remain."
+        },
+        "2411": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: finite intake exists; original full schema/rights/plan preflight unaccepted."
+        },
+        "2404": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted preflight and real resolution/definition/permission inputs missing."
+        },
+        "2413": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted preflight and canonical resolution/replan authority missing."
+        },
+        "2405": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted plan and canonical atomic executor/rollback/recovery/outbox/audit gates missing."
+        },
+        "2415": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted plan and original execution/recovery/permission authority missing."
+        },
+        "2406": {
+            "accepted": false,
+            "state": "open",
+            "status": "Frozen six-file readonly review unchanged. New two-file bounded producer structure composes original ZIP→plan→projection, actual HttpContext admin/session/permission checks and final context/auth observations. Original build0errors/1511warnings; original positive-discovered26/26 producer cases PASS on018fe311. Controlled unit site is not production grant. Real canonical server identity reader/binding is assigned to task01a12083; exact signature/source not supplied. No guessed interface/DI/HTTP route. AEDS transport and formal complete UX/resolution/execution/production fixture acceptance remain unaccepted. Existing18backend/20frontend receipts retained on74c without rerun."
+        },
+        "2418": {
+            "accepted": false,
+            "state": "open",
+            "status": "Frozen six-file readonly review unchanged. New two-file bounded producer structure composes original ZIP→plan→projection, actual HttpContext admin/session/permission checks and final context/auth observations. Original build0errors/1511warnings; original positive-discovered26/26 producer cases PASS on018fe311. Controlled unit site is not production grant. Real canonical server identity reader/binding is assigned to task01a12083; exact signature/source not supplied. No guessed interface/DI/HTTP route. AEDS transport and formal complete UX/resolution/execution/production fixture acceptance remain unaccepted. Existing18backend/20frontend receipts retained on74c without rerun."
+        },
+        "2407": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted replacement and migration acceptance absent; no legacy retirement."
+        },
+        "2409": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: terminal whole-chain/native/mutation/performance/caption acceptance."
+        },
+        "2420": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: terminal whole-chain qualification and independent runtime acceptance."
+        }
+    },
+    "trackingIssues": [],
+    "allAccepted": false,
+    "newProductStructureQualifiedAsProduction": false,
+    "prohibitionsPreserved": true
+}

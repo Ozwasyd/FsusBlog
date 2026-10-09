@@ -1,0 +1,17 @@
+file:///workspace/FsusBlog-group-property-recheck-3663/tools/test/system-memory.mjs:33
+        throw new Error(`Linux cgroup memory invalid path: ${value}`);
+              ^
+
+Error: Linux cgroup memory invalid path: /..
+    at linuxMemoryPath (file:///workspace/FsusBlog-group-property-recheck-3663/tools/test/system-memory.mjs:33:15)
+    at memoryMountPath (file:///workspace/FsusBlog-group-property-recheck-3663/tools/test/system-memory.mjs:64:12)
+    at file:///workspace/FsusBlog-group-property-recheck-3663/tools/test/system-memory.mjs:90:44
+    at Array.flatMap (<anonymous>)
+    at linuxMemoryMount (file:///workspace/FsusBlog-group-property-recheck-3663/tools/test/system-memory.mjs:73:55)
+    at sampleLinuxCgroupV2HeadroomBytes (file:///workspace/FsusBlog-group-property-recheck-3663/tools/test/system-memory.mjs:185:21)
+    at file:///workspace/FsusBlog-group-property-recheck-3663/[eval1]:1:112
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async node:internal/modules/esm/loader:230:26
+
+Node.js v24.16.0

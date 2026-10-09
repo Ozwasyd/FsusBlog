@@ -1,0 +1,26 @@
+{
+    "capturedUtc": "2026-10-09T11:58:56.378369+00:00",
+    "source": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "originalReader": "tools/test/system-memory.mjs#sampleLinuxCgroupV2HeadroomBytes",
+    "readerSha256": "e347e43ec94bda1b8b97e6e3b75147845e021d87af03a04bc3e1844d42301f63",
+    "probePid": 233337,
+    "selfMembership": "0::/\n",
+    "pid1Membership": "0::/\n",
+    "cgroup2MountLines": [
+        "206 205 0:24 /.. /sys/fs/cgroup ro,nosuid,nodev,noexec,relatime master:8 - cgroup2 cgroup2 rw,nsdelegate"
+    ],
+    "visibleMemoryMaxRaw": "17179869184\n",
+    "visibleMemoryCurrentRaw": "4341768192\n",
+    "visibleCpuMaxRaw": "400000 100000\n",
+    "visibleMembershipContainsProbePid": false,
+    "visibleMembershipZeroPidCount": 0,
+    "capabilities": [
+        "CapEff:\t0000000000000000",
+        "CapBnd:\t0000000000000000",
+        "NoNewPrivs:\t1"
+    ],
+    "mountReadOnly": true,
+    "memoryOrCpuGrantQualified": false,
+    "noResourceFallbackOverride": true,
+    "smallestNextAction": "Qualified executor with canonical cgroup mount root and actual delegated resource hierarchy, or canonical memory-owner source/evidence proving this real namespace mapping without normalizing traversal or inventing headroom. No remount/delegation or host resource mutation performed."
+}

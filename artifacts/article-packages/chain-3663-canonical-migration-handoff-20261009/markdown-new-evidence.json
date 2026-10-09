@@ -1,0 +1,18 @@
+{
+    "command": [
+        "markdownlint-cli2",
+        "--config",
+        ".markdownlint-cli2.jsonc",
+        "--no-globs",
+        ":artifacts/article-packages/chain-3663-canonical-migration-handoff-20261009/README.md",
+        ":artifacts/article-packages/chain-3663-canonical-migration-handoff-20261009/site-context-contract.md"
+    ],
+    "testedSha": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T12:06:05.926671+00:00",
+    "endUtc": "2026-10-09T12:06:06.141227+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/canonical-migration-handoff-20261009/markdown-new-evidence.log"
+}

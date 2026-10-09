@@ -1,0 +1,10 @@
+{
+    "source": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "originalAuthorityGeneratorPostcommitFixedPoint": true,
+    "originalInventoryGeneratorPostcommitFixedPoint": true,
+    "inventoryByteUnchanged": true,
+    "all226EntriesAnd8SourceDigestsUnchanged": true,
+    "completeIndependentIndexByteUnchanged": true,
+    "authorityFixtureChangedOnlyCanonicalMigrationContentIndexDigests": true,
+    "qualificationClaim": false
+}

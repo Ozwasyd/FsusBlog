@@ -1,0 +1,18 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-incremental"
+    ],
+    "testedSha": "018fe311aa6a214cc698281edcac23e6cd4704cf",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T11:48:00.616946+00:00",
+    "endUtc": "2026-10-09T11:50:28.287438+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/canonical-migration-handoff-20261009/producer-original-project-build.log"
+}

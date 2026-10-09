@@ -1,0 +1,19 @@
+{
+    "methods": [
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ServerContext_ComposesOriginalZipPlanAndBoundedDisabledProjection",
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingAuthentication_RefusesBeforeObserverOrArchive",
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestContext_CannotSelectDifferentServerBinding",
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingOrUrlSite_ProducesNoDefaultIdentity",
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ChangedFinalObservation_RefusesCompleteCandidate",
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.OriginalRefusals_ReturnNoPartialProjection",
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestRevokedDuringTargetCopy_RefusesBeforeFinalObserver",
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.FinalRequestMovement_RefusesEvenWhenContextValueIsUnchanged",
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.CancelledAndRepeatedCalls_RefuseWithoutPartialOutputThenRecover",
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.AuthenticationMovementAtProjectionTime_IsCheckedBeforeReturn",
+        "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.CanonicalReaderFailure_IsNotConvertedToAContextOrSuccessfulReview"
+    ],
+    "methodCount": 11,
+    "expectedCaseCount": 26,
+    "filter": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ServerContext_ComposesOriginalZipPlanAndBoundedDisabledProjection|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingAuthentication_RefusesBeforeObserverOrArchive|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestContext_CannotSelectDifferentServerBinding|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingOrUrlSite_ProducesNoDefaultIdentity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ChangedFinalObservation_RefusesCompleteCandidate|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.OriginalRefusals_ReturnNoPartialProjection|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestRevokedDuringTargetCopy_RefusesBeforeFinalObserver|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.FinalRequestMovement_RefusesEvenWhenContextValueIsUnchanged|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.CancelledAndRepeatedCalls_RefuseWithoutPartialOutputThenRecover|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.AuthenticationMovementAtProjectionTime_IsCheckedBeforeReturn|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.CanonicalReaderFailure_IsNotConvertedToAContextOrSuccessfulReview",
+    "emptyOrWideFallback": false
+}
