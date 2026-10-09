@@ -117,7 +117,7 @@ public sealed class ArticleRelationSourceCoordinateAuthorityIntegrationTests(Pos
             await other.Ado.RollbackTranAsync();
         }
         await db.Ado.BeginTranAsync();
-        var native = (NpgsqlTransaction)db.Ado.Transaction;
+        NpgsqlTransaction native = Assert.IsType<NpgsqlTransaction>(db.Ado.Transaction);
         await native.RollbackAsync();
         try
         {
