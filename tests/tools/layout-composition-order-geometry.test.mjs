@@ -30,10 +30,10 @@ function fixture()
             owner, region: id, inheritedOwner: owner, inheritedRegion: id, hidden: false, visible: true };
     });
     const page = { url: 'https://numeric-fixture.invalid/', viewport: { width: 100, height: 80 } };
-    const observation = { archetype, domObservation: { ...page, nodes: structuredClone(nodes) },
-        geometryObservation: { ...page, scroll: { x: 0, y: 0 }, nodes: nodes.map((node) => ({ ...node,
+    const observation = { archetype, domObservation: { ...structuredClone(page), nodes: structuredClone(nodes) },
+        geometryObservation: { ...structuredClone(page), scroll: { x: 0, y: 0 }, nodes: nodes.map((node) => ({ ...node,
             computedVisibility: { display: 'block', visibility: 'visible', opacity: '1', contentVisibility: 'visible' } })) },
-        orderObservation: { ...page, scroll: { x: 0, y: 0 }, rootLayouts: [structuredClone(layout), structuredClone(layout)],
+        orderObservation: { ...structuredClone(page), scroll: { x: 0, y: 0 }, rootLayouts: [structuredClone(layout), structuredClone(layout)],
             nodes: nodes.map((node) => ({ ...node, layout: structuredClone(layout),
                 computedVisibility: { display: 'block', visibility: 'visible', opacity: '1', contentVisibility: 'visible' } })) } };
     setRect(observation, 0, 0, 0, 20, 20);
