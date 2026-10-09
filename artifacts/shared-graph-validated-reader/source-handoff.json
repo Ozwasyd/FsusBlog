@@ -1,0 +1,70 @@
+{
+  "schema": "fsusblog.validated-bounded-reader-source-consumption.v1",
+  "sourceCommit": "0a6160a3d0dc2e2b26595d521cd4754d8bc21896",
+  "base": "6cacdefc07dacb90b6d52786a88b917f42eb9e41",
+  "branch": "codex/shared-graph-validated-reader-20261009",
+  "supplierExactSource": "66021723dff4949a54985e63545b746eee9e9d9a",
+  "changedPath": "src/backend/Services/Authoring/SqlArticleGraphAdmissionReader.cs",
+  "beforeBlob": "03de03657c3a6338729bdbe79f97b95217596da2",
+  "exactSupplierAfterBlob": "ce03fb04aa02b1e1a673b770876275498fc07e5a",
+  "preservedPaths": [
+    {
+      "path": "src/backend/Services/Authoring/ArticleGraphCurrentArticleHost.cs",
+      "unchangedBlob": "5b952f1cd7b7d272ea39672c31c2c98adc915fbe"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticleGraphNodeProjectionConsumer.cs",
+      "unchangedBlob": "6ee195995bd97d57a23231fe6c15d80fb065a128"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticleGraphNodeCandidateResolver.cs",
+      "unchangedBlob": "fb930043037195b859c3e0f005f69901e6342a62"
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
+      "unchangedBlob": "968d8179278cd5b5ce760cdbc8c5c3f613428bda"
+    }
+  ],
+  "parentReportedIndependentEvidence": {
+    "receivedAtUtc": "2026-10-09T13:56:51.031505+00:00",
+    "sourceThreadId": "01a119bf-286b-7181-a7a2-cab094a6102c",
+    "qualifiedBoundedReaderCases": 112,
+    "unitCases": 29,
+    "realPostgresCases": 83,
+    "collectionControls": 11,
+    "testsRerunHere": 0,
+    "statement": "Same original Graph SQL independent reviewer completed112/112 original cases and11collection controls; last disconnect affected final summary commands only. This is reader capability, not wholebranch or rootcomposition acceptance."
+  },
+  "retainedLimits": [
+    "PostgreSQL READ COMMITTED statement observations",
+    "Caller lifecycle ownership and serialization",
+    "Connection and transaction object references do not seal server transaction incarnation",
+    "No atomic latest fence",
+    "Range/trusted using, inherited two method names, generated-output history and held SOURCE still block whole supplier branch qualification"
+  ],
+  "integration": "Byte-exact one-file reader consumption. Same scoped reader and sole authenticated current-article host; existing node consumer/resolver and canonical generation sources untouched. No sourceEpoch-to-DocumentEpoch derivation.",
+  "newIndependentMetadataReader": {
+    "exclusiveOwnerTask": "01a120f0-6a70-725e-ba07-7af45e1ad024",
+    "paths": [
+      "src/backend/Services/Authoring/SqlArticleGraphPersistedMetadataReader.cs",
+      "tests/backend/Unit/SqlArticleGraphPersistedMetadataReaderTests.cs"
+    ],
+    "rootEdits": 0,
+    "admission": "Await exact source identity/evidence; numeric membership facts only, not Graph activation."
+  },
+  "remainingCompositionBlockers": [
+    "Actual canonical adjacency API/retained lease and authoritative usage/truncation/runtime coordinates",
+    "Separate node consumer/resolver/metadata qualification and full current composer acceptance",
+    "Real current rendered and exact-candidate CI acceptance"
+  ],
+  "rootVerification": {
+    "productionLockedRestoreExitCode": 0,
+    "productionServerBuildExitCode": 0,
+    "errors": 0,
+    "warnings": 323,
+    "changedFileDiagnostics": 0,
+    "managedDiscovery": "UNRUN",
+    "managedBodies": "UNRUN",
+    "runtimeQualification": false
+  }
+}

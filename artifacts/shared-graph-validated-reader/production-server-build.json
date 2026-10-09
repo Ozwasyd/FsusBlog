@@ -1,0 +1,22 @@
+{
+  "sourceCommit": "0a6160a3d0dc2e2b26595d521cd4754d8bc21896",
+  "argv": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "build",
+    "src/backend/FsusBlog.Server.csproj",
+    "--no-restore",
+    "-v",
+    "minimal",
+    "--artifacts-path",
+    ".tmp/validated-reader/build"
+  ],
+  "cwd": "/workspace/FsusBlog-graph-validated-reader",
+  "startedAtUtc": "2026-10-09T13:56:10.826583+00:00",
+  "endedAtUtc": "2026-10-09T13:57:15.410209+00:00",
+  "exitCode": 0,
+  "seconds": 64.584,
+  "stdoutArtifact": "production-server-build.log",
+  "runtimeQualification": false
+}

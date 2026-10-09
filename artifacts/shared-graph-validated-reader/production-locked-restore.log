@@ -1,0 +1,5 @@
+  Determining projects to restore...
+  Restored /workspace/FsusBlog-graph-validated-reader/src/shared/FsusBlog.Shared.csproj (in 309 ms).
+  Restored /workspace/FsusBlog-graph-validated-reader/src/core/FsusBlog.Core.csproj (in 1.32 sec).
+  Restored /workspace/FsusBlog-graph-validated-reader/src/backend/FsusBlog.Server.csproj (in 1.37 sec).
+  Restored /workspace/FsusBlog-graph-validated-reader/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 1.39 sec).
