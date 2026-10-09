@@ -1599,6 +1599,22 @@
       "sourceSha": "0cf5953abcff3d3d35980235387b76d84e8fc0ed",
       "status": "UNRUN",
       "reason": "Bounded ordinary transport followup; previous202 type diagnostics and failed SOURCE remain bound to b8/e02, not relabeled as current-source results"
+    },
+    "handoffWhitespaceFailedAttempt": {
+      "head": "31df047c70397d497207b0e258a696fd82f93506",
+      "exitCode": 2,
+      "rawTAPTrailingWhitespaceLines": [
+        11,
+        13,
+        37,
+        61,
+        226,
+        229,
+        254,
+        257
+      ],
+      "originalOutputSHA256": "8c4d630ed8a8a9e3f97c701a0dd190fd99b22c379b869f3215b1ea3bc3ec5454",
+      "preservation": "Exact raw bytes stored in protocol-tests.raw.json; original plain output remains in failedHead history and task-local protocol-tests.txt. No test assertions, statuses, output bytes or source changed."
     }
   },
   "externalRequiredDependenciesAndBlockers": {
