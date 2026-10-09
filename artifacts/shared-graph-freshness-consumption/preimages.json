@@ -1,0 +1,26 @@
+[
+  {
+    "path": "artifacts/change-contract/article-graph-admission-reader-external-naming.json",
+    "preimage": "3292af53a78f958a54e788a9453ee313d752531a",
+    "current": "3292af53a78f958a54e788a9453ee313d752531a",
+    "matched": true
+  },
+  {
+    "path": "src/backend/Services/Authoring/SqlArticleGraphAdmissionReader.cs",
+    "preimage": "23e8237c1f18aed05c91d2f88290543255b2266b",
+    "current": "23e8237c1f18aed05c91d2f88290543255b2266b",
+    "matched": true
+  },
+  {
+    "path": "tests/backend/Integration/SqlArticleGraphAdmissionReaderIntegrationTests.cs",
+    "preimage": "7f55c25b631e65f9edb14fda5f06357266cba9a3",
+    "current": "7f55c25b631e65f9edb14fda5f06357266cba9a3",
+    "matched": true
+  },
+  {
+    "path": "tests/backend/Unit/SqlArticleGraphAdmissionReaderTests.cs",
+    "preimage": "8e2227a4a9e3f7a78a7ddd3ed0404f3085663f83",
+    "current": "8e2227a4a9e3f7a78a7ddd3ed0404f3085663f83",
+    "matched": true
+  }
+]

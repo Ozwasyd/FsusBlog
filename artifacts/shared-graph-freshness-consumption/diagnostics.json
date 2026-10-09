@@ -1,0 +1,9 @@
+{
+  "sourceCommit": "47a4e786a99624334294b5b0941e01d0e933e03d",
+  "distinctDiagnostics": 1508,
+  "selectedReaderAndHostDiagnostics": [],
+  "strictGate": "FAILED",
+  "executableDiscovery": "UNRUN",
+  "root14Bodies": "UNRUN",
+  "new2PostgresBodies": "UNRUN"
+}
