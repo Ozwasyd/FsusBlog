@@ -16,11 +16,11 @@ public sealed class ArticleVaultRecoveryStageComposition
     private readonly PostgresArticleVaultOperationCheckpointStore _checkpointWriter;
 
     /// <summary>
-    /// Retains the supplied sole checkpoint writer. The key store must already own the exact
-    /// independent-domain key, and the clock must be the same trusted clock used by that writer.
+    /// Retains the supplied sole checkpoint writer, data source and clock through its factory.
+    /// The key store must already own the exact independent-domain key.
     /// This composition never instantiates a key store, creates a key or registers runtime services.
     /// </summary>
-    public ArticleVaultRecoveryStageComposition(
+    internal ArticleVaultRecoveryStageComposition(
         PostgresArticleVaultOperationCheckpointStore checkpointWriter,
         NpgsqlDataSource dataSource,
         IArticleVaultResolutionProposalStore proposalStore,
