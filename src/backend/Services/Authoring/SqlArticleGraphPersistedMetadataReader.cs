@@ -29,6 +29,8 @@ internal sealed record ArticleGraphPersistedMetadataFact(
     long CurrentRevisionId,
     long? CurrentPublicationId,
     int? PublicationNo,
+    long? PublicationRevisionId,
+    int? PublicationRevisionNo,
     int CategoryId,
     IReadOnlyList<int> TagIds,
     ArticleRelationRevisionCoordinate Source);
@@ -173,7 +175,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             }
             var facts = Array.AsReadOnly(firstRows!.Select((row, index) => new ArticleGraphPersistedMetadataFact(
                 row.ArticleId, row.CurrentRevisionId, row.CurrentPublicationId,
-                row.PublicationNo, row.SelectedCategoryId,
+                row.PublicationNo, row.PublicationRevisionId, row.PublicationRevisionNo, row.SelectedCategoryId,
                 Array.AsReadOnly(ParseTags(row.SelectedTags)), firstSources![index])).ToArray());
             token.ThrowIfCancellationRequested();
             int remainingMilliseconds = (int)budget.RemainingTime().TotalMilliseconds;
@@ -243,11 +245,15 @@ public sealed class SqlArticleGraphPersistedMetadataReader
                 && row.CurrentRevisionId > 0 && row.CurrentRevisionNo > 0
                 && row.SelectedRevisionId > 0 && row.SelectedRevisionNo > 0 && row.SelectedCategoryId > 0
                 && (row.CurrentPublicationId is null
-                    ? row.PublicationNo is null
-                    : row.CurrentPublicationId > 0 && row.PublicationNo > 0)
+                    ? row.PublicationNo is null && row.PublicationRevisionId is null
+                        && row.PublicationRevisionNo is null && row.PublicationRecordRevisionNo is null
+                    : row.CurrentPublicationId > 0 && row.PublicationNo > 0
+                        && row.PublicationRevisionId > 0 && row.PublicationRevisionNo > 0
+                        && row.PublicationRecordRevisionNo == row.PublicationRevisionNo)
                 && (selection == ArticleGraphMetadataSelection.Current
                     ? row.SelectedRevisionId == row.CurrentRevisionId && row.SelectedRevisionNo == row.CurrentRevisionNo
-                    : row.CurrentPublicationId > 0 && row.PublicationRevisionNo == row.SelectedRevisionNo));
+                    : row.CurrentPublicationId > 0 && row.SelectedRevisionId == row.PublicationRevisionId
+                        && row.SelectedRevisionNo == row.PublicationRevisionNo));
             _ = ParseTags(row.SelectedTags);
         }
     }
@@ -316,7 +322,8 @@ public sealed class SqlArticleGraphPersistedMetadataReader
 
     internal sealed record Row(int ArticleId, ArticleStatus Status, bool IsDeleted,
         long CurrentRevisionId, int CurrentRevisionNo, long? CurrentPublicationId, int? PublicationNo,
-        long SelectedRevisionId, int SelectedRevisionNo, int? PublicationRevisionNo,
+        long? PublicationRevisionId, int? PublicationRevisionNo, int? PublicationRecordRevisionNo,
+        long SelectedRevisionId, int SelectedRevisionNo,
         int SelectedCategoryId, string SelectedTags);
 
     internal sealed record SessionStamp(int BackendId, string TransactionId, IsolationLevel Isolation,
@@ -403,7 +410,8 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             await using NpgsqlCommand command = Command($$"""
                 SELECT a.id, a.status, a.isdeleted, a.current_revision_id, current_revision.revision_no,
                        a.current_publication_id, publication.publication_no,
-                       {{revision}}.id, {{revision}}.revision_no, publication.revision_no,
+                       publication_revision.id, publication_revision.revision_no, publication.revision_no,
+                       {{revision}}.id, {{revision}}.revision_no,
                        {{category}}, {{tags}}
                 FROM article a
                 LEFT JOIN article_revision current_revision ON current_revision.id = a.current_revision_id AND current_revision.article_id = a.id
@@ -419,14 +427,16 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             while (await reader.ReadAsync(token).ConfigureAwait(false))
             {
                 Require(rows.Count < ids.Length);
-                Require(!reader.IsDBNull(3) && !reader.IsDBNull(4) && !reader.IsDBNull(7)
-                    && !reader.IsDBNull(8) && !reader.IsDBNull(10));
-                Require(!reader.IsDBNull(11) || selection == ArticleGraphMetadataSelection.Current);
+                Require(!reader.IsDBNull(3) && !reader.IsDBNull(4) && !reader.IsDBNull(10)
+                    && !reader.IsDBNull(11) && !reader.IsDBNull(12));
+                Require(!reader.IsDBNull(13) || selection == ArticleGraphMetadataSelection.Current);
                 rows.Add(new(reader.GetInt32(0), (ArticleStatus)reader.GetInt32(1), reader.GetBoolean(2),
                     reader.GetInt64(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetInt64(5),
-                    reader.IsDBNull(6) ? null : reader.GetInt32(6), reader.GetInt64(7), reader.GetInt32(8),
-                    reader.IsDBNull(9) ? null : reader.GetInt32(9), reader.GetInt32(10),
-                    reader.IsDBNull(11) ? string.Empty : reader.GetString(11)));
+                    reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                    reader.IsDBNull(7) ? null : reader.GetInt64(7),
+                    reader.IsDBNull(8) ? null : reader.GetInt32(8),
+                    reader.IsDBNull(9) ? null : reader.GetInt32(9), reader.GetInt64(10), reader.GetInt32(11),
+                    reader.GetInt32(12), reader.IsDBNull(13) ? string.Empty : reader.GetString(13)));
             }
             return rows.ToArray();
         }

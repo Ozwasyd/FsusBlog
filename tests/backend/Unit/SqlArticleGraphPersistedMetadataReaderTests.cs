@@ -43,6 +43,8 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
         Assert.Equal(101, fact.CurrentRevisionId);
         Assert.Equal(501, fact.CurrentPublicationId);
         Assert.Equal(5, fact.PublicationNo);
+        Assert.Equal(51, fact.PublicationRevisionId);
+        Assert.Equal(5, fact.PublicationRevisionNo);
         Assert.Equal(revisionId, fact.Source.RevisionId);
         Assert.Equal(categoryId, fact.CategoryId);
         Assert.Equal(SqlArticleGraphPersistedMetadataReader.ParseTags(tagIds), fact.TagIds);
@@ -132,10 +134,33 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
         var fixture = new Fixture { ChangeRow = row => row with { CurrentPublicationId = null, PublicationNo = null } };
         Assert.Null(await fixture.Reader.ReadAsync(Request([1], ArticleGraphMetadataSelection.Publication)));
         Assert.Equal(0, fixture.CoordinateReads);
-        fixture.ChangeRow = row => row with { PublicationRevisionNo = 9 };
+        fixture.ChangeRow = row => row with { PublicationRecordRevisionNo = 9 };
         Assert.Null(await fixture.Reader.ReadAsync(Request([1], ArticleGraphMetadataSelection.Publication)));
         fixture.ChangeRow = row => row with { Status = ArticleStatus.Draft };
         Assert.NotNull(await fixture.Reader.ReadAsync(Request([1], ArticleGraphMetadataSelection.Publication)));
+    }
+
+    [Fact]
+    public async Task CurrentFactsRefuseBrokenPublicationPointersAndAllowAnActuallyAbsentPublication()
+    {
+        var fixture = new Fixture { ChangeRow = row => row with { PublicationRevisionId = null } };
+        Assert.Null(await fixture.Reader.ReadAsync(Request([1])));
+        fixture.ChangeRow = row => row with { PublicationRecordRevisionNo = 9 };
+        Assert.Null(await fixture.Reader.ReadAsync(Request([1])));
+        fixture.ChangeRow = row => row with
+        {
+            CurrentPublicationId = null,
+            PublicationNo = null,
+            PublicationRevisionId = null,
+            PublicationRevisionNo = null,
+            PublicationRecordRevisionNo = null
+        };
+        ArticleGraphPersistedMetadataResult result = Assert.IsType<ArticleGraphPersistedMetadataResult>(
+            await fixture.Reader.ReadAsync(Request([1])));
+        ArticleGraphPersistedMetadataFact fact = Assert.Single(result.Facts);
+        Assert.Equal(101, fact.Source.RevisionId);
+        Assert.Null(fact.CurrentPublicationId);
+        Assert.Null(fact.PublicationRevisionId);
     }
 
     [Theory]
@@ -396,8 +421,8 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
             await BeforeRows(token);
             bool current = selection == ArticleGraphMetadataSelection.Current;
             SqlArticleGraphPersistedMetadataReader.Row[] rows = ids.Select(id => ChangeRow(new(id,
-                ArticleStatus.Published, false, 100 + id, 10, 500 + id, 5,
-                current ? 100 + id : 50 + id, current ? 10 : 5, 5,
+                ArticleStatus.Published, false, 100 + id, 10, 500 + id, 5, 50 + id, 5, 5,
+                current ? 100 + id : 50 + id, current ? 10 : 5,
                 current ? 7 : 3, current ? "9,11" : "2,4"))).ToArray();
             return OmitLastRow ? rows[..^1] : rows;
         }
