@@ -267,6 +267,14 @@ expressions have a null source offset; actual script steps bind their original
 file offsets. This does not register the resulting product component or grant
 its children public identity, runtime behavior or qualification.
 
+Script render constants may expand only through their actual unique immutable
+initializer. JSX child spreads require literal arrays or conditionals of literal
+arrays, and every element is checked. Unknown constants/elements, mutation,
+escape, opaque methods and different-parent reuse remain errors. Reused sources
+under one parent keep every conditional render path and one actual source marker;
+this finite closure supplies no chosen branch or state acceptance. Vnode props
+shorthand retains the actual expression rather than guessing a static value.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

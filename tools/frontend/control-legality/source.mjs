@@ -1049,6 +1049,15 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             finiteComponentBinding(file, object.text);
             function escaped(node)
             {
+                function root(value)
+                {
+                    value = unwrap(value);
+                    while (value && (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)))
+                    {
+                        value = unwrap(value.expression);
+                    }
+                    return value && ts.isIdentifier(value) ? value.text : null;
+                }
                 const argumentsToCheck = ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments ?? []
                     : ts.isVariableDeclaration(node) && node.initializer ? [node.initializer] : [];
                 if (argumentsToCheck.some((argument) =>
@@ -1057,7 +1066,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                     return (ts.isIdentifier(argument) && argument.text === object.text)
                         || (ts.isPropertyAccessExpression(argument) && ts.isIdentifier(argument.expression)
                             && argument.expression.text === object.text && argument.name.text === 'value');
-                }))
+                }) || ((ts.isCallExpression(node) || ts.isNewExpression(node)) && root(node.expression) === object.text))
                 {
                     fail(`escaped component member object ${identity}`);
                 }
@@ -1216,7 +1225,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                 fail(`${owner}: nested component identity argument flow`);
             }
             if ((ts.isCallExpression(node) || ts.isNewExpression(node))
-                && node.arguments?.some((argument) => root(argument) === parameter.name.text))
+                && (node.arguments?.some((argument) => root(argument) === parameter.name.text) || root(node.expression) === parameter.name.text))
             {
                 fail(`${owner}: escaped component identity argument`);
             }

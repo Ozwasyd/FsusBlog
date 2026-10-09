@@ -849,7 +849,19 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 sourceDigest: controlDigest(node.getText()), ancestors, scopedBindings: [],
                 structural: origin.kind === 'framework-structure', conditional, slotInputs: { present: {}, unknown: false },
                 slot: tag === 'slot' ? { name: attributes.name ?? 'default' } : null, teleport: origin.publicName === 'Teleport',
-                sourceSyntax: syntax };
+                sourceSyntax: syntax, renderPaths: [{ parentId, ancestors, conditional }] };
+            const previous = nodes.get(id);
+            if (previous)
+            {
+                if (previous.parentId !== parentId || controlDigest(previous.origin) !== controlDigest(origin))
+                {
+                    fail(`ambiguous script render reuse ${record.file}:${offset}`);
+                }
+                previous.renderPaths.push(...current.renderPaths);
+                previous.conditional = [...new Map([...previous.conditional, ...conditional]
+                    .map((entry) => [controlDigest(entry), entry])).values()];
+                return previous;
+            }
             nodes.set(id, current);
             value.nodes.push(id);
             if (definition && !records.has(definition))
@@ -892,14 +904,15 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             for (const property of properties)
             {
                 const jsx = ts.isJsxAttribute(property);
+                const shorthand = ts.isShorthandPropertyAssignment(property);
                 const name = property.name?.text;
-                if (!name || (!jsx && !ts.isPropertyAssignment(property)) || ts.isComputedPropertyName(property.name)
+                if (!name || (!jsx && !shorthand && !ts.isPropertyAssignment(property)) || ts.isComputedPropertyName(property.name)
                     || names.has(name) || [compositionNodeAttribute, compositionCallAttribute].includes(name))
                 {
                     fail(`unknown/reserved script render attribute ${record.file}:${property.getStart()}`);
                 }
                 names.add(name);
-                const initializer = property.initializer;
+                const initializer = shorthand ? property.name : property.initializer;
                 if (!initializer)
                 {
                     attributes[name] = '';
@@ -934,6 +947,43 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             try
             {
+                if (ts.isIdentifier(node))
+                {
+                    const declarations = [];
+                    function find(candidate)
+                    {
+                        if (ts.isVariableDeclaration(candidate) && ts.isIdentifier(candidate.name) && candidate.name.text === node.text)
+                        {
+                            declarations.push(candidate);
+                        }
+                        function root(value)
+                        {
+                            value = unwrap(value);
+                            while (value && (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)))
+                            {
+                                value = unwrap(value.expression);
+                            }
+                            return value && ts.isIdentifier(value) ? value.text : null;
+                        }
+                        const argumentsToCheck = ts.isCallExpression(candidate) || ts.isNewExpression(candidate) ? candidate.arguments ?? []
+                            : ts.isVariableDeclaration(candidate) && candidate.initializer ? [candidate.initializer] : [];
+                        if (argumentsToCheck.some((argument) => root(argument) === node.text)
+                            || ((ts.isCallExpression(candidate) || ts.isNewExpression(candidate)) && root(candidate.expression) === node.text))
+                        {
+                            fail(`escaped script render constant ${record.file}#${node.text}`);
+                        }
+                        ts.forEachChild(candidate, find);
+                    }
+                    record.scripts.forEach(({ ast }) => find(ast));
+                    if (seen.has(node.text) || declarations.length !== 1 || !(declarations[0].parent.flags & ts.NodeFlags.Const)
+                        || !declarations[0].initializer || record.imports.has(node.text))
+                    {
+                        fail(`unknown script render constant ${record.file}#${node.text}`);
+                    }
+                    unchangedBinding(record, node.text, declarations[0].name);
+                    output(declarations[0].initializer, parentId, ancestors, conditional, new Set([...seen, node.text]));
+                    return;
+                }
                 if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node))
                 {
                     const opening = ts.isJsxElement(node) ? node.openingElement : node;
@@ -949,7 +999,16 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         {
                             if (child.dotDotDotToken)
                             {
-                                fail(`unknown JSX child spread ${record.file}:${child.getStart()}`);
+                                function finiteArray(node)
+                                {
+                                    node = unwrap(node);
+                                    return node && (ts.isArrayLiteralExpression(node) && node.elements.every((element) => !ts.isSpreadElement(element))
+                                        || ts.isConditionalExpression(node) && finiteArray(node.whenTrue) && finiteArray(node.whenFalse));
+                                }
+                                if (!finiteArray(child.expression))
+                                {
+                                    fail(`unknown JSX child spread ${record.file}:${child.getStart()}`);
+                                }
                             }
                             output(child.expression, current.id, [...ancestors, current.id], conditional, new Set(seen));
                         }

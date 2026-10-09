@@ -78,6 +78,8 @@ for (const [label, script] of [
     ['object constructor escape', imports + 'const provider={editor:Glyph}; new Other(provider);'],
     ['object alias mutation', imports + 'const provider={editor:Glyph}; const copied=provider; copied.editor=other;'],
     ['identity constructor escape', imports + 'function identity(value,label){if(new Other(value))return value;throw other;} const provider={editor:identity(Glyph,"name")};'],
+    ['unknown object method', imports + 'const provider={editor:Glyph,change:other}; provider.change();'],
+    ['unknown identity argument method', imports + 'function identity(value,label){if(value.change())return value;throw other;} const provider={editor:identity(Glyph,"name")};'],
     ['unknown member value', imports + 'const provider={editor:unknown};'],
     ['unknown object initializer', imports + 'const provider=unknown;'],
     ['missing member', imports + 'const provider={other:Glyph};'],
