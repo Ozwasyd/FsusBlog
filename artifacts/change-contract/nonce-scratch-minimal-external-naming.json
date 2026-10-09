@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/PublicAot/ReservedCspNonceScratchWriter.cs"
+            ],
+            "reason": "Preserve the existing process-environment naming authority for the registered src/**/*.cs surface. This component only encodes the caller-supplied nonce and delegates to the original template writer; it introduces or renames no environment variables."
+        }
+    ]
+}
