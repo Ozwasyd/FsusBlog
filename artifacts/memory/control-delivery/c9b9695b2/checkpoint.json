@@ -407,8 +407,10 @@
         "deprecation": null
       }
     ],
-    "patchSha256": "a392b704a1fc4c7ec9c0f383e3b88ef5f176ce556bddf0e343168b7a27529de8",
-    "disposition": "Pending coordinator/registration-owner integration; independent memory source does not write shared registration files"
+    "patchSha256": "575f6d2b710a81e7b2bc4441e1c658474ae57f7c8c128152ebf64e4b67d23bb9",
+    "disposition": "Pending coordinator/registration-owner integration; independent memory source does not write shared registration files",
+    "originalPreflightPatchSha256": "a392b704a1fc4c7ec9c0f383e3b88ef5f176ce556bddf0e343168b7a27529de8",
+    "serializationRepair": "Three empty context line prefixes removed; Git apply check passes; twelve registration rows and target files unchanged."
   },
   "configurationCheck": {
     "prospectivePatchCommandExit": 1,
@@ -1694,5 +1696,11 @@
     "clone/overlay/compression/producer peak bounds, native/GPU/platform/performance matrix",
     "shared registration integration, SystemService/SystemConfig/SiteIdentity implementation",
     "fresh restore/audit, production DB, deploy, merge, issue closure, GitHub metadata publishing or cross-chain conflict resolution"
-  ]
+  ],
+  "patchSerializationRepair": {
+    "originalPreflightPatchSha256": "a392b704a1fc4c7ec9c0f383e3b88ef5f176ce556bddf0e343168b7a27529de8",
+    "handoffPatchSha256": "575f6d2b710a81e7b2bc4441e1c658474ae57f7c8c128152ebf64e4b67d23bb9",
+    "sourceOrTestChanged": false,
+    "readOnlyApplyCheckExit": 0
+  }
 }

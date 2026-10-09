@@ -338,14 +338,14 @@ index 05e83113f..9320862f5 100644
 --- a/docs/configuration/backend-configuration-reference.generated.md
 +++ b/docs/configuration/backend-configuration-reference.generated.md
 @@ -5,7 +5,7 @@
- 
+
  ASP.NET Core precedence remains: base appsettings < Production overlay < environment/Compose < explicit command line.
- 
+
 -- Application settings: 228
 +- Application settings: 240
  - Tracked environment variables: 242
  - Mounted file classes: 4
- 
+
 @@ -165,6 +165,18 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
  | `PublicHotRead:MaxSnapshotOverlapBytes` | None | Public delivery and artifacts setting: MaxSnapshotOverlapBytes | `integer` | Production | optional: optional | no | repository-production-overlay; safe-non-secret-default | consumer: public delivery runtime validator | `<integer>` |
  | `PublicHotRead:MinCompressionSavingsPercent` | None | Public delivery and artifacts setting: MinCompressionSavingsPercent | `integer` | Production | optional: optional | no | repository-production-overlay; safe-non-secret-default | consumer: public delivery runtime validator | `<integer>` |

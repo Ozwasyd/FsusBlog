@@ -125,6 +125,18 @@ for name in ['producer.py', 'run-selected.py', 'preflight.json', 'list-tests.log
              'configuration-contract.json', 'configuration-contract.log', 'configuration-baseline.log', 'configuration-delta.json',
              'snapshot-ownership-registration.patch', 'snapshot-ownership-registration.json', 'issue3447.json']:
     shutil.copyfile(work / name, out / name)
+# Normalize empty context lines only; retain the exact preflight serialization hash.
+patch_path = out / 'snapshot-ownership-registration.patch'
+original_patch_hash = handoff['patchSha256']
+patch_path.write_text(''.join('\n' if line == ' \n' else line for line in patch_path.read_text().splitlines(keepends=True)))
+handoff['patchSha256'] = hashlib.sha256(patch_path.read_bytes()).hexdigest()
+handoff['originalPreflightPatchSha256'] = original_patch_hash
+handoff['serializationRepair'] = 'Three empty context line prefixes removed; Git apply check passes; rows unchanged.'
+(out / 'snapshot-ownership-registration.json').write_text(json.dumps(handoff, indent=2) + '\n')
+record['registrationHandoff'] = handoff
+record['patchSerializationRepair'] = {'originalPreflightPatchSha256': original_patch_hash,
+    'handoffPatchSha256': handoff['patchSha256'], 'sourceOrTestChanged': False, 'readOnlyApplyCheckExit': 0}
+subprocess.run(['git', 'apply', '--check', str(patch_path)], check=True)
 shutil.copytree(work / 'attempt-9c4ecddde', out / 'attempt-9c4ecddde')
 (out / 'attempt-9c4ecddde/failure.json').write_text(json.dumps(failure, indent=2) + '\n')
 (out / 'bindings.json').write_text(json.dumps(bindings, indent=2) + '\n')
