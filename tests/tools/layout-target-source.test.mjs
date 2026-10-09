@@ -257,3 +257,40 @@ test('target selector proof rejects a foreign original AST despite identical sou
     const value = s.resolver.parse(foreign).variables.get('host');
     assert.throws(() => resolveCompositionTargetOrigin(s, file, value), /unowned source proof node/);
 });
+
+function origin(s, file)
+{
+    return selector(s, file, 'host');
+}
+
+test('independent nested member escape must refuse a runtime changed alternative', () =>
+{
+    const file = fixture(`<script setup>import {computed} from 'vue';const choices={target:'a'};const container={choices};function change(value){value.choices.target='button';}change(container);const host=computed(()=>state?choices.target:'aside');</script><template><component :is="host"/></template>`);
+    assert.throws(() => origin(source(), file), /escaped|mutated|unbound|unknown/);
+});
+
+test('independent escaped computed selector must refuse unknown mutation', () =>
+{
+    const file = fixture(`<script setup>import {computed} from 'vue';const host=computed(()=>state?'a':'aside');unknown(host);</script><template><component :is="host"/></template>`);
+    assert.throws(() => origin(source(), file), /escaped|mutated|unbound|unknown/);
+});
+
+test('independent actual mutable selector initializer must refuse', () =>
+{
+    const file = fixture(`<script setup>import {computed} from 'vue';let host=computed(()=>state?'a':'aside');host=computed(()=>state?'button':'div');</script><template><component :is="host"/></template>`);
+    const s = source();
+    const value = s.resolver.parse(file).variables.get('host');
+    assert.throws(() => resolveCompositionTargetOrigin(s, file, value), /mutated|unbound|mutable/);
+});
+
+test('independent swapped actual supplying call must refuse wrong target provenance', () =>
+{
+    const { s, node, graph, calls, inputs } = buttonInput();
+    assert.throws(() => bindCompositionTargetInputs(s, node, [{ ...inputs[0], callPath: [calls[1].id] }], graph.nodes), /supplier|target|canonical|call/);
+});
+
+test('independent complete target supplier set must refuse omitted call', () =>
+{
+    const { s, node, graph, inputs } = buttonInput();
+    assert.throws(() => bindCompositionTargetInputs(s, node, [inputs[0]], graph.nodes), /supplier|missing|complete|call/);
+});

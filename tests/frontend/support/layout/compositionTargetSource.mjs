@@ -35,6 +35,97 @@ function targetDefinition(source, target)
     return { targetKind: 'component', definition };
 }
 
+function assertClosedSelector(source, record, branch, selector, ownerName)
+{
+    const { ts } = source.resolver;
+    const names = new Set([ownerName]);
+    const unwrap = (node) =>
+    {
+        while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)))
+        {
+            node = node.expression;
+        }
+        return node;
+    };
+    function targets(node)
+    {
+        node = unwrap(node);
+        if (ts.isConditionalExpression(node))
+        {
+            targets(node.whenTrue);
+            targets(node.whenFalse);
+        }
+        else if (ts.isIdentifier(node))
+        {
+            names.add(node.text);
+            source.resolver.assertImmutableBinding(record.file, node.text);
+            const value = record.variables.get(node.text);
+            if (value && ts.isIdentifier(unwrap(value)))
+            {
+                targets(value);
+            }
+            else if (value && !(ts.isCallExpression(unwrap(value))
+                && unwrap(value).arguments.every((argument) => ts.isStringLiteral(argument) || ts.isNumericLiteral(argument)
+                    || [ts.SyntaxKind.TrueKeyword, ts.SyntaxKind.FalseKeyword, ts.SyntaxKind.NullKeyword].includes(argument.kind))))
+            {
+                fail('unbound target producer requires a closed effect proof');
+            }
+        }
+        else if (!ts.isStringLiteral(node))
+        {
+            fail('unbound target member or callback requires a closed effect proof');
+        }
+    }
+    targets(branch);
+    function references(node)
+    {
+        if (ts.isIdentifier(node) && names.has(node.text)
+            && !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)
+            && !(ts.isPropertyAssignment(node.parent) && node.parent.name === node))
+        {
+            return true;
+        }
+        let found = false;
+        ts.forEachChild(node, (child) => { found ||= references(child); });
+        return found;
+    }
+    // Work only over original resolver records. Close indirect containers and
+    // aliases before checking effects; a const object does not prevent an
+    // unknown callee from mutating the component carried inside it.
+    let changed = true;
+    while (changed)
+    {
+        changed = false;
+        for (const [name, value] of record.variables)
+        {
+            if (!names.has(name) && references(value))
+            {
+                source.resolver.assertImmutableBinding(record.file, name);
+                names.add(name);
+                changed = true;
+            }
+        }
+    }
+    function effects(node)
+    {
+        if ((ts.isCallExpression(node) || ts.isNewExpression(node)) && node !== selector
+            && (references(node.expression) || (node.arguments ?? []).some(references)))
+        {
+            fail('escaped target producer or alias');
+        }
+        if ((ts.isReturnStatement(node) || ts.isExportAssignment(node)) && node.expression && references(node.expression)
+            || ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment && references(node.right)
+            || ts.isVariableStatement(node) && node.modifiers?.some(({ kind }) => kind === ts.SyntaxKind.ExportKeyword)
+                && node.declarationList.declarations.some(({ name }) => ts.isIdentifier(name) && names.has(name.text)))
+        {
+            fail('escaped target producer output');
+        }
+        ts.forEachChild(node, effects);
+    }
+    record.scripts.forEach(({ ast }) => effects(ast));
+}
+
 /**
  * Consume the original expression resolver without collapsing native, component
  * or framework alternatives. Scoped runtime values require their supplier proof;
@@ -79,8 +170,21 @@ export function resolveCompositionTargetOrigin(source, file, expression, { scope
     // script initializer can supply a source step. No synthetic/foreign node
     // borrows the file's byte identity.
     const selectorStep = source.resolver.sourceStep(file, ownedSelector);
-    // The original resolver first proves the complete computed binding and its
-    // effects. Reuse its actual expression-bodied arrow AST to retain repeated
+    let initializer = ownedSelector;
+    while (initializer.parent && (ts.isParenthesizedExpression(initializer.parent) || ts.isAsExpression(initializer.parent)
+        || ts.isSatisfiesExpression(initializer.parent)) && initializer.parent.expression === initializer)
+    {
+        initializer = initializer.parent;
+    }
+    const declaration = initializer.parent;
+    if (!declaration || !ts.isVariableDeclaration(declaration) || declaration.initializer !== initializer || !ts.isIdentifier(declaration.name))
+    {
+        fail('target selector requires its actual immutable initializer owner');
+    }
+    source.resolver.assertImmutableBinding(file, declaration.name.text);
+    // The original resolver supplies finite target identities. The bounded
+    // effect refusals below also require the actual immutable owner. Reuse
+    // its expression-bodied arrow AST to retain repeated
     // branches that its identity-set return intentionally deduplicates. Block
     // flow remains exclusively with the original resolver owner.
     let branchExpression = expression;
@@ -98,6 +202,7 @@ export function resolveCompositionTargetOrigin(source, file, expression, { scope
             branchExpression = fn.body;
         }
     }
+    assertClosedSelector(source, record, branchExpression, selector, declaration.name.text);
     const variants = source.resolver.resolveExpression(file, branchExpression, new Set(), true);
     const identities = (targets) => [...new Set(targets.map(controlDigest))].sort();
     if (controlDigest(identities(canonical)) !== controlDigest(identities(variants)))
