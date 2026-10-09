@@ -11,6 +11,9 @@ export const compositionAnalyzerSources = [
     'tests/frontend/support/layout/compositionSource.mjs',
     'tests/frontend/support/layout/compositionRoutes.mjs',
     'tests/frontend/support/layout/compositionDom.mjs',
+    'tests/frontend/support/layout/compositionGeometry.mjs',
+    'tests/frontend/support/layout/compositionOrderGeometry.mjs',
+    'tests/frontend/support/layout/compositionOverflowGeometry.mjs',
     'tests/frontend/support/layout/compositionContracts.mjs',
     'tools/frontend/control-legality/source.mjs'
 ];

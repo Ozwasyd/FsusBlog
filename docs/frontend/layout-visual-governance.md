@@ -234,6 +234,57 @@ Source changes during the scan remain graph errors. Ordinary factory controls:
 FSUSBLOG_LOCAL_FSUSUI_ROOT=/path/to/FsusUI node --test tests/tools/layout-factory-source.test.mjs
 ```
 
+An actual Vue `defineComponent` export in TS/TSX may bind a finite render
+source through its exact setup and returned arrow function. Direct default
+exports and immutable named exports follow the actual import graph. JSX and Vue
+`h`/`createVNode` preserve native/component targets, attributes, branches and
+unchanged slots with original source locations and digests. Instrumentation
+inserts markers into the original opening tag or vnode props object. Unknown
+children, constructors, props spreads, slot substitution/escape, mutation,
+shadowing, setup return alternatives, async rendering and fallthrough remain
+errors. A proven native target does not authorize opaque children. Route-name
+visual branches remain errors in script render sources as well. This source
+proof supplies no product state, receipt or runtime qualification.
+
+A Vue computed component selector may prove a finite return set through actual
+imports and immutable bindings. Every block path must return, and every return
+including unreachable ones is checked. Unknown flow, fallthrough, async or
+parameterized callbacks, mutable/shadowed imports and unknown returns fail.
+The graph retains all component alternatives and their actual definition files;
+local alternatives remain local. Source traversal follows that finite closure
+and rejects rendered sources outside it. It does not pick a branch or establish
+product state, visibility, legality admission or qualification.
+
+A selected component member may follow a closed immutable object and an actual
+imported zero-argument getter with one object return. A source identity guard
+must return its unchanged actual component input on every non-throwing path;
+its other arguments must be literal values. Proofs retain the actual member,
+getter and guard source steps/digests. Unknown functions, getters, spreads,
+prototype keys, mutations, escapes, changed arguments and nested component refs
+remain errors. Computed object ref unwrapping is permitted only by the explicit
+Vue template-input path, not ordinary script expressions. Synthetic selector
+expressions have a null source offset; actual script steps bind their original
+file offsets. This does not register the resulting product component or grant
+its children public identity, runtime behavior or qualification.
+
+Script render constants may expand only through their actual unique immutable
+initializer. JSX child spreads require literal arrays or conditionals of literal
+arrays, and every element is checked. Unknown constants/elements, mutation,
+escape, opaque methods and different-parent reuse remain errors. Reused sources
+under one parent keep every conditional render path and one actual source marker;
+this finite closure supplies no chosen branch or state acceptance. Vnode props
+shorthand retains the actual expression rather than guessing a static value.
+
+Finite selectors over component-valued props retain every actual prop edge.
+An absent selector needs every input to be absent at the same actual call chain
+and the exact disjunction guard over those inputs; an unknown supplied input
+still fails. An actual imported fallback may follow a closed immutable object
+destructuring with no default or rest binding. Closed prop declaration spreads
+retain their actual fields and reject unknown overrides. Declared Vue attrs
+exclude declared props, but opaque forwarded spreads remain errors even beside
+an explicit component input. The current Dialog motion spread is unresolved;
+its traced Close fallback does not establish a rendered binding or acceptance.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;
@@ -255,3 +306,39 @@ browser observations remain `diagnostic-only` and `fullVisualVerified: false`.
 Authenticated production fixture binding, control admission and the separate
 geometry/state and visual owners remain required. This analyzer neither runs the
 complete geometry/state matrix nor issues visual adjudication.
+
+The separate geometry owner supplies `composition-geometry`; its actual module
+and the supplied `composition-order-geometry` and
+`composition-overflow-geometry` modules are included in the original analyzer
+source digest closure. Their package exports expose the actual supplied modules;
+a module digest alone does not replace the complete source graph. The order
+comparator checks bounded peer block flow and declared ancestry; the overflow
+comparator checks document horizontal bounds and bounded inner scroll extents.
+Both retain unsupported results and diagnostic-only qualification. Raw capture
+or comparator calls require original source/DOM admission before consumption.
+Neither changes the pending/null state matrix nor grants full geometry or
+visual verification. The existing `composition-geometry` public exports
+are `captureCompositionGeometry()`,
+`compareCompositionGeometry({ archetype, domObservation, geometryObservation })`
+and the guarded page caller below. The caller consumes the same current inputs,
+identity and worktree/analyzer binding; it creates no second scene matrix:
+
+```js
+import { probeCompositionGeometryPage } from '@fsusblog/layout-governance/composition-geometry';
+
+await probeCompositionGeometryPage(page, {
+    inputs: run.inputs,
+    archetypeId,
+    stateId,
+    identity: run.identity,
+    currentIdentity,
+    runId: run.runId,
+    runBinding: { worktree: run.worktree, analyzerDigest: run.analyzerDigest }
+});
+```
+
+The existing runtime-binding guard runs before either browser evaluation.
+Current pending bindings and null fixture references remain rejected. The
+comparison covers only `primary-content-visible`; all other predicates remain
+pending, and `fullGeometryVerified` and `fullVisualVerified` remain false. Module
+registration does not qualify a runtime run or authorize a receipt audit.
