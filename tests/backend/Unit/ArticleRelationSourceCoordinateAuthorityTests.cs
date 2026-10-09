@@ -89,6 +89,49 @@ public sealed class ArticleRelationSourceCoordinateAuthorityTests
         Assert.Equal("article_relation_postgres_connection_required", exception.Message);
     }
 
+    [Fact]
+    public async Task BatchRejectsEmptyOversizedDuplicateAndInvalidPairsBeforeDatabaseAccess()
+    {
+        IReadOnlyList<(int ArticleId, long RevisionId)>[] invalid =
+        [
+            Array.Empty<(int, long)>(),
+            Enumerable.Range(1, 65).Select(static id => (id, (long)id)).ToArray(),
+            new (int, long)[] { (1, 1), (1, 1) },
+            new (int, long)[] { (0, 1) },
+            new (int, long)[] { (-1, 1) },
+            new (int, long)[] { (1, 0) },
+            new (int, long)[] { (1, -1) }
+        ];
+        foreach (IReadOnlyList<(int ArticleId, long RevisionId)> pairs in invalid)
+        {
+            ArticleRelationSourceCoordinateException exception = await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
+                () => _authority.ReadRevisionsAsync(null!, pairs));
+            Assert.Equal("article_relation_source_coordinate_invalid", exception.Message);
+        }
+        await Assert.ThrowsAsync<ArgumentNullException>(() => _authority.ReadRevisionsAsync(null!, null!));
+    }
+
+    [Fact]
+    public async Task BatchCancellationStopsBeforeOpeningBorrowedConnection()
+    {
+        using SqlSugarClient db = CreateClient(SqlSugar.DbType.PostgreSQL);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => _authority.ReadRevisionsAsync(db, new (int, long)[] { (1, 1) }, cancellation.Token));
+        Assert.Equal(System.Data.ConnectionState.Closed, db.Ado.Connection.State);
+    }
+
+    [Fact]
+    public async Task BatchRejectsUnsupportedProviderWithoutOpeningConnection()
+    {
+        using SqlSugarClient db = CreateClient(SqlSugar.DbType.Sqlite);
+        ArticleRelationSourceCoordinateException exception = await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
+            () => _authority.ReadRevisionsAsync(db, new (int, long)[] { (1, 1) }));
+        Assert.Equal("article_relation_postgres_connection_required", exception.Message);
+        Assert.Equal(System.Data.ConnectionState.Closed, db.Ado.Connection.State);
+    }
+
     private static string[] InvalidIdentities() =>
     [
         "", "article:1", "revision:dd90413e-7d50-4264-9910-d89294ac2f18",
