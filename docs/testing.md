@@ -23,21 +23,35 @@ report credential custody is not added by this API. Pending remains an initial o
 edit policy outcome; Spam remains a model/signal category rather than a new
 moderation status or an invented transition.
 
+Both initial and mutation observations reconstruct moderation-event continuity
+with `CommentFixtureTimelineVerifier`, checking comment identity, projected/current
+status, event identity and each previous/next link. The production read port's
+`Consistent` flag remains required. A granted-appeal Hidden-to-Approved gap is
+rejected; the verifier does not repair the command, events or moderation policy.
+
 `CommentFixtureMutationRoutingTests` exercises ordinary formal-command routing
 and rereads with read-port models. These controls do not provide PostgreSQL
 transaction, native proof, nullifier or delivery acceptance evidence.
 
 `ICommentThreadFixturePort.ObserveDeliveryAsync` separately consumes the mutation
-observation and rereads the public permalink, first admin queue page, article/root
+observation and rereads the public permalink, all admin queue pages, article/root
 cursor generations, exact outbox references and per-consumer delivery records.
 Required consumers come from `CommentMutationOutboxConsumers.RequiredFor`; the
 bounded queue catalog digest comes from `BoundedQueueDeliveryCatalog.Embedded`.
 Reply notices reuse the actual dispatcher's source-event derivation and reread the
-recipient conversation API. The observer performs no commands, worker drain,
+recipient conversation API through all older message pages, preserving production
+ordering and conversation identity. A missing initial projection remains absent;
+a missing or invalid continuation refuses the observation. The observer performs no commands, worker drain,
 message insertion, cache update or projection repair. It keeps missing/pending,
 failed/poison and duplicate observations available for an independent verifier.
 
-This single-pass API does not claim a full queue traversal, native Redis/stream
+Queue traversal uses `CommentFixtureQueuePageReader` with bounded page/item/lease
+budgets, opaque cursors and terminal-page counts. Repeated cursors or item identities,
+cancellation and exhausted budgets refuse partial output. The serialized
+`AdminQueueFirstPage` field retains its existing name but now contains the target
+comment's items and leases from the complete traversal, with no next page.
+
+These traversals do not establish an atomic snapshot, native Redis/stream
 delivery or terminal acceptance. Public comment DTOs expose edit state rather than
 an exact revision, and the current outbox envelope has no comment revision field;
 the observer must not invent either value. Complete version binding, per-event
