@@ -1,0 +1,151 @@
+{
+  "schema": "fsusblog.canonical-source-module-context-handoff.v1",
+  "qualificationEligible": false,
+  "sourceCommit": "3ee7f919c45ecbda5d7ca92c23fb6a8f67c0a9c1",
+  "branch": "codex/chain-1895-component-prop-source",
+  "sourceRemoteVerified": true,
+  "upstream": {
+    "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+    "status": "",
+    "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "factory": {
+    "import": "@fsusblog/layout-governance/composition-source",
+    "create": "createCompositionSource({repositoryRoot,fsusUIRoot,parserRoot=repositoryRoot})",
+    "context": "source.resolver; {ts,dom} are its existing actual parsers"
+  },
+  "record": {
+    "entry": "resolver.parse(absoluteFile)",
+    "shape": {
+      "file": "absolute source path",
+      "content": "original complete source bytes as UTF-8 string",
+      "scripts": "[{ast: actual TS SourceFile,offset: original script-content offset,setup?: scriptSetup Boolean}]",
+      "template": "null or {ast: actual Vue template AST,offset: template-content offset}",
+      "imports": "Map<localName,{specifier,name}>; excludes type-only imports",
+      "variables": "Map<name,initializerAST>; recursive traversal; NOT a uniqueness, lexical scope or immutability proof",
+      "registrations": "Map<runtimeRegistrationName,componentAST>"
+    },
+    "compositionParseWarning": "source.parse(file) executes render analysis and returns a composition summary; do not substitute it for resolver.parse(file)"
+  },
+  "newHelpers": [
+    {
+      "signature": "resolver.resolveSourceFunction(file, calleeAST)",
+      "result": "{file,fn,name}",
+      "implementation": "existing componentFunction; exact actual immutable import/export/function binding",
+      "limits": "rejects unknown/private imports, duplicate/mutable/shadowed bindings, async/generator/nonfunction; no function purity or parameter escape proof"
+    },
+    {
+      "signature": "resolver.assertImmutableBinding(file,name)",
+      "result": "undefined or throws",
+      "implementation": "existing finiteComponentBinding",
+      "limits": "checks unique binding and writes; parameters and mutable variables rejected. Does not prove callback effects, object alias escape or readonly arguments"
+    },
+    {
+      "signature": "resolver.sourceStep(file,actualScriptASTNode)",
+      "result": "{file,offset,kind:\"script-source\",digest}",
+      "implementation": "membership in resolver actual script AST plus exact original source byte equality, then original componentSourceStep",
+      "offset": "script.offset+node.getStart()",
+      "digest": "controlDigest(node.getText())",
+      "limits": "synthetic expression/factory/foreign AST rejected; not a source identity, component permission, caller-binding or qualification receipt"
+    }
+  ],
+  "existingHelpers": [
+    {
+      "signature": "source.expression(text,file)",
+      "result": "actual TS parsed expression AST; synthetic relative to original source; cannot be given to sourceStep"
+    },
+    {
+      "signature": "source.importFile(file,specifier)",
+      "result": "exact actual allowed source module file; unresolved/private imports throw"
+    },
+    {
+      "signature": "source.componentFile(origin)",
+      "result": "actual source file or null; mutates proven variant/factory metadata; unknown definitions throw"
+    },
+    {
+      "signature": "resolver.modulePath(specifier,importer,upstream=false)",
+      "result": "exact file string or external {package}; never assume the latter is resolved. Upstream @element-plus/* aliases only inside actual upstream imports"
+    },
+    {
+      "signature": "resolver.exportsOf(file)",
+      "result": "Map<exportName, actual origin>; ambiguous/unresolved flags stay rejected"
+    },
+    {
+      "signature": "resolver.resolveComponentInput(file,expressionAST,{templateRefs=false})",
+      "result": "array of actual origins or declared component-prop edges; edges require actual full supplier path, not immediate admission"
+    },
+    {
+      "signature": "resolver.componentProps(file)",
+      "result": "null or {node,file,propsName,attrsName}; not all typed/standalone macro forms are in this helper"
+    },
+    {
+      "signature": "resolver.componentPropDeclaration(file,name)",
+      "result": "null or {file,property,node,defaultNode,declarationDigest}"
+    },
+    {
+      "signature": "resolver.resolveObjectKeyAbsence(file,expressionAST,property,{templateRefs=false})",
+      "result": "{file,property,absent:true,steps,proofDigest}; only key absence, opaque values are not component sources",
+      "proofDigest": "controlDigest({property,steps})"
+    },
+    {
+      "signature": "resolver.sourceBindings()",
+      "result": "{files:[{path,digest}],errors}; original parsed files and resolution inputs; current source and upstream identity drift checked"
+    }
+  ],
+  "digestProtocol": {
+    "function": "controlDigest exported by @fsusblog/control-legality/source",
+    "strings": "SHA256 of original string bytes",
+    "objects": "SHA256 of recursively key-sorted JSON",
+    "moduleFacts": "derive steps from actual nodes. Digest the steps and every semantic output fact of your proof, excluding the proofDigest field itself. Declare actual result shape in the module; integrator binds it to original graph/calls. Do not return permissive placeholders for unresolved inputs",
+    "closure": "keep every actual parse in resolver.sourceBindings(); append actual supplied module to original compositionAnalyzerSources only through central integration; no second parser, registry, route map, source digest or harness",
+    "version": "existing graph schema unchanged by this context helper commit"
+  },
+  "ordinaryVerification": {
+    "selected": 337,
+    "passed": 337,
+    "failed": 0,
+    "skipped": 0,
+    "files": 17,
+    "reviewedCleanupHooks": 17,
+    "heldExcluded": [
+      "all twelve fixtures bind to actual router AST/import graph without a second map",
+      "actual contract, design and FsusUI digests are bound to the current run"
+    ],
+    "receipt": "positive-committed.result.json",
+    "log": "positive-committed.txt",
+    "exactRoster": "exact-337-selection.json",
+    "qualificationEligible": false
+  },
+  "ownership": {
+    "centralOwner": "root #1894/#1895: compositionSource/compositionAnalyzer/control-legality source, package exports, original registry/closure and DOM matching",
+    "slot": "01a1206b-bcfb-74a6-b742-5c120d5de025: compositionSlotSource.mjs + layout-slot-source.test.mjs",
+    "collection": "01a1206b-a3b6-757f-8008-c48d7100b02f: compositionCollectionSource.mjs + layout-collection-source.test.mjs",
+    "functional": "01a1206c-ed23-7558-95a4-e24c03ea7008",
+    "mixedTarget": "01a1206c-b740-7022-ba33-a177d954f029",
+    "finiteRef": "01a1206c-d1b0-71a9-bc36-4fb922bd0030",
+    "newModuleConsumption": "not yet supplied any exact new module commit/evidence to this integrator; consume each actual module when parent supplies identity/evidence; do not wait whole wave",
+    "fiveFilesEditedHere": false
+  },
+  "InputS1": {
+    "status": "OPEN; no rejection removed or product consumer override added",
+    "actualProvider": "FsusUI form.vue provide(formContextKey,reactive({...toRefs(props),...useFormLabelWidth(),...})); formProps.statusIcon is Boolean",
+    "actualConsumer": "Input useFormItem() returns actual inject(formContextKey,undefined); needStatusIcon=computed(()=>form?.statusIcon??false)",
+    "remaining": "derive actual nearest provider and full call/supplier context, genuine absent Boolean runtime semantics and provider payload/read-write closure. No inference from TS union/validator values or mere Settings omitted props"
+  },
+  "issues": {
+    "1894": "frozen migration candidate; full acceptance OPEN",
+    "1895": "ordinary source increments verified; qualified prerequisite commitments and complete current gate acceptance OPEN"
+  },
+  "notRun": [
+    "two held source qualification tests",
+    "shared roles/contracts/matrix",
+    "receipt/substitution/audit",
+    "qualified runtime/browser/native/published",
+    "fresh production inventory"
+  ],
+  "publicationRestrictions": [
+    "no PR/body/comment/label/ready/merge",
+    "normal isolated source branch push only"
+  ]
+}

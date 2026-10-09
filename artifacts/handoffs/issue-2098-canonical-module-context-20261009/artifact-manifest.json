@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "3ee7f919c45ecbda5d7ca92c23fb6a8f67c0a9c1",
+  "qualificationEligible": false,
+  "artifacts": {
+    "contract.result.json": "09cbc1711d74e792dbb78a938137814284ef8a107b05fcfcb03f86ecc0dc17ca",
+    "docs.result.json": "b0a9aea46dc80da3846e531c2f5a9c8d335c12f0dd1f4ca6c930f76cfdd89e00",
+    "exact-337-selection.json": "8531032f4fc81120f4e91b33d11c8c1c7aac525878366bfb631fed411e7da111",
+    "interface.json": "c784bfa8bebc95b7030d63187dc52a22bc40ebfc51d4bc82a4d1fa5168b48992",
+    "positive-committed.result.json": "ca5d9bc5bbf290a98b750fd91de0432bdc9c6cc9d4a09df77b6e2c7da6ef0714",
+    "positive-committed.txt": "66d90b5aed6dec7e25069e0927ad7ab04e67d5c742cf9db2d87bd01b4fd4fd50",
+    "remote.result.json": "e09ab285bc6ec912765de09d4ccd75aa04646833a9e23bc5b67adcaa54faabec",
+    "style.result.json": "c6ef8752f4d72804e78e98c89b508a4f3e9701065b502da25fe2755dfe00472d"
+  }
+}
