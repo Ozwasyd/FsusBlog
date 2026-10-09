@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringFilterContributionContracts.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringFilterContributionQueryMapper.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringFilterRegistryAuthority.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycleResources.cs",
+                "tests/backend/Unit/AuthoringFilterContributionQueryMapperTests.cs",
+                "tests/backend/Unit/AuthoringFilterRegistryAuthorityTests.cs"
+            ],
+            "reason": "Bind the existing closed filter contribution field names to the original verified package without embedding a self-referential package digest in signed payload metadata."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Document the exact caller-visible metadata path and existing closed filter/SavedView interfaces without renaming their contract identifiers."
+        }
+    ]
+}
