@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleGraphNodeProjectionConsumer.cs"
+            ],
+            "reason": "Preserve the C# native-reader adapter surface; internal node-read state uses repository naming and emits no external protocol."
+        }
+    ]
+}
