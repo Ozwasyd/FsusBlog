@@ -4,16 +4,44 @@
         {
             "id": "auth-security-doc-exactness-authority",
             "paths": [
-                "tools/docs/generated-fact-sections/renderers.mjs"
+                "tools/docs/generated-fact-sections/renderers.mjs",
+                "docs/api/schemas-and-errors.md",
+                "docs/architecture/overview.md"
             ],
-            "reason": "Preserve the existing typed renderer authority IDs and external FactObservation spellings while correcting literal table-cell escaping in its sole owner."
+            "reason": "Preserve the existing typed renderer, observation identifiers and current document authority spellings while serializing their exact observed facts."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/comment-command-boundary.md"
+            ],
+            "reason": "Preserve the current content documentation markers, public fact names and command identifiers while consuming the exact owner-generated bound comparison."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/releases/blue-green-deployment-runbook.md"
+            ],
+            "reason": "Preserve the existing runtime-role, deployment and release authority identifiers while consuming the original compiled and matrix observation outputs."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/aeds-only-policy.md",
+                "docs/api/quick-reference.md",
+                "docs/api/stability.md",
+                "docs/architecture/comment-query-boundary.md",
+                "docs/releases/release-identity.md"
+            ],
+            "reason": "Preserve existing external Markdown markers and CSS-like contract spellings across the registered producer-owned document sections; no identifiers are renamed."
         },
         {
             "id": "json-wire-key",
             "paths": [
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve the canonical execution-authority schema field names and producer-owned structure while refreshing exact current source/index digests."
+            "reason": "Preserve the canonical execution-authority schema field names and original producer structure while refreshing exact current renderer content/index digests."
         }
     ]
 }
