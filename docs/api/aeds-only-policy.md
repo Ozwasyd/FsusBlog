@@ -4,9 +4,9 @@ This document defines FsusBlog's protocol governance: **internal application API
 
 Canonical references are [API design](design.md), [API contracts](contracts.md), [schema and error reference](schemas-and-errors.md), the [allowlist](../../tools/contracts/aeds-only-policy.allowlist.json), and the [policy gate](../../tools/contracts/check-aeds-only-policy.mjs). The shell entry point is [`tools/check-aeds-only-policy.sh`](../../tools/check-aeds-only-policy.sh); the focused observation test is [`tests/tools/openapi-aeds-observation.test.mjs`](../../tests/tools/openapi-aeds-observation.test.mjs).
 
-<a id="内部应用-api-定义"></a>
-
 ## Internal application API definition
+
+### 内部应用 API 定义
 
 An endpoint is an internal application API when any of the following is true:
 
@@ -30,9 +30,9 @@ error:    AedsFrameType.ApiError
 - Frontend callers decode through a binary adapter; do not add internal `response.json()` calls.
 - A new frame type, POD codec, or Wasm/TypeScript adapter must ship with a golden fixture or contract/static test.
 
-<a id="允许豁免"></a>
-
 ## Permitted exemptions
+
+### 允许豁免
 
 The following JSON/XML/text paths are permitted only when registered in `tools/contracts/aeds-only-policy.allowlist.json`:
 
@@ -138,6 +138,7 @@ Adding or migrating an AEDS API must update at least:
 - [`docs/api/contracts.md`](contracts.md) and this quick reference
 
 After migration, remove the JSON path's `must-migrate` entry from the allowlist and verify that it no longer appears in the scanner inventory.
+
 ## Current public protocol
 
 <!-- fsus-doc-claim
