@@ -1,0 +1,9 @@
+# Supplied neutral upload-facts type fix matched
+
+The exact parent-supplied df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9 three-file postimages match all declared blobs. The API and decoder adapter both borrow the neutral contracts/binaryApi.ts type. Original TypeScript6.0.3 emits exactly the same JS before/after for all3 files; no schema/codec/runtime grant is introduced by this type-only change.
+
+The actual original current binary import guard runs against a task-owned disposable sourceRoot overlay containing only those3 exact postimages. Its5 unrelated current diagnostics remain. Replacing only the API with its exact original parent preimage adds the real forbidden adapter edge as the sixth diagnostic; original guard assertions/source are untouched. Both guard processes exit1. The overlay is source matching/control evidence, never an imported production transport or runtime receipt. Raw logs retain exact errors and guard-controls.json records the checks.
+
+Request1 is now source_ready_verified; this supersedes only the prior statement that fix identity was missing. current-prerequisite-request.json records the remaining request2: an actual original per-attempt owned-session borrow interface, currently under central owner coordination. No activeSession/URL/localStorage/facts reconstruction is allowed. Reference/cleanup remain separate missing production authorities.
+
+Production files, existing13 probe assertions/hooks and original guards remain byte-identical to04195. Old13 actual results stay bound13fdf19fa and are not rerun or promoted by this source-only matching stage. No provider/runtime integration, full types or HTTP/native/browser/held qualification is claimed. No PR/body/comment/label/ready/merge content write occurred. All10 original assigned issue terminal gates remain open in handoff.json.

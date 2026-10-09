@@ -1,0 +1,18 @@
+{
+  "source": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "fixedOverlayOriginalGuardExit": 1,
+  "fixedExistingDiagnostics": 5,
+  "factsApiViolationAbsent": true,
+  "negativeOriginalParentApiRestoredExit": 1,
+  "negativeDiagnostics": 6,
+  "negativeExactApiToAdapterEdgeRejected": true,
+  "otherFiveDiagnosticsPreserved": true,
+  "originalGuardUnmodified": true,
+  "productionImported": false,
+  "notFullGuardPass": true,
+  "negativeCommand": [
+    "node",
+    "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+  ],
+  "sourceRoot": "/workspace/FsusBlog-provider-transport-fix-match-2246/.tmp/chain-2246/provider-transport-fix-match/guard-source"
+}

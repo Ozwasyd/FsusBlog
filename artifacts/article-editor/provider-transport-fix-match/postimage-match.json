@@ -1,0 +1,11 @@
+{
+  "source": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "parent": "67cebeb0bd666255c50302b9391730783f9db551",
+  "exactSpecifiedBlobs": {
+    "src/frontend/src/api/uploadFacts.ts": "9d26121b7a191923e3a5f3555e85481b936a631d",
+    "src/frontend/src/adapters/binary/uploadAdapter.ts": "981e816ba993c9e0e9ec4111d829b8c6445937af",
+    "src/frontend/src/contracts/binaryApi.ts": "2c3f7ae2e39fe620496aefa21648e06652895a83"
+  },
+  "mode": "read-only three exact postimages overlay in task-owned disposable original-guard source root; no production import",
+  "originalGuard": "d583f9aa26b1a696f52e9ce5a9e3451391447b19"
+}

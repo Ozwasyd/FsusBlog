@@ -1,0 +1,38 @@
+{
+  "branch": "codex/chain-2246-provider-transport-fix-match",
+  "base": "04195f8a0d2ad16d14c8d66a2f876c428e606f3e",
+  "suppliedSource": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "suppliedParent": "67cebeb0bd666255c50302b9391730783f9db551",
+  "sourceMatchedExact": true,
+  "postimageGuardCheck": "Original current guard unchanged; three exact supplied source postimages in isolated task sourceRoot;5 existing errors remain, facts API edge absent. Original parent API restored as negative:6errors with exact forbidden edge, other5 unchanged. Both original guard processes exit1; no full guard pass.",
+  "languageObservation": "Original TypeScript6.0.3:3files syntax0, emitted before/after JS byte-identical; no application/runtime/HTTP/native acceptance claim.",
+  "productionSourceImported": false,
+  "request1": "source_ready_verified; identity now supplied and matched",
+  "request2": "WAITING actual original per-attempt borrow input; central coordination ongoing",
+  "noAuthorityReconstruction": [
+    "activeSession",
+    "URL",
+    "localStorage",
+    "facts projection"
+  ],
+  "currentFrameGrantDecoderSemantics": "supplied delta only moves type declarations/imports;285/275/admin/PoW/token/hash code unchanged",
+  "old13Controls": "not rerun; actual predecessor13fdf19fa4989025508d739b468f554842dd225d evidence retained without promotion to this source-only match stage",
+  "newRuntimeTestsRun": false,
+  "productionAndOldProbeAssertionsHooksGuardsUnchanged": true,
+  "contentAPIWrites": false,
+  "PRBodyCommentLabelReadyMerge": false,
+  "qualification": false,
+  "wholeChainComplete": false,
+  "issues": {
+    "2246": "partial; native scroll/viewport, independent verifier and SOURCE open",
+    "2250": "partial; restoration and qualified current business inputs open",
+    "2253": "partial; large-document/device/a11y acceptance open",
+    "2256": "intent/reader controls passed previously; entire input/governance acceptance open; does not own bytes/upload",
+    "1809": "tracking OPEN; child/boundary evidence aggregation incomplete",
+    "2280": "surface/migration terminal qualification open",
+    "2282": "Live/session fallback terminal qualification open",
+    "2284": "compare/sync/restoration terminal qualification open",
+    "2286": "user/device preference authority terminal qualification open",
+    "2287": "Focus/Typewriter/native viewport qualification open"
+  }
+}

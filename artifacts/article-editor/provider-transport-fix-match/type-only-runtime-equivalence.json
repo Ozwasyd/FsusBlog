@@ -1,0 +1,27 @@
+{
+  "source": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "typescript": "6.0.3",
+  "node": "v24.16.0",
+  "observations": [
+    {
+      "file": "src/frontend/src/api/uploadFacts.ts",
+      "syntaxDiagnostics": 0,
+      "emittedJsByteIdentical": true,
+      "emittedJsSha256": "a0936797f2dcf69ad1feec64e6fd0e105602c5673e3a9f3734b2491467562a9b"
+    },
+    {
+      "file": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "syntaxDiagnostics": 0,
+      "emittedJsByteIdentical": true,
+      "emittedJsSha256": "bc2be98ee27a382d6d65c85efdc95c87659f9af153a816630210ea0269e1bcae"
+    },
+    {
+      "file": "src/frontend/src/contracts/binaryApi.ts",
+      "syntaxDiagnostics": 0,
+      "emittedJsByteIdentical": true,
+      "emittedJsSha256": "80e225f89e4f0fe40657d116527de593b11c6895802c6c73ff0929eb7d6e84ad"
+    }
+  ],
+  "applicationTypeQualification": false,
+  "HTTPNativeQualification": false
+}
