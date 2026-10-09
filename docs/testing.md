@@ -1806,3 +1806,16 @@ focused export check is not a substitute. Compare concrete diagnostics against
 the exact supplied source baseline. Shared mapper/fixture failures must remain
 visible and be routed to their sole owner rather than waived or repaired through
 this consumer boundary.
+
+
+For the facts-only attachment provider path, select the original upload provider,
+business-state and upload API control files plus
+`articleAttachmentFactsBusiness.test.ts`. Discover the exact nonempty names and
+run the large-file facts and existing small-preview positives before the selected
+regression. The actual public API executes through controlled binary transport;
+these tests verify routing, original session-token/PoW forwarding, hash/size
+refusals, interruption, retry coalescing and late current-context cleanup. The
+controlled responses and authority callbacks certify no HTTP/PoW/native server,
+article reference receipt or browser qualification. Preserve the original binary
+import guard failures and route API/adapter boundary defects to its sole owner;
+do not patch shared/client/checker sources in this consumer work.

@@ -3029,3 +3029,15 @@ acceptance.
 `writing-aid-preference-wire.json` binds frames 272–274 to the exact existing Shared preference contracts and Snapshot/Update POD codecs. Snapshot retains the 96-byte fixed record plus a bounded UTF-8 scope blob; Update remains exactly 80 bytes. Receipt payload v1 carries a nonempty canonical UUID, exact `device:` scope, closed update/initialize action, committed status, two original snapshot payloads and the existing receipt digest, bounded to 1,434 bytes. Initialize preserves the canonical previous-revision-zero and committed-defaults rule. C#, TypeScript and native validators recompute the same closed Shared digest arrays; malformed UTF-8, padding, lengths, scope, revisions, actions, defaults or digests fail closed. JSON is used only in the existing internal domain digest algorithm, never as a wire payload or text fallback.
 
 `tools/contracts/generate-writing-aid-preference-wire.mjs` verifies exact source-owner hashes and generates the family codecs; its golden producer preserves the original Snapshot digest witness and adds independent positive and malformed cases. The single native `DecodeFrame` dispatcher rejects family payload errors with error 15. The frontend decoder registry registers the two response roots and the common encoder exports the typed Update request. The existing generic Guid command remains the initialize input; no independent initialize DTO or frame is added. This integration provides no HTTP endpoint, authenticated site/device producer, persisted preference acceptance, migration acceptance or rendered UI receipt. Those require the original domain/service owners and their current evidence.
+
+
+The existing article attachment upload provider reads the original committed
+upload preview for files up to its8,387,832-byte byte budget. Larger completed
+original uploads use `readCommittedUploadFacts` and the original facts285 API,
+which supports the original20MiB limit without returning image bytes. Both paths
+retain the original owned upload session/token, digest and exact-size binding,
+interruption checks and repeated completion/cancellation behavior. A committed
+provider observation carries upload/asset facts only; it grants no verified
+intent, business reference receipt, publish eligibility or preview bytes. The
+original business caller continues to reject current-source changes and retain
+cleanup obligations for late/unconfirmed assets.
