@@ -27,6 +27,8 @@ public sealed class AuthoringCanvasServiceRegistrationTests
 
         Assert.IsType<ArticleRelationSourceCoordinateAuthority>(
             Assert.Single(scope.ServiceProvider.GetServices<ArticleRelationSourceCoordinateAuthority>()));
+        Assert.IsType<SqlArticleGraphAdmissionReader>(
+            Assert.Single(scope.ServiceProvider.GetServices<SqlArticleGraphAdmissionReader>()));
         Assert.IsType<ArticlePropertyDefinitionStore>(
             scope.ServiceProvider.GetRequiredService<IArticlePropertyDefinitionStore>());
         Assert.Single(scope.ServiceProvider.GetServices<IAuthorSavedViewDependencyProvider>()

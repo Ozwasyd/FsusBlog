@@ -13,7 +13,10 @@ namespace FsusBlog.Server.Tests;
 public sealed class ArticlePropertySavedViewDependencyProviderTests
 {
     internal const string SiteScope = "https://property-provider.test";
-    internal static readonly AuthorSavedViewOwner Owner = new(42, SiteScope);
+    internal static AuthorSavedViewOwner Owner
+    {
+        get;
+    } = new(42, SiteScope);
 
     [Fact]
     public async Task All_Eight_Types_Cardinalities_And_Flags_Keep_Execution_Closed()
@@ -155,7 +158,7 @@ public sealed class ArticlePropertySavedViewDependencyProviderTests
             ArticlePropertyDefinition definition = Definition();
             var persistence = Substitute.For<IArticlePropertyDefinitionPersistence>();
             persistence.GetAsync(Arg.Any<ArticlePropertyDefinitionOwner>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-                .Returns(async call =>
+                .Returns<Task<ArticlePropertyDefinition?>>(async call =>
                 {
                     await Task.Yield();
                     var identity = (ClaimsIdentity)accessor.HttpContext!.User.Identity!;

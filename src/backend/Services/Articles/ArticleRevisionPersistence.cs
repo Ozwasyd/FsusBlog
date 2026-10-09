@@ -127,10 +127,15 @@ public static class ArticleRevisionPersistence
 
             if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                return new ArticleRevisionWriteResult(
+                var result = new ArticleRevisionWriteResult(
                     reader.ReadInt64("id"),
                     reader.ReadInt32("revision_no"),
                     contentBlockId);
+                await reader.DisposeAsync().ConfigureAwait(false);
+                await new FsusBlog.Server.Services.Authoring.ArticleRelationSourceCoordinateAuthority()
+                    .ProvisionRevisionAsync(db, articleId, result.Id, cancellationToken)
+                    .ConfigureAwait(false);
+                return result;
             }
             await reader.DisposeAsync().ConfigureAwait(false);
 

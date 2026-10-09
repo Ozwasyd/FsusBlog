@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Entities/ArticleRelationSourceCoordinate.cs",
+                "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs",
+                "src/backend/Services/Authoring/SqlArticleGraphAdmissionReader.cs",
+                "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs"
+            ],
+            "reason": "Preserve registered C# adapter surfaces and the prerequisite's canonical database identifiers; internal admission names follow repository conventions. The complete branch includes the published coordinate prerequisite unchanged."
+        }
+    ]
+}
