@@ -295,6 +295,20 @@ public sealed class AuthoringFilterContributionQueryMapperTests
         Assert.Throws<AuthoringFilterContractException>(() => Mapper(first with { PluginId = "fsusblog.core.plugin" }));
     }
 
+    [Fact]
+    public void Registry_RejectsConflictingVersionsForTheSamePluginIdentity()
+    {
+        AuthoringFilterContribution first = DefaultContribution();
+        AuthoringFilterContribution second = Contribution("identity.equals", AuthorSavedViewFieldKind.Category,
+            "category:1", AuthoringFilterScalarKind.StableIdentity, 1);
+        AuthoringFilterContractException version = Assert.Throws<AuthoringFilterContractException>(() =>
+            new AuthoringFilterContributionQueryMapper([first, second with { PluginVersion = "2.0" }], s_core, Validator()));
+        Assert.Equal("filter_plugin_binding_conflict", version.Code);
+        AuthoringFilterContractException package = Assert.Throws<AuthoringFilterContractException>(() =>
+            new AuthoringFilterContributionQueryMapper([first, second with { PackageSha256 = new string('b', 64) }], s_core, Validator()));
+        Assert.Equal("filter_plugin_binding_conflict", package.Code);
+    }
+
     [Theory]
     [InlineData("Sql")]
     [InlineData("JavaScript")]

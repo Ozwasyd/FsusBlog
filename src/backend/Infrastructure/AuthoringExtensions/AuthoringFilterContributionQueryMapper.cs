@@ -53,12 +53,17 @@ public sealed class AuthoringFilterContributionQueryMapper
         reserved.UnionWith(AuthorSavedViewContract.Fields.Values.SelectMany(static field => field.ExactIdentities));
         reserved.Add(AuthorSavedViewContract.ArticleIdentityTieBreaker);
         var identities = new HashSet<string>(StringComparer.Ordinal);
+        var plugins = new Dictionary<string, (string Version, string Package)>(StringComparer.Ordinal);
         var registry = ImmutableDictionary.CreateBuilder<string, AuthoringFilterContribution>(StringComparer.Ordinal);
         foreach (AuthoringFilterContribution contribution in contributions)
         {
             AuthoringFilterContributionContracts.Require(registry.Count < AuthoringFilterContributionContracts.MaximumContributions,
                 "filter_registry_budget_exceeded");
             AuthoringFilterContributionContracts.Validate(contribution);
+            var binding = (contribution.PluginVersion, contribution.PackageSha256);
+            AuthoringFilterContributionContracts.Require(!plugins.TryGetValue(contribution.PluginId, out var existing)
+                || existing == binding, "filter_plugin_binding_conflict");
+            plugins[contribution.PluginId] = binding;
             AuthoringFilterContributionContracts.Require(!reserved.Contains(contribution.PluginId)
                 && !reserved.Contains(contribution.FilterId), "filter_core_identity_conflict");
             AuthoringFilterContributionContracts.Require(identities.Add(contribution.FilterId), "filter_identity_duplicate");
