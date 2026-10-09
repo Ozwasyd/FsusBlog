@@ -197,6 +197,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthorArticlePinArticleProjectionSource, SqlAuthorArticlePinArticleProjectionSource>();
         services.AddScoped<SqlArticleGraphAdmissionReader>();
         services.AddScoped<ArticleGraphCurrentArticleHost>();
+        services.AddScoped<ArticleGraphNodeCandidateResolver>();
+        services.AddScoped<ArticleGraphNodeProjectionConsumer>();
         services.AddSingleton<IAuthorArticlePinProjectionCache, DirectAuthorArticlePinProjectionCache>();
         services.AddScoped<IAuthorArticlePinReconciliationSink, AuthorArticlePinReconciliationSink>();
         services.AddScoped<IAuthorArticlePinProjectionService, AuthorArticlePinProjectionService>();
