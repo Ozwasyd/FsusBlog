@@ -1,0 +1,24 @@
+{
+  "key": "authority-output-repair-registration-search",
+  "sourceCommit": "e55b29a0b9c038687cc700982fec4155e8ad14bf",
+  "cwd": "/workspace/FsusBlog-saved-draft-authority-evidence",
+  "command": [
+    "git",
+    "grep",
+    "-n",
+    "-F",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "8b5aa9085cdb07d80db67326b7fc2d571964fac8",
+    "--",
+    "tools/governance/change-contract-registry.mjs"
+  ],
+  "startedUtc": "2026-10-09T09:54:47.541035+00:00",
+  "completedUtc": "2026-10-09T09:54:47.558267+00:00",
+  "elapsedSeconds": 0.017,
+  "exitCode": 1,
+  "pid": 136324,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "authority-output-repair-registration-search.log.gz",
+  "qualification": false
+}

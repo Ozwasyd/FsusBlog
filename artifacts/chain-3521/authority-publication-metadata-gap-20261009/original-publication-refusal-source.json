@@ -1,0 +1,24 @@
+{
+  "key": "original-publication-refusal-source",
+  "sourceCommit": "e55b29a0b9c038687cc700982fec4155e8ad14bf",
+  "cwd": "/workspace/FsusBlog-saved-draft-authority-evidence",
+  "command": [
+    "git",
+    "grep",
+    "-n",
+    "-E",
+    "Generated source and output paths must all be changed|Generated output digest mismatch|Generated manifest sources must match|Generated manifest outputs must match|must be changed in this PR:|generated binding path is not changed",
+    "8b5aa9085cdb07d80db67326b7fc2d571964fac8",
+    "--",
+    "tools/governance/change-contract.mjs"
+  ],
+  "startedUtc": "2026-10-09T09:52:56.654249+00:00",
+  "completedUtc": "2026-10-09T09:52:56.672913+00:00",
+  "elapsedSeconds": 0.019,
+  "exitCode": 0,
+  "pid": 135424,
+  "logSha256": "1ec18781b8c728054692afc2fd02092b8b162e174cff374124084deb920e89c7",
+  "logBytes": 986,
+  "rawLogArchive": "original-publication-refusal-source.log.gz",
+  "qualification": false
+}

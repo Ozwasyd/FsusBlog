@@ -1,0 +1,27 @@
+{
+  "key": "original-policy-unchanged",
+  "sourceCommit": "e55b29a0b9c038687cc700982fec4155e8ad14bf",
+  "cwd": "/workspace/FsusBlog-saved-draft-authority-evidence",
+  "command": [
+    "git",
+    "diff",
+    "8b5aa9085cdb07d80db67326b7fc2d571964fac8",
+    "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+    "--",
+    "AGENTS.md",
+    "tools/governance/change-contract.mjs",
+    "tools/governance/change-contract-registry.mjs",
+    "tools/test-matrix/register-public-shell-finite-input.mjs",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs",
+    "tools/test-matrix/release-final-static-boundary.mjs"
+  ],
+  "startedUtc": "2026-10-09T09:52:56.769412+00:00",
+  "completedUtc": "2026-10-09T09:52:56.773811+00:00",
+  "elapsedSeconds": 0.004,
+  "exitCode": 0,
+  "pid": 135439,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "original-policy-unchanged.log.gz",
+  "qualification": false
+}

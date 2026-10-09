@@ -1,0 +1,18 @@
+{
+  "key": "exact-current-publication-inputs",
+  "sourceCommit": "e55b29a0b9c038687cc700982fec4155e8ad14bf",
+  "cwd": "/workspace/FsusBlog-saved-draft-authority-evidence",
+  "command": [
+    "python3",
+    "/workspace/chain-3521-evidence/authority-publication-metadata-gap-20261009/observe-publication-inputs.py"
+  ],
+  "startedUtc": "2026-10-09T09:53:38.162294+00:00",
+  "completedUtc": "2026-10-09T09:53:38.377800+00:00",
+  "elapsedSeconds": 0.216,
+  "exitCode": 0,
+  "pid": 135759,
+  "logSha256": "0ea8bd21fbfc59fb526c7012e2d74a7a209094f0df4be3339962a0d2b28692a9",
+  "logBytes": 4379,
+  "rawLogArchive": "exact-current-publication-inputs.log.gz",
+  "qualification": false
+}

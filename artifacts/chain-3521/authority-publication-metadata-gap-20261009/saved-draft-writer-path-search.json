@@ -1,0 +1,26 @@
+{
+  "key": "saved-draft-writer-path-search",
+  "sourceCommit": "e55b29a0b9c038687cc700982fec4155e8ad14bf",
+  "cwd": "/workspace/FsusBlog-saved-draft-authority-evidence",
+  "command": [
+    "git",
+    "grep",
+    "-n",
+    "-F",
+    "release-final-execution-target-authority-generated-binding",
+    "8b5aa9085cdb07d80db67326b7fc2d571964fac8",
+    "--",
+    "tools",
+    "package.json",
+    "docs"
+  ],
+  "startedUtc": "2026-10-09T09:50:57.664920+00:00",
+  "completedUtc": "2026-10-09T09:50:57.781516+00:00",
+  "elapsedSeconds": 0.117,
+  "exitCode": 1,
+  "pid": 134448,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "saved-draft-writer-path-search.log.gz",
+  "qualification": false
+}

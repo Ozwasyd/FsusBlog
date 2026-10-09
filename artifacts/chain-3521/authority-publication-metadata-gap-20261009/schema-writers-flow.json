@@ -1,0 +1,24 @@
+{
+  "key": "schema-writers-flow",
+  "sourceCommit": "e55b29a0b9c038687cc700982fec4155e8ad14bf",
+  "cwd": "/workspace/FsusBlog-saved-draft-authority-evidence",
+  "command": [
+    "git",
+    "grep",
+    "-n",
+    "-F",
+    "fsusblog.generated-output-binding.v1",
+    "4ecf1f1abd6332054048672613512bdbe23c8069",
+    "--",
+    "tools"
+  ],
+  "startedUtc": "2026-10-09T09:51:36.430555+00:00",
+  "completedUtc": "2026-10-09T09:51:36.497070+00:00",
+  "elapsedSeconds": 0.067,
+  "exitCode": 0,
+  "pid": 134757,
+  "logSha256": "5bf078ad7a24cba327f4b158cb6709c3e08f18950bce6f6a12d56daaeeacddf6",
+  "logBytes": 319,
+  "rawLogArchive": "schema-writers-flow.log.gz",
+  "qualification": false
+}

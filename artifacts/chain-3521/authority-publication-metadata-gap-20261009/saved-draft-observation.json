@@ -1,0 +1,43 @@
+{
+  "kind": "read-only Git blob and source-contract observation",
+  "candidateCommit": "8b5aa9085cdb07d80db67326b7fc2d571964fac8",
+  "comparisonBase": "73338cb1d727a2b36259b0dffffcfc1fbbbe80fb",
+  "changedFiles": [
+    "src/backend/Services/Authoring/CurrentDraftUploadAssetBindingReader.cs",
+    "tests/backend/Unit/CurrentDraftUploadAssetBindingReaderTests.cs",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "manifestPath": "artifacts/change-contract/release-final-execution-target-authority-generated-binding.json",
+  "manifestChanged": false,
+  "declaredSources": [
+    {
+      "path": "config/testing/release-final-execution-authority-index.json",
+      "changed": false,
+      "sha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5"
+    },
+    {
+      "path": "tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "changed": false,
+      "sha256": "85bd0c3eb2a17e9dbda9fb86d4a2c2fd9bd17d9c6eb2ae3ed3e0e97e49c44fef"
+    },
+    {
+      "path": "tools/test-matrix/release-final-static-boundary.mjs",
+      "changed": false,
+      "sha256": "89e18f63eb9edaf6541b4b4bf2c07f7bf93a045a764b7b1fa171299cd6e2adb3"
+    }
+  ],
+  "outputPath": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "outputChanged": true,
+  "manifestOutputSha256": "4a37030eed8ea34b125a4ff0fcacc6bb3588ce9404cda31af1b2fcf3c4d0e951",
+  "actualCommittedOutputSha256": "c01d2371d6d78473102f1022b3cb7f0fbe206b50411377fce6adf04ed23f053a",
+  "indexChanged": false,
+  "indexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+  "publicShellPublisherRemainingImportCount": 48,
+  "publicShellPublisherRequiredRemainingImportCount": 47,
+  "publicShellOwnerRegistrationCount": 1,
+  "matrixChanged": false,
+  "matrixSha256": "9490cad1df744a6dbfb19405fc4857d2c2dff95dfa2383ea93539008f90baaa0",
+  "originalCheckerExecuted": false,
+  "publisherExecuted": false,
+  "acceptanceGranted": false
+}

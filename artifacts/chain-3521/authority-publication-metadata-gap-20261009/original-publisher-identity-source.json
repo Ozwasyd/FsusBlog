@@ -1,0 +1,24 @@
+{
+  "key": "original-publisher-identity-source",
+  "sourceCommit": "e55b29a0b9c038687cc700982fec4155e8ad14bf",
+  "cwd": "/workspace/FsusBlog-saved-draft-authority-evidence",
+  "command": [
+    "git",
+    "grep",
+    "-n",
+    "-E",
+    "const (ownerPath|indexPath|authorityPath|bindingPath|originalIndexDigest)|original.runtimeDynamicImports.length|original execution index authority changed|sources: \\[ownerPath|outputs: \\[|usage: node tools/test-matrix/register-public-shell|writeFileSync\\(path.join\\(root, bindingPath",
+    "8b5aa9085cdb07d80db67326b7fc2d571964fac8",
+    "--",
+    "tools/test-matrix/register-public-shell-finite-input.mjs"
+  ],
+  "startedUtc": "2026-10-09T09:52:56.720845+00:00",
+  "completedUtc": "2026-10-09T09:52:56.729233+00:00",
+  "elapsedSeconds": 0.008,
+  "exitCode": 0,
+  "pid": 135432,
+  "logSha256": "ae4c8f2ab86192b39af13f741d8c519a7d9dedcca49b3ed03aa0483aa706df14",
+  "logBytes": 2249,
+  "rawLogArchive": "original-publisher-identity-source.log.gz",
+  "qualification": false
+}

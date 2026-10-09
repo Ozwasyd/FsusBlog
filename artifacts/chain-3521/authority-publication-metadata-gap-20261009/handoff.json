@@ -1,0 +1,67 @@
+{
+  "kind": "source-contract publication support finding, not a generated-output manifest or acceptance receipt",
+  "latestFetchedMaster": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "consumers": {
+    "savedDraft": "8b5aa9085cdb07d80db67326b7fc2d571964fac8",
+    "flow": "4ecf1f1abd6332054048672613512bdbe23c8069"
+  },
+  "targetManifest": "artifacts/change-contract/release-final-execution-target-authority-generated-binding.json",
+  "result": "blocked: no existing supported writer for the requested manifest; retaining its current source declaration also fails ordinary publication contract",
+  "existingSchemaWriter": {
+    "command": "node tools/test-matrix/register-public-shell-finite-input.mjs --bind",
+    "applicableToRequestedManifest": false,
+    "actualOutput": "artifacts/change-contract/public-shell-finite-input-generated-binding.json",
+    "sources": [
+      "tests/browser-contract/public-shell-finite-input-owner.mjs",
+      "tools/test-matrix/register-public-shell-finite-input.mjs"
+    ],
+    "outputs": [
+      "config/testing/release-final-execution-authority-index.json",
+      "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+    ],
+    "compatibility": "reviewed exact source and 131 dependencies; registered index minus own entry must have 47 imports, two shell entries and original index digest; current minus-own count is 48",
+    "supportsAlternateOutputArgument": false,
+    "executed": false
+  },
+  "requiredOrdinaryBindingContract": {
+    "schema": "fsusblog.generated-output-binding.v1",
+    "manifestMustBeChangedInActualPr": true,
+    "manifestSourcesMustMatchPrGeneratorSource": true,
+    "manifestOutputsMustMatchPrGeneratedOutputs": true,
+    "allDeclaredSourcesAndOutputsMustActuallyChange": true,
+    "outputDigestsFromExactCandidateRegularGitBlobs": true,
+    "metadataManifestIsNotRecursivelyItsOwnInputOrOutput": true,
+    "independentIndexMustRemainByteIdentical": true
+  },
+  "currentDeclaredSources": [
+    "config/testing/release-final-execution-authority-index.json",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs",
+    "tools/test-matrix/release-final-static-boundary.mjs"
+  ],
+  "currentDeclaredOutputs": [
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "contractPredicatesThatFail": {
+    "unchangedManifest": "Generated Digest/evidence must be changed in this PR: artifacts/change-contract/release-final-execution-target-authority-generated-binding.json",
+    "unchangedDeclaredSources": "Generated source and output paths must all be changed in this PR",
+    "staleDigest": "Generated output digest mismatch: tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "scope": "generated binding path is not changed in this PR: <each of the three declared source paths>"
+  },
+  "predicateEvidenceLimit": "These are direct original-source predicate findings against exact Git diffs/blobs. The original checker was not executed and no actual consumer PR body/base was supplied; comparison bases are the coordinating parent-supplied consumer bases. A different proposed PR requires its own original validation.",
+  "supportedHistoricalFallback": "none: the trusted repair registry does not register this authority fixture; existing historical v1/DAG/v2/v3 producers are not repurposed",
+  "correctnessInventoryScope": "Original generate-correctness-attempt-producers.mjs writes its inventory only, not this manifest; its newly permitted execution remains with the consumer owner and has not been run here. Any future generated-output roster must bind the actual future candidate, not the observed current commit.",
+  "nextRequiredInput": "Original publication owner must supply an existing supported exact-manifest writer and a real ordinary source/output PR scope satisfying unchanged original rules; neither is available on these candidates. No supported invocation can presently be given for this requested file.",
+  "notRun": [
+    "authority producer (already completed)",
+    "correctness inventory producer (consumer-owned)",
+    "matrix preflight",
+    "original change-contract checker",
+    "PublicShell publisher",
+    "held controls",
+    "build",
+    "discovery",
+    "tests"
+  ],
+  "writes": "evidence artifacts only; no target manifest, index, generated fixture, rule, schema, source, history or seal modified",
+  "acceptanceGranted": false
+}
