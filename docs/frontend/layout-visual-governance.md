@@ -309,12 +309,17 @@ complete geometry/state matrix nor issues visual adjudication.
 
 The separate geometry owner supplies `composition-geometry`; its actual module
 and the supplied `composition-order-geometry` and
-`composition-overflow-geometry` modules are included in the original analyzer
+`composition-overflow-geometry` and `composition-chrome-geometry` modules
+are included in the original analyzer
 source digest closure. Their package exports expose the actual supplied modules;
 a module digest alone does not replace the complete source graph. The order
 comparator checks bounded peer block flow and declared ancestry; the overflow
 comparator checks document horizontal bounds and bounded inner scroll extents.
-Both retain unsupported results and diagnostic-only qualification. Raw capture
+The chrome comparator requires the original `analyzeCompositionDom` receipt
+replayed against the same current graph, identity, run binding and state. It
+compares viewport-clipped rectangular bands and retains unsupported paint,
+stacking, transforms and primary anchor cases. All supplied comparators retain
+unsupported results and diagnostic-only qualification. Raw capture
 or comparator calls require original source/DOM admission before consumption.
 Neither changes the pending/null state matrix nor grants full geometry or
 visual verification. The existing `composition-geometry` public exports
