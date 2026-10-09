@@ -267,9 +267,24 @@ public sealed class ArticleRelationSourceCoordinateAuthority
         var transaction = db.Ado.Transaction as NpgsqlTransaction;
         Require((db.Ado.Transaction is null || transaction is not null)
             && (!requireTransaction || transaction is not null)
-            && (transaction is null || (!transaction.IsCompleted && ReferenceEquals(transaction.Connection, connection)
+            && (transaction is null || (HasUsableTransaction(transaction, connection)
                 && connection.State == ConnectionState.Open)), "article_relation_caller_transaction_required");
         return new(db, connection, transaction);
+    }
+
+    private static bool HasUsableTransaction(NpgsqlTransaction transaction, NpgsqlConnection connection)
+    {
+        try
+        {
+            // Npgsql's public getter runs its own CheckReady and refuses completed/disposed transactions.
+            // The isolation label itself supplies no authority and is never interpreted here.
+            _ = transaction.IsolationLevel;
+            return ReferenceEquals(transaction.Connection, connection);
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private sealed record NativeSession(ISqlSugarClient Db, NpgsqlConnection Connection, NpgsqlTransaction? Transaction)
@@ -280,7 +295,7 @@ public sealed class ArticleRelationSourceCoordinateAuthority
             Require(ReferenceEquals(Db.Ado.Connection, Connection)
                 && ReferenceEquals(Db.Ado.Transaction, Transaction)
                 && Connection.State == ConnectionState.Open
-                && (Transaction is null || (!Transaction.IsCompleted && ReferenceEquals(Transaction.Connection, Connection))),
+                && (Transaction is null || HasUsableTransaction(Transaction, Connection)),
                 "article_relation_caller_transaction_changed");
         }
 
