@@ -1759,6 +1759,28 @@ allocation; original20MiB upload/commit and internal observation remain supporte
 The read recomputes native bytes, media, SHA, asset version and canonical reference
 facts together. It grants no article operation, revision or verified attachment intent.
 
+### Upload business observations and cancellation boundary
+
+Frontend `getUploadStatus` and `abortUpload` accept the original session token as
+an optional third argument after the signal; owned-session consumers must supply
+it as `X-Fsus-Upload-Token`. Both retain their existing binary routes, admin scope,
+PoW and unified error semantics. Status is an upload observation, and completion
+URLs are not an article intent or resource-operation grant.
+
+The attachment upload consumer uses status and protected frame275 preview to
+observe completed native bytes and canonical asset/reference facts. There is no
+public facts-only route corresponding to the existing internal
+`IFileService.ObserveCommittedUploadAsync(UploadSessionAccess, sha256, ct)` for
+committed images larger than8,387,832 bytes. That consumer reports
+`upload_facts_only_transport_missing`, preserving the original20MiB policy.
+
+The original abort response acknowledges session deletion with `aborted`; it
+contains no atomic committed AssetId/reference or cleanup outcome. A client whose
+commit may have started must retain its original session/recovery obligation and
+observe actual completion, reporting `abort_missing_atomic_commit_outcome` when
+it cannot establish that outcome. It must not treat a failed or interrupted RPC
+as a verified abort or resource cleanup receipt.
+
 ### `UploadInitDto`（初始化响应）
 
 ```json
