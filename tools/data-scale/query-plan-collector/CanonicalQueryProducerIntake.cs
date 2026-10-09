@@ -21,13 +21,7 @@ internal static class CanonicalQueryProducerIntake
     internal static void RefuseMissingInputs(string outputPath, string sourceCommit)
     {
 #if QUERY_PRODUCER_INTAKE_LINKED
-        string? compiledQueryCommit = typeof(CanonicalQueryProducerIntake).Assembly
-            .GetCustomAttributes<AssemblyMetadataAttribute>()
-            .SingleOrDefault(attribute => attribute.Key == "FsusBlog.QuerySourceCommit")?.Value;
-        if (compiledQueryCommit != sourceCommit)
-        {
-            throw new InvalidOperationException("query_producer_intake_query_source_mismatch");
-        }
+        ValidateLinkedQuerySourceCommit(sourceCommit);
         QueryProducerRoleInspection role = QueryProducerRoleIntake.Inspect(null, null);
         QueryPostgresProducerInspection postgres = QueryPostgresProducerIntake.Inspect(
             null, null, null, null, null, ReadOnlySpan<byte>.Empty);
@@ -64,6 +58,17 @@ internal static class CanonicalQueryProducerIntake
     }
 
 #if QUERY_PRODUCER_INTAKE_LINKED
+    internal static void ValidateLinkedQuerySourceCommit(string sourceCommit)
+    {
+        string? compiledQueryCommit = typeof(CanonicalQueryProducerIntake).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .SingleOrDefault(attribute => attribute.Key == "FsusBlog.QuerySourceCommit")?.Value;
+        if (compiledQueryCommit != sourceCommit)
+        {
+            throw new InvalidOperationException("query_producer_intake_query_source_mismatch");
+        }
+    }
+
     // This is compiled API metadata, not an invocation, producer result or receipt.
     private static object DescribeOriginalResolvedHandoff()
     {

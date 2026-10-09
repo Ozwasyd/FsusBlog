@@ -55,6 +55,7 @@ test('real native intake precedes expected mapping and repeated file probes cann
                 assert.equal(refusal.originalInterfacesLinked, true);
                 assert.equal(refusal.roleBlockers.length, 4);
                 assert.equal(refusal.postgresBlockers.length, 11);
+                assert.ok(refusal.postgresBlockers.includes('article_signed_audit_and_complete_seed_acceptance_missing'));
                 const handoff = refusal.originalPostgresResolvedHandoff;
                 assert.equal(handoff.scope, 'compiled-original-resolved-handoff-contract-only');
                 assert.equal(handoff.entrypoint, 'FsusBlog.Server.Services.Fixtures.DataScale.DataScalePostgresArticleProducer.ProduceAndConsumeResolvedAsync');
@@ -78,6 +79,45 @@ test('real native intake precedes expected mapping and repeated file probes cann
     {
         globalThis.fetch = oldFetch;
     }
+});
+
+test('linked original PostgreSQL adapter discovers and runs only its explicit refusal units', (context) =>
+{
+    const collectorPath = process.env.FSUSBLOG_QUERY_INTAKE_COLLECTOR
+        ?? path.join(root, 'tools/data-scale/query-plan-collector/bin/Release/net10.0/QueryPlanCollector.dll');
+    const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+    const invoke = (args) => spawnSync('dotnet', [collectorPath, ...args], { cwd: root, encoding: 'utf8', timeout: 30_000 });
+    const discovered = invoke(['--producer-adapter-unit-list', sourceCommit]);
+    if (!process.env.FSUSBLOG_QUERY_INTAKE_COLLECTOR)
+    {
+        assert.equal(discovered.status, 2, 'unlinked collector cannot discover or execute original-interface units');
+        context.diagnostic('original-interface units UNRUN: explicit source-linked collector unavailable; refusal verified only');
+        return;
+    }
+    assert.equal(discovered.status, 0, discovered.stderr);
+    const list = JSON.parse(discovered.stdout);
+    assert.equal(list.sourceCommit, sourceCommit);
+    const permitted = ['missing-store', 'missing-factory-batch', 'non-utc-clock', 'empty-batch', 'oversized-batch',
+        'missing-production', 'cancelled-handoff', 'missing-expected-inputs'];
+    assert.deepEqual(list.units, permitted);
+    const directory = path.join(root, '.tmp/query-merged-intake/adapter-units', randomUUID());
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(directory, 'discovered-unit-list.json'), discovered.stdout, { mode: 0o600 });
+    for (const unit of permitted)
+    {
+        const output = path.join(directory, unit);
+        const actual = invoke(['--producer-adapter-unit', unit, output, sourceCommit]);
+        assert.equal(actual.status, 0, actual.stderr);
+        const result = JSON.parse(fs.readFileSync(path.join(output, 'unit-result.json')));
+        assert.equal(result.sourceCommit, sourceCommit);
+        assert.equal(result.unit, unit);
+        assert.equal(result.storeFilesCreated, 0);
+        assert.equal(result.qualification, false);
+        assert.equal(fs.existsSync(path.join(output, 'empty-original-store')), false);
+    }
+    const unknown = invoke(['--producer-adapter-unit', 'unpermitted-unit', path.join(directory, 'unknown'), sourceCommit]);
+    assert.equal(unknown.status, 1);
+    assert.equal(fs.existsSync(path.join(directory, 'unknown')), false);
 });
 
 test('semantic owner metadata resolves original compiled business contracts and refuses nonexistent methods', () =>

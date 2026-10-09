@@ -11,6 +11,23 @@ using NpgsqlTypes;
 
 try
 {
+#if QUERY_PRODUCER_INTAKE_LINKED
+    if (args.Length == 2 && args[0] == "--producer-adapter-unit-list")
+    {
+        CanonicalQueryProducerIntake.ValidateLinkedQuerySourceCommit(args[1]);
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            sourceCommit = args[1],
+            units = OriginalPostgresQueryAdapterControls.UnitIds
+        }));
+        return 0;
+    }
+    if (args.Length == 4 && args[0] == "--producer-adapter-unit")
+    {
+        await OriginalPostgresQueryAdapterControls.RunAsync(args[1], args[2], args[3]);
+        return 0;
+    }
+#endif
     if (args.Length == 3 && args[0] == "--producer-intake")
     {
         CanonicalQueryProducerIntake.RefuseMissingInputs(args[1], args[2]);
