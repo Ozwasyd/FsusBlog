@@ -111,7 +111,7 @@ public sealed class CurrentDraftUploadAssetBindingReaderTests
         var fixture = new Fixture();
         if (scenario == "context")
         {
-            fixture.Context = fixture.Context with { RequestId = Guid.NewGuid() };
+            fixture.Context = fixture.Context with { RequestId = Guid.NewGuid().ToString("N") };
         }
         else if (scenario == "revision-coordinate")
         {
@@ -219,6 +219,7 @@ public sealed class CurrentDraftUploadAssetBindingReaderTests
     [InlineData("editor-revision")]
     [InlineData("saved-revision")]
     [InlineData("content-digest")]
+    [InlineData("context-digest")]
     [InlineData("source-sha")]
     [InlineData("principal")]
     public async Task ContextChangesDuringRead_WithdrawFactsEvenWithSameSource(string scenario)
@@ -228,12 +229,13 @@ public sealed class CurrentDraftUploadAssetBindingReaderTests
         {
             fixture.Context = scenario switch
             {
-                "request" => fixture.Context with { RequestId = Guid.NewGuid() },
+                "request" => fixture.Context with { RequestId = Guid.NewGuid().ToString("N") },
                 "document" => fixture.Context with { DocumentId = "different-document" },
-                "epoch" => fixture.Context with { DocumentEpoch = "different-epoch" },
+                "epoch" => fixture.Context with { DocumentEpoch = 2 },
                 "editor-revision" => fixture.Context with { SourceRevision = 24 },
                 "saved-revision" => fixture.Context with { DraftRevision = "server:4" },
                 "content-digest" => fixture.Context with { ContentDigest = new('b', 64) },
+                "context-digest" => fixture.Context with { ContextDigest = new('b', 64) },
                 "source-sha" => fixture.Context with { SourceSha256 = new('c', 64) },
                 _ => fixture.Context
             };
@@ -337,8 +339,9 @@ public sealed class CurrentDraftUploadAssetBindingReaderTests
             DateTime updatedAt = new(2026, 10, 9, 0, 0, 0, DateTimeKind.Utc);
             Draft = new("real-draft-key", articleId, "draft", source, null, null, 1, [1],
                 "client-write-8", 0, null, updatedAt, new ArticleRightsRequest(), null, 3);
-            Context = new(Guid.NewGuid(), "document-1", "opaque-draft-id", "editor-epoch", 23,
-                "server:3", new('a', 64), ArticleVaultManifestCodec.CaptureSourceBytes(Encoding.UTF8.GetBytes(source)).Sha256);
+            Context = new(Guid.NewGuid().ToString("N"), articleId, "document-1", "opaque-draft-id", 1, 23,
+                "server:3", new('2', 64), new('a', 64),
+                ArticleVaultManifestCodec.CaptureSourceBytes(Encoding.UTF8.GetBytes(source)).Sha256);
             Guid assetId = Guid.Parse("11111111-2222-3333-4444-555555555555");
             Session = new(assetId.ToString("N"), 7, "controlled-unit-session-token");
             var id = AssetId.FromGuid(assetId);

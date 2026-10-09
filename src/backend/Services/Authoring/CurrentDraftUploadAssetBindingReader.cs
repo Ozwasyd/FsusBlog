@@ -13,15 +13,18 @@ namespace FsusBlog.Server.Services.Authoring;
 /// <summary>
 /// Current Writer coordinates supplied by its original context reader. ContentDigest is the
 /// opaque canonical JSON digest; SourceSha256 separately identifies the exact markdown bytes.
-/// Neither digest grants permission or proves persistence.
+/// ContextDigest retains the original context reader's complete scope/session binding.
+/// These digests grant no permission and do not prove persistence.
 /// </summary>
 public sealed record CurrentDraftUploadAssetContext(
-    Guid RequestId,
+    string RequestId,
+    int? ArticleId,
     string DocumentId,
     string DraftId,
-    string DocumentEpoch,
+    long DocumentEpoch,
     long SourceRevision,
     string? DraftRevision,
+    string ContextDigest,
     string ContentDigest,
     string SourceSha256);
 
@@ -79,10 +82,11 @@ public sealed class CurrentDraftUploadAssetBindingReader(
         ArgumentNullException.ThrowIfNull(readCurrentContext);
         cancellationToken.ThrowIfCancellationRequested();
         CurrentDraftUploadAssetContext context = reference.Context;
-        if (context is null || context.RequestId == Guid.Empty
+        if (context is null || string.IsNullOrWhiteSpace(context.RequestId)
             || string.IsNullOrWhiteSpace(context.DocumentId) || string.IsNullOrWhiteSpace(context.DraftId)
-            || string.IsNullOrWhiteSpace(context.DocumentEpoch) || context.SourceRevision < 0
-            || !Digest(context.ContentDigest) || !Digest(context.SourceSha256) || !Digest(sha256)
+            || context.DocumentEpoch < 0 || context.SourceRevision < 0 || context.ArticleId != reference.ArticleId
+            || !Digest(context.ContextDigest) || !Digest(context.ContentDigest)
+            || !Digest(context.SourceSha256) || !Digest(sha256)
             || string.IsNullOrWhiteSpace(reference.DraftKey) || reference.DraftKey.Length > 96
             || reference.DraftKey != reference.DraftKey.Trim()
             || reference.ArticleId is <= 0 || reference.AssetId.Value == Guid.Empty
