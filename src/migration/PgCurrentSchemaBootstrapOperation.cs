@@ -22,6 +22,7 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
     private readonly CurrentSchemaCompletePhysicalProjection _expected;
     private readonly string _assemblyPath;
     private readonly string _assemblyDigest;
+    private readonly string _siteIdentityBootstrap;
 
     private PgCurrentSchemaBootstrapOperation(OwnedCurrentSchemaTarget owned, CompiledCurrentSchemaBootstrap compiled,
         CurrentSchemaCompletePhysicalProjection expected, CurrentSchemaVerifierIdentity retainedTool,
@@ -32,6 +33,7 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
         _expected = expected;
         _assemblyPath = assemblyPath;
         _assemblyDigest = assemblyDigest;
+        _siteIdentityBootstrap = SystemSiteIdentityMigrationDefinitions.BootstrapValue(owned, compiled);
         RetainedTool = retainedTool;
         string semantic = OfflineMigrationPlanValidation.Digest(new
         {
@@ -84,12 +86,14 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
         else if (predicateReference == TargetPredicate)
         {
             bool match = PgCurrentSchemaOwnedTargetObserver.Compare(_expected, snapshot.Complete, snapshot.Effects).Count == 0;
-            expected = [.. Facts(("owned_shape_match", "true")), .. ExpectedSeedFacts()];
+            expected = [.. Facts(("owned_shape_match", "true")), .. ExpectedSeedFacts(), .. Facts(("site_identity_bootstrap", "true"))];
             IEnumerable<OfflineMigrationFact> seedFacts = match
                 ? await ReadSeedFactsAsync(connection, transaction, cancellationToken).ConfigureAwait(false)
                 : ExpectedSeedFacts().Select(static fact => fact with { Value = "unobserved" });
+            bool bootstrap = match && await SystemSiteIdentityMigrationDefinitions.MatchesBootstrapAsync(
+                _siteIdentityBootstrap, connection, transaction, cancellationToken).ConfigureAwait(false);
             actual = [.. Facts(("owned_shape_match", match ? "true" : "false")),
-                .. seedFacts];
+                .. seedFacts, .. Facts(("site_identity_bootstrap", bootstrap ? "true" : "false"))];
         }
         else throw new InvalidOperationException("current_schema_bootstrap_predicate_unknown");
         var observation = new OfflineMigrationPredicateObservation(predicateReference, Identity.OperationReference,
@@ -111,10 +115,12 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
         await CurrentSchemaBootstrapCompiler.ExecuteAsync(_compiled, connection, transaction, cancellationToken).ConfigureAwait(false);
         if (!await CheckInitialSeedValuesAsync(connection, transaction, cancellationToken).ConfigureAwait(false))
             throw new InvalidOperationException("current_schema_bootstrap_seed_values_mismatch");
+        await SystemSiteIdentityMigrationDefinitions.InsertBootstrapAsync(
+            _siteIdentityBootstrap, connection, transaction, cancellationToken).ConfigureAwait(false);
         OfflineMigrationPredicateObservation after = await ObserveAsync(TargetPredicate, connection, transaction, cancellationToken).ConfigureAwait(false);
         if (!after.ExpectedFacts.SequenceEqual(after.ActualFacts))
             throw new InvalidOperationException("current_schema_bootstrap_target_postcondition_failed");
-        long rows = _expected.BootstrapDataEffects.Count;
+        long rows = _expected.BootstrapDataEffects.Count + 1;
         return new(null, null, null, rows, rows, true);
     }
 
@@ -154,7 +160,7 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
         }
         // The original core fact vector has 256 slots; do not fabricate a truncated
         // observation if a future owned source cannot fit its native vocabulary.
-        if (facts.Count + 1 > 256) throw new InvalidOperationException("current_schema_bootstrap_seed_fact_capacity_unavailable");
+        if (facts.Count + 2 > 256) throw new InvalidOperationException("current_schema_bootstrap_seed_fact_capacity_unavailable");
         return facts.OrderBy(static fact => fact.Name, StringComparer.Ordinal).ToImmutableArray();
     }
 

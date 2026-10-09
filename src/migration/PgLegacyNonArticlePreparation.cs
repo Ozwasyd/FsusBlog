@@ -54,6 +54,12 @@ internal sealed partial class PgLegacyNonArticlePreparation
         await stage.RevalidateSourceAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         await stage.OwnedTarget.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
         await stage.ReadStagedCurrentTargetAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+        // Generic legacy import has no grant to continue or clone an installation.
+        // Reject the whole protected prefix before any import, rather than copying
+        // supplied authority or silently omitting old lifecycle facts.
+        await RequireNoRowsAsync(connection, transaction,
+            "SELECT COUNT(*) FROM " + schema + ".\"sys_systemconfig\" WHERE left(\"key\", 13) = 'SiteIdentity_'",
+            "legacy_site_identity_requires_explicit_lifecycle_intent", cancellationToken).ConfigureAwait(false);
         IReadOnlyList<LegacyTableProgram> programs = Compile(stage.OwnedTarget.ReadBoundInput(), schema);
         var result = new PgLegacyNonArticlePreparation(stage, programs);
         await result.RequireLosslessInputsAsync(connection, transaction, cancellationToken).ConfigureAwait(false);

@@ -1,5 +1,12 @@
 using System.Data;
 using System.Data.Common;
+using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
+
+using FsusBlog.Contracts.Migration;
+using FsusBlog.Migration;
+using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 
 using Npgsql;
 
@@ -22,17 +29,25 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
     [Fact]
     public async Task OrdinaryRead_IsZeroWriteAndFreshInitializationPersistsAcrossRestart()
     {
-        string connection = await EmptyDatabaseAsync();
+        using (SqlSugarClient bare = PostgresSqlSugarTestClient.Create(await EmptyDatabaseAsync()))
+        {
+            SystemService service = SystemSiteIdentityTests.CreateService(bare);
+            Assert.Equal(SystemSiteIdentityState.Absent, (await service.ReadCurrentSiteIdentityAsync()).State);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => CommitAsync(bare, () => service.InitializeSiteIdentityAsync(Guid.NewGuid(), Scope)));
+            Assert.Equal(0, await bare.Queryable<SystemConfig>().CountAsync());
+        }
+        string connection = await BootstrappedDatabaseAsync();
         string identity;
         using (SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection))
         {
             SystemService service = SystemSiteIdentityTests.CreateService(db);
-            Assert.Equal(SystemSiteIdentityState.Absent, (await service.ReadCurrentSiteIdentityAsync()).State);
-            Assert.Equal(0, await db.Queryable<SystemConfig>().CountAsync());
+            Assert.Equal(SystemSiteIdentityState.InitializationRequired, (await service.ReadCurrentSiteIdentityAsync()).State);
+            Assert.Equal(1, await db.Queryable<SystemConfig>().CountAsync());
+            Assert.Equal(1, await db.Ado.GetIntAsync("SELECT count(*) FROM public_article_projection_backfill WHERE scope='global' AND state='paused' AND last_article_id=0"));
             SystemSiteIdentityReadModel result = await CommitAsync(db, () => service.InitializeSiteIdentityAsync(Guid.NewGuid(), Scope));
             identity = result.Identity!;
             Assert.Matches("^fsus-site:[0-9a-f]{64}$", identity);
-            Assert.Equal(2, await db.Queryable<SystemConfig>().CountAsync());
+            Assert.Equal(3, await db.Queryable<SystemConfig>().CountAsync());
             Assert.All(await db.Queryable<SystemConfig>().ToListAsync(), row =>
             {
                 Assert.InRange(row.Key.Length, 1, 64);
@@ -48,7 +63,7 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
     [Fact]
     public async Task ConcurrentInitialization_ExactIntentReplayCreatesOnlyOneIdentity()
     {
-        string connection = await EmptyDatabaseAsync();
+        string connection = await BootstrappedDatabaseAsync();
         Guid intent = Guid.NewGuid();
         Task<SystemSiteIdentityReadModel>[] tasks = Enumerable.Range(0, 8).Select(async _ =>
         {
@@ -58,7 +73,7 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
         SystemSiteIdentityReadModel[] results = await Task.WhenAll(tasks);
         Assert.Single(results.Select(result => result.Identity).Distinct());
         using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connection);
-        Assert.Equal(2, await verify.Queryable<SystemConfig>().CountAsync());
+        Assert.Equal(3, await verify.Queryable<SystemConfig>().CountAsync());
         await Assert.ThrowsAsync<InvalidOperationException>(() => CommitAsync(verify, () =>
             SystemSiteIdentityTests.CreateService(verify).InitializeSiteIdentityAsync(Guid.NewGuid(), Scope)));
     }
@@ -66,62 +81,64 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
     [Fact]
     public async Task ReplayChangedInput_AndSupersededIntentRefuse()
     {
-        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await EmptyDatabaseAsync());
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await BootstrappedDatabaseAsync());
         SystemService service = SystemSiteIdentityTests.CreateService(db);
         Guid intent = Guid.NewGuid();
         await CommitAsync(db, () => service.InitializeSiteIdentityAsync(intent, Scope));
         await Assert.ThrowsAsync<InvalidOperationException>(() => CommitAsync(db, () => service.InitializeSiteIdentityAsync(intent, "https://other.example")));
         await CommitAsync(db, () => service.ChangeSiteIdentityScopeAsync(Guid.NewGuid(), 1, 1, "https://alias.example", true));
         await Assert.ThrowsAsync<InvalidOperationException>(() => CommitAsync(db, () => service.InitializeSiteIdentityAsync(intent, Scope)));
-        Assert.Equal(3, await db.Queryable<SystemConfig>().CountAsync());
+        Assert.Equal(4, await db.Queryable<SystemConfig>().CountAsync());
     }
 
     [Fact]
     public async Task CallerRollback_RemovesIdentityAndPreservesOtherTransactionWork()
     {
-        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await EmptyDatabaseAsync());
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await BootstrappedDatabaseAsync());
         SystemService service = SystemSiteIdentityTests.CreateService(db);
         db.Ado.BeginTran(IsolationLevel.ReadCommitted);
         await service.InitializeSiteIdentityAsync(Guid.NewGuid(), Scope);
         Assert.Equal(SystemSiteIdentityState.Current, (await service.ReadCurrentSiteIdentityAsync()).State);
         db.Ado.RollbackTran();
-        Assert.Equal(SystemSiteIdentityState.Absent, (await service.ReadCurrentSiteIdentityAsync()).State);
+        Assert.Equal(SystemSiteIdentityState.InitializationRequired, (await service.ReadCurrentSiteIdentityAsync()).State);
+        Assert.Equal(1, await db.Queryable<SystemConfig>().CountAsync());
         db.Ado.BeginTran(IsolationLevel.ReadCommitted);
         await db.Insertable(new SystemConfig { Key = "Seo_Title", Value = "caller-owned" }).ExecuteCommandAsync();
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.InitializeSiteIdentityAsync(Guid.NewGuid(), Scope));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ChangeSiteIdentityScopeAsync(Guid.NewGuid(), 1, 1, Scope, true));
         db.Ado.CommitTran();
-        Assert.Equal("caller-owned", (await db.Queryable<SystemConfig>().SingleAsync()).Value);
+        Assert.Equal("caller-owned", (await db.Queryable<SystemConfig>().InSingleAsync("Seo_Title")).Value);
+        Assert.Equal(2, await db.Queryable<SystemConfig>().CountAsync());
     }
 
     [Fact]
     public async Task SecondInsertFailure_RollsBackOperationSavepointWithoutCommittingCaller()
     {
-        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await EmptyDatabaseAsync());
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await BootstrappedDatabaseAsync());
         await db.Ado.ExecuteCommandAsync("ALTER TABLE public.sys_systemconfig ADD CONSTRAINT test_reject_scope CHECK (left(key, 19) <> 'SiteIdentity_Scope_')");
         db.Ado.BeginTran(IsolationLevel.ReadCommitted);
         await Assert.ThrowsAnyAsync<DbException>(() => SystemSiteIdentityTests.CreateService(db).InitializeSiteIdentityAsync(Guid.NewGuid(), Scope));
-        Assert.Equal(0, await db.Queryable<SystemConfig>().CountAsync());
+        Assert.Equal(1, await db.Queryable<SystemConfig>().CountAsync());
         await db.Insertable(new SystemConfig { Key = "Seo_Title", Value = "survives" }).ExecuteCommandAsync();
         db.Ado.CommitTran();
-        Assert.Equal(1, await db.Queryable<SystemConfig>().CountAsync());
+        Assert.Equal(2, await db.Queryable<SystemConfig>().CountAsync());
     }
 
     [Fact]
     public async Task MissingTransactionAndCancellation_AllocateNothing()
     {
-        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await EmptyDatabaseAsync());
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await BootstrappedDatabaseAsync());
         SystemService service = SystemSiteIdentityTests.CreateService(db);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.InitializeSiteIdentityAsync(Guid.NewGuid(), Scope));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CommitAsync(db, () => service.InitializeSiteIdentityAsync(Guid.NewGuid(), Scope, cancellation.Token)));
-        Assert.Equal(0, await db.Queryable<SystemConfig>().CountAsync());
+        Assert.Equal(1, await db.Queryable<SystemConfig>().CountAsync());
     }
 
     [Fact]
     public async Task CancellationDuringStorageLock_RestoresCallerSavepointAndAllocatesNothing()
     {
-        string connection = await EmptyDatabaseAsync();
+        string connection = await BootstrappedDatabaseAsync();
         using SqlSugarClient blocker = PostgresSqlSugarTestClient.Create(connection);
         using SqlSugarClient victim = PostgresSqlSugarTestClient.Create(connection);
         blocker.Ado.BeginTran(IsolationLevel.ReadCommitted);
@@ -145,7 +162,7 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
             Assert.True(waiting, "The original operation must actually wait on the PostgreSQL storage lock.");
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
-            Assert.Equal(0, await victim.Queryable<SystemConfig>().CountAsync());
+            Assert.Equal(1, await victim.Queryable<SystemConfig>().CountAsync());
             Assert.Equal(1, await victim.Ado.GetIntAsync("SELECT 1"));
         }
         finally
@@ -159,12 +176,12 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
     [Fact]
     public async Task WrongIsolationAndStorageFailure_RefuseWithoutFallback()
     {
-        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await EmptyDatabaseAsync());
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await BootstrappedDatabaseAsync());
         SystemService service = SystemSiteIdentityTests.CreateService(db);
         db.Ado.BeginTran(IsolationLevel.RepeatableRead);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.InitializeSiteIdentityAsync(Guid.NewGuid(), Scope));
         db.Ado.RollbackTran();
-        Assert.Equal(0, await db.Queryable<SystemConfig>().CountAsync());
+        Assert.Equal(1, await db.Queryable<SystemConfig>().CountAsync());
         await db.Ado.ExecuteCommandAsync("DROP TABLE public.sys_systemconfig");
         await Assert.ThrowsAnyAsync<DbException>(() => service.ReadCurrentSiteIdentityAsync());
     }
@@ -181,13 +198,15 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
         SystemSiteIdentityReadModel migrated = await CommitAsync(db, () => service.MigrateLegacySiteIdentityAsync(Guid.NewGuid(), "https://historical.example"));
         Assert.Equal("https://historical.example", Assert.Single(migrated.Scopes).Scope);
         Assert.Equal("https://historical.example", await db.Ado.GetStringAsync("SELECT scope FROM public.legacy_fact"));
+        // The original staged legacy import refuses even a structurally valid
+        // protected journal; ordinary config remains lossless when unprotected.
+        await VerifyOriginalLegacyImportAsync(await db.Queryable<SystemConfig>().ToListAsync());
     }
 
     [Fact]
     public async Task EditableSeoComplianceAndPages_CannotOverwriteIdentityOrMappings()
     {
-        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await EmptyDatabaseAsync());
-        PostgresSqlSugarTestClient.InitTables(db, typeof(PageContent));
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await BootstrappedDatabaseAsync());
         SystemService service = SystemSiteIdentityTests.CreateService(db);
         SystemSiteIdentityReadModel original = await CommitAsync(db, () => service.InitializeSiteIdentityAsync(Guid.NewGuid(), Scope));
         Dictionary<string, string> journal = (await db.Queryable<SystemConfig>().ToListAsync()).ToDictionary(row => row.Key, row => row.Value);
@@ -207,7 +226,7 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
     [Fact]
     public async Task MappingHistory_RejectsVersionDriftAndKeepsIdentity()
     {
-        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await EmptyDatabaseAsync());
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await BootstrappedDatabaseAsync());
         SystemService service = SystemSiteIdentityTests.CreateService(db);
         SystemSiteIdentityReadModel original = await CommitAsync(db, () => service.InitializeSiteIdentityAsync(Guid.NewGuid(), Scope));
         Guid aliasIntent = Guid.NewGuid();
@@ -219,7 +238,7 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
         Assert.Equal(3, removed.MappingRevision);
         Assert.Equal("https://alias.example", Assert.Single(removed.Scopes).Scope);
         await Assert.ThrowsAsync<InvalidOperationException>(() => CommitAsync(db, () => service.ChangeSiteIdentityScopeAsync(Guid.NewGuid(), 1, 3, "https://alias.example", false)));
-        Assert.Equal(4, await db.Queryable<SystemConfig>().CountAsync());
+        Assert.Equal(5, await db.Queryable<SystemConfig>().CountAsync());
     }
 
     [Fact]
@@ -239,20 +258,24 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
     [Fact]
     public async Task RestoreContinuationAndExplicitIndependentClone_HaveDifferentIdentitySemantics()
     {
-        string connection = await EmptyDatabaseAsync();
+        string connection = await BootstrappedDatabaseAsync();
         using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
         SystemService service = SystemSiteIdentityTests.CreateService(db);
         SystemSiteIdentityReadModel original = await CommitAsync(db, () => service.InitializeSiteIdentityAsync(Guid.NewGuid(), Scope));
         await CommitAsync(db, () => service.ChangeSiteIdentityScopeAsync(Guid.NewGuid(), 1, 1, "https://former-alias.example", true));
+        await db.Ado.ExecuteCommandAsync("CREATE TABLE public.old_scoped_fact (scope text); INSERT INTO public.old_scoped_fact VALUES ('https://installation.example')");
         SystemConfig[] backup = (await db.Queryable<SystemConfig>().ToListAsync()).ToArray();
         using SqlSugarClient restore = PostgresSqlSugarTestClient.Create(await EmptyDatabaseAsync());
         await restore.Insertable(backup).ExecuteCommandAsync();
+        await restore.Ado.ExecuteCommandAsync("CREATE TABLE public.old_scoped_fact (scope text); INSERT INTO public.old_scoped_fact VALUES ('https://installation.example')");
         SystemService restored = SystemSiteIdentityTests.CreateService(restore);
         Assert.Equal(original.Identity, (await restored.ReadCurrentSiteIdentityAsync()).Identity);
         Guid cloneIntent = Guid.NewGuid();
         await Assert.ThrowsAsync<InvalidOperationException>(() => CommitAsync(restore, () => restored.CloneSiteIdentityAsync(cloneIntent, 1, 2, Scope, SystemSiteIdentityCloneDisposition.RetainAsForeign)));
         SystemSiteIdentityReadModel clone = await CommitAsync(restore, () => restored.CloneSiteIdentityAsync(cloneIntent, 1, 2, "https://independent.example", SystemSiteIdentityCloneDisposition.RetainAsForeign));
         Assert.NotEqual(original.Identity, clone.Identity);
+        Assert.Equal(Scope, await restore.Ado.GetStringAsync("SELECT scope FROM public.old_scoped_fact"));
+        Assert.DoesNotContain(clone.Scopes, mapping => mapping.Scope == Scope);
         Assert.Equal(2, clone.Generation);
         Assert.Equal(1, clone.MappingRevision);
         Assert.Equal(clone.Identity, (await CommitAsync(restore, () => restored.CloneSiteIdentityAsync(cloneIntent, 1, 2, "https://independent.example", SystemSiteIdentityCloneDisposition.RetainAsForeign))).Identity);
@@ -262,6 +285,89 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
             Assert.Equal(row.Value, (await restore.Queryable<SystemConfig>().InSingleAsync(row.Key)).Value);
         }
         Assert.Equal(original.Identity, (await service.ReadCurrentSiteIdentityAsync()).Identity);
+    }
+
+    private static readonly Lazy<Task<OwnedCurrentSchemaTarget>> OwnedTarget = new(InvokeOriginalOwnerAsync);
+
+    private static async Task<OwnedCurrentSchemaTarget> InvokeOriginalOwnerAsync()
+    {
+        Assembly original = typeof(SqlSugarInitializer).Assembly;
+        string revision = original.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(attribute => attribute.Key == "FsusBlog.SourceCommit").Value!;
+        string evidence = Path.Combine(BackendTestPaths.RepositoryRoot, ".tmp", "site-identity-owner", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(evidence);
+        return await OwnedCurrentSchemaTarget.InvokeOriginalOwnerAsync(original.Location, revision, evidence, CancellationToken.None);
+    }
+
+    private async Task<string> BootstrappedDatabaseAsync()
+    {
+        OwnedCurrentSchemaTarget owned = await OwnedTarget.Value;
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+        // Controlled component inputs are not a production retained-tool grant.
+        string digest = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(typeof(PgCurrentSchemaBootstrapOperation).Assembly.Location)));
+        var verifier = new CurrentSchemaVerifierIdentity(owned.Execution.SourceRevision, digest, digest,
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Scope))));
+        PgCurrentSchemaBootstrapOperation operation = await PgCurrentSchemaBootstrapOperation.CreateAsync(owned, verifier, CancellationToken.None);
+        await operation.ExecuteAsync(operation.Step, null, connection, transaction, CancellationToken.None);
+        var observation = await operation.ObserveAsync(PgCurrentSchemaBootstrapOperation.TargetPredicate, connection, transaction, CancellationToken.None);
+        Assert.Equal(observation.ExpectedFacts, observation.ActualFacts);
+        await transaction.CommitAsync();
+        return connectionString;
+    }
+
+    private async Task VerifyOriginalLegacyImportAsync(IReadOnlyList<SystemConfig> protectedRows)
+    {
+        OwnedCurrentSchemaTarget owned = await OwnedTarget.Value;
+        using SqlSugarClient fresh = PostgresSqlSugarTestClient.Create(await BootstrappedDatabaseAsync());
+        IReadOnlyList<SystemConfig> bootstrapRows = await fresh.Queryable<SystemConfig>().ToListAsync();
+        foreach (IReadOnlyList<SystemConfig> supplied in new IReadOnlyList<SystemConfig>[] { Array.Empty<SystemConfig>(), protectedRows, bootstrapRows })
+        {
+            bool protectedSource = supplied.Count != 0;
+            string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+            await fixture.ExecuteAsync(connectionString, BackendTestPaths.ReadAllTextFromRoot(
+                "tests", "backend", "Fixtures", "legacy-20260517-minimal.sql"));
+            await using var connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+            if (protectedSource)
+            {
+                foreach (SystemConfig row in supplied)
+                {
+                    await using var insert = connection.CreateCommand();
+                    insert.Transaction = transaction;
+                    insert.CommandText = "INSERT INTO sys_systemconfig (key,value) VALUES (@key,@value)";
+                    insert.Parameters.AddWithValue("key", row.Key);
+                    insert.Parameters.AddWithValue("value", row.Value);
+                    await insert.ExecuteNonQueryAsync();
+                }
+            }
+            await OfflineMigrationStateStore.EnsureApplyJournalAsync(connection, transaction, CancellationToken.None);
+            var source = await new OfflineMigrationSourceObserver().ObserveLegacyAfterValidatedJournalAsync(connection, transaction, CancellationToken.None);
+            Assert.Equal(OfflineMigrationSourceFingerprints.LegacyId, OfflineMigrationSourceFingerprints.CreateRegistry().Match(source).Id);
+            PgLegacyCurrentSchemaPreparation staged = await PgLegacyCurrentSchemaPreparation.StageAsync(owned, source, connection, transaction, CancellationToken.None);
+            if (protectedSource)
+            {
+                InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    PgLegacyNonArticlePreparation.MigrateAsync(staged, connection, transaction, CancellationToken.None));
+                Assert.Equal("legacy_site_identity_requires_explicit_lifecycle_intent", error.Message);
+                await using var count = connection.CreateCommand();
+                count.Transaction = transaction;
+                count.CommandText = "SELECT count(*) FROM public.sys_systemconfig WHERE left(key,13)='SiteIdentity_'";
+                Assert.Equal(0L, await count.ExecuteScalarAsync());
+            }
+            else
+            {
+                await PgLegacyNonArticlePreparation.MigrateAsync(staged, connection, transaction, CancellationToken.None);
+                await using var read = connection.CreateCommand();
+                read.Transaction = transaction;
+                read.CommandText = "SELECT value FROM public.sys_systemconfig WHERE key='SiteTitle'";
+                Assert.Equal("FsusBlog legacy", await read.ExecuteScalarAsync());
+            }
+            await transaction.RollbackAsync();
+        }
     }
 
     private async Task<string> EmptyDatabaseAsync()

@@ -44,6 +44,13 @@ public sealed class SystemSiteIdentityTests
         Dictionary<string, string> rows = ValidRows();
         rows.Remove(InstallationKey);
         AssertRefusal(Parse(rows), SystemSiteIdentityState.Ambiguous);
+        Dictionary<string, string> bootstrap = new() { ["SiteIdentity_Bootstrap"] = "1|Fresh|" + new string('b', 40) + "|" + new string('c', 64) + "|" + new string('d', 64) };
+        AssertRefusal(Parse(bootstrap), SystemSiteIdentityState.InitializationRequired);
+        bootstrap["SiteIdentity_Bootstrap"] = "1|Fresh|short|" + new string('c', 64) + "|" + new string('d', 64);
+        AssertRefusal(Parse(bootstrap), SystemSiteIdentityState.Malformed);
+        rows = ValidRows();
+        rows.Remove("SiteIdentity_Bootstrap");
+        AssertRefusal(Parse(rows), SystemSiteIdentityState.Malformed);
         rows = ValidRows();
         rows["SiteIdentity_Unknown"] = "1|extra";
         AssertRefusal(Parse(rows), SystemSiteIdentityState.Ambiguous);
@@ -118,6 +125,7 @@ public sealed class SystemSiteIdentityTests
         string digest = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"1|Fresh|{intent:N}|0|0|{Scope}")));
         return new(StringComparer.Ordinal)
         {
+            ["SiteIdentity_Bootstrap"] = "1|Fresh|" + new string('b', 40) + "|" + new string('c', 64) + "|" + new string('d', 64),
             [InstallationKey] = $"1|fsus-site:{new string('a', 64)}|{intent:N}|{digest}|Fresh|-|-",
             [MappingKey] = $"1|{intent:N}|{digest}|Add|{Scope}"
         };

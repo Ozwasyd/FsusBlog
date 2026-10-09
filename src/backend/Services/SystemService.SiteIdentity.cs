@@ -12,11 +12,12 @@ namespace FsusBlog.Server.Services;
 public partial class SystemService : ISystemSiteIdentityReader
 {
     private const string SiteIdentityPrefix = "SiteIdentity_";
+    private const string BootstrapKey = SiteIdentityPrefix + "Bootstrap";
     private const string InstallationPrefix = SiteIdentityPrefix + "Installation_";
     private const string ScopePrefix = SiteIdentityPrefix + "Scope_";
     private const int MaxGenerations = 16;
     private const int MaxScopeEvents = 1024;
-    private const int MaxIdentityRows = MaxGenerations * (MaxScopeEvents + 1);
+    private const int MaxIdentityRows = MaxGenerations * (MaxScopeEvents + 1) + 1;
 
     /// <inheritdoc />
     public async Task<SystemSiteIdentityReadModel> ReadCurrentSiteIdentityAsync(CancellationToken cancellationToken = default)
@@ -46,7 +47,7 @@ public partial class SystemService : ISystemSiteIdentityReader
         }
     }
 
-    /// <summary>Trusted provisioning only: requires an empty public schema and a caller-owned READ COMMITTED transaction.</summary>
+    /// <summary>Trusted provisioning only: requires the original canonical empty-source bootstrap record and a caller-owned READ COMMITTED transaction.</summary>
     public Task<SystemSiteIdentityReadModel> InitializeSiteIdentityAsync(
         Guid intent, string scope, CancellationToken cancellationToken = default)
         => CreateInstallationIdentityAsync(intent, scope, "Fresh", 0, 0, cancellationToken);
@@ -121,12 +122,13 @@ public partial class SystemService : ISystemSiteIdentityReader
             }
             else
             {
-                if (journal.State != SystemSiteIdentityState.Absent)
+                if (kind == "Fresh"
+                    ? journal.State != SystemSiteIdentityState.InitializationRequired
+                    : journal.State != SystemSiteIdentityState.Absent)
                 {
                     throw new InvalidOperationException("site_identity_already_present_or_invalid");
                 }
-                bool nonempty = await HasInstallationDataAsync(connection, true, cancellationToken).ConfigureAwait(false);
-                if (nonempty != (kind == "Legacy"))
+                if (kind == "Legacy" && !await HasInstallationDataAsync(connection, true, cancellationToken).ConfigureAwait(false))
                 {
                     throw new InvalidOperationException("site_identity_initialization_kind_mismatch");
                 }
@@ -288,8 +290,23 @@ public partial class SystemService : ISystemSiteIdentityReader
         {
             return new IdentityJournal(SystemSiteIdentityState.UnsupportedVersion);
         }
+        bool bootstrap = rows.TryGetValue(BootstrapKey, out string? provenance);
+        if (bootstrap)
+        {
+            string[] fields = provenance!.Split('|');
+            if (fields.Length != 5 || fields[1] != "Fresh" || fields[2].Length != 40
+                || fields[2].AsSpan().IndexOfAnyExcept("0123456789abcdef") >= 0
+                || !ValidDigest(fields[3]) || !ValidDigest(fields[4]))
+            {
+                return new IdentityJournal(SystemSiteIdentityState.Malformed);
+            }
+            if (rows.Count == 1)
+            {
+                return new IdentityJournal(SystemSiteIdentityState.InitializationRequired);
+            }
+        }
         var journal = new IdentityJournal(SystemSiteIdentityState.Current);
-        int consumed = 0;
+        int consumed = bootstrap ? 1 : 0;
         for (int generation = 1; generation <= MaxGenerations; generation++)
         {
             if (!rows.TryGetValue(InstallationKey(generation), out string? installation))
@@ -299,7 +316,7 @@ public partial class SystemService : ISystemSiteIdentityReader
             string[] fields = installation.Split('|');
             if (fields.Length != 7 || !ValidIdentity(fields[1]) || !ValidIntent(fields[2]) || !ValidDigest(fields[3])
                 || (generation == 1
-                    ? fields[4] is not ("Fresh" or "Legacy") || fields[5] != "-" || fields[6] != "-"
+                    ? fields[4] is not ("Fresh" or "Legacy") || (fields[4] == "Fresh") != bootstrap || fields[5] != "-" || fields[6] != "-"
                     : fields[4] != "Clone" || fields[5] != journal.Identity || fields[6] != "RetainAsForeign")
                 || journal.Identities.Contains(fields[1]) || journal.Intents.ContainsKey(fields[2]))
             {

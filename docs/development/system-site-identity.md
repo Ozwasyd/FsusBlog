@@ -11,7 +11,8 @@ existing ArticleRelation actor validator without deriving authority from a URL.
 `ISystemSiteIdentityReader.ReadCurrentSiteIdentityAsync(CancellationToken)` is a
 zero-write, uncached read. It takes no identity assertion. Only `Current` exposes
 an authoritative identity, schema version, installation generation, mapping
-revision and exact active URL scopes. Absence, legacy migration requirement,
+revision and exact active URL scopes. `InitializationRequired` reports a canonical
+bootstrap awaiting explicit scope input, with no identity authority. Absence, legacy migration requirement,
 ambiguous journals, malformed records and unsupported versions fail closed.
 Storage and cancellation failures propagate; they never become a default ID.
 
@@ -31,10 +32,13 @@ only for preserving the caller transaction after failure. Clients sharing a
 single SqlSugar connection must obey its existing single-operation ownership;
 independent transactions serialize at PostgreSQL, across processes and restarts.
 
-- `InitializeSiteIdentityAsync(intent, scope, cancellationToken)` accepts only a
-  genuinely empty public schema. It locks public tables against writes before
-  checking contents. Schema/migration ledgers or seed data that are nonempty
-  require explicit migration; no guessed exemption list is used.
+- `InitializeSiteIdentityAsync(intent, scope, cancellationToken)` requires the
+  immutable `SiteIdentity_Bootstrap` record issued only by the original
+  `PgCurrentSchemaBootstrapOperation` after its actual empty-source admission,
+  complete canonical schema creation and mandatory seed checks, in that same
+  caller transaction. The record is retained after initialization. A bare empty
+  configuration table is insufficient; canonical seeds do not require guessed
+  exemptions. Bootstrap records do not contain an installation ID or credential.
 - `MigrateLegacySiteIdentityAsync(intent, reviewedLegacyScope, cancellationToken)`
   requires a nonempty legacy deployment with no identity journal. The trusted
   operator explicitly binds one reviewed historical scope. Additional reviewed
@@ -61,11 +65,16 @@ rows and needs no mutation. Clone versus continuation is never inferred.
 
 ## Bounded journal
 
-Protected keys use only `SiteIdentity_Installation_0000000001` and
+Protected keys include `SiteIdentity_Bootstrap`, `SiteIdentity_Installation_0000000001` and
 `SiteIdentity_Scope_0000000001_0000000001` forms. Each immutable installation
 record stores schema `1`, identity, intent, SHA-256 request digest, creation kind,
 predecessor or `-`, and old-fact disposition or `-`, separated by `|`. Each scope
 record stores schema `1`, intent, request digest, `Add`/`Remove`, and exact scope.
+The bootstrap record stores `1|Fresh|sourceRevision|ownedInputDigest|commandDigest`:
+source revision is exactly 40 lowercase hexadecimal characters, both digests are
+exactly 64. Only the real empty-source component issues it; the generic compiler,
+legacy target preparation and runtime startup do not. Fresh roots require this
+record; Legacy roots forbid it. Unknown keys and malformed provenance refuse.
 Keys are at most 46 characters and values at most 512; scopes are capped at 256
 ASCII characters and validated absolute HTTP(S) URLs without credentials, query,
 fragment, whitespace, controls or the record delimiter. Values are never trimmed
@@ -87,8 +96,16 @@ key sets from typed requests; the binary system routes pass those typed requests
 arbitrary-key SystemConfig update/delete route in that source. Those ordinary
 operations cannot forge, overwrite, delete or reset this protected prefix. A
 future generic writer must explicitly exclude the entire prefix before admission.
-Privileged offline migration and arbitrary DBA writes are separately trusted and
-can damage any installation data; this API does not claim to prevent them.
+The reachable capability-gated `PgLegacyNonArticlePreparation.MigrateAsync`
+previously imported every non-page SystemConfig row with conflict replacement.
+It now refuses any staged-source `SiteIdentity_` record before compiling or
+executing imports, including a valid journal or bootstrap record. This generic
+legacy import has no continuation/clone lifecycle grant and never silently skips
+protected records. Ordinary unprotected configuration remains losslessly copied.
+Whole-database continuation restores preserve the journal and provenance together;
+independent clones require the explicit guarded SystemService operation. Arbitrary
+privileged DBA/server code remains outside this boundary; trusted offline tooling
+is still required to obey its explicit lifecycle contract.
 
 Existing permission/export URL SiteScope and old records remain unchanged.
 An explicit compatible consumer binding must check the authoritative generation
@@ -106,54 +123,41 @@ access allocation is authorized by this source change. Rollback means rolling
 back the caller transaction before commit; committed identity history must be
 preserved when reverting application code.
 
-The shared documentation owner must register this path in the existing lifecycle
-catalog and run its existing generator. This task does not take a write claim on
-that shared catalog or generated index.
+The document is registered through the original lifecycle catalog and generator.
 
 ## Validation
 
-The original `tests/backend/FsusBlog.Server.Tests.csproj` builds with the repository
-dependency versions. The source method roster and original xUnit discovery both
-contain exactly 19 selected methods: six in SystemSiteIdentityTests and thirteen
-in SystemSiteIdentityIntegrationTests. The original PostgreSQL fixture collection
-`SchemaMigrationPostgresCollectionB` uses `postgres:18-alpine`; the task run limits
-its disposable container to 1 CPU, 512 MiB and 256 processes. All nineteen methods
-passed with no failures or skips, and the TRX roster was compared against the exact
-source method roster. No substitute persistence harness or broad test selector was
-used. These focused results do not establish full-matrix or deployment acceptance.
-The original SystemService configuration-loader regression
-`ConfigLoadQueries_UseServerSideKeySetsWithoutReadingPrivateConfigRows` was
-separately discovered as exactly one method and passed on the same original
-PostgreSQL fixture.
+The original `tests/backend/FsusBlog.Server.Tests.csproj` builds against the
+repository dependency versions. The source roster remains exactly six unit
+methods and thirteen integration methods, with no broad or empty selector.
+Integration setup consumes the actual original current-schema producer and
+`PgCurrentSchemaBootstrapOperation` on the original disposable PostgreSQL fixture,
+including mandatory canonical seeds. Controlled component verifier inputs are
+not a production migration-host grant or deployment acceptance.
 
-The persistence tests cover restart/readback, eight concurrent initializer
-transactions, intent collision and superseded replay refusal, caller rollback,
-second-insert failure with savepoint recovery, cancellation while actually waiting
-on PostgreSQL's storage lock, wrong transaction isolation, storage errors, legacy
-content refusal, explicit migration, ordinary SEO/compliance/page edits, mapping
-version drift, database field length enforcement, and continuation versus clone.
-The unit tests exercise malformed IDs/digests/scopes, unknown versions, oversized
-records, orphan/unknown keys, revision gaps, duplicate intents and invalid operator
-input. Controlled fixture IDs exist only in unit inputs; production creation uses
-server cryptographic entropy.
+The repaired tests cover zero-write reads, genuine bootstrap provenance and bare
+empty-table refusal, restart/readback, eight concurrent initialization
+transactions, intent conflict/superseded replay, caller rollback, second-insert
+failure, cancellation while waiting on a real storage lock, wrong isolation,
+storage failure, explicit legacy binding, ordinary SEO/compliance/page edits,
+version drift, malformed/oversize records and continuation/clone distinctions.
+They exercise the original legacy fixture and original staged importer: ordinary
+configuration remains lossless, while supplied valid legacy journals and genuine
+bootstrap records refuse before import. Restore coverage copies the protected
+journal and a representative old scoped fact; it is not a complete database
+backup/recovery qualification.
 
-The document lifecycle check remains blocked by the shared catalog registration
-above. The backend test governance check reports stale shared evidence metadata,
-an existing mutation-runner root-discovery requirement and existing path-discovery
+The earlier 19 identity methods plus one original SystemService regression
+executed and passed before all required admission checks had succeeded; those
+results remain unqualified and do not cover the repaired test bodies. For this
+repair, the canonical #3657 manifest closure independently passes its checker
+(124 classes, 972 source-estimated cases, A411/B561) and all eleven original Node
+controls. Document lifecycle registration and backend source-size checks pass.
+
+The backend-test-governance preflight still refuses stale shared evidence metadata,
+an existing mutation-runner root-discovery requirement and original path-discovery
 violations in ArticlePropertyDefinitionAuthorityTests and
-DocumentExportBinaryCodecTests. Its relevant input files are unchanged from the
-inspected base. These source gates are not reported as passing, and this task does
-not edit their shared producers or generated output.
-The code-intent checker separately reports a pre-existing unbounded performance
-claim in `src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp:338`, an unchanged
-file outside this task. The authoritative development-document checker and commit
-message checker pass; those results do not waive the failing source gates.
-
-The PostgreSQL collection checker also finds the new integration class missing
-from its shared manifest, alongside pre-existing missing classes and estimated
-case-count drift (A: 331 declared versus 355 in registered source; B: 458 versus
-513). The new class contributes thirteen cases to B. Its owner must register it
-and reconcile the original manifest before further test execution; tests were
-stopped when this additional shared preflight failure was discovered. The focused
-passing run's exact-method discovery count is separate from this shared catalog
-failure and cannot qualify it.
+DocumentExportBinaryCodecTests. The code-intent checker also has an existing
+frontend performance-claim failure outside this task. New .NET execution is
+stopped pending legitimate owner fixes; the repaired 6+13 methods are `UNRUN`.
+No failing prerequisite is waived or replaced with a substitute harness.
