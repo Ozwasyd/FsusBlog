@@ -86,7 +86,9 @@
                 ".tmp/cmake/native-speed",
                 ".tmp/cmake/native-asan-ubsan",
                 ".tmp/cmake/native-fuzz",
-                "src/frontend/wasm/build"
+                "src/frontend/wasm/build",
+                "src/frontend/wasm/build-basic",
+                "src/frontend/wasm/build-simd"
             ]
         },
         "cmakeFormat": {

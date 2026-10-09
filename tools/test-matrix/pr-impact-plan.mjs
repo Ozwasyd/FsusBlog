@@ -387,20 +387,28 @@ export const sourceRegressionEntries = Object.freeze([
     'tests/tools/native-tooling-style.test.mjs',
     'tests/tools/blame-ignore-source.test.mjs',
     'tools/configuration/solution-source.test.mjs',
-    'tools/configuration/cpp-source.test.mjs'
+    'tools/configuration/cpp-source.test.mjs',
+    'tools/configuration/wasm-cpp-source.test.mjs'
 ]);
 
 export function selectSourceRegressionTargets(changedFiles)
 {
+    const wasmChanged = changedFiles.some(file => matchesImpactPath(file, 'src/frontend/wasm/**')
+        || ['tools/configuration/check-cpp-source.mjs', 'tools/configuration/wasm-cpp-context.mjs',
+            'tools/configuration/wasm-cpp-source.test.mjs', 'config/development/native-tooling-style-policy.json',
+            'tools/test-matrix/pr-impact-plan.mjs', 'tools/test-matrix/source-governance.mjs'].includes(file));
+    const applicableEntries = sourceRegressionEntries.filter(entry => entry !== 'tools/configuration/wasm-cpp-source.test.mjs' || wasmChanged);
     return changedFiles.some(file => sharedPaths.some(pattern => matchesImpactPath(file, pattern))
         || sourceRegressionEntries.includes(file)
         || matchesImpactPath(file, 'tools/frontend/check-frontend-style.mjs')
         || matchesImpactPath(file, 'tools/frontend/source-unit-style-diff.mjs')
         || matchesImpactPath(file, 'tools/style/check-native-tooling-style.mjs')
         || matchesImpactPath(file, 'tools/configuration/check-solution-source.mjs')
-        || matchesImpactPath(file, 'tools/configuration/check-cpp-source.mjs')) ? [...sourceRegressionEntries]
+        || matchesImpactPath(file, 'tools/configuration/check-cpp-source.mjs')
+        || matchesImpactPath(file, 'tools/configuration/wasm-cpp-context.mjs')) ? applicableEntries
         : [...(changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')) ? ['tools/configuration/solution-source.test.mjs'] : []),
-            ...(changedFiles.some(file => /\.(?:cc|cpp|cxx|h|hh|hpp|hxx)$/u.test(file)) ? ['tools/configuration/cpp-source.test.mjs'] : [])];
+            ...(changedFiles.some(file => /\.(?:cc|cpp|cxx|h|hh|hpp|hxx)$/u.test(file)) ? ['tools/configuration/cpp-source.test.mjs'] : []),
+            ...(wasmChanged ? ['tools/configuration/wasm-cpp-source.test.mjs'] : [])];
 }
 
 export function sourceGovernanceExecutableEntries()
@@ -460,6 +468,11 @@ export const sourceFrontendDataInputs = Object.freeze([
 
 export const sourceGovernanceDataInputs = Object.freeze([...sourceFrontendDataInputs,
     'config/development/native-tooling-style-policy.json', '.clang-format', '.clang-tidy',
+    'CMakeLists.txt', 'tests/native/CMakeLists.txt', 'cmake/FsusWarnings.cmake',
+    'src/frontend/wasm/build.sh', 'src/frontend/wasm/CMakeLists.txt',
+    'src/frontend/wasm/aeds/CMakeLists.txt', 'src/frontend/wasm/pow/CMakeLists.txt',
+    'src/frontend/wasm/search/CMakeLists.txt', 'src/frontend/wasm/comment_privacy/CMakeLists.txt',
+    'src/frontend/wasm/image_codec/CMakeLists.txt',
     'docs/development/native-tooling-style-enforcement.md',
     'tools/governance/javascript-format-parser/package.json',
     'tools/governance/javascript-format-parser/package-lock.json']);

@@ -2,6 +2,7 @@ import { spawnSync, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { inspectWasmBuildContext, observeWasmCompiler } from './wasm-cpp-context.mjs';
 
 const { commandPath, commandVersion } = await import(new URL('../test/native-test-runtime-support.mjs', import.meta.url));
 
@@ -59,9 +60,14 @@ function run(compiler, args, directory)
         stdout: result.stdout, stderr: result.stderr };
 }
 
-// CMake's simple argv form only. Quoting, response files, plugins, wrappers,
-// unknown flags and implicit include overrides are not SOURCE execution ports.
+// CMake's simple argv form only. A Wasm compiler is admitted solely through the
+// original project's closed File API context, never by its executable suffix.
 export function cppCompileContext(root, entry)
+{
+    return compileContext(root, entry, null);
+}
+
+function compileContext(root, entry, wasm)
 {
     const directory = path.resolve(entry.directory ?? '');
     relative(root, directory);
@@ -78,7 +84,8 @@ export function cppCompileContext(root, entry)
         throw new Error('unsupported C++ compile argv');
     }
     const name = path.basename(argv[0]);
-    if (!/^(?:c\+\+|g\+\+|clang\+\+)(?:-[0-9]+)?$/u.test(name))
+    if (wasm ? argv[0] !== wasm.compiler.path
+        : !/^(?:c\+\+|g\+\+|clang\+\+)(?:-[0-9]+)?$/u.test(name))
     {
         throw new Error('unsupported C++ compiler');
     }
@@ -91,6 +98,7 @@ export function cppCompileContext(root, entry)
     let inputs = 0;
     let outputs = 0;
     let compileOnly = 0;
+    let outputFile;
     for (let index = 1; index < argv.length; index += 1)
     {
         const argument = argv[index];
@@ -101,14 +109,18 @@ export function cppCompileContext(root, entry)
             {
                 throw new Error('unsupported C++ compile output');
             }
-            relative(root, path.resolve(directory, output));
+            outputFile = path.resolve(directory, output);
+            relative(root, outputFile);
             outputs += 1;
         }
         else if (argument === '-c')
         {
             compileOnly += 1;
         }
-        else if (compileFlags.has(argument) || /^-D[A-Z_][A-Z0-9_]*(?:=[A-Za-z0-9_]+)?$/u.test(argument))
+        else if (compileFlags.has(argument)
+            || (!wasm && /^-D[A-Z_][A-Z0-9_]*(?:=[A-Za-z0-9_]+)?$/u.test(argument))
+            || (wasm && ['-flto', '-msimd128', '-fomit-frame-pointer', '-D__DEFINED_max_align_t',
+                '-DNDEBUG', '-DFSUSBLOG_AEDS_SPEED_TIER=1'].includes(argument)))
         {
             flags.push(argument);
         }
@@ -135,7 +147,7 @@ export function cppCompileContext(root, entry)
     {
         throw new Error('incomplete C++23 compile context');
     }
-    return { compiler, directory, source, file, flags, originalArguments: argv };
+    return { compiler, directory, source, file, flags, originalArguments: argv, outputFile };
 }
 
 function dependencies(observation)
@@ -180,27 +192,38 @@ export function inspectCppSource({ repositoryRoot, files })
         const cacheFile = path.join(directory, 'CMakeCache.txt');
         const cacheBytes = fs.readFileSync(cacheFile);
         const cache = cacheBytes.toString('utf8');
-        if (!cache.includes(`CMAKE_HOME_DIRECTORY:INTERNAL=${root}\n`)
-            || !cache.includes('CMAKE_PROJECT_NAME:STATIC=FsusBlogNativeTooling\n'))
+        const wasm = ['src/frontend/wasm/build-basic', 'src/frontend/wasm/build-simd'].includes(candidate)
+            ? inspectWasmBuildContext(root, directory, cache, bind) : null;
+        if (!wasm && (!cache.includes(`CMAKE_HOME_DIRECTORY:INTERNAL=${root}\n`)
+            || !cache.includes('CMAKE_PROJECT_NAME:STATIC=FsusBlogNativeTooling\n')))
         {
             throw new Error('unsupported C++ CMake project context');
         }
-        const buildInputs = ['CMakeLists.txt', 'tests/native/CMakeLists.txt', 'cmake/FsusWarnings.cmake']
+        const buildInputs = wasm?.buildInputs ?? ['CMakeLists.txt', 'tests/native/CMakeLists.txt', 'cmake/FsusWarnings.cmake']
             .map(file => bind(root, file));
         const entries = JSON.parse(bytes);
         if (!Array.isArray(entries) || !entries.length || entries.length > 64)
         {
             throw new Error('unsupported or empty C++ compile database');
         }
-        for (const entry of entries)
+        const parsed = entries.map(entry => compileContext(root, entry, wasm));
+        if (wasm && (parsed.length !== wasm.expected.length || parsed.some(context => context.directory !== directory
+            || wasm.expected.filter(expected => expected.file === context.source && expected.output === context.outputFile
+                && JSON.stringify(expected.flags) === JSON.stringify(context.flags)).length !== 1)
+            || wasm.expected.some(expected => parsed.filter(context => context.source === expected.file
+                && context.outputFile === expected.output).length !== 1)))
         {
-            const context = cppCompileContext(root, entry);
-            if (cache.match(/^CMAKE_CXX_COMPILER:(?:FILEPATH|STRING)=(.+)$/mu)?.[1] !== context.compiler)
+            throw new Error('Wasm compile database differs from the complete original CMake TU/argv roster');
+        }
+        const wasmCompiler = wasm ? observeWasmCompiler(wasm, run, commandPath) : null;
+        for (const context of parsed)
+        {
+            if (!wasm && cache.match(/^CMAKE_CXX_COMPILER:(?:FILEPATH|STRING)=(.+)$/mu)?.[1] !== context.compiler)
             {
                 throw new Error('C++ compiler differs from the actual CMake context');
             }
-            const version = commandVersion(context.compiler);
-            if (!version || !/(?:g\+\+|GCC|clang|Free Software Foundation)/u.test(version))
+            const version = wasmCompiler?.version.stdout ?? commandVersion(context.compiler);
+            if (!version || !/(?:g\+\+|GCC|clang|Emscripten|Free Software Foundation)/u.test(version))
             {
                 throw new Error('C++ compiler identity unavailable or unsupported');
             }
@@ -216,6 +239,16 @@ export function inspectCppSource({ repositoryRoot, files })
             const closure = dependencies(all).map(value =>
             {
                 const absolute = path.resolve(context.directory, value);
+                if (wasm && ![root, wasmCompiler.sysroot, wasmCompiler.resource]
+                    .some(parent => absolute.startsWith(`${parent}${path.sep}`)))
+                {
+                    throw new Error('unsupported dependency outside the actual Wasm source/sysroot/resource closure');
+                }
+                if (wasm && absolute.startsWith(`${root}${path.sep}`)
+                    && !absolute.startsWith(`${wasmCompiler.sysroot}${path.sep}`))
+                {
+                    bind(root, relative(root, absolute));
+                }
                 if (!fs.statSync(absolute).isFile())
                 {
                     throw new Error('C++ compiler dependency unavailable');
@@ -227,7 +260,9 @@ export function inspectCppSource({ repositoryRoot, files })
                 digest: digest(fs.readFileSync(context.compiler)) }, compileContext: context,
             database: { file: relative(root, database), digest: digest(bytes),
                 cacheFile: relative(root, cacheFile), cacheDigest: digest(cacheBytes) }, buildInputs, sourceBinding,
-            localInputs, closure, observations: [local, all, syntax] });
+            localInputs, closure, observations: [local, all, syntax],
+            ...(wasm ? { wasmContext: { records: wasm.records, externalInputs: wasm.externalInputs,
+                cmake: wasm.cmake, compiler: wasmCompiler } } : {}) });
             applicable.forEach(file => covered.add(file));
         }
     }

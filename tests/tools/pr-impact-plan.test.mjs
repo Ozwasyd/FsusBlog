@@ -376,6 +376,10 @@ test('C++ suffixes remain unsupported until their actual compiler context succee
     assert.equal(sourceGovernanceChildEntries.cpp, 'tools/configuration/check-cpp-source.mjs');
     assert.deepEqual(selectSourceRegressionTargets(['src/Value.hpp']), ['tools/configuration/cpp-source.test.mjs']);
     assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.cpp]).includes('tools/configuration/cpp-source.test.mjs'));
+    assert.ok(selectSourceRegressionTargets(['src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp'])
+        .includes('tools/configuration/wasm-cpp-source.test.mjs'));
+    assert.ok(!selectSourceRegressionTargets(['tools/frontend/check-frontend-style.mjs'])
+        .includes('tools/configuration/wasm-cpp-source.test.mjs'));
     const nativeArguments = sourceRegressionArguments('tests/tools/native-tooling-style.test.mjs');
     const selectedNativeControl = new RegExp(nativeArguments[1].slice('--test-name-pattern='.length));
     for (const control of ['rejects unnamed C++ parameter type facts', 'records typedef and imported type shadows',
@@ -393,7 +397,7 @@ test('flat solution checker and its refusal controls are explicit source executi
     const { sourceGovernanceChildEntries, sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
         await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
     assert.equal(sourceGovernanceChildEntries.solution, 'tools/configuration/check-solution-source.mjs');
-    assert.equal(sourceGovernanceExecutableEntries().length, 14);
+    assert.equal(sourceGovernanceExecutableEntries().length, 15);
     assert.ok(sourceGovernanceExecutableEntries().includes('tools/configuration/solution-source.test.mjs'));
     assert.deepEqual(selectSourceRegressionTargets(['tools/contracts/Example.slnx']), ['tools/configuration/solution-source.test.mjs']);
     assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.solution]).includes('tools/configuration/solution-source.test.mjs'));
