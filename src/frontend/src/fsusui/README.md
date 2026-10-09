@@ -97,3 +97,14 @@ the checker allowlist.
 ## Enforcement
 
 `tests/frontend/checks/static/check-fsusui-boundary.mjs` enforces this contract by checking deep imports, runtime-import ownership, type-preserving component exports, misleading local `FsusUi*` implementations, programmatic API ownership, internal selectors, markdown feature ownership, the theme adapter source and the mandatory adapter files. It checks architectural outcomes rather than requiring a particular dynamic-component rendering pattern.
+
+## Article Editor Test Source
+
+`config/testing/fsusui-baseline.json` selects the actual FsusUI source for local
+and CI tests. Export it through `tools/test/fsusui-baseline.mjs`, then verify the
+clean checkout and generated theme with the existing local identity producer.
+An environment path selects that checkout and does not replace the declaration.
+The current candidate combines the canonical palette key-scope and close fixes;
+Blog retains its canonical composition-tail shortcut admission. Declaring this
+dependency does not approve every UI path. Original focus, Writer and IME
+assertions remain required, and independent product acceptance remains open.
