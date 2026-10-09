@@ -1,0 +1,97 @@
+✖ C# style governance accepts Roslyn expression braces and multiline verbatim content (203.642115ms)
+✖ C# style governance aggregates tabs braces indentation using naming and line-ending failures (265.648058ms)
+✔ parameter attributes keep framework enum arguments separate from multiline parameter names (191.758ms)
+✔ parameter attributes still reject an uppercase first multiline parameter (73.948674ms)
+✔ parameter attributes still reject an uppercase continuation parameter (66.321155ms)
+✔ parameter attributes still reject an uppercase named attribute argument (76.553538ms)
+✔ parameter attributes still reject an uppercase multiple attributes (274.287168ms)
+✔ parameter attributes still reject an uppercase ordinary parameter (232.964965ms)
+✔ C# source lexer preserves the three character-class regex match contracts (15.010104ms)
+✔ C# source lexer retains real array and generic naming and declaration refusals (164.744777ms)
+✔ contextual record expressions do not exempt lowercase types named with (3522.179679ms)
+✔ singular Miss enums and plural flags retain both naming refusal controls (1361.382965ms)
+✔ policy-only rebind preserves the real original baseline and refuses substituted inputs (3061.510977ms)
+✖ array-valued attributes retain genuine contextual record expressions (222.06548ms)
+✔ singular Access retains the eight ordinary and flags controls (1180.378088ms)
+✔ Access-only rebind preserves the merged Miss baseline and refuses substituted inputs (3570.254204ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 13
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14783.347187
+
+✖ failing tests:
+
+test at tests/tools/csharp-style.test.mjs:153:1
+✖ C# style governance accepts Roslyn expression braces and multiline verbatim content (203.642115ms)
+  AssertionError [ERR_ASSERTION]: 
+  [csharp-style] Cannot read properties of undefined (reading 'trim')
+  
+  
+  1 !== 0
+  
+      at file:///tmp/fsusblog-access-slot-preparation-20261009/tests/tools/csharp-style.test.mjs:217:16
+      at withFixture (file:///tmp/fsusblog-access-slot-preparation-20261009/tests/tools/csharp-style.test.mjs:71:9)
+      at TestContext.<anonymous> (file:///tmp/fsusblog-access-slot-preparation-20261009/tests/tools/csharp-style.test.mjs:155:5)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.start (node:internal/test_runner/test:1177:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/tools/csharp-style.test.mjs:725:1
+✖ C# style governance aggregates tabs braces indentation using naming and line-ending failures (265.648058ms)
+  AssertionError [ERR_ASSERTION]: missing line-ending in 
+  [csharp-style] Cannot read properties of undefined (reading 'trim')
+  
+      at file:///tmp/fsusblog-access-slot-preparation-20261009/tests/tools/csharp-style.test.mjs:751:20
+      at withFixture (file:///tmp/fsusblog-access-slot-preparation-20261009/tests/tools/csharp-style.test.mjs:71:9)
+      at TestContext.<anonymous> (file:///tmp/fsusblog-access-slot-preparation-20261009/tests/tools/csharp-style.test.mjs:727:5)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at node:internal/test_runner/test:1214:31
+      at node:internal/process/task_queues:151:7
+      at AsyncResource.runInAsyncScope (node:async_hooks:227:14) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: "\n[csharp-style] Cannot read properties of undefined (reading 'trim')\n",
+    expected: / line-ending:/u,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests/tools/csharp-style.test.mjs:1442:1
+✖ array-valued attributes retain genuine contextual record expressions (222.06548ms)
+  AssertionError [ERR_ASSERTION]: 
+  [csharp-style] Cannot read properties of undefined (reading 'trim')
+  
+  
+  1 !== 0
+  
+      at file:///tmp/fsusblog-access-slot-preparation-20261009/tests/tools/csharp-style.test.mjs:1464:16
+      at withFixture (file:///tmp/fsusblog-access-slot-preparation-20261009/tests/tools/csharp-style.test.mjs:71:9)
+      at TestContext.<anonymous> (file:///tmp/fsusblog-access-slot-preparation-20261009/tests/tools/csharp-style.test.mjs:1444:5)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

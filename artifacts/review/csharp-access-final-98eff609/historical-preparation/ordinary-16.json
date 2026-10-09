@@ -1,0 +1,18 @@
+{
+  "kind": "actual-ordinary-preparation-observation-not-final-slot-acceptance",
+  "head": "3a90c41fd4cb95d623fbe0ad7cafec641e750e41",
+  "base": "a281fb6e9802471c3a44569c3ccab84f88c8d816",
+  "argv": [
+    "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "--test-name-pattern=^(?:C\\#\\ style\\ governance\\ accepts\\ Roslyn\\ expression\\ braces\\ and\\ multiline\\ verbatim\\ content|C\\#\\ style\\ governance\\ aggregates\\ tabs\\ braces\\ indentation\\ using\\ naming\\ and\\ line\\-ending\\ failures|parameter\\ attributes\\ keep\\ framework\\ enum\\ arguments\\ separate\\ from\\ multiline\\ parameter\\ names|C\\#\\ source\\ lexer\\ preserves\\ the\\ three\\ character\\-class\\ regex\\ match\\ contracts|C\\#\\ source\\ lexer\\ retains\\ real\\ array\\ and\\ generic\\ naming\\ and\\ declaration\\ refusals|contextual\\ record\\ expressions\\ do\\ not\\ exempt\\ lowercase\\ types\\ named\\ with|singular\\ Miss\\ enums\\ and\\ plural\\ flags\\ retain\\ both\\ naming\\ refusal\\ controls|array\\-valued\\ attributes\\ retain\\ genuine\\ contextual\\ record\\ expressions|singular\\ Access\\ retains\\ the\\ eight\\ ordinary\\ and\\ flags\\ controls|Access\\-only\\ rebind\\ preserves\\ the\\ merged\\ Miss\\ baseline\\ and\\ refuses\\ substituted\\ inputs|policy\\-only\\ rebind\\ preserves\\ the\\ real\\ original\\ baseline\\ and\\ refuses\\ substituted\\ inputs|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ first\\ multiline\\ parameter|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ continuation\\ parameter|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ named\\ attribute\\ argument|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ multiple\\ attributes|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ ordinary\\ parameter)$",
+    "tests/tools/csharp-style.test.mjs"
+  ],
+  "startedAtUtc": "2026-10-09T08:00:50.386394+00:00",
+  "endedAtUtc": "2026-10-09T08:01:05.334903+00:00",
+  "exitCode": 1,
+  "expectedCount": 16,
+  "actualCount": 16,
+  "logSha256": "47fa1e482646195736da7fcf4ecc8654d74358a3a88976f2449eea4c71da1547",
+  "heldControlsExecuted": false
+}

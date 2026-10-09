@@ -1,0 +1,7 @@
+[csharp-style] TypeError: Cannot read properties of undefined (reading 'trim')
+    at runDotnetFormat (file:///tmp/fsusblog-access-slot-preparation-20261009/.tmp/access-slot-preparation/debug-checker.mjs:1468:108)
+    at main (file:///tmp/fsusblog-access-slot-preparation-20261009/.tmp/access-slot-preparation/debug-checker.mjs:1738:5)
+    at file:///tmp/fsusblog-access-slot-preparation-20261009/.tmp/access-slot-preparation/debug-checker.mjs:1757:15
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:633:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)

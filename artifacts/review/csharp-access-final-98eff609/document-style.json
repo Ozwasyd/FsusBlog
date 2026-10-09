@@ -1,0 +1,25 @@
+{
+  "kind": "actual-ordinary-final-candidate-observation-not-runtime-qualification",
+  "head": "98eff60966fb7917e5085f216501652c98e58d9d",
+  "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "argv": [
+    "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--mode",
+    "full",
+    "--domain",
+    "docs",
+    "--operation",
+    "lint",
+    "--require-tools",
+    "--file",
+    "docs/development/csharp-style-enforcement.md"
+  ],
+  "startedAtUtc": "2026-10-09T08:08:52.523043+00:00",
+  "endedAtUtc": "2026-10-09T08:08:52.886998+00:00",
+  "exitCode": 0,
+  "expectedCount": null,
+  "actualCount": null,
+  "logSha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e",
+  "heldActionsExecuted": false
+}

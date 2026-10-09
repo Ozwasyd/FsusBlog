@@ -1,0 +1,17 @@
+{
+  "kind": "actual-ordinary-final-candidate-observation-not-runtime-qualification",
+  "head": "98eff60966fb7917e5085f216501652c98e58d9d",
+  "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "argv": [
+    "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+    "tools/docs/generate-document-lifecycle.mjs",
+    "--check"
+  ],
+  "startedAtUtc": "2026-10-09T08:08:52.888095+00:00",
+  "endedAtUtc": "2026-10-09T08:08:53.146844+00:00",
+  "exitCode": 0,
+  "expectedCount": null,
+  "actualCount": null,
+  "logSha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6",
+  "heldActionsExecuted": false
+}

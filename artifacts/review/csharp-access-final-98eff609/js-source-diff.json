@@ -1,0 +1,24 @@
+{
+  "kind": "actual-ordinary-final-candidate-observation-not-runtime-qualification",
+  "head": "98eff60966fb7917e5085f216501652c98e58d9d",
+  "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "argv": [
+    "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "source-diff",
+    "--base",
+    "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+    "--file",
+    "tools/dotnet/check-csharp-style.mjs",
+    "--file",
+    "tests/tools/csharp-style.test.mjs"
+  ],
+  "startedAtUtc": "2026-10-09T08:08:36.611730+00:00",
+  "endedAtUtc": "2026-10-09T08:08:52.519675+00:00",
+  "exitCode": 0,
+  "expectedCount": null,
+  "actualCount": null,
+  "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7",
+  "heldActionsExecuted": false
+}

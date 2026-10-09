@@ -1,0 +1,151 @@
+{
+  "kind": "complete-eight-file-final-source-handoff-not-runtime-qualification",
+  "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "sourceHead": "98eff60966fb7917e5085f216501652c98e58d9d",
+  "sourceBranch": "codex/csharp-access-final-motion-base-20261009",
+  "frozenSource": "6bce29c5b6c3986e877bb92c3ab9ba5b763db5f4",
+  "fullDiffSha256": "476b5b4871b0d085c184b6e98bb4f4fb9f4c6d4084dceead83097f5b65f6f44c",
+  "allEightBlobsIdenticalToReviewedFrozenSource": true,
+  "actualGateResults": {
+    "trusted-prospective-pr": {
+      "kind": "actual-ordinary-final-metadata-observation-not-live-PR-acceptance",
+      "head": "98eff60966fb7917e5085f216501652c98e58d9d",
+      "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+      "argv": [
+        "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-access-final-trusted-base-20261009/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-access-final-motion-base-20261009",
+        "--github-event",
+        "/tmp/fsusblog-access-final-motion-base-20261009/.tmp/access-final/prepared-pr-event.json"
+      ],
+      "startedAtUtc": "2026-10-09T08:10:24.765655+00:00",
+      "endedAtUtc": "2026-10-09T08:10:26.759492+00:00",
+      "exitCode": 0,
+      "logSha256": "e32f120318f8bed0a3a3d2e53e1bd6366bb9aa10438785ace08147336d5372b4",
+      "heldActionsExecuted": false
+    },
+    "trusted-range": {
+      "kind": "actual-ordinary-final-metadata-observation-not-live-PR-acceptance",
+      "head": "98eff60966fb7917e5085f216501652c98e58d9d",
+      "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+      "argv": [
+        "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-access-final-trusted-base-20261009/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-access-final-motion-base-20261009",
+        "--range",
+        "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f..HEAD"
+      ],
+      "startedAtUtc": "2026-10-09T08:10:22.806547+00:00",
+      "endedAtUtc": "2026-10-09T08:10:24.765314+00:00",
+      "exitCode": 0,
+      "logSha256": "4d599aed751bd389cc297eca26b949ab785fc5ece26d7d8b1d6210a644d9d860",
+      "heldActionsExecuted": false
+    },
+    "document-lifecycle": {
+      "kind": "actual-ordinary-final-candidate-observation-not-runtime-qualification",
+      "head": "98eff60966fb7917e5085f216501652c98e58d9d",
+      "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+      "argv": [
+        "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+      ],
+      "startedAtUtc": "2026-10-09T08:08:52.888095+00:00",
+      "endedAtUtc": "2026-10-09T08:08:53.146844+00:00",
+      "exitCode": 0,
+      "expectedCount": null,
+      "actualCount": null,
+      "logSha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6",
+      "heldActionsExecuted": false
+    },
+    "document-style": {
+      "kind": "actual-ordinary-final-candidate-observation-not-runtime-qualification",
+      "head": "98eff60966fb7917e5085f216501652c98e58d9d",
+      "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+      "argv": [
+        "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+        "tools/style/check-native-tooling-style.mjs",
+        "--mode",
+        "full",
+        "--domain",
+        "docs",
+        "--operation",
+        "lint",
+        "--require-tools",
+        "--file",
+        "docs/development/csharp-style-enforcement.md"
+      ],
+      "startedAtUtc": "2026-10-09T08:08:52.523043+00:00",
+      "endedAtUtc": "2026-10-09T08:08:52.886998+00:00",
+      "exitCode": 0,
+      "expectedCount": null,
+      "actualCount": null,
+      "logSha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e",
+      "heldActionsExecuted": false
+    },
+    "js-source-diff": {
+      "kind": "actual-ordinary-final-candidate-observation-not-runtime-qualification",
+      "head": "98eff60966fb7917e5085f216501652c98e58d9d",
+      "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+      "argv": [
+        "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "source-diff",
+        "--base",
+        "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+        "--file",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--file",
+        "tests/tools/csharp-style.test.mjs"
+      ],
+      "startedAtUtc": "2026-10-09T08:08:36.611730+00:00",
+      "endedAtUtc": "2026-10-09T08:08:52.519675+00:00",
+      "exitCode": 0,
+      "expectedCount": null,
+      "actualCount": null,
+      "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7",
+      "heldActionsExecuted": false
+    },
+    "ordinary-16": {
+      "kind": "actual-ordinary-final-candidate-observation-not-runtime-qualification",
+      "head": "98eff60966fb7917e5085f216501652c98e58d9d",
+      "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+      "argv": [
+        "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "--test-name-pattern=^(?:C\\#\\ style\\ governance\\ accepts\\ Roslyn\\ expression\\ braces\\ and\\ multiline\\ verbatim\\ content|C\\#\\ style\\ governance\\ aggregates\\ tabs\\ braces\\ indentation\\ using\\ naming\\ and\\ line\\-ending\\ failures|parameter\\ attributes\\ keep\\ framework\\ enum\\ arguments\\ separate\\ from\\ multiline\\ parameter\\ names|C\\#\\ source\\ lexer\\ preserves\\ the\\ three\\ character\\-class\\ regex\\ match\\ contracts|C\\#\\ source\\ lexer\\ retains\\ real\\ array\\ and\\ generic\\ naming\\ and\\ declaration\\ refusals|contextual\\ record\\ expressions\\ do\\ not\\ exempt\\ lowercase\\ types\\ named\\ with|singular\\ Miss\\ enums\\ and\\ plural\\ flags\\ retain\\ both\\ naming\\ refusal\\ controls|array\\-valued\\ attributes\\ retain\\ genuine\\ contextual\\ record\\ expressions|singular\\ Access\\ retains\\ the\\ eight\\ ordinary\\ and\\ flags\\ controls|Access\\-only\\ rebind\\ preserves\\ the\\ merged\\ Miss\\ baseline\\ and\\ refuses\\ substituted\\ inputs|policy\\-only\\ rebind\\ preserves\\ the\\ real\\ original\\ baseline\\ and\\ refuses\\ substituted\\ inputs|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ first\\ multiline\\ parameter|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ continuation\\ parameter|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ named\\ attribute\\ argument|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ multiple\\ attributes|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ ordinary\\ parameter)$",
+        "tests/tools/csharp-style.test.mjs"
+      ],
+      "startedAtUtc": "2026-10-09T08:08:16.903219+00:00",
+      "endedAtUtc": "2026-10-09T08:08:36.610419+00:00",
+      "exitCode": 0,
+      "expectedCount": 16,
+      "actualCount": 16,
+      "logSha256": "60ed6b7b461a85d8d30c0785e8310e01fb85b8a0d4b2dbdc92bafee57cbbb5c0",
+      "heldActionsExecuted": false
+    }
+  },
+  "producerExecutedForFinalHead": false,
+  "reasonNoProducerExecution": "All actual 1128 canonical closure input bindings match; unchanged producer/index and exact Node24.16 parser identity.",
+  "qualificationEligible": false,
+  "heldActionsExecuted": false,
+  "completeSourceAggregateExecuted": false,
+  "deniedCoupledCommand": "node tools/run-test-matrix.mjs ci-pr-smart --stage source-integration --base-ref c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "deniedCoupledPort": "tools/configuration/solution-source.test.mjs; closed source-admission and Python receipt substitution controls",
+  "notRun": [
+    "complete 103-case module at final head",
+    "complete SOURCE aggregate",
+    "held audit/Git replacement/cohort/receipt controls",
+    "GPU/native/runtime/release qualification",
+    "live GitHub PR metadata until coordinator creation",
+    "remote CI"
+  ],
+  "publicTitle": "fix(governance): classify singular access enums precisely",
+  "publicBody": "prepared-pr-body.md",
+  "prospectiveEvent": "prepared-pr-event.json",
+  "actualLivePR": null,
+  "historicalFailuresRetained": true
+}

@@ -1,0 +1,18 @@
+{
+  "kind": "actual-ordinary-final-metadata-observation-not-live-PR-acceptance",
+  "head": "98eff60966fb7917e5085f216501652c98e58d9d",
+  "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "argv": [
+    "/tmp/fsusblog-access-slot-tools-20261009/node-v24.16.0-linux-x64/bin/node",
+    "/tmp/fsusblog-access-final-trusted-base-20261009/tools/governance/check-change-contract.mjs",
+    "--root",
+    "/tmp/fsusblog-access-final-motion-base-20261009",
+    "--github-event",
+    "/tmp/fsusblog-access-final-motion-base-20261009/.tmp/access-final/prepared-pr-event.json"
+  ],
+  "startedAtUtc": "2026-10-09T08:10:24.765655+00:00",
+  "endedAtUtc": "2026-10-09T08:10:26.759492+00:00",
+  "exitCode": 0,
+  "logSha256": "e32f120318f8bed0a3a3d2e53e1bd6366bb9aa10438785ace08147336d5372b4",
+  "heldActionsExecuted": false
+}
