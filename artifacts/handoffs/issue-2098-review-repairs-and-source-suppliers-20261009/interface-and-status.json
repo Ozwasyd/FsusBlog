@@ -1,0 +1,149 @@
+{
+  "sourceCommit": "b7c26f4062c7c510e8ab43ccf74488fe37461e7f",
+  "sourceTree": "4c9873ca4895ad3219e17ce4a9f897edf54a71db",
+  "branch": "codex/chain-1895-component-prop-source",
+  "fsusUICommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "fsusUITree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+  "controls": {
+    "passed": 753,
+    "failed": 0,
+    "skipped": 0,
+    "cleanSource": true,
+    "roster": "clean-753-positive-preflight.json",
+    "result": "clean-review-repair-753-tests.result.json"
+  },
+  "moduleInputs": {
+    "target": "2c37518230c4a10d83edbec9ec73d3cc737b2c28",
+    "collection": "cae31c4b747a49d337844f7df6060d58cefe26c8",
+    "functional": "02121572e3c392f950dcfb3fb6b43ce182f86c93",
+    "slot": "d841df132b11db30dade7ca55ce47efd62be9d1c",
+    "finiteRefs": "8c9273b7fe122b064615ed69863df282a64c3324",
+    "routes": "fc21ca28d43314a3c49adf1ab75deeeb77a48c37",
+    "orderGeometry": "f59cc26892c68798298369badb82003e154b4ac4"
+  },
+  "sourceClosure": [
+    {
+      "path": "package.json",
+      "gitBlob": "2f5a557c2e46d0996e0ccc0d6d0382bc6771f3a1",
+      "sha256": "4d79b89ab9b88c01eb973acff15f7d8e24a5448e641d23cb2e19f1692df0071f"
+    },
+    {
+      "path": "tools/frontend/control-legality/package.json",
+      "gitBlob": "d8a692c7304e4cb47ebbfbb4ddebf02180073b98",
+      "sha256": "f5e01b121d4dd36d6f6a30b94673d021492998b6d1983a978be99236b6c9f5ac"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+      "gitBlob": "bea89844d9843b496125bf452b6cca2acb814424",
+      "sha256": "9419513294adb15a7074d1b9c0ed8e0f19c49b2d03d3e1a1b9d8dcd785c0c364"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionSource.mjs",
+      "gitBlob": "5d70bf6181f6a56237f6c528089e5175edb5b41b",
+      "sha256": "abd5495415d8c11078be0ee47c80d6719fe8929e628153118685fb477bf025ed"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionTargetSource.mjs",
+      "gitBlob": "9fc305fbeab708789d5982b08767a140a2ab1a2a",
+      "sha256": "f2a3c9a660e134b1f044d451d4912af43d421757dea94604eadb7bac67022655"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+      "gitBlob": "2357dfbc6753c8cd2f3f171ac1fcee99afb6bf8f",
+      "sha256": "37c4723c422fe437277c938b59ecdff189a12abd5ff2066cfed3b40de19bbc6b"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionSlotSource.mjs",
+      "gitBlob": "4b4f160f8587d9f0e6d2a13e80a1f0ef9b676770",
+      "sha256": "c328fe28dc78a92beade27ca5c4f755585a7d696daae123490aadf711afe1f9a"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+      "gitBlob": "8e709b5a68d10e937a71f3c8d1b0b54bb9e43189",
+      "sha256": "10e06492151032b3a7cc8081bd2e5005d23f15acb00373145614634c7b804aea"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionRoutes.mjs",
+      "gitBlob": "f9b62fbc1af8aa10b447dc162765ccdb9f954645",
+      "sha256": "f244d6aaacc23ebf7352efeeda0b27a5e19d5c533d7909c4eeab20a6edfcf066"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionDom.mjs",
+      "gitBlob": "b21593f64878ab31805c31c5cfd3cf10bc03a473",
+      "sha256": "31b2808fc5bd83cf327737bfdc4850f2f8f44be1c965dc38f5100323d5d7a871"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionGeometry.mjs",
+      "gitBlob": "50c2d022a456b04ab2780b245af31b89d065870f",
+      "sha256": "ea79af0e94df0f36201e2755b6fd79272fae15bb8c59f3de286cc5a8f572666f"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+      "gitBlob": "55083898e574ff99771f0935823fe516c7aafcce",
+      "sha256": "b0e6d43aaea70f272efcdf7a8f17dd52c9e3e1cc6381dbc56868330356d89b79"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionOverflowGeometry.mjs",
+      "gitBlob": "dd622765dee9eb731a8e930bee1e1680def0e1f0",
+      "sha256": "91d3dbb3578170c4e4fee60b0c1b40441b585763999b8ef8fdb5e4dde6d9e4aa"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionChromeGeometry.mjs",
+      "gitBlob": "2a63860caa19272e5359cf20b1e01335743c9048",
+      "sha256": "31e0de2dfcded482485dc75f23dd3f79b070ba10f0a0cf8d85e44c15e7d5f9b0"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionContracts.mjs",
+      "gitBlob": "1adb993bfa122172289e30005b64b3a88995c449",
+      "sha256": "bf5752f757afbf9e3e168469b972a230923166e76dff9c8b56595ae2f7a0ef5b"
+    },
+    {
+      "path": "tools/frontend/control-legality/source.mjs",
+      "gitBlob": "14416019ec9f42bbbea0a2a9cfc2cf2ac678a5fc",
+      "sha256": "d91f40aabc15d03a2c7326789ec54918f766e3528c2e4b75c3d266a7806ea099"
+    },
+    {
+      "path": "tools/frontend/control-legality/source-ref-selectors.mjs",
+      "gitBlob": "a7097b6e635ae43d50f357baadf26fa592503c32",
+      "sha256": "78a9d4b38cf6fa5cf99a56ed105f0427d53f2770b589cb297ca5a925d7a057bf"
+    }
+  ],
+  "reviewRepairs": {
+    "F1": "multiple named bindings and attribute/binding collisions rejected before native shortcut; exact local Owner probes and public ElButton probes executed",
+    "F2": "missing/type-only SFC runtime import and supplied Ghost refused; real default identity and named default facade retained",
+    "F3": "named callback return capture and assignment aggregate escape refused by original resolver",
+    "F4": "original published node array and every original node object required; byte-identical owner/call/array replacements refused; no target-value mutation claim",
+    "F5": "functional0212 actual postimage consumed and89 module controls executed; frozen a9ec not retroactively accepted"
+  },
+  "interfaces": {
+    "completeSupplier": "source.resolveTargetInputs(node, graphOrOriginalNodes): original complete ordered componentInput/staticPropValue facts",
+    "publicFunction": "resolver.resolveSourceFunction(file,expression): actual declared public ESM function AST + sourceSteps, full package/source inputs; no effect proof",
+    "routerView": "actual source module public API available; original graph consumer automatic join remains pending",
+    "frameworkClass": "wider resolveFrameworkExport draft preserved outside repo, unexposed and unaccepted"
+  },
+  "knownOpenSourceReview": {
+    "slot": "d841 original36 passed but four independently reported findings not closed by this packet; e12022 exact next input received, not consumed/tested in this tuple",
+    "collection": "cae31 original103 passed; independent18 probes2 pass16 fail reported to original owner; repairs pending",
+    "target": "2c actual58 controls run; independent module and new combined central re-review not accepted"
+  },
+  "legacyArtifactContract": {
+    "commit": "2993f604b9b33e2e21c4992e5e82760635965a51",
+    "status": "failed",
+    "reason": "commit scope evidence is outside repository allowed scopes",
+    "exitCode": 1,
+    "result": "legacy-published-artifact-contract-failed.result.json",
+    "historyRewritten": false,
+    "sourceRepairRangeContract": "232f7c86cedd5fe30a4f266de18330d63f9a412b..b7c26f4062c7c510e8ab43ccf74488fe37461e7f passed; does not waive legacy range failure"
+  },
+  "heldExecuted": false,
+  "productionInventoryRun": false,
+  "browserOrNativeRun": false,
+  "qualificationEligible": false,
+  "runtimePermissionAndState": "unbound",
+  "issueStatus": {
+    "1894": "full acceptance open on frozen cab938/7e52 pair",
+    "1895": "full gate open; same-task acceptance and qualified exact external1889/1891/1892 evidence absent; closed boundaries not currently runtime accepted",
+    "2098": "current source increments verified; independent re-review, slot/collection repairs, broader framework identity and graph joins remain open"
+  },
+  "metadataWrites": false
+}

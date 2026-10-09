@@ -1,0 +1,26 @@
+[
+  {
+    "commit": "2c37518230c4a10d83edbec9ec73d3cc737b2c28",
+    "path": "tests/frontend/support/layout/compositionTargetSource.mjs",
+    "beforeSha256": "b07045da8d13b6835dc9e742866b66c3f064944bd8fa2b7b9c8c52d459541f3c",
+    "inputSha256": "85ca1e57e9b20bed7c70becc7b351d864bb8f2ff078360e4d43f7d1f5de75cf7"
+  },
+  {
+    "commit": "2c37518230c4a10d83edbec9ec73d3cc737b2c28",
+    "path": "tests/tools/layout-target-source.test.mjs",
+    "beforeSha256": "622d46822e5e785dc7b7ee6c07b63a7dff294f0179b7506b4b32b882fab81877",
+    "inputSha256": "28b5b03a7e5515bba74280074c82e2f2b65e42e9654c27dd9f18fec5c654656a"
+  },
+  {
+    "commit": "cae31c4b747a49d337844f7df6060d58cefe26c8",
+    "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "beforeSha256": "b9be2bb36487692e0aa1a8d4d8dc5727f317dee90f5544f7d037dd1284c9b54d",
+    "inputSha256": "10e06492151032b3a7cc8081bd2e5005d23f15acb00373145614634c7b804aea"
+  },
+  {
+    "commit": "cae31c4b747a49d337844f7df6060d58cefe26c8",
+    "path": "tests/tools/layout-collection-source.test.mjs",
+    "beforeSha256": "88735be1b4c2e58874da4d7d51e436d2be2c8c9733dce0c1ddcd4cdc1f3d19f5",
+    "inputSha256": "b4dd2de9f28e03f9b6454a992529a164b373a7ab7d17dbacbd1f39c50c64e2f3"
+  }
+]

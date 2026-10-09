@@ -1,0 +1,58 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tools/frontend/control-legality/source.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionTargetSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs",
+    "--file",
+    "tests/tools/layout-target-source.test.mjs",
+    "--file",
+    "tests/tools/layout-collection-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791554935.7823076,
+  "durationSeconds": 5.70845103263855,
+  "source": {
+    "blog": {
+      "commit": "e297f238f46e34a582508608e4232d0591b5a3a2",
+      "tree": "19d7246b9e6eb13f5b01f0fce4f862efc4a0d5ce",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/frontend/support/layout/compositionTargetSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tests/tools/layout-target-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "f7a35ef3a3e5243f937574237a92f05d48fafadcec4b13e271e4876e5cc26b7e"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "e297f238f46e34a582508608e4232d0591b5a3a2",
+      "tree": "19d7246b9e6eb13f5b01f0fce4f862efc4a0d5ce",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/frontend/support/layout/compositionTargetSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tests/tools/layout-target-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "f7a35ef3a3e5243f937574237a92f05d48fafadcec4b13e271e4876e5cc26b7e"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/working-review-repair-style-final.log",
+  "logSha256": "faf24169159ca0afa9958abdead132f36d433c2dc59554dc17d7abbfe598d4db"
+}

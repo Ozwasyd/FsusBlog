@@ -1,0 +1,50 @@
+[
+  {
+    "inputCommit": "02121572e3c392f950dcfb3fb6b43ce182f86c93",
+    "path": "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+    "beforeSha256": "242cc3d6b861b20c00b68c6914adf86c99b853b553e2cd2bb1d0b86634a2ac04",
+    "inputSha256": "83334b082a63e1a3a75ec593fd17a3ec64bd6331e30a7dcef41dee9b8ee32e34"
+  },
+  {
+    "inputCommit": "02121572e3c392f950dcfb3fb6b43ce182f86c93",
+    "path": "tests/tools/layout-functional-source.test.mjs",
+    "beforeSha256": "b48cbf747aafbd16541e7a99879ed7db6393c53ee6205a9d6d9d58dcabdca276",
+    "inputSha256": "83ef18ef34c66ed371ab0b9bf846611d301cff2c3e5c145df54f58888816a2d9"
+  },
+  {
+    "inputCommit": "d841df132b11db30dade7ca55ce47efd62be9d1c",
+    "path": "tests/frontend/support/layout/compositionSlotSource.mjs",
+    "beforeSha256": "c52a5c5beeba1ff500c6728d67bff6efb4e80bff2615aae75e7e823553895972",
+    "inputSha256": "c328fe28dc78a92beade27ca5c4f755585a7d696daae123490aadf711afe1f9a"
+  },
+  {
+    "inputCommit": "d841df132b11db30dade7ca55ce47efd62be9d1c",
+    "path": "tests/tools/layout-slot-source.test.mjs",
+    "beforeSha256": "abcb35a6010a39fd27edbf421f6605d23eeae96c0f1b2f9a8468d26de11c1a3e",
+    "inputSha256": "7cf5f535fdf81cb0d9591fd6c5433a2a2794934d86144619258d851c208d163c"
+  },
+  {
+    "inputCommit": "fc21ca28d43314a3c49adf1ab75deeeb77a48c37",
+    "path": "tests/frontend/support/layout/compositionRoutes.mjs",
+    "beforeSha256": "46808957bfcb5082f881bbc9330de75966c2906ddd1cbbed3e91ca32c43cd8c1",
+    "inputSha256": "f244d6aaacc23ebf7352efeeda0b27a5e19d5c533d7909c4eeab20a6edfcf066"
+  },
+  {
+    "inputCommit": "fc21ca28d43314a3c49adf1ab75deeeb77a48c37",
+    "path": "tests/tools/layout-router-view-source.test.mjs",
+    "beforeSha256": null,
+    "inputSha256": "e3cc00243f9c3d89f71ab949f08c949c3d128bc520c396faf9113eb867144a50"
+  },
+  {
+    "inputCommit": "f59cc26892c68798298369badb82003e154b4ac4",
+    "path": "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+    "beforeSha256": "628a77e720054a665646ee37bb6c71a587a71bcb178711567d0f3a4c627db094",
+    "inputSha256": "b0e6d43aaea70f272efcdf7a8f17dd52c9e3e1cc6381dbc56868330356d89b79"
+  },
+  {
+    "inputCommit": "f59cc26892c68798298369badb82003e154b4ac4",
+    "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+    "beforeSha256": "001b7296e378ba80850f45e7e25a9d941b72de7bde49571f6c19a52c0c4bc35b",
+    "inputSha256": "fa884fd9577a28092fe74e72a6ca6aa4ea4b33766aab9f7ecec95ffedb0aca87"
+  }
+]

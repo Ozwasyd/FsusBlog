@@ -1,0 +1,58 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tools/frontend/control-legality/source.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionTargetSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs",
+    "--file",
+    "tests/tools/layout-target-source.test.mjs",
+    "--file",
+    "tests/tools/layout-collection-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 1,
+  "startedAtEpoch": 1791554678.3906026,
+  "durationSeconds": 5.521249532699585,
+  "source": {
+    "blog": {
+      "commit": "e297f238f46e34a582508608e4232d0591b5a3a2",
+      "tree": "19d7246b9e6eb13f5b01f0fce4f862efc4a0d5ce",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tests/tools/layout-target-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "397f927c273d8dcd9706f8894345453cdcf06170117295f0e02a06ec299b4094"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "e297f238f46e34a582508608e4232d0591b5a3a2",
+      "tree": "19d7246b9e6eb13f5b01f0fce4f862efc4a0d5ce",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tests/tools/layout-target-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "397f927c273d8dcd9706f8894345453cdcf06170117295f0e02a06ec299b4094"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/working-review-repair-style.log",
+  "logSha256": "09b24d8ef217bd983eb6f49265ed251a1ad38da7addde1cd70e7182bd81cede1"
+}

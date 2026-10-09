@@ -1,0 +1,50 @@
+{
+  "command": [
+    "node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--domain",
+    "docs",
+    "--operation",
+    "lint",
+    "--mode",
+    "full",
+    "--file",
+    "docs/frontend/layout-visual-governance.md"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791554941.5247161,
+  "durationSeconds": 0.4438796043395996,
+  "source": {
+    "blog": {
+      "commit": "e297f238f46e34a582508608e4232d0591b5a3a2",
+      "tree": "19d7246b9e6eb13f5b01f0fce4f862efc4a0d5ce",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/frontend/support/layout/compositionTargetSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tests/tools/layout-target-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "f7a35ef3a3e5243f937574237a92f05d48fafadcec4b13e271e4876e5cc26b7e"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "e297f238f46e34a582508608e4232d0591b5a3a2",
+      "tree": "19d7246b9e6eb13f5b01f0fce4f862efc4a0d5ce",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/frontend/support/layout/compositionTargetSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tests/tools/layout-target-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "f7a35ef3a3e5243f937574237a92f05d48fafadcec4b13e271e4876e5cc26b7e"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/working-review-repair-docs.log",
+  "logSha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e"
+}
