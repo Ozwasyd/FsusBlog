@@ -1,0 +1,255 @@
+{
+  "schema": "fsusblog.retained-preflight-owner-routing.v1",
+  "source": "b4f0e8f5019253e5e937d4b07d6231f3a1b22d80",
+  "consumerBaseline": "abb28c41213f6ea506a6b4dcb64f30b7451384b7",
+  "purpose": "Sanitized read-only export of retained actual failures, not a new admission receipt.",
+  "command": [
+    "node",
+    "tools/run-test-matrix.mjs",
+    "preflight"
+  ],
+  "startUtc": "2026-10-09T13:51:51.063547+00:00",
+  "endUtc": "2026-10-09T13:54:53.648077+00:00",
+  "exitCode": 1,
+  "wrapperMessage": "[matrix] release-final static boundary rejected matrix parse:",
+  "rejectionCount": 7,
+  "rejections": [
+    {
+      "id": 1,
+      "exactRetainedMessage": "execution target authority: independent release-final Node parser identity drifted",
+      "canonicalMatrixOwner": "ServerContractAgent",
+      "originalGenerator": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "decisionContract": "tools/test-matrix/release-final-static-boundary.mjs",
+      "unchangedSourceContract": true,
+      "route": "Existing canonical matrix/execution-authority owner; coordinator maps role to its original root task. Do not assign to PostgreSQL manifest owner merely because registration changed.",
+      "kind": "node-parser-composite-identity",
+      "decisionLine": 2196,
+      "expectedIdentitySource": "config/testing/release-final-execution-authority-index.json",
+      "expectedIdentity": {
+        "nodeVersion": "v24.16.0",
+        "acorn": {
+          "owner": "node:internal/deps/acorn/acorn/dist/acorn",
+          "version": "8.16.0",
+          "sourceDigest": "sha256:2261c5f0e4abe860e889dfc67081683a4ba4d27deb7f4cbc8ad06a1b7fdd510c"
+        },
+        "amaro": {
+          "owner": "node:internal/deps/amaro/dist/index",
+          "version": "1.1.9",
+          "sourceDigest": "sha256:b878f771a6e0aa2a134c000f4b139fc629f35fa6190d66eb0fc599ca1c9d6ce3"
+        }
+      },
+      "actualIdentity": null,
+      "actualIdentityEvidence": "Composite mismatch was logged; exact actual fields, process.version and executable identity were not recorded. No version-only inference or retrospective current-runtime probe.",
+      "secondaryRoute": "Original official Node toolchain owner must reconcile exact builtin source digests and executable identity with the canonical contract."
+    },
+    {
+      "id": 2,
+      "exactRetainedMessage": "execution target authority: independent release-final execution declaration index drifted: expected=sha256:861fe63f121fc62d2bfb5aff32a9c823bbb2ea0c192e8a7aeab4b6d2e3fffce3 actual=sha256:7bc92b9bc9d46b21cb4c5d66ca1832ad4fc5c1a16963ea79e77ea3a5829f0188",
+      "canonicalMatrixOwner": "ServerContractAgent",
+      "originalGenerator": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "decisionContract": "tools/test-matrix/release-final-static-boundary.mjs",
+      "unchangedSourceContract": true,
+      "route": "Existing canonical matrix/execution-authority owner; coordinator maps role to its original root task. Do not assign to PostgreSQL manifest owner merely because registration changed.",
+      "kind": "execution-declarations-index",
+      "decisionLine": 2204,
+      "path": "config/testing/release-final-execution-authority-index.json",
+      "source": "tests/matrix.yml",
+      "expectedIdentity": "sha256:861fe63f121fc62d2bfb5aff32a9c823bbb2ea0c192e8a7aeab4b6d2e3fffce3",
+      "actualIdentity": "sha256:7bc92b9bc9d46b21cb4c5d66ca1832ad4fc5c1a16963ea79e77ea3a5829f0188",
+      "requiredOwnerStep": "Review current canonical declarations/paths through the original independent index contract, then use the unchanged authority producer. That producer refuses these mismatches; blanket fixture regeneration is not sufficient."
+    },
+    {
+      "id": 3,
+      "exactRetainedMessage": "execution target authority: independent release-final execution target-path index drifted: expected=sha256:64424b2901b12fbe06f11bca6ffcc34f5a81fcd6f841b240d8c77bf8b780b6a8 actual=sha256:06529f0f8d85548638dd69dc1c8caffb030bbac7694650ebe022ae4f874f7c6f",
+      "canonicalMatrixOwner": "ServerContractAgent",
+      "originalGenerator": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "decisionContract": "tools/test-matrix/release-final-static-boundary.mjs",
+      "unchangedSourceContract": true,
+      "route": "Existing canonical matrix/execution-authority owner; coordinator maps role to its original root task. Do not assign to PostgreSQL manifest owner merely because registration changed.",
+      "kind": "execution-target-path-index",
+      "decisionLine": 2214,
+      "path": "config/testing/release-final-execution-authority-index.json",
+      "source": "tests/matrix.yml",
+      "expectedIdentity": "sha256:64424b2901b12fbe06f11bca6ffcc34f5a81fcd6f841b240d8c77bf8b780b6a8",
+      "actualIdentity": "sha256:06529f0f8d85548638dd69dc1c8caffb030bbac7694650ebe022ae4f874f7c6f",
+      "requiredOwnerStep": "Review current canonical declarations/paths through the original independent index contract, then use the unchanged authority producer. That producer refuses these mismatches; blanket fixture regeneration is not sufficient."
+    },
+    {
+      "id": 4,
+      "exactRetainedMessage": "execution target tests/tools/article-vault-conflict-contract.test.mjs is outside the finite authority for owners article-vault-conflict-contract",
+      "canonicalMatrixOwner": "ServerContractAgent",
+      "originalGenerator": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "decisionContract": "tools/test-matrix/release-final-static-boundary.mjs",
+      "unchangedSourceContract": true,
+      "route": "Existing canonical matrix/execution-authority owner; coordinator maps role to its original root task. Do not assign to PostgreSQL manifest owner merely because registration changed.",
+      "kind": "finite-target-not-admitted",
+      "decisionLine": 2281,
+      "path": "tests/tools/article-vault-conflict-contract.test.mjs",
+      "matrixTierOwner": "article-vault-conflict-contract",
+      "expectedIdentity": "Target absent from checked-in finite authority fixture",
+      "actualIdentity": {
+        "matrixTierOwner": "article-vault-conflict-contract",
+        "targetPath": "tests/tools/article-vault-conflict-contract.test.mjs"
+      },
+      "finiteAuthorityPath": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "source": "tests/matrix.yml",
+      "requiredOwnerStep": "Route to the original owner of this exact diagnostic tier and the canonical finite execution authority. Preserve the source proposal and review its declaration/dependency closure; do not silently broaden the allowlist."
+    },
+    {
+      "id": 5,
+      "exactRetainedMessage": "execution target tests/tools/article-vault-conflict-terminal-contract.test.mjs is outside the finite authority for owners article-vault-conflict-presentation-diagnostics",
+      "canonicalMatrixOwner": "ServerContractAgent",
+      "originalGenerator": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "decisionContract": "tools/test-matrix/release-final-static-boundary.mjs",
+      "unchangedSourceContract": true,
+      "route": "Existing canonical matrix/execution-authority owner; coordinator maps role to its original root task. Do not assign to PostgreSQL manifest owner merely because registration changed.",
+      "kind": "finite-target-not-admitted",
+      "decisionLine": 2281,
+      "path": "tests/tools/article-vault-conflict-terminal-contract.test.mjs",
+      "matrixTierOwner": "article-vault-conflict-presentation-diagnostics",
+      "expectedIdentity": "Target absent from checked-in finite authority fixture",
+      "actualIdentity": {
+        "matrixTierOwner": "article-vault-conflict-presentation-diagnostics",
+        "targetPath": "tests/tools/article-vault-conflict-terminal-contract.test.mjs"
+      },
+      "finiteAuthorityPath": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "source": "tests/matrix.yml",
+      "requiredOwnerStep": "Route to the original owner of this exact diagnostic tier and the canonical finite execution authority. Preserve the source proposal and review its declaration/dependency closure; do not silently broaden the allowlist."
+    },
+    {
+      "id": 6,
+      "exactRetainedMessage": "execution target tests/tools/macos-vault-observer-source.test.mjs is outside the finite authority for owners macos-vault-observer-source",
+      "canonicalMatrixOwner": "ServerContractAgent",
+      "originalGenerator": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "decisionContract": "tools/test-matrix/release-final-static-boundary.mjs",
+      "unchangedSourceContract": true,
+      "route": "Existing canonical matrix/execution-authority owner; coordinator maps role to its original root task. Do not assign to PostgreSQL manifest owner merely because registration changed.",
+      "kind": "finite-target-not-admitted",
+      "decisionLine": 2281,
+      "path": "tests/tools/macos-vault-observer-source.test.mjs",
+      "matrixTierOwner": "macos-vault-observer-source",
+      "expectedIdentity": "Target absent from checked-in finite authority fixture",
+      "actualIdentity": {
+        "matrixTierOwner": "macos-vault-observer-source",
+        "targetPath": "tests/tools/macos-vault-observer-source.test.mjs"
+      },
+      "finiteAuthorityPath": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "source": "tests/matrix.yml",
+      "requiredOwnerStep": "Route to the original owner of this exact diagnostic tier and the canonical finite execution authority. Preserve the source proposal and review its declaration/dependency closure; do not silently broaden the allowlist."
+    },
+    {
+      "id": 7,
+      "exactRetainedMessage": "execution target authority owner, content, or dependency closure drifted: expected sha256:629d12f89966a31ada1b41f47cc0fcfde8f11e526866dfae4e96e178eb07fae4; got sha256:588707101154a4c055e0af0021af7d1bbcb8361b7cded07c1db6c288b8133e4b",
+      "canonicalMatrixOwner": "ServerContractAgent",
+      "originalGenerator": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "decisionContract": "tools/test-matrix/release-final-static-boundary.mjs",
+      "unchangedSourceContract": true,
+      "route": "Existing canonical matrix/execution-authority owner; coordinator maps role to its original root task. Do not assign to PostgreSQL manifest owner merely because registration changed.",
+      "kind": "whole-execution-authority-owner-content-dependency-closure",
+      "decisionLine": 2501,
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "expectedIdentity": "sha256:629d12f89966a31ada1b41f47cc0fcfde8f11e526866dfae4e96e178eb07fae4",
+      "actualIdentity": "sha256:588707101154a4c055e0af0021af7d1bbcb8361b7cded07c1db6c288b8133e4b",
+      "requiredOwnerStep": "After exact toolchain identity and original independent index admission are reconciled, the unchanged authority producer owns the full snapshot. Keep every original closure and finalizer seal check."
+    }
+  ],
+  "parserResolutionFromUnchangedOriginalSource": {
+    "nodeExecutableAtRecordedRun": null,
+    "nodeVersionAtRecordedRun": null,
+    "missingEvidence": "Retained start/end/log records have argv node but no PATH resolution, process.execPath, process.version, executable hash or actual composite parser object.",
+    "acorn": "process.binding(\"natives\")[\"internal/deps/acorn/acorn/dist/acorn\"]; compiled in-memory with Module._compile; module.paths=[]; no npm/node_modules resolution.",
+    "amaro": "process.binding(\"natives\")[\"internal/deps/amaro/dist/index\"]; identity version uses process.versions.amaro; Node stripTypeScriptTypes is the original builtin execution contract.",
+    "expectedSourceIndexAndFixtureIdentityAgree": true,
+    "expectedIdentity": {
+      "nodeVersion": "v24.16.0",
+      "acorn": {
+        "owner": "node:internal/deps/acorn/acorn/dist/acorn",
+        "version": "8.16.0",
+        "sourceDigest": "sha256:2261c5f0e4abe860e889dfc67081683a4ba4d27deb7f4cbc8ad06a1b7fdd510c"
+      },
+      "amaro": {
+        "owner": "node:internal/deps/amaro/dist/index",
+        "version": "1.1.9",
+        "sourceDigest": "sha256:b878f771a6e0aa2a134c000f4b139fc629f35fa6190d66eb0fc599ca1c9d6ce3"
+      }
+    },
+    "officialPinnedRuntimeAlreadyMatched": "NOT PROVEN; retained original gate positively reports composite mismatch. Which identity field differs is not retained.",
+    "noNewRuntimeIdentityProbePerformed": true
+  },
+  "knownC46MatrixBundleFixComparison": {
+    "identifierSupplied": "c46",
+    "localCommitResolutionExitCode": 128,
+    "status": "UNVERIFIABLE_FROM_RETAINED_IDENTITIES",
+    "reason": "Exact full c46 commit and reviewed path/blob roster were not supplied or retained locally. Missing local commit resolution does not prove fixes are absent, and baseline byte equality does not prove c46 equality.",
+    "smallestNextInput": "Coordinator supplies exact c46 full SHA and relevant reviewed matrix/bundle path/blob identities; compare those bytes read-only before deciding consumption."
+  },
+  "unchangedOriginalSourceBlobs": [
+    {
+      "path": "tests/matrix.yml",
+      "sourceBlob": "05dcb515c2e49330a647380af933c149336a3267",
+      "consumerBaselineBlob": "05dcb515c2e49330a647380af933c149336a3267",
+      "unchanged": true
+    },
+    {
+      "path": "tools/test/bundles/bundle-steps.mjs",
+      "sourceBlob": "702bc322fdf2acfc5e723a6a7560b83586276b08",
+      "consumerBaselineBlob": "702bc322fdf2acfc5e723a6a7560b83586276b08",
+      "unchanged": true
+    },
+    {
+      "path": "tools/test/bundles/run-bundle.mjs",
+      "sourceBlob": "ae75176a583022a73e0c6a8b8de8e1a701dce26a",
+      "consumerBaselineBlob": "ae75176a583022a73e0c6a8b8de8e1a701dce26a",
+      "unchanged": true
+    },
+    {
+      "path": "tools/test/bundles/backend-tests.sh",
+      "sourceBlob": "580eb7cd02f93c3fffa48943f7c074042be13626",
+      "consumerBaselineBlob": "580eb7cd02f93c3fffa48943f7c074042be13626",
+      "unchanged": true
+    },
+    {
+      "path": "tools/test/bundles/build-static.sh",
+      "sourceBlob": "ccd15f6be39f2ca4d34d3ce368f555f27b0c3201",
+      "consumerBaselineBlob": "ccd15f6be39f2ca4d34d3ce368f555f27b0c3201",
+      "unchanged": true
+    },
+    {
+      "path": "tools/run-test-matrix.mjs",
+      "sourceBlob": "667448590a27a9df1e76c5dc4b899d55822a377d",
+      "consumerBaselineBlob": "667448590a27a9df1e76c5dc4b899d55822a377d",
+      "unchanged": true
+    },
+    {
+      "path": "tools/test-matrix/release-final-static-boundary.mjs",
+      "sourceBlob": "792b48725fb592713dab0cea0052b4540d4018fb",
+      "consumerBaselineBlob": "792b48725fb592713dab0cea0052b4540d4018fb",
+      "unchanged": true
+    },
+    {
+      "path": "config/testing/release-final-execution-authority-index.json",
+      "sourceBlob": "32eb40651cd94f7e531f4b5bccf94e8f38ab26b6",
+      "consumerBaselineBlob": "32eb40651cd94f7e531f4b5bccf94e8f38ab26b6",
+      "unchanged": true
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "sourceBlob": "b008a9bf518e58890188573a18e4691e800d73ca",
+      "consumerBaselineBlob": "b008a9bf518e58890188573a18e4691e800d73ca",
+      "unchanged": true
+    },
+    {
+      "path": "tools/test-matrix/generate-release-final-execution-authority.mjs",
+      "sourceBlob": "3a94146cb8d98aa9ceac65bedcb9e8e183e3aa8d",
+      "consumerBaselineBlob": "3a94146cb8d98aa9ceac65bedcb9e8e183e3aa8d",
+      "unchanged": true
+    }
+  ],
+  "nonRejectionWarning": "Node ExperimentalWarning about stripTypeScriptTypes was present; PID/trace wrapper omitted and it is not counted as an admission rejection.",
+  "preflightRerun": false,
+  "testsRerun": false,
+  "runtimeProbePerformed": false,
+  "databaseControlsStatus": "All 13 UNRUN; qualification withheld.",
+  "canonicalPostgresRegistrationStatus": "Original checker0,128classes/999 source-estimated cases,A451/B548 at this source; not the owner of these remaining execution-authority failures.",
+  "qualification": false
+}

@@ -112,3 +112,34 @@ write or issue closure is performed.
 
 Return this complete 27-path source, original before-rollback negative control,
 exact registration and actual current admission blocker to the SAME reviewer.
+
+## Portable retained admission failure routing
+
+`admission-owner-routing.json` exports every one of the seven actual preflight
+rejections at b4f0e8f50 with exact messages, paths, expected/actual digests, original
+source decisions and canonical owner routing. The recorded command was
+`node tools/run-test-matrix.mjs preflight`, from 2026-10-09T13:51:51.063547Z through
+2026-10-09T13:54:53.648077Z, exit 1. No preflight, test or runtime identity probe was
+rerun for this export. PID, raw logs and sensitive output are not published.
+
+The matrix names ServerContractAgent for all three rejected diagnostic tier owners
+and validate-matrix; the coordinator must map this existing role to its original
+root tasks. The unchanged execution-authority producer cannot repair a mismatched
+independent source index by itself: it checks parser, declaration and path identity
+and refuses before writing. Preserve those original admission requirements.
+
+Index and fixture agree on the expected Node v24.16.0 / Acorn8.16.0 / Amaro1.1.9
+composite, including both builtin-source hashes. The actual run used the original
+Node-builtin resolution, not an npm parser. However, retained records omit actual
+Node version, executable and actual parser digests; the logged composite mismatch
+is real, but its individual differing field cannot be recovered from those records.
+Do not claim official runtime identity match from a version string or substitute a
+new current-runtime probe for that run's missing identity.
+
+The abbreviated known c46 commit does not resolve from retained local objects; no
+exact reviewed c46 path/blob identity was supplied. The current matrix, bundles and
+original authority contracts are byte-identical to abb28, and their exact blobs are
+listed. This establishes unchanged consumer source, not c46 equality or absence.
+The smallest next handoff is the exact c46 full SHA and reviewed matrix/bundle blob
+roster, plus canonical toolchain/authority owner evidence for actual parser identity.
+All thirteen database controls remain UNRUN and all chain acceptances remain OPEN.
