@@ -68,6 +68,7 @@ import {
     type ArticleRecoveryOperationKind
 } from '@/services/articleRecoveryJournal';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
+import { createArticleAttachmentBusinessIntentReader } from '@/services/authoring/articleAttachmentBusinessIntentReader';
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
 import {
     articleDocumentContextAuthority,
@@ -909,6 +910,11 @@ export function useAdminArticleWrite()
         retry: (handle: Parameters<ArticleAttachmentContextAdapter['retry']>[0]) => authoringAttachments.retry(handle),
         readOwnedIntent: (handle: Parameters<ArticleAttachmentContextAdapter['readOwnedIntent']>[0]) =>
             authoringAttachments.readOwnedIntent(handle, attachmentPort.binding()),
+        // Borrow one actual caller-held capability; the original adapter validates membership.
+        bindBusinessIntent: (handle: Parameters<ArticleAttachmentContextAdapter['readOwnedIntent']>[0]) =>
+            createArticleAttachmentBusinessIntentReader({ attachments: authoringAttachments,
+                handle: intentRef => handle.snapshot.intent.task.taskRef === intentRef ? handle : null,
+                binding: () => attachmentPort.binding() }),
         consumeTransaction: (result: MarkdownEditorDispatchResult) => authoringAttachments.consumeTransaction(result, attachmentPort),
         get receipts()
         {

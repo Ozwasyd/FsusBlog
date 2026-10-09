@@ -88,7 +88,7 @@ async function boundHost()
     const business = { assess: vi.fn(async () => { throw new Error('ordinary-business-refusal'); }),
         verify: vi.fn().mockResolvedValue(false) };
     const release = session.bindPreviewOwners(business, () => ({ responsibility: editing, siteAuthor: 'Borrowed author' }));
-    return { ...f, session, editing, business, release };
+    return { ...f, session, commands, editing, business, release };
 }
 
 describe('actual Writer preview current authority binding', () =>
@@ -118,6 +118,67 @@ describe('actual Writer preview current authority binding', () =>
         expect(api.preview).not.toHaveBeenCalled();
         f.wrapper.unmount();
         expect(attachments.readOwnedIntent(handle)).toBeNull();
+    });
+
+    it('binds business intent verification to the original caller-held Writer capability', async () =>
+    {
+        const f = await boundHost();
+        const attachments = f.owner.authoringAttachmentRuntime;
+        const captured = attachments.capture({ origin: 'pick',
+            anchor: attachments.captureAnchor({ start: 0, end: 0, direction: 'none' },
+                { surface: 'source', tool: 'none', affinity: 'after', viewportOffset: 0, percentage: 0 }),
+            files: [{ name: 'business-reader.png', mimeType: 'image/png', byteLength: 3 }] });
+        if (captured.status !== 'created') throw new Error('ordinary-host-capture-rejected');
+        const handle = attachments.commitCreated(captured)[0]!;
+        const reader = attachments.bindBusinessIntent(handle);
+        const node = attachments.readOwnedIntent(handle)!;
+        const context = f.owner.authoringDocumentContextAdapter.context;
+        const verify = reader.verifyIntent;
+        expect(await verify(node, context)).toBe(true);
+        expect(reader.readOwnedIntent(node.intentRef, context)?.snapshot).toBe(handle.snapshot);
+        expect(reader.readOwnedIntent('foreign-intent', context)).toBeNull();
+        expect(await attachments.bindBusinessIntent({ ...handle }).verifyIntent(node, context)).toBe(false);
+        expect(await verify({ ...node, sourceUrl: '/invented.png' }, context)).toBe(false);
+        const controller = new AbortController();
+        const reason = new Error('ordinary-business-cancel');
+        const canceled = verify(node, context, controller.signal);
+        controller.abort(reason);
+        await expect(canceled).rejects.toBe(reason);
+        expect(attachments.remove(handle).state).toBe('removed');
+        const removedContext = f.owner.authoringDocumentContextAdapter.context;
+        expect(reader.readOwnedIntent(node.intentRef, removedContext))
+            .toMatchObject({ current: false, sourceReferenced: false, disposition: 'removed' });
+        expect(reader.readOwnedIntent(node.intentRef, context)).toBeNull();
+        expect(await verify(node, context)).toBe(false);
+        expect(f.reads.state.currentResponsibilityTransport).toBe('unavailable');
+        expect(api.preview).not.toHaveBeenCalled();
+        expect(api.history).not.toHaveBeenCalled();
+        f.wrapper.unmount();
+        expect(reader.readOwnedIntent(node.intentRef, removedContext)).toBeNull();
+        expect(await verify(node, removedContext)).toBe(false);
+    });
+
+    it('rechecks the actual Writer source after the business verification promise boundary', async () =>
+    {
+        const f = await boundHost();
+        const attachments = f.owner.authoringAttachmentRuntime;
+        const captured = attachments.capture({ origin: 'pick',
+            anchor: attachments.captureAnchor({ start: 0, end: 0, direction: 'none' },
+                { surface: 'source', tool: 'none', affinity: 'after', viewportOffset: 0, percentage: 0 }),
+            files: [{ name: 'business-stale.png', mimeType: 'image/png', byteLength: 3 }] });
+        if (captured.status !== 'created') throw new Error('ordinary-host-capture-rejected');
+        const handle = attachments.commitCreated(captured)[0]!;
+        const reader = attachments.bindBusinessIntent(handle);
+        const node = attachments.readOwnedIntent(handle)!;
+        const context = f.owner.authoringDocumentContextAdapter.context;
+        const pending = reader.verifyIntent(node, context);
+        expect(f.commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'Changed source\n' }],
+            history: 'separate' }).accepted).toBe(true);
+        expect(await pending).toBe(false);
+        const observation = reader.readOwnedIntent(node.intentRef, f.owner.authoringDocumentContextAdapter.context);
+        expect(observation).toMatchObject({ current: false, sourceReferenced: null, disposition: 'stale' });
+        expect(await reader.verifyIntent(node, f.owner.authoringDocumentContextAdapter.context)).toBe(false);
+        expect(api.preview).not.toHaveBeenCalled();
     });
 
     it('keeps a new draft explicitly missing and lends the genuine current host fields', async () =>
