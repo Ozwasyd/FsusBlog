@@ -1,12 +1,12 @@
 using System.Data;
 
-using Npgsql;
-
-using SqlSugar;
-
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleEmbeds;
+
+using Npgsql;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Integration;
 
