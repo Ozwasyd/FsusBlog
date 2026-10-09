@@ -1,6 +1,16 @@
+Latest bounded source: b8aece6cc6feeee508591cc8382c13c689a90e0c
+Pinned actual master base: 537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea
+117 changed source/test paths. Initial e02 source remains a single-parent bounded assembly; subsequent commits contain handoff artifacts and two transport paths only. This is a partial source delivery, not full issue acceptance.
+
+Consumed from dea86a509b185cdb75bdc2146f1fc1b8ee71e075: only void _riskChallengeProof and the exact six ordinary regression controls. Preserved URL href, cleanup ordering, raw rejection values. Error callback annotation is HELD: the original new test explicitly preserves the string 'external rejection value', and fetch/arrayBuffer propagate unknown rejections. Requested actual compatible owner source; no invented Error-only contract or lint suppression.
+
+Own exact-b8aece6cc6feeee508591cc8382c13c689a90e0c checks: full13frontend suites419/419, zero skips. Targeted rerun54/54 tests, three suites (24 original binary transport, six original new controls,24 original Read), zero skips; full binary import graph PASS488; risk proof transport static boundary PASS. Scoped transport style remains exit1, one prefer-promise-reject-errors finding at line281. Own current full application typecheck remains exit2,202diagnostics versus same actual master208: zero added diagnostic lines, six removed; metadata-owned diagnostics0. Earlier413-test, five protocol failures and failed SOURCE receipts below remain bound to e02; they are not relabeled as latest-source testing.
+
+Motion90b7 and PoSpace7f4be not consumed: actual runtime graph from four metadata production roots reaches72local files, zero unresolved local imports, neither target reachable. The graph excludes import-type and external package internals and retains conditional literal imports; see production-import-graph.json. No actual challenge/security/runtime/device/audit execution.
+
 #2325 bounded source on actual master — WIP, issue OPEN
 
-Tested and published source: e02d82d98ca390ccfba387e4603237908441d0a9
+Initial independently tested source: e02d82d98ca390ccfba387e4603237908441d0a9
 Single parent/base: 537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea
 116 exact source/test paths; nine metadata-owned paths, canonical protocol/decoder/Shared/producer/golden prerequisites and two reviewed context/URL changes. Source postimages are reused exactly from published owners, not reimplemented. No App/bootstrap/Writer/routes/runtime registration/database migration changes from the old345-path ancestry are carried. Full path/blob/SHA256/source-owner/base-input manifest is dependency-manifest.json.
 

@@ -2,12 +2,12 @@
   "purpose": "Source dependency/provenance manifest, not an acceptance receipt",
   "issue": 2325,
   "status": "OPEN / source WIP",
-  "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9",
-  "sourceTree": "490ec43d0671dabc41ad3b43e7a06705a46d829f",
+  "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+  "sourceTree": "060cfb55666b65625128bc2248c25eb4c346ba34",
   "singleActualMasterBase": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
-  "sourceParent": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "sourceParent": "479b868ec2de068e143136a7a25434f12e8b032d",
   "ownedPathsCount": 9,
-  "changedSourcePathsCount": 116,
+  "changedSourcePathsCount": 117,
   "allOfferedAndBaselineTestOwnerPaths": [
     {
       "path": "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs",
@@ -110,14 +110,17 @@
     },
     {
       "path": "src/frontend/src/api/binaryApiClient.ts",
-      "reason": "explicitly approved original owner typing/currentness/transport hunk",
-      "sourceSha": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
-      "sourceBlob": "f40d2e6cd1e240217269d7628edf88bbf1451ff2",
+      "reason": "Preserved approved URL href plus only the safe void proof-stripping hunk; unapproved Error rejection annotation held",
+      "sourceSha": "dea86a509b185cdb75bdc2146f1fc1b8ee71e075",
+      "sourceBlob": "f75932afdcedce739e1b7e99bba684d7be72d1c5",
       "baseBlob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
       "changesBase": true,
-      "candidateBlob": "f40d2e6cd1e240217269d7628edf88bbf1451ff2",
+      "candidateBlob": "0dbf8a69be5929f59a11a7f79efa7842df43e6cd",
       "mode": "100644",
-      "sha256": "41b6d4a762666a8851f4404a9d2c7945c91774e3aff3c2152658e64d0a81777f"
+      "sha256": "a4026025d5ba4fffa553359343ae363b5f22192a0b101689fbe98860c04a3e75",
+      "consumption": "reviewed partial hunk; full offered postimage intentionally not consumed",
+      "priorSourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9",
+      "priorSourceBlob": "f40d2e6cd1e240217269d7628edf88bbf1451ff2"
     },
     {
       "path": "src/frontend/src/api/fontAdmin.ts",
@@ -1317,6 +1320,18 @@
       "candidateBlob": "20e3f11b7a6cf2a52aac5b167518c8d497a43f70",
       "mode": "100644",
       "sha256": "4a2394dfca2dc27b80689478a875f5732e124ccc28dc7b6b171b0dee109a728d"
+    },
+    {
+      "path": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "reason": "Exact original six ordinary transport controls",
+      "sourceSha": "dea86a509b185cdb75bdc2146f1fc1b8ee71e075",
+      "sourceBlob": "4e480d97843054c239f649da2a745d246eacfdc2",
+      "baseBlob": null,
+      "changesBase": true,
+      "candidateBlob": "4e480d97843054c239f649da2a745d246eacfdc2",
+      "mode": "100644",
+      "sha256": "5b38367bc5d9a97d8f95b18bbe531e76f693266291d8defd0ecaf0ea8548dbb4",
+      "consumption": "exact postimage"
     }
   ],
   "unchangedRequiredBaseInputs": [
@@ -1389,7 +1404,8 @@
   "sourceOffers": {
     "metadataAndCanonicalRead": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
     "canvasFourPaths": "af301b7ac1dd3ac88fd2ae42557ff77d52e38e9c",
-    "fontThemeFourPaths": "4f981f4b50f0c1e4f1e6e6ca5b24517a86ad9e83"
+    "fontThemeFourPaths": "4f981f4b50f0c1e4f1e6e6ca5b24517a86ad9e83",
+    "transportPartialConsumption": "dea86a509b185cdb75bdc2146f1fc1b8ee71e075"
   },
   "ui": {
     "source": "83036006069be5cfcd09724273d5705d8f848ad0",
@@ -1418,7 +1434,8 @@
       "pass": 413,
       "fail": 0,
       "skipped": 0,
-      "readOriginalAssertions": 24
+      "readOriginalAssertions": 24,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
     },
     "nodeIncludingOriginalProtocolOwner": {
       "exitCode": 1,
@@ -1426,18 +1443,22 @@
       "pass": 86,
       "fail": 5,
       "skipped": 0,
-      "failedOwner": "tests/tools/aeds-protocol-generation.test.mjs; exact a0d58 source remains stale at260 against263 roster; no local edits"
+      "failedOwner": "tests/tools/aeds-protocol-generation.test.mjs; exact a0d58 source remains stale at260 against263 roster; no local edits",
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
     },
     "binaryImportFullGraph": {
       "exitCode": 0,
-      "files": 488
+      "files": 488,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
     },
     "binaryImportOriginalNegativeFixture": {
-      "exitCode": 0
+      "exitCode": 0,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
     },
     "completeProtocolGenerator": {
       "exitCode": 0,
-      "products": 5
+      "products": 5,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
     },
     "allFourWireGenerators": {
       "exitCode": 0,
@@ -1446,10 +1467,12 @@
         "article-canvas-link",
         "article-property-value-read",
         "authoring-workspace-snapshot"
-      ]
+      ],
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
     },
     "privateGenerationTelemetryRiskTransport": {
-      "exitCode": 0
+      "exitCode": 0,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
     },
     "canonicalFullAppTypecheck": {
       "exitCode": 2,
@@ -1457,22 +1480,80 @@
       "actualBaseDiagnostics": 208,
       "newDiagnosticLines": 0,
       "removedDiagnosticLines": 6,
-      "ownedMetadataDiagnosticLines": 0
+      "ownedMetadataDiagnosticLines": 0,
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
     },
     "canonicalSourceStage": {
       "exitCode": 1,
       "base": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
       "unsupportedPaths": 42,
       "ownedMetadataStyleFindings": 0,
-      "runtimeReleaseQualification": "UNRUN"
+      "runtimeReleaseQualification": "UNRUN",
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
     },
     "managedBuildAndBackendTests": {
       "status": "UNRUN",
-      "reason": "dotnet executable unavailable; external persisted read endpoint/registration/store/migration source integration remains sole3735"
+      "reason": "dotnet executable unavailable; external persisted read endpoint/registration/store/migration source integration remains sole3735",
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
     },
     "publicationAndDeviceUX": {
       "status": "UNRUN",
-      "note": "source Git publication is not package/product acceptance"
+      "note": "source Git publication is not package/product acceptance",
+      "sourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9"
+    },
+    "currentOrdinaryTransportAndRead": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 0,
+      "suites": 3,
+      "pass": 54,
+      "fail": 0,
+      "skipped": 0,
+      "originalTransport": 24,
+      "ownerNewOrdinaryControls": 6,
+      "originalRead": 24,
+      "runtimeSecurityChallengeExecuted": false
+    },
+    "currentBinaryImportFullGraph": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 0,
+      "files": 488
+    },
+    "currentRiskProofStaticBoundary": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 0,
+      "endpointCallers": 4,
+      "runtimeExecution": false
+    },
+    "currentScopedTransportStyle": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 1,
+      "base": "479b868ec2de068e143136a7a25434f12e8b032d",
+      "findings": 1,
+      "rule": "@typescript-eslint/prefer-promise-reject-errors",
+      "path": "src/frontend/src/api/binaryApiClient.ts",
+      "line": 281,
+      "note": "Actual fetch/arrayBuffer rejection contract admits unknown values; owner test preserves string rejection. Error annotation cannot truthfully narrow that contract. No lint suppression or Error-only rewrite."
+    },
+    "currentCompleteFrontendUnit": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 0,
+      "suites": 13,
+      "pass": 419,
+      "fail": 0,
+      "skipped": 0,
+      "uiSource": "83036006069be5cfcd09724273d5705d8f848ad0",
+      "log": "minimal-unit-b8a.log"
+    },
+    "currentCanonicalFullAppTypecheck": {
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+      "exitCode": 2,
+      "diagnostics": 202,
+      "actualBaseDiagnostics": 208,
+      "newDiagnosticLines": 0,
+      "removedDiagnosticLines": 6,
+      "ownedMetadataDiagnosticLines": 0,
+      "log": "minimal-full-application-typecheck-b8a.log",
+      "comparison": "typecheck-baseline-comparison-b8a.json"
     }
   },
   "externalRequiredDependenciesAndBlockers": {
@@ -1504,8 +1585,32 @@
     },
     "canonicalTransportStyle": {
       "owner": "sole3735",
-      "failedGatePreserved": true
+      "failedGatePreserved": true,
+      "actualOffer": "dea86a509b185cdb75bdc2146f1fc1b8ee71e075",
+      "completeHandoff": "9659ab8f0ed1baf5d48791bb01ceb7242d05b10a",
+      "consumed": "safe void stripping hunk and exact original six-test file",
+      "held": "(reason: Error) annotation conflicts with unknown rejection and string counterexample; compatible exact owner source requested",
+      "sourceSha": "b8aece6cc6feeee508591cc8382c13c689a90e0c"
     }
   },
-  "manifestLimit": "Physically closed metadata consumer, complete canonical decoder and producer/wire input closure. Full product/backend runtime closure remains explicitly unresolved; external requirements are not omitted or claimed satisfied."
+  "manifestLimit": "Physically closed metadata consumer, complete canonical decoder and producer/wire input closure. Full product/backend runtime closure remains explicitly unresolved; external requirements are not omitted or claimed satisfied.",
+  "initialSourceSha": "e02d82d98ca390ccfba387e4603237908441d0a9",
+  "initialSourceParent": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "sourceAncestry": "Initial bounded source has sole actual master parent; current source adds the source-only transport commit after a handoff-artifact commit, never the old345-path ancestry.",
+  "conditionalPrerequisites": {
+    "graphSource": "479b868ec2de068e143136a7a25434f12e8b032d",
+    "graphFile": "production-import-graph.json",
+    "localRuntimeFiles": 72,
+    "unresolvedLocalImports": 0,
+    "motion": {
+      "source": "90b7f0195de9d7a1adea2465a174e00eeff454d3",
+      "consumed": false,
+      "reason": "Not reachable from actual metadata production runtime graph"
+    },
+    "poSpace": {
+      "source": "7f4be69497b12892e3248537a70b9b0238901bdd",
+      "consumed": false,
+      "reason": "Not reachable from actual metadata production runtime graph; no challenge/runtime/security execution"
+    }
+  }
 }
