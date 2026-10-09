@@ -10,6 +10,13 @@
                 "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs"
             ],
             "reason": "Preserve registered C# adapter surfaces and the prerequisite's canonical database identifiers; internal admission names follow repository conventions. The complete branch includes the published coordinate prerequisite unchanged."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Preserve the existing canonical PostgreSQL collection IDs and manifest JSON fields in the imported collection-owner repair. Together with the C# entry, this selected manifest covers the complete registered naming-surface union of the branch against its master base."
         }
     ]
 }

@@ -1,13 +1,16 @@
 using System.Security.Claims;
-
-using Microsoft.Extensions.Configuration;
-
-using SqlSugar;
+using System.Transactions;
 
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.Extensions.Configuration;
+
+using Npgsql;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Integration;
 
@@ -337,6 +340,151 @@ public sealed class SqlArticleGraphAdmissionReaderIntegrationTests(PostgresSchem
         };
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             Reader(db, CreatePermission(db), article).ReadCurrentAsync(request, cancellation.Token));
+    }
+
+    [Fact]
+    public async Task RevalidationRefusesRetainedSnapshotsAfterOtherConnectionCommitsRootChanges()
+    {
+        foreach (System.Data.IsolationLevel isolation in new[]
+        {
+            System.Data.IsolationLevel.RepeatableRead,
+            System.Data.IsolationLevel.Serializable,
+            System.Data.IsolationLevel.ReadCommitted
+        })
+        {
+            foreach (string change in new[] { "revoked", "deleted", "current-revision" })
+            {
+                using SqlSugarClient db = await CreateDatabaseAsync();
+                ArticleGraphCurrentArticleReadRequest request = await RequestAsync(db);
+                SqlAuthorArticlePinPermissionAuthority permissions = CreatePermission(db);
+                var articles = new ArticleProbe(new SqlAuthorArticlePinArticleProjectionSource(db));
+                var reader = Reader(db, permissions, articles);
+                ArticleGraphCurrentArticleAdmission admission = Assert.IsType<ArticleGraphCurrentArticleAdmission>(
+                    await reader.ReadCurrentAsync(request));
+
+                await db.Ado.BeginTranAsync(isolation);
+                await db.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;");
+                System.Data.IDbTransaction callerTransaction = db.Ado.Transaction;
+                try
+                {
+                    Assert.Equal(10, await db.Ado.GetIntAsync("SELECT current_revision_id FROM article WHERE id = 1;"));
+                    using SqlSugarClient writer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+                    Assert.Null(writer.Ado.Transaction);
+                    await writer.Ado.ExecuteCommandAsync(ChangeSql(change));
+
+                    // These are real committed writes on another connection, not a mocked snapshot.
+                    AuthorArticlePinPermissionSnapshot observedPermission = await permissions.ResolveAsync(
+                        new(s_owner, request.RequestId, [1]));
+                    AuthorArticlePinArticleFact observedArticle = Assert.Single(
+                        await new SqlAuthorArticlePinArticleProjectionSource(db).ReadCurrentBatchAsync([1]));
+                    if (isolation != System.Data.IsolationLevel.ReadCommitted)
+                    {
+                        Assert.Equal(AuthorArticlePinPermissionSnapshotStatus.Current, observedPermission.Status);
+                        Assert.True(Assert.Single(observedPermission.Decisions).CanOpen);
+                        Assert.Equal(admission.Article, observedArticle);
+                        Assert.Equal(admission.Source,
+                            await new ArticleRelationSourceCoordinateAuthority().ReadRevisionAsync(db, 1, 10));
+                        Assert.Null(await reader.ReadCurrentAsync(request));
+                    }
+                    else
+                    {
+                        Assert.True(change switch
+                        {
+                            "revoked" => observedPermission.Status == AuthorArticlePinPermissionSnapshotStatus.Unavailable,
+                            "deleted" => observedArticle.IsDeleted,
+                            _ => observedArticle.CurrentRevisionId == 11
+                        });
+                    }
+
+                    Assert.Null(await reader.RevalidateCurrentAsync(request, admission));
+                    if (isolation != System.Data.IsolationLevel.ReadCommitted)
+                    {
+                        Assert.Equal(2, articles.Reads);
+                    }
+                    using var cancellation = new CancellationTokenSource();
+                    cancellation.Cancel();
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                        reader.RevalidateCurrentAsync(request, admission, cancellation.Token));
+                    Assert.Same(callerTransaction, db.Ado.Transaction);
+                    Assert.Equal(isolation, callerTransaction.IsolationLevel);
+                    Assert.Equal("on", await db.Ado.GetStringAsync("SHOW transaction_read_only;"));
+                }
+                finally
+                {
+                    await db.Ado.RollbackTranAsync();
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public async Task AdmissionRefusesAmbientAndUntrackedNativeFixedSnapshots()
+    {
+        foreach (bool ambient in new[] { false, true })
+        {
+            using SqlSugarClient db = await CreateDatabaseAsync();
+            ArticleGraphCurrentArticleReadRequest request = await RequestAsync(db);
+            SqlAuthorArticlePinPermissionAuthority permissions = CreatePermission(db);
+            var articles = new ArticleProbe(new SqlAuthorArticlePinArticleProjectionSource(db));
+            var reader = Reader(db, permissions, articles);
+            ArticleGraphCurrentArticleAdmission admission = Assert.IsType<ArticleGraphCurrentArticleAdmission>(
+                await reader.ReadCurrentAsync(request));
+            db.CurrentConnectionConfig.IsAutoCloseConnection = false;
+            using SqlSugarClient writer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+
+            if (ambient)
+            {
+                using var scope = new TransactionScope(TransactionScopeOption.RequiresNew,
+                    new TransactionOptions { IsolationLevel = System.Transactions.IsolationLevel.RepeatableRead },
+                    TransactionScopeAsyncFlowOption.Enabled);
+                db.Ado.Open();
+                await db.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;");
+                Assert.Equal(10, await db.Ado.GetIntAsync("SELECT current_revision_id FROM article WHERE id = 1;"));
+                Transaction? callerTransaction = Transaction.Current;
+                Assert.NotNull(callerTransaction);
+                Assert.Null(db.Ado.Transaction);
+                Assert.Null(await reader.ReadCurrentAsync(request));
+                Assert.Null(await reader.RevalidateCurrentAsync(request, admission));
+
+                using (var suppressed = new TransactionScope(TransactionScopeOption.Suppress, TransactionScopeAsyncFlowOption.Enabled))
+                {
+                    await writer.Ado.ExecuteCommandAsync(ChangeSql("revoked"));
+                    Assert.Null(Transaction.Current);
+                    Assert.Equal(AuthorArticlePinPermissionSnapshotStatus.Current,
+                        (await permissions.ResolveAsync(new(s_owner, request.RequestId, [1]))).Status);
+                    // The connector remains enlisted even though ambient flow is suppressed.
+                    Assert.Null(await reader.ReadCurrentAsync(request));
+                    Assert.Null(await reader.RevalidateCurrentAsync(request, admission));
+                }
+                Assert.Same(callerTransaction, Transaction.Current);
+                db.Ado.Close();
+            }
+            else
+            {
+                db.Ado.Open();
+                var connection = Assert.IsType<NpgsqlConnection>(db.Ado.Connection);
+                await using NpgsqlTransaction callerTransaction = await connection.BeginTransactionAsync(
+                    System.Data.IsolationLevel.RepeatableRead);
+                try
+                {
+                    await db.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;");
+                    Assert.Equal(10, await db.Ado.GetIntAsync("SELECT current_revision_id FROM article WHERE id = 1;"));
+                    Assert.Null(db.Ado.Transaction);
+                    await writer.Ado.ExecuteCommandAsync(ChangeSql("revoked"));
+                    Assert.Equal(AuthorArticlePinPermissionSnapshotStatus.Current,
+                        (await permissions.ResolveAsync(new(s_owner, request.RequestId, [1]))).Status);
+                    Assert.Null(await reader.ReadCurrentAsync(request));
+                    Assert.Null(await reader.RevalidateCurrentAsync(request, admission));
+                    Assert.Same(connection, callerTransaction.Connection);
+                    Assert.Equal(System.Data.IsolationLevel.RepeatableRead, callerTransaction.IsolationLevel);
+                }
+                finally
+                {
+                    await callerTransaction.RollbackAsync();
+                }
+            }
+            Assert.Equal(2, articles.Reads);
+        }
     }
 
     private async Task<SqlSugarClient> CreateDatabaseAsync()
