@@ -1090,6 +1090,157 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         return { file, offset: script ? script.offset + node.getStart() : null,
             kind: script ? 'script-source' : 'selector-expression', digest: controlDigest(node.getText()) };
     };
+    // Prove only the absence of one object key. Values are not component sources:
+    // every actual return must construct the closed shape independently of inputs.
+    const resolveObjectKeyAbsence = (file, expression, property, { templateRefs = false } = {}) =>
+    {
+        const steps = [];
+        function returned(owner, fn, seen, refs, blocked)
+        {
+            if (fn.asteriskToken || fn.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword)
+                || fn.parameters.some((parameter) => !ts.isIdentifier(parameter.name) || parameter.initializer || parameter.dotDotDotToken))
+            {
+                fail(`unknown object shape function ${owner}#${property}`);
+            }
+            const names = new Set([...blocked, ...fn.parameters.map((parameter) => parameter.name.text)]);
+            steps.push(componentSourceStep(owner, fn));
+            let body = fn.body;
+            if (ts.isBlock(body))
+            {
+                const statements = body.statements;
+                if (!statements.length || !ts.isReturnStatement(statements.at(-1)) || !statements.at(-1).expression
+                    || statements.slice(0, -1).some((statement) => !ts.isVariableStatement(statement)
+                        || !(statement.declarationList.flags & ts.NodeFlags.Const)))
+                {
+                    fail(`unknown object shape return flow ${owner}#${property}`);
+                }
+                body = statements.at(-1).expression;
+            }
+            walk(owner, body, seen, refs, names);
+        }
+        function walk(owner, node, seen = new Set(), refs = false, blocked = new Set())
+        {
+            node = unwrap(node);
+            const identity = `${owner}:${node?.getText() ?? 'missing'}#${property}:${refs}`;
+            if (!node || seen.has(identity))
+            {
+                fail(`cyclic/unknown object shape ${identity}`);
+            }
+            const next = new Set([...seen, identity]);
+            const record = parse(owner);
+            steps.push(componentSourceStep(owner, node));
+            if (ts.isIdentifier(node))
+            {
+                if (blocked.has(node.text))
+                {
+                    fail(`input-dependent object shape ${identity}`);
+                }
+                finiteComponentBinding(owner, node.text);
+                function escaped(candidate)
+                {
+                    const root = (value) =>
+                    {
+                        value = unwrap(value);
+                        while (value && (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)))
+                        {
+                            value = unwrap(value.expression);
+                        }
+                        return value && ts.isIdentifier(value) ? value.text : null;
+                    };
+                    const argumentsToCheck = ts.isCallExpression(candidate) || ts.isNewExpression(candidate) ? candidate.arguments ?? []
+                        : ts.isVariableDeclaration(candidate) && candidate.initializer ? [candidate.initializer] : [];
+                    if (argumentsToCheck.some((argument) => root(argument) === node.text)
+                        || ((ts.isCallExpression(candidate) || ts.isNewExpression(candidate)) && root(candidate.expression) === node.text))
+                    {
+                        fail(`escaped object shape ${identity}`);
+                    }
+                    ts.forEachChild(candidate, escaped);
+                }
+                record.scripts.forEach(({ ast }) => escaped(ast));
+                const imported = record.imports.get(node.text);
+                if (imported)
+                {
+                    const target = modulePath(imported.specifier, owner, mode === 'local' && owner.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
+                    const exported = typeof target === 'string' ? exportsOf(target).get(imported.name) : null;
+                    if (!exported?.file || exported.ambiguous || exported.unresolved)
+                    {
+                        fail(`unknown object shape import ${identity}`);
+                    }
+                    walk(exported.file, parse(exported.file).variables.get(exported.name), next, refs, new Set());
+                }
+                else
+                {
+                    walk(owner, record.variables.get(node.text), next, refs, blocked);
+                }
+                return;
+            }
+            if (ts.isPropertyAccessExpression(node) && node.name.text === 'value')
+            {
+                if (refs)
+                {
+                    fail(`nested object ref read ${identity}`);
+                }
+                walk(owner, node.expression, next, true, blocked);
+                return;
+            }
+            if (ts.isConditionalExpression(node))
+            {
+                walk(owner, node.whenTrue, new Set(next), refs, blocked);
+                walk(owner, node.whenFalse, new Set(next), refs, blocked);
+                return;
+            }
+            if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && !blocked.has(node.expression.text)
+                && !node.arguments.some(ts.isSpreadElement))
+            {
+                const imported = record.imports.get(node.expression.text);
+                if (!refs && imported?.specifier === 'vue' && imported.name === 'useAttrs' && !node.arguments.length
+                    && componentPropDeclaration(owner, property))
+                {
+                    finiteComponentBinding(owner, node.expression.text);
+                    return;
+                }
+                if (imported?.specifier === 'vue' && imported.name === 'computed')
+                {
+                    finiteComponentBinding(owner, node.expression.text);
+                    const fn = node.arguments.length === 1 ? node.arguments[0] : null;
+                    if (!refs || !fn || !ts.isArrowFunction(fn) || fn.parameters.length)
+                    {
+                        fail(`unknown computed object shape ${identity}`);
+                    }
+                    returned(owner, fn, next, false, blocked);
+                    return;
+                }
+                const target = componentFunction(owner, node.expression);
+                returned(target.file, target.fn, next, refs, new Set());
+                return;
+            }
+            if (ts.isObjectLiteralExpression(node) && !refs)
+            {
+                const keys = new Set();
+                for (const field of node.properties)
+                {
+                    if (ts.isSpreadAssignment(field))
+                    {
+                        walk(owner, field.expression, new Set(next), false, blocked);
+                    }
+                    else if ((ts.isPropertyAssignment(field) || ts.isShorthandPropertyAssignment(field))
+                        && !ts.isComputedPropertyName(field.name) && field.name.text !== '__proto__'
+                        && field.name.text !== property && !keys.has(field.name.text))
+                    {
+                        keys.add(field.name.text);
+                    }
+                    else
+                    {
+                        fail(`unknown or present object key ${identity}`);
+                    }
+                }
+                return;
+            }
+            fail(`unknown object shape ${identity}`);
+        }
+        walk(file, expression, new Set(), templateRefs);
+        return { file, property, absent: true, steps, proofDigest: controlDigest({ property, steps }) };
+    };
     const componentMember = (file, object, property, seen = new Set(), templateRefs = false) =>
     {
         object = unwrap(object);
@@ -1650,7 +1801,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         return inspect(source.definition, source.exportName);
     };
     return { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations,
-        modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent,
+        modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent, resolveObjectKeyAbsence,
         isInteractive,
         identity: { mode, package: packageId, publicRoot, packageDigest: controlDigest(metadata),
             upstream: initialUpstreamIdentity, resolutionInputs, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,

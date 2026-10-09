@@ -282,8 +282,17 @@ still fails. An actual imported fallback may follow a closed immutable object
 destructuring with no default or rest binding. Closed prop declaration spreads
 retain their actual fields and reject unknown overrides. Declared Vue attrs
 exclude declared props, but opaque forwarded spreads remain errors even beside
-an explicit component input. The current Dialog motion spread is unresolved;
-its traced Close fallback does not establish a rendered binding or acceptance.
+an explicit component input.
+
+Object key absence follows the actual immutable source and closed return shapes,
+including parameterized helpers whose every return constructs the shape without
+using inputs as its keys or object. This proves only that one requested key is
+excluded; opaque field values receive no component identity or admission.
+Unknown returns, dynamic keys, getters, prototype keys, mutation, escape and
+nested ref reads fail. Actual `useAttrs()` excludes only props declared by that
+same component. The Dialog motion spread now binds the actual Close fallback
+through its real helper returns and declared attrs exclusion; source proof
+does not grant runtime, geometry or visual qualification.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state

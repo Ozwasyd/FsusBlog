@@ -1432,6 +1432,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         const componentPropBindings = [];
         const componentPropErrors = [];
+        const objectKeyAbsenceProofs = [];
         const absent = Symbol('absent-component-input');
         const unwrapInput = (node) =>
         {
@@ -1479,6 +1480,12 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 {
                     fail(`unknown component input spread ${file}#${property}`);
                 }
+                unchangedBinding(record, exp.text, declarations[0].name);
+                if (ts.isCallExpression(value) && vueBinding(record, value.expression, 'useAttrs'))
+                {
+                    objectKeyAbsenceProofs.push(resolver.resolveObjectKeyAbsence(file, exp, property));
+                    return absent;
+                }
                 return spreadInput(file, value, property, new Set([...seen, key]));
             }
             if (exp && ts.isCallExpression(exp) && ts.isIdentifier(exp.expression))
@@ -1520,7 +1527,16 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 }
                 return absent;
             }
-            fail(`unknown component input spread ${file}#${property}`);
+            try
+            {
+                const proof = resolver.resolveObjectKeyAbsence(file, exp, property);
+                objectKeyAbsenceProofs.push(proof);
+                return absent;
+            }
+            catch
+            {
+                fail(`unknown component input spread ${file}#${property}`);
+            }
         }
         function componentInput(call, property, seen = new Set())
         {
@@ -1816,7 +1832,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         errors.push(...bindings.errors);
         return { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
             files: [...records.values()].filter((record) => reachable.has(record.file)),
-            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings, resolverInputs: bindings.files,
+            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings,
+            objectKeyAbsenceProofs: [...new Map(objectKeyAbsenceProofs.map((proof) => [proof.proofDigest, proof])).values()], resolverInputs: bindings.files,
             errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors], sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
     }
     function instrument(file, code)
