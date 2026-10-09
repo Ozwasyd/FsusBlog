@@ -158,8 +158,9 @@ The original backend-test-governance preflight now passes after consuming the
 reviewed canonical mutation caller validator and the two original test path
 fixes. Its evidence-path inventory is refreshed only through the unchanged
 original producer; no supplier inventory is copied. These source results do not
-qualify runtime execution. The code-intent checker retains an existing frontend
-performance-claim failure outside this task.
+qualify runtime execution. After the exact canonical borrowed-range comment
+fix, the original code-intent checker also passes (5495 checked files and 19
+registered source files).
 
 The real producer fixture consumes the original execution-envelope directory
 owner's exported `TMPDIR`, `TMP` and `TEMP` ingress, and refuses missing or
@@ -167,5 +168,11 @@ inconsistent ingress. Its artifacts stay under the current attempt's managed
 temp root until the original owner records the post-inventory and performs
 terminal cleanup. Environment consistency alone is not resource authority; tests
 must use the original managed owner, without manufacturing a lease or receipt.
-The repaired 6+13 methods remain `UNRUN` pending actual resource admission and
+The original read-only resource capability checks refuse this environment:
+cgroup v2 is present but its actual delegate root is not writable, and the
+original systemd resource transport cannot find `/run/user/1000` (`ENOENT`).
+No live managed boundary, container reservation or private attempt directory
+authority was issued; explicit environment values cannot replace them.
+The repaired 6+13 methods and original regression remain `UNRUN` pending actual
+resource admission and
 remaining gates. No failing prerequisite is waived or replaced with a harness.
