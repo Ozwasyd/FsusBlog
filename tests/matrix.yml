@@ -1129,6 +1129,7 @@ localProfiles:
                   [
                       frontend-build,
                       frontend-runtime-contracts,
+                      validate-declarations,
                       validate-matrix,
                       pr-smart-gate-plan,
                       production-build-artifacts,
@@ -1378,7 +1379,7 @@ tiers:
       defaultShards: 1
       risk: critical
       cadence: pr
-      requiredFor: none
+      requiredFor: fast
       coverage: []
       artifacts: []
       evidence: []
@@ -1420,7 +1421,7 @@ tiers:
       defaultShards: 1
       risk: critical
       cadence: pr
-      requiredFor: none
+      requiredFor: fast
       coverage: []
       artifacts: [.tmp/source-governance/result.json]
       evidence: []
