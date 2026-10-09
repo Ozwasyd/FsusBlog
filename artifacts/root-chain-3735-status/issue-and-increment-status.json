@@ -92,12 +92,12 @@
     },
     {
       "coverage": "Package bounded independent wire module release",
-      "source": "9d1f98d0279bb65c51140a762f7c0b9d75da1614",
-      "branch": "codex/shared-package-wire-release-20261009",
-      "implementationStatus": "Inactive bounded release; exclusive seven NEW module files now assigned by parent to task01a120e7-71f6-74d2-861c-92c8abaea004. Root retains central registries/routes/DI; no parallel file edits or activation.",
+      "source": "bd41be32ecae1f8b9b4797dab8c5a90807334df8",
+      "branch": "codex/shared-package-prototype-reconciliation-20261009",
+      "implementationStatus": "Actual byte-exact47path combined source plus2original project exactprototype exclusions published. Original missing identity and canonical wire correction gaps resolved atsourcebd41; no prototype import/delete or siblinghistory merge.",
       "allocation": "request288/response289 owner allocation only, not active ABI/frame",
-      "blocker": "full exact canonical SiteIdentity SystemService implementation plus qualified lifecycle/scopes; closed nested wire validator missing; frontend revised exact dependencies needed",
-      "artifacts": "artifacts/shared-package-wire-release",
+      "blocker": "Original mandatory catalog/authority source admission; full SDK/project evaluation/discovery/body and native catalog/matrix/hooks; qualified actual canonical SiteIdentity reader implementation/lifecycle/scopes; sole-owner registry/ABI/route/DI/generated contract admission and runtime/UX.",
+      "artifacts": "artifacts/shared-package-prototype-reconciliation",
       "exclusiveNewModulePaths": [
         "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
         "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewWireValidation.cs",
@@ -106,7 +106,10 @@
         "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
         "tests/tools/article-package-candidate-review-wire.test.mjs",
         "tests/native/ArticlePackageCandidateReviewWireTests.cpp"
-      ]
+      ],
+      "originalInactiveReleaseSource": "9d1f98d0279bb65c51140a762f7c0b9d75da1614",
+      "evidenceHead": "9363ca59a3a2d3828f912526eee69025afadf56c",
+      "sourceReview": "Parent SAME independent full41-wire review closed pageP2 and corrected production token finding. New2project exclusions/staticsourcecontrols are separate source evidence, not current runtime acceptance."
     },
     {
       "coverage": "Vault REQUEST-only typed bounded module",
@@ -196,7 +199,7 @@
     "artifacts": "artifacts/shared-graph-validated-reader",
     "evidenceHead": "f3fee7dd59e576fa148de57fffdd3bcdd3d742b3"
   },
-  "updatedAtUtc": "2026-10-09T15:32:48.393001+00:00",
+  "updatedAtUtc": "2026-10-09T15:54:51.675123+00:00",
   "newFontThemeBorrowComment": {
     "source": "e1f2a4a7b94d1274744284b944cff591aefee413",
     "branch": "codex/shared-font-theme-borrow-comment-20261009",
@@ -216,7 +219,8 @@
     "permissionCancellation": "65a667f84c404f2840d07e0fbabdffe7e1985406",
     "uploadExactBody": "4b75d593eae373e969287aeb4b2d296bcccf2740",
     "permissionGateIntegrationSource": "165005a00305daa9d8117494a1d33bc09b4a122f",
-    "permissionGateIntegration": "c7fcda5b058522567d07a375f64d65e992530638"
+    "permissionGateIntegration": "c7fcda5b058522567d07a375f64d65e992530638",
+    "packagePrototypeReconciliation": "9363ca59a3a2d3828f912526eee69025afadf56c"
   },
   "newSavedViewDefinitionProvider": {
     "source": "25114ce36d2e58736b0b8fef72a4b8dafe4b0b1c",
@@ -231,88 +235,655 @@
   },
   "originalPlanningSnapshot": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
   "newPackagePrototypeConflict": {
-    "schema": "fsusblog.package-prototype-reconciliation-prerequisites.v1",
-    "checkedAtUtc": "2026-10-09T14:27:26.991544+00:00",
-    "checkedRootHead": "61b728e1529444330ad9de72d7abdf4bb22c1861",
-    "parentExactWireOffer": "2e145e34dfc246920d21e6e0109a9a8f348ab849",
-    "newHandler": {
-      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
-      "blob": "a72974bff6cd41fc81649b1611822dfba9a5a9a5",
-      "sha256": "f51b57926643f65bccda318f5ffc600dd905b44aeb62f083202e5928bf3fd596",
-      "observations": {
-        "mapDefinitions": 1,
-        "handlerDefinitions": 1,
-        "missingAuthImport": true,
-        "frameReadOccursBeforeServiceRead": true,
-        "originalIdentityStatusMappingNotExplicitAtHandler": true
+    "schema": "fsusblog.package-prototype-reconciliation-source.v1",
+    "createdAtUtc": "2026-10-09T15:50:24.714215+00:00",
+    "sourceCommit": "bd41be32ecae1f8b9b4797dab8c5a90807334df8",
+    "branch": "codex/shared-package-prototype-reconciliation-20261009",
+    "baseCommit": "18f667c8108689f65b72e92a3a41e00e40a27b20",
+    "masterBaseline": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "canonicalWireSource": "dedf804ad6231affb698c4ddddb110be68207085",
+    "canonicalDelivery": "914c3f2cf6247687f89bc5fff508ff184d41e0c3",
+    "original3663Source": "d33a417865ec41b16d7470178288a5d78679f553",
+    "consumedSourcePaths": [
+      {
+        "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+        "role": "canonicalWire",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "dedf804ad6231affb698c4ddddb110be68207085",
+        "blob": "98854c0ffa172eeee34aa002e5eb72083bd5b8e4",
+        "sha256": "9a687fd6796da55d1ffb45f4afeb2c7b02c2cbc15c0eee1edeab1f996c8b8ac1",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewWireValidation.cs",
+        "role": "canonicalWire",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "dedf804ad6231affb698c4ddddb110be68207085",
+        "blob": "e7fc4a1951e215856bdae9e76192468e17aa609b",
+        "sha256": "a6d16a9ea791163b074d048f1d1ab438206c2d9b0480afa082b490aedd3ebfd7",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
+        "role": "canonicalWire",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "dedf804ad6231affb698c4ddddb110be68207085",
+        "blob": "c15309e938ee5b5a65c264dc958bd4863dc7c220",
+        "sha256": "e0697fdc9d0e474e6ef70b0d49dc43f59b0cd05df91659bc629c2d031eb7b31a",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/frontend/wasm/aeds/include/article_package_candidate_review_wire.hpp",
+        "role": "canonicalWire",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "dedf804ad6231affb698c4ddddb110be68207085",
+        "blob": "74bb47321505986ff6429d5a47d38918965e27c8",
+        "sha256": "71c668bd43d1db3c3e06e234eeafa8823b6b73087882ffe732f6d39b9f3a4be8",
+        "baseAbsent": true
+      },
+      {
+        "path": "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
+        "role": "canonicalWire",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "dedf804ad6231affb698c4ddddb110be68207085",
+        "blob": "9cf4b60bdbbf82a801851fa7cb9d3cad2b9f442a",
+        "sha256": "18d5e39f69c479c689f0ae0d23edbc887ce916c008096f63882bfdaff111a8f2",
+        "baseAbsent": true
+      },
+      {
+        "path": "tests/tools/article-package-candidate-review-wire.test.mjs",
+        "role": "canonicalWire",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "dedf804ad6231affb698c4ddddb110be68207085",
+        "blob": "b685a4d10e80e8a16111febf67649de3e2120452",
+        "sha256": "f04f498ad8079b1f6470ca7a5a97530a91bc9127842195b07eaff268b4e94aee",
+        "baseAbsent": true
+      },
+      {
+        "path": "tests/native/ArticlePackageCandidateReviewWireTests.cpp",
+        "role": "canonicalWire",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "dedf804ad6231affb698c4ddddb110be68207085",
+        "blob": "69d76dff8571d65dc7f99de1f50a36c836f4848f",
+        "sha256": "4bb9cd61a054d6e8e5babd432b4424524961eec8df4f8abf410a81736e05c669",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "63e994b7d0ffaae47f7cfc4ed6b364bf8a3a863a",
+        "sha256": "ee6371258149f8fc98b5540b7092a8751cde8adca73e22d405d7fc4c411159c6",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "adc2e50070ffecbd1e003e7a051450c2dea6ff1f",
+        "blob": "2779552c57f2f4361348f002d62cf3aa3d49c187",
+        "sha256": "4821cc46efdb834c7bc84f548303f58e6ca6808fa1592749634582dea6b210d3",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/backend/Services/Authoring/ArticlePackageCandidateReviewReadService.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "1e6b978f4eecc227f6194036107e295a1fb64f86",
+        "sha256": "cd13a3ff651968e26199055ce21212fe35a16f329834b4f1c090484ee1ad1163",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProducer.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "82236f1bfa3cb1e313d5f388e54615a9dd390692",
+        "sha256": "ce500192fb0080cf2b80f07230efaf952fda8c9be896610b2da34d8011e94ef7",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "64712805fcc89d0b5d77341437883553a7fa3ed3",
+        "sha256": "c5b90c4bee8e7dfaacbbb5345dde4f6cd146278af28821c71049ddbeba246799",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewReadContracts.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "15c2c39cbc4cb7e3124a2b3f1e828b4148d93434",
+        "sha256": "c4d13a13d572fcd061cdbee6409c4767ab9c470d0f418beaceea124e2b80ddad",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "5efd320607c42e54edf6183257b3b8be60d9014b",
+        "sha256": "90ae25aa5f712fb98a5b88f041dc609bbc8d54c847e097aae4f53f5a2779683e",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "fffd88b4664604fadedf7897e98ee92bbdea18c3",
+        "sha256": "0fe36244e5fb47cbbdc67c022a3b881e16722980869d8e6743d00967076e2826",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "0349b601d66fed31483639b11f716e6fd8e9ee78",
+        "sha256": "f3e0fea81b2a4926202ed19fa236794fac2a511d729377ccb45c5988b63caecc",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "703501fe781def4f7818bff75fb7943b24ae2406",
+        "sha256": "2280792b9e35d4e1e96be5afc8d7060473ec826fd04485c8bb496e152e3e1604",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "e36842251889f60ca1d59b26d566444ca5b245d3",
+        "sha256": "4f36f0c335d3125b65e52f322d03e848de225c2d188c09773b6d9c9ef6d0d062",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "e4545ed0c9ecebf2a103b94711ae10efa182bf0a",
+        "sha256": "9a7359237cea0a63cba12f5c0d7c52dfeeb759087208cab4aa72b6716045e33a",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipDirectory.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "c0fa119c8256fbee5b68a2b1fbafd6833141f99d",
+        "sha256": "60f873c8930fe5573d6b71257731a13457ef5f3f3e4c58e25c510d8aebf6c2fd",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "33855d7e02f825aaab609530327cd586346162ea",
+        "sha256": "d68ab160127912c8675ab211616bf113a0bd0bbf2e6aaa68ea552ac49aa623f3",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetCollection.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "891fe8ed60f486cb6d09386f2c04d3c77b070906",
+        "sha256": "ccf4c56f27f8169a69b2126e14e05f19fcf5b3384a9b34e5193dd0f8ad20059e",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetMetadata.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "201da3565ab762d4967647404c4c6aebd1bb3039",
+        "sha256": "958a73f07dc948e91e4bbe0b5c846935849251a36247f4db48c81d4fba9fd7d8",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "c7cc09a894ea454beb7304bd03b0b9197e1d45f6",
+        "sha256": "908a108caf94d1bfc1f07b1121fbd27ca2490a4fa404e60aa1053b11a0e00841",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "56cb3abdac3dbf68abff92dbf79edff41a0fcc89",
+        "sha256": "040df41eddd5c6fc751a8c8e7064e71658c8ebc3466cb31fbee9eedb6934c4d6",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "7dba85d0b156841d5fdff5e5208979021b7a6925",
+        "sha256": "65fdf16486f7ec9f82f6199c018226fa5eec194533e49bfe879f5d8be0bec1f7",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "7d384124dd514c22c806cfc0320966b245fb7f4d",
+        "sha256": "955ca10aff7740cca91082e0e212f4d70ab6f9c5c06fcd612b75caa442e94ae5",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "79be4d889519a3ff93d22a95427c407454e52d5c",
+        "sha256": "49958b5a81bb2b8c11200a9a5333ced401cfebc4193b761698f68361d1f32569",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyCodec.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "bf70731af298fa0dd654ce8e4f807e5e2020d975",
+        "sha256": "a3b57ab48272f8eaa0cdcbba050f545a00c072fa3ea596ee523e226712c34b50",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyContracts.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "307aa308f29307f29130acd6e7a59c9951f1d485",
+        "sha256": "456156021007e5aeb8df3bab4c0969f92d032a0a56083f73ef484f6afbda5715",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestVersionRegistry.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "6722da44ef71c8550a5e42d2c18e138488b8771e",
+        "sha256": "c1968a6da626f248e82f9b3c3d8770ae84fb288b14c2f979e51fa56d196a7f42",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "d364b5e587bb7545ae7784258e2e3798a2c67aea",
+        "sha256": "bec4ec1bd472480f6cc8e3e130fac51488fc1b3e44d0d37b16eff220cc0ec9a5",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "b983c751c710118d88642a3a69c0e1a54cabc6e7",
+        "sha256": "b15687dfc98d664ee267c9056fe7f3c008eddab1b8f6a3dc8081eab21f99697d",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "dbfdbb966493224fae21e1f4c192bcd9f5f48674",
+        "sha256": "18e5b691b6067a1760bb8bd9c26552d1aa9da6a9928588827e7bce264f3bea51",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "ccc417763c04e36b8414325e944e48035018ae15",
+        "sha256": "c67134167da864a7d7830e0ae4be558cc518d2f539c2e5ef87903e3c2554316b",
+        "baseAbsent": true
+      },
+      {
+        "path": "tests/backend/Unit/ArticlePackageCandidateReviewReadServiceTests.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "8b9e51cc92e454b7de3a542194c8afb34743bf92",
+        "sha256": "753a378530602ba9281dcb1a55f4153bb996161d8346105fe14e7f180a5d26cd",
+        "baseAbsent": true
+      },
+      {
+        "path": "tests/backend/Unit/ArticlePackageImportCandidateByteTests.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "3c500e66b80e24ae9adb1f3e72918d23049f7b68",
+        "sha256": "03e89232d2194118b650f9d991d44c7ec56ec4cff6cb8a1f8f2afa712e240b31",
+        "baseAbsent": true
+      },
+      {
+        "path": "tests/backend/Unit/ArticlePackageImportCandidateReviewProducerTests.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "ce601ff0e60370c769dbc88889e74463daacf146",
+        "sha256": "20541210c5d2959f79cb29e41986636c9fed7ae9be33861a7cc9573b0abba25f",
+        "baseAbsent": true
+      },
+      {
+        "path": "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "76f900f3266560af64e05f6936d4096f76577361",
+        "blob": "5a6e12b5ab55bff67378674df76d64c865df2588",
+        "sha256": "fcaa7d21f3141dca22f20611392e97cd3e805e7982caef165de025bbe8cc37fc",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/frontend/src/api/types/articlePackageCandidateReview.ts",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "820be8ea3c35debcbc9b486d04ab6be4b175098e",
+        "blob": "904f677f36eb288c1c03d394100da4fcd357943e",
+        "sha256": "091c1bee151aeeae5d16191c3069962c1a321b3facb3927c6fd61158d0c5ea8f",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/frontend/src/api/types/articlePackageCandidateRead.ts",
+        "role": "canonicalDependency",
+        "consumedFrom": "dedf804ad6231affb698c4ddddb110be68207085",
+        "originalSupplier": "1525e2ad0ea56350f34a368c8f2107706d342759",
+        "blob": "df3671091af6e12313cb9165a1bac0f032bd9418",
+        "sha256": "6ffc8c42a333066a3e9ce3f43f2acdc4a74b3cabee8b76107fe3634ec4dfb0d0",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/frontend/src/composables/useArticlePackageCandidateReadHost.ts",
+        "role": "original3663Host",
+        "consumedFrom": "d33a417865ec41b16d7470178288a5d78679f553",
+        "blob": "a64076d1e7fedff458fd96039cce47737b219c12",
+        "sha256": "4f51976652a77a5e750cb0929d56b1062b4b311e3befc54a167c33d19d697e74",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/frontend/src/composables/useArticlePackageCandidateReview.ts",
+        "role": "original3663Host",
+        "consumedFrom": "d33a417865ec41b16d7470178288a5d78679f553",
+        "blob": "303614595ce9923e3e44e8fee15a45983c0e169d",
+        "sha256": "3a5d3b4c782a2259266fe6e3f4aacfe7f15fc0e0b563c11e094c2cae4fe90245",
+        "baseAbsent": true
+      },
+      {
+        "path": "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue",
+        "role": "original3663Host",
+        "consumedFrom": "d33a417865ec41b16d7470178288a5d78679f553",
+        "blob": "2fdd8ce34e1c4f1c4ea4658b0ef639d37a59d807",
+        "sha256": "d2a78104ea45668455fa32a4006c58e0b8c654cae3fbfe0eebc512052f050f70",
+        "baseAbsent": true
+      },
+      {
+        "path": "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts",
+        "role": "original3663Host",
+        "consumedFrom": "d33a417865ec41b16d7470178288a5d78679f553",
+        "blob": "1abc4fbe31a9b380e53061731cf6c60f6d04e091",
+        "sha256": "53d5d6b4b13010644e58ccbb3c87326d2aa62ad49f220c1ce82787f0d61ec428",
+        "baseAbsent": true
+      },
+      {
+        "path": "tests/frontend/unit/composables/useArticlePackageCandidateReadHost.test.ts",
+        "role": "original3663Host",
+        "consumedFrom": "d33a417865ec41b16d7470178288a5d78679f553",
+        "blob": "5cbaa241a7500699d08d8c3c644c92adfcddb711",
+        "sha256": "73b1c40351c133f9698d27d9d9ddd8c7c1af8548d74e4dc72c3b2cf2f5bdb5ea",
+        "baseAbsent": true
+      },
+      {
+        "path": "tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts",
+        "role": "original3663Host",
+        "consumedFrom": "d33a417865ec41b16d7470178288a5d78679f553",
+        "blob": "acf45e63d8fd1216725ce34a8f4120d4eee5db49",
+        "sha256": "0c64cb49076a92b2ade40f39cb99c5e9a1a63fe3b3104740ddd8e58e386e7e5b",
+        "baseAbsent": true
       }
+    ],
+    "exactScopedProjects": [
+      {
+        "path": "src/backend/FsusBlog.Server.csproj",
+        "baseBlob": "c7e38c66b974862cddaef76897c957c9c28a5d81",
+        "sourceBlob": "452fced1e8454cfcfa24a8f14b3e2b41b05101d7",
+        "scope": "Only precise prototype-specific Compile Remove/comment insertion; all other existing project configuration preserved."
+      },
+      {
+        "path": "tests/backend/FsusBlog.Server.Tests.csproj",
+        "baseBlob": "eabae0a574d36a17a9af7885ef2528ec4f010707",
+        "sourceBlob": "804e5d9f12b3bfe9aad42f11b96a34e297e3bb29",
+        "scope": "Only precise prototype-specific Compile Remove/comment insertion; all other existing project configuration preserved."
+      }
+    ],
+    "sourcePathCount": 49,
+    "wireAndDependencyCount": 41,
+    "originalFrontendHostAndControlExtras": 6,
+    "prototypePolicy": {
+      "negativeImportPaths": [
+        {
+          "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs",
+          "originalBlob": "1004ba200a29c15a91604dd55e6f788d7e08c668"
+        },
+        {
+          "path": "tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs",
+          "originalBlob": "8e522aa641f7fa5d08d2355f231e28fa436aae8a"
+        }
+      ],
+      "prototypeImports": 0,
+      "sourceDeletionHunks": 0,
+      "frozenOriginalSourceRewritten": false,
+      "laterCombinedTreeProtectedByExactOriginalProjectExclusions": true,
+      "oldMappingProposalApplied": false
     },
-    "exactKnownTrees": [
+    "currentExecutableSourceControl": {
+      "command": {
+        "sourceCommit": "bd41be32ecae1f8b9b4797dab8c5a90807334df8",
+        "argv": [
+          "python3",
+          "/tmp/check-package-source-composition.py",
+          "/workspace/FsusBlog-package-prototype-reconciliation"
+        ],
+        "cwd": "/workspace/FsusBlog-package-prototype-reconciliation",
+        "startedAtUtc": "2026-10-09T15:48:13.374583+00:00",
+        "endedAtUtc": "2026-10-09T15:48:15.501197+00:00",
+        "exitCode": 0,
+        "seconds": 2.127,
+        "runtimeQualification": false,
+        "stdoutArtifactLocalOnly": "/workspace/FsusBlog-package-prototype-reconciliation/.tmp/package-prototype-reconciliation/evidence/source-composition-check.log",
+        "stdoutSha256": "04e92f68705611f943fd20d1c3e6e5261043fda575809d450cef34ff8fc5ca3f",
+        "driverPublishedArtifact": "artifacts/shared-package-prototype-reconciliation/check-source-composition.py",
+        "driverSha256": "56c189ceee4bc2c5716b508dc772481acb28a358c07b9f0ed3a238b2bad07ccc"
+      },
+      "result": {
+        "schema": "fsusblog.package-source-composition-check.v1",
+        "sourceCommit": "bd41be32ecae1f8b9b4797dab8c5a90807334df8",
+        "byteExactConsumedPaths": 47,
+        "sourceChangedPaths": 49,
+        "actualCanonicalDefinitions": {
+          "mapping": 1,
+          "handler": 1
+        },
+        "readOnlyCombinedSourceProjectionBefore": {
+          "mappingDefinitions": 2,
+          "handlerDefinitions": 2,
+          "prototypeTestSelected": true
+        },
+        "readOnlyCombinedSourceProjectionAfter": {
+          "mappingDefinitions": 1,
+          "handlerDefinitions": 1,
+          "prototypeTestSelected": false
+        },
+        "negativeSourceControls": {
+          "omitServerExclusion": {
+            "mappingDefinitions": 2,
+            "handlerDefinitions": 2,
+            "prototypeTestSelected": false
+          },
+          "omitTestExclusion": {
+            "mappingDefinitions": 1,
+            "handlerDefinitions": 1,
+            "prototypeTestSelected": true
+          },
+          "omitBoth": {
+            "mappingDefinitions": 2,
+            "handlerDefinitions": 2,
+            "prototypeTestSelected": true
+          }
+        },
+        "unrelatedSourceChanges": 0,
+        "deletedFiles": 0,
+        "routeFrameAbiDiActivated": false,
+        "sdkProjectEvaluationCompilationDiscoveryBodies": "UNRUN",
+        "runtimeQualification": false,
+        "result": "PASS source-only declarations and bounded exact-file XML exclusions"
+      },
+      "scope": "Python source/hash/XML declaration check with exact frozen-prototype source-selection projections and three negative controls; not MSBuild or C# compilation/discovery/runtime."
+    },
+    "sameIndependentWireReview": "Parent reports full41-source SAME review atdedf closed pageP2 and retracted independent production token impact after actual Minimal API RequestAborted source binding. Route-local pre-write guard source-sound within original result helper semantics. No runtime credit transferred.",
+    "preservedSourceOwners": [
+      "Original3663 read service, Shared read DTOs, frontend DTO/host/controller/component bytes preserved exactly.",
+      "Canonical seven paths consumed byte-exact; no new wire writer or sibling implementation.",
+      "Original canonical SystemSiteIdentity declarations only; no implementation/alias/init/default identity invented."
+    ],
+    "inactive": {
+      "route": true,
+      "reserved288289": true,
+      "abiAdmission": true,
+      "globalDecoderRegistration": true,
+      "readServiceDi": true,
+      "siteIdentityReaderAlias": true,
+      "executeDisabled": true
+    },
+    "requiredGates": {
+      "currentCandidatePreflight": "UNRUN: specifically the blocking correctness producer catalog/validator and its declared sourceDigests inputs are unchanged from known refused9d/a44 baseline; exact input rows are recorded. Parent prohibits rerunning unchanged failures. This does not assert every later execution-target input is unchanged, nor grant candidate admission.",
+      "sdkCompilationProjectEvaluationDiscovery": "UNRUN",
+      "managedBodies": "UNRUN",
+      "nodeBodies": "UNRUN",
+      "nativeBodies": "UNRUN",
+      "currentCandidateSourceSelectors": {
+        "managedDeclaredCases": 154,
+        "wireManagedClassCases": 53,
+        "canonicalNodeDeclaredCases": 9,
+        "originalNativeTargetProposedOnly": "FsusArticlePackageCandidateReviewWireTests",
+        "allCountsSourceDeclarationsOnly": true
+      },
+      "canonicalSetupAuthorityAdmission": "Pending original execution-target owner/content/dependency closure and canonical producer-backed gate; separate165 roster fix/source controls do not grant this candidate admission.",
+      "readerLifecycleScopes": "Unqualified canonical implementation/storage/revisions/approved-scope identity API and actual reader review required before alias or transport activation.",
+      "runtimeHttpSessionRefusalCancellation": "UNRUN",
+      "fullFrontendTypesAndRenderedUx": "Unaccepted; no supplier70 or actualFsUI source result rebound.",
+      "registryNativeMatrixHooks": "Original central registry/ABI/generator/OpenAPI/native target/catalog/matrix admission still pending; supplied activation proposals NOT APPLIED."
+    },
+    "rawLogsPublished": false,
+    "sdkRuntimeQualification": false,
+    "issueAcceptanceGranted": false,
+    "unresolvedNextActions": [
+      "Original authority owner supplies valid producer-backed current candidate preflight/dependency closure; preserve all rejection controls.",
+      "SAME independent source owner/reviewer reviews precise2project exclusion plus47byte-exact consumption.",
+      "Admit original SDK/project/native selectors/hooks/resources and canonical reader lifecycle/scopes before activation/execution."
+    ],
+    "blockingCatalogInputsUnchanged": [
       {
-        "source": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
-        "oldPrototypePresent": false,
-        "newModulePresent": false
+        "path": "config/testing/correctness-attempt-producers.json",
+        "unchangedFromBase": true,
+        "actualSha256": "140071261ec4d5eebb680026970ae5f07345668d14ba5830cad40795406c7682"
       },
       {
-        "source": "61b728e1529444330ad9de72d7abdf4bb22c1861",
-        "oldPrototypePresent": false,
-        "newModulePresent": false
+        "path": "tools/test/correctness-attempt-producers.mjs",
+        "unchangedFromBase": true,
+        "actualSha256": "05d79d2bdc0f709e6d1888c6a4ea1de66eeefba7aff7dfef264db5dc18b27d9e"
       },
       {
-        "source": "76f900f3266560af64e05f6936d4096f76577361",
-        "oldPrototypePresent": false,
-        "newModulePresent": false
+        "path": "tools/test/correctness-attempt-migration.mjs",
+        "unchangedFromBase": true,
+        "actualSha256": "1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
       },
       {
-        "source": "3335910dee5e67e446167ec3b3d875912a908709",
-        "oldPrototypePresent": false,
-        "newModulePresent": false
+        "path": "config/testing/release-reliability-scenario-catalog.json",
+        "unchangedFromBase": true,
+        "actualSha256": "5b35b04eba2fd6aed179b24ea427dfc18d35b91b29e182af93dfc23dea914582"
       },
       {
-        "source": "2e145e34dfc246920d21e6e0109a9a8f348ab849",
-        "oldPrototypePresent": false,
-        "newModulePresent": true
+        "path": "tests/matrix.yml",
+        "unchangedFromBase": true,
+        "actualSha256": "db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03"
+      },
+      {
+        "path": "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+        "unchangedFromBase": true,
+        "actualSha256": "d0fa3f6a5062739922c5121c38fc4026c7392d6817b4e3b7c1b6fbb53580dd82"
+      },
+      {
+        "path": "config/testing/replay-qualification-producers.json",
+        "unchangedFromBase": true,
+        "actualSha256": "5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398"
+      },
+      {
+        "path": "config/testing/test-execution-envelope-applicability.json",
+        "unchangedFromBase": true,
+        "actualSha256": "56187457f27a922333626fca45f50424d7a4c388ede1e176ed6515952387791c"
+      },
+      {
+        "path": "tools/test/attempt-runner.mjs",
+        "unchangedFromBase": true,
+        "actualSha256": "a42fe86b68e31ac6357a660c33376b2c241933fee9992e5e0e23e90ca4daba6c"
+      },
+      {
+        "path": "tools/test/temporal-context.mjs",
+        "unchangedFromBase": true,
+        "actualSha256": "492dba7f4c65b8aa716c33cc851f812d99718e088678f8c530e8488c38192f36"
+      },
+      {
+        "path": "tools/test/temporal-context-contract.mjs",
+        "unchangedFromBase": true,
+        "actualSha256": "7d12a5f5c1e123c2572ea829120d742b8517779f839a81dd7076bcea3197cc82"
       }
     ],
-    "parentEstablishedConflict": "Original3663 dormant prototype and new wire module define the same partial mapping/handler signatures; merely leaving unmounted does not prevent duplicate definition compilation failure. Originalprototype full source and specific test paths not yet supplied to this worktree.",
-    "oldPrototypePath": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs",
-    "readiness": "BLOCKED prerequisite verification; no source removal or replacement activation performed",
-    "neededSourceHandoffs": [
-      "Parent-supplied full exact original prototype commit and prototype-specific test paths/negative controls",
-      "Same wire owner corrected exact source preserving identity-before-body and401/403/409/cancellation/private failure semantics",
-      "Applicable original source/admission evidence before dependent central compilation/activation"
-    ],
-    "authorizedNextStep": "On a separate integration branch based on supplied dependency closure, select corrected new module, omit/remove old prototype and only its specific tests, preserve original read service/frontendhost/frozen old source, verify one mapping/handler pair and reversible source delta.",
-    "frozenBranchWrites": 0,
-    "newWireWriterEdits": 0,
-    "sourceDeletionHunksApplied": 0,
-    "active288289": false,
-    "siteIdentityAliasActivated": false,
-    "routeActivated": false,
-    "runtimeQualification": false,
-    "testsRerun": 0,
-    "rawLogsPublished": false
+    "latestRefetchedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "publishedEvidenceHead": "9363ca59a3a2d3828f912526eee69025afadf56c",
+    "artifact": "artifacts/shared-package-prototype-reconciliation"
   },
   "latestOwnedIssueRefresh": {
-    "artifact": "artifacts/root-chain-3735-status/current-owned-issues-20261009-refresh.json",
-    "readAtUtc": "2026-10-09T15:05:53.640Z",
+    "artifact": "artifacts/root-chain-3735-status/current-owned-issues-package-refresh.json",
+    "readAtUtc": "2026-10-09T15:53:30.344Z",
     "comparison": [
       {
         "number": 3735,
         "state": "open",
-        "bodyUnchanged": true,
+        "bodyAndAllCommentsUnchanged": true,
         "commentCount": 18
       },
       {
         "number": 3736,
         "state": "open",
-        "bodyUnchanged": true,
+        "bodyAndAllCommentsUnchanged": true,
         "commentCount": 3
       },
       {
         "number": 3738,
         "state": "open",
-        "bodyUnchanged": true,
+        "bodyAndAllCommentsUnchanged": true,
         "commentCount": 4
       }
     ],
@@ -891,5 +1462,68 @@
     "updatedAtUtc": "2026-10-09T15:32:48.393001+00:00",
     "publishedEvidenceHead": "c7fcda5b058522567d07a375f64d65e992530638",
     "artifact": "artifacts/shared-pin-permission-gate-integration"
+  },
+  "historicalPackagePrototypeConflict": {
+    "schema": "fsusblog.package-prototype-reconciliation-prerequisites.v1",
+    "checkedAtUtc": "2026-10-09T14:27:26.991544+00:00",
+    "checkedRootHead": "61b728e1529444330ad9de72d7abdf4bb22c1861",
+    "parentExactWireOffer": "2e145e34dfc246920d21e6e0109a9a8f348ab849",
+    "newHandler": {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+      "blob": "a72974bff6cd41fc81649b1611822dfba9a5a9a5",
+      "sha256": "f51b57926643f65bccda318f5ffc600dd905b44aeb62f083202e5928bf3fd596",
+      "observations": {
+        "mapDefinitions": 1,
+        "handlerDefinitions": 1,
+        "missingAuthImport": true,
+        "frameReadOccursBeforeServiceRead": true,
+        "originalIdentityStatusMappingNotExplicitAtHandler": true
+      }
+    },
+    "exactKnownTrees": [
+      {
+        "source": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "61b728e1529444330ad9de72d7abdf4bb22c1861",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "76f900f3266560af64e05f6936d4096f76577361",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "3335910dee5e67e446167ec3b3d875912a908709",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "2e145e34dfc246920d21e6e0109a9a8f348ab849",
+        "oldPrototypePresent": false,
+        "newModulePresent": true
+      }
+    ],
+    "parentEstablishedConflict": "Original3663 dormant prototype and new wire module define the same partial mapping/handler signatures; merely leaving unmounted does not prevent duplicate definition compilation failure. Originalprototype full source and specific test paths not yet supplied to this worktree.",
+    "oldPrototypePath": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs",
+    "readiness": "BLOCKED prerequisite verification; no source removal or replacement activation performed",
+    "neededSourceHandoffs": [
+      "Parent-supplied full exact original prototype commit and prototype-specific test paths/negative controls",
+      "Same wire owner corrected exact source preserving identity-before-body and401/403/409/cancellation/private failure semantics",
+      "Applicable original source/admission evidence before dependent central compilation/activation"
+    ],
+    "authorizedNextStep": "On a separate integration branch based on supplied dependency closure, select corrected new module, omit/remove old prototype and only its specific tests, preserve original read service/frontendhost/frozen old source, verify one mapping/handler pair and reversible source delta.",
+    "frozenBranchWrites": 0,
+    "newWireWriterEdits": 0,
+    "sourceDeletionHunksApplied": 0,
+    "active288289": false,
+    "siteIdentityAliasActivated": false,
+    "routeActivated": false,
+    "runtimeQualification": false,
+    "testsRerun": 0,
+    "rawLogsPublished": false
   }
 }
