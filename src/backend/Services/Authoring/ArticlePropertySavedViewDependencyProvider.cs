@@ -20,24 +20,25 @@ public sealed class ArticlePropertySavedViewDependencyProvider(
         AuthorSavedViewOwner owner,
         AuthorSavedViewCondition condition,
         CancellationToken cancellationToken = default)
-        => ResolveAsync(owner, condition.Field, condition.OperatorId, cancellationToken);
+        => ResolveAsync(owner, condition.Field, condition.OperatorId, ResolutionKind.Condition, cancellationToken);
 
     public ValueTask<AuthorSavedViewDependencyFact?> ResolveSortAsync(
         AuthorSavedViewOwner owner,
         AuthorSavedViewSort sort,
         CancellationToken cancellationToken = default)
-        => ResolveAsync(owner, sort.Field, "sort", cancellationToken);
+        => ResolveAsync(owner, sort.Field, "sort", ResolutionKind.Sort, cancellationToken);
 
     public ValueTask<AuthorSavedViewDependencyFact?> ResolveProjectionAsync(
         AuthorSavedViewOwner owner,
         AuthorSavedViewFieldReference field,
         CancellationToken cancellationToken = default)
-        => ResolveAsync(owner, field, "projection", cancellationToken);
+        => ResolveAsync(owner, field, "projection", ResolutionKind.Projection, cancellationToken);
 
     private async ValueTask<AuthorSavedViewDependencyFact?> ResolveAsync(
         AuthorSavedViewOwner owner,
         AuthorSavedViewFieldReference field,
         string operation,
+        ResolutionKind kind,
         CancellationToken cancellationToken)
     {
         if (field.Kind != AuthorSavedViewFieldKind.Property)
@@ -102,12 +103,12 @@ public sealed class ArticlePropertySavedViewDependencyProvider(
             {
                 status = AuthorSavedViewDependencyStatus.Unknown;
             }
-            else if (operation == "projection")
+            else if (kind == ResolutionKind.Projection)
             {
                 status = AuthorSavedViewDependencyStatus.Current;
             }
-            else if ((operation == "sort" && !definition.Sortable)
-                || (operation != "sort" && !definition.Filterable))
+            else if ((kind == ResolutionKind.Sort && !definition.Sortable)
+                || (kind == ResolutionKind.Condition && !definition.Filterable))
             {
                 status = AuthorSavedViewDependencyStatus.TypeOrOperatorIncompatible;
             }
@@ -203,4 +204,11 @@ public sealed class ArticlePropertySavedViewDependencyProvider(
         ClaimsPrincipal Principal,
         string SessionId,
         ArticlePropertyDefinitionActor Actor);
+
+    private enum ResolutionKind
+    {
+        Condition,
+        Sort,
+        Projection
+    }
 }
