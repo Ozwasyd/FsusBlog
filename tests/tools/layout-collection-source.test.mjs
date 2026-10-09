@@ -1623,3 +1623,16 @@ test('shared effect boundary: resolved class dependency retains the original run
     assert.equal(result.closureComplete, false);
     assert.equal(result.readonly, false);
 });
+test('shared effect boundary: a declaration signature cannot supply an implementation effect contract', () =>
+{
+    const state = context();
+    const file = fixture('declare function owner(props):void;', 'Declared.ts');
+    const record = state.source.resolver.parse(file);
+    const fn = find(record, (node) => state.ts.isFunctionDeclaration(node), state.ts)[0];
+    const effects = state.module.callbackEffects(file, fn);
+    assert.ok(effects.unresolved.some((entry) => entry.required.includes('implementation body')));
+    const result = state.module.parameterClosure(file, fn);
+    assert.equal(result.readonly, false);
+    assert.ok(result.unresolved.some((entry) => entry.required.includes('implementation body')));
+    assert.equal(result.qualificationEligible, false);
+});

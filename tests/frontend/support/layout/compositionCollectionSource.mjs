@@ -643,9 +643,11 @@ export function createCompositionCollectionSource(source)
         {
             returned(fn.body);
         }
-        if (fn.asteriskToken || fn.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword))
+        const unsupportedOwner = unsupportedEffect(fn);
+        if (unsupportedOwner || !fn.body)
         {
-            unresolved.push({ ...step(file, fn), required: 'actual deferred generator or async result/thenable effects remain unproved' });
+            unresolved.push({ ...step(file, fn), kind: ts.SyntaxKind[fn.kind],
+                required: unsupportedOwner ?? 'actual function implementation body remains unproved' });
         }
         return proof({ parameters, parameterSources: fn.parameters.map((parameter) => ({ source: step(file, parameter),
             rest: !!parameter.dotDotDotToken, initializer: parameter.initializer ? step(file, parameter.initializer) : null })),
@@ -1271,6 +1273,10 @@ export function createCompositionCollectionSource(source)
                 fail(`unbound source parameter ${ownerFile}`);
             }
             const root = parameter.name.text;
+            if (!seed && !owner.body)
+            {
+                unresolved.push({ ...definition, required: 'actual function implementation body remains unproved' });
+            }
             const reads = [];
             const writes = [];
             const escapes = [];
