@@ -34,6 +34,8 @@ function retainedManifest()
 {
     const source = structuredClone(manifest);
     source.frameTypes = source.frameTypes.filter((frame) => frame.goldenOrder < 236);
+    source.goldenCatalog.defaultEvidence = source.goldenCatalog.defaultEvidence.filter((entry) =>
+        !entry.endsWith('/ArticlePropertyValueReadWireTests.cs') && !entry.endsWith('/AuthoringWorkspaceSnapshotWireTests.cs'));
     return source;
 }
 
@@ -55,7 +57,7 @@ test('the original producer owns five products with manifest-derived identities 
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
     assert.equal(golden.frames.filter(frame => frame.value <= 252).length, 244);
-    assert.equal(golden.frames.length, 260);
+    assert.equal(golden.frames.length, 263);
 });
 
 test('the Canvas and article-link additions retain independently named roots and wire identities', () =>
@@ -78,7 +80,19 @@ test('the Canvas and article-link additions retain independently named roots and
         ['ArticleCanvasLinkReceipt', 267, 'article-canvas-link'],
         ['ArticleCanvasLinkHistoryResponse', 268, 'article-canvas-link']
     ];
-    const actual = goldenFrom(manifest).frames.filter(frame => frame.value >= 253)
+    const actual = goldenFrom(manifest).frames.filter(frame => frame.value >= 253 && frame.value <= 268)
+        .map(frame => [frame.name, frame.value, frame.family]);
+    assert.deepEqual(actual, expected);
+});
+
+test('property value and workspace snapshot roots retain exact registered identities', () =>
+{
+    const expected = [
+        ['ArticlePropertyValueReadResponse', 269, 'article-property-value-read'],
+        ['AuthoringWorkspaceSnapshotRequest', 270, 'authoring-workspace-snapshot'],
+        ['AuthoringWorkspaceSnapshotResponse', 271, 'authoring-workspace-snapshot']
+    ];
+    const actual = goldenFrom(manifest).frames.filter(frame => frame.value >= 269 && frame.value <= 271)
         .map(frame => [frame.name, frame.value, frame.family]);
     assert.deepEqual(actual, expected);
 });
@@ -161,7 +175,7 @@ for (const [label, mutate, expected] of [
 test('every frame, including future registrations, must explicitly provide complete golden metadata', () =>
 {
     const source = structuredClone(manifest);
-    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 260 });
+    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: source.frameTypes.length });
     const golden = goldenFrom(source);
     assert.deepEqual(golden.frames.at(-1), { name: 'FutureFrame', value: 65535, family: 'test-response' });
 });
