@@ -189,19 +189,27 @@
   "noContentApiWrites": true,
   "rawEvidence": [
     {
-      "path": "authority-generation.log",
+      "name": "authority-generation.log",
+      "container": "raw-evidence.json",
+      "entry": "authority-generation.log",
       "sha256": "abde5680666476ea45114e24355557a2b10a1808b0afd007c5aae9f99039e7cd"
     },
     {
-      "path": "cpp-five.log",
+      "name": "cpp-five.log",
+      "container": "raw-evidence.json",
+      "entry": "cpp-five.log",
       "sha256": "3d8c1fe019a160a39586c12c94ad0be7121de5bb70ccd9e3621b47e03970d1de"
     },
     {
-      "path": "blame-nine.log",
+      "name": "blame-nine.log",
+      "container": "raw-evidence.json",
+      "entry": "blame-nine.log",
       "sha256": "91d05b0739b6bc7c91b5e57f9a01bf4ff4868d3b625e484688c19599802c0d6a"
     },
     {
-      "path": "planner-one.log",
+      "name": "planner-one.log",
+      "container": "raw-evidence.json",
+      "entry": "planner-one.log",
       "sha256": "9d188c0e86b0cc99fd89ab949dc59c3d9cb16ca78631d291967351077649fa60"
     },
     {
@@ -209,7 +217,9 @@
       "sha256": "6433f6fac81d86161a5682de8746ef1d022ee4400a8f45595b35f9a5ad7c2bf6"
     },
     {
-      "path": "actual-blame.stderr",
+      "name": "actual-blame.stderr",
+      "container": "raw-evidence.json",
+      "entry": "actual-blame.stderr",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
@@ -217,40 +227,62 @@
       "sha256": "4862fa5ba3ac8fce5e026116355ca960baf27c347e76d71e51c5cd4a6df9725f"
     },
     {
-      "path": "backend-restore.log",
+      "name": "backend-restore.log",
+      "container": "raw-evidence.json",
+      "entry": "backend-restore.log",
       "sha256": "cf7ec5e3dce9f1dd31aecff352e8951a1042371ded795b2da010d5e4a3b4adf7"
     },
     {
-      "path": "backend-build.log",
+      "name": "backend-build.log",
+      "container": "raw-evidence.json",
+      "entry": "backend-build.log",
       "sha256": "eeb97822b2df948f72420dcfaa3f8381cf77086e736dd9d696cd7ce4b6f790cf"
     },
     {
-      "path": "code-intent.log",
+      "name": "code-intent.log",
+      "container": "raw-evidence.json",
+      "entry": "code-intent.log",
       "sha256": "7b0cb208bd9df88bcc5ab0f05de464054dfb741307ad46b0a31245f4484b4b3c"
     },
     {
-      "path": "csharp-style.log",
+      "name": "csharp-style.log",
+      "container": "raw-evidence.json",
+      "entry": "csharp-style.log",
       "sha256": "5288e645993e17189c2f7b8aee1184e42c089b85263d0aebcb4f77ec419e9ff6"
     },
     {
-      "path": "entrypoint-ownership.log",
+      "name": "entrypoint-ownership.log",
+      "container": "raw-evidence.json",
+      "entry": "entrypoint-ownership.log",
       "sha256": "cee9f60788055ee3b6b2ce2b3f1f55ac2259b94a2085978749df8a4d8ce7716a"
     },
     {
-      "path": "change-contract.log",
+      "name": "change-contract.log",
+      "container": "raw-evidence.json",
+      "entry": "change-contract.log",
       "sha256": "dd237e52eb99dac847745d7f0aa984d9addb32cb8fc911fb955a5fafd2b2787e"
     },
     {
-      "path": "source.diff",
+      "name": "source.diff",
+      "container": "raw-evidence.json",
+      "entry": "source.diff",
       "sha256": "21253ffcc2f13f3ef216cd4415dc3fc8456f74bd60c95b476c63173b0a9dbe84"
     },
     {
-      "path": "native-source-tool-setup.log",
+      "name": "native-source-tool-setup.log",
+      "container": "raw-evidence.json",
+      "entry": "native-source-tool-setup.log",
       "sha256": "d00ab35b5e056f49d159dafd4b751938037a879eaed7b0aa151f23dc358a4b11"
     },
     {
-      "path": "font-format-check.log",
+      "name": "font-format-check.log",
+      "container": "raw-evidence.json",
+      "entry": "font-format-check.log",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "raw-evidence.json",
+      "sha256": "830f5c05fb9b278ebb3e7a7fe94f4d15a2fbff52f16078ea749934545fc326ff"
     }
   ],
   "requiredSourceToolsResolved": {
@@ -269,5 +301,6 @@
         "sha256": "a7e77f7cd1478d2bb633c101f24c43075eaf042bba08aaf19b19b1e8d82d337c"
       }
     }
-  }
+  },
+  "rawEncoding": "Known structured JSON data, exact UTF-8 line strings; no extra unsupported log/diff executable surface."
 }
