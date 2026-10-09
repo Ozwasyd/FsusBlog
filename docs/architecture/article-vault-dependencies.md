@@ -178,6 +178,21 @@ source-byte identity, and supplies only the verified server bytes to the existin
 three-way source admission owner. A Blocked original plan stays Blocked; no
 writer, package codec, source winner or native admission is introduced.
 
+`computeProjectedParagraphSourceMerge` composes the supplied canonical three-way
+projection adapter with the original paragraph byte computation. The caller must
+supply original coordinate/source value seals, portable identity, operation/plan,
+current input and source disposition; this composition creates none of those facts.
+Canonical manual/rejected diagnostics prevent automatic candidate production,
+including length-changing edits whose original syntax correspondence is ambiguous.
+The original paragraph eligibility restriction remains in force even when the
+projection is available. The candidate seal binds both complete projection and
+paragraph identities; `verifyProjectedParagraphSourceCandidate` rereads the public
+FsusUI runtime and calls both original independent verifiers without calling the
+composition computation. Exact bytes, hunks and both node/range references are
+retained. No verified-input transport, Shared admission proof, writer or execution
+grant is produced. The separate pure paragraph entry remains an ordinary byte
+computation and cannot establish admission.
+
 This fills the current-server source-read integration, not complete metadata or
 decision admission. The canonical `ArticlePackageCurrentPropertyReader.ReadAndMapAsync`
 now consumes `IArticlePropertyValueAuthority.ReadAsync`, retains signed historical
