@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
 import type { SeoConfigPublic } from '@/api/system';
+import type { MarkdownEditorTransactionEvent } from '@/fsusui/articlePositionMaps';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import { ArticlePreviewSourceAdmission } from '@/services/authoring/articlePreviewSourceAdmission';
 import { calculateOpenArticleDocumentDigest as digest } from '@/services/authoring/openArticleDocumentRegistry';
@@ -64,15 +65,21 @@ async function host()
 async function boundHost()
 {
     const f = await host();
-    f.owner.articleForm.content = 'Actual host source';
-    await nextTick();
+    let session: ReturnType<typeof f.owner.authoringEditorRuntime.bindEditor>;
     const editor = mount(ElMarkdownEditor, { props: { modelValue: f.owner.articleForm.content,
-        mode: 'source', documentIdentity: f.owner.authoringDocumentIdentity.value } });
-    const session = f.owner.authoringEditorRuntime.bindEditor(editor.vm as unknown as ArticleEditorContinuityPort,
+        mode: 'source', documentIdentity: f.owner.authoringDocumentIdentity.value,
+        'onUpdate:modelValue': (value: string) => { f.owner.articleForm.content = value; },
+        onTransaction: (event: MarkdownEditorTransactionEvent) => session?.binding.consumeTransaction(event) } });
+    const commands = editor.vm as unknown as ArticleEditorContinuityPort;
+    session = f.owner.authoringEditorRuntime.bindEditor(commands,
         { surface: 'source', configuration: { allowLatex: false, allowMermaid: false, baseUrl: null },
             identity: { themeDigest: digest({ ordinary: 'preview-current-host' }), locale: 'zh-CN' },
             cachePolicy: { maxEntryBytes: 65536, maxAgeMs: 60000, maxReceipts: 16 } });
     expect(session.binding.initialize()).toBe(true);
+    expect(commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'Actual host source' }],
+        history: 'separate' }).accepted).toBe(true);
+    expect(f.owner.articleForm.content).toBe('Actual host source');
+    await nextTick();
     const editing: ArticleDraftResponsibilitySource = { inheritSiteAuthor: true, authors: [], reviewer: null,
         sources: [], updateSummary: null, updateReason: null, effectiveAt: null, conclusionImpact: null,
         responsiblePersonConfirmed: false };
