@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "fd965b0c59fb7dc635e3bc4b2980c9d82e0a9394",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace --folder --include src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs src/shared/Contracts/Schema/CurrentSchemaModel.cs --verbosity minimal"
+    },
+    "paths": [
+        "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaModel.cs"
+    ],
+    "firstPassTreeSha256": "434e9750659b77485e1ce103360d511b6f347ac13b0d6e356cb88d520f12ed16",
+    "secondPassTreeSha256": "434e9750659b77485e1ce103360d511b6f347ac13b0d6e356cb88d520f12ed16",
+    "idempotent": true
+}
