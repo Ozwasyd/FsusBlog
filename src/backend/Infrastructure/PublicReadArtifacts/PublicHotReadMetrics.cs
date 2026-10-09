@@ -13,6 +13,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Server.Infrastructure.Memory.Transient;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -517,6 +518,49 @@ internal static class PublicHotReadRouteKeys
 
 internal static class PublicHotReadBinaryArtifactFactory
 {
+    /// <summary>
+    /// Encodes into the caller's admitted lease and awaits a consumer under its operation hold.
+    /// The caller keeps the payload stable and charged through completion. The frame borrows
+    /// the callback memory; it cannot become a published artifact or outlive the callback.
+    /// </summary>
+    internal static ValueTask ConsumeReservedPayloadAsync(
+        IAedsEncoder encoder,
+        AedsFrameType frameType,
+        ReadOnlyMemory<byte> payload,
+        TransientBufferLease destination,
+        PublicHotReadOptions options,
+        Func<ReadOnlyMemory<byte>, CancellationToken, ValueTask> consumer,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(encoder);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(consumer);
+        int frameLength = ReservedAedsFrameWriter.GetFrameLength(payload.Length, options);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (destination.Memory.Length < frameLength)
+        {
+            throw new ArgumentException("Admitted lease is too small for the AEDS frame.", nameof(destination));
+        }
+
+        return destination.ConsumeAsync(async (memory, token) =>
+        {
+            token.ThrowIfCancellationRequested();
+            if (payload.Span.Overlaps(memory.Span))
+            {
+                throw new ArgumentException("AEDS source and reserved destination must not overlap.", nameof(payload));
+            }
+
+            ReadOnlyMemory<byte> frame = ReservedAedsFrameWriter.WriteFrame(encoder, frameType, payload.Span, memory, options);
+            if (!LooksLikeExpectedAedsFrame(frame.Span, frameType))
+            {
+                throw new InvalidOperationException("Reserved AEDS frame validation failed.");
+            }
+
+            // The existing operation hold covers encoding and the consumer's terminal event.
+            await consumer(frame, token).ConfigureAwait(false);
+        }, cancellationToken);
+    }
+
     internal static PublicBinaryArtifact FromPayload(
         IAedsEncoder encoder,
         AedsFrameType frameType,

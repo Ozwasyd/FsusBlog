@@ -473,6 +473,23 @@ domain. Native meanings follow the [cgroup v2 interfaces](https://docs.kernel.or
 [PSI interface](https://docs.kernel.org/accounting/psi.html) and
 [v1 memory statistics](https://docs.kernel.org/admin-guide/cgroup-v1/memory.html).
 
+The established `PublicHotReadBinaryArtifactFactory.ConsumeReservedPayloadAsync`
+composes `ReservedAedsFrameWriter` with the existing
+`TransientBufferLease.ConsumeAsync` operation hold. It accepts caller-admitted
+storage and a stable, caller-owned payload, checks the canonical artifact ceiling
+and logical destination length, rejects overlapping source/destination, and awaits
+the frame consumer before releasing that hold. Cancellation of an outer wait
+does not return storage still used by the consumer. The borrowed frame cannot
+outlive the callback; captured memory rejects access after operation completion.
+The finite managed fixture budgets are not production defaults or native
+qualification. This operation surface adds no allocator or publication authority.
+Long-lived PublicHot snapshots still require a body ownership-transfer contract
+on `PublicBinaryArtifact`, integration with the original snapshot/read retirement
+owner, and simultaneous source/destination/workspace admission. The existing
+byte-array `FromFrame` and unbounded compression path do not supply those
+contracts. Unknown-length producers and compression workspace remain separate
+unverified work; they cannot publish the callback's borrowed memory.
+
 `WindowsNativeMemoryPressureReader` is a raw 64-bit Windows PSAPI2 observation
 surface using system32 `GlobalMemoryStatusEx`, `K32GetPerformanceInfo` and
 `K32GetProcessMemoryInfo`. It fills fixed caller-owned admitted value storage,
