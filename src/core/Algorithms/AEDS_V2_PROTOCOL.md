@@ -339,3 +339,11 @@ Existing header, retired/unknown, CRC and other family guards remain in order.
 Registration and codec verification grant no authenticated HTTP, storage/CAS,
 provider/native product or rendered UX acceptance. Real session/scope authority,
 source freezer ports and independent runtime/CI qualification remain required.
+
+
+The Canvas wire producer also owns the marked client-budget section in
+`src/frontend/src/contracts/authoringCanvas.ts`. The client contract has no
+runtime imports; its budget literals and the existing wire limits derive from
+the same Shared domain constants. Missing/duplicate generation markers refuse,
+and `--check` verifies the section. This preserves the original contracts-layer
+rule and does not change any managed, TypeScript or C++ payload bytes.

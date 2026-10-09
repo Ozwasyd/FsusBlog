@@ -499,6 +499,44 @@ for (const [name, values] of Object.entries(schema.enums))
 }
 const clientLimitValue = domainConstantResolver(domainFiles);
 typescript += `\nexport const authoringCanvasLimits = Object.freeze({\n${Object.entries(schema.clientLimits).map(([name, owner]) => `    ${name}: ${clientLimitValue(owner)}`).join(',\n')}\n} as const);\n`;
+const clientBudgetKeys = {
+    MAX_NODES: 'maxNodesPerCanvas',
+    MAX_EDGES: 'maxEdgesPerCanvas',
+    MAX_TITLE_LENGTH: 'maxTitleLength',
+    MAX_NOTE_TEXT_LENGTH: 'maxNoteSourceLength',
+    MAX_FRAME_LABEL_LENGTH: 'maxFrameLabelLength',
+    MAX_EDGE_LABEL_LENGTH: 'maxEdgeLabelLength',
+    MAX_COORDINATE_MAGNITUDE: 'maxCoordinateMagnitude',
+    MIN_NODE_EXTENT: 'minNodeExtent',
+    MAX_NODE_EXTENT: 'maxNodeExtent',
+    MIN_ZOOM: 'minZoom',
+    MAX_ZOOM: 'maxZoom',
+    MAX_CANVASES_PER_USER: 'maxCanvasesPerOwner'
+};
+
+export function renderCanvasClientContract(content, contractSchema, domains)
+{
+    const start = '// <generated-canvas-client-budgets>';
+    const end = '// </generated-canvas-client-budgets>';
+    if (content.split(start).length !== 2 || content.split(end).length !== 2
+        || content.indexOf(end) < content.indexOf(start))
+    {
+        fail('frontend client budget generation markers must occur exactly once');
+    }
+    const resolve = domainConstantResolver(domains);
+    const fields = Object.entries(clientBudgetKeys).map(([name, owner]) =>
+    {
+        const constant = contractSchema.clientLimits[owner];
+        if (typeof constant !== 'string')
+        {
+            fail(`invalid client limit owner: ${owner}`);
+        }
+        return `    ${name}: ${resolve(constant)}`;
+    });
+    const generated = `${start}\n// Generated from the canonical Shared domain constants; do not hand-edit.\nexport const AUTHORING_CANVAS_BUDGETS = Object.freeze({\n${fields.join(',\n')}\n} as const);\n${end}`;
+    return content.slice(0, content.indexOf(start)) + generated
+        + content.slice(content.indexOf(end) + end.length);
+}
 for (const [name, record] of Object.entries(schema.records))
 {
     typescript += `\nexport interface ${name}\n{\n${record.fields.map((field) => `    ${camel(field.name)}: ${tsType(field)};`).join('\n')}\n}\n`;
@@ -573,11 +611,13 @@ cpp += `} // namespace FsusBlog::Aeds::CanvasWire\n\nnamespace FsusBlog::Aeds\n{
 
 if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url))
 {
-
+    const clientContractPath = 'src/frontend/src/contracts/authoringCanvas.ts';
+    const clientContract = renderCanvasClientContract(readFileSync(path.join(root, clientContractPath), 'utf8'), schema, domainFiles);
     for (const [relative, content] of [
         ['src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs', csharp],
         ['src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts', typescript],
-        ['src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp', cpp]
+        ['src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp', cpp],
+        [clientContractPath, clientContract]
     ])
     {
         const target = path.join(root, relative);
@@ -593,5 +633,5 @@ if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url))
             writeFileSync(target, content);
         }
     }
-    console.log(`[authoring-canvas-wire] ${process.argv.includes('--check') ? 'checked' : 'generated'} 13 bounded C#/TypeScript/C++ payload codecs`);
+    console.log(`[authoring-canvas-wire] ${process.argv.includes('--check') ? 'checked' : 'generated'} 13 bounded C#/TypeScript/C++ payload codecs and frontend client budgets`);
 }
