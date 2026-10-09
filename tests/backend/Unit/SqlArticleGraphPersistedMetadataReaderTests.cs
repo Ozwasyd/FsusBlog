@@ -295,7 +295,7 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
     }
 
     [Fact]
-    public async Task ProductionBatchModeStaysUnavailableUntilCanonicalBatchApiExists()
+    public async Task ProductionBatchModeStaysUnavailableUntilSupplierCompletionContractExists()
     {
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         IAuthorArticlePinPermissionProjectionProvider permission = Substitute.For<IAuthorArticlePinPermissionProjectionProvider>();
@@ -306,7 +306,7 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
     }
 
     [Fact]
-    public async Task ProductionSingleModeStaysUnavailableUntilPermissionSqlCancellationContractExists()
+    public async Task ProductionSingleModeStaysUnavailableUntilSupplierCompletionContractExists()
     {
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         IAuthorArticlePinPermissionProjectionProvider permission = Substitute.For<IAuthorArticlePinPermissionProjectionProvider>();

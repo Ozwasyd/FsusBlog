@@ -46,18 +46,18 @@ internal sealed record ArticleGraphPersistedMetadataResult(
 /// Missing facts, drift, snapshots and exhausted allocations return no partial metadata.
 /// </summary>
 /// <remarks>
-/// The canonical authority currently exposes only a single-revision read. The native adapter
-/// is limited to one candidate, refusing batch mode until that owner supplies a cancellable,
-/// bounded exact batch API on the same caller session. No per-article batch loop or parallel
-/// coordinate store is used. The caller retains transaction, connection and commit ownership.
+/// The native adapter consumes the canonical exact batch API on the same caller session,
+/// without a per-article coordinate loop or parallel coordinate store. The caller retains
+/// transaction, connection and commit ownership. Awaiting command/reader disposal establishes
+/// completion before return; cancellation response and cleanup can still exceed the allocation.
 /// The existing SQL permission adapter does not pass cancellation to GetDataReaderAsync.
-/// Its production admission remains unavailable until the permission owner supplies bounded
-/// native command cancellation and completion before relinquishing the borrowed caller client.
-/// Abandoning that read with WaitAsync cannot satisfy this contract.
+/// Production admission remains unavailable until supplier command completion within the
+/// allocation and caller-connection custody are resolved for permission and coordinate reads.
+/// CancelAfter/token propagation and abandonment with WaitAsync cannot establish that contract.
 /// </remarks>
 public sealed class SqlArticleGraphPersistedMetadataReader
 {
-    internal const int MaxCandidates = 64;
+    internal const int MaxCandidates = ArticleRelationSourceCoordinateAuthority.MaxRevisionReadBatchSize;
     internal const int MaxTags = 256;
     private readonly IAuthorArticlePinPermissionProjectionProvider _permissions;
     private readonly Func<CancellationToken, Task<SessionStamp>> _probe;
@@ -71,7 +71,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
     public SqlArticleGraphPersistedMetadataReader(ISqlSugarClient db,
         ArticleRelationSourceCoordinateAuthority coordinates,
         IAuthorArticlePinPermissionProjectionProvider permissions)
-        : this(permissions, null!, null!, null!, 1)
+        : this(permissions, null!, null!, null!)
     {
         _boundedPermissionReadsAvailable = false;
         _newRead = () =>
@@ -79,11 +79,12 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             var session = new CallerSession(db);
             return new(permissions, session.ProbeAsync, session.ReadRowsAsync, async (rows, token) =>
             {
-                Require(rows.Length == 1);
-                ArticleRelationRevisionCoordinate? coordinate = await coordinates.ReadRevisionAsync(
-                    db, rows[0].ArticleId, rows[0].SelectedRevisionId, token).ConfigureAwait(false);
-                return coordinate is null ? [] : [coordinate];
-            }, 1);
+                var pairs = Array.AsReadOnly(rows.Select(static row =>
+                    (ArticleId: row.ArticleId, RevisionId: row.SelectedRevisionId)).ToArray());
+                IReadOnlyList<ArticleRelationRevisionCoordinate> saved = await coordinates.ReadRevisionsAsync(
+                    db, pairs, token).ConfigureAwait(false);
+                return Copy(saved, rows.Length);
+            });
         };
     }
 
