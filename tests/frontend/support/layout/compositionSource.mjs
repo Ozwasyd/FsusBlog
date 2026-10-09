@@ -30,8 +30,54 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     const errors = [];
     const scriptRenders = new Map();
     const targetSuppliers = new WeakMap();
+    const originalCalls = new Map();
     const functional = createCompositionFunctionalSource({ resolver });
     const collections = createCompositionCollectionSource({ resolver, nodes });
+    function callFacts(node)
+    {
+        return { id: node.id, file: node.file, offset: node.offset, tag: node.tag,
+            definition: node.definition, definitions: node.definitions ?? [], parentId: node.parentId,
+            ancestors: node.ancestors, attributes: node.attributes, directives: node.directives,
+            scopedBindings: node.scopedBindings, sourceDigest: node.sourceDigest,
+            origin: Object.fromEntries(['kind', 'package', 'publicName', 'file', 'name', 'definition', 'exportName']
+                .filter((name) => Object.hasOwn(node.origin, name)).map((name) => [name, node.origin[name]])) };
+    }
+    function observeCall(node, record, syntax)
+    {
+        // Capture the actual original parser observation before publishing it.
+        // Neither a caller's graph nor a caller-written node creates this entry.
+        const source = syntax.loc?.source ?? syntax.getText();
+        const offset = syntax.loc ? record.template.offset + syntax.loc.start.offset
+            : resolver.sourceStep(record.file, syntax).offset;
+        originalCalls.set(node.id, { node, file: record.file, offset, source,
+            fileDigest: controlDigest(record.content), factsDigest: controlDigest(callFacts(node)) });
+    }
+    function assertOriginalCalls(checkBytes = false)
+    {
+        if (nodes.size !== originalCalls.size)
+        {
+            fail('supplier graph changed: original source call membership');
+        }
+        const checked = new Set();
+        for (const [id, original] of originalCalls)
+        {
+            const node = nodes.get(id);
+            if (node !== original.node || controlDigest(callFacts(node)) !== original.factsDigest)
+            {
+                fail(`supplier graph changed: original source call ${id}`);
+            }
+            if (checkBytes && !checked.has(original.file))
+            {
+                const content = readFileSync(original.file, 'utf8');
+                if (controlDigest(content) !== original.fileDigest
+                    || content.slice(original.offset, original.offset + original.source.length) !== original.source)
+                {
+                    fail(`supplier source changed: original source call ${id}`);
+                }
+                checked.add(original.file);
+            }
+        }
+    }
     const unwrap = (node) =>
     {
         while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)))
@@ -965,6 +1011,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 return previous;
             }
             nodes.set(id, current);
+            observeCall(current, record, node);
             value.nodes.push(id);
             if (definition && !records.has(definition))
             {
@@ -1560,6 +1607,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 slot: directives.find(({ name }) => name === 'slot') ?? (node.tag === 'slot' ? { name: attributes.name ?? 'default' } : null),
                 teleport: origin.publicName === 'Teleport' };
             nodes.set(id, current);
+            observeCall(current, record, node);
             value.nodes.push(id);
             for (const child of node.children ?? [])
             {
@@ -1582,6 +1630,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     }
     function graph(entryFiles, { routes = null } = {})
     {
+        assertOriginalCalls(true);
         for (const file of entryFiles)
         {
             try
@@ -2460,8 +2509,13 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         return vueBinding(record, node, exportedName);
     }
-    const api = { resolver, parse, graph, instrument, importFile, componentFile, expression, nodes, records, errors,
+    const api = { resolver, parse, graph, instrument, importFile, componentFile, expression, records, errors,
         resolveTargetInputs, vueBinding: publicVueBinding };
+    Object.defineProperty(api, 'nodes', { enumerable: true, get: () =>
+    {
+        assertOriginalCalls();
+        return nodes;
+    } });
     return api;
 }
 

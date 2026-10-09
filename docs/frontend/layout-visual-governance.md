@@ -444,6 +444,21 @@ record and callee AST and unchanged source inputs; aliases retain their actual
 export name, while foreign records, cloned expressions, type-only imports and
 mutated or shadowed bindings cannot establish identity. A true result identifies
 the import only, without proving framework effects, state or readonly behavior.
+The original parser keeps its authored import map private and exposes detached
+map observations with stable immutable entries; writing a map observation cannot
+change its actual import identity, and entry writes refuse.
+Parser records and original script/template syntax are readonly observations;
+variable and registration maps also expose detached observations. This prevents
+rewriting syntax before a source call is published and preserves original AST
+identity without a second parser. Framework dependencies follow the nearest
+original
+lexical declaration, including nested functions and destructured bindings;
+unknown parameter or variable callables retain an explicit unresolved source
+step instead of borrowing a module function. Composition calls are checked
+against private observations captured from the original parser and source bytes
+before publication. Rebuilding a graph or reading calls through the public node
+interface refuses overwritten call facts and membership; a mutable published
+node cannot establish a new RouterView owner path.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state

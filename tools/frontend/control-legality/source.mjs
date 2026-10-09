@@ -178,6 +178,16 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         return ast;
     };
+    const readonlySyntax = (value, seen = new WeakSet()) =>
+    {
+        if (!value || typeof value !== 'object' || seen.has(value) || value instanceof Map || value instanceof Set)
+        {
+            return value;
+        }
+        seen.add(value);
+        Object.values(value).forEach((child) => readonlySyntax(child, seen));
+        return Object.freeze(value);
+    };
     const parse = (file) =>
     {
         if (parsed.has(file))
@@ -268,7 +278,23 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             };
             visit(ast);
         }
-        const result = { file, content, scripts, template, imports, variables, registrations };
+        for (const [name, binding] of imports)
+        {
+            imports.set(name, Object.freeze(binding));
+        }
+        // Populate the official parser's lazy location cache before publishing
+        // readonly syntax. Source ownership does not permit AST rewrites.
+        scripts.forEach(({ ast }) => ast.getLineAndCharacterOfPosition(0));
+        readonlySyntax(scripts);
+        readonlySyntax(template);
+        const result = { file, content, scripts, template };
+        // The map populated by this original parse remains private. Public
+        // observations cannot rewrite the import identity used by the resolver.
+        Object.defineProperty(result, 'imports', { enumerable: true,
+            get: () => new Map(imports) });
+        Object.defineProperty(result, 'variables', { enumerable: true, get: () => new Map(variables) });
+        Object.defineProperty(result, 'registrations', { enumerable: true, get: () => new Map(registrations) });
+        Object.freeze(result);
         parsed.set(file, result);
         return result;
     };
@@ -1522,6 +1548,99 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         const dependencies = [];
         const visited = new Set();
         const queue = [root];
+        function bindingNames(pattern)
+        {
+            if (ts.isIdentifier(pattern))
+            {
+                return [pattern.text];
+            }
+            return ts.isObjectBindingPattern(pattern) || ts.isArrayBindingPattern(pattern)
+                ? pattern.elements.filter(ts.isBindingElement).flatMap((element) => bindingNames(element.name)) : [];
+        }
+        function lexicalDependency(owner, identifier)
+        {
+            const name = identifier.text;
+            for (let scope = identifier.parent; scope; scope = scope.parent)
+            {
+                if (ts.isFunctionLike(scope))
+                {
+                    const parameter = scope.parameters.find((entry) => bindingNames(entry.name).includes(name));
+                    if (parameter)
+                    {
+                        return { declaration: parameter, reason: 'actual lexical parameter has no supplied callable definition' };
+                    }
+                    const hoisted = [];
+                    function visitVar(candidate)
+                    {
+                        if (ts.isFunctionLike(candidate) || ts.isClassDeclaration(candidate) || ts.isClassExpression(candidate))
+                        {
+                            return;
+                        }
+                        if (ts.isVariableDeclaration(candidate) && ts.isVariableDeclarationList(candidate.parent)
+                            && !(candidate.parent.flags & ts.NodeFlags.BlockScoped) && bindingNames(candidate.name).includes(name))
+                        {
+                            hoisted.push(candidate);
+                        }
+                        ts.forEachChild(candidate, visitVar);
+                    }
+                    if (scope.body)
+                    {
+                        visitVar(scope.body);
+                    }
+                    if (hoisted.length)
+                    {
+                        return { declaration: hoisted[0], reason: 'actual function var binding has an unproved reaching callable value' };
+                    }
+                    if ((ts.isFunctionDeclaration(scope) || ts.isFunctionExpression(scope))
+                        && scope.name && ts.isIdentifier(scope.name) && scope.name.text === name)
+                    {
+                        return { declaration: scope, node: scope };
+                    }
+                }
+                if ((ts.isClassDeclaration(scope) || ts.isClassExpression(scope)) && scope.name?.text === name)
+                {
+                    return { declaration: scope, node: ts.isClassDeclaration(scope) ? scope : null,
+                        reason: 'actual class expression binding has no supported class declaration' };
+                }
+                if ((ts.isForStatement(scope) || ts.isForOfStatement(scope) || ts.isForInStatement(scope))
+                    && scope.initializer && ts.isVariableDeclarationList(scope.initializer))
+                {
+                    const declaration = scope.initializer.declarations.find((entry) => bindingNames(entry.name).includes(name));
+                    if (declaration)
+                    {
+                        return { declaration, reason: 'actual loop binding has no supplied callable definition' };
+                    }
+                }
+                if (ts.isCatchClause(scope) && scope.variableDeclaration && bindingNames(scope.variableDeclaration.name).includes(name))
+                {
+                    return { declaration: scope.variableDeclaration, reason: 'actual catch binding has no supplied callable definition' };
+                }
+                if (ts.isBlock(scope) || ts.isSourceFile(scope) || ts.isCaseBlock(scope))
+                {
+                    const statements = ts.isCaseBlock(scope) ? scope.clauses.flatMap((clause) => clause.statements) : scope.statements;
+                    const candidates = statements.flatMap((statement) =>
+                        (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) && statement.name?.text === name
+                            ? [{ declaration: statement, node: statement }]
+                            : ts.isVariableStatement(statement) ? statement.declarationList.declarations
+                                .filter((declaration) => bindingNames(declaration.name).includes(name))
+                                .map((declaration) => ({ declaration, node: ts.isIdentifier(declaration.name) ? declaration.initializer : null,
+                                    reason: 'actual lexical variable has no callable or class body' })) : []);
+                    if (candidates.length > 1)
+                    {
+                        return { declaration: candidates[0].declaration, reason: 'ambiguous actual lexical dependency' };
+                    }
+                    if (candidates.length)
+                    {
+                        return candidates[0];
+                    }
+                    if (ts.isSourceFile(scope))
+                    {
+                        return { imported: parse(owner).imports.has(name) };
+                    }
+                }
+            }
+            return { reason: 'unbound actual lexical dependency' };
+        }
         while (queue.length)
         {
             const current = queue.shift();
@@ -1534,47 +1653,40 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             sourceStep(current.file, current.node);
             dependencies.push(ts.isClassDeclaration(current.node) ? { file: current.file, classDeclaration: current.node }
                 : { file: current.file, fn: current.node });
-            const locals = declarations(current.file);
             function walk(node)
             {
                 if ((ts.isCallExpression(node) || ts.isNewExpression(node)) && ts.isIdentifier(node.expression))
                 {
                     const name = node.expression.text;
-                    let shadowed = false;
-                    for (let scope = node.parent; scope && scope !== current.node.getSourceFile(); scope = scope.parent)
+                    const lexical = lexicalDependency(current.file, node.expression);
+                    const local = lexical.node;
+                    if (local && (ts.isFunctionDeclaration(local) || ts.isArrowFunction(local)
+                        || ts.isFunctionExpression(local) || ts.isClassDeclaration(local)))
                     {
-                        if (ts.isFunctionLike(scope) && scope.parameters.some((parameter) => parameter.name.getText() === name)
-                            || ts.isBlock(scope) && scope.statements.some((statement) => ts.isVariableStatement(statement)
-                                && statement.declarationList.declarations.some((declaration) => declaration.name.getText() === name)))
+                        queue.push({ file: current.file, node: local, name });
+                    }
+                    else if (lexical.imported)
+                    {
+                        try
                         {
-                            shadowed = true;
+                            const dependency = importedDefinition(current.file, name, new Set());
+                            if (!dependency || !(ts.isFunctionDeclaration(dependency.node) || ts.isArrowFunction(dependency.node)
+                                || ts.isFunctionExpression(dependency.node) || ts.isClassDeclaration(dependency.node)))
+                            {
+                                fail('dependency has no callable or class definition');
+                            }
+                            queue.push(dependency);
+                        }
+                        catch (error)
+                        {
+                            unresolvedDependencies.push({ file: current.file, name, source: sourceStep(current.file, node.expression), reason: error.message });
                         }
                     }
-                    if (!shadowed)
+                    else
                     {
-                        const local = locals.get(name);
-                        if (local && (ts.isFunctionDeclaration(local) || ts.isArrowFunction(local)
-                            || ts.isFunctionExpression(local) || ts.isClassDeclaration(local)))
-                        {
-                            queue.push({ file: current.file, node: local, name });
-                        }
-                        else if (parse(current.file).imports.has(name))
-                        {
-                            try
-                            {
-                                const dependency = importedDefinition(current.file, name, new Set());
-                                if (!dependency || !(ts.isFunctionDeclaration(dependency.node) || ts.isArrowFunction(dependency.node)
-                                    || ts.isFunctionExpression(dependency.node) || ts.isClassDeclaration(dependency.node)))
-                                {
-                                    fail('dependency has no callable or class definition');
-                                }
-                                queue.push(dependency);
-                            }
-                            catch (error)
-                            {
-                                unresolvedDependencies.push({ file: current.file, name, source: sourceStep(current.file, node.expression), reason: error.message });
-                            }
-                        }
+                        unresolvedDependencies.push({ file: current.file, name, source: sourceStep(current.file, node.expression),
+                            binding: lexical.declaration ? sourceStep(current.file, lexical.declaration) : null,
+                            reason: lexical.reason ?? 'unbound actual lexical dependency' });
                     }
                 }
                 ts.forEachChild(node, walk);

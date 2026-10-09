@@ -13,7 +13,7 @@ import { createCompositionFunctionalSource } from '@fsusblog/layout-governance/c
 import { resolveCompositionRoutes } from '@fsusblog/layout-governance/composition-routes';
 import { createCompositionSlotSource } from '@fsusblog/layout-governance/composition-slot-source';
 import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
-import { resolveCompositionTargetOrigin } from '@fsusblog/layout-governance/composition-target-source';
+import { bindCompositionRouterViewTargets, resolveCompositionTargetOrigin } from '@fsusblog/layout-governance/composition-target-source';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;
@@ -730,6 +730,215 @@ test('canonical Vue binding rejects stale source bytes while retaining the origi
     assert.equal(s.vueBinding(record, callee, 'provide'), true);
     writeFileSync(file, record.content + '\n// changed original source\n');
     assert.throws(() => s.vueBinding(record, callee, 'provide'), /Vue binding source inputs changed/);
+});
+
+test('canonical import observation mutation cannot turn an actual foreign callee into Vue provide', () =>
+{
+    const foreign = fixture('export const foreign=()=>0;', 'ts');
+    const file = fixture(`import {foreign as selected} from './${foreign.split('/').at(-1)}';selected();`, 'ts');
+    const s = source();
+    const record = s.resolver.parse(file);
+    const callee = frameworkCallee(s, file, 'selected');
+    record.imports.set('selected', { specifier: 'vue', name: 'provide' });
+    assert.equal(s.vueBinding(record, callee, 'provide'), false);
+    assert.equal(record.imports.get('selected').name, 'foreign');
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('canonical import observation entry mutation cannot substitute a public framework export absent from the original AST', () =>
+{
+    const state = functionPackage();
+    const name = state.root.split('/').at(-1);
+    writeFileSync(state.file, `import {absent as alias} from '${name}';alias(1);`);
+    const record = state.s.resolver.parse(state.file);
+    const callee = frameworkCallee(state.s, state.file, 'alias');
+    assert.throws(() =>
+    {
+        record.imports.get('alias').name = 'predicate';
+    }, TypeError);
+    assert.equal(record.imports.get('alias').name, 'absent');
+    assert.throws(() => state.s.resolver.resolveFrameworkExport(state.file, callee), /no actual callable definition/);
+    assert.deepEqual(state.s.resolver.sourceBindings().errors, []);
+});
+
+test('canonical import observations retain the actual Vue export after detached map and value writes', () =>
+{
+    const file = fixture("import {provide as actual} from 'vue';actual(1);", 'ts');
+    const s = source();
+    const record = s.resolver.parse(file);
+    const observation = record.imports;
+    assert.throws(() =>
+    {
+        observation.get('actual').name = 'inject';
+    }, TypeError);
+    observation.clear();
+    assert.equal(record.imports.get('actual'), record.imports.get('actual'));
+    const callee = frameworkCallee(s, file, 'actual');
+    assert.equal(s.vueBinding(record, callee, 'provide'), true);
+    assert.equal(s.vueBinding(record, callee, 'inject'), false);
+    assert.throws(() =>
+    {
+        record.imports = observation;
+    }, TypeError);
+});
+
+test('canonical parser observations refuse original script syntax and record rewrites before framework binding', () =>
+{
+    const state = functionPackage();
+    const record = state.s.resolver.parse(state.file);
+    const callee = frameworkCallee(state.s, state.file, 'alias');
+    assert.throws(() =>
+    {
+        callee.text = 'foreign';
+    }, TypeError);
+    assert.throws(() => record.scripts[0].ast.statements.pop(), TypeError);
+    assert.throws(() =>
+    {
+        record.file = 'foreign.ts';
+    }, TypeError);
+    record.variables.set('alias', callee);
+    assert.equal(record.variables.has('alias'), false);
+    const result = state.s.resolver.resolveFrameworkExport(state.file, callee);
+    assert.equal(result.exportIdentity.exportedName, 'predicate');
+    assert.equal(result.qualificationEligible, false);
+});
+
+test('canonical parser observations refuse a rewritten original template before source call publication', () =>
+{
+    const leaf = fixture('<template><button/></template>');
+    const other = fixture('<template><aside/></template>');
+    const outlet = fixture('<script setup>import {RouterView} from "vue-router";</script><template><RouterView v-slot="{Component}"><component :is="Component"/></RouterView></template>');
+    const owner = fixture(`<script setup>import Other from './${other.split('/').at(-1)}';import Outlet from './${outlet.split('/').at(-1)}';</script><template><Other/></template>`);
+    const router = fixture(`import {createRouter} from 'vue-router';createRouter({routes:[{path:'/',component:()=>import('./${owner.split('/').at(-1)}'),
+        children:[{path:'leaf',component:()=>import('./${leaf.split('/').at(-1)}')}]}]});`, 'ts');
+    const s = source();
+    const record = s.resolver.parse(owner);
+    const element = record.template.ast.children.find((node) => node.tag === 'Other');
+    assert.throws(() =>
+    {
+        element.tag = 'Outlet';
+    }, TypeError);
+    const routes = resolveCompositionRoutes(s, router);
+    s.parse(outlet);
+    const graph = s.graph([owner], { routes });
+    assert.equal(graph.frameworkTargetBindings.length, 0);
+    assert.equal(graph.nodes.find((node) => node.file === owner && node.tag === 'Other').definition, other);
+});
+
+test('canonical framework dependency follows the actual nested helper instead of borrowing the module helper', () =>
+{
+    const state = functionPackage(undefined, 'function helper(){return "module";}export function predicate(){function helper(){return "nested";}return helper();}');
+    const result = state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias'));
+    const definitions = result.dependencies.map((entry) => (entry.fn ?? entry.classDeclaration).getText());
+    assert.ok(definitions.includes('function helper(){return "nested";}'));
+    assert.ok(!definitions.includes('function helper(){return "module";}'));
+    assert.equal(result.qualificationEligible, false);
+});
+
+test('canonical framework dependency leaves actual simple and destructured parameters unresolved', () =>
+{
+    for (const parameter of ['helper', '{helper}', '{value:helper}', '[helper]'])
+    {
+        const state = functionPackage(undefined, `function helper(){return "module";}export function predicate(${parameter}){return helper();}`);
+        const result = state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias'));
+        assert.ok(!result.dependencies.some((entry) => entry.fn?.getText() === 'function helper(){return "module";}'));
+        const unresolved = result.unresolvedDependencies.find((entry) => entry.name === 'helper');
+        assert.ok(unresolved);
+        assert.ok(unresolved.binding);
+        assert.match(unresolved.reason, /actual lexical parameter/);
+    }
+});
+
+test('canonical framework dependency retains the nearest actual block function declaration', () =>
+{
+    const state = functionPackage(undefined, 'function helper(){return "module";}export function predicate(){{function helper(){return "block";}return helper();}}');
+    const result = state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias'));
+    assert.ok(result.dependencies.some((entry) => entry.fn?.getText() === 'function helper(){return "block";}'));
+    assert.ok(!result.dependencies.some((entry) => entry.fn?.getText() === 'function helper(){return "module";}'));
+});
+
+test('canonical framework dependency does not borrow a module function through a destructured local binding', () =>
+{
+    const state = functionPackage(undefined, 'function helper(){return "module";}export function predicate(){const {helper}=unknown;return helper();}');
+    const result = state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias'));
+    assert.ok(!result.dependencies.some((entry) => entry.fn?.getText() === 'function helper(){return "module";}'));
+    assert.ok(result.unresolvedDependencies.some((entry) => entry.name === 'helper' && entry.binding));
+});
+
+test('canonical framework dependency preserves a genuine module helper and its original source step', () =>
+{
+    const state = functionPackage(undefined, 'function helper(){return "module";}export function predicate(){return helper();}');
+    const result = state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias'));
+    const helper = result.dependencies.find((entry) => entry.fn?.getText() === 'function helper(){return "module";}');
+    assert.ok(helper);
+    assert.doesNotThrow(() => state.s.resolver.sourceStep(helper.file, helper.fn));
+    assert.deepEqual(result.unresolvedDependencies, []);
+});
+
+test('canonical framework dependency does not borrow a module helper through a hoisted branch var or switch binding', () =>
+{
+    for (const body of ['if(flag){var helper=unknown;}return helper();',
+        'switch(flag){case 0:const helper=unknown;return helper();}'])
+    {
+        const state = functionPackage(undefined, `function helper(){return "module";}export function predicate(){${body}}`);
+        const result = state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias'));
+        assert.ok(!result.dependencies.some((entry) => entry.fn?.getText() === 'function helper(){return "module";}'));
+        assert.ok(result.unresolvedDependencies.some((entry) => entry.name === 'helper' && entry.binding));
+    }
+});
+
+test('canonical framework dependency does not treat a class method name as its lexical callable binding', () =>
+{
+    const state = functionPackage(undefined, 'function helper(){return "module";}class Box{helper(){return helper();}}export function predicate(){return new Box();}');
+    const result = state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias'));
+    assert.ok(result.dependencies.some((entry) => entry.fn?.getText() === 'function helper(){return "module";}'));
+    assert.ok(result.dependencies.some((entry) => entry.classDeclaration?.name.text === 'Box'));
+});
+
+test('canonical RouterView graph refuses an original Other call definition overwritten with an unrelated Outlet', () =>
+{
+    const state = routerGraph();
+    const other = fixture('<template><aside/></template>');
+    writeFileSync(state.owner, `<script setup>import Other from './${other.split('/').at(-1)}';</script><template><Other/></template>`);
+    const s = source();
+    const router = fixture(`import {createRouter} from 'vue-router';createRouter({routes:[{path:'/',component:()=>import('./${state.owner.split('/').at(-1)}'),
+        children:[{path:'leaf',component:()=>import('./${state.leaf.split('/').at(-1)}')}]}]});`, 'ts');
+    const routes = resolveCompositionRoutes(s, router);
+    const outlet = fixture('<script setup>import {RouterView} from "vue-router";</script><template><RouterView v-slot="{Component}"><component :is="Component"/></RouterView></template>');
+    s.parse(outlet);
+    const original = s.graph([state.owner]);
+    const call = original.nodes.find((node) => node.file === state.owner && node.tag === 'Other');
+    assert.equal(call.definition, other);
+    call.definition = outlet;
+    assert.throws(() => s.graph([state.owner], { routes }), /supplier graph changed: original source call/);
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('canonical RouterView direct public binder refuses a rewritten actual component call path', () =>
+{
+    const { s, routes, owner, outlet } = routerGraph(true);
+    const graph = s.graph([owner], { routes });
+    const selector = graph.nodes.find((node) => node.file === outlet && node.tag === 'component');
+    const call = graph.nodes.find((node) => node.file === owner && node.definition === outlet);
+    call.definition = owner;
+    assert.throws(() => bindCompositionRouterViewTargets(s, routes, selector, { callPath: [call.id],
+        resolveRouterViewSlot: () =>
+        {
+            throw new Error('forged call must not reach a supplied callback');
+        } }), /supplier graph changed/);
+});
+
+test('canonical RouterView graph preserves its genuine original source calls across repeated observations', () =>
+{
+    const { s, routes, owner, outlet } = routerGraph(true);
+    for (let index = 0; index < 2; index++)
+    {
+        const graph = s.graph([owner], { routes });
+        assert.equal(graph.frameworkTargetBindings.length, 1);
+        assert.equal(graph.frameworkTargetBindings[0].supplier.routeOwner.file, owner);
+        assert.ok(graph.nodes.some((node) => node.file === owner && node.definition === outlet));
+        assert.equal(graph.frameworkTargetBindings[0].qualificationEligible, false);
+    }
 });
 
 test('central original graph joins actual RouterView route suppliers while retaining unbound rendered and permission gaps', () =>
