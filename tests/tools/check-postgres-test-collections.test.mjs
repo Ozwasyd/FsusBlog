@@ -109,9 +109,9 @@ test("accepts the checked-in PostgreSQL collection manifest", () =>
     assert.equal(result.status, 0, result.stderr);
     assert.match(
         result.stdout,
-        /collections=2 classes=125 estimatedCases=1036/u
+        /collections=2 classes=125 estimatedCases=1038/u
     );
-    assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:488/u);
+    assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:490/u);
     assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:548/u);
 });
 
