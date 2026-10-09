@@ -314,6 +314,13 @@ absence guard may use only the selector alias carrying that complete source
 proof. This binds Select's actual suffix-icon path and does not grant runtime
 state, legality registration or qualification.
 
+A local function declaration in the actual render body does not execute its
+body or contribute a rendered return. This preserves Options' helper declaration
+while retaining its unresolved escaped slot return. Calling an unknown helper,
+mutating or escaping a rendered value, or shadowing an actual Vue constructor or
+component import remains an error. This declaration rule proves no helper effects
+or slot provenance.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

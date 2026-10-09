@@ -46,7 +46,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         function visit(node)
         {
             if (ts.isIdentifier(node) && node.text === name && node !== declaration
-                && ((ts.isVariableDeclaration(node.parent) || ts.isParameter(node.parent) || ts.isBindingElement(node.parent))
+                && ((ts.isVariableDeclaration(node.parent) || ts.isParameter(node.parent) || ts.isBindingElement(node.parent)
+                    || ts.isFunctionDeclaration(node.parent) || ts.isClassDeclaration(node.parent))
                     && node.parent.name === node))
             {
                 invalid = true;
@@ -1107,7 +1108,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 });
                 return terminal;
             }
-            if (ts.isVariableStatement(node) || ts.isExpressionStatement(node) || ts.isEmptyStatement(node))
+            if (ts.isVariableStatement(node) || ts.isExpressionStatement(node) || ts.isEmptyStatement(node) || ts.isFunctionDeclaration(node))
             {
                 return false;
             }
