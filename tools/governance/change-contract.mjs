@@ -4662,17 +4662,14 @@ function preprocessorFingerprint(source)
 
 export function csharpFormatFingerprint(source)
 {
-    const normalized = source.replace(/\r\n/gu, '\n');
-    const tokens = lexicalTokens(normalized);
-    const preprocessor = preprocessorFingerprint(normalized);
-    const ordered = () => JSON.stringify({ tokens, preprocessor });
-    // Only a compilation-unit prefix of ordinary namespace imports is order independent.
-    // Directive-bearing files and unsupported using forms retain the ordered comparison.
-    if (preprocessor.length > 0)
+    const exact = () => JSON.stringify({ source });
+    // Normalize only the bounded import prefix; never lex or normalize the body.
+    // Any hash is conservatively refused, including hashes in comments or literals.
+    // This avoids interpreting directives with any C# line terminator.
+    if (source.includes('#'))
     {
-        return ordered();
+        return exact();
     }
-    const isComment = (token) => /^(?:line|block)-comment:/u.test(token ?? '');
     const keywords = new Set((
         '__arglist __makeref __reftype __refvalue abstract as base bool break byte case catch char checked class const continue decimal '
         + 'default delegate do double else enum event explicit extern false finally fixed float '
@@ -4681,54 +4678,66 @@ export function csharpFormatFingerprint(source)
         + 'sealed short sizeof stackalloc static string struct switch this throw true try typeof '
         + 'uint ulong unchecked unsafe ushort using virtual void volatile while'
     ).split(' '));
-    const isIdentifier = (token) => /^word:[A-Za-z_][A-Za-z0-9_]*$/u.test(token ?? '')
-        && !keywords.has(token.slice(5));
-    let first = 0;
-    while (isComment(tokens[first]))
+    const skipWhitespace = (offset) =>
     {
-        first += 1;
-    }
+        while (/[ \t\r\n]/u.test(source[offset] ?? ''))
+        {
+            offset += 1;
+        }
+        return offset;
+    };
+    const skipComments = (offset) =>
+    {
+        offset = skipWhitespace(offset);
+        while (source.startsWith('//', offset) || source.startsWith('/*', offset))
+        {
+            if (source.startsWith('//', offset))
+            {
+                const end = source.slice(offset).search(/[\r\n\u0085\u2028\u2029]/u);
+                offset = end < 0 ? source.length : offset + end;
+            }
+            else
+            {
+                const end = source.indexOf('*/', offset + 2);
+                if (end < 0)
+                {
+                    return source.length;
+                }
+                offset = end + 2;
+            }
+            offset = skipWhitespace(offset);
+        }
+        return offset;
+    };
+    const first = skipComments(0);
     let cursor = first;
     const directives = [];
-    while (tokens[cursor] === 'word:using')
+    const directive = /using[ \t\r\n]+(?<name>[A-Za-z_][A-Za-z0-9_]*(?:[ \t\r\n]*\.[ \t\r\n]*[A-Za-z_][A-Za-z0-9_]*)*)[ \t\r\n]*;/uy;
+    while (source.startsWith('using', cursor))
     {
-        const start = cursor;
-        cursor += 1;
-        if (!isIdentifier(tokens[cursor]))
+        directive.lastIndex = cursor;
+        const match = directive.exec(source);
+        if (!match)
         {
-            return ordered();
+            return exact();
         }
-        cursor += 1;
-        while (tokens[cursor] === 'punctuation:.')
+        const name = match.groups.name.replace(/[ \t\r\n]/gu, '');
+        if (name.split('.').some((part) => keywords.has(part)))
         {
-            cursor += 1;
-            if (!isIdentifier(tokens[cursor]))
-            {
-                return ordered();
-            }
-            cursor += 1;
+            return exact();
         }
-        if (tokens[cursor] !== 'punctuation:;')
-        {
-            return ordered();
-        }
-        cursor += 1;
-        directives.push(tokens.slice(start, cursor).join('\n'));
+        directives.push(name);
+        cursor = skipWhitespace(directive.lastIndex);
     }
-    let next = cursor;
-    while (isComment(tokens[next]))
+    const next = skipComments(cursor);
+    if (directives.length < 2 || /^(?:using|global|extern)\b/u.test(source.slice(next)))
     {
-        next += 1;
-    }
-    if (directives.length < 2 || ['word:using', 'word:global', 'word:extern'].includes(tokens[next]))
-    {
-        return ordered();
+        return exact();
     }
     return JSON.stringify({
-        header: tokens.slice(0, first),
+        header: source.slice(0, first),
         usingDirectives: directives.sort(),
-        remainder: tokens.slice(cursor),
-        preprocessor
+        remainder: source.slice(cursor)
     });
 }
 

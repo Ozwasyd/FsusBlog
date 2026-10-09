@@ -66,7 +66,7 @@ test('CSharp using equivalence retains unchanged header and member comments', ()
     const header = '// License and source contract\n/* Header */\n';
     const member = '/// Reader contract\n';
     assert.equal(fingerprint(`${header}${imports}${member}${body}`),
-        fingerprint(`${header}${reversed}${member}${body.replace('return 1;', 'return   1 ;')}`));
+        fingerprint(`${header}${reversed}${member}${body}`));
 });
 
 test('CSharp using equivalence preserves duplicate import multiplicity', () =>
@@ -126,8 +126,8 @@ test('CSharp using equivalence keeps directive bearing files conservative', () =
     {
         reject(`${directive}${imports}${body}`, `${directive}${reversed}${body}`);
     }
-    assert.equal(fingerprint(`#nullable enable\n${imports}${body}`),
-        fingerprint(`#  nullable   enable\n${imports}${body}`));
+    reject(`#nullable enable\n${imports}${body}`,
+        `#  nullable   enable\n${imports}${body}`);
 });
 
 test('CSharp using equivalence rejects namespace identity and boundary changes', () =>
@@ -201,4 +201,83 @@ test('CSharp using equivalence retains original semantic and other language diff
         '{"beta":2,"alpha":1}\n').join('\n'), /quoted-value tokens/u);
     assert.match(compareDiff('native.h', '#define VALUE 1\nint x;\n',
         '#define VALUE\n1 int x;\n').join('\n'), /quoted-value tokens/u);
+});
+
+test('CSharp using equivalence rejects raw SQL literal embedded quote whitespace changes', () =>
+{
+    const declaration = 'class Reader { const string Sql = """SELECT "x  y" FROM t"""; }';
+    const before = `${imports}${declaration}`;
+    const after = `${reversed}${declaration.replace('x  y', 'x y')}`;
+    const observed = {
+        fingerprintsEqual: fingerprint(before) === fingerprint(after),
+        diffAccepted: compareDiff('sample.cs', before, after).length === 0
+    };
+    assert.deepEqual(observed, { fingerprintsEqual: false, diffAccepted: false });
+});
+
+test('CSharp using equivalence rejects U2028 region label executable relocation', () =>
+{
+    const separator = '\u2028';
+    const before = ['using Alpha;', 'using Beta;', '#region class Added { }',
+        '#endregion', 'namespace Example;', 'class Reader { }'].join(separator);
+    const after = ['using Beta;', 'using Alpha;', '#region', 'class Added { }',
+        '#endregion', 'namespace Example;', 'class Reader { }'].join(separator);
+    const observed = {
+        fingerprintsEqual: fingerprint(before) === fingerprint(after),
+        diffAccepted: compareDiff('sample.cs', before, after).length === 0
+    };
+    assert.deepEqual(observed, { fingerprintsEqual: false, diffAccepted: false });
+});
+
+test('CSharp using equivalence preserves exact body whitespace and line terminators', () =>
+{
+    reject(`${imports}${body}`, `${reversed}${body.replace('return 1;', 'return   1 ;')}`);
+    reject(`${imports}${body}`, `${reversed}${body.replaceAll('\n', '\r\n')}`);
+    const declaration = 'class Reader { const string Sql = """\nSELECT "x  y" FROM t\n"""; }';
+    for (const separator of ['\r', '\n', '\r\n', '\u0085', '\u2028', '\u2029'])
+    {
+        const changed = declaration.replaceAll('\n', separator);
+        if (changed !== declaration)
+        {
+            reject(`${imports}${declaration}`, `${reversed}${changed}`);
+        }
+    }
+    reject(`// Header  contract\n${imports}${body}`, `// Header contract\n${reversed}${body}`);
+});
+
+test('CSharp using equivalence rejects region relocation with every CSharp line terminator', () =>
+{
+    for (const separator of ['\r', '\n', '\r\n', '\u0085', '\u2028', '\u2029'])
+    {
+        const before = ['using Alpha;', 'using Beta;', '#region class Added { }',
+            '#endregion', 'namespace Example;', 'class Reader { }'].join(separator);
+        const after = ['using Beta;', 'using Alpha;', '#region', 'class Added { }',
+            '#endregion', 'namespace Example;', 'class Reader { }'].join(separator);
+        assert.notEqual(fingerprint(before), fingerprint(after), JSON.stringify(separator));
+        assert.notDeepEqual(compareDiff('sample.cs', before, after), [], JSON.stringify(separator));
+    }
+});
+
+test('CSharp using equivalence accepts unchanged raw literals behind ordinary imports', () =>
+{
+    for (const literal of ['"""SELECT "x  y" FROM t"""', '"""\r\nSELECT "x  y" FROM t\r\n"""',
+        '$$"""SELECT "x  y" FROM {{table}}"""'])
+    {
+        const declaration = `class Reader { string Sql = ${literal}; }`;
+        assert.equal(fingerprint(`${imports}${declaration}`), fingerprint(`${reversed}${declaration}`));
+        assert.deepEqual(compareDiff('sample.cs', `${imports}${declaration}`, `${reversed}${declaration}`), []);
+    }
+});
+
+test('CSharp using equivalence refuses hashes and unsupported import separators conservatively', () =>
+{
+    for (const remainder of ['class Reader { string Value = "#"; }', '// # retained comment\n' + body])
+    {
+        reject(`${imports}${remainder}`, `${reversed}${remainder}`);
+    }
+    for (const separator of ['\u0085', '\u2028', '\u2029', '\u00a0', '\ufeff'])
+    {
+        reject(`using Alpha;${separator}using Beta;${separator}${body}`,
+            `using Beta;${separator}using Alpha;${separator}${body}`);
+    }
 });
