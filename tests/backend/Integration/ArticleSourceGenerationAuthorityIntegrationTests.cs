@@ -239,6 +239,46 @@ public sealed class ArticleSourceGenerationAuthorityIntegrationTests(PostgresSch
         Assert.Equal(1, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
     }
 
+    [Fact]
+    public async Task CancellationDuringJournalInsert_RollsBackCountersAndOriginalMutation()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        using SqlSugarClient blocker = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await db.Ado.ExecuteCommandAsync("""
+            CREATE FUNCTION source_generation_test_pause() RETURNS trigger AS $$
+            BEGIN
+                PERFORM pg_advisory_xact_lock(1179866444, 2);
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+            CREATE TRIGGER source_generation_test_pause BEFORE INSERT ON article_source_mutation
+                FOR EACH ROW EXECUTE FUNCTION source_generation_test_pause();
+            """);
+        blocker.Ado.BeginTran();
+        await blocker.Ado.ExecuteCommandAsync("SELECT pg_advisory_xact_lock(1179866444, 2);");
+        db.Ado.BeginTran();
+        ArticleCreateMutationAuthority.Result created = await CreateAsync(db);
+        int pid = ((NpgsqlConnection)db.Ado.Connection).ProcessID;
+        using var canceled = new CancellationTokenSource();
+        Task<ArticleSourceCursor> enrollment = ArticleSourceGenerationAuthority.RecordMutationAsync(
+            db, created.Outbox.EventId, canceled.Token);
+        await WaitForAdvisoryWaitAsync(db.CurrentConnectionConfig.ConnectionString, pid);
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(blocker));
+        canceled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => enrollment);
+        db.Ado.RollbackTran();
+        blocker.Ado.RollbackTran();
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        Assert.Equal(0, await CountAsync(db, "article"));
+        Assert.Equal(0, await CountAsync(db, "article_mutation_outbox"));
+        Assert.Equal(0, await CountAsync(db, "article_source_sequence"));
+        Assert.Equal(0, await CountAsync(db, "article_source_mutation"));
+        await db.Ado.ExecuteCommandAsync("DROP TRIGGER source_generation_test_pause ON article_source_mutation;");
+        ArticleCreateMutationAuthority.Result retried = await SeedAsync(db);
+        Assert.Equal(new ArticleSourceCursor(retried.ArticleId, 1, 1),
+            await ArticleSourceGenerationAuthority.ReadArticleCursorAsync(db, retried.ArticleId));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
