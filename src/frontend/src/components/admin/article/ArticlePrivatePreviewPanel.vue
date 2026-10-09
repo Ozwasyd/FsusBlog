@@ -21,11 +21,18 @@
                     :loading="loading"
                     :disabled="loading || !canPreview"
                     aria-label="生成私有预览"
+                    :aria-describedby="attachmentState ? 'article-preview-attachment-status' : undefined"
                     @click="$emit('preview')"
                 >
                     生成预览
                 </ElButton>
             </div>
+            <ArticlePreviewAttachmentStatus
+                v-if="attachmentState"
+                id="article-preview-attachment-status"
+                class="mt-2 text-xs text-[var(--fsusblog-text-secondary)]"
+                :attachment-state="attachmentState"
+            />
         </header>
 
         <div class="space-y-4 p-4 bg-[var(--fsusblog-page-bg)]">
@@ -94,18 +101,21 @@ import {
     type ArticlePreviewResponse
 } from '@/api/authoring';
 import ArticleBodyMarkdownPreview from '@/components/admin/article/ArticleBodyMarkdownPreview.vue';
+import ArticlePreviewAttachmentStatus from '@/components/admin/article/ArticlePreviewAttachmentStatus.vue';
 import { View } from '@/fsusui/icons';
 import type {
     MarkdownFeatureActivationKind,
     MarkdownFeatureActivationResult,
     MarkdownRenderResult
 } from '@/fsusui/markdown';
+import type { ArticlePreviewAttachmentState } from '@/services/authoring/articlePreviewAttachments';
 
 const props = defineProps<{
     preview: ArticlePreviewResponse | null;
     loading: boolean;
     statusText: string;
     canPreview: boolean;
+    attachmentState: ArticlePreviewAttachmentState;
 }>();
 
 defineEmits<(e: 'preview') => void>();
