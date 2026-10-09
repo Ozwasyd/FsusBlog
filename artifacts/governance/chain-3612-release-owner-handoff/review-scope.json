@@ -1,0 +1,43 @@
+{
+  "candidate": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+  "tree": "c87b777ae82077d67acb0dfbc920567cafe8b553",
+  "currentRemoteMaster": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+  "branchBaseAndReviewMergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "reviewPathCount": 29,
+  "reviewPaths": [
+    "config/testing/release-final-execution-authority-index.json",
+    "docs/api.md",
+    "docs/api/aeds-only-policy.md",
+    "docs/api/quick-reference.md",
+    "docs/api/schemas-and-errors.md",
+    "docs/api/stability.md",
+    "docs/architecture/comment-command-boundary.md",
+    "docs/architecture/comment-query-boundary.md",
+    "docs/architecture/monolithic-distributed-boundary.md",
+    "docs/architecture/overview.md",
+    "docs/releases/blue-green-deployment-runbook.md",
+    "docs/releases/release-identity.md",
+    "docs/testing.md",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "tests/tools/behavior-document-consistency-final.test.mjs",
+    "tests/tools/generated-fact-sections.test.mjs",
+    "tests/tools/native-tooling-style.test.mjs",
+    "tests/tools/openapi-aeds-observation.test.mjs",
+    "tests/tools/release-final-static-boundary.test.mjs",
+    "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+    "tests/tools/test-matrix-topology-observation.test.mjs",
+    "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+    "tools/docs/behavior-document-consistency-final.mjs",
+    "tools/docs/generated-fact-sections/renderers.mjs",
+    "tools/fact-extractors/test-matrix/extract.mjs"
+  ],
+  "newIncrementPaths": [
+    "docs/releases/blue-green-deployment-runbook.md"
+  ],
+  "reservedSharedJsonEdited": false,
+  "comparisonWarning": "Compare review scope to merge-base. Direct two-tip master..candidate diff includes newer master changes and is not a deletion plan. No merge/conflict-resolution performed."
+}

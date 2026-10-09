@@ -1,0 +1,14 @@
+{
+  "sourceIdentity": {
+    "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+    "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+  },
+  "runId": "chain-3612-release-review-bfca0bd7-20261009",
+  "locatedClaims": 121,
+  "proseClaimsVerifiedThroughOriginalProseCli": 37,
+  "generatedSectionsVerifiedThroughOriginalGeneratedCli": 84,
+  "generatedDocuments": 34,
+  "mutationsExecuted": 0,
+  "fullAdmissionExecuted": false,
+  "qualification": "Current positive producer/generated/prose evidence only. No complete admission or mutation/refusal qualification."
+}

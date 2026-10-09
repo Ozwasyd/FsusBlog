@@ -1,0 +1,38 @@
+{
+  "candidate": "29cd0b3d734511bda329148cb3712dea9238f71f",
+  "reviewCandidate": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+  "historicalExpectedSource": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+  "sections": [
+    {
+      "documentPath": "docs/architecture/comment-command-boundary.md",
+      "sectionId": "content.comment.child-limit",
+      "normalizedBodySha256": "0a06df6b53042324cd9d9582ce031e22ee11956144b78a19b30f5a23de9adeac",
+      "sourceMatchesHistoricalExpectedBody": true,
+      "exteriorAndMarkersPreserved": true,
+      "changedSections": [],
+      "allAdjacentBodiesPreserved": true
+    },
+    {
+      "documentPath": "docs/architecture/comment-query-boundary.md",
+      "sectionId": "content.comment.max-depth",
+      "normalizedBodySha256": "241249ced5cc33a9ba10b34faa24280c37373aeb7c9ba7b11145a8b4abe51144",
+      "sourceMatchesHistoricalExpectedBody": true,
+      "exteriorAndMarkersPreserved": true,
+      "changedSections": [],
+      "allAdjacentBodiesPreserved": true
+    },
+    {
+      "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+      "sectionId": "release.production-bundle-order",
+      "normalizedBodySha256": "169440886e44c5739e34459f6eedf14a964732806678c7b10d354f399c9c135e",
+      "sourceMatchesHistoricalExpectedBody": true,
+      "exteriorAndMarkersPreserved": true,
+      "changedSections": [
+        "release.production-bundle-order"
+      ],
+      "allAdjacentBodiesPreserved": true
+    }
+  ],
+  "qualifiedByCurrentReceipt": false,
+  "qualification": "Source-only comparison. Current producer evidence is separate. No supplier receipt use or current admission assertion."
+}

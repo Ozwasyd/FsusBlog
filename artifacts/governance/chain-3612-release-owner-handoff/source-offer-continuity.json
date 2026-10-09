@@ -1,0 +1,18 @@
+{
+  "ownBase": "78cec93493af843b543584b3b2e0f1895a467277",
+  "sourceOffer": "5d320109c107237932cb7c7fa60fc979ffc7bec2",
+  "sourceConsumedAsExistingExactHunk": true,
+  "changes": [
+    {
+      "id": "test-matrix-fact-extractor",
+      "suppliedAdded": [
+        "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs"
+      ],
+      "suppliedRemoved": [],
+      "alreadyPresentInCandidate": true,
+      "ownOtherDeclarationsPreserved": true
+    }
+  ],
+  "masterFetched": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+  "parentEarlierMaster": "be7c53d99b64342925ca63d061bacde34d22ba4c"
+}

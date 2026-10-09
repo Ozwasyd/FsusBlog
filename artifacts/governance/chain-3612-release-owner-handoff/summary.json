@@ -1,0 +1,391 @@
+{
+  "recordedAtUtc": "2026-10-09T05:42:11.411750+00:00",
+  "sourceCandidate": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+  "sourceTree": "c87b777ae82077d67acb0dfbc920567cafe8b553",
+  "sourceBranch": "codex/chain-3612-release-review-current",
+  "remoteVerifiedSha": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+  "runId": "chain-3612-release-review-bfca0bd7-20261009",
+  "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48",
+  "latestFetchedMaster": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+  "parentPreviouslyReadMaster": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "scope": {
+    "candidate": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+    "tree": "c87b777ae82077d67acb0dfbc920567cafe8b553",
+    "currentRemoteMaster": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+    "branchBaseAndReviewMergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "reviewPathCount": 29,
+    "reviewPaths": [
+      "config/testing/release-final-execution-authority-index.json",
+      "docs/api.md",
+      "docs/api/aeds-only-policy.md",
+      "docs/api/quick-reference.md",
+      "docs/api/schemas-and-errors.md",
+      "docs/api/stability.md",
+      "docs/architecture/comment-command-boundary.md",
+      "docs/architecture/comment-query-boundary.md",
+      "docs/architecture/monolithic-distributed-boundary.md",
+      "docs/architecture/overview.md",
+      "docs/releases/blue-green-deployment-runbook.md",
+      "docs/releases/release-identity.md",
+      "docs/testing.md",
+      "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "tests/tools/behavior-document-consistency-final.test.mjs",
+      "tests/tools/generated-fact-sections.test.mjs",
+      "tests/tools/native-tooling-style.test.mjs",
+      "tests/tools/openapi-aeds-observation.test.mjs",
+      "tests/tools/release-final-static-boundary.test.mjs",
+      "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+      "tests/tools/test-matrix-topology-observation.test.mjs",
+      "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "tools/docs/behavior-document-consistency-final.mjs",
+      "tools/docs/generated-fact-sections/renderers.mjs",
+      "tools/fact-extractors/test-matrix/extract.mjs"
+    ],
+    "newIncrementPaths": [
+      "docs/releases/blue-green-deployment-runbook.md"
+    ],
+    "reservedSharedJsonEdited": false,
+    "comparisonWarning": "Compare review scope to merge-base. Direct two-tip master..candidate diff includes newer master changes and is not a deletion plan. No merge/conflict-resolution performed."
+  },
+  "sourceSupplier": "5d320109c107237932cb7c7fa60fc979ffc7bec2",
+  "sourceHunkAlreadyPresent": true,
+  "originalSourceHunkOrigin": "3943bbc957",
+  "outputSupplier": "e0edaf15de4189b7832a6c04bbee723f523ba667",
+  "preservedPublishedConsumer": "29cd0b3d734511bda329148cb3712dea9238f71f",
+  "sameTreeMetadataRepair": true,
+  "source23RegionResolution": [
+    {
+      "sectionId": "content.comment.child-limit",
+      "documentPath": "docs/architecture/comment-command-boundary.md",
+      "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "extractorId": "content-lifecycle-fact-extractor",
+      "receiptContentDigest": "190a38e41974de84cd00955e9d3b16d539ef2d0a8159c0fe9b5790e55088eed0",
+      "renderedBodySha256": "0a06df6b53042324cd9d9582ce031e22ee11956144b78a19b30f5a23de9adeac",
+      "currentCanonicalBodyMatches": true
+    },
+    {
+      "sectionId": "content.comment.max-depth",
+      "documentPath": "docs/architecture/comment-query-boundary.md",
+      "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "extractorId": "content-lifecycle-fact-extractor",
+      "receiptContentDigest": "190a38e41974de84cd00955e9d3b16d539ef2d0a8159c0fe9b5790e55088eed0",
+      "renderedBodySha256": "241249ced5cc33a9ba10b34faa24280c37373aeb7c9ba7b11145a8b4abe51144",
+      "currentCanonicalBodyMatches": true
+    },
+    {
+      "sectionId": "release.production-bundle-order",
+      "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+      "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "extractorId": "test-matrix-fact-extractor",
+      "receiptContentDigest": "3f600d93d7f373791ff19bbecfa916a946f4902cb27de272eae448d44edcd6a9",
+      "renderedBodySha256": "169440886e44c5739e34459f6eedf14a964732806678c7b10d354f399c9c135e",
+      "currentCanonicalBodyMatches": true
+    }
+  ],
+  "compiledOpenApi": {
+    "operationCount": 274,
+    "operationStatusAuthorityBoundCount": 274,
+    "publicErrorRefState": "operation-status-authority-bound",
+    "observationDigest": "42e908fb87167d043f1b681008486295e4a279227f3ffb0123cb433584be73b4"
+  },
+  "currentProducer": {
+    "sourceIdentity": {
+      "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    },
+    "runId": "chain-3612-release-review-bfca0bd7-20261009",
+    "stage": "complete",
+    "status": "passed",
+    "testsRun": 0,
+    "heldAuditsRun": 0,
+    "fullAdmissionRun": false,
+    "qualification": "Original producer/fact observation stage only, not a BehaviorDoc admission receipt.",
+    "factReceipts": [
+      {
+        "extractorId": "test-asset-audit-fact-extractor",
+        "status": "ok",
+        "contentDigest": "f252a44902ea35a5cf3590ccb57bc578cdcd30d15e521e3dd6cd8bbb3ed2093e",
+        "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+        "receiptFile": ".tmp/chain-3533-3536/release-review-refresh/fact-observations/test-asset-audit-fact-extractor.json",
+        "failureReasons": []
+      },
+      {
+        "extractorId": "code-intent-fact-extractor",
+        "status": "ok",
+        "contentDigest": "9636e08837798a6bd61619174cbf3faf1d8098b49f31589accf49e44848c0020",
+        "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+        "receiptFile": ".tmp/chain-3533-3536/release-review-refresh/fact-observations/code-intent-fact-extractor.json",
+        "failureReasons": []
+      },
+      {
+        "extractorId": "document-lifecycle-fact-extractor",
+        "status": "ok",
+        "contentDigest": "869521c237f84dfcabcc46a8980a3afe01d328435bdd561273e1700ca3eec7de",
+        "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+        "receiptFile": ".tmp/chain-3533-3536/release-review-refresh/fact-observations/document-lifecycle-fact-extractor.json",
+        "failureReasons": []
+      },
+      {
+        "extractorId": "test-matrix-fact-extractor",
+        "status": "ok",
+        "contentDigest": "3f600d93d7f373791ff19bbecfa916a946f4902cb27de272eae448d44edcd6a9",
+        "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+        "receiptFile": ".tmp/chain-3533-3536/release-review-refresh/fact-observations/test-matrix-fact-extractor.json",
+        "failureReasons": []
+      },
+      {
+        "extractorId": "openapi-aeds-fact-extractor",
+        "status": "ok",
+        "contentDigest": "161aa38b4013cf4fae96dac42f891fe30a60541584042947b3d4b0516cced03f",
+        "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+        "receiptFile": ".tmp/chain-3533-3536/release-review-refresh/fact-observations/openapi-aeds-fact-extractor.json",
+        "failureReasons": []
+      },
+      {
+        "extractorId": "auth-session-permission-fact-extractor",
+        "status": "ok",
+        "contentDigest": "3c41295217fa6d21294bf54c0cfab1da933b2834f76ba8e8a176f564fe086746",
+        "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+        "receiptFile": ".tmp/chain-3533-3536/release-review-refresh/fact-observations/auth-session-permission-fact-extractor.json",
+        "failureReasons": []
+      },
+      {
+        "extractorId": "config-error-security-policy-fact-extractor",
+        "status": "ok",
+        "contentDigest": "f8dd3cdb9405a80b2be10ec04bf6819da02430895fa17599a1aeb3ae29424d03",
+        "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+        "receiptFile": ".tmp/chain-3533-3536/release-review-refresh/fact-observations/config-error-security-policy-fact-extractor.json",
+        "failureReasons": []
+      },
+      {
+        "extractorId": "content-lifecycle-fact-extractor",
+        "status": "ok",
+        "contentDigest": "190a38e41974de84cd00955e9d3b16d539ef2d0a8159c0fe9b5790e55088eed0",
+        "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+        "receiptFile": ".tmp/chain-3533-3536/release-review-refresh/fact-observations/content-lifecycle-fact-extractor.json",
+        "failureReasons": []
+      }
+    ],
+    "cacheHit": false,
+    "minimalReceiptFile": ".tmp/behavior-doc-contract-builds/84b982e0e4093911c5dcc070d2e81825354be089db7625036a63be999187a762/receipts/chain-3612-release-review-bfca0bd7-20261009.json",
+    "minimalBuildKey": "84b982e0e4093911c5dcc070d2e81825354be089db7625036a63be999187a762",
+    "minimalContentDigest": "1b84431ce37dbff0cdcec6b44df053c52d8570c1b7b838903bc549ec6d6ee264"
+  },
+  "checks": [
+    {
+      "name": "current-products",
+      "command": [
+        "node",
+        ".tmp/chain-3533-3536/release-owner-refresh/verify-current-products.mjs",
+        ".tmp/chain-3533-3536/release-review-refresh"
+      ],
+      "exitCode": 0,
+      "testedCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "durationSeconds": 0.08449063299997306,
+      "log": ".tmp/chain-3533-3536/release-review-refresh/current-products.log",
+      "logSha256": "d25ec7031a581216189b5b08a1b1854bd2894e03fa20c1430da6d26dceef77b1",
+      "status": "passed"
+    },
+    {
+      "name": "generated-check",
+      "command": [
+        "node",
+        "tools/docs/generate-fact-sections.mjs",
+        "--check",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/test-asset-audit-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/code-intent-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/document-lifecycle-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/test-matrix-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/openapi-aeds-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/auth-session-permission-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/config-error-security-policy-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/content-lifecycle-fact-extractor.json"
+      ],
+      "exitCode": 0,
+      "testedCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "durationSeconds": 0.35186432499995135,
+      "log": ".tmp/chain-3533-3536/release-review-refresh/generated-check.log",
+      "logSha256": "5754032b28a2f399175e2b3a0745ffc86a2fc182ff9e547637ea9001f047ae4e",
+      "status": "passed"
+    },
+    {
+      "name": "current-prose",
+      "command": [
+        "node",
+        "tools/docs/check-prose-claims.mjs",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/test-asset-audit-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/code-intent-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/document-lifecycle-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/test-matrix-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/openapi-aeds-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/auth-session-permission-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/config-error-security-policy-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/release-review-refresh/fact-observations/content-lifecycle-fact-extractor.json"
+      ],
+      "exitCode": 0,
+      "testedCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "durationSeconds": 1.0859442280000167,
+      "log": ".tmp/chain-3533-3536/release-review-refresh/current-prose.log",
+      "logSha256": "0aaf8b63c59bc036ec24b9c97bbe9c59a25dab58387aae43823413a0632ace10",
+      "status": "passed"
+    },
+    {
+      "name": "producer",
+      "exitCode": 0,
+      "log": ".tmp/chain-3533-3536/release-review-refresh/producer.log",
+      "testedCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "logSha256": "9013d366fbb2f2c0b24285c007189f8a98e2bf8fcc9287eadf7e04f52fe059e8",
+      "status": "passed"
+    },
+    {
+      "name": "complete-review-range",
+      "exitCode": 0,
+      "log": ".tmp/chain-3533-3536/release-review-refresh/complete-review-range.log",
+      "testedCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "logSha256": "0ca113c8027abea27400787a7d20ed62db7ba6859eae1f17808ba3214258c036",
+      "status": "passed"
+    },
+    {
+      "name": "git-whitespace-diff",
+      "exitCode": 0,
+      "log": ".tmp/chain-3533-3536/release-review-refresh/git-whitespace-diff.log",
+      "testedCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "passed"
+    },
+    {
+      "name": "claim-accounting",
+      "exitCode": 0,
+      "log": ".tmp/chain-3533-3536/release-review-refresh/claim-accounting.log",
+      "testedCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "logSha256": "14e520559df2e20b16a09429d49550e36793f930be73a41fce35db7c20e21bac",
+      "status": "passed"
+    }
+  ],
+  "sameTreeSourceDocEvidence": {
+    "measuredCommit": "29cd0b3d734511bda329148cb3712dea9238f71f",
+    "currentCandidate": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+    "exactTree": "c87b777ae82077d67acb0dfbc920567cafe8b553",
+    "sameTree": true,
+    "sourceDocChecksReusableAsInputInvariant": [
+      {
+        "name": "lifecycle-check",
+        "result": 0
+      },
+      {
+        "name": "doc-claim-metadata",
+        "result": 0
+      },
+      {
+        "name": "prose-governance",
+        "result": 0
+      },
+      {
+        "name": "three-doc-lint",
+        "result": 1
+      }
+    ],
+    "runtimeAndReceiptReuse": "None. Current candidate receives its own full original producer/fact stage. All29 receipts retain29 sourceCommit/runId."
+  },
+  "inheritedLintRouting": {
+    "diagnostics": [
+      {
+        "path": "docs/architecture/comment-command-boundary.md",
+        "line": 25,
+        "rule": "MD022"
+      },
+      {
+        "path": "docs/architecture/comment-query-boundary.md",
+        "line": 22,
+        "rule": "MD022"
+      }
+    ],
+    "authorCommit": "db1c168a7a29e1e9f5c7d98f606a1e33110340eb",
+    "originalReference": "#1756",
+    "originalAuthor": "Ozwasyd <lyuaoss@gmail.com>",
+    "originSubject": "docs(governance): migrate content lifecycle claims",
+    "scope": "Authored heading boundary exterior, unchanged by consumed comment bounds/release output. Route to original1756 content lifecycle document author through parent; no edit or waiver."
+  },
+  "claimAccounting": {
+    "sourceIdentity": {
+      "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    },
+    "runId": "chain-3612-release-review-bfca0bd7-20261009",
+    "locatedClaims": 121,
+    "proseClaimsVerifiedThroughOriginalProseCli": 37,
+    "generatedSectionsVerifiedThroughOriginalGeneratedCli": 84,
+    "generatedDocuments": 34,
+    "mutationsExecuted": 0,
+    "fullAdmissionExecuted": false,
+    "qualification": "Current positive producer/generated/prose evidence only. No complete admission or mutation/refusal qualification."
+  },
+  "zeroWriteDocuments": 34,
+  "currentTestCaseExecutions": 0,
+  "heldAuditExecutions": 0,
+  "noSupplierReceiptReuse": true,
+  "noOldReceiptRebinding": true,
+  "untouchedAdjacentDeploymentRegion": true,
+  "completeAdmission": "NOT RUN: held mutation/refusal controls remain excluded; this is not an admission receipt. No full pass inferred.",
+  "issueStatus": {
+    "3612": {
+      "status": "WIP: source and current positive compiled/generated/prose verification complete; full acceptance blocked",
+      "remaining": [
+        "Original full integrated BehaviorDoc admission and required mutation/rejection coverage",
+        "Matrix/full CI and inherited authored documentation lint gates",
+        "Original independent review and current-master acceptance; merge/closure deferred by global barrier"
+      ]
+    },
+    "3536": {
+      "status": "WIP: actual current canonical minimal OpenAPI binding produced and original extractor returnsok; full prerequisite acceptance blocked",
+      "remaining": [
+        "Accepted3612 stage and original3610/3611 qualification evidence from root3611",
+        "Original adversarial receipt path controls held; no rerun claimed",
+        "Full BehaviorDoc, matrix/static job, original3537/3540 formal source/style acceptance and independent review"
+      ]
+    },
+    "3533": {
+      "status": "WIP: retained four-field source/scanner owners and clean same-tree DocClaim governance; full prerequisites blocked",
+      "remaining": [
+        "Accepted3612/3536 and exact original3534/3610/3611 qualification evidence",
+        "Original scanner/parser governance rejection controls and mutation acceptance",
+        "Canonical full admission/matrix, formalstyle and independent review"
+      ]
+    }
+  },
+  "parentRequests": [
+    "Release2225 source/product is now consumed/locally current-positive verified; no longer request missing third output.",
+    "Route the two inherited authored MD022 headings to original1756/db1c168a7a29e1e9f5c7d98f606a1e33110340eb; do not infer3576 owns exterior prose.",
+    "Supply exact original3534 and3610/3611 acceptance evidence per issue/stage, not whole-chain OPEN/CLOSED labels.",
+    "Original native/physical recovery/reservation/lease obligations remain preserved; this phase creates no new native lease or success descriptor.",
+    "Coordinating root can use prepared local draft body and29-path scope; this session writes no GitHub API content."
+  ],
+  "prohibitionsPreserved": [
+    "No master push/merge/auto-merge/issue close/deploy",
+    "No package publishing",
+    "No held ProjectXML/Git replacement/receipt substitution/cohort/native lease audits",
+    "No edit of config/development/authoritative-development-docs.json",
+    "No cross-chain conflict resolution or guessed sibling imports"
+  ],
+  "evidenceQualification": "Current original positive source/fact observation/generated/prose results only; all three issues remain WIP. Evidence-only publication never qualifies its own different commit."
+}

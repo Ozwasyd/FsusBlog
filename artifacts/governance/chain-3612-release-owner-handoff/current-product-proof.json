@@ -1,0 +1,44 @@
+{
+  "sourceIdentity": {
+    "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+    "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+  },
+  "runId": "chain-3612-release-review-bfca0bd7-20261009",
+  "cacheHit": false,
+  "sections": [
+    {
+      "sectionId": "content.comment.child-limit",
+      "documentPath": "docs/architecture/comment-command-boundary.md",
+      "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "extractorId": "content-lifecycle-fact-extractor",
+      "receiptContentDigest": "190a38e41974de84cd00955e9d3b16d539ef2d0a8159c0fe9b5790e55088eed0",
+      "renderedBodySha256": "0a06df6b53042324cd9d9582ce031e22ee11956144b78a19b30f5a23de9adeac",
+      "currentCanonicalBodyMatches": true
+    },
+    {
+      "sectionId": "content.comment.max-depth",
+      "documentPath": "docs/architecture/comment-query-boundary.md",
+      "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "extractorId": "content-lifecycle-fact-extractor",
+      "receiptContentDigest": "190a38e41974de84cd00955e9d3b16d539ef2d0a8159c0fe9b5790e55088eed0",
+      "renderedBodySha256": "241249ced5cc33a9ba10b34faa24280c37373aeb7c9ba7b11145a8b4abe51144",
+      "currentCanonicalBodyMatches": true
+    },
+    {
+      "sectionId": "release.production-bundle-order",
+      "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+      "sourceCommit": "bfca0bd79319554b9f61b06d4b30af5726179cc3",
+      "extractorId": "test-matrix-fact-extractor",
+      "receiptContentDigest": "3f600d93d7f373791ff19bbecfa916a946f4902cb27de272eae448d44edcd6a9",
+      "renderedBodySha256": "169440886e44c5739e34459f6eedf14a964732806678c7b10d354f399c9c135e",
+      "currentCanonicalBodyMatches": true
+    }
+  ],
+  "compiledOpenApi": {
+    "operationCount": 274,
+    "operationStatusAuthorityBoundCount": 274,
+    "publicErrorRefState": "operation-status-authority-bound",
+    "observationDigest": "42e908fb87167d043f1b681008486295e4a279227f3ffb0123cb433584be73b4"
+  },
+  "qualification": "Own fresh compiled observations plus unchanged public receipt reader/canonical renderer. Three exact bodies match. No mutation/negative tests or complete BehaviorDoc admission receipt."
+}

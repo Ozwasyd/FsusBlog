@@ -1,0 +1,19 @@
+{
+  "diagnostics": [
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "line": 25,
+      "rule": "MD022"
+    },
+    {
+      "path": "docs/architecture/comment-query-boundary.md",
+      "line": 22,
+      "rule": "MD022"
+    }
+  ],
+  "authorCommit": "db1c168a7a29e1e9f5c7d98f606a1e33110340eb",
+  "originalReference": "#1756",
+  "originalAuthor": "Ozwasyd <lyuaoss@gmail.com>",
+  "originSubject": "docs(governance): migrate content lifecycle claims",
+  "scope": "Authored heading boundary exterior, unchanged by consumed comment bounds/release output. Route to original1756 content lifecycle document author through parent; no edit or waiver."
+}
