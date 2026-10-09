@@ -40,10 +40,32 @@ export interface ArticlePackageCandidateReview
     readonly executionReasonCode: 'article_package_import_authority_unavailable';
 }
 
-/** Host-owned read request; the host must return the same plan digest or replace the review. */
+/**
+ * UI-only read identity. The host must echo this complete request in pageCompletion.
+ * It carries no backend execution, validation or permission authority.
+ */
 export interface ArticlePackageCandidateReviewPageRequest
 {
+    readonly requestId: string;
     readonly planDigest: string;
     readonly pageIndex: number;
     readonly pageSize: number;
 }
+
+/**
+ * Host-owned completion, separate from the immutable backend projection.
+ * Ready requires an exact digest/pageIndex/pageSize result. Cancelled retains the
+ * accepted page. Only the active request can settle; late/duplicate results are ignored.
+ * Clear pageCompletion when seeding/replacing review/state. Clear review to reset
+ * the same candidate after an error; a bare ready transition never settles a read.
+ */
+export type ArticlePackageCandidateReviewPageCompletion =
+    | {
+        readonly request: ArticlePackageCandidateReviewPageRequest;
+        readonly status: 'ready';
+        readonly review: ArticlePackageCandidateReview;
+    }
+    | {
+        readonly request: ArticlePackageCandidateReviewPageRequest;
+        readonly status: 'cancelled' | 'error';
+    };
