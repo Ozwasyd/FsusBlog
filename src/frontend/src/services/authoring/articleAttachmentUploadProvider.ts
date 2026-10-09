@@ -1,5 +1,5 @@
 import { abortUpload, completeUpload, getUploadStatus, readCommittedUploadPreview } from '@/api/upload';
-import type { UploadAssetPreviewViewModel } from '@/contracts/binaryApi';
+import { readCommittedUploadFacts } from '@/api/uploadFacts';
 
 /** Transport observations are not article-operation or reference grants. */
 export interface AttachmentAssetFacts {
@@ -32,15 +32,15 @@ export interface OwnedAttachmentUploadSession {
     readonly commitMayHaveStarted: boolean;
 }
 
-function assetFacts(preview: UploadAssetPreviewViewModel): AttachmentAssetFacts
+function assetFacts(facts: AttachmentAssetFacts): AttachmentAssetFacts
 {
     return Object.freeze({
-        assetId: preview.assetId,
-        publicUrl: preview.publicUrl,
-        sha256: preview.sha256,
-        assetVersionSha256: preview.assetVersionSha256,
-        referenceLedgerSha256: preview.referenceLedgerSha256,
-        sizeBytes: preview.sizeBytes
+        assetId: facts.assetId,
+        publicUrl: facts.publicUrl,
+        sha256: facts.sha256,
+        assetVersionSha256: facts.assetVersionSha256,
+        referenceLedgerSha256: facts.referenceLedgerSha256,
+        sizeBytes: facts.sizeBytes
     });
 }
 
@@ -81,17 +81,15 @@ export function createArticleAttachmentUploadProvider(session: OwnedAttachmentUp
             if (status.status === 'completed')
             {
                 commitMayHaveStarted = true;
-                if (owned.totalBytes > 8_387_832)
-                {
-                    return { status: 'recovery-required', reason: 'upload_facts_only_transport_missing' };
-                }
-                const preview = await readCommittedUploadPreview(owned.uploadId, owned.uploadToken, owned.sha256, signal);
+                const committed = owned.totalBytes > 8_387_832
+                    ? await readCommittedUploadFacts(owned.uploadId, owned.uploadToken, owned.sha256, signal)
+                    : await readCommittedUploadPreview(owned.uploadId, owned.uploadToken, owned.sha256, signal);
                 signal?.throwIfAborted();
-                if (preview.sizeBytes !== owned.totalBytes)
+                if (committed.sizeBytes !== owned.totalBytes)
                 {
                     return { status: 'recovery-required', reason: 'upload_asset_size_mismatch' };
                 }
-                return { status: 'committed', asset: assetFacts(preview) };
+                return { status: 'committed', asset: assetFacts(committed) };
             }
             if (!['pending', 'uploading', 'uploaded'].includes(status.status))
             {

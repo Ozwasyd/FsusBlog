@@ -4,6 +4,7 @@ vi.mock('@/composition/binaryTransport', () => ({ requestBinaryOnly: request }))
 import { createArticleAttachmentUploadProvider } from '@/services/authoring/articleAttachmentUploadProvider';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
+import { FrameType } from '@wasm/protocol/frame';
 
 const bytes = new Uint8Array([1, 2, 3]);
 const digest = bytesToHex(sha256(bytes));
@@ -13,7 +14,16 @@ const preview = { schema: 'fsusblog.upload-asset-preview.v1', uploadId: session.
     publicUrl: '/uploads/illustration/0123456789abcdef0123456789abcdef.png', sha256: digest,
     assetVersionSha256: 'a'.repeat(64), referenceLedgerSha256: 'b'.repeat(64), sizeBytes: 3, bytes };
 
-describe('original upload business provider operations', () => {
+// Controlled transport facts exercise the actual public API; they are not native,
+// PoW/owner-runtime or business reference receipt qualification.
+function facts(sizeBytes: number) {
+    return { schema: 'fsusblog.upload-asset-facts.v1', uploadId: session.uploadId, assetId: preview.assetId,
+        publicUrl: preview.publicUrl, sha256: digest, assetVersionSha256: preview.assetVersionSha256,
+        referenceLedgerSha256: preview.referenceLedgerSha256, sizeBytes,
+        mimeType: 'image/png', extension: '.png', width: 1, height: 1, referenceRowCount: 0 };
+}
+
+describe('original upload business provider operations' , () => {
     beforeEach(() => request.mockReset());
     it('observes actual status with owner token and actual progress without committing', async () => {
         request.mockResolvedValue(status('pending'));
@@ -91,11 +101,94 @@ describe('original upload business provider operations', () => {
         request.mockResolvedValueOnce(status('completed')).mockResolvedValueOnce({ ...preview, bytes: new Uint8Array([0]) });
         expect((await provider.observe()).status).toBe('recovery-required');
     });
-    it('reports the exact facts-only transport gap for larger original committed uploads', async () => {
-        request.mockResolvedValueOnce({ ...status('completed'), totalBytes: 20_971_520, uploadedBytes: 20_971_520 });
-        expect(await createArticleAttachmentUploadProvider({ ...session, totalBytes: 20_971_520 }).observe())
-            .toEqual({ status: 'recovery-required', reason: 'upload_facts_only_transport_missing' });
+    it.each([8_387_833, 20_971_520])('reads original facts without preview bytes for %i-byte committed uploads', async totalBytes => {
+        request.mockResolvedValueOnce({ ...status('completed'), totalBytes, uploadedBytes: totalBytes })
+            .mockResolvedValueOnce(facts(totalBytes));
+        const result = await createArticleAttachmentUploadProvider({ ...session, totalBytes }).observe();
+        expect(result).toMatchObject({ status: 'committed', asset: { assetId: preview.assetId, sha256: digest, sizeBytes: totalBytes } });
+        expect(JSON.stringify(result)).not.toMatch(/original-secret-token|"bytes"|receipt/u);
+        expect(request).toHaveBeenCalledTimes(2);
+        const call = request.mock.calls[1][0];
+        expect(call).toMatchObject({ binaryRoute: { operationId: 'binary_post_upload_uploadId_facts', params: { uploadId: session.uploadId } },
+            privateScope: 'admin', frameType: FrameType.UploadAssetFacts,
+            requestOptions: { method: 'POST', requiresPow: true, headers: { 'X-Fsus-Upload-Token': session.uploadToken } } });
+        const frame = call.requestOptions.body as Uint8Array;
+        expect(new TextDecoder().decode(frame.slice(-64))).toBe(digest);
+        expect(request.mock.calls.some(([candidate]) => candidate.binaryRoute?.operationId === 'binary_post_upload_uploadId_preview')).toBe(false);
+    });
+    it('retains the preview route at the original exact budget', async () => {
+        const totalBytes = 8_387_832;
+        request.mockResolvedValueOnce({ ...status('completed'), totalBytes, uploadedBytes: totalBytes })
+            .mockRejectedValueOnce(new Error('controlled preview refusal'));
+        expect((await createArticleAttachmentUploadProvider({ ...session, totalBytes }).observe()).status).toBe('recovery-required');
+        expect(request.mock.calls[1][0].binaryRoute.operationId).toBe('binary_post_upload_uploadId_preview');
+    });
+    it.each(['uploadId', 'sha256', 'sizeBytes'] as const)('refuses changed facts %s without promoting a receipt', async key => {
+        const totalBytes = 20_971_520;
+        request.mockResolvedValueOnce({ ...status('completed'), totalBytes, uploadedBytes: totalBytes })
+            .mockResolvedValueOnce({ ...facts(totalBytes), [key]: key === 'sizeBytes' ? totalBytes - 1 : 'changed' });
+        const result = await createArticleAttachmentUploadProvider({ ...session, totalBytes }).observe();
+        expect(result).toEqual({ status: 'recovery-required', reason: key === 'sizeBytes' ? 'upload_asset_size_mismatch' : 'upload_observation_failed' });
+    });
+    it('preserves original owner-token refusal for large facts', async () => {
+        const totalBytes = 20_971_520;
+        request.mockResolvedValueOnce({ ...status('completed'), totalBytes, uploadedBytes: totalBytes })
+            .mockRejectedValueOnce(new Error('controlled original authority refusal'));
+        const result = await createArticleAttachmentUploadProvider({ ...session, totalBytes }).observe();
+        expect(result).toEqual({ status: 'recovery-required', reason: 'upload_observation_failed' });
+        expect(request.mock.calls[1][0].requestOptions.headers['X-Fsus-Upload-Token']).toBe(session.uploadToken);
+        expect(request).toHaveBeenCalledTimes(2);
+    });
+    it('rejects changed session status before requesting large facts', async () => {
+        const totalBytes = 20_971_520;
+        request.mockResolvedValueOnce({ ...status('completed'), uploadId: 'other-upload', totalBytes, uploadedBytes: totalBytes });
+        expect(await createArticleAttachmentUploadProvider({ ...session, totalBytes }).observe())
+            .toEqual({ status: 'recovery-required', reason: 'upload_status_binding_invalid' });
         expect(request).toHaveBeenCalledOnce();
+    });
+    it('propagates cancellation while reading original large facts', async () => {
+        const totalBytes = 20_971_520;
+        const controller = new AbortController();
+        let finish!: (value: unknown) => void;
+        request.mockResolvedValueOnce({ ...status('completed'), totalBytes, uploadedBytes: totalBytes })
+            .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        const reading = createArticleAttachmentUploadProvider({ ...session, totalBytes }).observe(controller.signal);
+        await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+        expect(request.mock.calls[1][0].signal).toBe(controller.signal);
+        controller.abort(new DOMException('Owned facts interrupted', 'AbortError'));
+        finish(facts(totalBytes));
+        await expect(reading).rejects.toThrow('Owned facts interrupted');
+    });
+    it('coalesces large retry attempts and reads facts after the actual completion RPC', async () => {
+        const totalBytes = 20_971_520;
+        let finish!: (value: unknown) => void;
+        request.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        const provider = createArticleAttachmentUploadProvider({ ...session, totalBytes });
+        const first = provider.retryCommit();
+        const second = provider.retryCommit();
+        request.mockResolvedValueOnce({ ...status('completed'), totalBytes, uploadedBytes: totalBytes }).mockResolvedValueOnce(facts(totalBytes));
+        finish({ url: 'not-a-receipt' });
+        expect(await first).toEqual(await second);
+        expect((await first).status).toBe('committed');
+        expect(request).toHaveBeenCalledTimes(3);
+        expect(request.mock.calls[2][0].binaryRoute.operationId).toBe('binary_post_upload_uploadId_facts');
+    });
+    it('observes a late large commit on cancel without deleting original bytes', async () => {
+        const totalBytes = 20_971_520;
+        let commitSignal: AbortSignal | undefined;
+        request.mockImplementationOnce(call => new Promise((_, reject) => {
+            commitSignal = call.signal;
+            commitSignal!.addEventListener('abort', () => reject(commitSignal!.reason), { once: true });
+        }));
+        const provider = createArticleAttachmentUploadProvider({ ...session, totalBytes });
+        const committing = provider.retryCommit();
+        request.mockResolvedValueOnce({ ...status('completed'), totalBytes, uploadedBytes: totalBytes }).mockResolvedValueOnce(facts(totalBytes));
+        const cancelled = await provider.cancel();
+        expect(commitSignal!.aborted).toBe(true);
+        expect((await committing).status).toBe('recovery-required');
+        expect(cancelled.status).toBe('committed');
+        expect(request.mock.calls[2][0].binaryRoute.operationId).toBe('binary_post_upload_uploadId_facts');
+        expect(request.mock.calls.some(([call]) => call.requestOptions.method === 'DELETE')).toBe(false);
     });
     it('does not send an interrupted operation or acknowledge interrupted abort', async () => {
         const controller = new AbortController();
