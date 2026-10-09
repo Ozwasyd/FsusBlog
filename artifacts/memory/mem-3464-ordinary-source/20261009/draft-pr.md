@@ -13,3 +13,9 @@ Refs: #3444
 Refs: #1686
 Refs: #2575
 Refs: #3534
+
+## Held source-admission limitation
+
+Independent static review found a P1: the published blame-source helper, consumer and validator children do not establish Git replacement/graft isolation. Root identifies this as overlap with an explicitly held remediation/audit scope. The 0a88/901578 and derived blame ports are not admissible or merge-ready. Prior ordinary control results remain historical results; they do not prove this boundary. No new dynamic audit was executed (count: zero).
+
+No reproduction, variant, substitute harness, delegated remediation or renamed bypass was undertaken. Real formatter/blame metadata and the already published source remain intact. Root alone owns further scope decisions and GitHub content writes.

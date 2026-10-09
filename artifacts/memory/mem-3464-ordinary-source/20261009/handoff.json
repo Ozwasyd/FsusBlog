@@ -147,7 +147,8 @@
       "head": "083e8149f5b3e467785d22e5ce11634c2f7a7233",
       "trustedBase": "be7c53d99b64342925ca63d061bacde34d22ba4c",
       "authorityFiles": 10,
-      "qualificationEligible": false
+      "qualificationEligible": false,
+      "admissionStatus": "Historical ordinary execution succeeded; source admission is not established because of the independently reported held static P1."
     },
     "combinedOriginalAuthorityProducer": {
       "exitCode": 1,
@@ -302,5 +303,20 @@
       }
     }
   },
-  "rawEncoding": "Known structured JSON data, exact UTF-8 line strings; no extra unsupported log/diff executable surface."
+  "rawEncoding": "Known structured JSON data, exact UTF-8 line strings; no extra unsupported log/diff executable surface.",
+  "sourceAdmissionBoundaryUpdate": {
+    "source": "Root coordinator instruction following independent static review",
+    "status": "held-static-P1; not admissible or merge-ready",
+    "finding": "The published blame-source helper, consumer and validator children do not establish Git replacement/graft isolation.",
+    "affectedPublishedPorts": [
+      "0a88 (coordinator-supplied prefix)",
+      "90157858f42f4c4fa2941107aa3354d25285fa74",
+      "derived blame-source ports in this composition"
+    ],
+    "newDynamicAuditCount": 0,
+    "priorOrdinaryControlResults": "Historical ordinary controls are preserved unchanged. They do not establish replacement/graft isolation or source admission.",
+    "scope": "Explicitly held remediation/audit overlap. Root alone owns scope decisions. No reproduction, variant, substitute harness, delegated rewrite or renamed bypass is authorized.",
+    "metadataPreserved": "Real formatter/blame metadata and published source remain intact; no removal to make a gate green.",
+    "unrelatedWork": "Ordinary unrelated component source/style work may continue."
+  }
 }
