@@ -184,6 +184,82 @@
                 },
                 "grantsQualification": {
                     "const": false
+                },
+                "outputs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/unqualifiedOutput"
+                    }
+                },
+                "sourceDependencies": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/nativeReporterSource"
+                    }
+                }
+            }
+        },
+        "unqualifiedOutput": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "schema",
+                "qualificationEligible"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9-]+\\.json$"
+                },
+                "schema": {
+                    "type": "string",
+                    "pattern": "^fsusblog\\.[a-z0-9.-]+\\.v[1-9][0-9]*$"
+                },
+                "qualificationEligible": {
+                    "const": false
+                }
+            }
+        },
+        "nativeReporterSource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "role",
+                "path",
+                "sourceCommit",
+                "sourceDigest",
+                "documentSchemas"
+            ],
+            "properties": {
+                "role": {
+                    "enum": [
+                        "native-slot-reporter",
+                        "native-slot-journal"
+                    ]
+                },
+                "path": {
+                    "type": "string",
+                    "pattern": "^tools/test/xunit-replay-runner/(?:Program|SlotEventJournal)\\.cs$"
+                },
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "sourceDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                "documentSchemas": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "pattern": "^fsusblog\\.[a-z0-9.-]+\\.v[1-9][0-9]*$"
+                    }
                 }
             }
         }

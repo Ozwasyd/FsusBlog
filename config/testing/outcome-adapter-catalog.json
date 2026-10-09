@@ -55,7 +55,44 @@
                     ],
                     "contractPath": "tools/test-matrix/outcomes/backend-test-adapter.design.md",
                     "admissionStatus": "ordinary-source-only",
-                    "grantsQualification": false
+                    "grantsQualification": false,
+                    "outputs": [
+                        {
+                            "path": "backend-execution-events.json",
+                            "schema": "fsusblog.backend-native-execution-events.v1",
+                            "qualificationEligible": false
+                        },
+                        {
+                            "path": "process-results.json",
+                            "schema": "fsusblog.xunit-replay-process-results.v1",
+                            "qualificationEligible": false
+                        },
+                        {
+                            "path": "partial-framework-actual.json",
+                            "schema": "fsusblog.xunit-replay-partial-actual.v1",
+                            "qualificationEligible": false
+                        }
+                    ],
+                    "sourceDependencies": [
+                        {
+                            "role": "native-slot-reporter",
+                            "path": "tools/test/xunit-replay-runner/Program.cs",
+                            "sourceCommit": "f388602afde1368df84e466d133a0f153f538f31",
+                            "sourceDigest": "sha256:56fbd6ca262b86b5e28079eb4630fe4e5cdc8e30bfafbd16ad77ffeba9328b3e",
+                            "documentSchemas": [
+                                "fsusblog.xunit-replay-slot-receipt.v1"
+                            ]
+                        },
+                        {
+                            "role": "native-slot-journal",
+                            "path": "tools/test/xunit-replay-runner/SlotEventJournal.cs",
+                            "sourceCommit": "f388602afde1368df84e466d133a0f153f538f31",
+                            "sourceDigest": "sha256:78f3d12b1ae787c614858b3f2481745db590e5fea9f8f0dbbf6272a6631659b1",
+                            "documentSchemas": [
+                                "fsusblog.xunit-replay-slot-journal-event.v1"
+                            ]
+                        }
+                    ]
                 }
             ]
         },
