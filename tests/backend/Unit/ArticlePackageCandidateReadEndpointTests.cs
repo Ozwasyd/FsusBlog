@@ -119,8 +119,10 @@ public sealed class ArticlePackageCandidateReadEndpointTests
         using var body = new ByteArrayContent(new byte[] { 1, 2, 3 });
         using HttpResponseMessage response = await client.PostAsync(Route, body);
         Assert.Equal(400, (int)response.StatusCode);
-        var decoded = new AedsEncoder().TryDecode(await response.Content.ReadAsByteArrayAsync());
-        Assert.True(decoded.IsSuccess);
+        byte[] frame = await response.Content.ReadAsByteArrayAsync();
+        var decoded = new AedsEncoder().TryDecode(frame);
+        Assert.True(decoded.IsSuccess, $"Controlled host response: contentType={response.Content.Headers.ContentType}; "
+            + $"length={frame.Length}; frameHeader={response.Headers.Contains("X-Fsus-Frame-Version")}; decoder={decoded.Error.Message}");
         Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
         Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var error));
         Assert.Equal("authoring_binary_body_not_allowed", PodBinaryCodec.ToErrorDetail(error).Message);
