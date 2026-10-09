@@ -28,7 +28,7 @@ CleanupBackendTestRuntimeOutput() {
                 ;;
         esac
         if [[ -e "$runtimePath" || -L "$runtimePath" ]]; then
-            rm -rf -- "$runtimePath"
+            rm -rf -- "$runtimePath" || return $?
         fi
     done
 }
@@ -36,10 +36,15 @@ CleanupBackendTestRuntimeOutput() {
 RunBackendDotnetTest() {
     local lane="$1"
     shift
-    local laneSlug status=0
-    laneSlug="$(NamespaceSlug "$lane")"
+    local laneSlug status=0 cleanupStatus=0
+    laneSlug="$(NamespaceSlug "$lane")" || return $?
     FSUSBLOG_BACKEND_DB_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}-${laneSlug}-${BASHPID}" \
         Run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" "$@" || status=$?
-    CleanupBackendTestRuntimeOutput
-    return "$status"
+    CleanupBackendTestRuntimeOutput || cleanupStatus=$?
+    # Preserve the test failure when both operations fail; successful tests
+    # cannot hide a failed cleanup.
+    if ((status != 0)); then
+        return "$status"
+    fi
+    return "$cleanupStatus"
 }

@@ -74,6 +74,21 @@ retains canonical realpath checks against redirected directories. Portable path
 controls exercise `path.posix` and `path.win32`; they are not Windows SDK or
 filesystem runtime acceptance.
 
+The audit includes the invoked Shell helpers, not only outer preparation calls:
+runtime cleanup stops at the first failed removal; the filtered builder, original
+oracle and post-test cleanup propagate refusal. Source/path resolutions and
+run-once output splitting are checked before use. The default and conditional
+controls preserve the actual helpers and stub only external operations; removal
+stubs never delete runtime data. A readonly historical control retains the
+original default cleanup exit 23 from `b566b33bb0a38f68f72515389ee04f0d942e8a0d`.
+
+An explicit bounded request cannot fall back to whole-suite execution after a
+failed or unresolved preflight. Empty/whitespace or unresolved filter values are
+rejected before preparation and again before the original oracle. A missing or
+failed platform filter also refuses. An actual CLI declaration with no selected
+methods fails before any test command. The original whole paths remain available
+when no bounded request was made; these refusal controls do not run those suites.
+
 The source review controls cover declaration/option semantics, exact synthetic
 discovery metadata and original shell routing only. They execute no real Server
 or Migration case, fixture, SDK or acceptance receipt. The previously published
