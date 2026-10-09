@@ -353,9 +353,31 @@ function readJson(absolute, label, failureReasons)
     }
 }
 
-function validateExactBuildReceipt(repositoryRoot, suppliedIdentity, canonicalDigest)
+function validateExactBuildReceipt(repositoryRoot, suppliedIdentity, canonicalDigest, resolveContainedPath)
 {
     const failureReasons = [];
+    // The standalone receipt uses the same runner path authority as a minimal-build receipt.
+    if (typeof resolveContainedPath !== 'function')
+    {
+        return { failureReasons: ['standalone OpenAPI requires runner-owned contained-path validation'], receipt: null };
+    }
+    try
+    {
+        for (const relative of [buildReceiptRelative, ...sourcePaths, observationRelative, observedOpenApiRelative])
+        {
+            if (existsSync(path.join(repositoryRoot, relative)))
+            {
+                resolveContainedPath(repositoryRoot, relative, 'file');
+            }
+        }
+    }
+    catch (error)
+    {
+        return {
+            failureReasons: [`standalone OpenAPI authority path is not canonical: ${error instanceof Error ? error.message : String(error)}`],
+            receipt: null
+        };
+    }
     const receipt = readJson(path.join(repositoryRoot, buildReceiptRelative), 'canonical OpenAPI build receipt', failureReasons);
     if (receipt == null)
     {
@@ -668,7 +690,8 @@ export function extract(context)
     || ['schema', 'sourceDigests', 'sourceDigest'].some((key) => Object.hasOwn(buildIdentity, key));
     const receiptValidation = canonical
         ? validateCanonicalMinimalReceipt(context)
-        : validateExactBuildReceipt(context.repositoryRoot, buildIdentity, canonicalDigest);
+        : validateExactBuildReceipt(context.repositoryRoot, buildIdentity, canonicalDigest,
+            context.minimalBuildServices?.resolveContainedPath);
     if (receiptValidation.failureReasons.length > 0)
     {
         return {
