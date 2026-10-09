@@ -757,7 +757,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     origin = ts.isIdentifier(exp) ? nativePropTargets(record, exp.text) : nativeFunctionTargets(record, exp, localNames);
                     if (!origin)
                     {
-                        const targets = resolver.resolveExpression(file, exp);
+                        const targets = resolver.resolveComponentInput(file, exp);
                         if (targets.length > 1 && targets.every((target) => target.kind === 'native'))
                         {
                             origin = { kind: 'native-variants', values: [...new Set(targets.map((target) => target.name))] };
@@ -822,7 +822,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 }
             }
             const current = { id, ...location(file, offset), tag: node.tag, parentId, attributes, directives, origin, definition, slotInputs,
-                sourceDigest: controlDigest(node.loc.source), ancestors,
+                sourceDigest: controlDigest(node.loc.source), ancestors, scopedBindings: [...localNames],
                 structural: origin.kind === 'framework-structure',
                 conditional: directives.filter(({ name }) => ['if', 'else-if', 'else', 'show', 'for'].includes(name)),
                 slot: directives.find(({ name }) => name === 'slot') ?? (node.tag === 'slot' ? { name: attributes.name ?? 'default' } : null),
@@ -872,7 +872,6 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
         }
         entryFiles.forEach(visit);
-        const files = [...records.values()].filter((record) => reachable.has(record.file));
         const graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
         const nativePropBindings = [];
         const nativePropErrors = [];
@@ -901,6 +900,274 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property, callNode: call.id, message: error.message });
                 }
             }
+        }
+        const componentPropBindings = [];
+        const componentPropErrors = [];
+        const absent = Symbol('absent-component-input');
+        const unwrapInput = (node) =>
+        {
+            while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)))
+            {
+                node = node.expression;
+            }
+            return node;
+        };
+        function spreadInput(file, exp, property, seen = new Set())
+        {
+            exp = unwrapInput(exp);
+            const record = resolver.parse(file);
+            if (exp && ts.isIdentifier(exp))
+            {
+                const props = resolver.componentProps(file);
+                if (exp.text === props?.propsName || (exp.text === '$props' && !record.variables.has('$props') && !record.imports.has('$props')))
+                {
+                    if (!resolver.componentPropDeclaration(file, property))
+                    {
+                        fail(`undeclared forwarded component input ${file}#${property}`);
+                    }
+                    return { forwarded: { file, property } };
+                }
+                // Vue separates declared props from attrs in the actual setup context.
+                if (exp.text === props?.attrsName && !record.variables.has(exp.text) && !record.imports.has(exp.text)
+                    && resolver.componentPropDeclaration(file, property))
+                {
+                    return absent;
+                }
+                const key = `${file}#${exp.text}`;
+                const value = record.variables.get(exp.text);
+                const declarations = [];
+                function collect(node)
+                {
+                    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === exp.text)
+                    {
+                        declarations.push(node);
+                    }
+                    ts.forEachChild(node, collect);
+                }
+                record.scripts.forEach(({ ast }) => collect(ast));
+                if (!value || seen.has(key) || declarations.length !== 1
+                    || !(declarations[0].parent.flags & ts.NodeFlags.Const))
+                {
+                    fail(`unknown component input spread ${file}#${property}`);
+                }
+                return spreadInput(file, value, property, new Set([...seen, key]));
+            }
+            if (exp && ts.isCallExpression(exp) && ts.isIdentifier(exp.expression))
+            {
+                const imported = record.imports.get(exp.expression.text);
+                const fn = exp.arguments[0];
+                if (imported?.specifier === 'vue' && imported.name === 'computed' && exp.arguments.length === 1
+                    && fn && ts.isArrowFunction(fn) && !fn.parameters.length && !fn.modifiers?.length)
+                {
+                    const body = ts.isBlock(fn.body) && fn.body.statements.length === 1 && ts.isReturnStatement(fn.body.statements[0])
+                        ? fn.body.statements[0].expression : ts.isBlock(fn.body) ? null : fn.body;
+                    return spreadInput(file, body, property, seen);
+                }
+            }
+            if (exp && ts.isObjectLiteralExpression(exp))
+            {
+                for (const field of [...exp.properties].reverse())
+                {
+                    if (ts.isSpreadAssignment(field))
+                    {
+                        const value = spreadInput(file, field.expression, property, new Set(seen));
+                        if (value !== absent)
+                        {
+                            return value;
+                        }
+                    }
+                    else if (!field.name || ts.isComputedPropertyName(field.name))
+                    {
+                        fail(`unknown component input key ${file}#${property}`);
+                    }
+                    else if (field.name.getText().replaceAll("'", '').replaceAll('"', '') === property)
+                    {
+                        if (ts.isPropertyAssignment(field) || ts.isShorthandPropertyAssignment(field))
+                        {
+                            return { expression: ts.isPropertyAssignment(field) ? field.initializer : field.name, file };
+                        }
+                        fail(`unknown component input member ${file}#${property}`);
+                    }
+                }
+                return absent;
+            }
+            fail(`unknown component input spread ${file}#${property}`);
+        }
+        function componentInput(call, property, seen = new Set())
+        {
+            const key = `${call.id}#${property}`;
+            if (seen.has(key))
+            {
+                fail(`cyclic component input ${key}`);
+            }
+            const next = new Set([...seen, key]);
+            const declaration = resolver.componentPropDeclaration(call.definition, property);
+            if (!declaration || call.directives.some((entry) => entry.name === 'bind' && entry.argumentStatic === false))
+            {
+                fail(`unknown component input ${key}`);
+            }
+            const propName = (name) => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+            const named = call.directives.filter((entry) => entry.name === 'bind' && entry.argument && propName(entry.argument) === property);
+            const attributes = Object.keys(call.attributes).filter((name) => propName(name) === property);
+            if (named.length > 1 || attributes.length > 1 || (named.length && attributes.length))
+            {
+                fail(`ambiguous component input ${key}`);
+            }
+            const binding = named[0];
+            const spreads = call.directives.filter((entry) => entry.name === 'bind' && !entry.argument);
+            if (spreads.length > 1 || (spreads.length && (binding || attributes.length)))
+            {
+                fail(`ambiguous component input ${key}`);
+            }
+            let input = spreads.length ? spreadInput(call.file, expression(spreads[0].expression, call.file), property) : absent;
+            if (binding)
+            {
+                input = { file: call.file, expression: expression(binding.expression, call.file) };
+            }
+            else if (attributes.length)
+            {
+                input = { file: call.file, expression: expression(JSON.stringify(call.attributes[attributes[0]]), call.file) };
+            }
+            const suppliedUndefined = input !== absent && input.expression && ts.isIdentifier(unwrapInput(input.expression))
+                && unwrapInput(input.expression).text === 'undefined' && !resolver.parse(input.file).imports.has('undefined')
+                && !resolver.parse(input.file).variables.has('undefined');
+            if (input === absent || suppliedUndefined)
+            {
+                let value = unwrapInput(declaration.defaultNode);
+                if (value && ts.isArrowFunction(value) && !value.parameters.length && !value.modifiers?.length && !ts.isBlock(value.body))
+                {
+                    value = value.body;
+                }
+                input = value ? { file: declaration.file, expression: value } : absent;
+            }
+            const expand = (edge) =>
+            {
+                const parents = graphNodes.filter((entry) => entry.definition === edge.file);
+                if (!parents.length)
+                {
+                    fail(`unbound forwarded component input ${key}`);
+                }
+                return parents.flatMap((parent) => componentInput(parent, edge.property, next));
+            };
+            let results;
+            if (input === absent || input.expression?.kind === ts.SyntaxKind.NullKeyword)
+            {
+                results = [{ target: null, callPath: [] }];
+            }
+            else if (input.forwarded)
+            {
+                results = expand(input.forwarded);
+            }
+            else
+            {
+                const value = unwrapInput(input.expression);
+                if (ts.isIdentifier(value) && input.file === call.file && call.scopedBindings?.includes(value.text))
+                {
+                    fail(`template-shadowed component input ${key}`);
+                }
+                function immutable(exp, file, seen = new Set())
+                {
+                    exp = unwrapInput(exp);
+                    if (ts.isIdentifier(exp))
+                    {
+                        const record = resolver.parse(file);
+                        if (record.imports.has(exp.text) || resolver.componentPropDeclaration(file, exp.text))
+                        {
+                            return;
+                        }
+                        const identity = `${file}#${exp.text}`;
+                        const declarations = [];
+                        function collect(node)
+                        {
+                            if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === exp.text)
+                            {
+                                declarations.push(node);
+                            }
+                            ts.forEachChild(node, collect);
+                        }
+                        record.scripts.forEach(({ ast }) => collect(ast));
+                        if (seen.has(identity) || declarations.length !== 1 || !(declarations[0].parent.flags & ts.NodeFlags.Const))
+                        {
+                            fail(`mutable/unknown component input ${key}`);
+                        }
+                        immutable(declarations[0].initializer, file, new Set([...seen, identity]));
+                        return;
+                    }
+                    if (ts.isStringLiteral(exp) && dom.parserOptions.isNativeTag(exp.text))
+                    {
+                        return;
+                    }
+                    if (ts.isPropertyAccessExpression(exp) && ts.isIdentifier(exp.expression)
+                        && resolver.parse(file).imports.get(exp.expression.text)?.name === '*')
+                    {
+                        return;
+                    }
+                    fail(`unknown component value ${key}`);
+                }
+                immutable(value, input.file);
+                const targets = resolver.resolveComponentInput(input.file, input.expression);
+                if (targets.length !== 1)
+                {
+                    fail(`ambiguous component input ${key}`);
+                }
+                results = targets[0].kind === 'component-prop' ? expand(targets[0]) : [{ target: targets[0], callPath: [] }];
+            }
+            return results.map((result) => ({ ...result, callPath: [call.id, ...result.callPath] }));
+        }
+        // Bind every deferred prop to its actual calls. Names and declared types
+        // never authorize an unknown supplied value or an unproven default.
+        for (const node of graphNodes.filter((entry) => entry.origin.kind === 'component-prop'))
+        {
+            const calls = graphNodes.filter((entry) => entry.definition === node.file);
+            if (!calls.length)
+            {
+                componentPropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-component-prop-source', property: node.origin.property });
+            }
+            for (const call of calls)
+            {
+                try
+                {
+                    for (const input of componentInput(call, node.origin.property))
+                    {
+                        const target = input.target;
+                        const definition = target ? componentFile(target) : null;
+                        const guards = [node, ...node.ancestors.map((id) => nodes.get(id))].flatMap((entry) => entry.conditional);
+                        const guardedAbsent = !target && guards.some((guard) => guard.name === 'if' && guard.expression === node.origin.property);
+                        if ((!target && !guardedAbsent) || (target && target.kind !== 'native' && !definition))
+                        {
+                            fail(`unknown rendered component input ${node.file}#${node.origin.property}`);
+                        }
+                        if (definition)
+                        {
+                            parse(definition);
+                            visit(definition);
+                        }
+                        componentPropBindings.push({ sourceNode: node.id, declarationDigest: node.origin.declarationDigest, callNode: call.id, callPath: input.callPath,
+                            inputDigests: input.callPath.map((id) =>
+                            {
+                                const entry = nodes.get(id);
+                                return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
+                            }), target, definition, absent: guardedAbsent });
+                    }
+                }
+                catch (error)
+                {
+                    componentPropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-component-prop-source',
+                        property: node.origin.property, callNode: call.id, message: error.message });
+                }
+            }
+        }
+        // Newly reached component definitions may contain further inputs. An
+        // unbound nested edge remains an error; reaching its file is not proof.
+        for (const node of [...nodes.values()].filter((entry) => reachable.has(entry.file)
+            && entry.origin.kind === 'component-prop' && !graphNodes.some((original) => original.id === entry.id)))
+        {
+            componentPropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-component-prop-source', property: node.origin.property });
+        }
+        for (const node of [...nodes.values()].filter((entry) => reachable.has(entry.file)
+            && entry.origin.kind === 'native-prop' && !graphNodes.some((original) => original.id === entry.id)))
+        {
+            nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property });
         }
         const structuralBindings = [];
         for (const node of graphNodes.filter((node) => !node.structural && node.file.startsWith(upstream + '/')))
@@ -932,8 +1199,9 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         const bindings = resolver.sourceBindings();
         errors.push(...bindings.errors);
         return { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
-            files, nodes: graphNodes, structuralBindings, nativePropBindings, resolverInputs: bindings.files,
-            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors], sourceDigest: controlDigest({ files: files.map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
+            files: [...records.values()].filter((record) => reachable.has(record.file)),
+            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings, resolverInputs: bindings.files,
+            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors], sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
     }
     function instrument(file, code)
     {

@@ -363,6 +363,25 @@ template-shadowed bindings are rejected. Return type annotations establish no
 proof. All rendered native union nodes are checked against the complete union,
 including nodes without semantic ownership attributes. This proves possible
 tags only; the selector's business state and branch visibility remain unbound.
+Component-valued props remain deferred input edges in the canonical source
+resolver. The standalone legality scan still refuses an unbound dynamic prop.
+The composition graph resolves only actual declared props, supplied immutable
+component imports, or zero-argument expression defaults that reach an actual
+component source. A string name cannot borrow an imported component identity. It binds each result to the exact call chain and input digests;
+unknown overrides, mutable aliases, template shadows, dynamic keys and ambiguous
+spreads remain errors. An absent input is allowed only behind its actual prop
+condition and cannot authorize a rendered component. Vue setup prop forwarding
+may exclude attrs only for a prop declared by that same component; arbitrary
+spreads and arbitrary function results remain unknown. The DOM join checks the
+proven call chain, declaration and inputs before accepting its rendered source.
+A local supplied component retains local ownership even inside a public control.
+These ordinary source controls do not issue semantic adapter receipts or qualify
+runtime/product acceptance. Run them with the actual upstream source:
+
+```bash
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/path/to/FsusUI node --test tests/tools/layout-component-props-source.test.mjs
+```
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;
