@@ -324,6 +324,9 @@ test('actual Options label helper proves declared component runtime name and scr
     assert.equal(proof.supplierValue[0].children[0].target.publicName, 'ElOption');
     assert.ok(proof.effects.some((effect) => effect.kind === 'local-scratch-append'));
     assert.ok(proof.steps.some((entry) => entry.file.endsWith('/select/src/option.vue')));
+    const multiple = actualOptions('<div><Option label="A" value="a"/><Option label="B" value="b"/></div>');
+    const collected = multiple.slots.proveHelperCall({ graph: multiple.graph, callNode: multiple.call.id, file: multiple.owner, invocation: multiple.invocation });
+    assert.deepEqual(collected.scratchValues, [['A', 'B']]);
 });
 
 test('actual Options helper mutation of supplied children remains rejected', () =>
@@ -442,4 +445,88 @@ test('actual AutoResizer JSX supplier binds while original measurement payload r
     const invocation = find(source, owner, (node) => ts.isCallExpression(node) && node.expression.getText() === 'slots.default');
     assert.throws(() => slots.invokeSlot({ graph, binding, file: owner, invocation }), /unknown runtime value.*height/);
     assert.equal(JSON.stringify(graph.errors), before);
+});
+
+
+test('ordinary unbound setup parameter rejects borrowed outer constant identity', () =>
+{
+    assert.throws(() => expressionProof('import {h} from "vue";const label="Borrowed";function setup(label){const result=h("button",{title:label},[]);}'), /unknown runtime value.*label.*unbound lexical parameter/);
+    assert.equal(expressionProof('import {h} from "vue";const label="Borrowed";const helper=(label)=>h("button",{title:label},[]);const result=helper("Own");').value.props.title, 'Own');
+});
+
+test('ordinary aggregate escape rejects nested supplied arrays and original VNodes', () =>
+{
+    for (const aggregate of ['{children}', '[children]', '{nested:{children}}'])
+    {
+        assert.throws(() => expressionProof(`import {h} from "vue";const children=[h("button",{},[])];opaque(${aggregate});const result=children;`), /unproved source escape/);
+    }
+    assert.throws(() => expressionProof('import {h,cloneVNode} from "vue";const original=h("button",{},[]);opaque({original});const result=cloneVNode(original,{title:"Own"});'), /unproved source escape/);
+    assert.throws(() => expressionProof('import {h} from "vue";const children=[h("button",{},[])];new Opaque({children});const result=children;'), /unproved source escape/);
+});
+
+test('ordinary defineOptions runtime name uses actual macro AST and preserves local identity', () =>
+{
+    const child = fixture('<script setup>defineOptions({name:"ElOption"});</script><template><button/></template>', `${randomUUID()}.vue`);
+    const proof = expressionProof(`import {h} from "vue";import Child from "./${child.split('/').at(-1)}";const original=h(Child,{},[]);const result={name:original.type.name,original};`);
+    assert.equal(proof.value.name, 'ElOption');
+    assert.equal(proof.value.original.target.kind, 'local');
+    assert.equal(proof.value.original.definition, child);
+    assert.equal('publicName' in proof.value.original.target, false);
+    const unknown = fixture('<script setup>defineOptions({name:unknownName});</script><template><button/></template>', `${randomUUID()}.vue`);
+    assert.throws(() => expressionProof(`import {h} from "vue";import Child from "./${unknown.split('/').at(-1)}";const result=h(Child,{},[]).type.name;`), /unknown runtime value.*unknownName/);
+});
+
+test('ordinary helper capture accepts initialized child and rejects temporal dead zone', () =>
+{
+    assert.equal(expressionProof('import {h} from "vue";const helper=()=>child;const child=h("button",{},[]);const result=helper();').value.target.name, 'button');
+    assert.equal(expressionProof('import {h} from "vue";const render=()=>{function helper(){return child;}const child=h("button",{},[]);return helper();};const result=render();').value.target.name, 'button');
+    assert.throws(() => expressionProof('import {h} from "vue";const render=()=>{const helper=()=>child;const output=helper();const child=h("button",{},[]);return output;};const result=render();'), /unbound source constant.*child/);
+});
+
+
+test('probe setup parameter cannot borrow outer same-name constant', () =>
+{
+    const { source, slots } = tools();
+    const owner = fixture('import {defineComponent} from "vue";export default defineComponent({setup(_, {slots}){return()=>slots.cell?.({});}});', 'ProbeOwner.tsx');
+    const supplier = fixture('import {defineComponent,h} from "vue";import Owner from "./ProbeOwner";const label="Borrowed";export default defineComponent({setup(label){const slotObject={cell:(_)=>h("button",{title:label},[])};return()=> <Owner>{slotObject}</Owner>;}});', 'ProbeSupplier.tsx');
+    const graph = source.graph([supplier]);
+    const call = graph.nodes.find((entry) => entry.file === supplier && entry.tag === 'Owner');
+    assert.ok(call);
+    const ts = source.resolver.ts;
+    const invocation = find(source, owner, (node) => ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'cell');
+    assert.throws(() =>
+    {
+        const binding = slots.bindSlot({ graph, callNode: call.id, name: 'cell' });
+        return slots.invokeSlot({ graph, binding, file: owner, invocation });
+    }, /unknown|unbound/);
+});
+
+test('probe inline aggregate source escape cannot bless children', () =>
+{
+    for (const argument of ['{children}', '[children]'])
+    {
+        assert.throws(() => expressionProof(`import {h} from "vue";const children=[h("button",{},[])];opaque(${argument});const result=children;`), /unproved source escape|unknown/);
+    }
+});
+
+test('probe source mutation through inline aggregate escapes cannot bless clones', () =>
+{
+    assert.throws(() => expressionProof('import {h,cloneVNode} from "vue";const original=h("button",{},[]);opaque({original});const result=cloneVNode(original,{title:"A"});'), /unproved source escape|unknown/);
+});
+
+test('probe inline array source escape cannot bless children', () =>
+{
+    assert.throws(() => expressionProof('import {h} from "vue";const children=[h("button",{},[])];opaque([children]);const result=children;'), /unproved source escape|unknown/);
+});
+
+test('probe script setup defineOptions runtime name comes from owned AST', () =>
+{
+    const child = fixture('<script setup>defineOptions({name:"ElOption"});</script><template><button/></template>', `${randomUUID()}.vue`);
+    assert.equal(expressionProof(`import {h} from "vue";import Child from "./${child.split('/').at(-1)}";const result=h(Child,{},[]).type.name;`).value, 'ElOption');
+});
+
+test('probe nested helper evaluates captured locals in each invocation frame', () =>
+{
+    const proof = expressionProof('const render=(label)=>{function helper(){return child;}const child=label;return helper();};const result=[render("A"),render("B")];');
+    assert.deepEqual(proof.value, ['A', 'B']);
 });
