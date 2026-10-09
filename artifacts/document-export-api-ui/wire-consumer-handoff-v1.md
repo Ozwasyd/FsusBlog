@@ -1,5 +1,10 @@
 # Export typed consumer source handoff
 
+Historical frozen 4a556 handoff. On the separate current integration branch, the
+registration prerequisite below is solved by exact Shared 71179 consumption.
+See [registered integration and fresh bounded verification](registered-integration-handoff-v1.md).
+Prior broad HELD applicability wording is withdrawn; required SOURCE is not yet validated.
+
 This is source WIP on frozen component `6402b4e1d1d3227003658a0b0c5c0bfb2e4459bf`, not production activation. Domain implementation commit: `295cf732b067c9c788fc515fbeb155dfb0c450fa`; download response-header refinement: `cacac8cac6f09227cc23e77c7238a2decddb46e4`. Eight Shared source/product/helper files are consumed byte-for-byte from sole owner `8464d9667f6de4fd159718bc65c32868df022d5d`; generic frame/native/response registration files are untouched.
 
 ## Usable domain APIs
