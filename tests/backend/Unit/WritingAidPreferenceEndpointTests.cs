@@ -13,7 +13,6 @@ using FsusBlog.Shared.Contracts.AuthoringPreferences;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
@@ -247,15 +246,11 @@ public sealed class WritingAidPreferenceEndpointTests
             => app =>
             {
                 next(app);
-                // WebApplication exposes its global route builder during original
-                // host configuration. Add the group before the pipeline is built;
-                // adding it after StartAsync leaves it outside the captured sources.
-                if (!app.Properties.TryGetValue("__GlobalEndpointRouteBuilder", out object? builder)
-                    || builder is not IEndpointRouteBuilder routes)
-                {
-                    throw new InvalidOperationException("Original host global route builder is unavailable.");
-                }
-                AuthoringEndpoints.MapWritingAidPreferenceRoutes(routes.MapGroup("/api/binary/author"));
+                // The original WebApplication retains its routing builder for
+                // UseEndpoints after configuration, but clears the global key.
+                // Use that public hook before the host builds its pipeline.
+                app.UseEndpoints(routes => AuthoringEndpoints.MapWritingAidPreferenceRoutes(
+                    routes.MapGroup("/api/binary/author")));
             };
     }
 
