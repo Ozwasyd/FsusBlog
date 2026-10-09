@@ -8,7 +8,7 @@
             "source": "tools/test/lanes/acceptance-playwright.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier acceptance; command tools/test/lanes/acceptance-playwright.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -54,7 +54,7 @@
             "source": "tools/test/lanes/article-private-preview.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier article-private-preview; command tools/test/lanes/article-private-preview.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -100,7 +100,7 @@
             "source": "tools/test/lanes/bootstrap-acceptance-env.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier bootstrap; command tools/test/lanes/bootstrap-acceptance-env.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -146,7 +146,7 @@
             "source": "tools/test/lanes/browser-contract.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-contract; command tools/test/lanes/browser-contract.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); requires sealed browser-contract fixture root; public fallback is forbidden; upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); requires sealed browser-contract fixture root; public fallback is forbidden; scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -192,7 +192,7 @@
             "source": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-diagnostics; command tools/test/lanes/browser-runtime-risk-diagnostics.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -238,7 +238,7 @@
             "source": "tools/test/lanes/browser-diagnostics.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-diagnostics-manual; command tools/test/lanes/browser-diagnostics.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -284,7 +284,7 @@
             "source": "tools/test/lanes/browser-diagnostics.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-diagnostics-nightly; command tools/test/lanes/browser-diagnostics.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -330,7 +330,7 @@
             "source": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier browser-runtime-risk-diagnostics; command tools/test/lanes/browser-runtime-risk-diagnostics.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -391,7 +391,7 @@
             "source": "tools/test/lanes/current-schema-bootstrap-integration.sh",
             "requiredBusinessFact": "none",
             "implicitSource": "tests/matrix.yml tier current-schema-bootstrap-integration; command tools/test/lanes/current-schema-bootstrap-integration.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "none",
             "profileIds": [
                 "none"
@@ -502,7 +502,7 @@
             "source": "tools/test/lanes/endpoint-depth.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier endpoint-depth; command tools/test/lanes/endpoint-depth.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -548,7 +548,7 @@
             "source": "tools/test/lanes/fault-injection.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier fault-injection; command tools/test/lanes/fault-injection.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -594,7 +594,7 @@
             "source": "tools/test/lanes/homogeneous-two-node-fixture.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier homogeneous-two-node-fixture; command tools/test/lanes/homogeneous-two-node-fixture.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -640,7 +640,7 @@
             "source": "tools/test/lanes/runtime-integration.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier integration; command tools/test/lanes/runtime-integration.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -806,7 +806,7 @@
             "source": "tools/test/lanes/production-correctness-receipt.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier production; command tools/test/lanes/production-correctness-receipt.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -852,7 +852,7 @@
             "source": "tools/test/lanes/production-correctness-receipt.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier production-correctness; command tools/test/lanes/production-correctness-receipt.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -898,7 +898,7 @@
             "source": "tools/test/lanes/production-xss-fast.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
             "implicitSource": "tests/matrix.yml tier production-xss-fast; command tools/test/lanes/production-xss-fast.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "production-xss",
             "profileIds": [
                 "production-xss"
@@ -926,7 +926,7 @@
             "source": "tools/test/lanes/production-xss-release.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, public.article.published, session.single-device",
             "implicitSource": "tests/matrix.yml tier production-xss-release; command tools/test/lanes/production-xss-release.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "production-xss",
             "profileIds": [
                 "production-xss"
@@ -954,7 +954,7 @@
             "source": "tools/test/lanes/release-public.sh",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.published-scheduled-update, public.article.restore, public.article.revision-history, public.article.rollback, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier release; command tools/test/lanes/release-public.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1001,7 +1001,7 @@
             "source": "tools/test/lanes/resilience-runtime.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier resilience; command tools/test/lanes/resilience-runtime.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1047,7 +1047,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.published-scheduled-update, public.article.restore, public.article.revision-history, public.article.rollback, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier runtime-cache-article-detail-l1; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1094,7 +1094,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.published-scheduled-update, public.article.restore, public.article.revision-history, public.article.rollback, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier runtime-cache-cache-miss-singleflight; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1141,7 +1141,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier runtime-cache-distributed-invalidation; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1187,7 +1187,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.published-scheduled-update, public.article.restore, public.article.revision-history, public.article.rollback, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier runtime-cache-hot-featured-frame; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1244,7 +1244,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.published-scheduled-update, public.article.restore, public.article.revision-history, public.article.rollback, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier runtime-cache-l1-residency; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1291,7 +1291,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "public.article.pagination-deep, public.article.published",
             "implicitSource": "tests/matrix.yml tier runtime-cache-pagination; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "runtime-cache-pagination",
             "profileIds": [
                 "runtime-cache-pagination"
@@ -1314,7 +1314,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.published-scheduled-update, public.article.restore, public.article.revision-history, public.article.rollback, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier runtime-cache-public-hot-read; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1361,7 +1361,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier runtime-cache-redis-fault-classes; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1407,7 +1407,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.published-scheduled-update, public.article.restore, public.article.revision-history, public.article.rollback, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier runtime-cache-related-reading; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1454,7 +1454,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.published-scheduled-update, public.article.restore, public.article.revision-history, public.article.rollback, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier runtime-cache-revocation; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1501,7 +1501,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk.escalated, security.subject.banned, session.multi-device",
             "implicitSource": "tests/matrix.yml tier runtime-cache-security-projections; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "auth-security-matrix",
             "profileIds": [
                 "auth-security-matrix"
@@ -1533,7 +1533,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.published-scheduled-update, public.article.restore, public.article.revision-history, public.article.rollback, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier runtime-cache-sitemap; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1580,7 +1580,7 @@
             "source": "tools/test/run-runtime-cache-evidence.mjs",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier runtime-cache-telemetry; command tools/test/run-runtime-cache-evidence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1626,7 +1626,7 @@
             "source": "tools/test/run-runtime-order-equivalence.mjs",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier runtime-order-equivalence; command tools/test/run-runtime-order-equivalence.mjs",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1672,7 +1672,7 @@
             "source": "tools/test/lanes/security-runtime.sh",
             "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk.escalated, security.subject.banned, session.multi-device",
             "implicitSource": "tests/matrix.yml tier security; command tools/test/lanes/security-runtime.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "auth-security-matrix",
             "profileIds": [
                 "auth-security-matrix"
@@ -1704,7 +1704,7 @@
             "source": "tools/test/lanes/security-authenticated-dast.sh",
             "requiredBusinessFact": "auth.user.active, security.credential.revoked, security.pow.elevated, security.risk.escalated, security.subject.banned, session.multi-device",
             "implicitSource": "tests/matrix.yml tier security-authenticated-dast; command tools/test/lanes/security-authenticated-dast.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "auth-security-matrix",
             "profileIds": [
                 "auth-security-matrix"
@@ -1736,7 +1736,7 @@
             "source": "tools/test/lanes/soak.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.s",
             "implicitSource": "tests/matrix.yml tier soak-short-runtime; command tools/test/lanes/soak.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "scale-s",
             "profileIds": [
                 "scale-s"
@@ -1760,7 +1760,7 @@
             "source": "tools/test/lanes/ux-viewport-boundaries.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier ux-viewport-boundaries; command tools/test/lanes/ux-viewport-boundaries.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1806,7 +1806,7 @@
             "source": "tools/test/lanes/ux-viewport-smoke.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier ux-viewport-smoke; command tools/test/lanes/ux-viewport-smoke.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1852,7 +1852,7 @@
             "source": "tools/test/lanes/ux-viewport-visual.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier ux-viewport-visual; command tools/test/lanes/ux-viewport-visual.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1898,7 +1898,7 @@
             "source": "tools/test/lanes/visual-console-playwright.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "tests/matrix.yml tier visual-console; command tools/test/lanes/visual-console-playwright.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"
@@ -1944,7 +1944,7 @@
             "source": "tools/test/lanes/visual-public-playwright.sh",
             "requiredBusinessFact": "public.article.archived, public.article.deleted, public.article.draft, public.article.multiple-publications, public.article.multiple-revisions, public.article.published, public.article.published-scheduled-update, public.article.restore, public.article.revision-history, public.article.rollback, public.article.scheduled, public.home.featured-hot, public.search.indexed, public.taxonomy.category-tag",
             "implicitSource": "tests/matrix.yml tier visual-public; command tools/test/lanes/visual-public-playwright.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); upserts auth identities; reuses existing user/admin rows when handles already exist",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES is not 0 for later worker reuse; public content prepared only via transaction-fixture domain-port composition root (no API/DB/env discovery); scale data is produced by the scale-data generator for the selected scale profile only; upserts auth identities; reuses existing user/admin rows when handles already exist",
             "profileId": "public-content-lifecycle",
             "profileIds": [
                 "public-content-lifecycle"
@@ -1991,7 +1991,7 @@
             "source": "tools/bootstrap-acceptance-env.sh",
             "requiredBusinessFact": "auth.admin.full-permission, auth.user.active, comment.moderation-matrix, comment.threaded, messages.thread, moderation.policy-matrix, notifications.unread, public.article.draft, public.article.published, public.article.revision-history, public.home.featured-hot, session.single-device",
             "implicitSource": "fixture-catalog consumer declaration in tools/bootstrap-acceptance-env.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
             "profileId": "acceptance-representative",
             "profileIds": [
                 "acceptance-representative"

@@ -4340,8 +4340,8 @@
         },
         {
             "path": "tools/test-matrix/fixture-profile-contract.mjs",
-            "contentDigest": "sha256:620e379af1943fcd97ba6f83b484b092567d99e69f93a1ddc3c1801ce4b66ebf",
-            "indexDigest": "sha256:620e379af1943fcd97ba6f83b484b092567d99e69f93a1ddc3c1801ce4b66ebf"
+            "contentDigest": "sha256:b84b4e71f8a8b5d504471aaeed1310dc9bf587aa8d5ff047ab34573784b7bc28",
+            "indexDigest": "sha256:b84b4e71f8a8b5d504471aaeed1310dc9bf587aa8d5ff047ab34573784b7bc28"
         },
         {
             "path": "tools/test-matrix/fresh-production.mjs",
