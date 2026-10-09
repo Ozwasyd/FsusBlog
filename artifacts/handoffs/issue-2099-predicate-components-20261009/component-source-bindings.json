@@ -1,0 +1,90 @@
+{
+  "sourceCommit": "99ff21ef32c62f798e4d34fd90b3c0c46e11c192",
+  "components": [
+    {
+      "suppliedCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+      "suppliedBranch": "worker-2099-order-geometry-20261009",
+      "actualSuppliedParent": "7499b5bd82d3ce888672abc2e054bb08736da08d",
+      "incorporatedCommit": "d9b1330b864c4ba7d7049946ac4395eeba99a202",
+      "files": [
+        {
+          "path": "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+          "sha256": "628a77e720054a665646ee37bb6c71a587a71bcb178711567d0f3a4c627db094",
+          "byteIdentical": true
+        },
+        {
+          "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+          "sha256": "001b7296e378ba80850f45e7e25a9d941b72de7bde49571f6c19a52c0c4bc35b",
+          "byteIdentical": true
+        }
+      ]
+    },
+    {
+      "suppliedCommit": "79b685620845a7cb5db561bdaeb7799e7bdb5b51",
+      "suppliedBranch": "codex/issue-2099-overflow-predicate-20261009",
+      "actualSuppliedParent": "2c688e912067e08069f3c98ee42a963071864263",
+      "incorporatedCommit": "99ff21ef32c62f798e4d34fd90b3c0c46e11c192",
+      "files": [
+        {
+          "path": "tests/frontend/support/layout/compositionOverflowGeometry.mjs",
+          "sha256": "91d3dbb3578170c4e4fee60b0c1b40441b585763999b8ef8fdb5e4dde6d9e4aa",
+          "byteIdentical": true
+        },
+        {
+          "path": "tests/tools/layout-composition-overflow-geometry.test.mjs",
+          "sha256": "666d9dda7b839d6b6d3cee4481d2892dbdf944961c7f2d1dc766876d124ae9dd",
+          "byteIdentical": true
+        }
+      ]
+    }
+  ],
+  "preservedSourceFiles": [
+    {
+      "path": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+      "byteIdenticalToOriginalE95": true,
+      "sha256": "4ef86bd4ce783ed0512dbb6fd72930171eb804a458167d1b2b889fb6596d8d43"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionGeometry.mjs",
+      "byteIdenticalToOriginalE95": true,
+      "sha256": "ea79af0e94df0f36201e2755b6fd79272fae15bb8c59f3de286cc5a8f572666f"
+    },
+    {
+      "path": "tests/tools/layout-composition-geometry.test.mjs",
+      "byteIdenticalToOriginalE95": true,
+      "sha256": "181dfec8e1a3fc665e78aa24d05edbec7f69ef3053f8f49de8e7c087358210dd"
+    },
+    {
+      "path": "tests/tools/ux-viewport-plan.test.mjs",
+      "byteIdenticalToOriginalE95": true,
+      "sha256": "82c6d378c6ab45e13a72599ea0d3ff3bc49443e218066cbebe4bcad610907ad9"
+    },
+    {
+      "path": "tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
+      "byteIdenticalToOriginalE95": true,
+      "sha256": "3cf26b74c016951ca4f923a4c8c910e8d5762c91bee59b75ce2d3140ba0a469c"
+    },
+    {
+      "path": "tests/frontend/fixtures/layout-archetype-matrix.json",
+      "byteIdenticalToOriginalE95": true,
+      "sha256": "f0b6746ae3844e06ec33b797b5a1bac61b6ae02fced8b220ae55c7b394e8a7b9"
+    },
+    {
+      "path": "config/schemas/layout-composition-contract.schema.json",
+      "byteIdenticalToOriginalE95": true,
+      "sha256": "ec02dee62d829c143568cb473675cd929c93e19316a4f5ffcb98388b04983697"
+    }
+  ],
+  "canonicalOrderPredicateMatches": 12,
+  "overflowScope": "extra document-horizontal-bounds diagnostic; canonical matrix coverage.checks includes horizontal-overflow but firstFoldInvariants has no document-horizontal-bounds; no alias/admission invented",
+  "pendingStates": 91,
+  "nullFixtureRefs": 79,
+  "sourceRosterOwner": 1894,
+  "sourceRosterModified": false,
+  "old25CaseReceiptNotRebound": true,
+  "orderTestsInThisIntegration": "NOT RUN; original preflight closure drift holds entry; original author reported12 authored/0 executed",
+  "overflowTestsInThisIntegration": "NOT RUN; parent reported14 at exact supplied79b; supplier receipt not rebound; real Chromium fixture is not product scene or browser authorization",
+  "productGeometryRuntime": "NOT RUN",
+  "fullGeometryVerified": false,
+  "fullVisualVerified": false
+}

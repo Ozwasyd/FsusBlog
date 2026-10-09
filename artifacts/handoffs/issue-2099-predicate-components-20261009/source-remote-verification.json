@@ -1,0 +1,15 @@
+{
+  "command": [
+    "git",
+    "-c",
+    "credential.helper=!gh auth git-credential",
+    "ls-remote",
+    "--heads",
+    "origin",
+    "codex/issue-2099-geometry-integration-20261009"
+  ],
+  "exitCode": 0,
+  "stdout": "99ff21ef32c62f798e4d34fd90b3c0c46e11c192\trefs/heads/codex/issue-2099-geometry-integration-20261009\n",
+  "stderr": "",
+  "observedAtUtc": "2026-10-09T09:18:53.428450+00:00"
+}

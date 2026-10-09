@@ -1,0 +1,312 @@
+{
+  "sourceCommit": "99ff21ef32c62f798e4d34fd90b3c0c46e11c192",
+  "scope": "four supplied component files",
+  "exitCode": 1,
+  "diagnostics": 40,
+  "countsByPath": {
+    "tests/tools/layout-composition-order-geometry.test.mjs": 40
+  },
+  "countsByRule": {
+    "import-x/no-relative-parent-imports": 4,
+    "@stylistic/brace-style": 36
+  },
+  "braceDiagnosticLines": [
+    187,
+    188,
+    189,
+    190,
+    191,
+    192,
+    193,
+    232,
+    233,
+    234,
+    235,
+    236,
+    237
+  ],
+  "supplierFilesModified": false,
+  "handoffToOriginalOrderOwner": "worker-2099-order-geometry-20261009 / bd61a779a690413975a219f933fddb6b2cd479c4",
+  "rows": [
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 6,
+      "column": 39,
+      "rule": "import-x/no-relative-parent-imports",
+      "message": "Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `layout-composition-order-geometry.test.mjs` to same directory as `../frontend/support/layout/compositionContracts.mjs` or consider making `../frontend/support/layout/compositionContracts.mjs` a package."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 7,
+      "column": 39,
+      "rule": "import-x/no-relative-parent-imports",
+      "message": "Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `layout-composition-order-geometry.test.mjs` to same directory as `../frontend/support/layout/compositionDom.mjs` or consider making `../frontend/support/layout/compositionDom.mjs` a package."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 8,
+      "column": 74,
+      "rule": "import-x/no-relative-parent-imports",
+      "message": "Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `layout-composition-order-geometry.test.mjs` to same directory as `../frontend/support/layout/compositionGeometry.mjs` or consider making `../frontend/support/layout/compositionGeometry.mjs` a package."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 9,
+      "column": 82,
+      "rule": "import-x/no-relative-parent-imports",
+      "message": "Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `layout-composition-order-geometry.test.mjs` to same directory as `../frontend/support/layout/compositionOrderGeometry.mjs` or consider making `../frontend/support/layout/compositionOrderGeometry.mjs` a package."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 187,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 187,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 187,
+      "column": 53,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 188,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 188,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 188,
+      "column": 79,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 189,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 189,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 189,
+      "column": 70,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 190,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 190,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 190,
+      "column": 62,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 191,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 191,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 191,
+      "column": 72,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 192,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 192,
+      "column": 23,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 193,
+      "column": 101,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 232,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 232,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 232,
+      "column": 78,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 233,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 233,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 233,
+      "column": 75,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 234,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 234,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 234,
+      "column": 72,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 235,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 235,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 235,
+      "column": 81,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 236,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 236,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 236,
+      "column": 105,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 237,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Opening curly brace appears on the same line as controlling statement."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 237,
+      "column": 26,
+      "rule": "@stylistic/brace-style",
+      "message": "Statement inside of curly braces should be on next line."
+    },
+    {
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "line": 237,
+      "column": 75,
+      "rule": "@stylistic/brace-style",
+      "message": "Closing curly brace should be on the same line as opening curly brace or on the line after the previous block."
+    }
+  ]
+}

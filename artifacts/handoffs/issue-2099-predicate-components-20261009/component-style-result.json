@@ -1,0 +1,29 @@
+{
+  "sourceCommit": "99ff21ef32c62f798e4d34fd90b3c0c46e11c192",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "e53252b514f4a820f19b30b5eeb5ba67ad5cf4b1",
+    "--file",
+    "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+    "--file",
+    "tests/tools/layout-composition-order-geometry.test.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionOverflowGeometry.mjs",
+    "--file",
+    "tests/tools/layout-composition-overflow-geometry.test.mjs"
+  ],
+  "startedAtUtc": "2026-10-09T09:15:52.734854+00:00",
+  "exitCode": 1,
+  "log": "component-style.log",
+  "files": [
+    "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+    "tests/tools/layout-composition-order-geometry.test.mjs",
+    "tests/frontend/support/layout/compositionOverflowGeometry.mjs",
+    "tests/tools/layout-composition-overflow-geometry.test.mjs"
+  ],
+  "fixes": false
+}

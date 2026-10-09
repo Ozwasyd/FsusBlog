@@ -1,0 +1,113 @@
+{
+  "checkedSourceCommit": "99ff21ef32c62f798e4d34fd90b3c0c46e11c192",
+  "sourceBranch": "codex/issue-2099-geometry-integration-20261009",
+  "remoteVerified": true,
+  "sourceOnlyComposition": true,
+  "componentProvenance": [
+    {
+      "suppliedCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+      "suppliedBranch": "worker-2099-order-geometry-20261009",
+      "actualSuppliedParent": "7499b5bd82d3ce888672abc2e054bb08736da08d",
+      "incorporatedCommit": "d9b1330b864c4ba7d7049946ac4395eeba99a202",
+      "files": [
+        {
+          "path": "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+          "sha256": "628a77e720054a665646ee37bb6c71a587a71bcb178711567d0f3a4c627db094",
+          "byteIdentical": true
+        },
+        {
+          "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+          "sha256": "001b7296e378ba80850f45e7e25a9d941b72de7bde49571f6c19a52c0c4bc35b",
+          "byteIdentical": true
+        }
+      ]
+    },
+    {
+      "suppliedCommit": "79b685620845a7cb5db561bdaeb7799e7bdb5b51",
+      "suppliedBranch": "codex/issue-2099-overflow-predicate-20261009",
+      "actualSuppliedParent": "2c688e912067e08069f3c98ee42a963071864263",
+      "incorporatedCommit": "99ff21ef32c62f798e4d34fd90b3c0c46e11c192",
+      "files": [
+        {
+          "path": "tests/frontend/support/layout/compositionOverflowGeometry.mjs",
+          "sha256": "91d3dbb3578170c4e4fee60b0c1b40441b585763999b8ef8fdb5e4dde6d9e4aa",
+          "byteIdentical": true
+        },
+        {
+          "path": "tests/tools/layout-composition-overflow-geometry.test.mjs",
+          "sha256": "666d9dda7b839d6b6d3cee4481d2892dbdf944961c7f2d1dc766876d124ae9dd",
+          "byteIdentical": true
+        }
+      ]
+    }
+  ],
+  "checks": {
+    "syntax": {
+      "files": 4,
+      "exitCodes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "testedCommit": "99ff21ef32c62f798e4d34fd90b3c0c46e11c192"
+    },
+    "incrementalDiffCheck": 0,
+    "componentCommitRange": 0,
+    "componentFrontendStyle": {
+      "exitCode": 1,
+      "diagnostics": 40,
+      "path": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "parentOwnerBranch": "worker-2099-order-geometry-20261009",
+      "suppliedCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+      "evidence": "supplier-style-diagnostics.json"
+    },
+    "tests": "NOT RUN; no unchanged suite or blocked order entry run",
+    "runtimeProductBrowser": "NOT RUN"
+  },
+  "priorViewportAccounting": {
+    "publishedCommit": "e53252b514f4a820f19b30b5eeb5ba67ad5cf4b1",
+    "baseAndCandidateDiagnostics": 349,
+    "preimagePairs": 349,
+    "new32LineDiagnostics": 0,
+    "originalSourceUnitGateStillFails": true,
+    "policyOverride": false
+  },
+  "old25ReceiptCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "old25ReceiptNotRebound": true,
+  "canonicalOrderContracts": 12,
+  "overflowScope": "extra document-horizontal-bounds diagnostic; canonical matrix coverage.checks includes horizontal-overflow but firstFoldInvariants has no document-horizontal-bounds; no alias/admission invented",
+  "existingCaller": {
+    "path": "tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
+    "line": 815,
+    "call": "assertViewportBoundaryContract(session.page,label)",
+    "missing": "canonical archetype/state, verified fixture/scene, current baseline/composition identity and exact source/runBinding",
+    "wiringInvented": false
+  },
+  "upstreamAnalyzerCaller": {
+    "path": "tests/frontend/checks/runtime/check-layout-composition-probe.mjs",
+    "line": 205,
+    "ownerIssue": 1894
+  },
+  "sourceRoster": {
+    "path": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+    "symbol": "compositionAnalyzerSources",
+    "ownerIssue": 1894,
+    "modified": false
+  },
+  "futureObservationComposition": "Use exact domObservation returned by admitted probeCompositionGeometryPage; never recapture and assume correspondence. Supplemental captures remain sequential and unsupported/unknown/unchecked predicates explicit.",
+  "pendingStates": 91,
+  "nullFixtureRefs": 79,
+  "chromeSource": "not yet supplied",
+  "supplierFilesModified": false,
+  "fullGeometryVerified": false,
+  "fullVisualVerified": false,
+  "wholeIssueAccepted": false,
+  "wholeAssignmentAccepted": false,
+  "GitHubContentApiWrites": false,
+  "nextOwnerActions": [
+    "order worker repairs its exact40 original diagnostics and waits for legitimate preflight closure owner; no consumer repair",
+    "coordinator supplies exact chrome source when published",
+    "1894 retains analyzer/source-roster integration; scene/state/capability producers provide real admission facts"
+  ]
+}

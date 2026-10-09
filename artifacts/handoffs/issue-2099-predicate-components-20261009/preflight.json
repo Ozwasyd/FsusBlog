@@ -1,0 +1,21 @@
+{
+  "sourceCommit": "99ff21ef32c62f798e4d34fd90b3c0c46e11c192",
+  "allowedSourceFiles": [
+    "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+    "tests/tools/layout-composition-order-geometry.test.mjs",
+    "tests/frontend/support/layout/compositionOverflowGeometry.mjs",
+    "tests/tools/layout-composition-overflow-geometry.test.mjs"
+  ],
+  "allowedCommands": [
+    "node --check",
+    "original frontend style --mode changed with exact four --file arguments",
+    "git diff --check",
+    "original commit-range checker"
+  ],
+  "testExecution": false,
+  "orderTestEntryBlocked": true,
+  "blockedEntryNotRun": true,
+  "browserExecution": false,
+  "noHeldIdentityReceiptAudit": true,
+  "supplierFilesEditableByThisTask": false
+}
