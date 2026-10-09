@@ -1,0 +1,104 @@
+{
+  "schema": "chain3653.public-current-accounting.v1",
+  "recordedAt": "2026-10-09T06:41:44.363988+00:00",
+  "chainComplete": false,
+  "latestOriginMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "backendSource": "dec33cb67ec41424abd1226efaec6113105f2860",
+  "sharedFrontendTestedSource": "0c725ee10282945053c2bc283fc991b59d81a318",
+  "sharedFrontendPublishedHead": "5fbceb43c49cc7c8bea47d2fc61b980a99d04702",
+  "originalCsharp29": "NOT_RUN",
+  "laneRepairOwner": 2650,
+  "originalNativeCapability": {
+    "sdk": "10.0.302",
+    "bubblewrap": "0.12.0",
+    "systemd": "257.13",
+    "userManagerProbeExitCode": 1,
+    "userManagerState": "offline",
+    "originalUserBusExists": false,
+    "nativeControlExecuted": false
+  },
+  "readyIndependentUnimplementedModules": 0,
+  "moduleDependencyLimits": [
+    "No exact full persisted revision/draft/publication metadata/property/assets/font/renderer reader API",
+    "No real authenticated catalog/source projection wire/API",
+    "No original worker session/site/current permission authority"
+  ],
+  "issues": [
+    {
+      "issue": 3653,
+      "status": "WIP_SOURCE_NATIVE_RUNTIME_BLOCKED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    },
+    {
+      "issue": 3578,
+      "status": "DEPENDENCY_BLOCKED_NOT_STARTED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    },
+    {
+      "issue": 2423,
+      "status": "WIP_CANONICAL_FREEZER_SOURCE_AUTHORITY_BLOCKED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    },
+    {
+      "issue": 2425,
+      "status": "WIP_SHARED_SOURCE_NATIVE_RUNTIME_BLOCKED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    },
+    {
+      "issue": 2427,
+      "status": "WIP_RETAINED_HTML_SOURCE_RUNTIME_BLOCKED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    },
+    {
+      "issue": 2429,
+      "status": "WIP_SOLE_PDF_NATIVE_RUNTIME_BLOCKED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    },
+    {
+      "issue": 2430,
+      "status": "WIP_SOLE_DOCX_NATIVE_RUNTIME_BLOCKED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    },
+    {
+      "issue": 2432,
+      "status": "WIP_SOLE_EPUB_NATIVE_RUNTIME_BLOCKED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    },
+    {
+      "issue": 2434,
+      "status": "WIP_SOLE_JOBS_INTEGRATED_SOURCE_RUNTIME_BLOCKED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    },
+    {
+      "issue": 2436,
+      "status": "WIP_REAL_SHARED_DOM_DELIVERY_PASSED_PRODUCT_AUTH_SOURCE_BLOCKED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    },
+    {
+      "issue": 2438,
+      "status": "FULL_MATRIX_DEPENDENCY_BLOCKED",
+      "acceptance": "OPEN_UNQUALIFIED"
+    }
+  ],
+  "externalPrerequisites": {
+    "3578": {
+      "soleOwnerRoot": 3644,
+      "qualifiedIssueOutputsNeeded": [
+        3632,
+        3634,
+        3636
+      ],
+      "sameChainAcceptanceNeeded": 3653
+    }
+  },
+  "trackingOnly": [],
+  "publicationBarrier": "no merge/close/deploy/master push/conflict resolution",
+  "contentWriter": "coordinating parent only",
+  "newDomQualification": "10/10 ordinary DOM delivery, actual locked Vitest4.1.11; no OS/HTTP/provider/native/visual acceptance",
+  "currentTypecheck": "FAIL2;240diagnostics,51FsusUI,0Export; baseline comparison NOT_RUN",
+  "backendImportConflicts": [
+    "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+    "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+    "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs"
+  ]
+}
