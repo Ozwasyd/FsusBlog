@@ -157,6 +157,14 @@ checkpoint store. Explicit encrypted storage composition requires an already
 registered trusted protection authority or the existing application key facility
 and shares the sole recovery storage instance.
 These authority gaps are distinct from ordinary branch conflicts.
+The supplied sole checkpoint writer now exposes `ComposeRecoveryStage`, retaining
+its data source and clock while composing the actual existing-key authenticator
+with canonical storage. `AddFsusArticleVaultProtectedRecoveryStage` explicitly
+registers that composition and shares its storage across both read/storage interfaces
+within one scope. It requires the original writer, proposal owner and existing key
+facility and refuses duplicate or competing encrypted-storage registration. The
+supplied writer remains unchanged by the consumer. This fills a trusted composition
+path, without enabling transport, decision/native admission or full-package execution.
 Historical browser reads do not qualify current execution or product acceptance.
 
 The actual server observer already produces a metadata projection digest over title,

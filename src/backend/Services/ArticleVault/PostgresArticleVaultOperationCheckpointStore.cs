@@ -1,5 +1,6 @@
 using System.Text;
 
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Shared.Contracts.ArticleVault;
 
 using Npgsql;
@@ -16,6 +17,16 @@ public sealed class PostgresArticleVaultOperationCheckpointStore(
     IArticleVaultExecutionStore executionStore,
     TimeProvider timeProvider) : IArticleVaultOperationCheckpointStore, IArticleVaultRecoveryOperationCheckpointWriter
 {
+    /// <summary>
+    /// Composes canonical protected recovery storage around this sole writer. Its existing
+    /// data source and clock are retained, so staging cannot use an independently supplied
+    /// transaction database or expiry clock. The key and proposal stores remain trusted inputs.
+    /// </summary>
+    public ArticleVaultRecoveryStageComposition ComposeRecoveryStage(
+        IArticleVaultResolutionProposalStore proposalStore,
+        IAuditRetentionEpochKeyStore keyStore)
+        => new(this, dataSource, proposalStore, keyStore, timeProvider);
+
     public async Task RegisterAsync(
         ArticleVaultOperationIdentity identity,
         ArticleVaultSyncPlan plan,

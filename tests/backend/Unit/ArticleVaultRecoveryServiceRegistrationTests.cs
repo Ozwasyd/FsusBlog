@@ -17,6 +17,98 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ArticleVaultRecoveryServiceRegistrationTests
 {
     [Fact]
+    public void ProtectedStageComposition_SharesSoleWriterStorageAndExistingKeysWithoutIo()
+    {
+        var services = new ServiceCollection();
+        var keys = Substitute.For<IAuditRetentionEpochKeyStore>();
+        var executions = Substitute.For<IArticleVaultExecutionStore>();
+        var proposals = Substitute.For<IArticleVaultResolutionProposalStore>();
+        using NpgsqlDataSource dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Database=vault-di-only;Username=vault-di-only");
+        services.AddSingleton(dataSource);
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddSingleton(keys);
+        services.AddSingleton(executions);
+        services.AddScoped<PostgresArticleVaultOperationCheckpointStore>();
+        services.AddScoped<IArticleVaultOperationCheckpointStore>(
+            provider => provider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>());
+        services.AddScoped<IArticleVaultRecoveryOperationCheckpointWriter>(
+            provider => provider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>());
+        services.AddSingleton(proposals);
+        services.AddFsusArticleVaultProtectedRecoveryStage();
+        using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true,
+            ValidateOnBuild = true
+        });
+        using IServiceScope first = provider.CreateScope();
+        using IServiceScope second = provider.CreateScope();
+        var composition = first.ServiceProvider.GetRequiredService<ArticleVaultRecoveryStageComposition>();
+        Assert.Same(composition.Storage, first.ServiceProvider.GetRequiredService<PostgresArticleVaultRecoveryStorage>());
+        Assert.Same(composition.Storage, first.ServiceProvider.GetRequiredService<IArticleVaultTransactionalRecoveryJournalStore>());
+        Assert.Same(first.ServiceProvider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>(),
+            first.ServiceProvider.GetRequiredService<IArticleVaultRecoveryOperationCheckpointWriter>());
+        Assert.NotSame(composition, second.ServiceProvider.GetRequiredService<ArticleVaultRecoveryStageComposition>());
+        Assert.NotSame(composition.Storage, second.ServiceProvider.GetRequiredService<PostgresArticleVaultRecoveryStorage>());
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<ArticleVaultRecoveryStageComposition>());
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(NpgsqlDataSource));
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(PostgresArticleVaultOperationCheckpointStore));
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(IAuditRetentionEpochKeyStore));
+        Assert.Empty(keys.ReceivedCalls());
+        Assert.Empty(executions.ReceivedCalls());
+        Assert.Empty(proposals.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void ProtectedStageComposition_MissingOriginalOwnerLeavesRegistrationUnchanged(int missingOwner)
+    {
+        var services = new ServiceCollection();
+        if (missingOwner != 0)
+        {
+            services.AddScoped<PostgresArticleVaultOperationCheckpointStore>();
+        }
+        if (missingOwner != 1)
+        {
+            services.AddSingleton(Substitute.For<IArticleVaultResolutionProposalStore>());
+        }
+        if (missingOwner != 2)
+        {
+            services.AddSingleton(Substitute.For<IAuditRetentionEpochKeyStore>());
+        }
+        ServiceDescriptor[] before = services.ToArray();
+        Assert.Equal("article_vault_protected_recovery_stage_owner_missing", Assert.Throws<InvalidOperationException>(
+            () => services.AddFsusArticleVaultProtectedRecoveryStage()).Message);
+        Assert.Equal(before, services.ToArray());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ProtectedStageComposition_RefusesDuplicateAndCompetingEncryptedStorage(bool encryptedFirst)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<PostgresArticleVaultOperationCheckpointStore>();
+        services.AddSingleton(Substitute.For<IArticleVaultResolutionProposalStore>());
+        services.AddSingleton(Substitute.For<IAuditRetentionEpochKeyStore>());
+        services.AddSingleton(Substitute.For<IArticleVaultRecoveryBackupProtectionAuthority>());
+        if (encryptedFirst)
+        {
+            services.AddFsusArticleVaultEncryptedRecoveryStorage();
+            Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultProtectedRecoveryStage());
+        }
+        else
+        {
+            services.AddFsusArticleVaultProtectedRecoveryStage();
+            Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultProtectedRecoveryStage());
+            Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultEncryptedRecoveryStorage());
+        }
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(PostgresArticleVaultRecoveryStorage));
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(IArticleVaultTransactionalRecoveryJournalStore));
+    }
+
+    [Fact]
     public void ExplicitAgentOperationComposition_SharesCanonicalAdapterWithoutCreatingAnotherDispatcherOrStore()
     {
         var services = new ServiceCollection();

@@ -145,7 +145,8 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         if (services.Any(static descriptor => descriptor.ServiceType == typeof(PostgresArticleVaultRecoveryStorage)
-            || descriptor.ServiceType == typeof(IArticleVaultTransactionalRecoveryJournalStore)))
+            || descriptor.ServiceType == typeof(IArticleVaultTransactionalRecoveryJournalStore)
+            || descriptor.ServiceType == typeof(ArticleVaultRecoveryStageComposition)))
         {
             throw new InvalidOperationException("article_vault_recovery_journal_store_already_registered");
         }
@@ -154,6 +155,35 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
             services.AddFsusArticleVaultRecoveryBackupProtection();
         }
         services.AddScoped<PostgresArticleVaultRecoveryStorage>();
+        services.AddScoped<IArticleVaultTransactionalRecoveryJournalStore>(
+            provider => provider.GetRequiredService<PostgresArticleVaultRecoveryStorage>());
+        return services;
+    }
+
+    /// <summary>
+    /// Installs the supplied sole writer's protected-stage factory with existing host keys and proposals.
+    /// Storage shares that writer's data source and clock; no second writer, pool, key or migration is created.
+    /// This explicit composition does not enable transport, decision admission or native execution.
+    /// </summary>
+    public static IServiceCollection AddFsusArticleVaultProtectedRecoveryStage(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        if (services.Any(static descriptor => descriptor.ServiceType == typeof(ArticleVaultRecoveryStageComposition)
+            || descriptor.ServiceType == typeof(PostgresArticleVaultRecoveryStorage)
+            || descriptor.ServiceType == typeof(IArticleVaultTransactionalRecoveryJournalStore)))
+        {
+            throw new InvalidOperationException("article_vault_recovery_journal_store_already_registered");
+        }
+        Type[] owners = [typeof(PostgresArticleVaultOperationCheckpointStore),
+            typeof(IArticleVaultResolutionProposalStore), typeof(IAuditRetentionEpochKeyStore)];
+        if (owners.Any(owner => !services.Any(descriptor => descriptor.ServiceType == owner)))
+        {
+            throw new InvalidOperationException("article_vault_protected_recovery_stage_owner_missing");
+        }
+        services.AddScoped(provider => provider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>()
+            .ComposeRecoveryStage(provider.GetRequiredService<IArticleVaultResolutionProposalStore>(),
+                provider.GetRequiredService<IAuditRetentionEpochKeyStore>()));
+        services.AddScoped(provider => provider.GetRequiredService<ArticleVaultRecoveryStageComposition>().Storage);
         services.AddScoped<IArticleVaultTransactionalRecoveryJournalStore>(
             provider => provider.GetRequiredService<PostgresArticleVaultRecoveryStorage>());
         return services;
