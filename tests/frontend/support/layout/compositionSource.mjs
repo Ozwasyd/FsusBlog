@@ -5,8 +5,9 @@ import { createControlSourceResolver, controlDigest } from '@fsusblog/control-le
 
 import { createCompositionCollectionSource } from './compositionCollectionSource.mjs';
 import { createCompositionFunctionalSource } from './compositionFunctionalSource.mjs';
+import { resolveCompositionRouterViewSlot } from './compositionRoutes.mjs';
 import { createCompositionSlotSource } from './compositionSlotSource.mjs';
-import { bindCompositionTargetInputs, resolveCompositionTargetOrigin } from './compositionTargetSource.mjs';
+import { bindCompositionRouterViewTargets, bindCompositionTargetInputs, resolveCompositionTargetOrigin } from './compositionTargetSource.mjs';
 
 export const compositionNodeAttribute = 'data-fsus-composition-node';
 export const compositionCallAttribute = 'data-fsus-composition-call';
@@ -1579,7 +1580,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         visit(record.template.ast);
         return value;
     }
-    function graph(entryFiles)
+    function graph(entryFiles, { routes = null } = {})
     {
         for (const file of entryFiles)
         {
@@ -1612,6 +1613,60 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         entryFiles.forEach(visit);
         let graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+        const frameworkTargetBindings = [];
+        const frameworkTargetErrors = [];
+        if (routes)
+        {
+            // This is a projection of the supplied original route observation,
+            // not a route registry. The canonical route API validates identity.
+            const routeOwners = new Set((routes.routes ?? []).flatMap((route) => (route.matchedRecords ?? [])
+                .flatMap((record) => Object.values(record.componentViews ?? {}))));
+            function ownerPaths(file, seen = new Set())
+            {
+                if (seen.has(file))
+                {
+                    fail(`cyclic actual RouterView owner path ${file}`);
+                }
+                if (routeOwners.has(file))
+                {
+                    return [[]];
+                }
+                const next = new Set([...seen, file]);
+                return graphNodes.filter((call) => call.definition === file).flatMap((call) =>
+                    ownerPaths(call.file, next).map((path) => [call.id, ...path]));
+            }
+            const selectors = graphNodes.filter((node) => node.tag === 'component'
+                && node.ancestors.some((id) => nodes.get(id)?.origin.package === 'vue-router'
+                    && nodes.get(id)?.origin.publicName === 'RouterView'));
+            for (const node of selectors)
+            {
+                try
+                {
+                    const paths = ownerPaths(node.file);
+                    if (!paths.length)
+                    {
+                        fail(`missing actual route-declared RouterView owner ${node.file}`);
+                    }
+                    for (const callPath of paths)
+                    {
+                        const binding = bindCompositionRouterViewTargets(api, routes, node,
+                            { resolveRouterViewSlot: resolveCompositionRouterViewSlot, callPath });
+                        frameworkTargetBindings.push(binding);
+                        for (const definition of binding.variantDefinitions)
+                        {
+                            parse(definition);
+                            visit(definition);
+                        }
+                    }
+                }
+                catch (error)
+                {
+                    frameworkTargetErrors.push({ ...location(node.file, node.offset), reason: 'unbound-framework-target-source',
+                        sourceNode: node.id, message: error.message });
+                }
+            }
+            graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+        }
         const nativePropBindings = [];
         const targetBindings = [];
         const nativePropErrors = [];
@@ -2328,11 +2383,12 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
         const graphResult = { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
             files: [...records.values()].filter((record) => reachable.has(record.file)),
-            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings, targetBindings, slotBindings,
+            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings,
+            targetBindings, frameworkTargetBindings, slotBindings,
             objectKeyAbsenceProofs: [...new Map(objectKeyAbsenceProofs.map((proof) => [proof.proofDigest, proof])).values()], resolverInputs: finalBindings.files,
-            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors, ...slotErrors],
+            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors, ...slotErrors, ...frameworkTargetErrors],
             sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })),
-                resolverInputs: finalBindings.files, targetBindings, slotBindings,
+                resolverInputs: finalBindings.files, targetBindings, frameworkTargetBindings, slotBindings,
                 targetOrigins: slotGraph.nodes.filter((node) => node.origin.kind === 'target-variants').map((node) => ({ sourceNode: node.id, origin: node.origin })),
                 functionalSources: [...records.values()].filter((record) => reachable.has(record.file) && record.renderSource?.functional)
                     .map((record) => ({ file: record.file, source: record.renderSource.functional })),

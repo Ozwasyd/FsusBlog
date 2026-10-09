@@ -432,6 +432,12 @@ as a frontend source. Indirect calls and effects remain unproved, and native
 values without a function/class body remain explicit unresolved dependencies.
 The actual `ObjectRefImpl` setter writes the original object; this identity
 interface supplies neither a readonly verdict nor runtime qualification.
+`source.graph(entries, {routes})` joins original RouterView suppliers through the
+actual component call path to a route-declared owner. The analyzer obtains that
+route observation from the same per-archetype source instance. Its
+`frameworkTargetBindings` and reachable backing sources enter the original graph
+digest; original unresolved selector/rendered errors remain. The join does not
+choose a route, substitute a native tag or establish runtime/permission state.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state

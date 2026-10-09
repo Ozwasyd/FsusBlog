@@ -10,6 +10,7 @@ import { compositionAnalyzerSources } from '@fsusblog/layout-governance/composit
 import { createCompositionCollectionSource } from '@fsusblog/layout-governance/composition-collection-source';
 import { matchCompositionTargetVariant } from '@fsusblog/layout-governance/composition-dom';
 import { createCompositionFunctionalSource } from '@fsusblog/layout-governance/composition-functional-source';
+import { resolveCompositionRoutes } from '@fsusblog/layout-governance/composition-routes';
 import { createCompositionSlotSource } from '@fsusblog/layout-governance/composition-slot-source';
 import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
 import { resolveCompositionTargetOrigin } from '@fsusblog/layout-governance/composition-target-source';
@@ -57,6 +58,17 @@ function frameworkCallee(s, file, name, argument = undefined)
     s.resolver.parse(file).scripts.forEach(({ ast }) => visit(ast));
     assert.equal(candidates.length, 1);
     return candidates[0];
+}
+function routerGraph(reused = false)
+{
+    const leaf = fixture('<template><button/></template>');
+    const outlet = fixture('<script setup>import {RouterView} from "vue-router";</script><template><RouterView v-slot="{Component}"><component :is="Component"/></RouterView></template>');
+    const owner = reused ? fixture(`<script setup>import Outlet from './${outlet.split('/').at(-1)}';</script><template><Outlet/></template>`) : outlet;
+    const router = fixture(`import {createRouter} from 'vue-router';const routes=[{path:'/',component:()=>import('./${owner.split('/').at(-1)}'),
+        children:[{path:'leaf',component:()=>import('./${leaf.split('/').at(-1)}')}]}];createRouter({routes});`, 'ts');
+    const s = source();
+    const routes = resolveCompositionRoutes(s, router);
+    return { s, routes, owner, outlet, leaf };
 }
 function mixed(framework = false)
 {
@@ -634,6 +646,55 @@ test('canonical framework export rejects declared signatures without an actual r
 {
     const state = functionPackage(undefined, 'export declare function predicate():void;');
     assert.throws(() => state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias')), /no actual callable definition/);
+});
+
+test('central original graph joins actual RouterView route suppliers while retaining unbound rendered and permission gaps', () =>
+{
+    const { s, routes, owner, outlet, leaf } = routerGraph();
+    const graph = s.graph([owner], { routes });
+    assert.equal(graph.frameworkTargetBindings.length, 1);
+    const binding = graph.frameworkTargetBindings[0];
+    const node = graph.nodes.find((entry) => entry.file === outlet && entry.tag === 'component');
+    assert.equal(binding.sourceNode, node.id);
+    assert.equal(binding.supplier.routeOwner.file, owner);
+    assert.ok(binding.variantDefinitions.includes(leaf));
+    assert.ok(graph.files.some((entry) => entry.file === leaf));
+    assert.ok(graph.nodes.some((entry) => entry.file === leaf && entry.tag === 'button'));
+    assert.equal(binding.runtimeState, 'unbound');
+    assert.equal(binding.permissionState, 'unbound');
+    assert.equal(binding.qualificationEligible, false);
+    assert.ok(graph.errors.some((error) => error.reason === 'unknown-component-source' && error.file === outlet));
+});
+
+test('central RouterView graph join follows the actual reusable component call to its original route declared owner', () =>
+{
+    const { s, routes, owner, outlet } = routerGraph(true);
+    const graph = s.graph([owner], { routes });
+    assert.equal(graph.frameworkTargetBindings.length, 1);
+    const binding = graph.frameworkTargetBindings[0];
+    const call = graph.nodes.find((entry) => entry.file === owner && entry.definition === outlet);
+    assert.deepEqual(binding.supplier.routeOwner.callPath.map((entry) => entry.id), [call.id]);
+    assert.deepEqual(binding.callPath.slice(1), [call.id]);
+});
+
+test('central RouterView graph join refuses cloned or foreign route observations without borrowing their suppliers', () =>
+{
+    const original = routerGraph();
+    for (const routes of [structuredClone(original.routes), routerGraph().routes])
+    {
+        const s = original.s;
+        const graph = s.graph([original.owner], { routes });
+        assert.equal(graph.frameworkTargetBindings.length, 0);
+        assert.ok(graph.errors.some((error) => error.reason === 'unbound-framework-target-source'));
+    }
+});
+
+test('central RouterView graph without an actual route observation preserves its original unresolved source', () =>
+{
+    const { s, owner, outlet } = routerGraph();
+    const graph = s.graph([owner]);
+    assert.deepEqual(graph.frameworkTargetBindings, []);
+    assert.ok(graph.errors.some((error) => error.file === outlet && error.reason === 'unknown-component-source'));
 });
 
 for (const [label, text] of [

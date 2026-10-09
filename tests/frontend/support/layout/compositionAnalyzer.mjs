@@ -130,7 +130,8 @@ export function scanCompositionArchetypes({ repositoryRoot, fsusUIRoot, parserRo
     {
         // A separate graph prevents sibling routes from contaminating per-archetype source errors.
         const source = createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot });
-        const graph = source.graph(binding.entryFiles);
+        const graphRoutes = resolveCompositionRoutes(source, routes.routerFile);
+        const graph = source.graph(binding.entryFiles, { routes: graphRoutes });
         return { archetype: `${binding.archetype.surface}/${binding.archetype.kind}`, path: binding.archetype.path,
             contractDigest: compositionDigest(binding.archetype.compositionContract), graph,
             errors: [...binding.errors, ...graph.errors], renderedDom: 'not-run', qualified: false, fullVisualVerified: false };
