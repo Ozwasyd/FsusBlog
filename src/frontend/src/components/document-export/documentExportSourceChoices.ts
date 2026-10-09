@@ -37,10 +37,7 @@ export function mapDocumentExportSourceChoices(
     privateForSource: (choice: Readonly<DocumentExportSourceChoiceResponse>) => boolean
 ): DocumentExportWireUiOptions['sources']
 {
-    const captured = Object.freeze({ choices: Object.freeze(response.choices.map(choice => Object.freeze({
-        choiceId: choice.choiceId, label: choice.label, coordinate: Object.freeze({ ...choice.coordinate })
-    }))) });
-    encodeDocumentExportSourceChoicesResponse(captured);
+    const captured = captureDocumentExportSourceChoicesResponse(response);
     return Object.freeze(captured.choices.map(choice =>
     {
         const privateSource = privateForSource(choice);
@@ -50,4 +47,14 @@ export function mapDocumentExportSourceChoices(
         }
         return Object.freeze({ id: choice.choiceId, label: choice.label, coordinate: choice.coordinate, private: privateSource });
     }));
+}
+
+/** Retain only the actual public choices under the sole generated grammar. */
+export function captureDocumentExportSourceChoicesResponse(response: DocumentExportSourceChoicesResponse): DocumentExportSourceChoicesResponse
+{
+    const captured = Object.freeze({ choices: Object.freeze(response.choices.map(choice => Object.freeze({
+        choiceId: choice.choiceId, label: choice.label, coordinate: Object.freeze({ ...choice.coordinate })
+    }))) });
+    encodeDocumentExportSourceChoicesResponse(captured);
+    return captured;
 }
