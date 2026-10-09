@@ -403,7 +403,12 @@ public sealed class ArticleRelationSourceCoordinateAuthorityIntegrationTests(Pos
 
     private static async Task<(int Article, long Revision)> CreateSourceAsync(SqlSugarClient db)
     {
-        int article = await db.Insertable(new Article
+        int article = await CreateArticleAsync(db);
+        return (article, await CreateRevisionAsync(db, article, 1));
+    }
+
+    private static Task<int> CreateArticleAsync(SqlSugarClient db)
+        => db.Insertable(new Article
         {
             Title = "task-owned coordinate fixture",
             CreateTime = Now,
@@ -411,8 +416,6 @@ public sealed class ArticleRelationSourceCoordinateAuthorityIntegrationTests(Pos
             Status = ArticleStatus.Draft,
             IsDeleted = false
         }).ExecuteReturnIdentityAsync();
-        return (article, await CreateRevisionAsync(db, article, 1));
-    }
 
     private static Task<long> CreateRevisionAsync(SqlSugarClient db, int article, int revisionNo)
         => db.Insertable(new ArticleRevision
