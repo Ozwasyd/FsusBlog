@@ -5,7 +5,8 @@
             "id": "json-wire-key",
             "paths": [
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "config/testing/release-final-execution-authority-index.json"
+                "config/testing/release-final-execution-authority-index.json",
+                "artifacts/style/font-theme-admin-pods-idempotence.json"
             ],
             "reason": "Preserve the existing canonical execution-authority JSON keys while adding only the current C++ SOURCE port and its real source input bindings."
         },
@@ -23,9 +24,11 @@
                 "tools/configuration/cpp-source.test.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/source-governance.mjs",
-                "tools/test-matrix/blame-ignore-source.mjs"
+                "tools/test-matrix/blame-ignore-source.mjs",
+                "tools/style/check-native-tooling-style.mjs",
+                "tests/tools/native-tooling-style.test.mjs"
             ],
-            "reason": "Preserve the actual existing compiler environment names and checker/planner interfaces while keeping implicit compile context and unsupported flags refused."
+            "reason": "Preserve actual compiler environment names, checker/planner interfaces and the original native checker fixture tokens while keeping implicit context and unsupported flags refused."
         }
     ]
 }

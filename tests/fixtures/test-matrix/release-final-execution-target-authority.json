@@ -2,7 +2,7 @@
     "schema": "fsusblog.release-final-execution-target-authority.v2",
     "source": "tests/matrix.yml",
     "sourceIndex": "config/testing/release-final-execution-authority-index.json",
-    "sourceIndexDigest": "sha256:3f78fef68734af5595d12fc560a043fcc4c20f4bb2ad0a2174fd4450e347d6c6",
+    "sourceIndexDigest": "sha256:784b687e8cab1c08d81e597f1d21558fd91ba09bb90d140d58514b594a96f283",
     "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
     "nodeParserIdentity": {
         "nodeVersion": "v24.16.0",
@@ -2145,8 +2145,8 @@
         },
         {
             "path": "tests/tools/native-tooling-style.test.mjs",
-            "contentDigest": "sha256:fa0ad3f836d8496f92449ef1a515e95f32b54bd4820b610d90c3914e9ca59bfd",
-            "indexDigest": "sha256:fa0ad3f836d8496f92449ef1a515e95f32b54bd4820b610d90c3914e9ca59bfd"
+            "contentDigest": "sha256:9082e920c1a75b414d88d0eb7923c5b69dc5e16eb4cdbc25f9de2f7985781f00",
+            "indexDigest": "sha256:9082e920c1a75b414d88d0eb7923c5b69dc5e16eb4cdbc25f9de2f7985781f00"
         },
         {
             "path": "tests/tools/no-global-dotnet-build-server-shutdown.test.mjs",
@@ -2175,8 +2175,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:f5dcc529b26dcf937e4e432c7e8ec291fbb3f3944e955a5c959699f8c96b37cd",
-            "indexDigest": "sha256:f5dcc529b26dcf937e4e432c7e8ec291fbb3f3944e955a5c959699f8c96b37cd"
+            "contentDigest": "sha256:49ad791277743339958d7e28003b69fb2679fa94e8e61151f65e4271161e2243",
+            "indexDigest": "sha256:49ad791277743339958d7e28003b69fb2679fa94e8e61151f65e4271161e2243"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -3980,8 +3980,8 @@
         },
         {
             "path": "tools/style/check-native-tooling-style.mjs",
-            "contentDigest": "sha256:603947a4065f7fb617a157dc3ffac7f5b7a9ff59819c8c9fb625a786e7a7fb68",
-            "indexDigest": "sha256:603947a4065f7fb617a157dc3ffac7f5b7a9ff59819c8c9fb625a786e7a7fb68"
+            "contentDigest": "sha256:fdf3dc04da47f4e7db2f2d151a92ffbf8cf502b073423d4c8749fa2ab430b601",
+            "indexDigest": "sha256:fdf3dc04da47f4e7db2f2d151a92ffbf8cf502b073423d4c8749fa2ab430b601"
         },
         {
             "path": "tools/style/line-ending-invariant.mjs",
@@ -4455,8 +4455,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:ff7673251eea9a279b411f9d6c40302104f2ebfb4da3d92c610b69f40e7061cc",
-            "indexDigest": "sha256:ff7673251eea9a279b411f9d6c40302104f2ebfb4da3d92c610b69f40e7061cc"
+            "contentDigest": "sha256:70370c5bc48d5ef7e862fe74d2b1f6b2b284a577eaf279bb8cf8d177d77cc32a",
+            "indexDigest": "sha256:70370c5bc48d5ef7e862fe74d2b1f6b2b284a577eaf279bb8cf8d177d77cc32a"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
