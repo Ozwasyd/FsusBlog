@@ -1,0 +1,119 @@
+{
+    "schemaVersion": 1,
+    "contractSource": "src/core/Mapping/Models/DocumentExportModels.cs",
+    "managedCodecSource": "src/core/Cache/PodBinaryCodec.DocumentExport.cs",
+    "verifiedProposalCommit": "aa1e3d24318651a5208083bc956a817098a6ecc6",
+    "verifiedProposalSha256": "c8044059b105e951ed9a0d3142224754da8e07fc14ecccfca7199c1054edac1c",
+    "managedCodecSha256": "ecf08d2478f09f1c9a7aceb54966e485826fc9d6821ef2f88d6f642124d7bf53",
+    "nativeError": {
+        "name": "DocumentExportPayloadInvalid",
+        "value": 18,
+        "reason": "document_export_payload_invalid"
+    },
+    "roots": {
+        "DocumentExportRequest": {
+            "value": 278,
+            "model": "DocumentExportRequestCoreModel",
+            "family": "document-export-request",
+            "maxPayloadBytes": 16368,
+            "maxCompleteFrameBytes": 16384
+        },
+        "DocumentExportTaskRequest": {
+            "value": 279,
+            "model": "DocumentExportTaskRequestCoreModel",
+            "family": "document-export-task-request",
+            "maxPayloadBytes": 1008,
+            "maxCompleteFrameBytes": 1024
+        },
+        "DocumentExportJobResponse": {
+            "value": 280,
+            "model": "DocumentExportJobResponseCoreModel",
+            "family": "document-export-job-response",
+            "maxPayloadBytes": 32768,
+            "maxCompleteFrameBytes": 32784
+        },
+        "DocumentExportPageResponse": {
+            "value": 281,
+            "model": "DocumentExportPageResponseCoreModel",
+            "family": "document-export-page-response",
+            "maxPayloadBytes": 2097152,
+            "maxCompleteFrameBytes": 2097168
+        }
+    },
+    "records": {
+        "DocumentExportSourceCoreModel": [
+            "int Kind",
+            "long ArticleId",
+            "string? DraftKey",
+            "long? RevisionId",
+            "long? PublicationId",
+            "long SourceVersion"
+        ],
+        "DocumentExportRequestCoreModel": [
+            "string RequestId",
+            "string IdempotencyKey",
+            "DocumentExportSourceCoreModel Source",
+            "string FormatId",
+            "string LayoutProfile",
+            "string ThemeProfile",
+            "string Locale"
+        ],
+        "DocumentExportTaskRequestCoreModel": [
+            "string TaskId"
+        ],
+        "DocumentExportAttemptCoreModel": [
+            "int Number",
+            "bool Diagnostic",
+            "long StartedAtUnixMs",
+            "long? FinishedAtUnixMs",
+            "int Status",
+            "string Reason"
+        ],
+        "DocumentExportOutputCoreModel": [
+            "string OutputId",
+            "string MediaType",
+            "string Extension",
+            "string OutputDigest",
+            "string ResultReceiptDigest",
+            "long Length",
+            "long CreatedAtUnixMs",
+            "long ExpiresAtUnixMs",
+            "long? DeletedAtUnixMs"
+        ],
+        "DocumentExportJobResponseCoreModel": [
+            "string TaskId",
+            "string RequestId",
+            "DocumentExportSourceCoreModel Source",
+            "string InputDigest",
+            "string TaskDigest",
+            "string FormatId",
+            "string ProviderId",
+            "string ProviderVersion",
+            "string LayoutProfile",
+            "string ThemeProfile",
+            "string Locale",
+            "int Status",
+            "long Version",
+            "long CreatedAtUnixMs",
+            "long ExpiresAtUnixMs",
+            "string Reason",
+            "IReadOnlyList<DocumentExportAttemptCoreModel> Attempts",
+            "DocumentExportOutputCoreModel? Output"
+        ],
+        "DocumentExportPageResponseCoreModel": [
+            "int Offset",
+            "int Limit",
+            "bool HasMore",
+            "IReadOnlyList<DocumentExportJobResponseCoreModel> Jobs"
+        ]
+    },
+    "payloadRevision": 1,
+    "identifierMaxUtf16": 192,
+    "reasonMaxUtf16": 2048,
+    "maxAttempts": 3,
+    "maxPageSize": 50,
+    "minimumUnixMilliseconds": "-62135596800000",
+    "maximumUnixMilliseconds": "253402300799999",
+    "int64Binding": "canonical decimal strings, no Number coercion",
+    "authority": "Wire shapes and bounded validation only; no task/auth/receipt/provider/lifecycle/download capability authority. Existing exact Core models/codecs are supplied domain source, not another job implementation."
+}

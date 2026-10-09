@@ -1,0 +1,21 @@
+{
+    "schemaVersion": 1,
+    "contractSource": "src/shared/Contracts/AuthoringNavigation/AuthorArticleSelectionRevalidationContracts.cs",
+    "family": "author-article-selection",
+    "nativeError": { "name": "AuthorArticleSelectionPayloadInvalid", "value": 17, "reason": "author_article_selection_payload_invalid" },
+    "requestPayloadBytes": 100,
+    "maxResponsePayloadBytes": 626,
+    "siteScopeMaxUtf16": 128,
+    "siteScopeMaxUtf8": 512,
+    "roots": {
+        "AuthorArticleSelectionRevalidateRequest": { "value": 276, "type": "AuthorArticleSelectionRevalidationRequest" },
+        "AuthorArticleSelectionRevalidateResponse": { "value": 277, "type": "AuthorArticleSelectionRevalidationResponse" }
+    },
+    "records": {
+        "AuthorArticleSelectionRevalidationRequest": ["int SchemaVersion", "int ArticleId", "long ServerRevision", "Guid RequestId", "string PermissionToken"],
+        "AuthorArticleSelectionRevalidationOwner": ["long AdminPrincipalId", "string SiteScope"],
+        "AuthorArticleSelectionRevalidationResponse": ["int SchemaVersion", "bool Current", "AuthorArticleSelectionRevalidationOwner Owner", "int ArticleId", "long ServerRevision", "Guid RequestId", "string? PermissionToken"]
+    },
+    "encoding": "sequential little-endian Int32/Int64; nonempty network-order Guid16; strict UTF8 Int32 byte lengths; bool/presence exactly 0 or 1; no padding or trailing bytes; false Current requires absent token; true Current requires exact 64 lowercase hex token",
+    "authority": "Authenticated existing Server facade derives Owner; transport carries only selected-ID freshness. No ranked query, slug, history generation, Markdown parser, open command or admission receipt. Int64 maps to canonical decimal strings in TypeScript."
+}
