@@ -5,11 +5,12 @@ import { nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ElButton, ElPopover } from '@ozwasyd/element-plus';
 
-import ArticleInternalLinkPreview, {
-    type ArticleInternalLinkPreviewContent,
-    type ArticleInternalLinkPreviewPresentation,
-    type ArticleInternalLinkPreviewRequest
-} from '@/components/admin/article/ArticleInternalLinkPreview.vue';
+import ArticleInternalLinkPreview from '@/components/admin/article/ArticleInternalLinkPreview.vue';
+import type {
+    ArticleInternalLinkPreviewContent,
+    ArticleInternalLinkPreviewPresentation,
+    ArticleInternalLinkPreviewRequest
+} from '@/components/admin/article/ArticleInternalLinkPreview.types';
 
 // Presentation inputs exercise the component boundary only; they do not prove
 // host transport, permission, URL admission or production UX acceptance.
