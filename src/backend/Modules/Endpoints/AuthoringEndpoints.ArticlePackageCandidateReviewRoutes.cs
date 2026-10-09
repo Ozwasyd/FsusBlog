@@ -14,7 +14,7 @@ namespace FsusBlog.Server.Modules.Endpoints;
 public static partial class AuthoringEndpoints
 {
     /// <summary>Inactive until the sole central owner admits the frame pair, route and canonical reader.</summary>
-    private static void MapArticlePackageCandidateReviewRoutes(IEndpointRouteBuilder group)
+    internal static void MapArticlePackageCandidateReviewRoutes(IEndpointRouteBuilder group)
     {
         group.MapPost("/article-packages/candidate-review", ReadArticlePackageCandidateReviewAsync)
             .WithName("binary_post_author_article_packages_candidate_review")
