@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/linux-cgroup-membership-locator.test.mjs",
+        "tools/test/lanes/static-governance.sh",
+        "tools/test/linux-cgroup-membership-locator.mjs",
+        "tools/test/system-memory.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "d1fe37ebb50e7e70881b893e614d342edecc0f1ef29a33cbd842d968c43973cf"
+        }
+    ]
+}
