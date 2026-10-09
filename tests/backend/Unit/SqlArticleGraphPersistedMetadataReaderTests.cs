@@ -61,6 +61,31 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
         Assert.Throws<NotSupportedException>(() => ((IList<int>)result.Facts[0].TagIds).Add(2));
     }
 
+    [Fact]
+    public async Task UnavailablePermissionContextRefusesBeforeAnyMetadata()
+    {
+        var fixture = new Fixture
+        {
+            ChangePermission = snapshot => snapshot with { Status = AuthorArticlePinPermissionSnapshotStatus.Unavailable }
+        };
+        Assert.Null(await fixture.Reader.ReadAsync(Request([1])));
+        Assert.Equal(new[] { "permission:context" }, fixture.Events);
+        Assert.Equal(0, fixture.RowReads);
+        Assert.Equal(0, fixture.CoordinateReads);
+    }
+
+    [Fact]
+    public async Task EntirelyDeniedBatchRevalidatesPermissionsWithoutReadingHiddenFacts()
+    {
+        var fixture = new Fixture { Decision = id => new(id, false, false, string.Empty) };
+        ArticleGraphPersistedMetadataResult result = Assert.IsType<ArticleGraphPersistedMetadataResult>(
+            await fixture.Reader.ReadAsync(Request([1, 2])));
+        Assert.Empty(result.Facts);
+        Assert.Equal(4, fixture.PermissionReads);
+        Assert.Equal(0, fixture.RowReads);
+        Assert.Equal(0, fixture.CoordinateReads);
+    }
+
     [Theory]
     [InlineData("0")]
     [InlineData("-1")]
@@ -160,6 +185,7 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
     [InlineData("number")]
     [InlineData("epoch")]
     [InlineData("mapping")]
+    [InlineData("identity")]
     public async Task MissingWrongAndDriftingCanonicalMappingsRefuse(string field)
     {
         var fixture = new Fixture();
@@ -169,6 +195,7 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
             "revision" => source with { RevisionId = 999 },
             "number" => source with { RevisionNo = 999 },
             "epoch" => source with { SourceEpoch = Guid.Empty },
+            "identity" => source with { ArticleIdentity = Identity(2) },
             "mapping" when fixture.CoordinateReads == 2 => source with { SourceEpoch = Epoch(2) },
             _ => source
         };
@@ -228,7 +255,7 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
         Assert.Equal(2, fixture.RowReads);
         Assert.Equal(2, fixture.CoordinateReads);
         Assert.All(fixture.MetadataBatches, batch => Assert.Equal(ids, batch));
-        Assert.True(result.ReadOperations <= 22);
+        Assert.True(result.ReadOperations <= 26);
     }
 
     [Fact]
@@ -237,7 +264,7 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
         var fixture = new Fixture();
         Assert.Null(await fixture.Reader.ReadAsync(Request(Enumerable.Range(1, 65).ToArray())));
         Assert.Null(await fixture.Reader.ReadAsync(Request([1, 1])));
-        Assert.Null(await fixture.Reader.ReadAsync(Request([1]) with { RemainingReadOperations = 21 }));
+        Assert.Null(await fixture.Reader.ReadAsync(Request([1]) with { RemainingReadOperations = 25 }));
         Assert.Empty(fixture.Events);
         Assert.Equal(0, fixture.ProbeReads);
     }
@@ -249,6 +276,17 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
         IAuthorArticlePinPermissionProjectionProvider permission = Substitute.For<IAuthorArticlePinPermissionProjectionProvider>();
         var reader = new SqlArticleGraphPersistedMetadataReader(db, new(), permission);
         Assert.Null(await reader.ReadAsync(Request([1, 2])));
+        Assert.Empty(db.ReceivedCalls());
+        Assert.Empty(permission.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task ProductionSingleModeStaysUnavailableUntilPermissionSqlCancellationContractExists()
+    {
+        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        IAuthorArticlePinPermissionProjectionProvider permission = Substitute.For<IAuthorArticlePinPermissionProjectionProvider>();
+        var reader = new SqlArticleGraphPersistedMetadataReader(db, new(), permission);
+        Assert.Null(await reader.ReadAsync(Request([1])));
         Assert.Empty(db.ReceivedCalls());
         Assert.Empty(permission.ReceivedCalls());
     }

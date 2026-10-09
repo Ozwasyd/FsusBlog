@@ -44,10 +44,14 @@ internal sealed record ArticleGraphPersistedMetadataResult(
 /// Missing facts, drift, snapshots and exhausted allocations return no partial metadata.
 /// </summary>
 /// <remarks>
-/// The canonical authority currently exposes only a single-revision read. Production therefore
-/// admits at most one candidate, refusing batch mode until that owner supplies a cancellable,
+/// The canonical authority currently exposes only a single-revision read. The native adapter
+/// is limited to one candidate, refusing batch mode until that owner supplies a cancellable,
 /// bounded exact batch API on the same caller session. No per-article batch loop or parallel
 /// coordinate store is used. The caller retains transaction, connection and commit ownership.
+/// The existing SQL permission adapter does not pass cancellation to GetDataReaderAsync.
+/// Its production admission remains unavailable until the permission owner supplies bounded
+/// native command cancellation and completion before relinquishing the borrowed caller client.
+/// Abandoning that read with WaitAsync cannot satisfy this contract.
 /// </remarks>
 public sealed class SqlArticleGraphPersistedMetadataReader
 {
@@ -59,6 +63,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
     private readonly Func<Row[], CancellationToken, Task<ArticleRelationRevisionCoordinate[]>> _readCoordinates;
     private readonly int _maximumCandidates;
     private readonly Func<SqlArticleGraphPersistedMetadataReader>? _newRead;
+    private readonly bool _boundedPermissionReadsAvailable = true;
 
     /// <summary>Uses the existing permission and canonical coordinate authorities without writing or registering them.</summary>
     public SqlArticleGraphPersistedMetadataReader(ISqlSugarClient db,
@@ -66,6 +71,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         IAuthorArticlePinPermissionProjectionProvider permissions)
         : this(permissions, null!, null!, null!, 1)
     {
+        _boundedPermissionReadsAvailable = false;
         _newRead = () =>
         {
             var session = new CallerSession(db);
@@ -79,6 +85,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         };
     }
 
+    // Controlled ordinary tests exercise the algorithm without supplying a second production authority.
     internal SqlArticleGraphPersistedMetadataReader(IAuthorArticlePinPermissionProjectionProvider permissions,
         Func<CancellationToken, Task<SessionStamp>> probe,
         Func<int[], ArticleGraphMetadataSelection, CancellationToken, Task<Row[]>> readRows,
@@ -96,6 +103,10 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         ArticleGraphPersistedMetadataRequest request, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!_boundedPermissionReadsAvailable)
+        {
+            return null;
+        }
         if (_newRead is not null)
         {
             return await _newRead().ReadAsync(request, cancellationToken).ConfigureAwait(false);
@@ -115,7 +126,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             Array.Sort(candidates, static (first, second) => first.ArticleId.CompareTo(second.ArticleId));
             var budget = new ReadBudget(request.RemainingReadOperations, request.RemainingMilliseconds);
             // Reserve the complete two-pass allocation before touching the server or permission source.
-            budget.RequireCapacity(22);
+            budget.RequireCapacity(26);
             using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             deadline.CancelAfter(budget.RemainingTime());
             CancellationToken token = deadline.Token;
@@ -165,7 +176,9 @@ public sealed class SqlArticleGraphPersistedMetadataReader
                 row.PublicationNo, row.SelectedCategoryId,
                 Array.AsReadOnly(ParseTags(row.SelectedTags)), firstSources![index])).ToArray());
             token.ThrowIfCancellationRequested();
-            return new(facts, budget.Operations, (int)budget.RemainingTime().TotalMilliseconds);
+            int remainingMilliseconds = (int)budget.RemainingTime().TotalMilliseconds;
+            Require(remainingMilliseconds > 0);
+            return new(facts, budget.Operations, remainingMilliseconds);
         }
         catch (Exception)
         {
@@ -194,7 +207,9 @@ public sealed class SqlArticleGraphPersistedMetadataReader
     private async Task<AuthorArticlePinPermissionSnapshot> PermissionAsync(ArticleGraphPersistedMetadataRequest request,
         int[] ids, ReadBudget budget, CancellationToken token)
     {
-        budget.Take();
+        // The original permission adapter reads at most session/principal plus article state.
+        // Reserve both SQL operations, including the empty-context call's conservative allowance.
+        budget.Take(2);
         AuthorArticlePinPermissionSnapshot value = await _permissions.ResolveAsync(
             new(request.Owner, request.RequestId, Array.AsReadOnly(ids.ToArray())), token).ConfigureAwait(false);
         value = value with { Decisions = Array.AsReadOnly(Copy(value.Decisions, ids.Length)
@@ -241,13 +256,15 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         ArticleRelationArticleCoordinate[] candidates)
     {
         Require(sources.Length == rows.Length);
+        Dictionary<int, string> identities = candidates.ToDictionary(static candidate => candidate.ArticleId,
+            static candidate => candidate.ArticleIdentity);
         for (int index = 0; index < rows.Length; index++)
         {
             Row row = rows[index];
             ArticleRelationRevisionCoordinate source = sources[index];
             Require(source.ArticleId == row.ArticleId && source.RevisionId == row.SelectedRevisionId
                 && source.RevisionNo == row.SelectedRevisionNo && source.SourceEpoch != Guid.Empty
-                && source.ArticleIdentity == candidates.Single(candidate => candidate.ArticleId == row.ArticleId).ArticleIdentity
+                && source.ArticleIdentity == identities[row.ArticleId]
                 && source.RevisionIdentity is { Length: 45 }
                 && source.RevisionIdentity.StartsWith("revision:", StringComparison.Ordinal)
                 && Guid.TryParseExact(source.RevisionIdentity[9..], "D", out Guid identity)
@@ -320,10 +337,10 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             _ = RemainingTime();
             Require(count <= maximumOperations - Operations);
         }
-        internal void Take()
+        internal void Take(int count = 1)
         {
-            RequireCapacity(1);
-            Operations++;
+            RequireCapacity(count);
+            Operations += count;
         }
     }
 
