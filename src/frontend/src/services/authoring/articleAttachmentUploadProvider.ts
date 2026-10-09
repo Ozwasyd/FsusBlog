@@ -120,7 +120,10 @@ export function createArticleAttachmentUploadProvider(session: OwnedAttachmentUp
             }
             if (activeCommit)
             {
-                return activeCommit;
+                // Retain the original task; cancellation belongs to this joining caller only.
+                const observation = await activeCommit;
+                signal?.throwIfAborted();
+                return observation;
             }
             commitMayHaveStarted = true;
             const controller = new AbortController();

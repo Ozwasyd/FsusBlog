@@ -1814,7 +1814,10 @@ business-state and upload API control files plus
 run the large-file facts and existing small-preview positives before the selected
 regression. The actual public API executes through controlled binary transport;
 these tests verify routing, original session-token/PoW forwarding, hash/size
-refusals, interruption, retry coalescing and late current-context cleanup. The
+refusals, interruption, retry coalescing and late current-context cleanup. Cover
+both original and joining callers' aborts, a transport that ignores abort until
+it settles, listener removal, no overlapping replacement task, and cancellation
+during the protected large-file facts read. The
 controlled responses and authority callbacks certify no HTTP/PoW/native server,
 article reference receipt or browser qualification. Preserve the original binary
 import guard failures and route API/adapter boundary defects to its sole owner;

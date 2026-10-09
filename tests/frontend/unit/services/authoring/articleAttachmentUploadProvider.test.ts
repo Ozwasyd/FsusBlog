@@ -51,6 +51,87 @@ describe('original upload business provider operations' , () => {
         expect(await first).toEqual(await second);
         expect(request).toHaveBeenCalledTimes(3);
     });
+    it.each([3, 20_971_520])('rejects a joining caller abort while preserving the original %i-byte commit', async totalBytes => {
+        let finish!: (value: unknown) => void;
+        let taskSignal!: AbortSignal;
+        request.mockImplementationOnce(call => new Promise(resolve => {
+            taskSignal = call.signal;
+            finish = resolve;
+        }));
+        const provider = createArticleAttachmentUploadProvider({ ...session, totalBytes, commitMayHaveStarted: true });
+        const owner = new AbortController();
+        const added = vi.spyOn(owner.signal, 'addEventListener');
+        const removed = vi.spyOn(owner.signal, 'removeEventListener');
+        const first = provider.retryCommit(owner.signal);
+        const joining = new AbortController();
+        const second = provider.retryCommit(joining.signal).catch(error => error);
+        const reason = new DOMException('Joining caller interrupted', 'AbortError');
+        joining.abort(reason);
+        expect(taskSignal.aborted).toBe(false);
+        request.mockResolvedValueOnce({ ...status('completed'), totalBytes, uploadedBytes: totalBytes })
+            .mockResolvedValueOnce(totalBytes === 3 ? preview : facts(totalBytes));
+        finish({ url: 'not-a-receipt' });
+        expect((await first).status).toBe('committed');
+        expect(await second).toBe(reason);
+        expect(removed).toHaveBeenCalledWith('abort', added.mock.calls[0][1]);
+        expect(request).toHaveBeenCalledTimes(3);
+        expect(request.mock.calls.some(([call]) => call.requestOptions.method === 'DELETE')).toBe(false);
+    });
+    it.each([3, 20_971_520])('preserves the original caller control of the shared %i-byte commit', async totalBytes => {
+        let taskSignal!: AbortSignal;
+        request.mockImplementationOnce(call => new Promise((_, reject) => {
+            taskSignal = call.signal;
+            taskSignal.addEventListener('abort', () => reject(taskSignal.reason), { once: true });
+        }));
+        const provider = createArticleAttachmentUploadProvider({ ...session, totalBytes });
+        const owner = new AbortController();
+        const joining = new AbortController();
+        const first = provider.retryCommit(owner.signal).catch(error => error);
+        const second = provider.retryCommit(joining.signal).catch(error => error);
+        const reason = new DOMException('First caller interrupted', 'AbortError');
+        owner.abort(reason);
+        expect(taskSignal.aborted).toBe(true);
+        expect(await first).toBe(reason);
+        expect(await second).toBe(reason);
+        expect(joining.signal.aborted).toBe(false);
+        expect(request).toHaveBeenCalledOnce();
+    });
+    it('retains the original shared task after a joining caller abort until transport actually settles', async () => {
+        let finish!: (value: unknown) => void;
+        let taskSignal!: AbortSignal;
+        request.mockImplementationOnce(call => new Promise(resolve => {
+            taskSignal = call.signal;
+            finish = resolve;
+        }));
+        const provider = createArticleAttachmentUploadProvider(session);
+        const owner = new AbortController();
+        const added = vi.spyOn(owner.signal, 'addEventListener');
+        const removed = vi.spyOn(owner.signal, 'removeEventListener');
+        const first = provider.retryCommit(owner.signal);
+        const joining = new AbortController();
+        let settled = false;
+        const second = provider.retryCommit(joining.signal).catch(error => { settled = true; return error; });
+        const reason = new DOMException('Delayed interruption', 'AbortError');
+        joining.abort(reason);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(taskSignal.aborted).toBe(false);
+        expect(settled).toBe(false);
+        expect(removed).not.toHaveBeenCalled();
+        const third = provider.retryCommit();
+        expect(request).toHaveBeenCalledOnce();
+        request.mockResolvedValueOnce(status('completed')).mockResolvedValueOnce(preview);
+        finish({ url: 'late-promotion-not-a-receipt' });
+        expect((await first).status).toBe('committed');
+        expect(await third).toEqual(await first);
+        expect(await second).toBe(reason);
+        expect(removed).toHaveBeenCalledWith('abort', added.mock.calls[0][1]);
+        expect(request).toHaveBeenCalledTimes(3);
+        request.mockResolvedValueOnce({ url: 'not-a-receipt' }).mockResolvedValueOnce(status('completed')).mockResolvedValueOnce(preview);
+        expect((await provider.retryCommit()).status).toBe('committed');
+        expect(request).toHaveBeenCalledTimes(6);
+        expect(request.mock.calls.some(([call]) => call.requestOptions.method === 'DELETE')).toBe(false);
+    });
     it('retains uncertainty and never aborts after a possibly committed failed RPC', async () => {
         request.mockRejectedValueOnce(new Error('secret original-secret-token'));
         const provider = createArticleAttachmentUploadProvider(session);
@@ -172,6 +253,29 @@ describe('original upload business provider operations' , () => {
         expect((await first).status).toBe('committed');
         expect(request).toHaveBeenCalledTimes(3);
         expect(request.mock.calls[2][0].binaryRoute.operationId).toBe('binary_post_upload_uploadId_facts');
+    });
+    it('preserves the original caller cancellation during a coalesced large facts read', async () => {
+        const totalBytes = 20_971_520;
+        let factsSignal!: AbortSignal;
+        request.mockResolvedValueOnce({ url: 'not-a-receipt' })
+            .mockResolvedValueOnce({ ...status('completed'), totalBytes, uploadedBytes: totalBytes })
+            .mockImplementationOnce(call => new Promise((_, reject) => {
+                factsSignal = call.signal;
+                factsSignal.addEventListener('abort', () => reject(factsSignal.reason), { once: true });
+            }));
+        const provider = createArticleAttachmentUploadProvider({ ...session, totalBytes });
+        const owner = new AbortController();
+        const first = provider.retryCommit(owner.signal).catch(error => error);
+        await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(3));
+        const second = provider.retryCommit().catch(error => error);
+        const reason = new DOMException('Original facts read interrupted', 'AbortError');
+        owner.abort(reason);
+        expect(factsSignal.aborted).toBe(true);
+        expect(await second).toBe(reason);
+        expect(await first).toBe(reason);
+        expect(request.mock.calls[2][0].binaryRoute.operationId).toBe('binary_post_upload_uploadId_facts');
+        expect(request).toHaveBeenCalledTimes(3);
+        expect(request.mock.calls.some(([call]) => call.requestOptions.method === 'DELETE')).toBe(false);
     });
     it('observes a late large commit on cancel without deleting original bytes', async () => {
         const totalBytes = 20_971_520;

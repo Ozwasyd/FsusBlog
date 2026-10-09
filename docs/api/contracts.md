@@ -1767,11 +1767,11 @@ it as `X-Fsus-Upload-Token`. Both retain their existing binary routes, admin sco
 PoW and unified error semantics. Status is an upload observation, and completion
 URLs are not an article intent or resource-operation grant.
 
-The attachment upload consumer uses status and protected frame275 preview to
-observe completed native bytes and canonical asset/reference facts. There is no
-facts-only integration in that consumer until its original owner switches to the
-new read port below; its current `upload_facts_only_transport_missing` refusal
-continues to preserve the original20MiB policy.
+The attachment upload consumer uses status and protected frame275 preview for
+completed uploads up to8,387,832 bytes. Larger uploads use the protected frame285
+facts read below, retaining the original20MiB limit without transferring image
+bytes. Both paths bind the original session token, SHA and exact upload size;
+their observations grant no article intent or resource-operation capability.
 
 ### Completed upload facts
 
@@ -1804,6 +1804,13 @@ commit may have started must retain its original session/recovery obligation and
 observe actual completion, reporting `abort_missing_atomic_commit_outcome` when
 it cannot establish that outcome. It must not treat a failed or interrupted RPC
 as a verified abort or resource cleanup receipt.
+
+Concurrent attachment `retryCommit` calls share one actual completion task. The
+original caller's AbortSignal interrupts that task. A joining caller's signal
+cancels only its own observation, preserving the original task. It stays attached
+until the task settles, then rejects with its own reason if aborted. No task is
+discarded or replaced while still running, and no possibly committed upload is
+deleted. The original caller's abort listener is removed on settlement.
 
 ### `UploadInitDto`（初始化响应）
 
