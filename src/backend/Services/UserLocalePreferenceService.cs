@@ -9,7 +9,7 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services;
 
-public sealed class UserLocalePreferenceService(
+public sealed partial class UserLocalePreferenceService(
     ISqlSugarClient db,
     ILogger<UserLocalePreferenceService> logger,
     TimeProvider? timeProvider = null)
