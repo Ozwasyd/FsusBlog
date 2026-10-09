@@ -14,6 +14,7 @@ const { mysqlFixtureAdmissionFile, readMySqlFixtureAdmissionForRun } = await imp
 const { observeExecutableIdentity, resolveExecutablePath } = await import(new URL('./execution-envelope-environment.mjs', import.meta.url));
 const { reconcileMigrationDiscovery, reconcileMigrationTrx } = await import(new URL('./migration-execution-evidence.mjs', import.meta.url));
 const { readVstestDiscoveryDiagnostic } = await import(new URL('./vstest-discovery-diagnostic.mjs', import.meta.url));
+const { requireWholeMigrationSelection, runBackendUnitServerSelectionAction } = await import(new URL('./backend-unit-server-selection.mjs', import.meta.url));
 
 const project = 'tests/migration/FsusBlog.Migration.Tests.csproj';
 const mysqlFixtureOwner = Object.freeze({
@@ -354,6 +355,7 @@ function receiptOptions(options, plan, build, admission)
 /** Revalidate raw execution, source/build closure and the producer's artifact seal. */
 export async function readMigrationExecution(options, env = process.env)
 {
+    requireWholeMigrationSelection(env);
     const build = await readMigrationBuildReady(options);
     const plan = executionPlan(options, env);
     const admission = String(env.FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE ?? '').trim()
@@ -371,6 +373,7 @@ export async function readMigrationExecution(options, env = process.env)
 /** Read the unit dependency in its original namespace without borrowing its live environment. */
 export async function readMigrationExecutionDependency(options, env = process.env)
 {
+    requireWholeMigrationSelection(env);
     if (env.CURRENT_TIER !== 'backend-fast' || options.producer !== 'backend-unit'
         || !String(options.namespace ?? '').trim()
         || env.FSUSBLOG_TEST_NAMESPACE !== options.namespace || env.FSUSBLOG_TEST_RUN_ID !== options.runId
@@ -415,6 +418,7 @@ export async function readMigrationExecutionDependency(options, env = process.en
  */
 export async function runMigrationTests(options, { env = process.env, execute = executeMigrationDotnet } = {})
 {
+    requireWholeMigrationSelection(env);
     const layout = resolveProductionBuildLayout(options);
     if (env.FSUSBLOG_PRODUCTION_BUILD_ROOT !== layout.runRoot
         || env.FSUSBLOG_TEST_RUN_ID !== options.runId || env.FSUSBLOG_TEST_NAMESPACE !== options.namespace
@@ -487,21 +491,30 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     try
     {
         const args = process.argv.slice(2);
-        if (args.length > 1 || (args.length === 1 && args[0] !== '--backend-unit'))
+        if (args.includes('--server-selection'))
         {
-            throw new Error('Migration execution accepts only the canonical scheduler environment, not CLI overrides');
+            console.log(runBackendUnitServerSelectionAction(args, {
+                root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'), env: process.env
+            }));
         }
-        const result = await runMigrationTests({
-            producer: args[0] === '--backend-unit' ? 'backend-unit' : 'backend-tests',
-            root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'),
-            runId: process.env.FSUSBLOG_TEST_RUN_ID,
-            namespace: process.env.FSUSBLOG_TEST_NAMESPACE,
-            sourceState: {
-                commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
-                worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+        else
+        {
+            if (args.length > 1 || (args.length === 1 && args[0] !== '--backend-unit'))
+            {
+                throw new Error('Migration execution accepts only the canonical scheduler environment, not CLI overrides');
             }
-        });
-        console.log(`Migration execution passed: ${result.summary.executedCaseIds.length} cases; ${result.receiptFile}`);
+            const result = await runMigrationTests({
+                producer: args[0] === '--backend-unit' ? 'backend-unit' : 'backend-tests',
+                root: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'),
+                runId: process.env.FSUSBLOG_TEST_RUN_ID,
+                namespace: process.env.FSUSBLOG_TEST_NAMESPACE,
+                sourceState: {
+                    commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+                    worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+                }
+            });
+            console.log(`Migration execution passed: ${result.summary.executedCaseIds.length} cases; ${result.receiptFile}`);
+        }
     }
     catch (error)
     {

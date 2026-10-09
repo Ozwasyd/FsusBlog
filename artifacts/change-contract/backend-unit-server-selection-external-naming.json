@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "backend-unit-server-selection-process-interface",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh",
+                "tools/test/run-migration-tests.mjs",
+                "tools/test/backend-unit-server-selection.mjs",
+                "tests/tools/backend-unit-server-selection.test.mjs"
+            ],
+            "reason": "preserve the original process environment, xUnit/VSTest property names and kebab-case CLI/schema identifiers; explicit bounded selection is source-only until independent review and never replaces aggregate acceptance"
+        }
+    ]
+}
