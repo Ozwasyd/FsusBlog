@@ -427,3 +427,65 @@ test('independent complete target supplier set must refuse omitted call', () =>
     const { s, node, graph, inputs } = buttonInput();
     assert.throws(() => bindCompositionTargetInputs(s, node, [inputs[0]], graph.nodes), /supplier|missing|complete|call/);
 });
+
+test('bounded named selector export must refuse unproven producer escape', () =>
+{
+    const file = resolve(directory, 'Host.ts');
+    writeFileSync(file, `import {computed} from 'vue';const host=computed(()=>state?'a':'aside');export {host};`);
+    const s = createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot });
+    assert.throws(() => resolveCompositionTargetOrigin(s, file, s.expression('host', file)), /escaped target producer output/);
+});
+
+test('bounded renamed selector export must refuse unproven producer escape', () =>
+{
+    const file = fixture(`import {computed} from 'vue';const host=computed(()=>state?'a':'aside');export {host as exportedHost};`, 'Renamed.ts');
+    assert.throws(() => origin(source(), file), /escaped target producer output/);
+});
+
+test('bounded selector alias export must refuse unproven producer escape', () =>
+{
+    const file = fixture(`import {computed} from 'vue';const host=computed(()=>state?'a':'aside');const alias=host;export {alias as exportedHost};`, 'Alias.ts');
+    assert.throws(() => origin(source(), file), /escaped target producer output/);
+});
+
+test('bounded selector container export must refuse unproven producer escape', () =>
+{
+    const file = fixture(`import {computed} from 'vue';const host=computed(()=>state?'a':'aside');const container={host};export {container};`, 'Container.ts');
+    assert.throws(() => origin(source(), file), /escaped target producer output/);
+});
+
+test('bounded same-source selector reexport must refuse unproven producer escape', () =>
+{
+    const file = fixture(`import {computed} from 'vue';const host=computed(()=>state?'a':'aside');export {host as selected} from './SameSource.ts';`, 'SameSource.ts');
+    assert.throws(() => origin(source(), file), /escaped target producer output/);
+});
+
+test('bounded indirect same-source selector reexport must refuse unproven producer escape', () =>
+{
+    fixture(`export {host as rebound} from './Indirect.ts';`, 'Barrel.ts');
+    const file = fixture(`import {computed} from 'vue';const host=computed(()=>state?'a':'aside');export {rebound as publicHost} from './Barrel.ts';`, 'Indirect.ts');
+    assert.throws(() => origin(source(), file), /escaped target producer output/);
+});
+
+test('bounded unrelated named export retains finite selector alternatives', () =>
+{
+    const file = fixture(`import {computed} from 'vue';const host=computed(()=>state?'a':'aside');const unrelated=1;export {unrelated as host};`, 'Unrelated.ts');
+    const value = origin(source(), file);
+    assert.deepEqual(value.variants.map(({ name }) => name), ['a', 'aside']);
+});
+
+test('bounded type-only selector exports retain finite runtime alternatives', () =>
+{
+    const file = fixture(`import {computed} from 'vue';const host=computed(()=>state?'a':'aside');export type {host};export {type host as HostType};`, 'TypeOnly.ts');
+    const value = origin(source(), file);
+    assert.deepEqual(value.variants.map(({ name }) => name), ['a', 'aside']);
+});
+
+test('bounded foreign same-named reexport retains local selector alternatives', () =>
+{
+    const foreign = fixture(`export const host='button';`, 'ForeignExport.ts');
+    const file = fixture(`import {computed} from 'vue';const host=computed(()=>state?'a':'aside');export {host as foreignHost} from './ForeignExport.ts';`, 'ForeignReexport.ts');
+    const value = origin(source(), file);
+    assert.deepEqual(value.variants.map(({ name }) => name), ['a', 'aside']);
+    assert.ok(value.resolverInputs.some(({ path }) => path === foreign));
+});

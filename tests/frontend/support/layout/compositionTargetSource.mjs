@@ -106,12 +106,27 @@ function assertClosedSelector(source, record, branch, selector, ownerName)
             }
         }
     }
+    // The original export resolver follows actual module edges and aliases.
+    // A same-source reexport remains unproved even when its exported name differs.
+    for (const exported of source.resolver.exportsOf(record.file).values())
+    {
+        if (exported.file === record.file && names.has(exported.name))
+        {
+            fail('escaped target producer output');
+        }
+    }
     function effects(node)
     {
         if ((ts.isCallExpression(node) || ts.isNewExpression(node)) && node !== selector
             && (references(node.expression) || (node.arguments ?? []).some(references)))
         {
             fail('escaped target producer or alias');
+        }
+        if (ts.isExportDeclaration(node) && !node.isTypeOnly && !node.moduleSpecifier
+            && node.exportClause && ts.isNamedExports(node.exportClause)
+            && node.exportClause.elements.some((entry) => !entry.isTypeOnly && names.has((entry.propertyName ?? entry.name).text)))
+        {
+            fail('escaped target producer output');
         }
         if ((ts.isReturnStatement(node) || ts.isExportAssignment(node)) && node.expression && references(node.expression)
             || ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
