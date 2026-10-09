@@ -1,5 +1,9 @@
 import { resolve } from 'node:path';
 
+import { controlDigest } from '@fsusblog/control-legality/source';
+
+const routeDeclarations = new WeakMap();
+
 /** Restricted AST interpreter for the real router imports. Never executes product modules. */
 export function resolveCompositionRoutes(source, routerFile)
 {
@@ -273,7 +277,7 @@ export function resolveCompositionRoutes(source, routerFile)
     const records = evaluate(routeExpressions[0], routerFile);
     const flattened = [];
     const normalize = (path) => path === '/' ? path : path.replace(/\/$/, '');
-    function visit(records, parentPath = '/', parents = [])
+    function visit(records, parentPath = '/', parents = [], matchedRecords = [])
     {
         for (const record of records)
         {
@@ -282,24 +286,190 @@ export function resolveCompositionRoutes(source, routerFile)
                 throw new Error('[composition-routes] unknown route path');
             }
             const path = record.path.startsWith('/') ? record.path : `${parentPath.replace(/\/$/, '')}/${record.path}`;
-            const components = [record.component, ...Object.values(record.components ?? {})].filter(Boolean).map((component) =>
+            const views = [...(record.component ? [['default', record.component]] : []),
+                ...Object.entries(record.components ?? {}).filter(([, component]) => component)].map(([name, component]) =>
             {
                 const resolved = component.componentFile ? component : call(component, []);
                 if (!resolved.componentFile)
                 {
                     throw new Error('[composition-routes] unresolved route component');
                 }
-                return resolved.componentFile;
+                return [name, resolved.componentFile];
             });
-            flattened.push({ path: normalize(path), componentFiles: components, ancestorFiles: parents });
+            const components = views.map(([, file]) => file);
+            const declaration = { path: normalize(path), componentViews: Object.fromEntries(views),
+                hasComponents: Boolean(record.component || record.components),
+                ambiguousViews: Boolean(record.component && record.components) || new Set(views.map(([name]) => name)).size !== views.length };
+            const chain = [...matchedRecords, declaration];
+            flattened.push({ path: normalize(path), componentFiles: components, ancestorFiles: parents, matchedRecords: chain });
             if (record.children)
             {
-                visit(record.children, path, [...parents, ...components]);
+                visit(record.children, path, [...parents, ...components], chain);
             }
         }
     }
     visit(records);
-    return { schema: 'fsusblog.composition-routes.v1', routerFile: resolve(routerFile), routes: flattened };
+    const result = { schema: 'fsusblog.composition-routes.v1', routerFile: resolve(routerFile), routes: flattened };
+    routeDeclarations.set(result, { source, digest: controlDigest(result) });
+    return result;
+}
+
+/**
+ * Resolve a real dynamic-component call's RouterView Component slot supplier.
+ * This observes finite declarations, including empty views; it does not select
+ * a runtime route, authorize navigation or grant rendered/state acceptance.
+ * callPath is nearest-first, from the slot's SFC through actual component calls
+ * to its route-declared owner. Direct route owners need no callPath.
+ */
+export function resolveCompositionRouterViewSlot(source, routes, { file, offset, callPath = [] })
+{
+    const fail = (message) =>
+    {
+        throw new Error(`[composition-routes] ${message}`);
+    };
+    const retained = routeDeclarations.get(routes);
+    if (!retained || retained.source !== source || retained.digest !== controlDigest(routes))
+    {
+        fail('route declaration is not the unchanged original source observation');
+    }
+    const { ts, dom } = source.resolver;
+    const record = source.resolver.parse(file);
+    let selected;
+    const visit = (node, ancestors = []) =>
+    {
+        if (node.type === dom.NodeTypes.ELEMENT && record.template.offset + node.loc.start.offset === offset)
+        {
+            selected = { node, ancestors };
+        }
+        for (const child of node.children ?? [])
+        {
+            visit(child, [...ancestors, node]);
+        }
+    };
+    if (!record.template)
+    {
+        fail('RouterView slot requires an actual Vue template');
+    }
+    visit(record.template.ast);
+    const directive = (node, name) => node.props?.filter((prop) => prop.type === dom.NodeTypes.DIRECTIVE && prop.name === name) ?? [];
+    const dynamic = selected && directive(selected.node, 'bind').filter((prop) => prop.arg?.isStatic && prop.arg.content === 'is');
+    if (selected?.node.tag !== 'component' || dynamic.length !== 1 || !dynamic[0].exp
+        || directive(selected.node, 'bind').some((prop) => !prop.arg || !prop.arg.isStatic))
+    {
+        fail('slot target is not an exact authored dynamic component selector');
+    }
+    const selector = source.expression(dynamic[0].exp.content, file);
+    if (!ts.isIdentifier(selector))
+    {
+        fail('unknown RouterView slot selector expression');
+    }
+    const suppliers = selected.ancestors.filter((node) => directive(node, 'slot').length);
+    const slotNode = suppliers.at(-1);
+    const slots = slotNode && directive(slotNode, 'slot');
+    if (slots?.length !== 1 || !slots[0].exp || (slots[0].arg && (!slots[0].arg.isStatic || slots[0].arg.content !== 'default')))
+    {
+        fail('missing or unknown actual default slot owner');
+    }
+    const origin = source.resolver.resolveTag(file, slotNode.tag);
+    if (origin.kind !== 'external' || origin.package !== 'vue-router' || origin.publicName !== 'RouterView')
+    {
+        fail('slot owner is not the canonical RouterView');
+    }
+    const pattern = source.expression(`(${slots[0].exp.content}) => 0`, file);
+    const parameter = ts.isArrowFunction(pattern) && pattern.parameters.length === 1 && pattern.parameters[0];
+    if (!parameter || !ts.isObjectBindingPattern(parameter.name) || parameter.initializer
+        || parameter.name.elements.some((element) => element.dotDotDotToken || element.initializer
+            || !ts.isIdentifier(element.name) || (element.propertyName && !ts.isIdentifier(element.propertyName))))
+    {
+        fail('unknown RouterView slot binding pattern');
+    }
+    const bindings = parameter.name.elements.filter((element) => (element.propertyName ?? element.name).text === 'Component');
+    if (bindings.length !== 1 || bindings[0].name.text !== selector.text)
+    {
+        fail('selector is not the actual RouterView Component binding');
+    }
+    const scope = selected.ancestors.slice(selected.ancestors.indexOf(slotNode) + 1).concat(selected.node);
+    if (scope.some((node) => directive(node, 'for').length || directive(node, 'slot').length))
+    {
+        fail('unknown intervening template supplier or shadow scope');
+    }
+    const routerViews = selected.ancestors.filter((node) =>
+    {
+        if (node.type !== dom.NodeTypes.ELEMENT)
+        {
+            return false;
+        }
+        const identity = source.resolver.resolveTag(file, node.tag);
+        return identity.kind === 'external' && identity.package === 'vue-router' && identity.publicName === 'RouterView';
+    });
+    if (routerViews.length !== 1 || directive(slotNode, 'for').length)
+    {
+        fail('unknown nested RouterView depth');
+    }
+    const names = slotNode.props.filter((prop) => prop.type === dom.NodeTypes.ATTRIBUTE && prop.name === 'name');
+    if (names.length > 1 || slotNode.props.some((prop) => prop.type === dom.NodeTypes.ATTRIBUTE && prop.name === 'route')
+        || directive(slotNode, 'bind').some((prop) => !prop.arg || !prop.arg.isStatic || ['name', 'route'].includes(prop.arg.content)))
+    {
+        fail('unknown RouterView view-name supplier');
+    }
+    const viewName = names[0]?.value?.content ?? 'default';
+    if (!viewName || !Array.isArray(callPath) || new Set(callPath).size !== callPath.length)
+    {
+        fail('unknown view name or cyclic component call path');
+    }
+    let ownerFile = file;
+    const calls = callPath.map((id) =>
+    {
+        const call = source.nodes.get(id);
+        if (!call || call.definition !== ownerFile || !source.records.get(call.file)?.nodes.includes(id))
+        {
+            fail('route owner path does not follow actual component definitions');
+        }
+        ownerFile = call.file;
+        return { id, file: call.file, offset: call.offset, definition: call.definition,
+            sourceDigest: call.sourceDigest,
+            inputDigest: controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }) };
+    });
+    const alternatives = [];
+    for (const route of routes.routes)
+    {
+        const depths = route.matchedRecords.flatMap((entry, index) => Object.values(entry.componentViews).includes(ownerFile) ? [index] : []);
+        if (!depths.length)
+        {
+            continue;
+        }
+        if (depths.length !== 1 || route.matchedRecords.some((entry) => entry.ambiguousViews))
+        {
+            fail('ambiguous route owner or named-view declaration');
+        }
+        const depth = depths[0];
+        const next = route.matchedRecords.slice(depth + 1).find((entry) => entry.hasComponents);
+        const componentFile = next?.componentViews[viewName] ?? null;
+        alternatives.push({ path: route.path, ownerDepth: depth, viewName,
+            componentFile, kind: componentFile ? 'component' : 'empty-view', matchedRecords: route.matchedRecords });
+    }
+    if (!alternatives.length)
+    {
+        fail('slot component owner has no actual route declaration');
+    }
+    const observed = source.resolver.sourceBindings();
+    if (observed.errors.length)
+    {
+        fail('canonical route or slot source inputs changed');
+    }
+    const slotOffset = record.template.offset + slotNode.loc.start.offset;
+    const slotCall = [...source.nodes.values()].find((node) => node.file === file && node.offset === slotOffset);
+    const proof = { schema: 'fsusblog.composition-router-view-slot.v1', kind: 'router-view-slot', supplierKind: 'route-component-vnode',
+        routerFile: routes.routerFile,
+        declarationDigest: retained.digest, file, offset,
+        selector: { expression: dynamic[0].exp.content, offset: record.template.offset + dynamic[0].exp.loc.start.offset,
+            digest: controlDigest(dynamic[0].exp.content) },
+        slotOwner: { file, offset: slotOffset, callNode: slotCall?.id ?? null, tag: slotNode.tag,
+            origin, binding: selector.text, property: 'Component', sourceDigest: controlDigest(slotNode.loc.source) },
+        routeOwner: { file: ownerFile, callPath: calls }, alternatives, resolverInputs: observed.files };
+    const variantDefinitions = [...new Set(alternatives.map((entry) => entry.componentFile).filter(Boolean))];
+    return { ...proof, variants: variantDefinitions.map((file) => ({ kind: 'local', file, name: 'default' })),
+        variantDefinitions, proofDigest: controlDigest(proof), qualificationEligible: false };
 }
 
 export function bindCompositionArchetypes(matrix, routes)
