@@ -948,6 +948,224 @@ function CheckCMakeIndent(file, content)
     }
 }
 
+function CppDeclarationLines(content)
+{
+    // Recognize comments after line splicing, retaining physical diagnostic offsets.
+    const logical = [];
+    const offsets = [];
+    let cursor = 0;
+    for (const splice of content.matchAll(/\\[^\S\r\n]*\r?\n/gu))
+    {
+        while (cursor < splice.index)
+        {
+            offsets.push(cursor);
+            logical.push(content[cursor++]);
+        }
+        cursor += splice[0].length;
+    }
+    while (cursor < content.length)
+    {
+        offsets.push(cursor);
+        logical.push(content[cursor++]);
+    }
+    const source = logical.join('');
+    const tokens = /(?:u8|u|U|L)?R"([^ ()\\\t\r\n]{0,16})\(|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*|(?:u8|u|U|L)?"(?:\\.|[^"\\])*"(?:_[A-Za-z0-9_]+)?|(?:u8|u|U|L)?'(?:\\.|[^'\\])*'(?:_[A-Za-z0-9_]+)?/gu;
+    const declarations = content.split('');
+    const valueTokens = [...declarations];
+    const codeTokens = [...declarations];
+    let token;
+    while ((token = tokens.exec(source)) !== null)
+    {
+        const start = offsets[token.index];
+        let end = offsets[tokens.lastIndex - 1] + 1;
+        const literal = !token[0].startsWith('/');
+        if (token[1] !== undefined)
+        {
+            // Raw literal contents retain original bytes, including escaped newlines.
+            const closing = `)${token[1]}"`;
+            const closingOffset = content.indexOf(closing, end);
+            end = closingOffset < 0 ? content.length : closingOffset + closing.length;
+            end += content.slice(end).match(/^_[A-Za-z0-9_]+/u)?.[0].length ?? 0;
+            while (tokens.lastIndex < offsets.length && offsets[tokens.lastIndex] < end)
+            {
+                tokens.lastIndex += 1;
+            }
+        }
+        for (let index = start; index < end; index += 1)
+        {
+            if (content[index] !== '\r' && content[index] !== '\n')
+            {
+                declarations[index] = ' ';
+                valueTokens[index] = ' ';
+                if (!literal)
+                {
+                    codeTokens[index] = ' ';
+                }
+            }
+        }
+        if (literal)
+        {
+            valueTokens[start] = '@';
+        }
+    }
+    const blank = value => value.replace(/[^\r\n]/g, ' ');
+    const lines = declarations.join('').split(/\r?\n/u);
+    const values = valueTokens.join('').split(/\r?\n/u);
+    const code = codeTokens.join('').split(/\r?\n/u);
+    let directive = false;
+    return lines.map((line, index) =>
+    {
+        const boundary = /^\s*#/u.test(line);
+        const ignored = directive || boundary;
+        directive = ignored && /\\\s*$/u.test(line);
+        return { boundary,
+            declaration: ignored ? blank(line) : line,
+            values: ignored ? blank(values[index]) : values[index],
+            code: code[index] };
+    });
+}
+
+const cppTypeKeywords = new Set([
+    'void', 'bool', 'char', 'char8_t', 'char16_t', 'char32_t', 'wchar_t', 'short', 'int',
+    'long', 'signed', 'unsigned', 'float', 'double', 'auto', '__int128',
+    'const', 'volatile', 'class', 'struct', 'union', 'enum', 'typename'
+]);
+
+function CppNamedParameter(parameter)
+{
+    const declaration = parameter.split('=')[0].trim();
+    const named = declaration.match(/^(.+[\s*&])([A-Za-z_][A-Za-z0-9_]*)\s*(?:\[[^\]]*\]\s*)*$/u);
+    if (!named || cppTypeKeywords.has(named[2]))
+    {
+        return null;
+    }
+    const modifiers = new Set(['const', 'volatile', 'class', 'struct', 'union', 'enum', 'typename', 'register']);
+    const types = named[1].replace(/[*&]/gu, ' ').trim().split(/\s+/u)
+        .filter(token => !modifiers.has(token));
+    return types.length > 0 && types.every(token => /^[A-Za-z_][A-Za-z0-9_:]*(?:<[^<>]*>)?$/u.test(token))
+        ? named[2] : null;
+}
+
+function CppTypeShadow(line)
+{
+    return line.match(/^\s*using\s+([A-Za-z_][A-Za-z0-9_]*)\s*=/u)?.[1]
+        ?? line.match(/^\s*using\s+(?:typename\s+)?(?:[A-Za-z_][A-Za-z0-9_]*::)+([A-Za-z_][A-Za-z0-9_]*)\s*;/u)?.[1]
+        ?? line.match(/^\s*typedef\b.*\(\s*[*&]\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/u)?.[1]
+        ?? line.match(/^\s*typedef\b.*\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:\([^;]*\)|(?:\[[^\]]*\]\s*)*)\s*;/u)?.[1]
+        ?? line.match(/^\s*(?:class|struct|union|enum(?:\s+class)?)\s+([A-Za-z_][A-Za-z0-9_]*)/u)?.[1];
+}
+
+function RevokeCppValues(scopes)
+{
+    for (const scope of scopes)
+    {
+        scope.bindings.clear();
+    }
+}
+
+function CppCompleteClassScopes(lines)
+{
+    const classes = new Map();
+    const scopes = [];
+    let declaration = '';
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1)
+    {
+        const line = lines[lineIndex].declaration;
+        for (let cursor = 0; cursor < line.length; cursor += 1)
+        {
+            const character = line[cursor];
+            if (!['{', '}', ';'].includes(character))
+            {
+                declaration += character;
+                continue;
+            }
+            const statement = declaration.replace(/^\s*(?:public|protected|private)\s*:\s*/u, '');
+            const owner = scopes.at(-1);
+            if (owner && character !== '}')
+            {
+                const alias = CppTypeShadow(`${statement};`);
+                if (alias)
+                {
+                    owner.types.add(alias);
+                }
+                if (/^\s*(?:using|typedef)\b/u.test(statement)
+                    && (!alias || statement.includes(',') || /^\s*typedef\b/u.test(statement) && character === '{'))
+                {
+                    owner.uncertain = true;
+                }
+            }
+            if (character === '{')
+            {
+                const classStatement = statement.replace(/\[\[[\s\S]*?\]\]/gu, '');
+                const classDeclaration = /^\s*(?:template\s*<[\s\S]*>\s*)?(?:using\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*|typedef\s+)?(?:class|struct|union)\b\s*(?:[A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)*(?:<[^{};]*>)?)?(?:\s+final)?\s*(?::[^;]*)?$/u.test(
+                    classStatement
+                );
+                const classPrefix = /^\s*(?:template\s*<[\s\S]*>\s*)?(?:using\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*|typedef\s+)?(?:class|struct|union)\b/u.test(classStatement);
+                const taggedFunction = /^\s*(?:template\s*<[\s\S]*>\s*)?(?:class|struct|union)\s+[A-Za-z_][A-Za-z0-9_:<>]*[\s*&]+[A-Za-z_][A-Za-z0-9_]*\s*\([^{};]*\)\s*(?:(?:const|volatile|override|final|noexcept(?:\s*\([^{};]*\))?|&&?)\s*)*(?:requires\b[^{};]*)?$/u.test(classStatement);
+                const uncertainClass = !classDeclaration && classPrefix && !taggedFunction;
+                if (uncertainClass && owner)
+                {
+                    owner.uncertain = true;
+                }
+                // Base lookup cannot prove an outer value without resolving inherited names.
+                const scope = classDeclaration || uncertainClass
+                    ? { types: new Set(), uncertain: uncertainClass || /(?<!:):(?!:)/u.test(classStatement) }
+                    : null;
+                scopes.push(scope);
+                if (scope)
+                {
+                    classes.set(`${lineIndex}:${cursor}`, scope);
+                }
+            }
+            else if (character === '}')
+            {
+                scopes.pop();
+            }
+            declaration = '';
+        }
+        declaration += '\n';
+    }
+    return classes;
+}
+
+function IsCppValueArgument(argument, scopes)
+{
+    const value = argument.trim();
+    if (/^(?:@\s*)+$/u.test(value)
+        || /^(?:true|false|nullptr|\d+(?:\.\d+)?(?:[uUlLfF])*)$/u.test(value))
+    {
+        return true;
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(value) || cppTypeKeywords.has(value))
+    {
+        return false;
+    }
+    for (let index = scopes.length - 1; index >= 0; index -= 1)
+    {
+        const scope = scopes[index];
+        if (scope.bindings.has(value))
+        {
+            return scope.bindings.get(value);
+        }
+        if (scope.uncertainClass)
+        {
+            return false;
+        }
+    }
+    return false;
+}
+
+function IsCppObjectInitialization(line, functionMatch, scopes)
+{
+    if (!functionMatch || !/\)\s*;$/u.test(line))
+    {
+        return false;
+    }
+    const argumentsText = line.slice(functionMatch[0].length).replace(/\)\s*;$/u, '');
+    // Empty, type-only and unknown arguments retain function declaration enforcement.
+    return argumentsText.split(',').every(argument => IsCppValueArgument(argument, scopes));
+}
+
 function CheckCpp(file, content, argumentsValue)
 {
     const clangFormat = policy.standardTools.cppFormat.command;
@@ -984,12 +1202,26 @@ function CheckCpp(file, content, argumentsValue)
     const abiAdapter = ExceptionApplies('c-abi-wasm-export', file);
     const compilerIntrinsic = ExceptionApplies('compiler-intrinsic', file);
     const lines = content.split(/\r?\n/u);
+    const declarationLines = CppDeclarationLines(content);
+    const classScopes = CppCompleteClassScopes(declarationLines);
+    const valueScopes = [{ bindings: new Map(), uncertainClass: false }];
+    let pendingParameters = [];
+    let pendingTypes = [];
     let braceDepth = 0;
     let pendingExternalBlock = false;
     let externalBlockDepth = null;
     for (let index = 0; index < lines.length; index += 1)
     {
-        const line = lines[index].replace(/\/\/.*$/u, '');
+        const parsedLine = declarationLines[index];
+        const line = parsedLine.code;
+        const declarationLine = parsedLine.declaration;
+        if (parsedLine.boundary || /^\s*template\s*</u.test(declarationLine))
+        {
+            // Preprocessing and template declarations can invalidate visible value evidence.
+            RevokeCppValues(valueScopes);
+            pendingParameters = [];
+            pendingTypes = [];
+        }
         const trimmed = line.trim();
         const externalDeclaration = /\bextern\s+"C"/u.test(line)
             || (externalBlockDepth !== null && braceDepth >= externalBlockDepth);
@@ -997,21 +1229,23 @@ function CheckCpp(file, content, argumentsValue)
         {
             pendingExternalBlock = true;
         }
-        const type = line.match(/^\s*(?:class|struct|enum(?:\s+class)?)\s+([A-Za-z_][A-Za-z0-9_]*)/u);
+        const type = declarationLine.match(/^\s*(?:class|struct|enum(?:\s+class)?)\s+([A-Za-z_][A-Za-z0-9_]*)/u);
         if (!generated && type && !/^[A-Z][A-Za-z0-9]*$/u.test(type[1]))
         {
             AddDiagnostic(file, index + 1, 'cpp-type-name', `${type[1]} must use PascalCase`);
         }
 
-        const statement = /^(?:return|co_return|throw|co_yield|case|delete|new|if|else|for|while|switch|catch|do)\b/u.test(trimmed);
+        const statement = /^(?:return|co_return|throw|co_yield|case|delete|new|if|else|for|while|switch|catch|do)\b/u.test(declarationLine.trim());
         const functionMatch = statement
             ? null
-            : line.match(/^\s*(?:(?:extern\s+"C"|static|inline|constexpr|consteval|constinit|const|unsigned|signed|void|bool|int|char|auto|std::[A-Za-z0-9_:<>]+|[A-Za-z_][A-Za-z0-9_:<>]*)\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*\(/u);
-        const implementationLocalInitialization = /\.(?:c|cc|cpp|cxx)$/u.test(file)
-            && trimmed.endsWith(';');
+            : declarationLine.match(/^\s*(?:(?:extern\s+"C"|static|inline|constexpr|consteval|constinit|const|unsigned|signed|void|bool|int|char|auto|std::[A-Za-z0-9_:<>]+|[A-Za-z_][A-Za-z0-9_:<>]*)\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*\(/u);
+        const objectInitialization = IsCppObjectInitialization(parsedLine.values, functionMatch, [
+            ...valueScopes,
+            { bindings: new Map(pendingTypes.map(name => [name, false])), uncertainClass: false }
+        ]);
         if (!generated
             && functionMatch
-            && !implementationLocalInitialization
+            && !objectInitialization
             && functionMatch[1] !== 'main'
             && !/^[A-Z][A-Za-z0-9]*$/u.test(functionMatch[1]))
         {
@@ -1025,7 +1259,65 @@ function CheckCpp(file, content, argumentsValue)
             }
         }
 
-        for (const character of line)
+        const alias = CppTypeShadow(declarationLine);
+        if (/^\s*(?:using|typedef)\b/u.test(declarationLine) && (!alias || declarationLine.includes(',')))
+        {
+            RevokeCppValues(valueScopes);
+        }
+        const valueDeclaration = declarationLine.match(
+            /^\s*(?!(?:using|typedef|return|class|struct|enum)\b)(?:[A-Za-z_][A-Za-z0-9_:<>]*[*&]?\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*(?:[={;])/u
+        );
+        if (alias)
+        {
+            valueScopes.at(-1).bindings.set(alias, false);
+        }
+        else if (valueDeclaration || objectInitialization)
+        {
+            valueScopes.at(-1).bindings.set(valueDeclaration?.[1] ?? functionMatch[1], true);
+        }
+        if (/^\s*template\s*</u.test(declarationLine))
+        {
+            pendingTypes = [...declarationLine.matchAll(/\b(?:class|typename)\s+([A-Za-z_][A-Za-z0-9_]*)/gu)]
+                .map(match => match[1]);
+        }
+        if (functionMatch && !/;\s*$/u.test(declarationLine))
+        {
+            const parameters = declarationLine.slice(functionMatch[0].length).match(/^([^()]*)\)/u);
+            pendingParameters = parameters?.[1].split(',').flatMap(parameter =>
+            {
+                const named = CppNamedParameter(parameter);
+                return named ? [named] : [];
+            }) ?? [];
+        }
+        else if (functionMatch)
+        {
+            pendingTypes = [];
+        }
+        for (let cursor = 0; cursor < declarationLine.length; cursor += 1)
+        {
+            const character = declarationLine[cursor];
+            if (character === '{')
+            {
+                const classScope = classScopes.get(`${index}:${cursor}`);
+                // Inline methods see the complete class, including later type declarations.
+                valueScopes.push({
+                    bindings: new Map([
+                        ...[...classScope?.types ?? []].map(name => [name, false]),
+                        ...pendingTypes.map(name => [name, false]),
+                        ...pendingParameters.map(name => [name, true])
+                    ]),
+                    uncertainClass: classScope?.uncertain ?? false
+                });
+                pendingParameters = [];
+                pendingTypes = [];
+            }
+            else if (character === '}' && valueScopes.length > 1)
+            {
+                valueScopes.pop();
+            }
+        }
+
+        for (const character of declarationLine)
         {
             if (character === '{')
             {
