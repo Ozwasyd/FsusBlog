@@ -95,5 +95,6 @@
     "Three full13-field V1 metadata producers, compatible current observation digest, original historical slug/public route/lifecycle/taxonomy facts",
     "Original resource-specific dependency/asset rights, intended upload/reuse/accepted-reference receipts, native conditional materialization/readback/base completion",
     "Default frontend application type/style gates are failed, full fast/matrix/product/platform/independent acceptance remain unpassed; no approval flow bypass"
-  ]
+  ],
+  "metadataDiffProducer": "tools/governance/change-contract.mjs changedFilesBetween (original PR merge-base semantics)"
 }
