@@ -1,0 +1,12 @@
+--- a/src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs
++++ b/src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs
+@@ -176,6 +176,9 @@
+         services.AddScoped<IAuthoringCanvasDocumentStore, AuthoringCanvasDocumentStore>();
+         services.AddScoped<IAuthoringCanvasArticleReferenceReader, PostgresAuthoringCanvasArticleReferenceReader>();
+         services.AddScoped<IAuthoringArticleCurrentSourceReader, AuthoringArticleCurrentSourceReader>();
++        services.AddScoped<CurrentArticleUploadAssetBindingReader>();
++        services.AddScoped<CurrentDraftUploadAssetBindingReader>();
++        services.AddScoped<CurrentAuthoringResponsibilityReader>();
+         services.AddScoped<IAuthoringCanvasExternalCoordinateAuthority, PostgresAuthoringCanvasCoordinateAuthority>();
+         services.AddScoped<IAuthoringCanvasCoordinateFactProvider, AuthoringCanvasCoordinateFactProvider>();
+         services.AddScoped<IAuthoringCanvasReferenceFactSource, AuthoringCanvasReferenceFactSource>();

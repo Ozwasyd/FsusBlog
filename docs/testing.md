@@ -1823,7 +1823,6 @@ rights remain controlled fixtures, and the canonical2900 consistency verifier is
 not replayed or replaced in this supplier suite. Its original root must supply
 fresh selected dependency inputs and grant admission separately.
 
-
 ## Current draft/reference and responsibility integration controls
 
 The focused ordinary selectors are the exact classes
@@ -1841,3 +1840,12 @@ restoration cancellation, owner/missing-candidate refusal and outer transaction
 rollback. It performs no native deletion, private policy, receipt or held audit
 replay. Bind source/run identity and verify owned container teardown separately.
 No prior branch's51 or22 controls become acceptance of the combined source.
+
+The current-input source delivery bundle is
+[retained under artifacts](../artifacts/article-vault/current-input-binding/3a4729cc2c8b/README.md).
+Its positive8/8 and combined89/89 runs, ordinary isolated PostgreSQL queue/rollback
+observations, original source hashes and explicit acceptance limits remain bound
+to source commit `3a4729cc2c8bf6a01830049d7bbcb734ee16ce06`. The later documentation
+publication does not retag those runs or activate a runtime consumer. The bundle
+also contains the sole DI owner's unapplied hunk and a full draft PR body;
+it does not create a second current contract or an acceptance authority.

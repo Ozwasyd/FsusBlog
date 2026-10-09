@@ -3076,7 +3076,6 @@ are not minted here. A matching existing revision reference is current ledger
 fact, not an explicit resource reuse decision. All observation `Can*` flags remain
 false; no production Vault consumer is activated by these methods.
 
-
 The supplied current responsibility reader is integrated from exact source
 `76473e9dd3feb7e06e73fe085053373d6dbf45ae`. Its
 `ReadAuthorizedAsync(RevisionCompareReadContext, articleId, expectedCurrentRevisionId, ct)`
@@ -3118,3 +3117,24 @@ queued cleanup. This entry returns no cleanup receipt and performs no native
 deletion. The caller must observe actual durable queue/state after commit before
 claiming recorded cleanup; AbortUploadAsync's bool cannot substitute. No transport
 or DI registration is changed here. Those remain with the sole runtime owner.
+
+For the original cleanup consumer, this scheduling member remains inside the
+internal `ArticleAssetReferenceStore`. The original open transaction must use
+the same `ISqlSugarClient` as the store. Its original asset lock is
+`pg_advisory_xact_lock(hashtextextended(CAST(asset_id AS text), 1779))`;
+a single candidate `[assetId]` uses that same transaction-scoped lock and may
+reenter a lock already held by the original caller. The wrapper directly invokes
+the existing private `ScheduleIfUnreferencedAsync`, preserving the sole SQL/queue
+implementation. No transaction raises `content_asset_cleanup_transaction_required`;
+a missing or foreign-owner candidate raises `content_asset_cleanup_owner_or_asset_changed`
+before any batch scheduling. Inside the actual authorization and original transaction:
+
+```csharp
+var ledger = new ArticleAssetReferenceStore(db, timeProvider);
+await ledger.ScheduleUnreferencedOwnedAssetsAsync(
+    actualOwnerAdminPrincipalId, [assetId], cancellationToken);
+```
+
+The caller commits its original transaction and then reads actual durable
+queue/state for any cleanup observation. `SchedulingRequired` remains an unmet
+scheduling fact until that original durable observation confirms otherwise.

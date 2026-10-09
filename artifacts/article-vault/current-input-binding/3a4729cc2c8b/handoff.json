@@ -1,0 +1,287 @@
+{
+    "sourceCommit": "3a4729cc2c8bf6a01830049d7bbcb734ee16ce06",
+    "remoteShaVerified": "3a4729cc2c8bf6a01830049d7bbcb734ee16ce06",
+    "branch": "codex/chain-1975-current-draft-integration",
+    "base": "61d686739fca17aa3f3fad3840de315c4d35eabe",
+    "masterObservedBeforeWork": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+    "qualification": false,
+    "dependencies": [
+        {
+            "commit": "76473e9dd3feb7e06e73fe085053373d6dbf45ae",
+            "branch": "codex/issue-2283-current-authoring-responsibility",
+            "consumed": "responsibility reader and focused tests only; runtime reader exact SHA256 unchanged"
+        },
+        {
+            "commit": "53bba36b436502c3dd3e4b4d48b229a1c348d28b",
+            "branch": "feat/2283-current-draft-upload-reader",
+            "consumed": "saved draft reader and focused tests only; same real reads retained, added original input bytes and common binding"
+        }
+    ],
+    "composition": "Source file extraction only. No dependency ref mutation, whole-branch merge or guessed cherry-pick. Original FileService/IFileService unchanged from61d. Other owners DI/transport untouched.",
+    "files": {
+        "docs/api/contracts.md": "98900dac5bb5dc8f666526ac10dec2a899c1f1322791bae9f246ca06864515cf",
+        "docs/testing.md": "1b643c63b33dca9b6b294a49f1d3d51f7ef11c18c79cf66acce4c3aa16f645e5",
+        "src/backend/Services/Articles/ArticleAssetReferenceStore.cs": "5ebf82750d9fa12cd47a9e769b01d68520f3d754e570d933d41f2840b0abdcaa",
+        "src/backend/Services/Authoring/CurrentArticleUploadAssetBindingReader.cs": "ebd53e5552a5bb61700a3160fa72ed92bdf07b0a9671e7d0e72dfe98a2a3e7af",
+        "src/backend/Services/Authoring/CurrentAuthoringResponsibilityReader.cs": "9cc432843134951b200a392aa99175200cbdb5bea707586bbcc46a50134ae3dd",
+        "src/backend/Services/Authoring/CurrentDraftUploadAssetBindingReader.cs": "90b24462aa87e44a40a50823be1446bb8a3f567b78de45aa4ec7ea2325c4ddcb",
+        "src/backend/Services/Authoring/CurrentUploadAssetReferenceBinding.cs": "301aa4011f10178c71acaf6ee1e4bd326e3a6fac9c50c130c17db45b7ce6db59",
+        "tests/backend/Unit/CurrentAuthoringResponsibilityReaderTests.cs": "21ddcd2ac4a42643c30f805514920462c9a510be675b14bb7276727e2d39d185",
+        "tests/backend/Unit/CurrentDraftUploadAssetBindingReaderTests.cs": "5f1a178f5d9977ae54dd0956efba2eefa33745b20dd8a66df162da51cae66082",
+        "tests/backend/Unit/CurrentUploadAssetReferenceBindingTests.cs": "8d48d67c15a4bcd118842087916cb80ef0b2ff023b4bf7321ecd43774cc054c3",
+        "tests/backend/Unit/CurrentUploadCleanupSchedulingTests.cs": "1117efa431b5631842472f05247662296cc7236e5429d768e255f170ff2ce10b"
+    },
+    "methods": {
+        "savedDraft": "CurrentDraftUploadAssetBindingReader(IAuthoringDraftLifecycle,IFileService).ReadSavedDraftInputAsync(CurrentDraftUploadAssetReference reference, ClaimsPrincipal principal, UploadSessionAccess session, string sha256, Func<CurrentDraftUploadAssetContext> readCurrentContext, CancellationToken ct) -> Task<(CurrentDraftUploadAssetReadResult Read, ReadOnlyMemory<byte> Bytes)>",
+        "responsibility": "CurrentAuthoringResponsibilityReader(IAuthoringRevisionCompareAuthority,IArticleResponsibilityAuthoringService).ReadAuthorizedAsync(RevisionCompareReadContext context,int articleId,long expectedCurrentRevisionId,CancellationToken ct) -> Task<CurrentAuthoringResponsibilityReadResult>",
+        "cleanup": "internal ArticleAssetReferenceStore(ISqlSugarClient db,TimeProvider? timeProvider=null).ScheduleUnreferencedOwnedAssetsAsync(long ownerAdminPrincipalId,IReadOnlyCollection<AssetId> candidateAssetIds,CancellationToken ct) -> Task; requires caller open SQL transaction"
+    },
+    "transportHandoff": {
+        "soleOwner": 3735,
+        "patch": "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-di-owner3735.patch",
+        "actualCallerRequirements": [
+            "Actual authorized ClaimsPrincipal; actual owned upload session/token closure; do not derive principal from frontend userScope.",
+            "Actual original saved server DraftKey and server:N ACK are distinct from opaque Writer DraftId and editor sourceRevision.",
+            "readCurrentContext must be original current host authority with cancellation/context change; static incoming request DTO closure is not a live browser context proof.",
+            "Reader confirms existing saved source and canonical reference. No secret SaveDraftAsync, upload initialization, reference/reuse receipt, verified intent or permission fabrication.",
+            "Transport/frame/AEDS parity and DI resolution remain with3735; no new public route/frame/serializer supplied here."
+        ]
+    },
+    "cleanupHandoff": {
+        "caller": "Original released upload cleanup owner in same backend assembly; resolve scoped DB through original IServiceScopeFactory if FileService singleton; do not inject scoped DB into singleton or reenter a held session lock.",
+        "sequence": [
+            "Original owned upload/session authorization, actual candidate AssetId set, existing transaction.",
+            "Call canonical scheduling entry once under transaction; original sorted asset advisory locks and exact owner existence check before scheduling.",
+            "Commit original caller transaction, then observe real canonical queue/asset state before claiming recorded cleanup.",
+            "Referenced assets are not queued; unreferenced assets use original24h grace/one queue row/LEAST deadline; original restored ref cancels queue and activates asset."
+        ],
+        "refusals": [
+            "content_asset_cleanup_transaction_required before any mutation",
+            "content_asset_cleanup_owner_or_asset_changed before any partial batch scheduling"
+        ],
+        "limits": "Task return is not cleanup receipt. No native deletion, token-purpose changes, production DDL, terminal cleanup/crash acceptance.",
+        "lock": "Original transaction on same ISqlSugarClient; AcquireAssetLocksAsync uses pg_advisory_xact_lock(hashtextextended(CAST(asset_id AS text),1779)); single asset candidate set=[assetId]; same transaction may reenter original same lock.",
+        "source": "src/backend/Services/Articles/ArticleAssetReferenceStore.cs:25 (forwarder), :36 (transaction guard), :41 (original locks), :51 (private scheduler), :289 (scheduler), :370 (locks), :381 (seed1779 SQL). All line coordinates bind3a4729."
+    },
+    "verification": {
+        "runs": [
+            {
+                "runId": "chain1975-cdi-3a4729-positive",
+                "testedSha": "3a4729cc2c8bf6a01830049d7bbcb734ee16ce06",
+                "startUtc": "2026-10-09T09:04:30.056089+00:00",
+                "stopUtc": "2026-10-09T09:04:36.631118+00:00",
+                "command": [
+                    "dotnet",
+                    "test",
+                    "tests/backend/FsusBlog.Server.Tests.csproj",
+                    "--no-build",
+                    "--no-restore",
+                    "--filter",
+                    "FullyQualifiedName=FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests.SavedDraft_ReadsOriginalOwnerAndExactLedgerWithoutWrites|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests.InputRead_ForwardsOriginalBytesWithTheSameCurrentDraftFacts|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CurrentAuthoringResponsibilityReaderTests.ReadAuthorizedAsync_ReturnsLatestExistingHistoryWithExactCoordinates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CurrentUploadAssetReferenceBindingTests.ExistingReference_BindsOnlyOneExactCanonicalSourceEdge|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CurrentUploadCleanupSchedulingTests.Schedule_PreservesReferencesDelayAndRestoredDraftAcrossRepeatedCalls",
+                    "--logger",
+                    "trx;LogFileName=current-draft-3a4729-positive.trx",
+                    "--results-directory",
+                    "/workspace/chain-1975-evidence",
+                    "--verbosity",
+                    "minimal"
+                ],
+                "exitCode": 0,
+                "log": "local-only raw artifact: current-draft-3a4729-positive.log",
+                "trx": "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-positive.trx",
+                "counters": {
+                    "total": "8",
+                    "executed": "8",
+                    "passed": "8",
+                    "failed": "0",
+                    "error": "0",
+                    "timeout": "0",
+                    "aborted": "0",
+                    "inconclusive": "0",
+                    "passedButRunAborted": "0",
+                    "notRunnable": "0",
+                    "notExecuted": "0",
+                    "disconnected": "0",
+                    "warning": "0",
+                    "completed": "0",
+                    "inProgress": "0",
+                    "pending": "0"
+                },
+                "dockerEventsExit": 0,
+                "dockerEventsPath": "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-positive-docker-events.jsonl",
+                "dockerContainerEvents": {
+                    "6bb1faa9ef8adcb7e84b70f713428b7f89c9701974d303b13f7a12776f2293ee": [
+                        "create",
+                        "start",
+                        "kill",
+                        "die",
+                        "destroy"
+                    ]
+                },
+                "remainingOwnedContainers": 0,
+                "dockerPsExit": 0
+            },
+            {
+                "runId": "chain1975-cdi-3a4729-focused",
+                "testedSha": "3a4729cc2c8bf6a01830049d7bbcb734ee16ce06",
+                "startUtc": "2026-10-09T09:04:36.659458+00:00",
+                "stopUtc": "2026-10-09T09:04:44.379650+00:00",
+                "command": [
+                    "dotnet",
+                    "test",
+                    "tests/backend/FsusBlog.Server.Tests.csproj",
+                    "--no-build",
+                    "--no-restore",
+                    "--filter",
+                    "FullyQualifiedName~FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests|FullyQualifiedName~FsusBlog.Server.Tests.Unit.CurrentAuthoringResponsibilityReaderTests|FullyQualifiedName~FsusBlog.Server.Tests.Unit.CurrentUploadAssetReferenceBindingTests|FullyQualifiedName~FsusBlog.Server.Tests.Unit.CurrentUploadCleanupSchedulingTests",
+                    "--logger",
+                    "trx;LogFileName=current-draft-3a4729-focused.trx",
+                    "--results-directory",
+                    "/workspace/chain-1975-evidence",
+                    "--verbosity",
+                    "minimal"
+                ],
+                "exitCode": 0,
+                "log": "local-only raw artifact: current-draft-3a4729-focused.log",
+                "trx": "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-focused.trx",
+                "counters": {
+                    "total": "89",
+                    "executed": "89",
+                    "passed": "89",
+                    "failed": "0",
+                    "error": "0",
+                    "timeout": "0",
+                    "aborted": "0",
+                    "inconclusive": "0",
+                    "passedButRunAborted": "0",
+                    "notRunnable": "0",
+                    "notExecuted": "0",
+                    "disconnected": "0",
+                    "warning": "0",
+                    "completed": "0",
+                    "inProgress": "0",
+                    "pending": "0"
+                },
+                "dockerEventsExit": 0,
+                "dockerEventsPath": "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-focused-docker-events.jsonl",
+                "dockerContainerEvents": {
+                    "a12c99a887fab12d5f79642bb0f8ce7440b29a7caa45be7c2e6cb201bf386853": [
+                        "create",
+                        "start",
+                        "kill",
+                        "die",
+                        "destroy"
+                    ]
+                },
+                "remainingOwnedContainers": 0,
+                "dockerPsExit": 0
+            }
+        ],
+        "discovery": {
+            "command": [
+                "dotnet",
+                "test",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "--no-restore",
+                "--list-tests",
+                "--filter",
+                "FullyQualifiedName~FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests|FullyQualifiedName~FsusBlog.Server.Tests.Unit.CurrentAuthoringResponsibilityReaderTests|FullyQualifiedName~FsusBlog.Server.Tests.Unit.CurrentUploadAssetReferenceBindingTests|FullyQualifiedName~FsusBlog.Server.Tests.Unit.CurrentUploadCleanupSchedulingTests"
+            ],
+            "exit": 0,
+            "counts": {
+                "CurrentDraftUploadAssetBindingReaderTests": 59,
+                "CurrentAuthoringResponsibilityReaderTests": 22,
+                "CurrentUploadAssetReferenceBindingTests": 3,
+                "CurrentUploadCleanupSchedulingTests": 5
+            },
+            "total": 89,
+            "warningLines": 1530,
+            "errorLines": 0
+        },
+        "style": {
+            "command": [
+                "node",
+                "tools/dotnet/check-csharp-style.mjs",
+                "--file",
+                "src/backend/Services/Articles/ArticleAssetReferenceStore.cs",
+                "--file",
+                "src/backend/Services/Authoring/CurrentArticleUploadAssetBindingReader.cs",
+                "--file",
+                "src/backend/Services/Authoring/CurrentAuthoringResponsibilityReader.cs",
+                "--file",
+                "src/backend/Services/Authoring/CurrentDraftUploadAssetBindingReader.cs",
+                "--file",
+                "src/backend/Services/Authoring/CurrentUploadAssetReferenceBinding.cs",
+                "--file",
+                "tests/backend/Unit/CurrentAuthoringResponsibilityReaderTests.cs",
+                "--file",
+                "tests/backend/Unit/CurrentDraftUploadAssetBindingReaderTests.cs",
+                "--file",
+                "tests/backend/Unit/CurrentUploadAssetReferenceBindingTests.cs",
+                "--file",
+                "tests/backend/Unit/CurrentUploadCleanupSchedulingTests.cs"
+            ],
+            "exit": 0,
+            "files": 9,
+            "violations": 0,
+            "new": 0
+        },
+        "changeContract": {
+            "command": "node tools/governance/check-change-contract.mjs --range 61d686739fca17aa3f3fad3840de315c4d35eabe..HEAD",
+            "exit": 0
+        },
+        "diffCheck": {
+            "command": "git diff --check 61d686739fca17aa3f3fad3840de315c4d35eabe HEAD",
+            "exit": 0
+        }
+    },
+    "evidenceLimits": [
+        "Draft bytes [1,2,3], controlled providers and metadata are ordinary forwarding controls, not new native qualification.",
+        "Cleanup tests use actual isolated PostgreSQL with original canonical schema tables, transactions and queue logic; controlled asset metadata proves no native deletion/media qualification.",
+        "61d previous56-case real native bytes/public preview evidence remains bound61d; no re-tagging.",
+        "Original supplied22/51 branch results are not inherited. This combined source independently passed22 responsibility +59 draft +3 shared binding +5 cleanup =89.",
+        "No whole CI/zero-warning/product/browser/live DI/public AEDS transport/explicit reuse/intent/reference receipt/terminal cutover qualification."
+    ],
+    "publication": {
+        "gitPush": "confirmed remote branch SHA by git ls-remote",
+        "draftPr": "No new PR: GitHub content API controlled by authorized monitor. Prior draft3813 does not contain this increment. No issue comment/body/label/close/master/merge/deploy.",
+        "remoteDelivery": "This immutable source-bound observation bundle is published through the normal independent source branch. All test results remain bound to3a4729cc2c8bf6a01830049d7bbcb734ee16ce06, not the later documentation commit.",
+        "masterObservedBeforeDelivery": "4937961e02ff587c2e13b8a463c9709ddfd82359"
+    },
+    "nextRequiredOwners": [
+        "3735: apply scoped DI hunk and bind original authorized AEDS transport without fabricated current editor authority.",
+        "Released cleanup module: compose real original upload closure with canonical transaction entry and inspect durable queue/state after commit.",
+        "Original2256/2261/2246 authorities: exact verified intent, reference and cleanup observation bindings; consistency source bytes are not grants.",
+        "1975 original compiled operation registry and current asset/native source profile: isolated full destructive apply/repeat/restore before1976 can start."
+    ],
+    "artifactHashes": {
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-positive.trx": "228b83a2cb1e2fd43ad743f8587b6c1562a225bfb2c09d2b4f0e676e6c2dca2c",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-focused.trx": "bedacba822d308b590b3f335110d36f4fb47661b13878c3261b300ab31797501",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-positive-docker-events.jsonl": "1581b3025c4fc6167b1b5aef14330afbb561e78946aef0ed7c906cfd31116593",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-focused-docker-events.jsonl": "19c256dc7a023c8ca2d05f428e29d14b5804c8fda524a9f7cbe86585c8a74d80",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-positive-remaining-containers.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-focused-remaining-containers.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-3a4729-di-owner3735.patch": "5edafdad0916ebb4959af9a04417954a8cf0b5cb07fe533ac3b3bf2c2027f491",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-issue-status-3a4729.md": "96ce25028aecd94088cbe1f0fc1b9fd42e571b6d70abb800389109549bbb4359",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/run-current-draft-3a4729.py": "3da681655b27303b8c3d2c8e1be7f0e67813cddf310f539b787015509099ae9e",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/README.md": "238a465e0311bf3af06003312bc66b4aec1193f36bd543c0d31e373c3d4e1185",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/pull-request-body.md": "8cdd884678af90e7514df669761e21e313ba52e0ab7cbbc6754d513db4cd1689",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-delivery-doc-style-baseline.log": "568bb1e1f619c0f6bac3e1912cbef936ee04b004c0c69bad24d99a2ce3732a1e",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-delivery-doc-style-final.log": "fb72a9e3cb3666cc2c12ad28b400d13fcad1a4cfa968b89bafac23b0488dd888",
+        "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-remote-pr-metadata.log": "42bf4c47e84b89e8a4e295f52db0e70dde4bfb76a0f7531640aa486e14874431"
+    },
+    "issueStatusLedger": "artifacts/article-vault/current-input-binding/3a4729cc2c8b/current-draft-issue-status-3a4729.md",
+    "pendingCleanupObserver": "Coordinator supplied only327f prefix, no full SHA/branch/file paths or cancellation fix acceptance. No commit guessed or consumed. Await exact identity/evidence for owned reference/cleanup wiring; unique cleanup worker owns original scheduler integration.",
+    "deliveryChecks": {
+        "runtimeSources": "unchanged from3a4729",
+        "prMetadata": "offline template/title/release-label contract passed after correcting non-format-only formatter fields to none; no GitHub operation or qualification",
+        "docsStyle": {
+            "baselineSource": "3a4729cc2c8bf6a01830049d7bbcb734ee16ce06",
+            "baselineExit": 1,
+            "baselineViolations": 28,
+            "deliveryExit": 1,
+            "deliveryViolations": 26,
+            "result": "pre-existing Markdown baseline remains failed; fixed only own excess blank lines and added no new reported rule/surface"
+        },
+        "diffCheck": "passed"
+    }
+}
