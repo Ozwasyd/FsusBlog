@@ -30,7 +30,7 @@
                         :disabled="passkeyLoading"
                         class="login-remember-checkbox"
                     >
-                        {{ copy.rememberMe }}
+                        <span class="login-remember-label">{{ copy.rememberMe }}</span>
                     </ElCheckbox>
                     <ElButton
                         type="primary"
@@ -224,11 +224,15 @@ const handlePasskeyLogin = () => loginWithPasskey(rememberMe.value);
 .login-remember-checkbox
  {
     align-items: flex-start;
+    height: auto;
+    min-width: 0;
 }
 
-.login-remember-checkbox :deep(.el-checkbox__label)
+.login-remember-label
  {
+    display: block;
     white-space: normal;
+    overflow-wrap: anywhere;
     line-height: 1.5;
 }
 
