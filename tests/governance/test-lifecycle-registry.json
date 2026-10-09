@@ -835,8 +835,7 @@
             "lifecycle": "canonical-execution",
             "physicalExecutionCount": 1,
             "classifications": [
-                "source-text",
-                "runtime"
+                "source-text"
             ],
             "staticGovernance": {
                 "id": "canonical-article-lifecycle-authority",
@@ -5083,6 +5082,16 @@
             ]
         },
         {
+            "file": "tests/tools/linux-cgroup-membership-locator.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/tools/system-memory.test.mjs",
             "owner": "manual-diagnostic:tests/tools/system-memory.test.mjs",
             "executionCategory": "manual-diagnostic",
@@ -6778,21 +6787,6 @@
             ],
             "staticGovernance": {
                 "id": "canonical-article-graph-factory",
-                "category": "real-subprocess-lifecycle",
-                "physicalOwner": "process:lifecycle"
-            }
-        },
-        {
-            "file": "tests/tools/canonical-article-lifecycle-authority.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text"
-            ],
-            "staticGovernance": {
-                "id": "canonical-article-lifecycle-authority",
                 "category": "real-subprocess-lifecycle",
                 "physicalOwner": "process:lifecycle"
             }
