@@ -177,7 +177,8 @@ internal static class ArticleSourceGenerationPersistence
     {
         await using NpgsqlCommand command = new("""
             SELECT journal.article_id, journal.source_generation, journal.source_sequence, journal.event_facts,
-                   clock.family_id, clock.source_generation, sequence.source_sequence
+                   clock.family_id, clock.source_generation, sequence.source_sequence,
+                   (SELECT COUNT(*) FROM article_source_generation)
             FROM article_source_mutation journal
             LEFT JOIN article_source_generation clock ON clock.family_id = 1
             LEFT JOIN article_source_sequence sequence ON sequence.article_id = journal.article_id
@@ -198,7 +199,7 @@ internal static class ArticleSourceGenerationPersistence
         if (generation <= 0 || sequence <= 0 || sequence > generation
             || reader.IsDBNull(4) || reader.GetInt32(4) != 1 || reader.IsDBNull(5) || reader.IsDBNull(6)
             || generation > reader.GetInt64(5) || sequence > reader.GetInt64(6)
-            || reader.GetInt64(6) > reader.GetInt64(5))
+            || reader.GetInt64(6) > reader.GetInt64(5) || reader.GetInt64(7) != 1)
         {
             throw new InvalidOperationException("article_source_journal_cursor_invalid");
         }
@@ -273,6 +274,19 @@ internal static class ArticleSourceGenerationPersistence
                 }
             }
         }
+        if (!generation.HasValue)
+        {
+            // An absent clock is uninitialized only when this authority has no durable state.
+            // Never silently recreate a lost clock from surviving sequences or enrollments.
+            await using NpgsqlCommand orphan = new("""
+                SELECT EXISTS (SELECT 1 FROM article_source_sequence)
+                    OR EXISTS (SELECT 1 FROM article_source_mutation);
+                """, connection, transaction);
+            if ((bool)(await orphan.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false))!)
+            {
+                throw new InvalidOperationException("article_source_clock_missing_for_persisted_state");
+            }
+        }
         await using (NpgsqlCommand sequence = new(
             "SELECT source_sequence FROM article_source_sequence WHERE article_id = @ArticleId FOR UPDATE;", connection, transaction))
         {
@@ -281,6 +295,16 @@ internal static class ArticleSourceGenerationPersistence
             if (value is long persisted && (persisted <= 0 || !generation.HasValue || persisted > generation.Value))
             {
                 throw new InvalidOperationException("article_source_sequence_invalid");
+            }
+            if (value is null)
+            {
+                await using NpgsqlCommand orphan = new(
+                    "SELECT EXISTS (SELECT 1 FROM article_source_mutation WHERE article_id = @ArticleId);", connection, transaction);
+                orphan.Parameters.AddWithValue("ArticleId", item.AggregateId);
+                if ((bool)(await orphan.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false))!)
+                {
+                    throw new InvalidOperationException("article_source_sequence_missing_for_persisted_state");
+                }
             }
             _ = checked((value is long current ? current : 0) + 1);
         }
