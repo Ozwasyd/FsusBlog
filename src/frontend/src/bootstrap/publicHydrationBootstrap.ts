@@ -58,7 +58,8 @@ function readSidecarUrl(): string | null
     }
 
     const element = document.getElementById(HYDRATION_SCRIPT_ID);
-    const raw = element?.dataset.aedsSrc || element?.getAttribute('src') || '';
+    const markerUrl = element?.dataset.aedsSrc ?? '';
+    const raw = markerUrl.length > 0 ? markerUrl : element?.getAttribute('src') ?? '';
     if (!raw.trim())
     {
         return null;
@@ -171,6 +172,11 @@ export function replacePublicHydrationPayloadBinary(rawPayload: string | null): 
         script?.remove();
         writeWindowHydrationRaw(null);
         return cacheHydrationPayload(null);
+    }
+
+    if (script !== null && !(script instanceof HTMLScriptElement))
+    {
+        throw new Error('public_hydration_script_invalid');
     }
 
     const target = script ?? (() =>
