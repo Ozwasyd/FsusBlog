@@ -6,6 +6,9 @@
             "paths": [
                 "src/backend/Services/CommentAuthorManagementService.cs",
                 "src/backend/Services/CommentService.cs",
+                "src/backend/Services/Fixtures/CommentFixtureQueuePageReader.cs",
+                "src/backend/Services/Fixtures/CommentFixtureReplyMessagePageReader.cs",
+                "src/backend/Services/Fixtures/CommentFixtureTimelineVerifier.cs",
                 "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
                 "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
                 "src/backend/Services/Fixtures/CommentThreadFixturePort.cs"
