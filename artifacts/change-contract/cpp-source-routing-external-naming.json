@@ -6,7 +6,8 @@
             "paths": [
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
                 "config/testing/release-final-execution-authority-index.json",
-                "artifacts/style/font-theme-admin-pods-idempotence.json"
+                "artifacts/style/font-theme-admin-pods-idempotence.json",
+                "config/development/native-tooling-style-policy.json"
             ],
             "reason": "Preserve the existing canonical execution-authority JSON keys while adding only the current C++ SOURCE port and its real source input bindings."
         },
@@ -26,7 +27,9 @@
                 "tools/test-matrix/source-governance.mjs",
                 "tools/test-matrix/blame-ignore-source.mjs",
                 "tools/style/check-native-tooling-style.mjs",
-                "tests/tools/native-tooling-style.test.mjs"
+                "tests/tools/native-tooling-style.test.mjs",
+                "tools/configuration/wasm-cpp-context.mjs",
+                "tools/configuration/wasm-cpp-source.test.mjs"
             ],
             "reason": "Preserve actual compiler environment names, checker/planner interfaces and the original native checker fixture tokens while keeping implicit context and unsupported flags refused."
         }
