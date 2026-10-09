@@ -29,7 +29,7 @@ public sealed class AuthoringFilterRegistryAuthorityTests
     [Theory]
     [InlineData("self-reference", "filter_package_digest_self_reference")]
     [InlineData("unknown", "filter_json_invalid")]
-    [InlineData("identity", "filter_package_binding_drift")]
+    [InlineData("identity", "filter_package_contribution_undeclared")]
     [InlineData("version", "filter_package_binding_drift")]
     [InlineData("undeclared", "filter_package_contribution_undeclared")]
     [InlineData("duplicate", "filter_package_entry_partial")]
@@ -246,6 +246,30 @@ public sealed class AuthoringFilterRegistryAuthorityTests
             registry.MapAsync(s_owner, Query(), [Configuration(package)], cancellation.Token));
     }
 
+    [Fact]
+    public async Task CancellationDuringValidatorAwait_DoesNotReturnOldStructuralData()
+    {
+        (VerifiedAuthoringPackage package, ImmutableArray<AuthoringExecutionTarget> targets) = await PackageAsync();
+        var validator = new PausingValidator();
+        AuthoringFilterRegistryAuthority registry = Registry(validator);
+        registry.ActivateAtomically(package, targets);
+        using var cancellation = new CancellationTokenSource();
+        Task<AuthoringFilterMappingResult> pending = registry.MapAsync(s_owner, Query(), [Configuration(package)], cancellation.Token);
+        await validator.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        Assert.Single(registry.Snapshot());
+    }
+
+    [Fact]
+    public async Task MissingConfiguration_IsAClosedRefusal()
+    {
+        AuthoringFilterMappingResult result = await Registry().MapAsync(s_owner, Query(), [null!]);
+        Assert.Equal(AuthoringFilterMappingStatus.Rejected, result.Status);
+        Assert.Equal(["filter_config_missing"], result.Reasons);
+        Assert.Null(result.StructuralQuery);
+    }
+
     private static AuthoringFilterRegistryAuthority Registry(IAuthorSavedViewQueryValidator? validator = null)
         => new(new VerifiedPackageAuthoringFilterSource(), new([], [], [], [], []), validator ?? Validator());
 
@@ -254,7 +278,8 @@ public sealed class AuthoringFilterRegistryAuthorityTests
 
     private static AuthorSavedViewQuery Query() => new(1, [], new(
         new(AuthorSavedViewFieldKind.Date, AuthorSavedViewContract.UpdatedAtField),
-        AuthorSavedViewSortDirection.Descending, AuthorSavedViewNullPlacement.Last, "temporal", TimeZoneId: "UTC"), [], 20);
+        AuthorSavedViewSortDirection.Descending, AuthorSavedViewNullPlacement.Last, "temporal", TimeZoneId: "UTC"),
+        [new(AuthorSavedViewFieldKind.Date, AuthorSavedViewContract.PublishedAtField)], 20);
 
     private static AuthoringFilterConfiguration Configuration(VerifiedAuthoringPackage package) => new(
         1, package.Contract.Manifest.Id, package.Contract.Manifest.Version, package.Contract.Manifest.PackageSha256,
