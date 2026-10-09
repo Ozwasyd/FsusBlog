@@ -266,7 +266,7 @@ public sealed class AuthoringFilterRegistryAuthorityTests
     {
         AuthoringFilterMappingResult result = await Registry().MapAsync(s_owner, Query(), [null!]);
         Assert.Equal(AuthoringFilterMappingStatus.Rejected, result.Status);
-        Assert.Equal(["filter_config_missing"], result.Reasons);
+        Assert.Equal("filter_config_missing", Assert.Single(result.Reasons));
         Assert.Null(result.StructuralQuery);
     }
 
