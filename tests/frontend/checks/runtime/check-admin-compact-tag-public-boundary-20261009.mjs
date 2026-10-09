@@ -130,12 +130,16 @@ body { margin: 0; }
         await page.keyboard.press('Tab');
         await page.keyboard.press('Enter');
         await page.getByRole('menuitem', { name: '查看', exact: true }).waitFor({ state: 'visible' });
-        await page.keyboard.press('ArrowDown');
+        await page.waitForFunction(() => ['menu', 'menuitem'].includes(globalThis.document.activeElement?.getAttribute('role')));
+        await page.keyboard.press('Home');
         await page.waitForFunction(() => globalThis.document.activeElement?.textContent?.trim() === '查看');
         await page.keyboard.press('Enter');
+        await page.getByRole('menuitem', { name: '查看', exact: true }).waitFor({ state: 'hidden' });
         await page.getByRole('button', { name: '更多' }).focus();
+        await page.waitForFunction(() => globalThis.document.activeElement?.textContent?.includes('更多'));
         await page.keyboard.press('Enter');
         await page.getByRole('menuitem', { name: '移入回收站', exact: true }).waitFor({ state: 'visible' });
+        await page.waitForFunction(() => ['menu', 'menuitem'].includes(globalThis.document.activeElement?.getAttribute('role')));
         await page.keyboard.press('End');
         await page.waitForFunction(() => globalThis.document.activeElement?.textContent?.trim() === '移入回收站');
         await page.keyboard.press('Enter');
