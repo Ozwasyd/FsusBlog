@@ -285,7 +285,7 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
         using var unread = new UnreadBody();
         bool authenticated = false;
         bool permitted = false;
-        int owner = 0;
+        long owner = 0;
         string? session = null;
         WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -344,7 +344,7 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
             using HttpResponseMessage response = await client.PostAsync(Route, body);
             Assert.True(authenticated);
             Assert.True(permitted);
-            Assert.Equal(73, owner);
+            Assert.Equal(73L, owner);
             Assert.Equal("controlled-session", session);
             Assert.Equal(400, (int)response.StatusCode);
             Assert.Equal("application/octet-stream", response.Content.Headers.ContentType?.MediaType);
