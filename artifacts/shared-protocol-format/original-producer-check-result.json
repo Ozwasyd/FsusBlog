@@ -1,0 +1,10 @@
+{
+    "testedCommit": "6324264ab60fbf6b196f14c09a447eca58402bbe",
+    "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/generate-aeds-protocol.mjs",
+        "--check"
+    ],
+    "exitCode": 0,
+    "productCount": 5
+}

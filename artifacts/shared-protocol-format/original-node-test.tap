@@ -1,0 +1,226 @@
+TAP version 13
+# Subtest: the original producer owns five products with manifest-derived identities and explicit metadata
+ok 1 - the original producer owns five products with manifest-derived identities and explicit metadata
+  ---
+  duration_ms: 8.303446
+  type: 'test'
+  ...
+# Subtest: the Canvas and article-link additions retain independently named roots and wire identities
+ok 2 - the Canvas and article-link additions retain independently named roots and wire identities
+  ---
+  duration_ms: 2.782241
+  type: 'test'
+  ...
+# Subtest: property value and workspace snapshot roots retain exact registered identities
+ok 3 - property value and workspace snapshot roots retain exact registered identities
+  ---
+  duration_ms: 1.687985
+  type: 'test'
+  ...
+# Subtest: the original 236 golden records, evidence and retirement remain unchanged
+ok 4 - the original 236 golden records, evidence and retirement remain unchanged
+  ---
+  duration_ms: 2.70375
+  type: 'test'
+  ...
+# Subtest: the original four renderer outputs and complete golden bytes are preserved for the retained source
+ok 5 - the original four renderer outputs and complete golden bytes are preserved for the retained source
+  ---
+  duration_ms: 2.012096
+  type: 'test'
+  ...
+# Subtest: the FontRegistryList golden identity comes from the same protocol frame used by every language
+ok 6 - the FontRegistryList golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 1.725367
+  type: 'test'
+  ...
+# Subtest: the FontRegistryDetail golden identity comes from the same protocol frame used by every language
+ok 7 - the FontRegistryDetail golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 3.257182
+  type: 'test'
+  ...
+# Subtest: the FontActivationList golden identity comes from the same protocol frame used by every language
+ok 8 - the FontActivationList golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 2.302876
+  type: 'test'
+  ...
+# Subtest: the ThemeRegistryList golden identity comes from the same protocol frame used by every language
+ok 9 - the ThemeRegistryList golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 1.782843
+  type: 'test'
+  ...
+# Subtest: the ThemeRegistryDetail golden identity comes from the same protocol frame used by every language
+ok 10 - the ThemeRegistryDetail golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 2.446254
+  type: 'test'
+  ...
+# Subtest: the ThemeActivationList golden identity comes from the same protocol frame used by every language
+ok 11 - the ThemeActivationList golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 2.447277
+  type: 'test'
+  ...
+# Subtest: the ThemeActivation golden identity comes from the same protocol frame used by every language
+ok 12 - the ThemeActivation golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 1.310516
+  type: 'test'
+  ...
+# Subtest: the ThemeActivationHistory golden identity comes from the same protocol frame used by every language
+ok 13 - the ThemeActivationHistory golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 1.354314
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses missing golden metadata before any output
+ok 14 - the original renderer refuses missing golden metadata before any output
+  ---
+  duration_ms: 2.777598
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses unknown golden metadata field before any output
+ok 15 - the original renderer refuses unknown golden metadata field before any output
+  ---
+  duration_ms: 0.726956
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses unknown catalog version before any output
+ok 16 - the original renderer refuses unknown catalog version before any output
+  ---
+  duration_ms: 0.461495
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses empty evidence before any output
+ok 17 - the original renderer refuses empty evidence before any output
+  ---
+  duration_ms: 0.416729
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses duplicate evidence before any output
+ok 18 - the original renderer refuses duplicate evidence before any output
+  ---
+  duration_ms: 0.364241
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses outside evidence before any output
+ok 19 - the original renderer refuses outside evidence before any output
+  ---
+  duration_ms: 0.349922
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses traversing evidence before any output
+ok 20 - the original renderer refuses traversing evidence before any output
+  ---
+  duration_ms: 0.521749
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses evidence with terminal LF before any output
+ok 21 - the original renderer refuses evidence with terminal LF before any output
+  ---
+  duration_ms: 0.393295
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses missing family before any output
+ok 22 - the original renderer refuses missing family before any output
+  ---
+  duration_ms: 0.47761
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses empty family before any output
+ok 23 - the original renderer refuses empty family before any output
+  ---
+  duration_ms: 0.404976
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses family with terminal LF before any output
+ok 24 - the original renderer refuses family with terminal LF before any output
+  ---
+  duration_ms: 0.878968
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses missing order before any output
+ok 25 - the original renderer refuses missing order before any output
+  ---
+  duration_ms: 0.474527
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses duplicate order before any output
+ok 26 - the original renderer refuses duplicate order before any output
+  ---
+  duration_ms: 0.38802
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses negative order before any output
+ok 27 - the original renderer refuses negative order before any output
+  ---
+  duration_ms: 0.79834
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses out of range order before any output
+ok 28 - the original renderer refuses out of range order before any output
+  ---
+  duration_ms: 0.499884
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses fractional order before any output
+ok 29 - the original renderer refuses fractional order before any output
+  ---
+  duration_ms: 0.451266
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses unannotated registered frame before any output
+ok 30 - the original renderer refuses unannotated registered frame before any output
+  ---
+  duration_ms: 0.480067
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses removed registered frame leaving a metadata gap before any output
+ok 31 - the original renderer refuses removed registered frame leaving a metadata gap before any output
+  ---
+  duration_ms: 1.140152
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses duplicate frame identity before any output
+ok 32 - the original renderer refuses duplicate frame identity before any output
+  ---
+  duration_ms: 0.413262
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses retired frame reused as active before any output
+ok 33 - the original renderer refuses retired frame reused as active before any output
+  ---
+  duration_ms: 0.266278
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses empty frame collection before any output
+ok 34 - the original renderer refuses empty frame collection before any output
+  ---
+  duration_ms: 0.567124
+  type: 'test'
+  ...
+# Subtest: every frame, including future registrations, must explicitly provide complete golden metadata
+ok 35 - every frame, including future registrations, must explicitly provide complete golden metadata
+  ---
+  duration_ms: 2.387554
+  type: 'test'
+  ...
+# Subtest: source values and explicit metadata, not old output values, determine the complete catalog
+ok 36 - source values and explicit metadata, not old output values, determine the complete catalog
+  ---
+  duration_ms: 2.016302
+  type: 'test'
+  ...
+1..36
+# tests 36
+# suites 0
+# pass 36
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 169.726101

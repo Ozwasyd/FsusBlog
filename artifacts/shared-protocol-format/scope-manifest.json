@@ -1,0 +1,92 @@
+{
+    "kind": "source-formatting-increment-not-full-qualification",
+    "base": "0015897304873f75858e0e5546313b43007834d8",
+    "sourceCommit": "6324264ab60fbf6b196f14c09a447eca58402bbe",
+    "branch": "codex/shared-protocol-format-20261009",
+    "sourceDeltaPaths": [
+        "tests/tools/aeds-protocol-generation.test.mjs"
+    ],
+    "preimageBlob": "396ebcdab7c902de4765a9874e95d2ec71ea9e3a",
+    "formattedBlob": "bb866e27a28c9758422288efa0e4dffa6148e95b",
+    "unchangedClosure": [
+        {
+            "path": "tools/frontend/generate-aeds-protocol.mjs",
+            "sha256": "13ddf5ad32553fe00908981d827f5b76bc478b6a341c726241d7e84f7e8bafa9",
+            "gitBlob": "f3338c3d363c61d9c89be216b693cc3f1a2802e8",
+            "byteExactBase": true
+        },
+        {
+            "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+            "sha256": "91767861176d83d0404759540a93d28cbc961a6012c27f8c5fc0e4e56236d122",
+            "gitBlob": "ba1433e93ab3d854c9ae4ae8c3801854cf54225f",
+            "byteExactBase": true
+        },
+        {
+            "path": "src/core/Algorithms/AedsFrameType.cs",
+            "sha256": "5fb16d756cf355f8d05bea151db1d93b54439dfe0beda3213463270a20e74ca2",
+            "gitBlob": "24da8cfd2a556b4337c0fd52df881855bde2f822",
+            "byteExactBase": true
+        },
+        {
+            "path": "src/shared/AedsFrameHeader.cs",
+            "sha256": "b2c8250aba7a45c9e2a43a32110d92fa35047acee6aaa7aae61c79903ca1f85c",
+            "gitBlob": "5a62d4adc3e7f88693fa9aa4bf09620fc96f32b5",
+            "byteExactBase": true
+        },
+        {
+            "path": "src/frontend/wasm/web/protocol/frame.ts",
+            "sha256": "9126a69fda8a9b86492fcbd8651f83081d2a8d046a0e158bfd18c2b9a84ceb1e",
+            "gitBlob": "d6c6f29b40b264cb1f80c67a3f98a723b6e7da44",
+            "byteExactBase": true
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+            "sha256": "285b6e502934ece491144a45180a296fa34893b858cb849cde3f1ab974890709",
+            "gitBlob": "d24cd5ff31b03055852d0ba81bfb5d0b970fa219",
+            "byteExactBase": true
+        },
+        {
+            "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+            "sha256": "76f9cf1d4ea2de7a52c3ca19bfcb7f9342e61ca7c313faef9d6fb7cbae8a447c",
+            "gitBlob": "a71414e3e56b0e9dff2cb247a51597d40f65724b",
+            "byteExactBase": true
+        },
+        {
+            "path": "eslint.config.mjs",
+            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de",
+            "gitBlob": "f3ddc42af7c5672ae5111a922ed474102637a679",
+            "byteExactBase": true
+        },
+        {
+            "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+            "sha256": "c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
+            "gitBlob": "fdde159aa5ccb86215492ac9899986b8516c67df",
+            "byteExactBase": true
+        },
+        {
+            "path": "tools/frontend/style-toolchain/package.json",
+            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+            "gitBlob": "c1271b1f11feabd7d35c1efb5e287d094d956694",
+            "byteExactBase": true
+        },
+        {
+            "path": "tools/frontend/style-toolchain/package-lock.json",
+            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+            "gitBlob": "cda087663517c681f64ea2a6facdeae13e3df98d",
+            "byteExactBase": true
+        },
+        {
+            "path": "tools/frontend/check-frontend-style.mjs",
+            "sha256": "5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
+            "gitBlob": "fa55a556c43b4caca707138f367f85421789e5fc",
+            "byteExactBase": true
+        },
+        {
+            "path": "tools/governance/javascript-format-equivalence.mjs",
+            "sha256": "91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+            "gitBlob": "86c55ceb9d1e336838ece004dbdd27744f73f1d0",
+            "byteExactBase": true
+        }
+    ],
+    "inheritedMasterDiffNotNewlyQualified": true
+}

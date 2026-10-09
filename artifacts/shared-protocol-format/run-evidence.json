@@ -1,0 +1,205 @@
+{
+    "kind": "ordinary-source-formatting-evidence-not-format-qualification",
+    "runId": "shared-protocol-format-20261009-6324264ab60f",
+    "testedCommit": "6324264ab60fbf6b196f14c09a447eca58402bbe",
+    "base": "0015897304873f75858e0e5546313b43007834d8",
+    "branch": "codex/shared-protocol-format-20261009",
+    "nodeVersion": "v24.16.0",
+    "formatter": "eslint@10.8.0",
+    "sourceOnlyPaths": [
+        "tests/tools/aeds-protocol-generation.test.mjs"
+    ],
+    "sourcePreflight": {
+        "expectedCount": 36,
+        "negativeCount": 21,
+        "passed": true,
+        "hooks": 0,
+        "heldTestBodies": 0
+    },
+    "testResult": {
+        "testedCommit": "6324264ab60fbf6b196f14c09a447eca58402bbe",
+        "command": [
+            "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "--test",
+            "--test-reporter=tap",
+            "--test-name-pattern=^(?:the\\ original\\ producer\\ owns\\ five\\ products\\ with\\ manifest\\-derived\\ identities\\ and\\ explicit\\ metadata|the\\ Canvas\\ and\\ article\\-link\\ additions\\ retain\\ independently\\ named\\ roots\\ and\\ wire\\ identities|property\\ value\\ and\\ workspace\\ snapshot\\ roots\\ retain\\ exact\\ registered\\ identities|the\\ original\\ 236\\ golden\\ records,\\ evidence\\ and\\ retirement\\ remain\\ unchanged|the\\ original\\ four\\ renderer\\ outputs\\ and\\ complete\\ golden\\ bytes\\ are\\ preserved\\ for\\ the\\ retained\\ source|the\\ FontRegistryList\\ golden\\ identity\\ comes\\ from\\ the\\ same\\ protocol\\ frame\\ used\\ by\\ every\\ language|the\\ FontRegistryDetail\\ golden\\ identity\\ comes\\ from\\ the\\ same\\ protocol\\ frame\\ used\\ by\\ every\\ language|the\\ FontActivationList\\ golden\\ identity\\ comes\\ from\\ the\\ same\\ protocol\\ frame\\ used\\ by\\ every\\ language|the\\ ThemeRegistryList\\ golden\\ identity\\ comes\\ from\\ the\\ same\\ protocol\\ frame\\ used\\ by\\ every\\ language|the\\ ThemeRegistryDetail\\ golden\\ identity\\ comes\\ from\\ the\\ same\\ protocol\\ frame\\ used\\ by\\ every\\ language|the\\ ThemeActivationList\\ golden\\ identity\\ comes\\ from\\ the\\ same\\ protocol\\ frame\\ used\\ by\\ every\\ language|the\\ ThemeActivation\\ golden\\ identity\\ comes\\ from\\ the\\ same\\ protocol\\ frame\\ used\\ by\\ every\\ language|the\\ ThemeActivationHistory\\ golden\\ identity\\ comes\\ from\\ the\\ same\\ protocol\\ frame\\ used\\ by\\ every\\ language|the\\ original\\ renderer\\ refuses\\ missing\\ golden\\ metadata\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ unknown\\ golden\\ metadata\\ field\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ unknown\\ catalog\\ version\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ empty\\ evidence\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ duplicate\\ evidence\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ outside\\ evidence\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ traversing\\ evidence\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ evidence\\ with\\ terminal\\ LF\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ missing\\ family\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ empty\\ family\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ family\\ with\\ terminal\\ LF\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ missing\\ order\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ duplicate\\ order\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ negative\\ order\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ out\\ of\\ range\\ order\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ fractional\\ order\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ unannotated\\ registered\\ frame\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ removed\\ registered\\ frame\\ leaving\\ a\\ metadata\\ gap\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ duplicate\\ frame\\ identity\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ retired\\ frame\\ reused\\ as\\ active\\ before\\ any\\ output|the\\ original\\ renderer\\ refuses\\ empty\\ frame\\ collection\\ before\\ any\\ output|every\\ frame,\\ including\\ future\\ registrations,\\ must\\ explicitly\\ provide\\ complete\\ golden\\ metadata|source\\ values\\ and\\ explicit\\ metadata,\\ not\\ old\\ output\\ values,\\ determine\\ the\\ complete\\ catalog)$",
+            "tests/tools/aeds-protocol-generation.test.mjs"
+        ],
+        "exitCode": 0,
+        "actualNames": [
+            "the original producer owns five products with manifest-derived identities and explicit metadata",
+            "the Canvas and article-link additions retain independently named roots and wire identities",
+            "property value and workspace snapshot roots retain exact registered identities",
+            "the original 236 golden records, evidence and retirement remain unchanged",
+            "the original four renderer outputs and complete golden bytes are preserved for the retained source",
+            "the FontRegistryList golden identity comes from the same protocol frame used by every language",
+            "the FontRegistryDetail golden identity comes from the same protocol frame used by every language",
+            "the FontActivationList golden identity comes from the same protocol frame used by every language",
+            "the ThemeRegistryList golden identity comes from the same protocol frame used by every language",
+            "the ThemeRegistryDetail golden identity comes from the same protocol frame used by every language",
+            "the ThemeActivationList golden identity comes from the same protocol frame used by every language",
+            "the ThemeActivation golden identity comes from the same protocol frame used by every language",
+            "the ThemeActivationHistory golden identity comes from the same protocol frame used by every language",
+            "the original renderer refuses missing golden metadata before any output",
+            "the original renderer refuses unknown golden metadata field before any output",
+            "the original renderer refuses unknown catalog version before any output",
+            "the original renderer refuses empty evidence before any output",
+            "the original renderer refuses duplicate evidence before any output",
+            "the original renderer refuses outside evidence before any output",
+            "the original renderer refuses traversing evidence before any output",
+            "the original renderer refuses evidence with terminal LF before any output",
+            "the original renderer refuses missing family before any output",
+            "the original renderer refuses empty family before any output",
+            "the original renderer refuses family with terminal LF before any output",
+            "the original renderer refuses missing order before any output",
+            "the original renderer refuses duplicate order before any output",
+            "the original renderer refuses negative order before any output",
+            "the original renderer refuses out of range order before any output",
+            "the original renderer refuses fractional order before any output",
+            "the original renderer refuses unannotated registered frame before any output",
+            "the original renderer refuses removed registered frame leaving a metadata gap before any output",
+            "the original renderer refuses duplicate frame identity before any output",
+            "the original renderer refuses retired frame reused as active before any output",
+            "the original renderer refuses empty frame collection before any output",
+            "every frame, including future registrations, must explicitly provide complete golden metadata",
+            "source values and explicit metadata, not old output values, determine the complete catalog"
+        ],
+        "summary": {
+            "tests": 36,
+            "pass": 36,
+            "fail": 0,
+            "cancelled": 0,
+            "skipped": 0,
+            "todo": 0
+        },
+        "exactSelectionMatched": true
+    },
+    "producerResult": {
+        "testedCommit": "6324264ab60fbf6b196f14c09a447eca58402bbe",
+        "command": [
+            "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "tools/frontend/generate-aeds-protocol.mjs",
+            "--check"
+        ],
+        "exitCode": 0,
+        "productCount": 5
+    },
+    "styleResult": {
+        "before": {
+            "exitCode": 1,
+            "diagnostics": 64,
+            "braceStyle": 63,
+            "parentImport": 1
+        },
+        "formatterPass1": {
+            "exitCode": 1,
+            "remainingDiagnostics": 1
+        },
+        "formatterPass2": {
+            "exitCode": 1,
+            "remainingDiagnostics": 1
+        },
+        "after": {
+            "exitCode": 1,
+            "diagnostics": 1,
+            "exactResidual": "tests/tools/aeds-protocol-generation.test.mjs:8:43 import-x/no-relative-parent-imports"
+        },
+        "idempotent": true,
+        "treeDigest": "ce43405912c19a08c1405e3329bdab1488670287051892d2377397aaf76fa101"
+    },
+    "canonicalEquivalence": {
+        "status": "blocked",
+        "exitCode": 1,
+        "capability": "original pinned tools/governance/javascript-format-parser/node_modules",
+        "error": "ENOENT: no such file or directory, lstat '/workspace/FsusBlog-protocol-format/tools/governance/javascript-format-parser/node_modules'",
+        "alternateComparatorUsed": false,
+        "installAttempted": false,
+        "blameRegistrationPerformed": false,
+        "smallestNextAction": "Parent must supply a genuine installed trusted pinned parser checkout or separately authorize original locked installation; no symlink bypass."
+    },
+    "setupFailure": {
+        "log": "style-before.log",
+        "exitCode": 1,
+        "message": "EISDIR before lint: task-local directory symlink was visible to source digest. Replaced only ignored dependency-reuse layout with real node_modules directory and existing package links; checker/config/dependency bytes unchanged."
+    },
+    "syntaxChecks": {
+        "source": 0,
+        "producer": 0
+    },
+    "diffCheck": {
+        "exitCode": 0,
+        "range": "0015897304873f75858e0e5546313b43007834d8..6324264ab60fbf6b196f14c09a447eca58402bbe"
+    },
+    "notRun": [
+        "format-only qualification",
+        "blame-ignore registration and range qualification",
+        "full master PR/CI acceptance",
+        "broader frontend types/build/backend/runtime/UX",
+        "held workspace-race audit and other denied/held checks"
+    ],
+    "currentGateMeaning": "36 ordinary tests and producer passed at exact632; strict style still failed1; canonical equivalence and mechanical metadata gate unaccepted.",
+    "artifactSha256": {
+        "canonical-equivalence-attempt.log": "4b0145c95c0d37514a1e515f2b8bea15dff4e84294f49ffdd0f79264a6cc9a76",
+        "diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "draft-pr-proposal.md": "389de7189dca05a4c04dff93c377be5289339dccc5f901a0c5c88679071e4107",
+        "first-pass-digest.json": "909fed3c2511808aaab978cb5b611008f2c70f7d85b90e2d7d2fe05278a91919",
+        "formatter-pass-1.log": "67b2c370410a19097fd189817bc8d642e595778550fa593fa82e35a9cddef68a",
+        "formatter-pass-2.log": "67b2c370410a19097fd189817bc8d642e595778550fa593fa82e35a9cddef68a",
+        "handoff.md": "e297bc881d3d2cfcb86d29419d087eacfca0ce30dd07aaf5e0b56352730034fc",
+        "idempotence.json": "a39d3b86e0006e3e1f29bb5307b8e9243c69d3ddef8837ebb30cceadd1005e82",
+        "original-node-test-result.json": "43128ee363549aff4e964ee28b41356487515c48036146146637a06b5aaff5c0",
+        "original-node-test.tap": "219b82fe7650fc2af50d3f5b6479ddac34fd5b60523af6665e90a50b72691ff6",
+        "original-producer-check-result.json": "4b889089721f95bc57ab516de04cfff4447b300af0d60c06c55501cd9a44dfb5",
+        "original-producer-check.log": "1726ffed1875ca003c73dafb32b70b0a09ebeb57b8468da2b8774bb39933999b",
+        "scope-manifest.json": "0dcc3323dbee86c1299f8ba2cc9cc324c330b4d6448a2f664759af8dbe25db61",
+        "second-pass-digest.json": "909fed3c2511808aaab978cb5b611008f2c70f7d85b90e2d7d2fe05278a91919",
+        "selection-preflight.json": "add12d36e90634bd69d768df515c256edbef4245f7e4ac15d703b7ddc8a41187",
+        "style-after.log": "67b2c370410a19097fd189817bc8d642e595778550fa593fa82e35a9cddef68a",
+        "style-before-2.log": "4b68830faacb95b6f4ee95bc0a8ee82351ce3a89f1f28212110844bcfc157c6f",
+        "style-before.log": "135f0a72ab3542d65cb97c13c3c21d2e8cf2caf4777fc2a6f19a92884796d844"
+    },
+    "commandRecords": [
+        {
+            "command": "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node tools/frontend/check-frontend-style.mjs --mode strict-full --file tests/tools/aeds-protocol-generation.test.mjs",
+            "exitCode": 1,
+            "log": "style-before.log",
+            "phase": "initial task-local layout failure before lint"
+        },
+        {
+            "command": "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node tools/frontend/check-frontend-style.mjs --mode strict-full --file tests/tools/aeds-protocol-generation.test.mjs",
+            "exitCode": 1,
+            "log": "style-before-2.log",
+            "phase": "exact original64diagnostics"
+        },
+        {
+            "command": "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node tools/frontend/check-frontend-style.mjs --mode strict-full --file tests/tools/aeds-protocol-generation.test.mjs --fix",
+            "exitCode": 1,
+            "log": "formatter-pass-1.log",
+            "phase": "first originalformat pass"
+        },
+        {
+            "command": "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node tools/frontend/check-frontend-style.mjs --mode strict-full --file tests/tools/aeds-protocol-generation.test.mjs --fix",
+            "exitCode": 1,
+            "log": "formatter-pass-2.log",
+            "phase": "second originalformat pass"
+        },
+        {
+            "command": "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node tools/frontend/check-frontend-style.mjs --mode strict-full --file tests/tools/aeds-protocol-generation.test.mjs",
+            "exitCode": 1,
+            "log": "style-after.log",
+            "phase": "current frozen632style1residual"
+        },
+        {
+            "command": "original javascriptFormatFingerprint(readFileSync(source), sourcePath), via unchanged tools/governance/javascript-format-equivalence.mjs",
+            "exitCode": 1,
+            "log": "canonical-equivalence-attempt.log",
+            "phase": "canonical parser ENOENT; no equivalent fingerprint produced"
+        },
+        {
+            "command": "git diff --check 0015897304873f75858e0e5546313b43007834d8 HEAD",
+            "exitCode": 0,
+            "log": "diff-check.log",
+            "phase": "source increment whitespace"
+        }
+    ]
+}

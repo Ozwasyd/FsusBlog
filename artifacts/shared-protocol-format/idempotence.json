@@ -1,0 +1,18 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "formatter": {
+        "identity": "eslint",
+        "version": "10.8.0",
+        "command": "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node tools/frontend/check-frontend-style.mjs --mode strict-full --file tests/tools/aeds-protocol-generation.test.mjs --fix"
+    },
+    "paths": [
+        "tests/tools/aeds-protocol-generation.test.mjs"
+    ],
+    "revision": "6324264ab60fbf6b196f14c09a447eca58402bbe",
+    "firstPassTreeSha256": "ce43405912c19a08c1405e3329bdab1488670287051892d2377397aaf76fa101",
+    "secondPassTreeSha256": "ce43405912c19a08c1405e3329bdab1488670287051892d2377397aaf76fa101",
+    "idempotent": true,
+    "firstPassExitCode": 1,
+    "secondPassExitCode": 1,
+    "remainingDiagnostic": "import-x/no-relative-parent-imports at line8; no relaxation or import rewrite"
+}

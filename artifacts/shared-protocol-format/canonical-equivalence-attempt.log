@@ -1,0 +1,20 @@
+node:fs:2787
+      const stats = binding.lstat(base, true, undefined, true /* throwIfNoEntry */);
+                            ^
+
+Error: ENOENT: no such file or directory, lstat '/workspace/FsusBlog-protocol-format/tools/governance/javascript-format-parser/node_modules'
+    at realpathSync (node:fs:2787:29)
+    at canonicalParser (file:///workspace/FsusBlog-protocol-format/tools/governance/javascript-format-equivalence.mjs:74:13)
+    at javascriptFormatFingerprint (file:///workspace/FsusBlog-protocol-format/tools/governance/javascript-format-equivalence.mjs:139:17)
+    at file:///workspace/FsusBlog-protocol-format/[eval1]:1:137
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:230:26
+    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:227:20)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'lstat',
+  path: '/workspace/FsusBlog-protocol-format/tools/governance/javascript-format-parser/node_modules'
+}
+
+Node.js v24.16.0

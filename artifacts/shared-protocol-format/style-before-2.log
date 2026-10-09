@@ -1,0 +1,64 @@
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:8:43 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `aeds-protocol-generation.test.mjs` to same directory as `../../tools/frontend/generate-aeds-protocol.mjs` or consider making `../../tools/frontend/generate-aeds-protocol.mjs` a package.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:144:45 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:144:45 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:144:76 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:145:51 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:145:51 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:145:88 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:146:45 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:146:45 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:146:89 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:147:36 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:147:36 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:147:81 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:148:40 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:148:40 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:148:126 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:149:38 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:149:38 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:149:99 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:150:41 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:150:41 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:150:116 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:151:47 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:151:47 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:151:98 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:152:36 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:152:36 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:152:80 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:153:34 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:153:34 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:153:76 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:154:45 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:154:45 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:154:90 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:155:35 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:155:35 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:155:78 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:156:37 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:156:37 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:156:108 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:157:36 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:157:36 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:157:77 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:158:40 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:158:40 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:158:103 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:159:38 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:159:38 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:159:80 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:160:50 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:160:50 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:160:115 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:161:69 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:161:69 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:161:103 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:162:46 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:162:46 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:162:105 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:163:52 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:163:52 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:163:119 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:164:44 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:164:44 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/aeds-protocol-generation.test.mjs:164:70 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.
