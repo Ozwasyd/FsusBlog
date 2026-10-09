@@ -82,6 +82,18 @@ the locked nested KaTeX version instead of accidentally selecting the different
 root version. A missing dependency is an error, not permission to resolve or
 update the lock.
 
+The verifier refuses an independently installed Vue provider at the FsusUI root,
+`vue/`, or declaration hosts when its real package identity differs from the
+consumer's provider, even when versions match. It checks Vue and the runtime-core,
+runtime-dom, reactivity and shared declaration providers before creating links.
+Use an isolated source checkout for Blog consumption; retain the standalone UI
+checkout and its own locked installation for UI web/Vitest qualification.
+Do not run the standalone UI root program against `vue/packages/node_modules`
+projected from Blog: its declaration augmentations can resolve the root Vue while
+component imports resolve the consumer Vue. The Blog complete application uses
+the existing consumer `vue` and `@vue/*` paths for all included source/declarations.
+This installer neither changes the UI lock nor qualifies the standalone program.
+
 `FSUSBLOG_USE_LOCAL_FSUSUI=0` retains the existing published-package installation
 with its original private lock and required token. Other switch values fail;
 installation failures never select the other mode. Source-alias builds are not
