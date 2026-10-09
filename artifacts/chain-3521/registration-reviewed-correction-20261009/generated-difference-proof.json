@@ -1,0 +1,20 @@
+{
+  "base": "9dd445bb38418e3f918fe18684e95d69492b040a",
+  "ledgerAddedIds": [
+    "c4470af966c8f87a",
+    "e4792e2e6789cef9"
+  ],
+  "ledgerRemovedIds": [
+    "0dc14128c2fb694a",
+    "df51325b31930528"
+  ],
+  "ledgerUnchangedExactRows": 625,
+  "approvedOnlyTheseTwoCurrentDispositions": true,
+  "registryBytesUnchangedFrom9dd": true,
+  "registryRows": 118,
+  "priorRegistryRowsUnchanged": 117,
+  "classificationPolicyUnchanged": true,
+  "ledgerSha256": "6222491b9dd03e7c6d00c0472fa742077c55d61da53a121b81292d2670a0a4e6",
+  "registrationPublisherBlob": "c5057b34cc3cf794fe135316df75e2435e3cbc4c",
+  "qualification": false
+}

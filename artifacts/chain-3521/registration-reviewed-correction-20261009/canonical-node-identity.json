@@ -1,0 +1,20 @@
+{
+  "key": "canonical-node-identity",
+  "sourceCommit": "ec8175d44d9c90b1506e8e05a4b37b28b13b11f2",
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {createHash} from \"node:crypto\";import {readFileSync,realpathSync} from \"node:fs\";console.log(JSON.stringify({version:process.version,path:process.execPath,realpath:realpathSync(process.execPath),sha256:createHash(\"sha256\").update(readFileSync(process.execPath)).digest(\"hex\")}));if(process.version!==\"v24.16.0\")process.exitCode=1;"
+  ],
+  "startedUtc": "2026-10-09T05:38:08.714577+00:00",
+  "completedUtc": "2026-10-09T05:38:09.486120+00:00",
+  "elapsedSeconds": 0.772,
+  "exitCode": 0,
+  "pid": 5775,
+  "logSha256": "60674cdc9ff448cf9e900c1f5207f5ae21b8310d19b17b37834c1529922cfcff",
+  "logBytes": 271,
+  "rawLogArchive": "canonical-node-identity.log.gz",
+  "qualification": false
+}

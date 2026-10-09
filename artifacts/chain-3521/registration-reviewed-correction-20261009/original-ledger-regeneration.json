@@ -1,0 +1,18 @@
+{
+  "key": "original-ledger-regeneration",
+  "sourceCommit": "ec8175d44d9c90b1506e8e05a4b37b28b13b11f2",
+  "cwd": "/workspace/FsusBlog-evidence-registry-2060",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test/generate-evidence-location-governance.mjs"
+  ],
+  "startedUtc": "2026-10-09T05:38:35.199160+00:00",
+  "completedUtc": "2026-10-09T05:38:40.489124+00:00",
+  "elapsedSeconds": 5.29,
+  "exitCode": 0,
+  "pid": 6066,
+  "logSha256": "47fca70048bca99b081a1065c3c7961728b82ee61845ae760b57191f7087858d",
+  "logBytes": 137,
+  "rawLogArchive": "original-ledger-regeneration.log.gz",
+  "qualification": false
+}

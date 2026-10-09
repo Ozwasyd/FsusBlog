@@ -1,0 +1,89 @@
+{
+  "qualification": false,
+  "testCallbacksExecuted": false,
+  "inspections": [
+    {
+      "errors": [],
+      "target": "tests/tools/evidence-location-exported-registration.test.mjs",
+      "contentDigest": "sha256:43288cf39ddc6c78476f84f7c15a208d6645a8acb87182413d321df7eaf2adf9",
+      "indexDigest": "sha256:43288cf39ddc6c78476f84f7c15a208d6645a8acb87182413d321df7eaf2adf9",
+      "dependencyClosure": [
+        {
+          "path": "tests/tools/package.json",
+          "contentDigest": "sha256:553a3def95f5b06bde33391361004fcd540a1d6f395f577a9227d20879e8b251",
+          "indexDigest": "sha256:553a3def95f5b06bde33391361004fcd540a1d6f395f577a9227d20879e8b251"
+        },
+        {
+          "path": "tools/fact-extractors/identity.mjs",
+          "contentDigest": "sha256:f5a45ff84b254e2e55b5a49ed3aa3d5b3d7b48ea3b54ad344b2b6e0733a0a1fe",
+          "indexDigest": "sha256:f5a45ff84b254e2e55b5a49ed3aa3d5b3d7b48ea3b54ad344b2b6e0733a0a1fe"
+        },
+        {
+          "path": "tools/fact-extractors/lib/canonicalize.mjs",
+          "contentDigest": "sha256:33abf393dda9109bf34ae240a11398fdf1432b1d7f24911c4e91e9fa6a5f5dc8",
+          "indexDigest": "sha256:33abf393dda9109bf34ae240a11398fdf1432b1d7f24911c4e91e9fa6a5f5dc8"
+        },
+        {
+          "path": "tools/package.json",
+          "contentDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd",
+          "indexDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd"
+        },
+        {
+          "path": "tools/release/release-domain-final-binding.mjs",
+          "contentDigest": "sha256:08876f28462ac10e7c26991f958e086b7e4bc83d47c4ad379ac5b9270e741a8c",
+          "indexDigest": "sha256:08876f28462ac10e7c26991f958e086b7e4bc83d47c4ad379ac5b9270e741a8c"
+        },
+        {
+          "path": "tools/test-matrix/evidence-projection.mjs",
+          "contentDigest": "sha256:9e88816193426cf74489360768f0142a507bef17f99e22e9f4ff03edfff6eba3",
+          "indexDigest": "sha256:9e88816193426cf74489360768f0142a507bef17f99e22e9f4ff03edfff6eba3"
+        },
+        {
+          "path": "tools/test-matrix/release-domain-ledger.mjs",
+          "contentDigest": "sha256:bcd2108efc706f7e1bfc67b26889b7911f2f16e9986d07e967f34e8157241e18",
+          "indexDigest": "sha256:bcd2108efc706f7e1bfc67b26889b7911f2f16e9986d07e967f34e8157241e18"
+        },
+        {
+          "path": "tools/test-matrix/release-final-evidence-contract.mjs",
+          "contentDigest": "sha256:6a10d41fd8d02a564ebfec8db6cec259eafe9df8e77c4dee9c0447fdfce6483d",
+          "indexDigest": "sha256:6a10d41fd8d02a564ebfec8db6cec259eafe9df8e77c4dee9c0447fdfce6483d"
+        },
+        {
+          "path": "tools/test-matrix/required-evidence-catalog.mjs",
+          "contentDigest": "sha256:62fae8ed7b0c82fe2ae029bd0d7b8f1f63f742a0abdc71200b08de89d012a53e",
+          "indexDigest": "sha256:62fae8ed7b0c82fe2ae029bd0d7b8f1f63f742a0abdc71200b08de89d012a53e"
+        },
+        {
+          "path": "tools/test-matrix/required-evidence-dependencies.mjs",
+          "contentDigest": "sha256:a5360d054fd957765462e1bae691dfadffc5f68d964d0e0b190aeff7486ae571",
+          "indexDigest": "sha256:a5360d054fd957765462e1bae691dfadffc5f68d964d0e0b190aeff7486ae571"
+        },
+        {
+          "path": "tools/test-matrix/schema-validator/package.json",
+          "contentDigest": "sha256:a2be3670a2f5e3a68e2c392c9f86c693e99567d17760e292d9b0c4bc73013356",
+          "indexDigest": "sha256:a2be3670a2f5e3a68e2c392c9f86c693e99567d17760e292d9b0c4bc73013356"
+        },
+        {
+          "path": "tools/test-matrix/schema-validator/validate.mjs",
+          "contentDigest": "sha256:5c0129205799e39dc20f0a2b19498b26a04962b5577d1c59da4adefc4e5dec2c",
+          "indexDigest": "sha256:5c0129205799e39dc20f0a2b19498b26a04962b5577d1c59da4adefc4e5dec2c"
+        },
+        {
+          "path": "tools/test/evidence-location-contract.mjs",
+          "contentDigest": "sha256:f27aa3990261faf03888afec9cc6fc84c5a454e8bd1db70359344dc076fb3db9",
+          "indexDigest": "sha256:f27aa3990261faf03888afec9cc6fc84c5a454e8bd1db70359344dc076fb3db9"
+        },
+        {
+          "path": "tools/test/evidence-location-scanner.mjs",
+          "contentDigest": "sha256:fba2fe9d1e0376cb55a26dbde9db25ff052319c3865ea640af99ac396adadadd",
+          "indexDigest": "sha256:fba2fe9d1e0376cb55a26dbde9db25ff052319c3865ea640af99ac396adadadd"
+        },
+        {
+          "path": "tools/test/generate-evidence-location-governance.mjs",
+          "contentDigest": "sha256:c77f764ae64374c1f9e5508cd1021a28aabacb3dc707619e666b28d2101a484c",
+          "indexDigest": "sha256:c77f764ae64374c1f9e5508cd1021a28aabacb3dc707619e666b28d2101a484c"
+        }
+      ]
+    }
+  ]
+}

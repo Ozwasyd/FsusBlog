@@ -1,0 +1,21 @@
+{
+  "base": "9dd445bb38418e3f918fe18684e95d69492b040a",
+  "expectedCount": 8,
+  "names": [
+    "exported registration parses actual publisher without executing its module",
+    "exported registration rejects unknown source and export identities",
+    "exported registration requires one direct exported immutable declaration",
+    "exported registration rejects missing unknown and malformed required fields",
+    "exported registration rejects source binding and owned root drift",
+    "exported registration rejects executable expressions spreads accessors and duplicate fields",
+    "exported registration rejects module function class import and block Object bindings",
+    "exported registration rejects all destructuring Object binding patterns"
+  ],
+  "pattern": "^(?:exported\\ registration\\ parses\\ actual\\ publisher\\ without\\ executing\\ its\\ module|exported\\ registration\\ rejects\\ unknown\\ source\\ and\\ export\\ identities|exported\\ registration\\ requires\\ one\\ direct\\ exported\\ immutable\\ declaration|exported\\ registration\\ rejects\\ missing\\ unknown\\ and\\ malformed\\ required\\ fields|exported\\ registration\\ rejects\\ source\\ binding\\ and\\ owned\\ root\\ drift|exported\\ registration\\ rejects\\ executable\\ expressions\\ spreads\\ accessors\\ and\\ duplicate\\ fields|exported\\ registration\\ rejects\\ module\\ function\\ class\\ import\\ and\\ block\\ Object\\ bindings|exported\\ registration\\ rejects\\ all\\ destructuring\\ Object\\ binding\\ patterns)$",
+  "path": "tests/tools/evidence-location-exported-registration.test.mjs",
+  "testSha256": "43288cf39ddc6c78476f84f7c15a208d6645a8acb87182413d321df7eaf2adf9",
+  "hooks": "none; publisher read as source text only, never evaluated",
+  "heldAudits": "NOT_RUN",
+  "qualification": false,
+  "candidate": "aa16334f167eea7497ee7255c3d7351bae6afa69"
+}

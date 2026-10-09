@@ -1,0 +1,46 @@
+{
+  "candidate": "aa16334f167eea7497ee7255c3d7351bae6afa69",
+  "branch": "codex/chain-3521-registration-reviewed-correction",
+  "reviewBase": "9dd445bb38418e3f918fe18684e95d69492b040a",
+  "reviewer": "01a11f21-d995-7692-b220-cbf8d5598026",
+  "correctedPathsVs9dd": [
+    "config/testing/evidence-location-migration-ledger.json",
+    "tests/tools/evidence-location-exported-registration.test.mjs",
+    "tools/test/generate-evidence-location-governance.mjs"
+  ],
+  "wholeRegistrationIncrementBase": "93eca2bb36c32fe2b89103ed3875a0e48ddad96d",
+  "wholeRegistrationPathsVs93eca": [
+    "config/testing/evidence-location-migration-ledger.json",
+    "config/testing/evidence-locator-registry.json",
+    "tests/tools/evidence-location-exported-registration.test.mjs",
+    "tools/test/generate-evidence-location-governance.mjs"
+  ],
+  "broader93ecaPrerequisiteNotReimplemented": true,
+  "canonicalNodeVersion": "v24.16.0",
+  "nodeBytesSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+  "noNewImportWaiver": true,
+  "moduleFunctionClassImportAndDestructuringBindingsRejected": true,
+  "publisherNeverEvaluated": true,
+  "publisherBlobPreserved": "c5057b34cc3cf794fe135316df75e2435e3cbc4c",
+  "registryPrevious117RowsPreserved": true,
+  "registryRowCount": 118,
+  "ledgerOnlyTwoAuthorizedCurrentDispositionChanges": true,
+  "unchangedLedgerRows": 625,
+  "ordinaryControls": {
+    "expected": 8,
+    "pass": 8,
+    "fail": 0,
+    "skip": 0
+  },
+  "originalCheckExit": 0,
+  "originalGenerationExit": 0,
+  "eslintExplicitFiles": 2,
+  "eslintExit": 0,
+  "originalImportErrors": [],
+  "rangeExit": 0,
+  "worktreeClean": true,
+  "heldAudits": "NOT_RUN",
+  "fullStandardSOURCE": "NOT_RUN",
+  "runtimeQualification": false,
+  "qualification": false
+}
