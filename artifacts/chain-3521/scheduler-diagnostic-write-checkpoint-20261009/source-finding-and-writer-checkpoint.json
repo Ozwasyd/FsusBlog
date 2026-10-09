@@ -1,0 +1,42 @@
+{
+  "observedUtc": "2026-10-09T05:34:14.388622+00:00",
+  "environmentProbe": {
+    "timestampUtc": "2026-10-09T05:29:52.004150+00:00",
+    "exitCode": 0,
+    "cwd": "/workspace/FsusBlog-scheduler-p2-minimal",
+    "head": "e6efbce8ec875f92053af4ece5c82cc3044d7ed8",
+    "status": ""
+  },
+  "reviewer": "01a11adf-0d01-76bb-83e1-8cfe3077401d",
+  "candidate": "e6efbce8ec875f92053af4ece5c82cc3044d7ed8",
+  "path": "tools/test-matrix/atomic-producers/execution.mjs",
+  "blob": "8de3589ece367f3f8a6029f0b0dce0d8a5e03bda",
+  "sha256": "b8c6db1665e4e6cd6a970c48af9c38e466cc276f88b23fef5314ea43c2ea8d5f",
+  "sourceFinding": "runProducerAttempts rejection R is caught, but result literal evaluates writeEvidence before assignment; a write rejection W reaches scheduler instead of R. Prior eight controls do not cover this catch-path write.",
+  "runtimeReproduction": "NOT_RUN reviewer explicitly source control-flow evidence only",
+  "latestFetchedMaster": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+  "knownAtomicCanonicalOwner": "01a119f9-854e-71e6-bcd9-2db47b378039",
+  "knownAtomicBranch": "codex/atomic-failure-collection",
+  "remoteObservedOwnerSha": "395703a20dc438cf5fc74a71287536e1fa7d16c1",
+  "writerTransferKnown": false,
+  "activeReservationState": "unknown; prior sole-owner reservation has no known release",
+  "localWorktreesChecked": 35,
+  "localExecutionFileUnpublishedChanges": [],
+  "newBranch": "codex/chain-3521-scheduler-diagnostic-write",
+  "targetEdited": false,
+  "testsEdited": false,
+  "testsExecuted": false,
+  "hooksRead": "suite imports only, fs read helpers; no top-level test before/after hooks; withEvidence owns isolated temp directory and cleanup; rebindAtomicFixture is not needed by ordinary failure path",
+  "testFeasibility": "One ordinary test can reuse atomicFixture and atomicExecutionOptions, force exact runner R via original verifyAuthority callback after three preflight checks, and t.mock.method only fs.writeFileSync for alpha-check.json to throw W. No receipt mutation/substitution, race, cohort or TOCTOU setup is necessary. This is a proposed original-suite control, not an executed substitute harness.",
+  "requiredAssertions": [
+    "scheduler primary cause identity is R",
+    "diagnostic write error W remains separately inspectable secondary",
+    "failed alpha remains internal-error with null attemptRef and empty evidenceRefs",
+    "hard-dependent is blocked; independent sibling and cleanup can complete",
+    "whole vector remains failed and qualificationEligible false"
+  ],
+  "sourceCorrectionDirection": "Assign failed result with original R before attempting optional diagnostic write. A failed diagnostic write leaves evidenceRef null; retain W as secondary without declaring a successfully persisted evidence reference. Preserve any terminal-vector write error separately.",
+  "heldAudits": "NOT_RUN",
+  "qualification": false,
+  "remainingOwnershipInput": "Coordinator confirms a sole writer for this one correction, or routes correction to the existing canonical atomic owner. Do not overlap writes or silently assume reservation release."
+}

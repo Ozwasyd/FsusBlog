@@ -1,0 +1,24 @@
+{
+  "key": "setup-original-style",
+  "sourceCommit": "e6efbce8ec875f92053af4ece5c82cc3044d7ed8",
+  "cwd": "/workspace/FsusBlog-scheduler-diagnostic-write",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+    "ci",
+    "--prefix",
+    "tools/frontend/style-toolchain",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund"
+  ],
+  "startedUtc": "2026-10-09T05:34:15.913231+00:00",
+  "completedUtc": "2026-10-09T05:34:18.145031+00:00",
+  "elapsedSeconds": 2.232,
+  "exitCode": 0,
+  "pid": 3700,
+  "logSha256": "64c4fffd506151dcb283b5d7b7aed275187df338eee5845f005eb81c3b8dfcaf",
+  "logBytes": 26,
+  "rawLogArchive": "setup-original-style.log.gz",
+  "qualification": false
+}
