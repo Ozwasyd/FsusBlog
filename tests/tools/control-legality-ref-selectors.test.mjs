@@ -378,11 +378,12 @@ test('finite selector negative mismatched canonical v-for supplier', (t) =>
     }), /unbound canonical iterable supplier view/);
 });
 
-test('finite selector negative missing actual v-for item binding', (t) =>
+test('finite selector negative unknown actual v-for supplier despite script name', (t) =>
 {
-    const value = fixture(t, { [railRelative]: railSource.replace('</script>', '\nconst view = { icon: Checked };\n</script>') });
+    const value = fixture(t, { [railRelative]: railSource.replace('view in inspectorViews', 'view in externalViews')
+        .replace('</script>', '\nconst view = { icon: Checked };\n</script>') });
     const file = path.join(value.root, railRelative);
-    assert.throws(() => value.selectors.resolve(file, componentExpression(value.source, file)), /unbound template item view/);
+    assert.throws(() => value.selectors.resolve(file, componentExpression(value.source, file)), /unknown runtime item.*externalViews/);
 });
 
 test('finite selector negative template iterable icon mutation', (t) =>
@@ -395,4 +396,12 @@ test('finite selector negative template iterable object escape', (t) =>
 {
     const value = fixture(t, { [railRelative]: railSource.replace('<component :is=', '<component @click="external(view)" :is=') });
     assert.throws(() => rail(value), /escaped supplier/);
+});
+
+test('finite selector positive derives iterable supplier from actual canonical v-for AST', (t) =>
+{
+    const value = fixture(t);
+    const file = path.join(value.root, railRelative);
+    assert.deepEqual(names(value.selectors.resolve(file, componentExpression(value.source, file))),
+        ['Checked', 'DocumentChecked', 'Files', 'Lock', 'Picture', 'View']);
 });

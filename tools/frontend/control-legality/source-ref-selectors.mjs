@@ -59,7 +59,7 @@ export function createFiniteRefSelectorSource({ resolver, expression: parseExpre
         }
         return node;
     };
-    if (!resolver.sourceStep || !resolver.resolveSourceFunction || !resolver.assertImmutableBinding)
+    if (!resolver.sourceStep || !resolver.resolveSourceFunction || !resolver.assertImmutableBinding || typeof parseExpression !== 'function')
     {
         fail('canonical module context is required');
     }
@@ -131,6 +131,7 @@ export function createFiniteRefSelectorSource({ resolver, expression: parseExpre
 
     function run(file, expression, { templateRefs = false, itemBindings = new Map(), shadowedNames = new Set(), selectorOffset = null } = {})
     {
+        itemBindings = new Map(itemBindings);
         const inputRecord = resolver.parse(file);
         let templateContext = null;
         if (inputRecord.template)
@@ -195,6 +196,13 @@ export function createFiniteRefSelectorSource({ resolver, expression: parseExpre
                     || supplier.expression.getText() !== actual.parsed.source.content)
                 {
                     fail(`unbound canonical iterable supplier ${name}`);
+                }
+            }
+            for (const [name, actual] of scopes)
+            {
+                if (actual.kind === 'value' && !itemBindings.has(name))
+                {
+                    itemBindings.set(name, { file, expression: parseExpression(actual.parsed.source.content, file) });
                 }
             }
             templateContext = { file, offset: inputRecord.template.offset + match.node.loc.start.offset,
