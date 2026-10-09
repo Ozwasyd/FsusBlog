@@ -7,6 +7,13 @@
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "Preserve the original execution-authority wire keys while its unchanged canonical producer projects only current source identities; declarations, target roster, independent index and qualification semantics stay unchanged."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/yaml/parse-document.mjs"
+            ],
+            "reason": "Declare the shared parser's registered Node tooling surface without renaming process environment identifiers or existing parser exports. The parser remains environment-agnostic; YAML content fixes preserve external scalar values and grant no execution authority."
         }
     ]
 }
