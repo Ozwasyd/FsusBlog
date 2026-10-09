@@ -97,7 +97,7 @@ async function reopen(host: Awaited<ReturnType<typeof prepareHost>>)
     await host.wrapper.findComponent(FsusUiButton).trigger('click');
     await flushPromises();
     const resumed = host.wrapper.findComponent(ExportCenter);
-    expect(resumed.vm).toBe(host.center.vm);
+    expect(resumed.vm.$).toBe(host.center.vm.$);
     expect(resumed.props('port')).toBe(host.center.props('port'));
     expect(resumed.props('visible')).toBe(true);
     expect(http.mock.calls.filter(([url]) => url === '/api/binary/document-export/sources/revisions')).toHaveLength(1);
@@ -107,7 +107,7 @@ async function submitFromForm(host: Awaited<ReturnType<typeof prepareHost>>)
 {
     const fixture = requestFixture();
     const select = (id: string, value: string) => host.center.findAllComponents(FsusUiClassicSelect)
-        .find(component => component.attributes('id') === id)!.vm.$emit('update:modelValue', value);
+        .find(component => component.props('id') === id)!.vm.$emit('update:modelValue', value);
     select('document-export-source', host.selection.sourceId);
     host.center.findComponent(FsusUiExportRadioGroup).vm.$emit('update:modelValue', fixture.formatId);
     await flushPromises();
