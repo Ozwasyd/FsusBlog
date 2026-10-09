@@ -88,6 +88,27 @@ public sealed class DocumentExportEpubProviderTests
     [InlineData("<figure>before<figcaption>Caption</figcaption>after</figure>")]
     [InlineData("<figure>&#160;<figcaption>Caption</figcaption>after</figure>")]
     [InlineData("<figure>before<figcaption>Caption</figcaption>&#160;</figure>")]
+    [InlineData("<p lang=\"not a tag\">Text</p>")]
+    [InlineData("<p lang=\"en_US\">Text</p>")]
+    [InlineData("<p lang=\"en--US\">Text</p>")]
+    [InlineData("<p lang=\"en-variant-VARIANT\">Text</p>")]
+    [InlineData("<p lang=\"en-u-ca-gregory-u-nu-latn\">Text</p>")]
+    [InlineData("<p lang=\"a\">Text</p>")]
+    [InlineData("<p lang=\"x\">Text</p>")]
+    [InlineData("<p lang=\"ar-\">Text</p>")]
+    [InlineData("<time datetime=\"not-a-date\">Text</time>")]
+    [InlineData("<time datetime=\"\">Text</time>")]
+    [InlineData("<time datetime=\"2026-02-30\">Text</time>")]
+    [InlineData("<time datetime=\"1900-02-29\">Text</time>")]
+    [InlineData("<time datetime=\"0000-10-08\">Text</time>")]
+    [InlineData("<time datetime=\"2026-13\">Text</time>")]
+    [InlineData("<time datetime=\"2021-W53\">Text</time>")]
+    [InlineData("<time datetime=\"23:60\">Text</time>")]
+    [InlineData("<time datetime=\"2026-10-08T24:00\">Text</time>")]
+    [InlineData("<time datetime=\"2026-10-08T23:59:60\">Text</time>")]
+    [InlineData("<time datetime=\"2026-10-08T00:00+24:00\">Text</time>")]
+    [InlineData("<time datetime=\"PT\">Text</time>")]
+    [InlineData("<time datetime=\"P1DT\">Text</time>")]
     public void RefusesInvalidXhtmlInBuilderAndActualPackageEvenWhenFrozenContentMatches(string fragment)
     {
         EpubPublicationMetadata metadata = Metadata();
@@ -105,6 +126,53 @@ public sealed class DocumentExportEpubProviderTests
         InvalidDataException failure = Assert.Throws<InvalidDataException>(() =>
             DocumentExportEpubPackageValidator.Validate(mutated, input, invalidResponse, metadata, Budgets));
         Assert.Contains("XHTML", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("<p lang=\"ar\">Text</p>")]
+    [InlineData("<p lang=\"\">Text</p>")]
+    [InlineData("<p lang=\"en-GB\">Text</p>")]
+    [InlineData("<p lang=\"zh-Hant-TW\">Text</p>")]
+    [InlineData("<p lang=\"de-CH-1901\">Text</p>")]
+    [InlineData("<p lang=\"zh-cmn-Hans-CN\">Text</p>")]
+    [InlineData("<p lang=\"en-u-ca-gregory-x-private\">Text</p>")]
+    [InlineData("<p lang=\"x-author\">Text</p>")]
+    [InlineData("<p lang=\"i-klingon\">Text</p>")]
+    [InlineData("<time datetime=\"2026-10-08\">Text</time>")]
+    [InlineData("<time datetime=\"2000-02-29\">Text</time>")]
+    [InlineData("<time datetime=\"0001-01-01\">Text</time>")]
+    [InlineData("<time datetime=\"9999-12-31\">Text</time>")]
+    [InlineData("<time datetime=\"10000-02-29\">Text</time>")]
+    [InlineData("<time datetime=\"2026-10\">Text</time>")]
+    [InlineData("<time datetime=\"2020-W53\">Text</time>")]
+    [InlineData("<time datetime=\"02-29\">Text</time>")]
+    [InlineData("<time datetime=\"--02-29\">Text</time>")]
+    [InlineData("<time datetime=\"23:59\">Text</time>")]
+    [InlineData("<time datetime=\"23:59:59.999\">Text</time>")]
+    [InlineData("<time datetime=\"2026-10-08T23:59\">Text</time>")]
+    [InlineData("<time datetime=\"2026-10-08 23:59:59.001Z\">Text</time>")]
+    [InlineData("<time datetime=\"2026-10-08T00:00+23:59\">Text</time>")]
+    [InlineData("<time datetime=\"2026-10-08T00:00-2359\">Text</time>")]
+    [InlineData("<time datetime=\"2026\">Text</time>")]
+    [InlineData("<time datetime=\"P2D\">Text</time>")]
+    [InlineData("<time datetime=\"PT4H18M3.125S\">Text</time>")]
+    [InlineData("<time datetime=\"P1DT0S\">Text</time>")]
+    [InlineData("<time datetime=\"PT0S\">Text</time>")]
+    public void PreservesValidLanguageAndTemporalAttributesInActualPackage(string fragment)
+    {
+        EpubPublicationMetadata metadata = Metadata();
+        DocumentExportFrozenInput input = Input(metadata);
+        DocumentExportRendererResponse response = Response(input, metadata, fragment);
+        EpubPackageBuildResult result = EpubPackageBuilder.Build(input, response, metadata, Budgets);
+        using var source = new MemoryStream(result.Bytes);
+        using var zip = new ZipArchive(source, ZipArchiveMode.Read);
+        XNamespace xhtml = "http://www.w3.org/1999/xhtml";
+        XElement actual = XElement.Parse(Text(zip, "EPUB/chapter-0001.xhtml"), LoadOptions.PreserveWhitespace)
+            .Descendants(xhtml + "article").Single().Elements().First();
+        XElement expected = XElement.Parse("<article xmlns=\"" + xhtml + "\">" + fragment + "</article>", LoadOptions.PreserveWhitespace)
+            .Elements().Single();
+        Assert.True(XNode.DeepEquals(expected, actual));
+        DocumentExportEpubPackageValidator.Validate(result.Bytes, input, response, metadata, Budgets);
     }
 
     [Theory]

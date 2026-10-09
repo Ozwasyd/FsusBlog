@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -55,6 +56,21 @@ public static class DocumentExportEpubPackageValidator
         "html", "head", "title", "link", "body", "li", "dt", "dd", "figcaption", "thead", "tbody", "tfoot",
         "tr", "th", "td", "caption", "summary"
     }), StringComparer.Ordinal);
+    private static readonly HashSet<string> s_grandfatheredLanguages = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "en-GB-oed", "i-ami", "i-bnn", "i-default", "i-enochian", "i-hak", "i-klingon", "i-lux", "i-mingo",
+        "i-navajo", "i-pwn", "i-tao", "i-tay", "i-tsu", "sgn-BE-FR", "sgn-BE-NL", "sgn-CH-DE", "art-lojban",
+        "cel-gaulish", "no-bok", "no-nyn", "zh-guoyu", "zh-hakka", "zh-min", "zh-min-nan", "zh-xiang"
+    };
+    private const string ClockPattern = @"(?<hour>[0-9]{2}):(?<minute>[0-9]{2})(?::(?<second>[0-9]{2})(?:\.[0-9]{1,3})?)?";
+    private static readonly Regex s_temporalValue = new(
+        @"\A(?:(?<year>[0-9]{4,})(?:-(?<month>[0-9]{2})(?:-(?<day>[0-9]{2})(?:[T ]" + ClockPattern
+            + @"(?:Z|[+-](?<offsetHour>[0-9]{2}):?(?<offsetMinute>[0-9]{2}))?)?)?|-W(?<week>[0-9]{2}))?"
+            + @"|(?:--)?(?<month>[0-9]{2})-(?<day>[0-9]{2})|" + ClockPattern + @")\z",
+        RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
+    private static readonly Regex s_durationValue = new(
+        @"\AP(?:[0-9]+D)?(?:T(?:[0-9]+H)?(?:[0-9]+M)?(?:[0-9]+(?:\.[0-9]{1,3})?S)?)?\z",
+        RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
 
     /// <summary>Rejects invalid, corrupt, unsupported or tampered package bytes; never reads host files or network resources.</summary>
     public static EpubPackageValidation Validate(byte[] bytes, DocumentExportFrozenInput input,
@@ -514,7 +530,8 @@ public static class DocumentExportEpubPackageValidator
 
     private static void ValidateXhtmlAttributeValues(XElement element)
     {
-        foreach (XAttribute attribute in element.Attributes().Where(attribute => attribute.Name.Namespace == XNamespace.None))
+        foreach (XAttribute attribute in element.Attributes().Where(attribute => attribute.Name.Namespace == XNamespace.None
+            || attribute.Name == XNamespace.Xml + "lang"))
         {
             string value = attribute.Value;
             bool valid = attribute.Name.LocalName switch
@@ -524,6 +541,8 @@ public static class DocumentExportEpubPackageValidator
                 "width" or "height" => element.Name.LocalName == "img" && IsUnsignedInteger(value, 0, 100000),
                 "scope" => element.Name.LocalName == "th" && value is "row" or "col" or "rowgroup" or "colgroup",
                 "dir" => value is "ltr" or "rtl" or "auto",
+                "lang" => IsLanguageTag(value),
+                "datetime" => element.Name.LocalName == "time" && IsTemporalValue(value),
                 "type" => element.Name.LocalName == "link" ? value == "text/css"
                     : element.Name.LocalName == "ol" && value is "1" or "a" or "A" or "i" or "I",
                 "reversed" => element.Name.LocalName == "ol" && value is "" or "reversed",
@@ -539,6 +558,118 @@ public static class DocumentExportEpubPackageValidator
             }
         }
     }
+
+    // Content language may be empty (unknown) or use BCP47 syntax beyond the
+    // publication metadata's deliberately narrower policy. Neither value is rewritten.
+    private static bool IsLanguageTag(string value)
+    {
+        if (value.Length == 0 || s_grandfatheredLanguages.Contains(value))
+        {
+            return true;
+        }
+        string[] parts = value.Split('-');
+        if (parts.Any(part => part.Length is < 1 or > 8 || !part.All(char.IsAsciiLetterOrDigit)))
+        {
+            return false;
+        }
+        if (parts[0].Equals("x", StringComparison.OrdinalIgnoreCase))
+        {
+            return parts.Length > 1;
+        }
+        if (parts[0].Length < 2 || !parts[0].All(char.IsAsciiLetter))
+        {
+            return false;
+        }
+        int index = 1;
+        if (parts[0].Length <= 3)
+        {
+            for (int count = 0; count < 3 && index < parts.Length && parts[index].Length == 3
+                && parts[index].All(char.IsAsciiLetter); count++)
+            {
+                index++;
+            }
+        }
+        if (index < parts.Length && parts[index].Length == 4 && parts[index].All(char.IsAsciiLetter))
+        {
+            index++;
+        }
+        if (index < parts.Length && (parts[index].Length == 2 && parts[index].All(char.IsAsciiLetter)
+            || parts[index].Length == 3 && parts[index].All(char.IsAsciiDigit)))
+        {
+            index++;
+        }
+        var variants = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (index < parts.Length && (parts[index].Length >= 5
+            || parts[index].Length == 4 && char.IsAsciiDigit(parts[index][0])))
+        {
+            if (!variants.Add(parts[index++]))
+            {
+                return false;
+            }
+        }
+        var singletons = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (index < parts.Length && parts[index].Length == 1 && !parts[index].Equals("x", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!singletons.Add(parts[index++]))
+            {
+                return false;
+            }
+            int start = index;
+            while (index < parts.Length && parts[index].Length >= 2)
+            {
+                index++;
+            }
+            if (start == index)
+            {
+                return false;
+            }
+        }
+        return index == parts.Length || parts[index].Equals("x", StringComparison.OrdinalIgnoreCase) && index + 1 < parts.Length;
+    }
+
+    // Validate calendar/clock components without culture parsing, timezone conversion,
+    // whitespace collapse or DateTime's year/offset limits. Duration support is ISO only.
+    private static bool IsTemporalValue(string value)
+    {
+        if (value.StartsWith('P'))
+        {
+            return value.Length > 1 && !value.EndsWith('T') && s_durationValue.IsMatch(value);
+        }
+        Match match = s_temporalValue.Match(value);
+        if (!match.Success || !TemporalPartInRange(match, "month", 1, 12)
+            || !TemporalPartInRange(match, "hour", 0, 23) || !TemporalPartInRange(match, "minute", 0, 59)
+            || !TemporalPartInRange(match, "second", 0, 59) || !TemporalPartInRange(match, "offsetHour", 0, 23)
+            || !TemporalPartInRange(match, "offsetMinute", 0, 59) || !TemporalPartInRange(match, "week", 1, 53))
+        {
+            return false;
+        }
+        int yearModulo = 4; // Yearless February permits leap day.
+        if (match.Groups["year"].Success)
+        {
+            string year = match.Groups["year"].Value;
+            if (!year.Any(character => character != '0')
+                || !match.Groups["month"].Success && !match.Groups["week"].Success && year.Length != 4)
+            {
+                return false;
+            }
+            yearModulo = 0;
+            foreach (char digit in year)
+            {
+                yearModulo = (yearModulo * 10 + digit - '0') % 400;
+            }
+        }
+        int calendarYear = yearModulo == 0 ? 400 : yearModulo;
+        if (match.Groups["day"].Success
+            && !TemporalPartInRange(match, "day", 1, DateTime.DaysInMonth(calendarYear,
+                int.Parse(match.Groups["month"].Value, CultureInfo.InvariantCulture))))
+        {
+            return false;
+        }
+        return !match.Groups["week"].Success || TemporalPartInRange(match, "week", 1, ISOWeek.GetWeeksInYear(calendarYear));
+    }
+
+    private static bool TemporalPartInRange(Match match, string name, int minimum, int maximum)
+        => !match.Groups[name].Success || IsUnsignedInteger(match.Groups[name].Value, minimum, maximum);
 
     private static bool IsUnsignedInteger(string value, int minimum, int maximum) => value.Length > 0
         && value.All(char.IsAsciiDigit) && int.TryParse(value, System.Globalization.NumberStyles.None,

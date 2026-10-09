@@ -6,7 +6,7 @@
             "paths": [
                 "src/backend/Services/DocumentExport/Epub/DocumentExportEpubPackageValidator.cs"
             ],
-            "reason": "the existing registry glob governs these affected C# production sources; no process-environment access or environment-variable keys are introduced, and canonical frozen task, renderer, tool and receipt identities and EPUB external package names remain unchanged while internal source identifiers retain repository C# conventions"
+            "reason": "the existing registry glob governs this affected C# production source; no process-environment access or environment-variable keys are introduced, and canonical frozen task, renderer, tool and receipt identities and EPUB external package names remain unchanged while internal source identifiers retain repository C# conventions"
         }
     ]
 }
