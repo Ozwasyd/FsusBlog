@@ -1,0 +1,8 @@
+{
+  "sourceOwner": "08dbbac2bb522ca7f6b2433c02acbb60490149f0",
+  "path": "src/backend/Services/ArticleVault/ArticleVaultInstallationSiteIdentityCandidateReader.cs",
+  "sha256": "d4f83923b077462004989d81446fce1b7b1c6bdc56979197ce8ed1a5b273c9af",
+  "guard": "candidate is null || candidate.State != SystemSiteIdentityState.Current",
+  "newState": "InitializationRequired=6; Current remains 5",
+  "consumerChanged": false
+}

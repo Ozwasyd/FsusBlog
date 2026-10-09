@@ -1,0 +1,79 @@
+{
+  "sourceCommit": "2a3281e96ecf3207e195ff9adc32db77ab44490e",
+  "sourceParent": "abb28c41213f6ea506a6b4dcb64f30b7451384b7",
+  "branch": "codex/chain-3582-authenticated-review-transport-20261009",
+  "supplier": "adc2e50070ffecbd1e003e7a051450c2dea6ff1f",
+  "supplierScopeFromBase": "17 paths from 9d72a1c93b297f719d8695a642cdfb1615cf1d51; only public model delta consumed",
+  "sourcePaths": {
+    "docs/architecture/article-vault-dependencies.md": "31d894d2f789efaad259c0a469e6892b7c46b661aac3785f0bcaecb30570250c",
+    "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs": "4821cc46efdb834c7bc84f548303f58e6ca6808fa1592749634582dea6b210d3",
+    "tests/backend/Unit/ArticleVaultInstallationSiteIdentityCandidateReaderTests.cs": "63a7a0f46f9244d805e58839357fcefe448cfd5f10d2ab4120abae59ba296bb6"
+  },
+  "productionCandidateReaderChanged": false,
+  "publicReaderSignatureChanged": false,
+  "canonicalModelByteIdentical": true,
+  "runtimeAuthorityEnabled": false,
+  "lifecycleOrMigrationImported": false,
+  "sourceQualified": false,
+  "acceptedIssues": 0,
+  "supplier19Plus1Controls": "UNRUN on corrected source due governance; no historical qualification inherited",
+  "callbackSupplier": "b98e179b0c0ac6c1f85790fcce3bd918a3aa6cdc",
+  "callbackConsumed": false,
+  "oldCallback6Pg": "EXECUTED but unqualified due missing collection inspection; not UNRUN; not inherited",
+  "callbackCurrentDisposition": "canonical owner handling root-compatible increment; leave five files unchanged pending supplied compliant source/qualification",
+  "checks": [
+    {
+      "check": "original Release build",
+      "exitCode": 0,
+      "warnings": 1507,
+      "errors": 0
+    },
+    {
+      "check": "exact nonempty discovery + original backend tests",
+      "methods": 30,
+      "passed": 73,
+      "failed": 0,
+      "skipped": 0,
+      "partition": {
+        "typedCandidate": 36,
+        "originalCompiledExecutionOwner": 37
+      },
+      "exitCode": 0,
+      "assemblies": {
+        "FsusBlog.Server.Tests.dll": "68345b9e37130e82edf28dd08928640dd4a2bdb901e2042320f1d7228d68b692",
+        "FsusBlog.Server.dll": "aaf40734e75a013846d6e220a76eb7fc05dd496c1bc603f1295d76376c04ee9a",
+        "FsusBlog.Core.dll": "7840c6fcd4e6019f48b0a22d23c63c2ae34d09f968f358359c36c5e8fd86d85c",
+        "FsusBlog.Shared.dll": "2d52d5064eef52c30b97106f6c942ca6dc08cd34e86719406413ab93b0b7ab43"
+      }
+    },
+    {
+      "check": "original C# style",
+      "files": 2,
+      "exitCode": 0
+    },
+    {
+      "check": "document lifecycle",
+      "documents": 379,
+      "exitCode": 0
+    },
+    {
+      "check": "document authority",
+      "documents": 11,
+      "exitCode": 0
+    },
+    {
+      "check": "original direct source scanner",
+      "files": 2,
+      "findings": 0,
+      "exitCode": 0
+    }
+  ],
+  "notRun": [
+    "supplier corrected lifecycle19+1",
+    "SystemService final alias or runtime authority acceptance",
+    "b98 compatible callback integration/qualification",
+    "held matrix/retention/PR/native/other audits",
+    "DB/browser/native/product for this public enum-only increment"
+  ],
+  "updatedAt": "2026-10-09T13:19:38.832694+00:00"
+}

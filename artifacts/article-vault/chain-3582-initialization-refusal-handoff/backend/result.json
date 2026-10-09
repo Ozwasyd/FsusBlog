@@ -1,0 +1,28 @@
+{
+  "sourceCommit": "2a3281e96ecf3207e195ff9adc32db77ab44490e",
+  "counters": {
+    "total": 73,
+    "executed": 73,
+    "passed": 73,
+    "failed": 0,
+    "error": 0,
+    "timeout": 0,
+    "aborted": 0,
+    "inconclusive": 0,
+    "passedButRunAborted": 0,
+    "notRunnable": 0,
+    "notExecuted": 0,
+    "disconnected": 0,
+    "warning": 0,
+    "completed": 0,
+    "inProgress": 0,
+    "pending": 0
+  },
+  "assemblies": {
+    "FsusBlog.Server.Tests.dll": "68345b9e37130e82edf28dd08928640dd4a2bdb901e2042320f1d7228d68b692",
+    "FsusBlog.Server.dll": "aaf40734e75a013846d6e220a76eb7fc05dd496c1bc603f1295d76376c04ee9a",
+    "FsusBlog.Core.dll": "7840c6fcd4e6019f48b0a22d23c63c2ae34d09f968f358359c36c5e8fd86d85c",
+    "FsusBlog.Shared.dll": "2d52d5064eef52c30b97106f6c942ca6dc08cd34e86719406413ab93b0b7ab43"
+  },
+  "qualification": false
+}

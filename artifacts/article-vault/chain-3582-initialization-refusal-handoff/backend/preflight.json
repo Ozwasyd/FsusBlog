@@ -1,0 +1,757 @@
+{
+  "sourceCommit": "2a3281e96ecf3207e195ff9adc32db77ab44490e",
+  "workingTree": "",
+  "sourceFiles": {
+    "src/backend/Services/ArticleVault/ArticleVaultAuthenticatedConflictReviewAdapter.cs": "87a859f6363e4e681ff9ef0d7502d104dfb163cfb64bc7d9edfe250c44918877",
+    "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "8e54ec62762b181dab3d8bcc1a3329e4abdfb80255e3891d5e3008120c7be641",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs": "485ed2e4fe8a938c79ab0a07736715c37a084a5d7165e03b8344b08b8be8a9c7",
+    "tests/backend/Unit/ArticleVaultAuthenticatedConflictReviewAdapterTests.cs": "32f15db33539e85083df81f68506a7f91adfd55be8b1c416a054816fff5666f5",
+    "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs": "3901915e81859aaa50a81882a7de517219312005e03856a4fb0fda4bc2842ff4",
+    "tests/backend/Unit/ArticleVaultExecutionTests.cs": "97b1a0cc048334dbe880ced401671b9086926119afdf9c99f07fc12c1d01ba76",
+    "tests/backend/Unit/ArticleVaultInstallationSiteIdentityCandidateReaderTests.cs": "63a7a0f46f9244d805e58839357fcefe448cfd5f10d2ab4120abae59ba296bb6",
+    "src/backend/Services/ArticleVault/ArticleVaultInstallationSiteIdentityCandidateReader.cs": "d4f83923b077462004989d81446fce1b7b1c6bdc56979197ce8ed1a5b273c9af",
+    "src/backend/Interfaces/ISystemSiteIdentityReader.cs": "ee6371258149f8fc98b5540b7092a8751cde8adca73e22d405d7fc4c411159c6",
+    "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs": "4821cc46efdb834c7bc84f548303f58e6ca6808fa1592749634582dea6b210d3",
+    "tests/backend/Unit/ArticleVaultRecoveryHistoryTransportTests.cs": "0e27a4b9227aa9a048376946dadbc2ae9b6a191628e3316ea603dde59fbe1202",
+    "tests/backend/Unit/ArticleVaultRecoveryCheckpointReaderTests.cs": "fa742c99cb2c235a65ae46a322d714b513a1b87ed150d7f66b42db8de1beec99",
+    "tests/backend/Helpers/TestInfrastructure/EndpointSecurityTestHost.cs": "54f0b86a888867c45fece3226aba4656f00d56a3b5a866a85753982fe5fcb817",
+    "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b"
+  },
+  "expectedCaseCount": 73,
+  "expectedMethods": {
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExactCurrentCandidate_PreservesOriginalTypedModelAndCallerTokenWithoutCreatingAuthority": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent": 7,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback": 15,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead": 6,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.OriginalStorageException_PropagatesWithoutFallbackOrProvisioning": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CancellationBeforeOrDuringRead_PreservesCallerRefusal": 2,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.RepeatedRead_DoesNotCacheTheFirstMappingAfterOriginalAuthorityMoves": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_SharesOriginalReaderWithoutInstallingAuthorityOrTrustedReaders": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_MissingOriginalOrDuplicateFailsWithoutMutation": 2,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_LoadsSealedReferenceAndDuplicateReplaysTerminalResult": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsRevisionPermissionLifecycleAndDependencyDriftBeforeWriter": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsAtCancellationBoundaryWithoutStartingNextGroup": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnWriterReceiptTamper": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch": 9,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsDuplicateOutboxAndAuditReferencesAcrossGroup": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursInsideWriter": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursDuringObservation": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsWhenPlanExpiresAfterObservationBeforeWriter": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsExpiredPlanBeforeObservationOrWriter": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RecoversCommittedGroupAfterTerminalWriteFailureWithoutRepeatingWriter": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.TerminalResultEquivalence_IgnoresOnlyCompletionTimestamp": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Payload_CannotCarryLifecycleRightsOwnerPathOrImportFallback": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Bundle_RejectsPayloadMembershipAndActualSourceByteMismatch": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupIdempotency_IsBoundToSiteVaultPlanGroupAndOperations": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ResultVerifier_RejectsResealedMembershipAndWriterReferenceTamper": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupVerifier_RejectsExecutedOperationInFailedAttemptLedger": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionSource_HasNoFilesystemWatcherImportOrDirectArticleMutationSidePath": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences": 8,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsBenignMethodsAndConstructors": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsCompiledValidationErrorsWithoutFilesystemAccess": 2
+  },
+  "actualCaseCount": 73,
+  "actualMethods": {
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExactCurrentCandidate_PreservesOriginalTypedModelAndCallerTokenWithoutCreatingAuthority": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent": 7,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback": 15,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead": 6,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.OriginalStorageException_PropagatesWithoutFallbackOrProvisioning": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CancellationBeforeOrDuringRead_PreservesCallerRefusal": 2,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.RepeatedRead_DoesNotCacheTheFirstMappingAfterOriginalAuthorityMoves": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_SharesOriginalReaderWithoutInstallingAuthorityOrTrustedReaders": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_MissingOriginalOrDuplicateFailsWithoutMutation": 2,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_LoadsSealedReferenceAndDuplicateReplaysTerminalResult": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsRevisionPermissionLifecycleAndDependencyDriftBeforeWriter": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsAtCancellationBoundaryWithoutStartingNextGroup": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnWriterReceiptTamper": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch": 9,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsDuplicateOutboxAndAuditReferencesAcrossGroup": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursInsideWriter": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursDuringObservation": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsWhenPlanExpiresAfterObservationBeforeWriter": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsExpiredPlanBeforeObservationOrWriter": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RecoversCommittedGroupAfterTerminalWriteFailureWithoutRepeatingWriter": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.TerminalResultEquivalence_IgnoresOnlyCompletionTimestamp": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Payload_CannotCarryLifecycleRightsOwnerPathOrImportFallback": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Bundle_RejectsPayloadMembershipAndActualSourceByteMismatch": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupIdempotency_IsBoundToSiteVaultPlanGroupAndOperations": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ResultVerifier_RejectsResealedMembershipAndWriterReferenceTamper": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupVerifier_RejectsExecutedOperationInFailedAttemptLedger": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionSource_HasNoFilesystemWatcherImportOrDirectArticleMutationSidePath": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences": 8,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsBenignMethodsAndConstructors": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsCompiledValidationErrorsWithoutFilesystemAccess": 2
+  },
+  "selected": [
+    {
+      "id": "9ee16aea-073d-20fb-9416-06af1afff82e",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_LoadsSealedReferenceAndDuplicateReplaysTerminalResult",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_LoadsSealedReferenceAndDuplicateReplaysTerminalResult",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "b837df0b-3c4f-0ac2-a0ad-fc499e712e98",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsRevisionPermissionLifecycleAndDependencyDriftBeforeWriter",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsRevisionPermissionLifecycleAndDependencyDriftBeforeWriter",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "6d45404f-4982-121b-d185-51529c302692",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsAtCancellationBoundaryWithoutStartingNextGroup",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsAtCancellationBoundaryWithoutStartingNextGroup",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "a4de2645-fc45-f866-a80f-f00a8e3239db",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnWriterReceiptTamper",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnWriterReceiptTamper",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "2896d936-9441-b52d-7e33-b688d7056647",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: MissingOutbox, expectedReason: \"article_vault_operation_side_effect_receipt_missin\"···)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "3131fa9d-5b74-dbce-8335-434dd1431f42",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: MissingAudit, expectedReason: \"article_vault_operation_side_effect_receipt_missin\"···)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "1efb363c-68d8-b51f-bcfd-46cc545ca2c6",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: MalformedOutbox, expectedReason: \"article_vault_operation_side_effect_receipt_missin\"···)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "0ef164cf-d2d8-3a97-f96f-97c61cb2e077",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: MalformedAudit, expectedReason: \"article_vault_operation_side_effect_receipt_missin\"···)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "dfababa6-9544-84fd-99c6-aeaa62914a90",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: ArticleDigestMismatch, expectedReason: \"article_vault_writer_receipt_mismatch\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "71629518-7efb-d387-ed85-50e3dad2a9f3",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: AfterRevisionMismatch, expectedReason: \"article_vault_writer_receipt_mismatch\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "350d8d0c-8e93-ad73-618f-a8296c87446c",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: SiteMismatch, expectedReason: \"article_vault_group_receipt_invalid\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "9e08346c-f1e6-97f6-07e6-c9da64ad7020",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: VaultMismatch, expectedReason: \"article_vault_group_receipt_invalid\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "ba7e7480-d1f6-5abe-8823-fbff1615ab2e",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: MembershipMismatch, expectedReason: \"article_vault_group_receipt_invalid\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "bc9ba98b-388a-63f3-73b9-ca69c00a2f46",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsDuplicateOutboxAndAuditReferencesAcrossGroup",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsDuplicateOutboxAndAuditReferencesAcrossGroup",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "b2454161-9282-1264-0dbf-571caf0ec1a3",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursInsideWriter",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursInsideWriter",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "d102d877-336e-567a-6279-c629c730cf0f",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursDuringObservation",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursDuringObservation",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "6ce56d61-a0d9-1ddd-ce44-a6c6b2b7ab5b",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsWhenPlanExpiresAfterObservationBeforeWriter",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsWhenPlanExpiresAfterObservationBeforeWriter",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "9ca59df1-bfd7-9678-759c-3d36da672b28",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsExpiredPlanBeforeObservationOrWriter",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsExpiredPlanBeforeObservationOrWriter",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "fdc22b5a-2cb4-e6c4-8e81-56638f4ef13e",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RecoversCommittedGroupAfterTerminalWriteFailureWithoutRepeatingWriter",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RecoversCommittedGroupAfterTerminalWriteFailureWithoutRepeatingWriter",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "d52061dc-3774-6eb3-1fd3-155995ef56a7",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.TerminalResultEquivalence_IgnoresOnlyCompletionTimestamp",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.TerminalResultEquivalence_IgnoresOnlyCompletionTimestamp",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "50ef0c56-7774-13e9-4b98-9e182fe52bab",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Payload_CannotCarryLifecycleRightsOwnerPathOrImportFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Payload_CannotCarryLifecycleRightsOwnerPathOrImportFallback",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "de106cd0-e526-f2b2-715d-544911bc6c63",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Bundle_RejectsPayloadMembershipAndActualSourceByteMismatch",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Bundle_RejectsPayloadMembershipAndActualSourceByteMismatch",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "321c53bf-5148-b37e-c4b2-09bd90acb113",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupIdempotency_IsBoundToSiteVaultPlanGroupAndOperations",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupIdempotency_IsBoundToSiteVaultPlanGroupAndOperations",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "53eb241c-44d7-cda1-8e13-971872a1d1f3",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ResultVerifier_RejectsResealedMembershipAndWriterReferenceTamper",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ResultVerifier_RejectsResealedMembershipAndWriterReferenceTamper",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "7360fbf7-5aa1-9f3d-9bce-e3bb767060a7",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupVerifier_RejectsExecutedOperationInFailedAttemptLedger",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupVerifier_RejectsExecutedOperationInFailedAttemptLedger",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "ccaa61c6-cb6c-c248-5f5e-261757e21a4d",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionSource_HasNoFilesystemWatcherImportOrDirectArticleMutationSidePath",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionSource_HasNoFilesystemWatcherImportOrDirectArticleMutationSidePath",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "af70951b-0acf-4542-123b-bbff52ca8cfd",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+InstanceFileAccessFixture), forbiddenFact: \"System.IO.\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "53d878e8-4a7b-fd93-aae0-5433124e5fcc",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+StaticFileAccessFixture), forbiddenFact: \"System.IO.\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "a45c2ba2-7b79-f49f-6fb5-f02964c0b82e",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+InstanceErrorAndFileAccessFixture), forbiddenFact: \"System.IO.\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "7be0eff2-2c33-a554-8bf5-5bc95c554816",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+StaticErrorAndFileAccessFixture), forbiddenFact: \"System.IO.\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "8c496383-d338-5ed4-3d84-737932ebdd31",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+InstanceObservationFixture), forbiddenFact: \"Watcher\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "c7e4849b-c512-bcf4-6c91-cf45e974274a",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+StaticObservationFixture), forbiddenFact: \"Watcher\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "313a3fb3-ff91-e25b-f410-788d8bec50a6",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+InstanceLoadingFixture), forbiddenFact: \"Import\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "09944659-2b22-4071-697a-d88749c84372",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+StaticLoadingFixture), forbiddenFact: \"Import\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "b3ca784b-51a6-2bcb-96fb-e65421634c75",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsBenignMethodsAndConstructors",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsBenignMethodsAndConstructors",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "2c721bef-56d8-7688-e15e-68d41568c620",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsCompiledValidationErrorsWithoutFilesystemAccess",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsCompiledValidationErrorsWithoutFilesystemAccess(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+InstanceValidationErrorFixture))",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "6191f23f-8e5f-8825-9cdd-74f8280d096f",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsCompiledValidationErrorsWithoutFilesystemAccess",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsCompiledValidationErrorsWithoutFilesystemAccess(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+StaticValidationErrorFixture))",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Unit"
+        ]
+      }
+    },
+    {
+      "id": "b66335be-ee1f-94f0-98b5-37be39eccfb3",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExactCurrentCandidate_PreservesOriginalTypedModelAndCallerTokenWithoutCreatingAuthority",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExactCurrentCandidate_PreservesOriginalTypedModelAndCallerTokenWithoutCreatingAuthority",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "15e52904-d708-d966-9769-c1e9198eeb24",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent(state: Absent)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "a897ceef-f0e8-6e18-1a63-3ede4dfc3c08",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent(state: MigrationRequired)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "5e9ea8c5-679d-381c-497d-0f9e373bcb4c",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent(state: Ambiguous)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "54f07581-ac30-5c69-b30d-98b49cadd8d5",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent(state: Malformed)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "4df502f2-77b5-86bb-52ba-2de1f7ad7dec",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent(state: UnsupportedVersion)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "b8370c11-4382-a661-e61a-dce23581f259",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent(state: InitializationRequired)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "89d55c48-6ab4-5b95-827b-9072e4a08e4f",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent(state: 99)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "242b4566-163a-fa3a-14dc-431d84f5b165",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"identity-null\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "c431a0b8-7da0-a8b1-a783-937891d6d4af",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"identity-url\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "81de54c6-5db3-bc7b-6f01-f5ca64fe1c03",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"identity-uppercase\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "83ef2229-10c8-7130-1783-d2e0a3d9dfe3",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"lifecycle-null\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "44fdae17-f512-019b-3914-6b9875e71018",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"lifecycle-version\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "c05fffc8-c07f-638b-7e03-16f07198bd42",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"generation-null\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "fefc44e5-31e1-b438-b94c-28d81294c6f3",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"generation\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "f506e561-23cf-e510-7276-9651a27d344d",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"mapping-null\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "e9c073cb-1a22-2827-311c-0aaa55442a4e",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"mapping\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "fd4786a0-9cbe-6644-1d92-a0f302807412",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"scope-missing\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "85a48558-50e6-2164-8ba1-c2e250691325",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"scope-case\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "6a6fc858-539a-eed7-2e90-87818573fa24",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"scope-revision\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "e9d93347-4cb9-9fb2-564e-8683afc8a986",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"scope-duplicate\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "ad73e1db-6a2f-893d-b86e-3d414369e83e",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"scope-null\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "cdea02c6-a530-d317-711a-126593cb6660",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback(mutation: \"scopes-null\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "bbc72d71-b299-38ee-d1c0-588f1d2ee215",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead(mutation: \"lifecycle\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "b1b46671-300c-850f-befb-f320f754f53c",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead(mutation: \"generation\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "38be360b-7fc8-7a5d-cb6c-e8d2418aa0b0",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead(mutation: \"mapping\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "72308d9f-600a-1635-748a-a5b71b9e1259",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead(mutation: \"scope-empty\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "494151dc-1cdb-d339-2aa5-8288f1411097",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead(mutation: \"scope-revision\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "9523e5e3-a8fb-8130-cb40-4e5d4929fafb",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead(mutation: \"scope-after-mapping\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "333155ea-e5da-120d-ea2d-39b290df1de3",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.OriginalStorageException_PropagatesWithoutFallbackOrProvisioning",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.OriginalStorageException_PropagatesWithoutFallbackOrProvisioning",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "c4e13b5c-c6f6-c679-f0b2-594ae07cf231",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CancellationBeforeOrDuringRead_PreservesCallerRefusal",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CancellationBeforeOrDuringRead_PreservesCallerRefusal(during: False)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "2f857fd4-01c3-f148-cb1c-14a96fd9f6ec",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CancellationBeforeOrDuringRead_PreservesCallerRefusal",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CancellationBeforeOrDuringRead_PreservesCallerRefusal(during: True)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "2a1c63d8-64fc-7d80-65ab-f18f8428e52b",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.RepeatedRead_DoesNotCacheTheFirstMappingAfterOriginalAuthorityMoves",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.RepeatedRead_DoesNotCacheTheFirstMappingAfterOriginalAuthorityMoves",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "7b935383-dad1-a35c-aebb-0a31e1b650b1",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_SharesOriginalReaderWithoutInstallingAuthorityOrTrustedReaders",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_SharesOriginalReaderWithoutInstallingAuthorityOrTrustedReaders",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "402eae66-e6e9-ac52-edd6-12443d8a76f0",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_MissingOriginalOrDuplicateFailsWithoutMutation",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_MissingOriginalOrDuplicateFailsWithoutMutation(duplicate: False)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "b176936f-8217-8399-5b83-d92ca941145c",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_MissingOriginalOrDuplicateFailsWithoutMutation",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_MissingOriginalOrDuplicateFailsWithoutMutation(duplicate: True)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    }
+  ],
+  "filter": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExactCurrentCandidate_PreservesOriginalTypedModelAndCallerTokenWithoutCreatingAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CurrentCandidate_DriftOrMalformedBindingRefusesWithoutUrlOrVaultFallback|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.InvalidHostExpectation_RefusesBeforeOriginalRead|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.OriginalStorageException_PropagatesWithoutFallbackOrProvisioning|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.CancellationBeforeOrDuringRead_PreservesCallerRefusal|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.RepeatedRead_DoesNotCacheTheFirstMappingAfterOriginalAuthorityMoves|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_SharesOriginalReaderWithoutInstallingAuthorityOrTrustedReaders|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultInstallationSiteIdentityCandidateReaderTests.ExplicitCandidateComposition_MissingOriginalOrDuplicateFailsWithoutMutation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_LoadsSealedReferenceAndDuplicateReplaysTerminalResult|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsRevisionPermissionLifecycleAndDependencyDriftBeforeWriter|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsAtCancellationBoundaryWithoutStartingNextGroup|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnWriterReceiptTamper|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsDuplicateOutboxAndAuditReferencesAcrossGroup|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursInsideWriter|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursDuringObservation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsWhenPlanExpiresAfterObservationBeforeWriter|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsExpiredPlanBeforeObservationOrWriter|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RecoversCommittedGroupAfterTerminalWriteFailureWithoutRepeatingWriter|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.TerminalResultEquivalence_IgnoresOnlyCompletionTimestamp|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Payload_CannotCarryLifecycleRightsOwnerPathOrImportFallback|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Bundle_RejectsPayloadMembershipAndActualSourceByteMismatch|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupIdempotency_IsBoundToSiteVaultPlanGroupAndOperations|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ResultVerifier_RejectsResealedMembershipAndWriterReferenceTamper|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupVerifier_RejectsExecutedOperationInFailedAttemptLedger|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionSource_HasNoFilesystemWatcherImportOrDirectArticleMutationSidePath|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsBenignMethodsAndConstructors|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsCompiledValidationErrorsWithoutFilesystemAccess",
+  "discoveryHostLogSha256": "35ce2816b36d414ccff53fe69175d7b65e341a3836297285f9acd1a4a153ba27",
+  "fixtureReview": {
+    "selectedClasses": "exact new candidate class: 9 methods/36 cases; original execution owner: 21 methods/37 cases; no class/collection/assembly fixtures",
+    "setup": "original typed ISystemSiteIdentityReader NSubstitute only; no SystemService implementation or production lifecycle data installed. Candidate no-cache/exact scope/version/refusal semantics. Original execution fixtures are controlled in-memory store/observation/writer ports.",
+    "cleanup": "all CancellationTokenSources, ServiceProviders and scopes disposed with using; no network/DB/native/files or authority/config writes",
+    "assemblyHook": "original opt-in Redis diagnostics absent"
+  },
+  "heldAudits": false,
+  "replacementHarness": false
+}

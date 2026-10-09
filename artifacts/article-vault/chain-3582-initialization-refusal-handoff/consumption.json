@@ -1,0 +1,33 @@
+{
+  "supplier": "adc2e50070ffecbd1e003e7a051450c2dea6ff1f",
+  "sourceParent": "abb28c41213f6ea506a6b4dcb64f30b7451384b7",
+  "consumedPublicDelta": {
+    "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs": "4821cc46efdb834c7bc84f548303f58e6ca6808fa1592749634582dea6b210d3"
+  },
+  "unchangedInterface": "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+  "fullSupplierFromBasePaths": [
+    "artifacts/change-contract/postgres-collection-manifest-naming-exceptions.json",
+    "config/development/document-inventory.generated.json",
+    "config/development/document-lifecycle.json",
+    "docs/development/system-site-identity.md",
+    "docs/index.md",
+    "docs/testing.md",
+    "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+    "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+    "src/backend/Services/SystemService.SiteIdentity.cs",
+    "src/migration/Definitions/SystemSiteIdentityMigrationDefinitions.cs",
+    "src/migration/PgCurrentSchemaBootstrapOperation.cs",
+    "src/migration/PgLegacyNonArticlePreparation.cs",
+    "tests/backend/Fixtures/postgres-test-collections.json",
+    "tests/backend/Integration/SystemSiteIdentityIntegrationTests.cs",
+    "tests/backend/Unit/AdminFixtureSessionIssuanceTests.cs",
+    "tests/backend/Unit/SystemSiteIdentityTests.cs",
+    "tests/tools/check-postgres-test-collections.test.mjs"
+  ],
+  "consumerGuardChanged": false,
+  "sourceQualified": false,
+  "supplier19Plus1Controls": "UNRUN on corrected source due governance, not inherited",
+  "callbackSupplier": "b98e179b0c0ac6c1f85790fcce3bd918a3aa6cdc",
+  "callbackConsumed": false,
+  "callbackStatus": "coordinator reports canonical owner handling root-compatible source; previous six PG runs explicitly unqualified, not UNRUN"
+}

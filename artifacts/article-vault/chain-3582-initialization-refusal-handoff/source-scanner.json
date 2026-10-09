@@ -1,0 +1,9 @@
+{
+  "sourceCommit": "2a3281e96ecf3207e195ff9adc32db77ab44490e",
+  "findings": {
+    "tests/backend/Unit/ArticleVaultExecutionTests.cs": [],
+    "tests/backend/Unit/ArticleVaultInstallationSiteIdentityCandidateReaderTests.cs": []
+  },
+  "scope": "original source-lock scanner only, no replacement/retention audit",
+  "qualification": false
+}
