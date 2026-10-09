@@ -65,8 +65,8 @@
         },
         {
             "path": "package.json",
-            "contentDigest": "sha256:44f69a740e760c9af7a8ac54b6e7742defdd44babe2f2c917ded4ddb61c0c314",
-            "indexDigest": "sha256:44f69a740e760c9af7a8ac54b6e7742defdd44babe2f2c917ded4ddb61c0c314"
+            "contentDigest": "sha256:49f2d5f4021f27014e02edd7fcca4ea637d169b918791fd3dcb2c31e6f042565",
+            "indexDigest": "sha256:49f2d5f4021f27014e02edd7fcca4ea637d169b918791fd3dcb2c31e6f042565"
         },
         {
             "path": "src/backend/FsusBlog.Server.csproj",
