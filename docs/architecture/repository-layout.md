@@ -426,6 +426,17 @@ Key order is not assumed; duplicates, missing keys, overflow and unknown target
 formats cannot produce zero. PSI averages are checked for the supported native
 format, while returned totals retain microseconds. v1 counters remain unavailable
 instead of interpreting combined RSS/swap-cache or substituting a v2 format.
+`LinuxCgroupTimedCounterReader` borrows that directory owner for one counter read
+and records the UTC and monotonic endpoints around the actual read, with an
+explicit caller-supplied duration bound. Clock reversal, frequency changes,
+timestamp overflow or an excessive read window remove the usable value while
+retaining the observed endpoints. Disabled mode captures neither a counter nor
+time. The caller-supplied scratch span is cleared on every exit, including clock
+and ownership exceptions; those exceptions remain visible and the borrowed owner
+is not disposed. Source identity includes a process-instance identity. A read
+window does not supply an exact point timestamp, a rate, a qualified process
+binding or a production default for sampling costs. Existing context/ancestor
+binding, admitted metadata lifetime and frozen P01/P02 limits remain required.
 These raw counters do not classify thrashing, grant headroom or qualify a process
 domain. Native meanings follow the [cgroup v2 interfaces](https://docs.kernel.org/admin-guide/cgroup-v2.html),
 [PSI interface](https://docs.kernel.org/accounting/psi.html) and
