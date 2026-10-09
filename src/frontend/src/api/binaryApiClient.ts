@@ -422,6 +422,7 @@ async function binaryRequestResultFresh(url: string, options?: BinaryRequestOpti
         onResponseHeaders,
         ...fetchOptions
     } = options ?? {};
+    void _riskChallengeProof;
     let response: Response;
     try
     {
