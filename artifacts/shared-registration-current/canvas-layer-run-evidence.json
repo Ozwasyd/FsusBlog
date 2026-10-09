@@ -1,0 +1,116 @@
+{
+  "runIdentity": "canonical-canvas-contract-layer-af301b7-20261009T055306Z",
+  "recordedAtUtc": "2026-10-09T05:55:49.628824+00:00",
+  "candidateCommit": "af301b7ac1dd3ac88fd2ae42557ff77d52e38e9c",
+  "registrySourceCommit": "71179da783bae459b665b1ca168a97b718b4b01b",
+  "consumerSourceCommit": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+  "nodeCases": {
+    "expected": 32,
+    "passed": 32,
+    "failed": 0
+  },
+  "originalVitestOwner": {
+    "expected": 13,
+    "passed": 13,
+    "failed": 0,
+    "version": "4.1.11",
+    "happyDom": "20.9.0",
+    "configuration": "src/frontend/vitest.config.ts",
+    "setup": "tests/frontend/support/unit/setup.ts",
+    "frozenFsusUiSource": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "assertionOwnerByteExactTo": "b304c494de2d805f9b5b70ce8d738b1f1cb6df94"
+  },
+  "standaloneTypeScript": {
+    "files": 2,
+    "exitCode": 0
+  },
+  "originalLayerGuard": {
+    "path": "tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+    "unchanged": true,
+    "scopedActualFiles": 5,
+    "positiveExit": 0,
+    "exactOldImportNegativeExit": 1,
+    "qualification": "contract-specific ordinary rule control; not full graph acceptance"
+  },
+  "sourceFiles": [
+    {
+      "path": "tools/contracts/generate-authoring-canvas-wire.mjs",
+      "sha256": "3b16c2e85951fd177172cc32f91779899437b4d45be74ba3100b0112cf6995ef"
+    },
+    {
+      "path": "src/frontend/src/contracts/authoringCanvas.ts",
+      "sha256": "adda14b22b2ce51aec0aa40a9edfe8e04553d9a85e1ef232f6f19fe7c2a21f6e"
+    },
+    {
+      "path": "tests/tools/authoring-canvas-contract-layer.test.mjs",
+      "sha256": "659eeb0d4e47919965f7d4aa32c996c814b3ab17121e7d1c947a9c7abf77d3cf"
+    },
+    {
+      "path": "tests/frontend/unit/contracts/authoringCanvasContract.test.ts",
+      "sha256": "38b18fc96201c5e9d0345daaff83ff1b832760caaf54128ea173c0fe25b17381"
+    }
+  ],
+  "unchangedWireProducts": [
+    {
+      "path": "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
+      "sha256": "5f1afb86463dc6c09de1e87b9d3fa87adc4c29e65a3e25bb1d168fa4beb7b982"
+    },
+    {
+      "path": "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
+      "sha256": "7cba689c84337cce02f3d0cadb90ea57ea3dc7f396877dde022185e53826a8e8"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp",
+      "sha256": "8106396d6f06df3d138c295935640d9baa8c5109dfd1a8beb3f042c694cc30a6"
+    }
+  ],
+  "commands": [
+    "node tools/contracts/generate-authoring-canvas-wire.mjs --check",
+    "node --test tests/tools/authoring-canvas-wire.test.mjs tests/tools/authoring-canvas-contract-layer.test.mjs",
+    "node tools/frontend/style-toolchain/node_modules/typescript/bin/tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --lib ES2022,DOM src/frontend/src/contracts/authoringCanvas.ts src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI FSUSBLOG_VITEST_MAX_WORKERS=1 FSUSBLOG_VITEST_REPORT_ID=shared-canvas-contract-af301b7 node /tmp/chain-3735-tooling/front-test-env/node_modules/vitest/vitest.mjs run --config vitest.config.ts ../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts (cwd src/frontend)"
+  ],
+  "failedAttemptsRetained": [
+    "wrong relative test path: no tests found, exit1",
+    "two original setup attempts: happy-dom unavailable, exit1"
+  ],
+  "qualification": "source WIP; no runtime/session/HTTP/Postgres/provider/UX/full frontend/canonical CI acceptance",
+  "artifacts": [
+    {
+      "path": "canvas-layer-evidence/canvas-contract-public-tooling-install.log",
+      "sha256": "2455ce0fd2d6cdeeb252d10ebd81a93b00c64241e3e95e871bff7bc64c2082c4"
+    },
+    {
+      "path": "canvas-layer-evidence/canvas-layer-controls-af301b7.log",
+      "sha256": "0fe0d79f0a5a52df7f099cc3e5e0cbfcca8c413a1e897c01804605ea06475625"
+    },
+    {
+      "path": "canvas-layer-evidence/canvas-layer-types-af301b7.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "canvas-layer-evidence/canvas-original-contract-vitest-actual-setup.log",
+      "sha256": "5021d464e152ae9cfef6ae8258a61e4352e0a3a9c52efe9ba9877f78676cbef6"
+    },
+    {
+      "path": "canvas-layer-evidence/canvas-original-contract-vitest-af301b7.log",
+      "sha256": "59604129c07c82895d12ff07c1439e2a458fe51e990aa64e86bec1a64ae06efa"
+    },
+    {
+      "path": "canvas-layer-evidence/canvas-original-contract-vitest-canonical.log",
+      "sha256": "bc42810983d24bb94e05a4971556f0073127a0fe5509148ac52b3a772b74935a"
+    },
+    {
+      "path": "canvas-layer-evidence/canvas-original-contract-vitest.log",
+      "sha256": "cf7d7e171fa3af987303e80152c1ebbe2477de9caa6608655d695d1eff223992"
+    },
+    {
+      "path": "canvas-layer-evidence/original-contract-vitest.json",
+      "sha256": "8b8a932c892ec389693160ef140d371406daf03b2705588563a18f6119fffed1"
+    },
+    {
+      "path": "canvas-layer-evidence/original-contract-vitest.xml",
+      "sha256": "aa799014e17b8fd8afe50617c8173487e63f4e4098b6d2dc529e49cc91acb509"
+    }
+  ]
+}

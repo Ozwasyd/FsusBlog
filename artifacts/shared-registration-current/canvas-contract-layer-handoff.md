@@ -47,3 +47,5 @@ canonical CI acceptance gates remain OPEN. Font/theme work belongs to group1.
 The frozen 8464/b304 Shared candidates, 6402 Export candidate and supplied a0d58a2f
 consumer are immutable; this repair is published on the new isolated current-base
 branch. Parent remains the sole GitHub content API writer.
+
+Published/tested source candidate: `af301b7ac1dd3ac88fd2ae42557ff77d52e38e9c`. Final exact-candidate runs passed 32/32 Node controls and 13/13 original Vitest cases; strict two-file TypeScript and generator check exited 0. Logs/reports and retained setup failures are in `canvas-layer-evidence/`; source/output identities and argv are in `canvas-layer-run-evidence.json`. A first evidence-packaging script failed with a Path/string concatenation error after copying logs; this follow-up completes the missing report/manifest without altering test results.
