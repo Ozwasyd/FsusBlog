@@ -323,8 +323,8 @@
     "qualification": "isolated managed source-host component diagnostics only; not original full backend-project, final integration or runtime/product acceptance",
     "restoreBinding": "b3a2c6a71f35f7420136a2e0f0023e5864457140; identical dependency/configuration/lock surface to tested source; later commits change only source/docs",
     "docs": "FAIL: exactly26 prior diagnostics, same locations/messages; no suppression",
-    "historicalProvider": "Exact da5 source consumed; provider originally built0errors/323warnings. Its six original tests remain UNRUN, excluded from this component selection. Lifecycle service is outside this131-file compile closure.",
-    "wholeBackendAndShared": "UNRUN on combined source. Supplier full-test restore reportedNU1004 and fullShared187 diagnostics; not inherited as a pass. Lock dependency owner remains sole #3568.",
+    "historicalProvider": "Exact da5 source consumed unchanged. Upstream evidence9751950 now proves SDK10.0.401 fresh audited locked restore0, original test-project build0errors/1510warnings and exact6/6. This supersedes earlier upstream6UNRUN only; not our candidate execution. Lifecycle service remains outside our131filediagnostic closure.",
+    "wholeBackendAndShared": "Our current original fresh locked restore ate618aa1 fails NU1004; source49inputsunchanged, onlytestlockdiffers upstream by one missingAngleSharp row. OriginalShared build ate618aa1 passes0errors/187warnings. Original test-project build/discovery/tests NOT RUN. See ../chain-3663-original-project-recheck-20261009/final-report.json. No upstream results inherited as ours.",
     "heldGates": [
         "original trust31 controls",
         "original full matrices",
@@ -425,5 +425,6 @@
     "noOriginalAcceptanceGateChanged": true,
     "noSharedLockRegeneration": true,
     "noMergeClosureDeployOrDirectMasterPush": true,
-    "supplierDiagnosticLimits": "Supplier asset214/version134 were isolated source-host diagnostic tests, not full backend-project passes. They were not inherited as our795case result;795cases were freshly executed atf392856 after exact preflight. Original NU1004/full-project limitations remain separate."
+    "supplierDiagnosticLimits": "Supplier asset214/version134 were isolated source-host diagnostic tests, not full backend-project passes. They were not inherited as our795case result;795cases were freshly executed atf392856 after exact preflight. Original NU1004/full-project limitations remain separate.",
+    "upstreamCanonicalUrlEvidence": "9751950ee844bae0f306b974782b9514b0f455a6"
 }

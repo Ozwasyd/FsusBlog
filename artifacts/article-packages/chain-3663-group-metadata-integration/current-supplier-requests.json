@@ -85,7 +85,7 @@
         {
             "field": "Historical rights CanonicalUrl",
             "actualAvailable": "Exact original da5d862 DTO/provider source consumed unchanged; selected historical mapper27cases pass atf392856 and preserve URL/null and original hashes.",
-            "required": "Source field available; original provider six tests remainUNRUN and source/permission/DB runtime acceptance pending. Do not infer historical route/status/schedule."
+            "required": "Original provider six new ordinary value cases nowPASS6/6 only atda5d862 with SDK10.0.401 evidence9751950. Our candidate original test execution remains blocked by NU1004. Persisted operation/permission/runtime admission and historical route/status/schedule remain separate."
         },
         {
             "field": "Historical PublicRouteKey / lifecycle publication facts",
@@ -133,5 +133,6 @@
         "assetCollection": "901f1f82c492cdd65887e84f8895e0abca42f24f",
         "historicalCanonicalUrl": "da5d862e575674595327b38388fb7417d256cfec"
     },
-    "currentAvailabilityEvidence": "final-report.json and supplier-blobs-preserved.json; prior source requests are updated only for delivered source."
+    "currentAvailabilityEvidence": "final-report.json and supplier-blobs-preserved.json; prior source requests are updated only for delivered source.",
+    "upstreamCanonicalUrlEvidence": "9751950ee844bae0f306b974782b9514b0f455a6"
 }

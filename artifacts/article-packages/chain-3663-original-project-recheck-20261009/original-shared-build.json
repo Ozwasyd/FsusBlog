@@ -1,0 +1,18 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "src/shared/FsusBlog.Shared.csproj",
+        "--no-restore",
+        "--no-incremental"
+    ],
+    "testedSha": "e618aa1315c91d729d96aa0c1613b7ddb031a5de",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T07:50:59.104444+00:00",
+    "endUtc": "2026-10-09T07:51:06.904622+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/original-project-recheck-20261009/original-shared-build.log"
+}

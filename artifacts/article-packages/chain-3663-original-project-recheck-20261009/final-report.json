@@ -1,0 +1,70 @@
+{
+    "sourceCandidate": "e618aa1315c91d729d96aa0c1613b7ddb031a5de",
+    "recordedUtc": "2026-10-09T07:52:54.587484+00:00",
+    "supportedEntry": "tools/build-with-data-env.sh",
+    "sdk": "10.0.302",
+    "originalBackendProjectRestore": {
+        "command": [
+            "tools/build-with-data-env.sh",
+            "dotnet",
+            "restore",
+            "tests/backend/FsusBlog.Server.Tests.csproj",
+            "--force",
+            "--locked-mode",
+            "-p:NuGetAudit=true",
+            "-p:NuGetAuditMode=all",
+            "-p:NuGetAuditLevel=low"
+        ],
+        "testedSha": "e618aa1315c91d729d96aa0c1613b7ddb031a5de",
+        "cleanBefore": true,
+        "startUtc": "2026-10-09T07:48:03.194625+00:00",
+        "endUtc": "2026-10-09T07:48:04.983056+00:00",
+        "exitCode": 1,
+        "shaUnchanged": true,
+        "cleanAfter": true,
+        "log": "/workspace/chain-3663-evidence/original-project-recheck-20261009/original-fresh-locked-restore.log"
+    },
+    "originalSharedProjectBuild": {
+        "receipt": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "src/shared/FsusBlog.Shared.csproj",
+                "--no-restore",
+                "--no-incremental"
+            ],
+            "testedSha": "e618aa1315c91d729d96aa0c1613b7ddb031a5de",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:50:59.104444+00:00",
+            "endUtc": "2026-10-09T07:51:06.904622+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/original-project-recheck-20261009/original-shared-build.log"
+        },
+        "errors": 0,
+        "warnings": 187,
+        "warningsNotSuppressed": true
+    },
+    "originalTestProjectBuild": "BLOCKED/NOT RUN: target fresh locked restore failed NU1004",
+    "originalCaseDiscovery": "NOT RUN: restore prerequisite failed",
+    "originalTestsExecuted": 0,
+    "expectedPositiveCases": 795,
+    "sourceHookPrecheck": "preflight-source-hooks.json; original module initializer inactive; no selected PostgreSQL/Redis fixtures; original VSTest route only",
+    "runtimeCaseCountPreflight": "NOT RUN: no tests launched or fallback attempted",
+    "all49InputsUnchanged": true,
+    "onlyUpstreamInputDifference": "tests/backend/packages.lock.json",
+    "dependencyDifference": "Only AngleSharp[1.5.0,) is missing in fsusblog.server project dependency row",
+    "currentLockBlob": "6b9bfe36493a1aa0aec4a5d75afa57c70c5f151f",
+    "upstreamPassedLockBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+    "minimalObservedUpstreamCommit": "53075182a4cccf400e1a389d5dfc7dca5ab4d09d",
+    "prerequisiteRequest": "Await coordinating parent/sole #3568 exact lock source handoff; commit found read-only, not consumed. No shared lock regeneration, gate weakening or alternate denied route.",
+    "upstreamCanonicalUrlSixCases": "PASS only on da5d862 with evidence9751950; not our candidate execution",
+    "diagnosticHost795": "PASS only atf392856 isolated source-host; not original test-project pass",
+    "historicalRouteStatusSchedule": "Still absent; no inference",
+    "font338": "Separate source gate, not rerun or bypassed",
+    "originalHeldTrustAndFullMatrices": "Still held; no tests performed",
+    "all16IssueAcceptance": "Open/unaccepted; no new issue acceptance",
+    "noProductionDbCredentialsOrContentApiWrites": true
+}

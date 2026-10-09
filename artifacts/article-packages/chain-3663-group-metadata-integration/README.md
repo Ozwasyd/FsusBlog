@@ -24,9 +24,11 @@ See [final-report.json](final-report.json), [case-preflight.json](case-preflight
 Historical failed/dirty development attempts are preserved and are not passes.
 The earlier 671-case registry integration stays bound to `011470c` in its own folder.
 
-Original trust/full matrices are held. Original provider six tests, full backend,
-DB/HTTP/native, product UI, mutation/performance/caption and independent gates are
-unrun on this source. No authority, deployment, merge or issue closure is claimed.
+Original trust/full matrices are held. Original provider six cases nowPASS upstream at `da5d862` with evidence `9751950`;
+this is separate from our candidate. Its original test-project restore still fails
+NU1004 at `e618aa1`; original Shared build passes0errors/187warnings. Our backend
+tests, DB/HTTP/native, UI, mutation/performance/caption and independent gates are
+unrun. No authority, deployment, merge or issue closure is claimed.
 The parent alone writes PR content. [draft-pr.md](draft-pr.md) is a full-scope WIP
 proposal; narrow component checks do not accept its inherited diff.
 

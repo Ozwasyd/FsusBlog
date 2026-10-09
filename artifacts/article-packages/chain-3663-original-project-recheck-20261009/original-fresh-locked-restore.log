@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored /workspace/FsusBlog-group-property-recheck-3663/src/shared/FsusBlog.Shared.csproj (in 121 ms).
+/workspace/FsusBlog-group-property-recheck-3663/tests/backend/FsusBlog.Server.Tests.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+  Failed to restore /workspace/FsusBlog-group-property-recheck-3663/tests/backend/FsusBlog.Server.Tests.csproj (in 8 ms).
+/workspace/FsusBlog-group-property-recheck-3663/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog-group-property-recheck-3663/tests/backend/FsusBlog.Server.Tests.csproj]
+  Restored /workspace/FsusBlog-group-property-recheck-3663/src/core/FsusBlog.Core.csproj (in 67 ms).
+  Restored /workspace/FsusBlog-group-property-recheck-3663/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 270 ms).
+  Restored /workspace/FsusBlog-group-property-recheck-3663/src/migration/FsusBlog.Migration.csproj (in 271 ms).
+  Restored /workspace/FsusBlog-group-property-recheck-3663/src/backend/FsusBlog.Server.csproj (in 276 ms).

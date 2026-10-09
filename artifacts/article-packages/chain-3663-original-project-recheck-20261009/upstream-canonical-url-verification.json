@@ -1,0 +1,104 @@
+{
+    "upstreamSourceSha": "da5d862e575674595327b38388fb7417d256cfec",
+    "upstreamEvidenceCommit": "9751950ee844bae0f306b974782b9514b0f455a6",
+    "upstreamEvidencePath": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/",
+    "ordinaryOriginalProjectValidation": {
+        "actualSDK": "10.0.401",
+        "freshAuditedLockedRestoreExit": 0,
+        "testProjectBuildExit": 0,
+        "testProjectBuildErrors": 0,
+        "testProjectBuildWarnings": 1510,
+        "exactSixCases": {
+            "executed": 6,
+            "passed": 6,
+            "failed": 0,
+            "skipped": 0,
+            "methodCounts": {
+                "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl": 1,
+                "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim": 2,
+                "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl": 1,
+                "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl": 2
+            }
+        },
+        "sourceAnd49InputsUnchanged": true,
+        "sourceCorrections": [],
+        "runtimeOrWholeIssueAccepted": false
+    },
+    "artifactHashesVerified": [
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/build-result.json",
+            "bytes": 329,
+            "sha256": "f9e4afa0b667eee4e7735c681796e11ef4c2963d09c28401cb4662bc42082d57"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/discovery-command.json",
+            "bytes": 912,
+            "sha256": "4b1d3ff79841178810906c009df48ab974e4117556339f880084457e32cbedba"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/discovery-result.json",
+            "bytes": 2451,
+            "sha256": "84d76e41a588ef9f4cc70a97462deec317767cbda7cd4ca55ca89894cf463a71"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/final-handoff.json",
+            "bytes": 3434,
+            "sha256": "7fb8668f90704818284634d0af810dbbca3cb84f855c0395509ef6f5746d8cf4"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/fresh-restore.log",
+            "bytes": 1526,
+            "sha256": "d88e238564937e9bca530181950ad4f4d08193dcdb8cd883f1d9268d4617d9e3"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/original-test-project-build.log",
+            "bytes": 1109018,
+            "sha256": "6cdd9db7f8e4dc9ede4e470b535457c3c88b177757fab4bdda6169f6efadae7c"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/preflight.json",
+            "bytes": 15626,
+            "sha256": "c22ed22b19cf9cfe2cd03c95c1f1a67641194f8f9b5917ced27d3e78aa26781d"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/restore-result.json",
+            "bytes": 14517,
+            "sha256": "1be89fbbb1c4f1107bc2fcba6f6ee2a9c2de455f70c94000e9fd5135afbcc200"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/six-case-discovery.log",
+            "bytes": 1206,
+            "sha256": "bb31d47dd3a53710f4589baff26d31c621264a1554d16542773022bc808fe2e0"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/six-case-result.json",
+            "bytes": 3953,
+            "sha256": "27a6389ffb896e91923241f5101eb9f7df8cc69abf5a4563c137a5fec89eab45"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/six-new-cases.log",
+            "bytes": 534,
+            "sha256": "b4e81bc2fb6d60c1a47011333e1e40663671080144425d914b436469467dfd57"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/test-command.json",
+            "bytes": 1239,
+            "sha256": "82f154a5377c0740dfb651bf7846908230e2ab18aeeaa81a4b5d5c68ffc28c50"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/test-results/six-new-cases.trx",
+            "bytes": 11173,
+            "sha256": "5fe4aeca4d2410ebbda5528ca6a643923c34d34e429652afeac4d8e48961e711"
+        }
+    ],
+    "reportingCorrection": "The private ApiDescription omission is normal and did not establish a lock defect. Both supplierSDK10.0.302 and independent workerSDK10.0.401 fresh restore pass. The prior NU1004 came from the earlier failed-assets/no-restore path; this run does not diagnose its original cause. The supplier49 graph refers to49 input files, distinct from47 central package-version entries. Prior six-case UNRUN is superseded only for these six new cases.",
+    "auditWarningsRetained": "Original NU1903 SQLitePCLRaw.lib.e_sqlite3 2.1.11 warnings remain visible in restore/build logs; no audit settings or locks changed.",
+    "notInheritedAsOurCandidateExecution": true,
+    "historicalInputsStillAbsent": [
+        "PublicRouteKey",
+        "status",
+        "scheduled-publish-at"
+    ],
+    "font338StillSeparateUnrerunGate": true,
+    "own795DiagnosticHostEvidence": "f3928561aec01b728fc5eae09e568f97481f8ed1; remains separate and diagnostic only"
+}

@@ -101,14 +101,14 @@ Related to [#2408](https://github.com/Ozwasyd/FsusBlog/issues/2408), [#2400](htt
 
 - Rollout: draft handoff only; no merge, deployment, acceptance or production migration.
 - Rollback: revert only this new observation recheck after owner review; preserve original canonical prerequisites, frozen source and all failed controls.
-- Deferred work: original historical provider6tests; accepted full V1 root and real authorized slug/taxonomy/assets/historical-draft-reference providers; original runtime gates.
+- Deferred work: our original project lockedrestore prerequisite; accepted full V1 root and real authorized slug/taxonomy/assets/historical-draft-reference providers; original runtime gates.
 - Known limitations: sequential final reads cannot freeze all members or prevent post-read movement. Mocked port fixtures are not DB/signed-audit/live-permission evidence. RequirePropertyAuthority/RequirePackageAuthority still refuse.
 
 ## Notes For Reviewers
 
 WIP full-diff gates deliberately remain unchecked. No UI is changed, so UI evidence is not applicable. No original authority/provider/writer/route/schema migration is activated. This increment changes no AEDS/ABI contract. Inherited code still requires independent complete review.
 
-All released asset/version files match supplied source. Historical CanonicalUrl is now supplied by the original provider and consumed through the finite metadata mapper; it is no longer a missing source field. The provider6tests areUNRUN. Do not infer persisted slug, status or timestamp facts.
+All released asset/version files match supplied source. Historical CanonicalUrl is now supplied by the original provider and consumed through the finite metadata mapper; it is no longer a missing source field. The original provider6ordinary cases nowPASS upstream atda5d862/SDK10.0.401 with evidence9751950; not our candidate execution. Our fresh locked restore ate618aa1 failsNU1004; Shared build passes0errors/187warnings. Do not infer persisted slug, status or timestamp facts.
 
 [Original producer requests](https://github.com/Ozwasyd/FsusBlog/blob/3d177f17fa34bdf322447f1ea917469d2c938869/artifacts/article-packages/chain-3663-current-property-source/supplier-input-requirements.json) remain: [#2323](https://github.com/Ozwasyd/FsusBlog/issues/2323) production ReadAsync/DI/schema/audit integration, exact authorized historical/draft producer, [#1808](https://github.com/Ozwasyd/FsusBlog/issues/1808)/[#2443](https://github.com/Ozwasyd/FsusBlog/issues/2443) actual operation-bound reference facts, canonical slug/taxonomy/asset retention/authorized rights/frozen sources and complete original V1 manifests. None is invented or replaced by component digests.
 
@@ -118,7 +118,7 @@ All16 issues remain OPEN/unaccepted. The coordinating parent alone writes PR con
 
 Complete prospective changed paths are recorded below, including inherited scope.
 
-Full prospective scope: 640 paths; complete inherited acceptance pending.
+Full prospective scope: 657 paths; complete inherited acceptance pending.
 
 - `.git-blame-ignore-revs`
 - `artifacts/article-packages/chain-3663-current-property-source/README.md`
@@ -492,6 +492,23 @@ Full prospective scope: 640 paths; complete inherited acceptance pending.
 - `artifacts/article-packages/chain-3663-group-property-recheck/source-remote.exit`
 - `artifacts/article-packages/chain-3663-group-property-recheck/source-remote.json`
 - `artifacts/article-packages/chain-3663-group-property-recheck/source-remote.log`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/README.md`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/artifact-sha256.json`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/capture.py`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/final-report.json`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/original-fresh-locked-restore.command`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/original-fresh-locked-restore.exit`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/original-fresh-locked-restore.json`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/original-fresh-locked-restore.log`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/original-inputs-after.json`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/original-inputs-before.json`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/original-shared-build.command`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/original-shared-build.exit`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/original-shared-build.json`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/original-shared-build.log`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/preflight-source-hooks.json`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/smallest-prerequisite-request.json`
+- `artifacts/article-packages/chain-3663-original-project-recheck-20261009/upstream-canonical-url-verification.json`
 - `artifacts/article-packages/chain-3663-strict-source-closure/README.md`
 - `artifacts/article-packages/chain-3663-strict-source-closure/all-issue-status.json`
 - `artifacts/article-packages/chain-3663-strict-source-closure/artifact-sha256.json`
