@@ -1,0 +1,117 @@
+{
+  "schema": "chain3653.shared-registration-consumer-verification.v1",
+  "recordedAt": "2026-10-09T06:36:13.349647+00:00",
+  "testedSourceCommit": "0c725ee10282945053c2bc283fc991b59d81a318",
+  "sharedPrerequisiteCommit": "71179da783bae459b665b1ca168a97b718b4b01b",
+  "candidateBase": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "chainComplete": false,
+  "originalDom10": {
+    "exitCode": 0,
+    "actualCount": 10,
+    "passed": 10,
+    "exactMultiset": true,
+    "actualCases": [
+      [
+        "dispatches only the actual bytes and filename and releases the private URL",
+        "passed"
+      ],
+      [
+        "refuses prior cancellation without allocating a URL or clicking",
+        "passed"
+      ],
+      [
+        "releases the URL without creating a link when cancellation follows allocation",
+        "passed"
+      ],
+      [
+        "refuses cancellation at the attached-link save boundary and removes the link",
+        "passed"
+      ],
+      [
+        "releases the URL when the original link cannot be created",
+        "passed"
+      ],
+      [
+        "cleans up when appending the link fails before dispatch",
+        "passed"
+      ],
+      [
+        "preserves click refusal and cleans up the attached link and URL",
+        "passed"
+      ],
+      [
+        "repeated calls allocate and release separate URLs without retained links",
+        "passed"
+      ],
+      [
+        "does not dispatch when browser URL allocation fails",
+        "passed"
+      ],
+      [
+        "still releases the private URL when link removal refuses cleanup",
+        "passed"
+      ]
+    ],
+    "rawJsonSha256": "96d44778956656c3dc95596bbb4bc79cfa9a20779c1ff657dbf02692f835c07e",
+    "actualVitest": "4.1.11",
+    "qualification": "ordinary DOM dispatch/cancellation/cleanup only"
+  },
+  "sdk": {
+    "version": "10.0.302",
+    "lockedRestoreExitCode": 0,
+    "serverBuildExitCode": 0,
+    "finalSummaryWarnings": 326,
+    "finalSummaryErrors": 0,
+    "rawBuildLogSha256": "45a873c2f1affa1fd5501aae66afa3a5456ef6c9ab3c1de0f75e5027d854282b",
+    "qualification": "original Server/Core/Shared source compilation only"
+  },
+  "frontendSourceStyle": {
+    "exitCode": 0,
+    "fileCount": 7,
+    "rawLogSha256": "faf24169159ca0afa9958abdead132f36d433c2dc59554dc17d7abbfe598d4db"
+  },
+  "fullLocalApplicationTypecheck": {
+    "sourceCommit": "0c725ee10282945053c2bc283fc991b59d81a318",
+    "exitCode": 2,
+    "diagnosticCount": 240,
+    "ownedExportDiagnosticCount": 0,
+    "localFsusUiDiagnosticCount": 51,
+    "baselineComparison": "NOT_RUN; no pre-existing/baseline-only classification is inferred",
+    "ownedDiagnostics": []
+  },
+  "originalCSharp29": "NOT_RUN",
+  "fullBackendComposition": "BLOCKED",
+  "conflictingPaths": [
+    "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+    "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+    "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs"
+  ],
+  "requiredQualifiedExternalIssues": [
+    3632,
+    3634,
+    3636
+  ],
+  "externalOwnerRoot": 3644,
+  "laneRepairOwnerIssue": 2650,
+  "originalTestConfigUnchanged": true,
+  "noInheritedOwnerRuntimeAcceptance": true,
+  "ownedIssues": {
+    "3653": "OPEN_UNQUALIFIED",
+    "3578": "OPEN_UNQUALIFIED",
+    "2423": "OPEN_UNQUALIFIED",
+    "2425": "OPEN_UNQUALIFIED",
+    "2427": "OPEN_UNQUALIFIED",
+    "2429": "OPEN_UNQUALIFIED",
+    "2430": "OPEN_UNQUALIFIED",
+    "2432": "OPEN_UNQUALIFIED",
+    "2434": "OPEN_UNQUALIFIED",
+    "2436": "OPEN_UNQUALIFIED",
+    "2438": "OPEN_UNQUALIFIED"
+  },
+  "preservedMetadataFailure": {
+    "publishedHead": "cceeb55819ae2bbf02100b7a30081d488aeb7fa3",
+    "exitCode": 1,
+    "reason": "missing required Refs footer",
+    "correction": "separate r1 branch; no source rewrite"
+  }
+}

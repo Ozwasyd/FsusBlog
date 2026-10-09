@@ -19,3 +19,19 @@ Original29 Server cases remain NOT_RUN pending sole2650 original bounded lane re
 The original local-FsusUI install helper is being used with real same-source FsusUI/theme/Wasm and606 intact public lock records. No credential, private-package replacement or project-lock rewrite is used. Current tool setup, original10 DOM controls and source/compiler checks remain pending until their actual commands finish; old Vitest4.1.5 ten-case results remain unqualified. Real full source/catalog/worker/native/HTTP/browser/four-format acceptance is still open.
 
 Related to #2436, #2434, #2423, #3653, #3578. No issue closed, PR merge, deployment or master push.
+
+## Current executable verification of source0c725ee
+
+The preceding pending paragraph records the pre-run state. Actual tested source is0c725ee10282945053c2bc283fc991b59d81a318. This appended receipt does not change that source or earlier frozen candidates.
+
+- PASS: original prepare/official public npm11.13 ci/original helper verify, preserving606 public version/resolved/integrity records. Actual Vitest4.1.11, Vue3.5.33, TS6.0.3 and happy-dom20.9.0. Initial double-loading of identical empty npm config paths failed; retry used distinct empty user/global config identities, with credentials still disabled. No project lock or helper was changed.
+- PASS: original `vitest run --config vitest.config.ts ../../tests/frontend/unit/services/documentExportPrivateDelivery.test.ts`; original config/shared hooks/setup byte-identical to c65. Expected and observed exact10-case multiset,10passed, exit0. This proves ordinary DOM dispatch/cancellation/cleanup only, not OS-save, authenticated HTTP, provider, visual or native acceptance. Old4.1.5 run remains unqualified.
+- PASS: SDK10.0.302 original `dotnet restore src/backend/FsusBlog.Server.csproj --locked-mode --force` and Release `dotnet build` using task-scoped artifacts, locked mode and NuGetAudit=true/all/low, both exit0. Final Server build summary326warnings/0errors. Core/Shared compilation is implicit in this original project build; no test assembly was executed.
+- PASS: original frontend style strict-full for the seven imported API/consumer/composable/composition/delivery source files, exit0; actual commit contract and diff whitespace exit0. This scoped check does not approve the complete164-path inherited PR diff.
+- FAIL: original `node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application` with verified real local source, exit2 and240diagnostics,51from FsusUI,0in owned Export files. Examples include actual App.vue router-ref mismatch, binaryApiClient Location type mismatch and FsusUI missing type-fest. Baseline comparison NOT_RUN; no pre-existing-only claim is made.
+- NOT_RUN: original29 C# cases, MigrationTests, native controls, authenticated HTTP, complete UI/four-format/terminal acceptance. Sole2650 lane repair/review and root3644 qualified3632/3634/3636 handoffs remain required.
+- BLOCKED: complete backend import at the three paths listed above; no conflict resolution is authorized here.
+
+Portable source-bound control observations are in [shared-registration-consumer-verification.json](./shared-registration-consumer-verification.json). All11 owned issues remain open/unqualified; no compiler or DOM receipt closes an issue.
+
+Published cceeb55819ae2bbf02100b7a30081d488aeb7fa3 metadata check FAILED: missing required Refs footer. Its product source still matches tested0c. The separate r1 branch preserves it and replays the handoff with corrected metadata; no force push, source change or runtime receipt change.
