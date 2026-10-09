@@ -1,0 +1,75 @@
+{
+  "sourceCommit": "437ac7280acd37dd0aa61f09e1c5f1e0e94b602f",
+  "baseEvidenceHead": "7becbdb4d391688b746278a84953bbe71f885f4f",
+  "supplierSource": "d12c6dd85ab8be5c47a18481b36ac4df0bdff933",
+  "supplierParent": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+  "sourceDelta": [
+    "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs"
+  ],
+  "moduleBindings": [
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.WritingAidPreferenceRoutes.cs",
+      "blob": "8b5711cee927bf190d2c3548ab5b3c8fdd283058",
+      "sha256": "49afed3d83d59cbe64503e922871206a75cb8886bad32e2d47cdcacc9ccf1010",
+      "supplierByteExact": true
+    },
+    {
+      "path": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "blob": "1b7f5cadcfc3a2399259910217574332cf98bc9c",
+      "sha256": "5e9c69483a1fe2b4c67b0a6e329914abfcefaacce4d30d47d616f512bae40f40",
+      "supplierByteExact": true
+    },
+    {
+      "path": "tests/backend/Integration/WritingAidPreferenceEndpointPostgresTests.cs",
+      "blob": "28a98cf72a3e0fe157ccfefb3cda9f592d801519",
+      "sha256": "dc92bb8c846ee3555bb3372355c190a3204c6c39ed41050404fa30868ce316e2",
+      "supplierByteExact": true
+    }
+  ],
+  "productionMap": {
+    "PublicWebRuntime.MapAuthoringEndpointsCalls": 1,
+    "MapWritingAidPreferenceRoutesCalls": 1,
+    "scopedAliases": [
+      "IWritingAidPreferenceReader",
+      "IWritingAidPreferenceCommand",
+      "IWritingAidPreferenceInitializationCommand"
+    ],
+    "aliasTarget": "existing scoped UserLocalePreferenceService"
+  },
+  "sourceChanges": [
+    "Test fixture uses original public IStartupFilter/UseEndpoints before pipeline build",
+    "JSON refusal assertion now matches existing middleware 415/InfraFailure; malformed AEDS remains 400/Validation"
+  ],
+  "normalProductionBuild": {
+    "exitCode": 0,
+    "warnings": 330,
+    "errors": 0,
+    "targetDiagnostics": [
+      "/workspace/FsusBlog-writing-aid-composition/src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs(22,67): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/src/shared/FsusBlog.Shared.csproj]",
+      "/workspace/FsusBlog-writing-aid-composition/src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs(22,69): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/src/shared/FsusBlog.Shared.csproj]",
+      "/workspace/FsusBlog-writing-aid-composition/src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs(22,98): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/src/shared/FsusBlog.Shared.csproj]",
+      "/workspace/FsusBlog-writing-aid-composition/src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs(22,67): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/src/shared/FsusBlog.Shared.csproj]",
+      "/workspace/FsusBlog-writing-aid-composition/src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs(22,69): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/src/shared/FsusBlog.Shared.csproj]",
+      "/workspace/FsusBlog-writing-aid-composition/src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs(22,98): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/src/shared/FsusBlog.Shared.csproj]"
+    ]
+  },
+  "supplierTests": {
+    "source": "d12c6dd85ab8be5c47a18481b36ac4df0bdff933",
+    "caseCount": 33,
+    "methodCount": 12,
+    "unit": 30,
+    "postgres": 3,
+    "reportedPassed": 33,
+    "status": "supplier report only, separate source and original run; not root composition acceptance"
+  },
+  "rootStrictSDK": {
+    "status": "not rerun after only supplied Unit source consumption",
+    "previousSource": "5052fe015e8b5270649f808e2a42aac176292118",
+    "previousErrors": 1541,
+    "bodiesAndDiscovery": "NOT RUN after previous strict gate failure; no alternate harness or loosened test build"
+  },
+  "deviceAuthority": "missing; valid mutation remains 503, no command dispatch or operation receipt",
+  "HTTPPostgresRenderedUxAcceptance": false,
+  "contentApiWrites": 0,
+  "createdAtUtc": "2026-10-09T13:21:14.265841+00:00"
+}

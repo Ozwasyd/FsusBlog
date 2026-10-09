@@ -1,0 +1,20 @@
+{
+  "sourceCommit": "437ac7280acd37dd0aa61f09e1c5f1e0e94b602f",
+  "argv": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "build",
+    "src/backend/FsusBlog.Server.csproj",
+    "--no-restore",
+    "-v",
+    "minimal"
+  ],
+  "cwd": "/workspace/FsusBlog-writing-aid-composition",
+  "startedAtUtc": "2026-10-09T13:13:25.280270+00:00",
+  "endedAtUtc": "2026-10-09T13:18:25.421902+00:00",
+  "exitCode": 0,
+  "seconds": 300.142,
+  "stdoutArtifact": "writing-production-build.log",
+  "runtimeQualification": false
+}
