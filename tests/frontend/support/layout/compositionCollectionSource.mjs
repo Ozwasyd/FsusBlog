@@ -30,13 +30,7 @@ export function createCompositionCollectionSource(source)
     }
     function step(file, node)
     {
-        const record = resolver.parse(file);
-        const script = record.scripts.find(({ ast }) => ast === node?.getSourceFile());
-        if (!script)
-        {
-            fail(`foreign AST node ${file}`);
-        }
-        return { file, offset: script.offset + node.getStart(), kind: 'script-source', digest: controlDigest(node.getText()) };
+        return resolver.sourceStep(file, node);
     }
     function current()
     {
@@ -119,7 +113,7 @@ export function createCompositionCollectionSource(source)
         }
         return conditions;
     }
-    function functionBody(file, expression, seen = new Set())
+    function functionBody(file, expression)
     {
         expression = unwrap(expression);
         step(file, expression);
@@ -127,68 +121,11 @@ export function createCompositionCollectionSource(source)
         {
             return { file, fn: expression };
         }
-        if (!ts.isIdentifier(expression))
-        {
-            fail(`opaque callback ${file}:${expression.getStart()}`);
-        }
-        const identity = `${file}#${expression.text}`;
-        if (seen.has(identity))
-        {
-            fail(`cyclic callback ${identity}`);
-        }
-        const imported = resolver.parse(file).imports.get(expression.text);
-        if (imported)
-        {
-            const bindings = [];
-            resolver.parse(file).scripts.forEach(({ ast }) => walk(ast, (node) =>
-            {
-                if ((ts.isImportSpecifier(node) || ts.isImportClause(node) || ts.isVariableDeclaration(node)
-                    || ts.isParameter(node) || ts.isFunctionDeclaration(node)) && node.name?.text === expression.text)
-                {
-                    bindings.push(node);
-                }
-            }));
-            if (bindings.length !== 1 || !(ts.isImportSpecifier(bindings[0]) || ts.isImportClause(bindings[0])))
-            {
-                fail(`shadowed callback import ${identity}`);
-            }
-            readonlyReferences(file, expression.text, new Set([expression]));
-            const target = source.importFile(file, imported.specifier);
-            const exported = resolver.exportsOf(target).get(imported.name);
-            if (!exported?.file || exported.ambiguous || exported.unresolved)
-            {
-                fail(`unknown callback export ${identity}`);
-            }
-            const owner = resolver.parse(exported.file);
-            const matches = [];
-            owner.scripts.forEach(({ ast }) => walk(ast, (node) =>
-            {
-                if ((ts.isFunctionDeclaration(node) || ts.isVariableDeclaration(node)) && node.name?.text === exported.name)
-                {
-                    matches.push(node);
-                }
-            }));
-            if (matches.length !== 1)
-            {
-                fail(`ambiguous callback export ${identity}`);
-            }
-            const fn = ts.isFunctionDeclaration(matches[0]) ? matches[0] : unwrap(matches[0].initializer);
-            if (!fn || !ts.isFunctionLike(fn))
-            {
-                fail(`unknown callback body ${identity}`);
-            }
-            return { file: exported.file, fn, importSteps: [step(file, expression), step(exported.file, matches[0])] };
-        }
-        const found = declaration(file, expression.text, expression);
-        if (ts.isFunctionDeclaration(found))
-        {
-            return { file, fn: found };
-        }
-        if (!ts.isVariableDeclaration(found) || !(found.parent.flags & ts.NodeFlags.Const))
-        {
-            fail(`mutable callback ${identity}`);
-        }
-        return functionBody(file, found.initializer, new Set([...seen, identity]));
+        // The canonical helper owns immutable import/export/function resolution.
+        // Its success grants no purity, argument escape or collection identity.
+        const target = resolver.resolveSourceFunction(file, expression);
+        readonlyReferences(file, expression.text, new Set([expression]));
+        return { ...target, importSteps: [step(file, expression), step(target.file, target.fn)] };
     }
     /** Full callback effects, including nested callbacks; annotations grant nothing. */
     function callbackEffects(file, fn)
@@ -397,6 +334,7 @@ export function createCompositionCollectionSource(source)
                 {
                     fail(`mutable/opaque collection ${file}#${node.text}`);
                 }
+                resolver.assertImmutableBinding(file, node.text);
                 seen.add(node.text);
                 steps.push(step(file, found));
                 const scope = found.parent.parent.parent;
@@ -450,6 +388,10 @@ export function createCompositionCollectionSource(source)
                 if (effect.writes.length || effect.calls.length || effect.escapes.some((entry) => entry.kind !== 'return'))
                 {
                     fail(`effectful collection callback ${file}:${fn.getStart()}`);
+                }
+                if (effect.reads.some((entry) => !entry.path || entry.path.length !== 1 || !effect.parameters.includes(entry.path[0])))
+                {
+                    fail(`unbound collection callback read ${file}:${fn.getStart()}`);
                 }
                 effects.push({ kind: node.expression.name.text, ...effect });
                 let returned = unwrap(fn.body);
@@ -528,19 +470,7 @@ export function createCompositionCollectionSource(source)
         {
             fail(`unknown computed constructor ${target.file}`);
         }
-        const constructors = [];
-        resolver.parse(target.file).scripts.forEach(({ ast }) => walk(ast, (node) =>
-        {
-            if ((ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isFunctionDeclaration(node))
-                && node.name?.text === computed.expression.text)
-            {
-                constructors.push(node);
-            }
-        }));
-        if (constructors.length)
-        {
-            fail(`shadowed computed constructor ${target.file}`);
-        }
+        resolver.assertImmutableBinding(target.file, computed.expression.text);
         readonlyReferences(target.file, computed.expression.text, new Set([computed.expression]));
         const callback = unwrap(computed.arguments[0]);
         if (!callback || !ts.isArrowFunction(callback) || callback.parameters.length || callback.modifiers?.length
@@ -616,8 +546,55 @@ export function createCompositionCollectionSource(source)
     {
         step(file, expression);
         const target = functionBody(file, expression);
-        return { ...target, effects: callbackEffects(target.file, target.fn), steps: [step(file, expression),
-            ...(target.importSteps ?? []), step(target.file, target.fn)] };
+        const queue = [target];
+        const functions = [];
+        const edges = [];
+        const unresolved = [];
+        const visited = new Set();
+        const steps = [step(file, expression), ...(target.importSteps ?? [])];
+        while (queue.length)
+        {
+            const owner = queue.shift();
+            const definition = step(owner.file, owner.fn);
+            const identity = controlDigest(definition);
+            if (visited.has(identity))
+            {
+                continue;
+            }
+            if (visited.size === 64)
+            {
+                fail(`supplier source closure exceeds 64 actual functions ${file}`);
+            }
+            visited.add(identity);
+            steps.push(definition);
+            functions.push({ file: owner.file, name: owner.name ?? null, definition, effects: callbackEffects(owner.file, owner.fn) });
+            walk(owner.fn.body, (node) =>
+            {
+                if (!ts.isCallExpression(node))
+                {
+                    return;
+                }
+                const call = step(owner.file, node);
+                const argumentsSource = node.arguments.map((argument) => step(owner.file, argument));
+                try
+                {
+                    // Only the original resolver may establish this edge.
+                    // Property calls and external/runtime functions stay open.
+                    const dependency = resolver.resolveSourceFunction(owner.file, unwrap(node.expression));
+                    const callee = step(dependency.file, dependency.fn);
+                    edges.push({ from: definition, call, callee, arguments: argumentsSource });
+                    queue.push(dependency);
+                }
+                catch (error)
+                {
+                    unresolved.push({ from: definition, call, expression: node.expression.getText(),
+                        arguments: argumentsSource, reason: error.message });
+                }
+            });
+        }
+        const result = proof({ kind: 'supplier-source-closure', functions, edges, unresolved,
+            renderProven: false }, steps);
+        return { ...target, ...result, effects: functions[0].effects };
     }
     return { collect, callbackEffects, computedBranches, emptyComputedCall, supplier };
 }

@@ -64,7 +64,7 @@ function collection(body, output)
 }
 function reject(body, output = 'children')
 {
-    assert.throws(() => collection(body, output), /composition-collection-source/u);
+    assert.throws(() => collection(body, output), /composition-collection-source|control-legality/u);
 }
 function emptyFixture({ helper = 'if(!props.marks){return [];}return props.marks;', input = '', ownerExtra = '', helperImports = "import {computed} from 'vue';" } = {})
 {
@@ -86,6 +86,24 @@ test('collection literals preserve every original element AST and canonical inpu
     assert.deepEqual(result.outputs.map(({ node }) => node.getText()), ["'first'", "'second'"]);
     assert.ok(result.inputs.some((input) => input.path.endsWith('/Owner.tsx')));
     assert.equal(result.proofDigest.length, 64);
+});
+
+test('collection element steps equal the original canonical sourceStep interface', () =>
+{
+    const state = local("const children=['first','second'];");
+    const result = state.module.collect(state.file, state.expression);
+    assert.deepEqual(result.elements.map((element) => element.source), result.outputs.map(({ node }) => state.source.resolver.sourceStep(state.file, node)));
+});
+
+test('named collection callback uses the original immutable source function binding', () =>
+{
+    const state = local("const callback=(item)=><div>{item}</div>;const children=['a'].map(callback);");
+    const call = state.record.variables.get('children');
+    const canonical = state.source.resolver.resolveSourceFunction(state.file, call.arguments[0]);
+    const result = state.module.collect(state.file, state.expression);
+    assert.equal(result.outputs[0].node, canonical.fn.body);
+    assert.equal(result.outputs[0].bindings.get('item').node.text, 'a');
+    assert.equal(result.effects[0].proofDigest.length, 64);
 });
 
 test('collection branches retain both alternatives and ordered condition source identities', () =>
@@ -193,6 +211,10 @@ test('actual Tabs panes supplier resolves the original hook and retains runtime 
     assert.ok(result.effects.writes.some((entry) => entry.path?.join('.') === 'children.*'));
     assert.ok(result.effects.writes.some((entry) => entry.path?.join('.') === 'orderedChildren.value'));
     assert.ok(result.effects.calls.some((entry) => entry.expression === 'getOrderedChildren'));
+    assert.ok(result.functions.some((entry) => entry.name === 'getOrderedChildren'));
+    assert.ok(result.functions.some((entry) => entry.name === 'flattedChildren'));
+    assert.ok(result.unresolved.some((entry) => entry.expression === 'shallowRef'));
+    assert.equal(result.renderProven, false);
 });
 
 test('actual Pagination navigation push plan retains every supplied child and branch', () =>
@@ -250,11 +272,13 @@ test('collection map rejects unknown runtime item identity', () => reject('const
 test('collection map rejects a supplied object item identity', () => reject('const children=[{label:unknown}].map(item=><div>{item.label}</div>);'));
 test('collection map rejects callback writes', () => reject("const children=['safe'].map(item=>{item.label=unknown;return <div/>;});"));
 test('collection map rejects callback escape to an opaque call', () => reject("const children=['safe'].map(item=>foreign(item));"));
+test('collection map rejects an opaque captured member read', () => reject("const children=['safe'].map(item=>unknown.value);"));
 test('collection map rejects nested event callback item capture', () => reject("const children=['safe'].map(item=><div onClick={()=>foreign(item)}/>);"));
 test('collection map rejects callback alias capture', () => reject("const children=['safe'].map(item=>{const alias=item;return <div onClick={()=>alias}/>;});"));
 test('collection map rejects index inference across conditional suppliers', () => reject("const children=(flag?['a']:['b','c']).map((item,index)=><div>{index}</div>);"));
 test('collection map rejects index inference after a conditional filter', () => reject("const children=['a','b'].filter(item=>flag).map((item,index)=><div>{index}</div>);"));
 test('collection map rejects an opaque callback even for an empty input', () => reject('const children=[].map(unknown);'));
+test('collection map rejects a mutated named callback through canonical immutability', () => reject("const callback=item=><div/>;callback=unknown;const children=['a'].map(callback);"));
 test('collection map rejects order dependent callback statements', () => reject("const children=['safe'].map(item=>{if(flag)return <div/>;return unknown;});"));
 
 test('empty collection input rejects a supplied nonempty opaque label', () =>
@@ -311,5 +335,5 @@ test('collection proof rejects changed parsed input bytes', () =>
 test('collection rejects AST nodes created outside the original parser records', () =>
 {
     const state = local('const children=[];');
-    assert.throws(() => state.module.collect(state.file, state.ts.factory.createArrayLiteralExpression([])), /composition-collection-source|Debug Failure/u);
+    assert.throws(() => state.module.collect(state.file, state.ts.factory.createArrayLiteralExpression([])), /unowned source proof node/u);
 });
