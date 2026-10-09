@@ -2,7 +2,8 @@ import { spawnSync, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { inspectWasmBuildContext, observeWasmCompiler } from './wasm-cpp-context.mjs';
+
+import { inspectWasmBuildContext, observeWasmCompiler, replayWasmBuildContext } from './wasm-cpp-context.mjs';
 
 const { commandPath, commandVersion } = await import(new URL('../test/native-test-runtime-support.mjs', import.meta.url));
 
@@ -216,6 +217,7 @@ export function inspectCppSource({ repositoryRoot, files })
             throw new Error('Wasm compile database differs from the complete original CMake TU/argv roster');
         }
         const wasmCompiler = wasm ? observeWasmCompiler(wasm, run, commandPath) : null;
+        const wasmReplay = wasm ? replayWasmBuildContext(wasm, entries, run, bind, root) : null;
         for (const context of parsed)
         {
             if (!wasm && cache.match(/^CMAKE_CXX_COMPILER:(?:FILEPATH|STRING)=(.+)$/mu)?.[1] !== context.compiler)
@@ -262,7 +264,7 @@ export function inspectCppSource({ repositoryRoot, files })
                 cacheFile: relative(root, cacheFile), cacheDigest: digest(cacheBytes) }, buildInputs, sourceBinding,
             localInputs, closure, observations: [local, all, syntax],
             ...(wasm ? { wasmContext: { records: wasm.records, externalInputs: wasm.externalInputs,
-                cmake: wasm.cmake, compiler: wasmCompiler } } : {}) });
+                cmake: wasm.cmake, compiler: wasmCompiler, replay: wasmReplay } } : {}) });
             applicable.forEach(file => covered.add(file));
         }
     }

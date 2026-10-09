@@ -1,6 +1,7 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const digest = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const within = (root, file) => file.startsWith(`${root}${path.sep}`);
@@ -22,6 +23,8 @@ export function inspectWasmBuildContext(root, directory, cache, bind)
     if (!['build-basic', 'build-simd'].includes(variant) || path.dirname(directory) !== home
         || !cache.includes(`CMAKE_HOME_DIRECTORY:INTERNAL=${home}\n`)
         || !cache.includes('CMAKE_PROJECT_NAME:STATIC=FsusBlogWasm\n')
+        || !cache.includes('CMAKE_BUILD_TYPE:STRING=Release\n')
+        || !cache.includes('FSUSBLOG_WASM_IMAGE_CODEC_ENABLE:BOOL=OFF\n')
         || !/^CMAKE_EXPORT_COMPILE_COMMANDS:(?:BOOL|UNINITIALIZED)=ON$/mu.test(cache)
         || !cache.includes(`WASM_SIMD:BOOL=${variant === 'build-basic' ? 'OFF' : 'ON'}\n`))
     {
@@ -155,14 +158,84 @@ export function inspectWasmBuildContext(root, directory, cache, bind)
     {
         throw new Error('unsupported or empty Wasm CMake source roster');
     }
-    return { compiler, sdk, cmakeRoot, records, buildInputs, externalInputs, expected,
-        cmake: observe(index.cmake.paths.cmake) };
+    if (!['Ninja', 'Unix Makefiles'].includes(index.cmake?.generator?.name))
+    {
+        throw new Error('unsupported Wasm CMake generator');
+    }
+    return { compiler, sdk, home, directory, variant, cmakeRoot, records, buildInputs, externalInputs, expected,
+        inputPaths: [...new Set(cmakeFiles.inputs.filter(input => !input.isGenerated)
+            .map(input => path.resolve(home, input.path)))].sort(), generator: index.cmake.generator.name,
+        cmake: { ...observe(index.cmake.paths.cmake), version: index.cmake.version.string } };
+}
+
+export function replayWasmBuildContext(context, entries, run, bind, root)
+{
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-wasm-context-'));
+    try
+    {
+        const version = run(context.cmake.path, ['--version'], temporary);
+        if (!version.stdout.startsWith(`cmake version ${context.cmake.version}\n`))
+        {
+            throw new Error('actual CMake version differs from the original Wasm context');
+        }
+        const query = path.join(temporary, '.cmake/api/v1/query');
+        fs.mkdirSync(query, { recursive: true });
+        fs.writeFileSync(path.join(query, 'cmakeFiles-v1'), '');
+        const emcmake = observe(path.join(context.sdk, 'emcmake'));
+        const emcmakeModule = observe(path.join(context.sdk, 'emcmake.py'));
+        const configuration = run(emcmake.path, [context.cmake.path, '-S', context.home, '-B', temporary,
+            '-G', context.generator, '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON',
+            `-DWASM_SIMD:BOOL=${context.variant === 'build-basic' ? 'OFF' : 'ON'}`,
+            '-DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE:BOOL=OFF', `-DFSUSBLOG_WASM_OUTPUT_DIR=${temporary}/output`], temporary);
+        const actualBytes = fs.readFileSync(path.join(temporary, 'compile_commands.json'));
+        const actual = JSON.parse(actualBytes);
+        const signature = (entry, directory) =>
+        {
+            const argv = entry.arguments ?? entry.command.trim().split(/ +/u);
+            return JSON.stringify(argv.map((value, index) => argv[index - 1] === '-o'
+                ? path.relative(directory, path.resolve(directory, value)) : value));
+        };
+        if (JSON.stringify(entries.map(entry => signature(entry, context.directory)).sort())
+            !== JSON.stringify(actual.map(entry => signature(entry, temporary)).sort()))
+        {
+            throw new Error('Wasm original CMake replay differs from the current complete compiler argv roster');
+        }
+        const reply = path.join(temporary, '.cmake/api/v1/reply');
+        const indices = fs.readdirSync(reply).filter(file => /^index-[A-Za-z0-9_-]+\.json$/u.test(file));
+        if (indices.length !== 1)
+        {
+            throw new Error('Wasm replay requires exactly one actual CMake index');
+        }
+        const index = JSON.parse(fs.readFileSync(path.join(reply, indices[0])));
+        const objects = index.objects.filter(value => value.kind === 'cmakeFiles' && value.version.major === 1);
+        if (objects.length !== 1 || !/^[A-Za-z0-9_.-]+\.json$/u.test(objects[0].jsonFile))
+        {
+            throw new Error('Wasm replay lacks its actual CMake input closure');
+        }
+        const inputBytes = fs.readFileSync(path.join(reply, objects[0].jsonFile));
+        const inputs = JSON.parse(inputBytes).inputs;
+        const paths = [...new Set(inputs.filter(input => !input.isGenerated)
+            .map(input => path.resolve(context.home, input.path)))].sort();
+        if (JSON.stringify(paths) !== JSON.stringify(context.inputPaths)
+            || context.buildInputs.some(input => bind(root, input.file).digest !== input.digest)
+            || context.externalInputs.some(input => observe(input.path).digest !== input.digest))
+        {
+            throw new Error('Wasm original CMake replay input closure differs from the bound context');
+        }
+        return { emcmake, emcmakeModule, version, configuration, databaseDigest: digest(actualBytes),
+            cmakeInputDigest: digest(inputBytes), sourceBindings: context.buildInputs, qualificationEligible: false };
+    }
+    finally
+    {
+        fs.rmSync(temporary, { recursive: true, force: true });
+    }
 }
 
 export function observeWasmCompiler(context, run, commandPath)
 {
     for (const name of ['EMCC_CFLAGS', 'EMMAKEN_CFLAGS', 'EM_COMPILER_WRAPPER', '_EMCC_CCACHE',
-        'EM_LLVM_ROOT', 'EM_BINARYEN_ROOT', 'EMCC_FORCE_STDLIBS'])
+        'EM_LLVM_ROOT', 'EM_BINARYEN_ROOT', 'EMCC_FORCE_STDLIBS', 'CFLAGS', 'CXXFLAGS',
+        'CPPFLAGS', 'LDFLAGS', 'CC', 'CXX'])
     {
         if (process.env[name])
         {
@@ -170,6 +243,23 @@ export function observeWasmCompiler(context, run, commandPath)
         }
     }
     const compiler = context.compiler.path;
+    const selected = commandPath('em++');
+    if (!selected || fs.realpathSync(selected) !== compiler)
+    {
+        throw new Error('Wasm compiler differs from the actual installed tool selection');
+    }
+    const config = process.env.EM_CONFIG ?? path.resolve(context.sdk, '../../.emscripten');
+    if (!within(path.resolve(context.sdk, '../..'), config))
+    {
+        throw new Error('unsupported external Wasm SDK configuration');
+    }
+    const configBinding = observe(config);
+    const python = process.env.EMSDK_PYTHON ?? commandPath('python3');
+    if (!python || !fs.existsSync(python))
+    {
+        throw new Error('Wasm Python interpreter unavailable');
+    }
+    const pythonBinding = observe(fs.realpathSync(python));
     const wrapper = observe(compiler);
     const version = run(compiler, ['--version'], context.sdk);
     if (!version.stdout.includes('Emscripten'))
@@ -216,9 +306,7 @@ export function observeWasmCompiler(context, run, commandPath)
             sdkInputs.push(observe(path.join(entry.parentPath, entry.name)));
         }
     }
-    const config = process.env.EM_CONFIG ?? path.resolve(context.sdk, '../../.emscripten');
-    const python = process.env.EMSDK_PYTHON ?? commandPath('python3');
     return { wrapper, version, cflags, search, clang: clangBinding, clangVersion,
-        sysroot: sysroots[0], resource, sdkInputs, config: observe(config),
-        python: observe(fs.realpathSync(python)), qualificationEligible: false };
+        sysroot: sysroots[0], resource, sdkInputs, config: configBinding,
+        python: pythonBinding, qualificationEligible: false };
 }

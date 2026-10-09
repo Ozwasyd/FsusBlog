@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+
 import { inspectCppSource, cppCompileContext } from './check-cpp-source.mjs';
 
 const repository = fileURLToPath(new URL('../../', import.meta.url));
@@ -102,7 +103,7 @@ test('original Wasm SOURCE refuses missing producer context tool or tracked inpu
         try
         {
             process.env.EMSDK_PYTHON = '/unavailable/python3';
-            assert.throws(() => inspectCppSource({ repositoryRoot: root, files: [header] }), /C\+\+ compiler refused/u);
+            assert.throws(() => inspectCppSource({ repositoryRoot: root, files: [header] }), /Wasm Python interpreter unavailable/u);
         }
         finally
         {
@@ -122,6 +123,11 @@ test('original Wasm SOURCE refuses missing producer context tool or tracked inpu
         fs.writeFileSync(input, Buffer.concat([source, Buffer.from('\n# changed\n')]));
         assert.throws(() => inspectCppSource({ repositoryRoot: root, files: [header] }), /HEAD\/index bytes/u);
         fs.writeFileSync(input, source);
+        fs.writeFileSync(input, source.toString('utf8').replace('PRIVATE -Oz', 'PRIVATE -O0'));
+        commit();
+        assert.throws(() => inspectCppSource({ repositoryRoot: root, files: [header] }), /original CMake replay differs/u);
+        fs.writeFileSync(input, source);
+        commit();
         const dependency = path.join(root, 'src/frontend/wasm/aeds/include/pod_views.hpp');
         const dependencyBytes = fs.readFileSync(dependency);
         fs.unlinkSync(dependency);
