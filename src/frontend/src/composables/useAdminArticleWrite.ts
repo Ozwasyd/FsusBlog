@@ -907,6 +907,8 @@ export function useAdminArticleWrite()
         replace: (handle: Parameters<ArticleAttachmentContextAdapter['replace']>[0], file: Parameters<ArticleAttachmentContextAdapter['replace']>[1]) =>
             authoringAttachments.replace(handle, file, attachmentPort),
         retry: (handle: Parameters<ArticleAttachmentContextAdapter['retry']>[0]) => authoringAttachments.retry(handle),
+        readOwnedIntent: (handle: Parameters<ArticleAttachmentContextAdapter['readOwnedIntent']>[0]) =>
+            authoringAttachments.readOwnedIntent(handle, attachmentPort.binding()),
         consumeTransaction: (result: MarkdownEditorDispatchResult) => authoringAttachments.consumeTransaction(result, attachmentPort),
         get receipts()
         {

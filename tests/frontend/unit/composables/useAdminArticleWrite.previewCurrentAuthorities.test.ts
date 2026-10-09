@@ -93,6 +93,33 @@ async function boundHost()
 
 describe('actual Writer preview current authority binding', () =>
 {
+    it('lends the original owned intent reader through the live Writer binding and withdraws it on unmount', async () =>
+    {
+        const f = await boundHost();
+        const attachments = f.owner.authoringAttachmentRuntime;
+        const captured = attachments.capture({ origin: 'pick',
+            anchor: attachments.captureAnchor({ start: 0, end: 0, direction: 'none' },
+                { surface: 'source', tool: 'none', affinity: 'after', viewportOffset: 0, percentage: 0 }),
+            files: [{ name: 'local-reader.png', mimeType: 'image/png', byteLength: 3 }] });
+        if (captured.status !== 'created') throw new Error('ordinary-host-capture-rejected');
+        const handle = attachments.commitCreated(captured)[0]!;
+        const observed = attachments.readOwnedIntent(handle);
+        expect(observed?.snapshot).toBe(handle.snapshot);
+        expect(observed).toMatchObject({ current: true, sourceReferenced: true, disposition: 'current',
+            contextDigest: f.owner.authoringDocumentContextAdapter.context.contextDigest,
+            intentRef: handle.snapshot.intent.task.taskRef, transactionRef: handle.snapshot.transactionRef });
+        expect(attachments.readOwnedIntent({ ...handle })).toBeNull();
+        expect(attachments.remove(handle).state).toBe('removed');
+        expect(attachments.readOwnedIntent(handle)).toMatchObject({ current: false,
+            sourceReferenced: false, disposition: 'removed' });
+        expect(f.owner.articleForm.content).toBe('Actual host source');
+        expect(f.reads.state.currentResponsibilityTransport).toBe('unavailable');
+        expect(api.history).not.toHaveBeenCalled();
+        expect(api.preview).not.toHaveBeenCalled();
+        f.wrapper.unmount();
+        expect(attachments.readOwnedIntent(handle)).toBeNull();
+    });
+
     it('keeps a new draft explicitly missing and lends the genuine current host fields', async () =>
     {
         const f = await host();
