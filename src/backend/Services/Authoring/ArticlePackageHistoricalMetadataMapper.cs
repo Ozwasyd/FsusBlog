@@ -91,7 +91,7 @@ public static class ArticlePackageHistoricalMetadataMapper
         {
             var utf8 = new UTF8Encoding(false, true);
             return utf8.GetByteCount(content) <= ArticlePackageSourceBytes.MaximumByteLength
-                && ArticlePackageSourceBytes.Validate(utf8.GetBytes(content), metadata).IsValid;
+                && ArticlePackageSourceBytes.Verify(utf8.GetBytes(content), metadata).IsValid;
         }
         catch (EncoderFallbackException)
         {
