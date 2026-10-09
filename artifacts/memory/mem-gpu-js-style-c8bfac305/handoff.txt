@@ -1,0 +1,27 @@
+Frozen GPU ordinary JS style completion
+Source remains c8bfac305a6f180028db714226e12b64a57be428 on codex/mem-3460-3462-current-master-20261009; this distinct proof branch modifies ordinary evidence only.
+
+Configured supported tool setup:
+Original docs/development/frontend-style-enforcement.md names the separate tools/frontend/style-toolchain lock and exact two-file CLI. Actual Node24.16.0/npm11.13.0 and the configured official https://registry.npmjs.org/ were used. All285locked package records resolve to registry.npmjs.org. The package/lock bytes match frozen source before/after.
+Exact command: npm ci --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/ --cache=/workspace/task-tools/mem-gpu-js-style-20261009/npm-cache
+Working directory: /workspace/task-tools/mem-gpu-js-style-20261009/toolchain (exact source package/lock copies).
+PASS exit0,added257 packages; every installed version/resolved/integrity field matches the original lock. ESLint10.8.0/Stylelint17.14.1 are exact locked installed versions, not semver updates. Tool/cache paths are task-owned. The configured ignored node_modules directory contains the same generated install; no global configuration, permission, package, lock, policy, manifest or source identifier changed.
+
+Exact applicable style invocation:
+PATH=/workspace/task-tools/mem-gpu-node24.16/node-v24.16.0-linux-x64/bin:$PATH /workspace/task-tools/mem-gpu-node24.16/node-v24.16.0-linux-x64/bin/node tools/frontend/check-frontend-style.mjs --mode changed --file tools/dotnet/check-csharp-style.mjs --file tests/tools/csharp-style.test.mjs
+Working directory: /workspace/mem-gpu-20261009 at exact frozen c8bfac305.
+PASS exit0: files=2,eslint=2,stylelint=0,violations=0,new=0. The two exact paths were positively enumerated before execution; no broad suite or native test was run. First runtime symlink projection appeared as an untracked directory source input and produced EISDIR; retain that actual failure. The corrected setup uses a real ordinary generated node_modules directory with the exact same installed identities; no checker or rule changes.
+
+Precise separate canonical inventory obstruction:
+Original read-only producer command: node tools/test/generate-correctness-attempt-producers.mjs (stdout only; --write was NOT used), invoking buildCorrectnessAttemptProducerInventory on frozen source.
+Stored input: config/testing/correctness-attempt-producers.json; unchanged throughout.
+Exactly two value mismatches:
+$.sourceDigests.tests/matrix.yml
+  stored sha256:9fdda48b5754dfd62b06c60fa081794b4f1e38cde044dd2bad0c49f704c584b6
+  actual/computed sha256:db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03
+$.contentDigest
+  stored sha256:eaad2a7ca7d62cd1992a96ce944b563a81aa28f3443768d311370a7dab9d30c4
+  computed sha256:b744466873b75fd56bf1253018c0e874be58b73a45b364935366000025d884e8
+Every entry and other field is equal. All eight actual producer source inputs are byte-identical to clean be7 baseline. These are read-only diagnostic values, NOT a replacement registered inventory. Original canonical/source owner must resolve the stale matrix input digest and derived contentDigest; no registry update, independent writer or held audit is attempted here. Prior identical current/be7 plan failures remain historical evidence; no unchanged plan/native tests rerun.
+
+The frozen52provider/core blobs, source/naming manifests, producer/policy/index and ABI remain unchanged. No source correction was needed. Current2-file JS style success is new ordinary evidence; prior16controls and historical142GPU/common tests retain their own execution identities. Native qualification remains NotVerified. No driver probe, held audit, GitHub content API write, package publication, deployment, merge or issue closure occurred.

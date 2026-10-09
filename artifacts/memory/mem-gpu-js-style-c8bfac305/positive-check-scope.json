@@ -1,0 +1,23 @@
+{
+    "kind": "positive-frozen-source-ordinary-tool-setup-scope",
+    "frozenSource": "c8bfac305a6f180028db714226e12b64a57be428",
+    "node": "/workspace/task-tools/mem-gpu-node24.16/node-v24.16.0-linux-x64/bin/node",
+    "npmVersion": "11.13.0",
+    "configuredRegistry": "https://registry.npmjs.org/",
+    "lockedPackageRecords": 285,
+    "expectedStyleFiles": 2,
+    "allowedStyleFiles": [
+        "tools/dotnet/check-csharp-style.mjs",
+        "tests/tools/csharp-style.test.mjs"
+    ],
+    "expectedStyleInvocations": 2,
+    "inventoryAllowedOperation": "read original buildCorrectnessAttemptProducerInventory(current frozen root), compare stored config/testing/correctness-attempt-producers.json; no registry write, no plan/native tests",
+    "frozenPackageInputs": {
+        "package.json": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+        "package-lock.json": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+    },
+    "sourcePolicyManifestPermissionChangesAllowed": false,
+    "heldAuditsAllowed": false,
+    "correctedSetupProjection": "Configured node_modules is now an ordinary generated directory, copied from the verified exact task-owned locked install. The prior symlink appeared as an untracked source input and triggered EISDIR; no source/policy fix.",
+    "allowedRerunReason": "Same2 file style invocation after actual setup correction"
+}

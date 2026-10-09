@@ -1,0 +1,7 @@
+Original canonical inventory read-only comparison; no registry write.
+$.contentDigest
+  stored: "sha256:eaad2a7ca7d62cd1992a96ce944b563a81aa28f3443768d311370a7dab9d30c4"
+  computed: "sha256:b744466873b75fd56bf1253018c0e874be58b73a45b364935366000025d884e8"
+$.sourceDigests.tests/matrix.yml
+  stored: "sha256:9fdda48b5754dfd62b06c60fa081794b4f1e38cde044dd2bad0c49f704c584b6"
+  computed: "sha256:db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03"

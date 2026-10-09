@@ -1,0 +1,28 @@
+{
+    "kind": "actual-supported-locked-task-tool-setup",
+    "source": "c8bfac305a6f180028db714226e12b64a57be428",
+    "command": "npm ci --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/ --cache=/workspace/task-tools/mem-gpu-js-style-20261009/npm-cache",
+    "exitCode": 0,
+    "addedPackages": 257,
+    "installedLockRecords": 257,
+    "rootLockRecords": 285,
+    "packageAndLockUnchanged": true,
+    "resolvedRegistryHosts": [
+        "registry.npmjs.org"
+    ],
+    "configuredProjection": "/workspace/mem-gpu-20261009/tools/frontend/style-toolchain/node_modules",
+    "taskOwnedTarget": "/workspace/task-tools/mem-gpu-js-style-20261009/toolchain/node_modules",
+    "installedLockedIdentitiesChecked": [
+        "version",
+        "resolved",
+        "integrity"
+    ],
+    "eslintVersion": "10.8.0",
+    "stylelintVersion": "17.14.1",
+    "frozenPackageInputs": {
+        "package.json": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+        "package-lock.json": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+    },
+    "configuredProjectionKind": "real generated directory",
+    "sourceInstallTreeCopiedWithoutIdentityChanges": true
+}
