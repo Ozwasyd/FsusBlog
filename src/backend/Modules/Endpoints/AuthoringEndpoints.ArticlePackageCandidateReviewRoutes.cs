@@ -17,7 +17,7 @@ public static partial class AuthoringEndpoints
     private static void MapArticlePackageCandidateReviewRoutes(IEndpointRouteBuilder group)
     {
         group.MapPost("/article-packages/candidate-review", ReadArticlePackageCandidateReviewAsync)
-            .WithName("ArticlePackageCandidateReviewRead")
+            .WithName("binary_post_author_article_packages_candidate_review")
             .RequireAdminPermission(AdminPermissions.ArticleWrite);
     }
 
