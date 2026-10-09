@@ -3473,3 +3473,50 @@ original independent runtime acceptance remain separate gates. Existing
 `IArticlePropertyDefinitionStore.GetAsync`/`VerifyAsync` and
 `IArticlePropertyDefinitionPermissionAuthority.EnsureAllowed` are available;
 this component does not introduce another store or persisted-reader receipt.
+
+## Current persisted property source binding
+
+`ArticlePackageCurrentPropertyReader.ReadAndMapAsync` consumes the existing
+`IArticlePropertyValueAuthority.ReadAsync(actorAdminPrincipalId, owner, articleId,
+cancellationToken)` directly. It accepts explicit portable bindings and an
+optional decoded v1 property component, never a caller-supplied persisted
+snapshot. The existing article owner checks the actual current actor/session,
+site, article and definition access. Canonical access-denial and cancellation
+semantics propagate. No route, registry, production provider or writer is added.
+
+The observed `ArticlePropertyValueReadModel.Current` must contain its real
+immutable snapshot/factset IDs, snapshot audit reference, audit-chain date and
+record hash. Exact definition owner, site, article/revision/property revision
+and nullable publication coordinates must match the selected source bindings;
+every snapshot/value digest is recomputed by the canonical validator. Actual
+definitions must have matching owner/schema revision/digest, valid canonical
+content and the correct one of the existing eight value types. Explicit select
+identities must belong to that actual definition. Historical inactive options,
+presence, false/zero/empty values, decimal precision, UTC ticks and default
+provenance are preserved without applying current defaults or normalization.
+Backend reconciliation observations are retained; they do not authorize new
+values, target writes or export. The existing mapper/sole codec create or
+rebind the same closed v1 component. Audit provenance stays outside portable
+JSON. There is no additional property schema or portable identity registry.
+
+A second authorized read rechecks the selected coordinates, content and audit
+provenance and reconciliation before returning the projection. This detects
+observed drift and permission revocation; it is not a transaction fence for a
+later export. Missing persisted heads refuse rather than manufacturing an empty
+`BindSnapshot`. Draft coordinates refuse with
+`article_package_property_draft_read_authority_unavailable`. Nonempty article
+references refuse with
+`article_package_property_reference_operation_authority_unavailable`: this
+reader does not expose the actual operation-bound target revision/lifecycle/
+permission facts needed to validate caller portable target bindings. Existing
+empty-reference values remain representable. Selected historical read
+admission and original draft/reference authorities remain required for those
+modes; no guessed endpoint or synthetic actor permissions are introduced.
+
+`RequirePropertyAuthority()` continues to refuse. This source-stage mapping
+does not establish full package/privacy/source admission, public HTTP/PG
+integration, signed-audit runtime acceptance, asset/slug provenance or an
+executable import/export receipt. Production registration of the actual article
+owner and operation-bound integration must be verified separately. Controlled
+source-port tests exercise this mapping and its refusals; their supplied rows
+are not database or permission receipts.
