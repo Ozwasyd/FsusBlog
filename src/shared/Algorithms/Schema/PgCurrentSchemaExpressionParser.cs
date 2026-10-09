@@ -51,24 +51,32 @@ public sealed class PgCurrentSchemaExpressionParser
     {
         if (IntegralRange(column.DataType) is not null && IntegralLiteral(value) is not null)
             return NormalizeIntegralStorageLiteral(value, column);
-        if (column.DataType is not ("single" or "double")) return value;
+        if (column.DataType is not ("single" or "double"))
+            return value;
         string type = column.DataType == "single" ? "real" : "double precision";
-        if (value.Kind == "cast" && value.Value == type && value.Arguments.Count == 1) value = value.Arguments[0];
+        if (value.Kind == "cast" && value.Value == type && value.Arguments.Count == 1)
+            value = value.Arguments[0];
         if (value.Kind == "operator" && value.Value == "negate" && value.Arguments.Count == 1 && value.Arguments[0].Kind == "number")
         {
             SchemaExpressionNode literal = value.Arguments[0];
-            value = literal with { Value = literal.Value == "0" ? "0" : literal.Value.StartsWith("-", StringComparison.Ordinal) ? literal.Value[1..] : "-" + literal.Value };
+            value = literal with
+            {
+                Value = literal.Value == "0" ? "0" : literal.Value.StartsWith("-", StringComparison.Ordinal) ? literal.Value[1..] : "-" + literal.Value
+            };
         }
-        if (value.Kind is not ("number" or "string")) return value;
+        if (value.Kind is not ("number" or "string"))
+            return value;
         // This is the independently observed physical floating-point domain, not
         // decimal-literal normalization. The expected assignment and native cast
         // both target the column's already compared exact physical type.
         if (column.DataType == "single")
         {
-            if (!float.TryParse(value.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float number) || !float.IsFinite(number)) throw Refused();
+            if (!float.TryParse(value.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float number) || !float.IsFinite(number))
+                throw Refused();
             return Node("physical-float32", BitConverter.SingleToUInt32Bits(number).ToString("x8", CultureInfo.InvariantCulture));
         }
-        if (!double.TryParse(value.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double wide) || !double.IsFinite(wide)) throw Refused();
+        if (!double.TryParse(value.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double wide) || !double.IsFinite(wide))
+            throw Refused();
         return Node("physical-float64", BitConverter.DoubleToUInt64Bits(wide).ToString("x16", CultureInfo.InvariantCulture));
     }
 
@@ -93,7 +101,8 @@ public sealed class PgCurrentSchemaExpressionParser
         }
         while (true)
         {
-            if (Peek.Kind is "string" or "number" or "quoted-identifier") return left;
+            if (Peek.Kind is "string" or "number" or "quoted-identifier")
+                return left;
             string token = Peek.Value;
             if (token == "::" && minimum <= 90)
             {
@@ -126,7 +135,8 @@ public sealed class PgCurrentSchemaExpressionParser
                     Require("and");
                     SchemaExpressionNode high = Expression(41);
                     result = Operation("and", Operation(">=", left, low), Operation("<=", left, high));
-                    if (negatedComparison) result = Operation("not", result);
+                    if (negatedComparison)
+                        result = Operation("not", result);
                 }
                 else if (comparison == "is")
                 {
@@ -139,7 +149,8 @@ public sealed class PgCurrentSchemaExpressionParser
                     else
                     {
                         string test = Peek.Value;
-                        if (Peek.Kind != "identifier" || test is not ("null" or "true" or "false" or "unknown")) throw Refused();
+                        if (Peek.Kind != "identifier" || test is not ("null" or "true" or "false" or "unknown"))
+                            throw Refused();
                         _position++;
                         result = Operation("is-" + (not ? "not-" : "") + test, left);
                     }
@@ -160,7 +171,8 @@ public sealed class PgCurrentSchemaExpressionParser
                 "*" or "/" or "%" => 60,
                 _ => -1
             };
-            if (precedence < minimum || precedence < 0) return left;
+            if (precedence < minimum || precedence < 0)
+                return left;
             _position++;
             if ((token is "=" or "<>") && (Peek.Value is "any" or "all"))
             {
@@ -169,7 +181,8 @@ public sealed class PgCurrentSchemaExpressionParser
                 Require("(");
                 SchemaExpressionNode array = Expression(0);
                 Require(")");
-                if (array.Kind != "array") throw Refused();
+                if (array.Kind != "array")
+                    throw Refused();
                 string operation = (token, quantifier) switch
                 {
                     ("=", "any") => "in",
@@ -182,7 +195,11 @@ public sealed class PgCurrentSchemaExpressionParser
             {
                 string operation = token switch
                 {
-                    "!=" => "<>", "~~" => "like", "!~~" => "not-like", "~~*" => "ilike", "!~~*" => "not-ilike",
+                    "!=" => "<>",
+                    "~~" => "like",
+                    "!~~" => "not-like",
+                    "~~*" => "ilike",
+                    "!~~*" => "not-ilike",
                     _ => token
                 };
                 left = Operation(operation, left, Expression(precedence + 1));
@@ -194,8 +211,10 @@ public sealed class PgCurrentSchemaExpressionParser
     {
         Token token = Peek;
         _position++;
-        if (token.Kind == "string") return Node("string", token.Value);
-        if (token.Kind == "number") return Number(token.Value, InferredNumericType(token.Value));
+        if (token.Kind == "string")
+            return Node("string", token.Value);
+        if (token.Kind == "number")
+            return Number(token.Value, InferredNumericType(token.Value));
         if (token.Value == "(")
         {
             SchemaExpressionNode value = Expression(0);
@@ -204,13 +223,18 @@ public sealed class PgCurrentSchemaExpressionParser
         }
         if (token.Kind == "quoted-identifier")
         {
-            if (!_columns.ContainsKey(token.Value)) throw Refused();
+            if (!_columns.ContainsKey(token.Value))
+                throw Refused();
             return Node("column", token.Value);
         }
-        if (token.Kind != "identifier") throw Refused();
-        if (token.Value is "true" or "false") return Node("boolean", token.Value);
-        if (token.Value == "null") return Node("null", "");
-        if (token.Value == "current_timestamp") return Node("call", "now");
+        if (token.Kind != "identifier")
+            throw Refused();
+        if (token.Value is "true" or "false")
+            return Node("boolean", token.Value);
+        if (token.Value == "null")
+            return Node("null", "");
+        if (token.Value == "current_timestamp")
+            return Node("call", "now");
         if (token.Value == "array")
         {
             Require("[");
@@ -228,14 +252,16 @@ public sealed class PgCurrentSchemaExpressionParser
             }
             return Node("call", token.Value, Arguments(")"));
         }
-        if (!_columns.ContainsKey(token.Value)) throw Refused();
+        if (!_columns.ContainsKey(token.Value))
+            throw Refused();
         return Node("column", token.Value);
     }
 
     private SchemaExpressionNode[] Arguments(string close)
     {
         var values = new List<SchemaExpressionNode>();
-        if (Take(close)) return [];
+        if (Take(close))
+            return [];
         do
         {
             values.Add(Expression(0));
@@ -246,10 +272,12 @@ public sealed class PgCurrentSchemaExpressionParser
 
     private string Type()
     {
-        if (Peek.Kind != "identifier") throw Refused();
+        if (Peek.Kind != "identifier")
+            throw Refused();
         string value = Peek.Value;
         _position++;
-        if (value == "character" && Take("varying")) value = "varchar";
+        if (value == "character" && Take("varying"))
+            value = "varchar";
         if (value == "double")
         {
             Require("precision");
@@ -257,12 +285,14 @@ public sealed class PgCurrentSchemaExpressionParser
         }
         if (Take("("))
         {
-            if (Peek.Kind != "number") throw Refused();
+            if (Peek.Kind != "number")
+                throw Refused();
             value += "(" + Peek.Value;
             _position++;
             if (Take(","))
             {
-                if (Peek.Kind != "number") throw Refused();
+                if (Peek.Kind != "number")
+                    throw Refused();
                 value += "," + Peek.Value;
                 _position++;
             }
@@ -288,16 +318,20 @@ public sealed class PgCurrentSchemaExpressionParser
     private SchemaExpressionNode Cast(SchemaExpressionNode expression, string type)
     {
         if (expression.Kind == "null" && type is "text" or "varchar" or "integer" or "int4" or "bigint" or "int8" or "smallint" or "int2"
-            or "boolean" or "uuid" or "jsonb" or "bytea" or "numeric" or "decimal" or "timestamp" or "timestamp without time zone") return expression;
+            or "boolean" or "uuid" or "jsonb" or "bytea" or "numeric" or "decimal" or "timestamp" or "timestamp without time zone")
+            return expression;
         bool text = type is "text" or "varchar" or "character varying";
         if (type.StartsWith("varchar(", StringComparison.Ordinal))
         {
-            if (!int.TryParse(type[8..^1], out int length) || length <= 0) throw Refused();
+            if (!int.TryParse(type[8..^1], out int length) || length <= 0)
+                throw Refused();
             // A bounded cast can truncate. Keep it unless the exact literal fits.
-            if (expression.Kind == "string" && expression.Value.EnumerateRunes().Count() <= length) return expression;
+            if (expression.Kind == "string" && expression.Value.EnumerateRunes().Count() <= length)
+                return expression;
         }
         if (text && (expression.Kind == "string"
-            || expression.Kind == "column" && _columns[expression.Value].DataType == "string")) return expression;
+            || expression.Kind == "column" && _columns[expression.Value].DataType == "string"))
+            return expression;
         if (type is "integer" or "int4" or "bigint" or "int8" or "smallint" or "int2")
         {
             if ((expression.Kind == "number" || expression.Kind == "string" && IsIntegerInputLiteral(expression.Value))
@@ -323,10 +357,12 @@ public sealed class PgCurrentSchemaExpressionParser
                     }));
             }
         }
-        if (type == "boolean" && expression.Kind == "boolean") return expression;
+        if (type == "boolean" && expression.Kind == "boolean")
+            return expression;
         if ((type is "numeric" or "decimal") && (expression.Kind is "number" or "string"))
             return Node("cast", "numeric", Number(expression.Value, "numeric"));
-        if (type == "text[]" && expression.Kind == "array" && expression.Arguments.All(static item => item.Kind == "string")) return expression;
+        if (type == "text[]" && expression.Kind == "array" && expression.Arguments.All(static item => item.Kind == "string"))
+            return expression;
         return Node("cast", type, expression);
     }
 
@@ -370,7 +406,8 @@ public sealed class PgCurrentSchemaExpressionParser
 
     private static BigInteger? IntegralLiteral(SchemaExpressionNode value)
     {
-        if (value.Kind == "number" && TryIntegralLiteral(value.Value, out BigInteger number)) return number;
+        if (value.Kind == "number" && TryIntegralLiteral(value.Value, out BigInteger number))
+            return number;
         if (value.Kind == "operator" && value.Value == "negate" && value.Arguments.Count == 1
             && value.Arguments[0].Kind == "number" && TryIntegralLiteral(value.Arguments[0].Value, out number))
             return -number;
@@ -387,7 +424,8 @@ public sealed class PgCurrentSchemaExpressionParser
                 "bigint" => IntegralRange("int64"),
                 _ => null
             };
-            if (range is null || number >= range.Value.Minimum && number <= range.Value.Maximum) return number;
+            if (range is null || number >= range.Value.Minimum && number <= range.Value.Maximum)
+                return number;
         }
         return null;
     }
@@ -411,9 +449,12 @@ public sealed class PgCurrentSchemaExpressionParser
     {
         // PostgreSQL infers a decimal-point/exponent token as numeric even when
         // its mathematical value is integral. Preserve that before canonicalizing.
-        if (source.Contains('.') || source.Contains('e') || source.Contains('E')) return "numeric";
-        if (!BigInteger.TryParse(source, CultureInfo.InvariantCulture, out BigInteger value)) throw Refused();
-        if (value >= int.MinValue && value <= int.MaxValue) return "integer";
+        if (source.Contains('.') || source.Contains('e') || source.Contains('E'))
+            return "numeric";
+        if (!BigInteger.TryParse(source, CultureInfo.InvariantCulture, out BigInteger value))
+            throw Refused();
+        if (value >= int.MinValue && value <= int.MaxValue)
+            return "integer";
         return value >= long.MinValue && value <= long.MaxValue ? "bigint" : "numeric";
     }
 
@@ -432,11 +473,16 @@ public sealed class PgCurrentSchemaExpressionParser
     {
         string canonical = NormalizeNumber(value);
         int separator = canonical.IndexOf('e');
-        if (separator < 0) return BigInteger.TryParse(canonical, CultureInfo.InvariantCulture, out integer);
+        if (separator < 0)
+            return BigInteger.TryParse(canonical, CultureInfo.InvariantCulture, out integer);
         BigInteger scale = BigInteger.Parse(canonical[(separator + 1)..], CultureInfo.InvariantCulture);
         // The admitted integral destination is at most Int64. Large exponents
         // remain explicit casts, without allocating their expanded value.
-        if (scale < 0 || scale > 19) { integer = default; return false; }
+        if (scale < 0 || scale > 19)
+        {
+            integer = default;
+            return false;
+        }
         integer = BigInteger.Parse(canonical[..separator], CultureInfo.InvariantCulture) * BigInteger.Pow(10, (int)scale);
         return true;
     }
@@ -445,13 +491,15 @@ public sealed class PgCurrentSchemaExpressionParser
     private Token Next => _tokens[Math.Min(_position + 1, _tokens.Count - 1)];
     private bool Take(string value)
     {
-        if (Peek.Kind is "string" or "number" or "quoted-identifier" || Peek.Value != value) return false;
+        if (Peek.Kind is "string" or "number" or "quoted-identifier" || Peek.Value != value)
+            return false;
         _position++;
         return true;
     }
     private void Require(string value)
     {
-        if (!Take(value)) throw Refused();
+        if (!Take(value))
+            throw Refused();
     }
 
     private sealed record Token(string Kind, string Value);
@@ -461,7 +509,11 @@ public sealed class PgCurrentSchemaExpressionParser
         for (int position = 0; position < source.Length;)
         {
             char value = source[position];
-            if (char.IsWhiteSpace(value)) { position++; continue; }
+            if (char.IsWhiteSpace(value))
+            {
+                position++;
+                continue;
+            }
             if (value == '"')
             {
                 var identifier = new StringBuilder();
@@ -470,12 +522,22 @@ public sealed class PgCurrentSchemaExpressionParser
                 while (position < source.Length)
                 {
                     char character = source[position++];
-                    if (character != '"') { identifier.Append(character); continue; }
-                    if (position < source.Length && source[position] == '"') { identifier.Append('"'); position++; continue; }
+                    if (character != '"')
+                    {
+                        identifier.Append(character);
+                        continue;
+                    }
+                    if (position < source.Length && source[position] == '"')
+                    {
+                        identifier.Append('"');
+                        position++;
+                        continue;
+                    }
                     closed = true;
                     break;
                 }
-                if (!closed) throw Refused();
+                if (!closed)
+                    throw Refused();
                 result.Add(new("quoted-identifier", identifier.ToString()));
                 continue;
             }
@@ -487,38 +549,54 @@ public sealed class PgCurrentSchemaExpressionParser
                 while (position < source.Length)
                 {
                     char character = source[position++];
-                    if (character != '\'') { literal.Append(character); continue; }
-                    if (position < source.Length && source[position] == '\'') { literal.Append('\''); position++; continue; }
+                    if (character != '\'')
+                    {
+                        literal.Append(character);
+                        continue;
+                    }
+                    if (position < source.Length && source[position] == '\'')
+                    {
+                        literal.Append('\'');
+                        position++;
+                        continue;
+                    }
                     closed = true;
                     break;
                 }
-                if (!closed) throw Refused();
+                if (!closed)
+                    throw Refused();
                 result.Add(new("string", literal.ToString()));
                 continue;
             }
             if (char.IsAsciiLetter(value) || value == '_')
             {
                 int start = position++;
-                while (position < source.Length && (char.IsAsciiLetterOrDigit(source[position]) || source[position] == '_')) position++;
+                while (position < source.Length && (char.IsAsciiLetterOrDigit(source[position]) || source[position] == '_'))
+                    position++;
                 result.Add(new("identifier", source[start..position].ToLowerInvariant()));
                 continue;
             }
             if (char.IsAsciiDigit(value))
             {
                 int start = position++;
-                while (position < source.Length && char.IsAsciiDigit(source[position])) position++;
+                while (position < source.Length && char.IsAsciiDigit(source[position]))
+                    position++;
                 if (position < source.Length && source[position] == '.')
                 {
                     position++;
-                    while (position < source.Length && char.IsAsciiDigit(source[position])) position++;
+                    while (position < source.Length && char.IsAsciiDigit(source[position]))
+                        position++;
                 }
                 if (position < source.Length && source[position] is 'e' or 'E')
                 {
                     position++;
-                    if (position < source.Length && source[position] is '+' or '-') position++;
+                    if (position < source.Length && source[position] is '+' or '-')
+                        position++;
                     int exponentStart = position;
-                    while (position < source.Length && char.IsAsciiDigit(source[position])) position++;
-                    if (position == exponentStart) throw Refused();
+                    while (position < source.Length && char.IsAsciiDigit(source[position]))
+                        position++;
+                    if (position == exponentStart)
+                        throw Refused();
                 }
                 result.Add(new("number", source[start..position]));
                 continue;
@@ -531,7 +609,8 @@ public sealed class PgCurrentSchemaExpressionParser
             }
             string? op = new[] { "!~~*", "!~~", "~~*", "#>>", "->>", "::", "<=", ">=", "<>", "!=", "!~*", "!~", "~*", "~~", "||", "->", "#>", "?|", "?&", "=", "<", ">", "+", "-", "*", "/", "%", "~", "?" }
                 .FirstOrDefault(candidate => source.AsSpan(position).StartsWith(candidate, StringComparison.Ordinal));
-            if (op is null || op == "-" && position + 1 < source.Length && source[position + 1] == '-' || op == "/" && position + 1 < source.Length && source[position + 1] == '*') throw Refused();
+            if (op is null || op == "-" && position + 1 < source.Length && source[position + 1] == '-' || op == "/" && position + 1 < source.Length && source[position + 1] == '*')
+                throw Refused();
             result.Add(new("operator", op));
             position += op.Length;
         }
