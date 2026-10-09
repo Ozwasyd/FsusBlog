@@ -1,0 +1,5 @@
+  Determining projects to restore...
+  Restored /workspace/FsusBlog-graph-generation-enrollment/src/shared/FsusBlog.Shared.csproj (in 223 ms).
+  Restored /workspace/FsusBlog-graph-generation-enrollment/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 662 ms).
+  Restored /workspace/FsusBlog-graph-generation-enrollment/src/core/FsusBlog.Core.csproj (in 655 ms).
+  Restored /workspace/FsusBlog-graph-generation-enrollment/src/backend/FsusBlog.Server.csproj (in 730 ms).

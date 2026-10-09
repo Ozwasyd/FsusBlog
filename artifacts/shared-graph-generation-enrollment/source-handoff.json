@@ -1,0 +1,306 @@
+{
+  "schema": "fsusblog.root-production-generation-enrollment-handoff.v1",
+  "sourceCommit": "7f6de58cc5df33ecae0e0c8a66022055dc7afb44",
+  "base": "f7fefb409d8f891a99ce9865c18f84fd304895f2",
+  "branch": "codex/shared-graph-generation-enrollment-20261009",
+  "createdAtUtc": "2026-10-09T13:53:41.054382+00:00",
+  "exactParentSuppliedOffer": {
+    "source": "aa193c2dbc27389e9684642a193de934ec62a9c6",
+    "parent": "abb28c41213f6ea506a6b4dcb64f30b7451384b7",
+    "head": "0e9dffa95be042e0dd05da4529aedd2380427ede",
+    "branch": "task/3654-vault-enrollment-compatibility"
+  },
+  "paths": [
+    {
+      "path": "src/backend/Entities/ArticleRelationSourceCoordinate.cs",
+      "consumerPreimageBlob": null,
+      "compatibleBlob": "f31fa4261621ceff25e590ea6a9af8fb0858a220",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "f31fa4261621ceff25e590ea6a9af8fb0858a220",
+      "coordinateSupplierBlob": "f31fa4261621ceff25e590ea6a9af8fb0858a220",
+      "rootBaseBlob": "f31fa4261621ceff25e590ea6a9af8fb0858a220",
+      "rootSourceBlob": "f31fa4261621ceff25e590ea6a9af8fb0858a220",
+      "status": "already byte-identical in root base"
+    },
+    {
+      "path": "src/backend/Entities/ArticleSourceGeneration.cs",
+      "consumerPreimageBlob": null,
+      "compatibleBlob": "c7e59252c52e495b8ee8123d0ea3396f4428580d",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "c7e59252c52e495b8ee8123d0ea3396f4428580d",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "c7e59252c52e495b8ee8123d0ea3396f4428580d",
+      "rootSourceBlob": "c7e59252c52e495b8ee8123d0ea3396f4428580d",
+      "status": "already byte-identical in root base"
+    },
+    {
+      "path": "src/backend/Entities/ArticleSourceMutation.cs",
+      "consumerPreimageBlob": null,
+      "compatibleBlob": "8cdda278b53bb74f46485a814cb0c50edee6d49c",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "8cdda278b53bb74f46485a814cb0c50edee6d49c",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "8cdda278b53bb74f46485a814cb0c50edee6d49c",
+      "rootSourceBlob": "8cdda278b53bb74f46485a814cb0c50edee6d49c",
+      "status": "already byte-identical in root base"
+    },
+    {
+      "path": "src/backend/Services/ArticleService.ArticleVaultTransaction.cs",
+      "consumerPreimageBlob": "2a80551abd5e543b36b64c7ccda699c6cb2c598a",
+      "compatibleBlob": "fdf5c851354fdb90226638200704a95c7d503b4d",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "fdf5c851354fdb90226638200704a95c7d503b4d",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "2a80551abd5e543b36b64c7ccda699c6cb2c598a",
+      "rootSourceBlob": "fdf5c851354fdb90226638200704a95c7d503b4d",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/backend/Services/ArticleService.ArticleVaultWriter.cs",
+      "consumerPreimageBlob": "e27bdf5f70e63f365cd4b3e25acfef2b472d5828",
+      "compatibleBlob": "c0dcf6f4f3d30be6fb1a317610f31b7ec406fded",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "c0dcf6f4f3d30be6fb1a317610f31b7ec406fded",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "e27bdf5f70e63f365cd4b3e25acfef2b472d5828",
+      "rootSourceBlob": "c0dcf6f4f3d30be6fb1a317610f31b7ec406fded",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs",
+      "consumerPreimageBlob": "c5dc2e845692b6e9d26ba1205d03dfe4e0373645",
+      "compatibleBlob": "a89a554ff94aebd75b8e2d70cd792cb73e1ecdcf",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "a89a554ff94aebd75b8e2d70cd792cb73e1ecdcf",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "c5dc2e845692b6e9d26ba1205d03dfe4e0373645",
+      "rootSourceBlob": "a89a554ff94aebd75b8e2d70cd792cb73e1ecdcf",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/backend/Services/ArticleService.Mutations.cs",
+      "consumerPreimageBlob": "5232299781b763919c2665da2e479b6718259c6f",
+      "compatibleBlob": "97c5af99677cc2c83efb571149eba9c924cce283",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "97c5af99677cc2c83efb571149eba9c924cce283",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "5232299781b763919c2665da2e479b6718259c6f",
+      "rootSourceBlob": "97c5af99677cc2c83efb571149eba9c924cce283",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/backend/Services/ArticleService.cs",
+      "consumerPreimageBlob": "3e1e4065789460f9a369ee5eca2d16e0e0ef919a",
+      "compatibleBlob": "fc39fde13f9d63045e4d62b6a6eb5a4635f68051",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "fc39fde13f9d63045e4d62b6a6eb5a4635f68051",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "3e1e4065789460f9a369ee5eca2d16e0e0ef919a",
+      "rootSourceBlob": "fc39fde13f9d63045e4d62b6a6eb5a4635f68051",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleCreateMutationAuthority.cs",
+      "consumerPreimageBlob": "0d5c2479e6d7316f2a8b3bcfaba4f33ff804aa67",
+      "compatibleBlob": "e8cc611804abfa66bdaaa201fffd5d66ab8efe91",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "e8cc611804abfa66bdaaa201fffd5d66ab8efe91",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "0d5c2479e6d7316f2a8b3bcfaba4f33ff804aa67",
+      "rootSourceBlob": "e8cc611804abfa66bdaaa201fffd5d66ab8efe91",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs",
+      "consumerPreimageBlob": "d80af55aef8aaa6c9d61fd8f174c0e474a332ab5",
+      "compatibleBlob": "41ccfac09ac7f5b5d2470674850f8bfd9bc07033",
+      "origin": "generation-only adaptation preserving consumer Markdown admission",
+      "frozenSourceBlob": null,
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "d80af55aef8aaa6c9d61fd8f174c0e474a332ab5",
+      "rootSourceBlob": "41ccfac09ac7f5b5d2470674850f8bfd9bc07033",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleSourceCursor.cs",
+      "consumerPreimageBlob": null,
+      "compatibleBlob": "06795382e1d4010b97862fdfd83d16979d6949c7",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "06795382e1d4010b97862fdfd83d16979d6949c7",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "06795382e1d4010b97862fdfd83d16979d6949c7",
+      "rootSourceBlob": "06795382e1d4010b97862fdfd83d16979d6949c7",
+      "status": "already byte-identical in root base"
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleSourceGenerationAuthority.cs",
+      "consumerPreimageBlob": null,
+      "compatibleBlob": "7d5c9c17c526dc5b8b6fbfff7bc731022aa0f052",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "7d5c9c17c526dc5b8b6fbfff7bc731022aa0f052",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "7d5c9c17c526dc5b8b6fbfff7bc731022aa0f052",
+      "rootSourceBlob": "7d5c9c17c526dc5b8b6fbfff7bc731022aa0f052",
+      "status": "already byte-identical in root base"
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleSourceGenerationPersistence.cs",
+      "consumerPreimageBlob": null,
+      "compatibleBlob": "f9239c8e5687692a748587283fd52e7c9f7204fd",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "f9239c8e5687692a748587283fd52e7c9f7204fd",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "f9239c8e5687692a748587283fd52e7c9f7204fd",
+      "rootSourceBlob": "f9239c8e5687692a748587283fd52e7c9f7204fd",
+      "status": "already byte-identical in root base"
+    },
+    {
+      "path": "src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs",
+      "consumerPreimageBlob": "10cbddef8f6b4ce3b8928915bf3aa7ec20a7b202",
+      "compatibleBlob": "bcfba97427f6b9bdef8c8d894c0c7730fae9c05a",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "bcfba97427f6b9bdef8c8d894c0c7730fae9c05a",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "10cbddef8f6b4ce3b8928915bf3aa7ec20a7b202",
+      "rootSourceBlob": "bcfba97427f6b9bdef8c8d894c0c7730fae9c05a",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/backend/Services/Background/ScheduledPublishWorker.cs",
+      "consumerPreimageBlob": "69d95652de3613c8ecc9e4b5bc3a0c93773ec236",
+      "compatibleBlob": "1e43da5ca016332af2917f5e104d1134437b9da5",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "1e43da5ca016332af2917f5e104d1134437b9da5",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "69d95652de3613c8ecc9e4b5bc3a0c93773ec236",
+      "rootSourceBlob": "1e43da5ca016332af2917f5e104d1134437b9da5",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
+      "consumerPreimageBlob": "a1436c8f4ac965c8fb1685f448ef886b8389769f",
+      "compatibleBlob": "1efe3d1cb8ced1f2479bcf72f40044c95a0fdcaa",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "1efe3d1cb8ced1f2479bcf72f40044c95a0fdcaa",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "a1436c8f4ac965c8fb1685f448ef886b8389769f",
+      "rootSourceBlob": "1efe3d1cb8ced1f2479bcf72f40044c95a0fdcaa",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs",
+      "consumerPreimageBlob": "e52e3816ff294307b96a5601ca5d305f8433c755",
+      "compatibleBlob": "9bfa89081ebdfed3cbb7957912fbc8fbbfa0a241",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "9bfa89081ebdfed3cbb7957912fbc8fbbfa0a241",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "e52e3816ff294307b96a5601ca5d305f8433c755",
+      "rootSourceBlob": "9bfa89081ebdfed3cbb7957912fbc8fbbfa0a241",
+      "status": "consumed exact production preimage/postimage"
+    },
+    {
+      "path": "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs",
+      "consumerPreimageBlob": null,
+      "compatibleBlob": "2f6ec8c879783747e2560beb1ae47186cad10f44",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "2f6ec8c879783747e2560beb1ae47186cad10f44",
+      "coordinateSupplierBlob": "2f6ec8c879783747e2560beb1ae47186cad10f44",
+      "rootBaseBlob": "2f6ec8c879783747e2560beb1ae47186cad10f44",
+      "rootSourceBlob": "2f6ec8c879783747e2560beb1ae47186cad10f44",
+      "status": "already byte-identical in root base"
+    },
+    {
+      "path": "tests/backend/Integration/ArticleCreateIntegrationTests.cs",
+      "consumerPreimageBlob": "4258912346f03862ea93ba21e8aa04fa938c9930",
+      "compatibleBlob": "3acc87967db36cfc989ffbd326ff469755efe2a6",
+      "origin": "original fixture provisioning repair",
+      "frozenSourceBlob": null,
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "4258912346f03862ea93ba21e8aa04fa938c9930",
+      "rootSourceBlob": "4258912346f03862ea93ba21e8aa04fa938c9930",
+      "status": "not consumed; original owner managed fixtures/tests remain outside this production slice"
+    },
+    {
+      "path": "tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs",
+      "consumerPreimageBlob": "e105647589c8eefb5ec832ee326cc6f5d895e546",
+      "compatibleBlob": "218b60720c2f00da85691e43e4c91035cd97180d",
+      "origin": "original fixture provisioning repair",
+      "frozenSourceBlob": null,
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "e105647589c8eefb5ec832ee326cc6f5d895e546",
+      "rootSourceBlob": "e105647589c8eefb5ec832ee326cc6f5d895e546",
+      "status": "not consumed; original owner managed fixtures/tests remain outside this production slice"
+    },
+    {
+      "path": "tests/backend/Integration/CanonicalArticlePublicationFixturePortIntegrationTests.cs",
+      "consumerPreimageBlob": "efcce5991618da3a573472b1c1c1e54070cc0398",
+      "compatibleBlob": "fdd2bf7f8ae7aeabceb7d91052d794751cb86ac7",
+      "origin": "original fixture provisioning repair",
+      "frozenSourceBlob": null,
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": "efcce5991618da3a573472b1c1c1e54070cc0398",
+      "rootSourceBlob": "efcce5991618da3a573472b1c1c1e54070cc0398",
+      "status": "not consumed; original owner managed fixtures/tests remain outside this production slice"
+    },
+    {
+      "path": "tests/backend/Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs",
+      "consumerPreimageBlob": null,
+      "compatibleBlob": "5bac645649fb8bb93fab5b5df2b3150a6a1ff7e6",
+      "origin": "frozen b98 byte-identical",
+      "frozenSourceBlob": "5bac645649fb8bb93fab5b5df2b3150a6a1ff7e6",
+      "coordinateSupplierBlob": null,
+      "rootBaseBlob": null,
+      "rootSourceBlob": null,
+      "status": "not consumed; original owner managed fixtures/tests remain outside this production slice"
+    }
+  ],
+  "counts": {
+    "supplierClosure": 22,
+    "rootProductionConsumed": 11,
+    "alreadyCompatible": 7,
+    "originalTestsNotConsumed": 4
+  },
+  "reservedPaths": [
+    {
+      "path": "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
+      "supplierReservedBlob": "a21abf8359512862dac05f620944edca56c0d709",
+      "rootBlobPreserved": "968d8179278cd5b5ce760cdbc8c5c3f613428bda",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Models/Dtos/AuthoringDtos.cs",
+      "supplierReservedBlob": "21cf281c077d6d53d5ec8074b9020bac078ac0bd",
+      "rootBlobPreserved": "21cf281c077d6d53d5ec8074b9020bac078ac0bd",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+      "supplierReservedBlob": "6f36ed2600b5170ac30a3e4f40468bf2c62b0ec3",
+      "rootBlobPreserved": "6f36ed2600b5170ac30a3e4f40468bf2c62b0ec3",
+      "unchanged": true
+    }
+  ],
+  "diChanges": 0,
+  "implementation": "Original canonical ArticleService/create/lifecycle/publication/scheduled/Vault mutations enroll source-generation events through the existing authority in their existing transaction. Existing reader and ArticleRevisionPersistence remain untouched. No second authority or derived DocumentEpoch.",
+  "verification": {
+    "productionLockedRestoreExitCode": 0,
+    "productionServerBuildExitCode": 0,
+    "buildErrors": 0,
+    "buildWarnings": 323,
+    "changedFileDiagnostics": 0,
+    "artifacts": [
+      "production-locked-restore.json",
+      "production-server-build.json"
+    ],
+    "managedTestDiscovery": "UNRUN",
+    "managedBodies": "UNRUN",
+    "runtimeQualification": false
+  },
+  "unaccepted": [
+    "Canonical source-generation event qualification and independent review",
+    "Original supplier collection/fixture membership refresh",
+    "Actual rollback/cancellation/replay/Postgres generation receipts",
+    "Canonical adjacency API/retained lease and authoritative usage/truncation/DocumentEpoch/IndexGeneration"
+  ],
+  "constraints": "Original strict SDK failure still prevents managed execution. Ordinary production build does not qualify runtime. No migration, new DI owner, source mutation permission, held audit or alternate harness."
+}

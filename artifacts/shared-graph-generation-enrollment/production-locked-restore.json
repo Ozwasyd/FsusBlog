@@ -1,0 +1,20 @@
+{
+  "sourceCommit": "7f6de58cc5df33ecae0e0c8a66022055dc7afb44",
+  "argv": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "restore",
+    "src/backend/FsusBlog.Server.csproj",
+    "--locked-mode",
+    "--artifacts-path",
+    ".tmp/generation-enrollment/build"
+  ],
+  "cwd": "/workspace/FsusBlog-graph-generation-enrollment",
+  "startedAtUtc": "2026-10-09T13:42:52.514567+00:00",
+  "endedAtUtc": "2026-10-09T13:42:57.113933+00:00",
+  "exitCode": 0,
+  "seconds": 4.599,
+  "stdoutArtifact": "production-locked-restore.log",
+  "runtimeQualification": false
+}
