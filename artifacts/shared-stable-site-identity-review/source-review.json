@@ -1,0 +1,86 @@
+{
+  "checkedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "checkedAtUtc": "2026-10-09T11:42:16.597390+00:00",
+  "request": "Locate canonical persisted server stable SiteIdentity/lifecycle or existing unmerged owner source before creating a read/binding port",
+  "mode": "read-only source review; no production source/API/DB change",
+  "currentSearch": {
+    "lines": 306,
+    "files": 54,
+    "areas": [
+      "src/backend",
+      "src/migration",
+      "src/shared",
+      "docs",
+      "config"
+    ],
+    "pattern": "SiteIdentity|SiteId|site_identity|siteIdentity|site_id"
+  },
+  "localHistorySearch": {
+    "scope": "reachable existing local Git objects; src/backend/src/shared/docs/config",
+    "pattern": "server_site_identity|SiteIdentityAuthority|SiteIdentityRegistry|site_identity_registry|ISiteIdentity|ICurrentSiteIdentity",
+    "matches": 0,
+    "notGlobalAbsenceProof": true
+  },
+  "readOnlyRemoteSourceHeadsInspected": [
+    "33e6e41d99cdb54bba707d8bc6eefb43da645772",
+    "c576838198b8a1a2034119cb3171f379b10302f7",
+    "3826541c65e0740566caed291af8b1d32b961c81",
+    "63360650bea0ecf5d41fdb0d56762cfc4e2a69e5"
+  ],
+  "consumedExternalSource": false,
+  "actualSourceBindings": [
+    {
+      "path": "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs",
+      "gitBlob": "e67a4e0823b1d9a6cf6c72e4cf72c4720a1167b4",
+      "sha256": "2b2c6f16bd0a72fc01424d16e11d73b8a05e5fe6a3112595beab449d0df90524"
+    },
+    {
+      "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+      "gitBlob": "6c3296c082f2d7c1732034effd9315d9cdd8a635",
+      "sha256": "101782fbf052aa66cceb2b9647c31e98a60e82fb64656eec424ed9fc1f00fdba"
+    },
+    {
+      "path": "src/backend/Entities/SystemConfig.cs",
+      "gitBlob": "c54f341ef8bf7c8a419c09e4959ce13fa5add0c6",
+      "sha256": "3b09c11f460dd45770c4e4c1d437fb0f974245b6c20a557c03dc296e65a56e7a"
+    },
+    {
+      "path": "src/backend/Services/SystemService.cs",
+      "gitBlob": "842f13491890fcd203b2b8abf223b619577e6c2b",
+      "sha256": "b918f3ce2f511d19c762fe4f81f1f7223406c59276f94f6fd68b505bfda0803e"
+    },
+    {
+      "path": "src/backend/Entities/ArticleVaultExecution.cs",
+      "gitBlob": "0a72622e6d2ea3440f0aeed73f25536ad6c0da29",
+      "sha256": "37d6f9443e79f43a913bab91e4cf250ccff299b975d4a08cd8907b4d4c640f6d"
+    },
+    {
+      "path": "src/backend/Services/ArticleVault/PostgresArticleVaultExecutionStore.cs",
+      "gitBlob": "c4f355c1682dbc462c5b7dc8d04e4c87a95a1a47",
+      "sha256": "c91160498ffe5d72481789e1c97ec40a64b31a748538230936df3a59da3829f8"
+    },
+    {
+      "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs",
+      "gitBlob": "8984f1a618c3a61598b6035c2850b97a475574e7",
+      "sha256": "121e1e6ca967bdebe212ecd22e593899105fd05d07e7b341ef57b67c4c4d23b0"
+    },
+    {
+      "path": "src/shared/Contracts/Outputs/PublicSiteIdentityDefaults.cs",
+      "gitBlob": "6371784e81b075a67dc46ff7c6a1dc746929bbf4",
+      "sha256": "c1027d5ed84d0c5d5e65175cd8c98680dbf0678356818eb6eb2d7c49e94ddfb5"
+    }
+  ],
+  "findings": {
+    "relationIdentity": "3..160 UTF16; colon required; rejects http ignoringcase, whitespace/control, /, backslash, ?, =, #",
+    "existingPermissionScope": "SITE_BASEURL.Trim().TrimEnd(/), not persisted stable identity",
+    "vaultPersistedSiteIdentity": "copies bundle.Plan.SiteIdentity; owns execution results, not server site identity creation/current-instance binding",
+    "extensionSiteId": "caller-supplied lifecycle/RPC scope; no site registry/read binding found",
+    "SystemConfig": "generic editable key/value and SEO/baseURL; no formal immutable site identity key/lifecycle",
+    "exportUnmergedSiteScope": "actual owner intentionally replaced numericSiteId with exact configured URL scope and refuses alias migration"
+  },
+  "canonicalStableReaderMethodFound": false,
+  "decisionGate": "identity creation/lifecycle/migration/alias semantics and sole owner, not credential availability",
+  "tests": "NOT RUN; read-only source finding only",
+  "productAcceptance": false,
+  "noNewIdsConfigKeysRegistryOrUrlHashes": true
+}

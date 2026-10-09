@@ -1,0 +1,52 @@
+[
+  {
+    "commit": "33e6e41d99cdb54bba707d8bc6eefb43da645772",
+    "commitPaths": [
+      "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.DocumentExport.cs",
+      "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs",
+      "src/core/Cache/PodBinaryCodec.DocumentExport.cs",
+      "src/core/Mapping/Models/DocumentExportModels.cs",
+      "tests/backend/Fixtures/document-export-payload-goldens-v1.json",
+      "tests/backend/Unit/DocumentExportBinaryCodecTests.cs",
+      "tests/backend/Unit/DocumentExportEndpointBindingTests.cs",
+      "tests/backend/Unit/DocumentExportEndpointsTests.cs"
+    ],
+    "selectedHits": [
+      "33e6e41d99cdb54bba707d8bc6eefb43da645772:src/backend/Services/DocumentExport/Jobs/README.md:17:`SITE_BASEURL.Trim().TrimEnd('/')` value, compared ordinally. Received identities"
+    ]
+  },
+  {
+    "commit": "c576838198b8a1a2034119cb3171f379b10302f7",
+    "commitPaths": [
+      "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+      "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+      "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+      "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs",
+      "src/backend/Services/DocumentExport/Jobs/DocumentExportJobPolicy.cs",
+      "src/backend/Services/DocumentExport/Jobs/DocumentExportJobRepository.cs",
+      "src/backend/Services/DocumentExport/Jobs/README.md",
+      "tests/backend/Unit/DocumentExportContractTests.cs"
+    ],
+    "selectedHits": [
+      "c576838198b8a1a2034119cb3171f379b10302f7:src/backend/Services/DocumentExport/Jobs/README.md:17:`SITE_BASEURL.Trim().TrimEnd('/')` value, compared ordinally. Received identities"
+    ]
+  },
+  {
+    "commit": "3826541c65e0740566caed291af8b1d32b961c81",
+    "commitPaths": [
+      "tests/backend/Unit/DocumentExportEndpointsTests.cs"
+    ],
+    "selectedHits": [
+      "3826541c65e0740566caed291af8b1d32b961c81:src/backend/Services/DocumentExport/Jobs/README.md:17:`SITE_BASEURL.Trim().TrimEnd('/')` value, compared ordinally. Received identities"
+    ]
+  },
+  {
+    "commit": "63360650bea0ecf5d41fdb0d56762cfc4e2a69e5",
+    "commitPaths": [
+      "tests/backend/Unit/DocumentExportJobServiceTests.cs"
+    ],
+    "selectedHits": [
+      "63360650bea0ecf5d41fdb0d56762cfc4e2a69e5:src/backend/Services/DocumentExport/Jobs/README.md:17:`SITE_BASEURL.Trim().TrimEnd('/')` value, compared ordinally. Received identities"
+    ]
+  }
+]

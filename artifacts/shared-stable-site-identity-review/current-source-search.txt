@@ -1,0 +1,306 @@
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs:35:    string SiteId,
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs:571:            !string.Equals(plan.From.SiteId, plan.To.SiteId, StringComparison.Ordinal) ||
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs:594:            !IsBoundedField(scope.SiteId, 256) ||
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:66:    string SiteIdentity,
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:137:    public string SiteIdentity { get; init; } = string.Empty;
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:151:    string SiteIdentity,
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:186:    string SiteIdentity,
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:318:            request.SiteIdentity,
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:412:            !string.Equals(grant.SiteIdentity, envelope.SiteIdentity, StringComparison.Ordinal) ||
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:440:            grant.SiteIdentity,
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:460:            !IsBoundedField(request.SiteIdentity, 256) ||
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:703:            envelope.PolicyDigest, envelope.GrantDigest, envelope.SiteIdentity, envelope.Purpose,
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:731:                envelope.SiteIdentity, envelope.Purpose
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:940:        AppendPreviewString(hash, envelope.SiteIdentity);
+src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs:1016:            !IsBoundedField(envelope.SiteIdentity, 256) ||
+src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs:415:        if (facts.SiteIdentity != context.Snapshot.Actor.SiteIdentity)
+src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs:63:    string SiteIdentity,
+src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs:118:    string SiteIdentity,
+src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContractValidator.cs:63:            || snapshot.Actor.SiteIdentity is null or ""
+src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContractValidator.cs:132:            || facts.SiteIdentity is null or ""
+src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringDigest.cs:22:            writer.Add(snapshot.Actor.SiteIdentity);
+src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringDigest.cs:55:            writer.Add(key.SiteIdentity);
+src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringDigest.cs:75:            writer.Add(receipt.Actor.SiteIdentity);
+src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringDigest.cs:186:        writer.Add(facts.SiteIdentity);
+src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs:506:        if (facts.SiteIdentity != snapshot.Actor.SiteIdentity)
+src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs:130:    string SiteIdentity,
+src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractValidator.cs:96:            || !IsContextIdentity(request.Actor.SiteIdentity)
+src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs:138:    string SiteIdentity,
+src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs:279:            snapshot.Actor.SiteIdentity,
+src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs:296:            authority.Actor.SiteIdentity,
+src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs:311:            edgeSet.Actor.SiteIdentity,
+src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs:62:            writer.Add(edgeSet.Actor.SiteIdentity);
+src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs:127:            writer.Add(key.SiteIdentity);
+src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs:147:            writer.Add(receipt.Actor.SiteIdentity);
+src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContractValidator.cs:139:            || edgeSet.Actor.SiteIdentity is null or ""
+src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContractValidator.cs:227:            || key.SiteIdentity is null or "")
+src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContractValidator.cs:248:            || receipt.Actor.SiteIdentity is null or ""
+src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationDigest.cs:24:            writer.Add(authority.Actor.SiteIdentity);
+src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationDigest.cs:96:            writer.Add(receipt.Actor.SiteIdentity);
+src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationDigest.cs:156:        writer.Add(facts.SiteIdentity);
+src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationPlanner.cs:473:        if (facts.SiteIdentity != context.Authority.Actor.SiteIdentity)
+src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContractValidator.cs:90:            || authority.Actor.SiteIdentity is null or ""
+src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContractValidator.cs:193:            || facts.SiteIdentity is null or ""
+src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContracts.cs:50:    string SiteIdentity,
+src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationVerifier.cs:648:        if (facts.SiteIdentity != authority.Actor.SiteIdentity)
+src/shared/Contracts/ArticleEmbeds/article-embed-contract.schema.json:84:      "required": ["actorIdentity", "siteIdentity", "permissionContextDigest"],
+src/shared/Contracts/ArticleEmbeds/article-embed-contract.schema.json:87:        "siteIdentity": { "type": "string", "minLength": 1, "maxLength": 160 },
+src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractDigest.cs:30:            writer.Add(request.Actor.SiteIdentity);
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:727:    public string Title { get; init; } = PublicSiteIdentityDefaults.SiteTitle;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:728:    public string Description { get; init; } = PublicSiteIdentityDefaults.SiteDescription;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:729:    public string Keywords { get; init; } = PublicSiteIdentityDefaults.SiteKeywords;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:730:    public string Author { get; init; } = PublicSiteIdentityDefaults.SiteAuthor;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:732:    public string BaseUrl { get; init; } = PublicSiteIdentityDefaults.SiteBaseUrl;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:737:    public string ManifestName { get; init; } = PublicSiteIdentityDefaults.ManifestName;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:738:    public string ManifestShortName { get; init; } = PublicSiteIdentityDefaults.ManifestShortName;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:758:    public string Title { get; init; } = PublicSiteIdentityDefaults.SiteTitle;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:759:    public string Description { get; init; } = PublicSiteIdentityDefaults.SiteDescription;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:760:    public string Keywords { get; init; } = PublicSiteIdentityDefaults.SiteKeywords;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:761:    public string Author { get; init; } = PublicSiteIdentityDefaults.SiteAuthor;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:763:    public string BaseUrl { get; init; } = PublicSiteIdentityDefaults.SiteBaseUrl;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:768:    public string ManifestName { get; init; } = PublicSiteIdentityDefaults.ManifestName;
+src/shared/Contracts/Outputs/ServerResponseContracts.cs:769:    public string ManifestShortName { get; init; } = PublicSiteIdentityDefaults.ManifestShortName;
+src/shared/Contracts/Outputs/PublicSiteIdentityDefaults.cs:6:public static class PublicSiteIdentityDefaults
+src/shared/Contracts/Outputs/PublicSiteAuthorPolicy.cs:15:        return string.IsNullOrWhiteSpace(author) ? PublicSiteIdentityDefaults.SiteAuthor : author;
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:19:                        site_identity varchar(128) NOT NULL,
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:26:                        CONSTRAINT uq_article_vault_execution_plan UNIQUE (site_identity, vault_identity, plan_sha256),
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:28:                            char_length(site_identity) BETWEEN 3 AND 128
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:41:                        site_identity varchar(128) NOT NULL,
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:49:                            site_identity, vault_identity, plan_sha256, group_identity),
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:51:                            FOREIGN KEY (site_identity, vault_identity, plan_sha256)
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:52:                            REFERENCES article_vault_execution_bundle(site_identity, vault_identity, plan_sha256)
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:62:                        site_identity varchar(128) NOT NULL,
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:69:                            site_identity, vault_identity, plan_sha256),
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:71:                            FOREIGN KEY (site_identity, vault_identity, plan_sha256)
+src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs:72:                            REFERENCES article_vault_execution_bundle(site_identity, vault_identity, plan_sha256)
+src/backend/Infrastructure/PublicAot/PublicOriginPolicy.cs:20:            ?? PublicSiteIdentityDefaults.SiteBaseUrl;
+src/backend/Infrastructure/PublicAot/PublicOriginPolicy.cs:65:        => string.Equals(value, PublicSiteIdentityDefaults.SiteBaseUrl, StringComparison.OrdinalIgnoreCase)
+src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs:138:            || !IsContextIdentity(actor.SiteIdentity)
+src/shared/Contracts/ArticleRelations/ArticleRelationDigest.cs:301:        writer.Add(actor.SiteIdentity);
+src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs:204:    string SiteIdentity,
+src/shared/Contracts/ArticleVault/article-vault-sync-plan.schema.json:10:    "siteIdentity",
+src/shared/Contracts/ArticleVault/article-vault-sync-plan.schema.json:31:    "siteIdentity": { "$ref": "#/$defs/identity" },
+src/shared/Contracts/ArticleVault/article-vault-metadata-manifest.schema.json:10:    "siteIdentity",
+src/shared/Contracts/ArticleVault/article-vault-metadata-manifest.schema.json:25:    "siteIdentity": { "$ref": "#/$defs/identity" },
+src/shared/Contracts/ArticleVault/article-vault-root-manifest.schema.json:12:    "siteIdentity",
+src/shared/Contracts/ArticleVault/article-vault-root-manifest.schema.json:33:    "siteIdentity": { "$ref": "#/$defs/identity" },
+src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanContracts.cs:51:    string SiteIdentity,
+src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanContracts.cs:128:    string SiteIdentity,
+src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanner.cs:259:            request.RootManifest.SiteIdentity,
+src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanner.cs:475:        if (!ArticleVaultManifestValidator.IsIdentity(plan.SiteIdentity)
+src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanner.cs:695:        if (root!.SiteIdentity != plan.SiteIdentity
+src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanner.cs:801:        if (observation.SiteIdentity != article.SiteIdentity
+src/shared/Contracts/ArticleVault/article-vault-article-manifest.schema.json:10:    "siteIdentity",
+src/shared/Contracts/ArticleVault/article-vault-article-manifest.schema.json:24:    "siteIdentity": { "$ref": "#/$defs/identity" },
+src/shared/Contracts/ArticleVault/ArticleVaultManifestContracts.cs:114:    string SiteIdentity,
+src/shared/Contracts/ArticleVault/ArticleVaultManifestContracts.cs:125:    string SiteIdentity,
+src/shared/Contracts/ArticleVault/ArticleVaultManifestContracts.cs:140:    string SiteIdentity,
+src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs:283:        ArticleVaultValidationResult identity = ValidateBinding(manifest.SiteIdentity, manifest.VaultIdentity);
+src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs:359:        ArticleVaultValidationResult binding = ValidateBinding(manifest.SiteIdentity, manifest.VaultIdentity);
+src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs:426:        ArticleVaultValidationResult binding = ValidateBinding(manifest.SiteIdentity, manifest.VaultIdentity);
+src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs:472:        if (root!.SiteIdentity != article!.SiteIdentity
+src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs:507:        if (article!.SiteIdentity != metadata!.SiteIdentity
+src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs:742:    private static ArticleVaultValidationResult ValidateBinding(string siteIdentity, string vaultIdentity)
+src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs:744:        if (!IsIdentity(siteIdentity))
+src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs:746:            return ArticleVaultValidationResult.Invalid("article_vault_site_identity_invalid");
+src/shared/Contracts/ArticleGraph/ArticleGraphContract.cs:129:        => ValidId(identity.Actor.ActorIdentity) && ValidId(identity.Actor.SiteIdentity)
+src/backend/Models/ReadModels/SystemReadModels.cs:7:    public string Title { get; init; } = PublicSiteIdentityDefaults.SiteTitle;
+src/backend/Models/ReadModels/SystemReadModels.cs:8:    public string Description { get; init; } = PublicSiteIdentityDefaults.SiteDescription;
+src/backend/Models/ReadModels/SystemReadModels.cs:10:    public string Keywords { get; init; } = PublicSiteIdentityDefaults.SiteKeywords;
+src/backend/Models/ReadModels/SystemReadModels.cs:11:    public string Author { get; init; } = PublicSiteIdentityDefaults.SiteAuthor;
+src/backend/Models/ReadModels/SystemReadModels.cs:13:    public string BaseUrl { get; init; } = PublicSiteIdentityDefaults.SiteBaseUrl;
+src/backend/Models/ReadModels/SystemReadModels.cs:18:    public string ManifestName { get; init; } = PublicSiteIdentityDefaults.ManifestName;
+src/backend/Models/ReadModels/SystemReadModels.cs:19:    public string ManifestShortName { get; init; } = PublicSiteIdentityDefaults.ManifestShortName;
+src/backend/Models/Requests/SystemRequests.cs:7:    public string Title { get; init; } = PublicSiteIdentityDefaults.SiteTitle;
+src/backend/Models/Requests/SystemRequests.cs:8:    public string Description { get; init; } = PublicSiteIdentityDefaults.SiteDescription;
+src/backend/Models/Requests/SystemRequests.cs:9:    public string Keywords { get; init; } = PublicSiteIdentityDefaults.SiteKeywords;
+src/backend/Models/Requests/SystemRequests.cs:10:    public string Author { get; init; } = PublicSiteIdentityDefaults.SiteAuthor;
+src/backend/Models/Requests/SystemRequests.cs:12:    public string BaseUrl { get; init; } = PublicSiteIdentityDefaults.SiteBaseUrl;
+src/backend/Models/Requests/SystemRequests.cs:17:    public string ManifestName { get; init; } = PublicSiteIdentityDefaults.ManifestName;
+src/backend/Models/Requests/SystemRequests.cs:18:    public string ManifestShortName { get; init; } = PublicSiteIdentityDefaults.ManifestShortName;
+src/backend/Entities/ArticleVaultExecution.cs:14:    [SugarColumn(ColumnName = "site_identity", Length = 128)]
+src/backend/Entities/ArticleVaultExecution.cs:15:    public string SiteIdentity { get; set; } = string.Empty;
+src/backend/Entities/ArticleVaultExecution.cs:48:    [SugarColumn(ColumnName = "site_identity", Length = 128)]
+src/backend/Entities/ArticleVaultExecution.cs:49:    public string SiteIdentity { get; set; } = string.Empty;
+src/backend/Entities/ArticleVaultExecution.cs:79:    [SugarColumn(ColumnName = "site_identity", Length = 128)]
+src/backend/Entities/ArticleVaultExecution.cs:80:    public string SiteIdentity { get; set; } = string.Empty;
+src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs:129:            ?? PublicSiteIdentityDefaults.SiteBaseUrl;
+src/backend/Services/ArticleVault/PostgresArticleVaultExecutionStore.cs:23:            SiteIdentity = bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleVault/PostgresArticleVaultExecutionStore.cs:73:        string siteIdentity,
+src/backend/Services/ArticleVault/PostgresArticleVaultExecutionStore.cs:82:                && item.SiteIdentity == siteIdentity
+src/backend/Services/ArticleVault/PostgresArticleVaultExecutionStore.cs:117:            SiteIdentity = result.SiteIdentity,
+src/backend/Services/ArticleVault/PostgresArticleVaultExecutionStore.cs:161:            SiteIdentity = result.SiteIdentity,
+src/backend/Services/ArticleVault/ArticleVaultSyncPlanExecutor.cs:90:                    bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleVault/ArticleVaultSyncPlanExecutor.cs:192:            bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleVault/ArticleVaultExecutionIntegrity.cs:67:            plan.SiteIdentity,
+src/backend/Services/ArticleVault/ArticleVaultExecutionIntegrity.cs:176:            || receipt.SiteIdentity != bundle.Plan.SiteIdentity
+src/backend/Services/ArticleVault/ArticleVaultExecutionIntegrity.cs:204:                || operation.SiteIdentity != bundle.Plan.SiteIdentity
+src/backend/Services/ArticleVault/ArticleVaultExecutionIntegrity.cs:353:            || result.SiteIdentity != bundle.Plan.SiteIdentity
+src/backend/Services/ArticleVault/ArticleVaultExecutionContracts.cs:108:    string SiteIdentity,
+src/backend/Services/ArticleVault/ArticleVaultExecutionContracts.cs:132:    string SiteIdentity,
+src/backend/Services/ArticleVault/ArticleVaultExecutionContracts.cs:146:    string SiteIdentity,
+src/backend/Services/ArticleVault/ArticleVaultExecutionContracts.cs:167:        string siteIdentity,
+src/backend/Services/Authoring/SqlAuthorArticlePinPermissionAuthority.cs:158:            ?? PublicSiteIdentityDefaults.SiteBaseUrl;
+src/backend/Services/ArticleService.ArticleVaultWriter.cs:29:            bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleService.ArticleVaultWriter.cs:58:                            bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleService.ArticleVaultWriter.cs:170:                    bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleService.ArticleVaultWriter.cs:353:            bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleService.ArticleVaultWriter.cs:430:            bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleService.ArticleVaultWriter.cs:466:                bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleService.ArticleVaultObservation.cs:39:                bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleService.ArticleVaultObservation.cs:49:                bundle.Plan.SiteIdentity,
+src/backend/Services/ArticleService.ArticleVaultObservation.cs:88:        string siteIdentity,
+src/backend/Services/ArticleService.ArticleVaultObservation.cs:101:            siteIdentity,
+src/backend/Services/SystemService.cs:516:        string baseUrl = NormalizeHttpUrlOrDefault(dto.BaseUrl, PublicSiteIdentityDefaults.SiteBaseUrl, 256).TrimEnd('/');
+src/backend/Services/SystemService.cs:520:            Title = string.IsNullOrWhiteSpace(title) ? PublicSiteIdentityDefaults.SiteTitle : title,
+src/backend/Services/SystemService.cs:525:            BaseUrl = baseUrl.Length == 0 ? PublicSiteIdentityDefaults.SiteBaseUrl : baseUrl,
+src/backend/Services/SystemService.cs:530:            ManifestName = NormalizeManifestText(dto.ManifestName, string.IsNullOrWhiteSpace(title) ? PublicSiteIdentityDefaults.ManifestName : title, 128),
+src/backend/Services/SystemService.cs:531:            ManifestShortName = NormalizeManifestText(dto.ManifestShortName, PublicSiteIdentityDefaults.ManifestShortName, 128),
+src/backend/Services/SystemService.cs:734:            Title = GetValue(configs, KeyTitle, PublicSiteIdentityDefaults.SiteTitle),
+src/backend/Services/SystemService.cs:735:            Description = GetValue(configs, KeyDesc, PublicSiteIdentityDefaults.SiteDescription),
+src/backend/Services/SystemService.cs:736:            Keywords = GetValue(configs, KeyKeywords, PublicSiteIdentityDefaults.SiteKeywords),
+src/backend/Services/SystemService.cs:737:            Author = GetValue(configs, PublicSiteAuthorPolicy.ConfigurationKey, PublicSiteIdentityDefaults.SiteAuthor),
+src/backend/Services/SystemService.cs:739:            BaseUrl = GetValue(configs, KeyBaseUrl, PublicSiteIdentityDefaults.SiteBaseUrl),
+src/backend/Services/SystemService.cs:745:            ManifestShortName = GetValue(configs, KeyManifestShortName, PublicSiteIdentityDefaults.ManifestShortName),
+src/backend/Services/Articles/Bulk/ArticleBulkPlanAuthority.cs:21:internal sealed record ArticleBulkActor(string UserId, string SiteId, string AuthorityDigest);
+src/backend/Services/Articles/Bulk/ArticleBulkPlanAuthority.cs:46:    string? SiteId,
+src/backend/Services/Articles/Bulk/ArticleBulkPlanAuthority.cs:519:        if (!observation.Exists || !observation.Permitted || observation.SiteId != actor.SiteId)
+src/backend/Services/Articles/Bulk/ArticleBulkPlanAuthority.cs:605:            || !IsBoundedOpaqueValue(request.Actor.SiteId, 256)
+src/backend/Services/Articles/Bulk/ArticleBulkProductionAuthorities.cs:53:                actor.SiteId
+src/backend/Services/Articles/Bulk/ArticleBulkProductionAuthorities.cs:59:                actor.SiteId
+src/backend/Services/Articles/Bulk/ArticleBulkProductionAuthorities.cs:86:        var owner = new AuthorSavedViewOwner(adminPrincipalId, actor.SiteId);
+config/schemas/article-relation-contract.schema.json:40:      "required": ["actorIdentity", "siteIdentity", "permissionContextDigest"],
+config/schemas/article-relation-contract.schema.json:43:        "siteIdentity": { "type": "string", "minLength": 3, "maxLength": 160 },
+config/testing/temporal-callsite-dispositions.json:84:            "callSiteId": "backend.comment-cache-readiness",
+config/testing/temporal-callsite-dispositions.json:97:            "callSiteId": "backend.comment-moderation-outbox-readiness",
+config/testing/temporal-callsite-dispositions.json:110:            "callSiteId": "backend.comment-thread-cache-readiness",
+config/testing/temporal-callsite-dispositions.json:123:            "callSiteId": "backend.messaging-outbox-readiness",
+config/testing/temporal-callsite-dispositions.json:136:            "callSiteId": "backend.demo-projection-readiness",
+config/testing/temporal-callsite-dispositions.json:149:            "callSiteId": "backend.article-outbox-readiness",
+config/testing/temporal-callsite-dispositions.json:162:            "callSiteId": "backend.security-handoff-readiness",
+config/testing/temporal-callsite-dispositions.json:175:            "callSiteId": "backend.security-publication-readiness",
+config/testing/temporal-callsite-dispositions.json:188:            "callSiteId": "backend.audit-fixture.wait-start",
+config/testing/temporal-callsite-dispositions.json:201:            "callSiteId": "backend.audit-fixture.wait-duration",
+config/testing/temporal-callsite-dispositions.json:214:            "callSiteId": "node.fixture-catalog.receipt-generated-at",
+config/testing/temporal-callsite-dispositions.json:227:            "callSiteId": "node.fixture-catalog.child-cleanup-delay",
+config/testing/temporal-callsite-dispositions.json:240:            "callSiteId": "node.data-scale.comment-timestamp",
+config/testing/temporal-callsite-dispositions.json:253:            "callSiteId": "node.data-scale.reply-timestamp",
+config/testing/temporal-callsite-dispositions.json:266:            "callSiteId": "node.data-scale.aot-manifest-generated-at",
+config/testing/temporal-callsite-dispositions.json:279:            "callSiteId": "node.data-scale.aot-receipt-generated-at",
+config/testing/temporal-callsite-dispositions.json:292:            "callSiteId": "node.data-scale.backend-liveness-timeout",
+config/testing/temporal-callsite-dispositions.json:305:            "callSiteId": "node.data-scale.runtime-receipt-created-at",
+config/testing/temporal-callsite-dispositions.json:318:            "callSiteId": "node.data-scale.live-receipt-created-at",
+config/testing/temporal-callsite-dispositions.json:331:            "callSiteId": "node.data-scale.service-readiness-delay",
+config/testing/temporal-callsite-dispositions.json:344:            "callSiteId": "node.data-scale.seed-receipt-generated-at",
+config/testing/temporal-callsite-dispositions.json:357:            "callSiteId": "node.data-scale.provisioned-receipt-created-at",
+config/testing/temporal-callsite-dispositions.json:370:            "callSiteId": "node.data-scale.search-rebuild-started-at",
+config/testing/temporal-callsite-dispositions.json:383:            "callSiteId": "node.data-scale.search-rebuild-completed-at",
+config/testing/temporal-callsite-dispositions.json:396:            "callSiteId": "node.data-scale.taxonomy-version-generated-at",
+config/testing/temporal-callsite-dispositions.json:409:            "callSiteId": "node.data-scale.taxonomy-proof-generated-at",
+config/testing/temporal-callsite-dispositions.json:422:            "callSiteId": "node.media-positive.materialization-start",
+config/testing/temporal-callsite-dispositions.json:435:            "callSiteId": "node.media-positive.materialization-duration",
+config/testing/temporal-callsite-dispositions.json:448:            "callSiteId": "node.mutation-recovery.run-start",
+config/testing/temporal-callsite-dispositions.json:461:            "callSiteId": "node.mutation-recovery.case-start",
+config/testing/temporal-callsite-dispositions.json:474:            "callSiteId": "node.mutation-recovery.case-duration",
+config/testing/temporal-callsite-dispositions.json:487:            "callSiteId": "node.mutation-recovery.run-duration",
+config/testing/temporal-callsite-dispositions.json:500:            "callSiteId": "node.temporal-context.performance-now",
+config/testing/temporal-callsite-dispositions.json:513:            "callSiteId": "node.temporal-context.hrtime-bigint",
+config/testing/temporal-callsite-dispositions.json:526:            "callSiteId": "node.temporal-qualification.generated-at",
+config/testing/temporal-callsite-dispositions.json:539:            "callSiteId": "node.deterministic-command.generated-at",
+config/testing/temporal-callsite-dispositions.json:552:            "callSiteId": "data-scale.seed.started-at-measurement",
+config/testing/temporal-callsite-dispositions.json:565:            "callSiteId": "data-scale.seed.duration-ms",
+config/testing/temporal-callsite-dispositions.json:578:            "callSiteId": "data-scale.seed.generated-at",
+config/testing/temporal-callsite-dispositions.json:591:            "callSiteId": "data-scale.cleanup.started-at-measurement",
+config/testing/temporal-callsite-dispositions.json:604:            "callSiteId": "data-scale.cleanup.duration-ms",
+config/testing/temporal-callsite-dispositions.json:617:            "callSiteId": "data-scale.cleanup.generated-at",
+config/testing/temporal-callsite-dispositions.json:630:            "callSiteId": "browser-contract.default-provider.prepared-at",
+config/testing/temporal-callsite-dispositions.json:643:            "callSiteId": "browser-contract.default-provider.local-cleanup-retry-delay",
+config/testing/temporal-callsite-dispositions.json:656:            "callSiteId": "browser-contract.default-provider.container-absence-deadline",
+config/testing/temporal-callsite-dispositions.json:669:            "callSiteId": "browser-contract.default-provider.container-absence-check",
+config/testing/temporal-callsite-dispositions.json:682:            "callSiteId": "browser-contract.default-provider.container-absence-poll-delay",
+config/testing/temporal-callsite-dispositions.json:695:            "callSiteId": "browser-contract.default-provider.compensation-retry-delay",
+config/testing/temporal-callsite-dispositions.json:708:            "callSiteId": "browser-contract.default-provider.verified-cleanup-retry-delay",
+config/testing/temporal-callsite-dispositions.json:721:            "callSiteId": "fixture-orchestrator.temporal-receipt.generated-at",
+config/testing/temporal-callsite-dispositions.json:734:            "callSiteId": "browser-contract.scenario.business-epoch-observation",
+config/testing/temporal-callsite-dispositions.json:747:            "callSiteId": "browser-contract.run.started-at",
+config/testing/temporal-callsite-dispositions.json:760:            "callSiteId": "browser-contract.run.measurement-start",
+config/testing/temporal-callsite-dispositions.json:773:            "callSiteId": "browser-contract.scenario.measurement-start",
+config/testing/temporal-callsite-dispositions.json:786:            "callSiteId": "browser-contract.scenario.started-at",
+config/testing/temporal-callsite-dispositions.json:799:            "callSiteId": "browser-contract.scenario.finished-at",
+config/testing/temporal-callsite-dispositions.json:812:            "callSiteId": "browser-contract.scenario.duration",
+config/testing/temporal-callsite-dispositions.json:825:            "callSiteId": "browser-contract.finalize.finished-at",
+config/testing/temporal-callsite-dispositions.json:838:            "callSiteId": "browser-contract.finalize.duration",
+config/testing/temporal-callsite-dispositions.json:851:            "callSiteId": "browser-contract.fallback.finished-at",
+config/testing/temporal-callsite-dispositions.json:864:            "callSiteId": "browser-contract.fallback.duration",
+config/testing/temporal-callsite-dispositions.json:877:            "callSiteId": "frontend.playwright.ux-run-id",
+config/testing/temporal-callsite-dispositions.json:890:            "callSiteId": "browser-contract.contract.finalize-default",
+config/testing/temporal-callsite-dispositions.json:903:            "callSiteId": "browser-contract.contract.create-default",
+config/testing/temporal-callsite-dispositions.json:916:            "callSiteId": "browser-contract.lifecycle.identity-default",
+config/testing/temporal-callsite-dispositions.json:929:            "callSiteId": "browser-contract.lifecycle.api-preparation-start",
+config/testing/temporal-callsite-dispositions.json:942:            "callSiteId": "browser-contract.lifecycle.prepare-default",
+config/testing/temporal-callsite-dispositions.json:955:            "callSiteId": "browser-contract.lifecycle.prepare-start-format",
+config/testing/temporal-callsite-dispositions.json:968:            "callSiteId": "browser-contract.lifecycle.manifest-generated-at",
+config/testing/temporal-callsite-dispositions.json:981:            "callSiteId": "browser-contract.lifecycle.prepared-at",
+config/testing/temporal-callsite-dispositions.json:994:            "callSiteId": "browser-contract.lifecycle.missing-cleanup-start",
+config/testing/temporal-callsite-dispositions.json:1007:            "callSiteId": "browser-contract.lifecycle.missing-cleanup-finish",
+config/testing/temporal-callsite-dispositions.json:1020:            "callSiteId": "browser-contract.lifecycle.cleanup-start",
+config/testing/temporal-callsite-dispositions.json:1033:            "callSiteId": "browser-contract.lifecycle.cleanup-finish",
+config/testing/temporal-callsite-dispositions.json:1046:            "callSiteId": "browser-contract.run.running-start-format",
+config/testing/temporal-callsite-dispositions.json:1059:            "callSiteId": "browser-contract.run.fallback-start-format",
+config/testing/temporal-callsite-dispositions.json:1072:            "callSiteId": "browser-contract.scenarios.issue-at",
+config/testing/temporal-callsite-dispositions.json:1085:            "callSiteId": "fixture-receipt.verified-at",
+config/testing/temporal-callsite-dispositions.json:1098:            "callSiteId": "temporal-child.node-handshake-measurement",
+config/testing/temporal-callsite-dispositions.json:1111:            "callSiteId": "temporal-child.bash-emitter-measurement",
+config/testing/temporal-callsite-dispositions.json:1124:            "callSiteId": "temporal-context.business-epoch-format",
+config/testing/temporal-callsite-dispositions.json:1137:            "callSiteId": "temporal-context.local-date-format",
+config/testing/temporal-callsite-dispositions.json:1150:            "callSiteId": "browser-contract.lifecycle.provider-force-kill-timeout",
+config/testing/temporal-callsite-dispositions.json:1163:            "callSiteId": "browser-contract.lifecycle.provider-readiness-timeout",
+config/testing/temporal-callsite-dispositions.json:1176:            "callSiteId": "fixture-process.command-timeout",
+config/testing/temporal-callsite-dispositions.json:1189:            "callSiteId": "fixture-process.command-timeout-force-kill",
+config/testing/temporal-callsite-dispositions.json:1202:            "callSiteId": "fixture-process.abort-force-kill",
+config/testing/temporal-callsite-dispositions.json:1215:            "callSiteId": "browser-contract.default-provider.process-timeout",
+config/testing/temporal-callsite-dispositions.json:1228:            "callSiteId": "session-fixtures.auth-manifest.generated-at",
+config/testing/temporal-callsite-dispositions.json:1241:            "callSiteId": "acceptance-shared.human-read-proof.defer",
+config/testing/temporal-callsite-dispositions.json:1254:            "callSiteId": "acceptance-shared.notification-stream.defer",
+config/testing/temporal-callsite-dispositions.json:1267:            "callSiteId": "acceptance-shared.theme.defer",
+config/testing/temporal-callsite-dispositions.json:1280:            "callSiteId": "acceptance-shared.monotonic-clock",
+config/testing/temporal-callsite-dispositions.json:1293:            "callSiteId": "acceptance-shared.pow.event-loop-yield",
+config/testing/temporal-callsite-dispositions.json:1306:            "callSiteId": "acceptance-bootstrap.monotonic-now",
+config/testing/temporal-callsite-dispositions.json:1319:            "callSiteId": "acceptance-bootstrap.release-id-timestamp",
+config/testing/temporal-callsite-dispositions.json:1332:            "callSiteId": "acceptance-bootstrap.runtime-identity-deadline",
+config/testing/temporal-callsite-dispositions.json:1345:            "callSiteId": "acceptance-bootstrap.runtime-identity-created-at",
+config/testing/temporal-callsite-dispositions.json:1358:            "callSiteId": "browser-contract.prepare-fixture.clock-1",
+config/testing/temporal-callsite-dispositions.json:1371:            "callSiteId": "public-shell-locale.public-shell-locale-first-response.clock-1",
+config/testing/temporal-callsite-dispositions.json:1384:            "callSiteId": "public-shell-locale.public-shell-locale-lifecycle-actions.clock-1",
+config/testing/temporal-callsite-dispositions.json:1397:            "callSiteId": "public-shell-locale.public-shell-locale-lifecycle-evidence.clock-1",
+config/testing/temporal-callsite-dispositions.json:1410:            "callSiteId": "public-shell-locale.public-shell-locale-lifecycle-evidence.clock-2",
+config/testing/temporal-callsite-dispositions.json:1423:            "callSiteId": "public-shell-locale.public-shell-locale-scene-driver.clock-1",
+config/testing/temporal-callsite-dispositions.json:1436:            "callSiteId": "fixture-receipt.private-io.clock-1",
+config/testing/temporal-callsite-dispositions.json:1449:            "callSiteId": "fixture-receipt.private-io.clock-2",
+config/testing/temporal-callsite-dispositions.json:1462:            "callSiteId": "fixture-receipt.private-io.clock-3",
+config/testing/temporal-callsite-dispositions.json:1475:            "callSiteId": "fixture-receipt.private-io.clock-4",
+config/testing/temporal-callsite-dispositions.json:1488:            "callSiteId": "fixture-receipt.projection.clock-1",
+config/testing/temporal-callsite-dispositions.json:1501:            "callSiteId": "fixture-receipt.projection.clock-2",
+config/testing/temporal-callsite-dispositions.json:1514:            "callSiteId": "fixture-receipt.projection.clock-3",
+config/testing/temporal-callsite-dispositions.json:1527:            "callSiteId": "fixture-receipt.projection.clock-4",
+config/testing/temporal-callsite-dispositions.json:1540:            "callSiteId": "fixture-receipt.projection.clock-5",
+config/testing/temporal-callsite-dispositions.json:1553:            "callSiteId": "fixture-receipt.projection.clock-6",
+config/testing/temporal-callsite-dispositions.json:1566:            "callSiteId": "mysql-fixture-service.mysql.clock-1",
+config/testing/temporal-callsite-dispositions.json:1579:            "callSiteId": "mysql-fixture-service.mysql.clock-2",
+config/testing/temporal-callsite-dispositions.json:1592:            "callSiteId": "mysql-fixture-service.mysql.clock-3",
+config/testing/temporal-callsite-dispositions.json:1605:            "callSiteId": "mysql-fixture-service.mysql.clock-4",
+config/testing/temporal-callsite-dispositions.json:1618:            "callSiteId": "mysql-fixture-service.mysql.clock-5",
+config/testing/temporal-callsite-dispositions.json:1631:            "callSiteId": "mysql-fixture-service.mysql.clock-6",
+config/testing/temporal-callsite-dispositions.json:1644:            "callSiteId": "mysql-fixture-service.mysql.clock-7",
+config/testing/temporal-callsite-dispositions.json:1657:            "callSiteId": "mysql-fixture-service.mysql.clock-8",
+config/testing/temporal-callsite-dispositions.json:1670:            "callSiteId": "mysql-fixture-service.mysql.clock-9",
+config/testing/temporal-callsite-dispositions.json:1683:            "callSiteId": "browser-contract.later-current-clock-1",
+config/testing/temporal-callsite-dispositions.json:1696:            "callSiteId": "browser-contract.later-current-clock-2",
+config/testing/temporal-callsite-dispositions.json:1709:            "callSiteId": "browser-contract.later-current-clock-3",
+config/testing/temporal-callsite-dispositions.json:1722:            "callSiteId": "auth-session-fixture.later-current-clock-7",
+config/testing/temporal-callsite-dispositions.json:1735:            "callSiteId": "auth-session-fixture.later-current-clock-8",
+config/testing/temporal-callsite-dispositions.json:1748:            "callSiteId": "public-content-fixture.later-current-clock-9",
+config/testing/temporal-callsite-dispositions.json:1761:            "callSiteId": "public-content-fixture.later-current-clock-10",
+config/development/frontend-style-baseline.json:3409:            "path": "src/frontend/src/public-renderers/publicSiteIdentity.ts",
+config/development/frontend-style-baseline.json:3416:            "path": "src/frontend/src/public-renderers/publicSiteIdentityContext.ts",
+config/development/frontend-style-baseline.json:3425:            "path": "src/frontend/src/public-renderers/publicSiteIdentityDefaults.ts",
