@@ -7,6 +7,8 @@ using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
+using Microsoft.Extensions.Configuration;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Integration;
