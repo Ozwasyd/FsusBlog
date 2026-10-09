@@ -1,0 +1,12 @@
+{
+    "reason": "unchanged canonical producer refused host Node24.19 identity; no output was generated",
+    "authorityPath": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "authorityDisposition": "byte-identical to actual master be7c53d99; binding is pending, not qualified",
+    "omittedUpstreamManifests": [
+        "artifacts/change-contract/gpu-access-csharp-policy-binding.json",
+        "artifacts/change-contract/csharp-delegate-declaration-generated-binding.json"
+    ],
+    "whyOmitted": "their upstream digests are not the current composition output; do not publish them as current bindings",
+    "required": "execution/toolchain owner supplies original indexed Node24.16.0 with matching built-in parser identities, then the unchanged canonical producer and ordinary metadata bindings can be completed",
+    "prohibitedWorkarounds": "no index/parser authority change, producer bypass, digest hand edit, package/SDK installation or held audit"
+}

@@ -1,0 +1,13 @@
+file:///workspace/mem-gpu-20261009/tools/test-matrix/release-final-static-boundary.mjs:2256
+        throw new Error(errors.join('\n'));
+              ^
+
+Error: independent release-final Node parser identity drifted
+    at writeReleaseFinalExecutionAuthority (file:///workspace/mem-gpu-20261009/tools/test-matrix/release-final-static-boundary.mjs:2256:15)
+    at file:///workspace/mem-gpu-20261009/tools/test-matrix/generate-release-final-execution-authority.mjs:15:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.19.0
