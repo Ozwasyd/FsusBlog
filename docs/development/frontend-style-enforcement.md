@@ -155,8 +155,9 @@ residual allowance, or permission to disable the rule. The AST wrapper delegates
 every other import, export and dynamic-import visitor to the original import-x
 rule and retains all other ESLint rules and diagnostics.
 
-The decision binds two caller semantic trees (the master value contract and its
-OpenAPI projection obligation) and the canonical owner's semantic tree, ignoring
+The decision binds three caller semantic trees (the current master value contract
+and two retained prior versions, including the OpenAPI projection obligation)
+and the canonical owner's semantic tree, ignoring
 source locations and literal spelling only. The owner must also satisfy a finite
 AST language: only the existing value operations and the named `createHash`
 import from `node:crypto` are accepted. Arbitrary JavaScript purity is not claimed.
