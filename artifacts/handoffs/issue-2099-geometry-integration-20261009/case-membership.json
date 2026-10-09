@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "expectedCount": 25,
+  "actualCount": 25,
+  "membershipExact": true,
+  "orderedMembershipExact": false,
+  "orderIsNotAcceptanceCriterion": true,
+  "initialAccountingAttempt": "Initial script incorrectly required file argument order; Node emitted test files in its own order. Same preserved TAP has exact25 multiset; no test rerun.",
+  "extraNames": [],
+  "missingNames": [],
+  "summaryLines": [
+    "# tests 25",
+    "# pass 25",
+    "# fail 0",
+    "# cancelled 0",
+    "# skipped 0",
+    "# todo 0"
+  ]
+}

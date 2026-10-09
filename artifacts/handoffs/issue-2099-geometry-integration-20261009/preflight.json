@@ -1,0 +1,47 @@
+{
+    "sourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+    "runId": "issue-2099-geometry-integration-20261009",
+    "allowedFiles": [
+        "tests/tools/ux-viewport-plan.test.mjs",
+        "tests/tools/layout-composition-geometry.test.mjs"
+    ],
+    "allowedCaseNames": {
+        "tests/tools/ux-viewport-plan.test.mjs": [
+            "plan/progress tier summary binds the exact executable governance suite to its fresh run",
+            "shared planner preserves the exact smoke, visual, and boundaries coverage budgets",
+            "canonical boundaries enumerate the 375 and 768 viewport records for every route and theme",
+            "canonical boundaries reject missing and duplicate 375 or 768 viewport registrations",
+            "safe-area matrix only pairs overlay-risk surfaces and freezes profile table",
+            "safe-area plan rejects non-overlay-risk cartesian explosion mutations",
+            "group and step identities are stable semantic values without ordinal prefixes",
+            "planner keeps matrix media order inside one cold navigation per viewport",
+            "local production risk plan covers every dimension within 48 navigations",
+            "risk matrix plus safe-area stays bounded and overlay-risk only",
+            "unknown filters fail closed even when another requested value is valid",
+            "mobile-landscape canary is a planner parity list, not a fabricated golden catalog"
+        ],
+        "tests/tools/layout-composition-geometry.test.mjs": [
+            "geometry finite visible primary is a partial diagnostic",
+            "geometry positive viewport intersection uses fractional bounds without scroll offsets",
+            "geometry edge contact and offscreen bounds fail intersection",
+            "geometry nonfinite or nonnumeric rectangle values fail",
+            "geometry invalid viewport or scroll values fail",
+            "geometry nonpositive or inverted primary area fails",
+            "geometry hidden primary and inconsistent computed visibility fail",
+            "geometry exact node and page correspondence mismatches fail",
+            "geometry missing or malformed observations never pass",
+            "geometry predicate must target the canonical primary region",
+            "geometry missing duplicate or wrongly owned primary fails",
+            "geometry actual pending inputs refuse before browser evaluation",
+            "geometry malformed inputs refuse before browser evaluation"
+        ]
+    },
+    "expectedCases": 25,
+    "testHooks": [],
+    "importSideEffects": "geometry loadCompositionInputs reads actual matrix/schema/fixture source/design documents; imported planner progress CLI main guard is false, so it does not spawn its suite",
+    "controlledNumericGeometryIsNotProductEvidence": true,
+    "browserEvaluationExpected": 0,
+    "pendingStates": 91,
+    "nullFixtureRefs": 79,
+    "browserOrHeldAuditsAuthorized": false
+}

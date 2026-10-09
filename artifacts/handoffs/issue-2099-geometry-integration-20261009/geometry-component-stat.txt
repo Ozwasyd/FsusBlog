@@ -1,0 +1,5 @@
+ ...issue-2099-viewport-source-external-naming.json | 10 ++++++
+ docs/testing.md                                    |  2 ++
+ tests/frontend/fixtures/ux-viewport-matrix.json    | 28 +++++++++++++++
+ tests/tools/ux-viewport-plan.test.mjs              | 42 +++++++++++++++++++---
+ 4 files changed, 77 insertions(+), 5 deletions(-)

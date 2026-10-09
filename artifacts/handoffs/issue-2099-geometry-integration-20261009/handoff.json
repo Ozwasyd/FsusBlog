@@ -1,0 +1,108 @@
+{
+  "scope": "parent-released2099 geometry source integration and ordinary focused controls only",
+  "sourceBranch": "codex/issue-2099-geometry-integration-20261009",
+  "sourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "remoteVerified": true,
+  "masterObserved": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "mergeBase": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+  "suppliedSourceCommit": "2c688e912067e08069f3c98ee42a963071864263",
+  "suppliedGeometryCommit": "7499b5bd82d3ce888672abc2e054bb08736da08d",
+  "componentOwnershipPreserved": true,
+  "ownIncorporatedCommits": [
+    {
+      "original": "ec09353b19d25d3eae4e315afdd8f99c53ff5653",
+      "incorporated": "480d626460472892ee287eba7ccf70715763ead6"
+    },
+    {
+      "original": "7a9d30c4bc57b449241930422f6ca19a9d0727eb",
+      "incorporated": "c5d5f1d7792b1128f39fa9d88b37e5ce82f667c5"
+    },
+    {
+      "newDocumentation": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e"
+    }
+  ],
+  "oldViewportBranchFrozen": "7a9d30c4bc57b449241930422f6ca19a9d0727eb",
+  "ownDeltaFromGeometry": {
+    "files": 4,
+    "insertions": 77,
+    "deletions": 5
+  },
+  "sourceDeltaFrom2c": {
+    "files": 6,
+    "insertions": 539,
+    "deletions": 5
+  },
+  "fullPrDelta": {
+    "files": 123,
+    "insertions": 17924,
+    "deletions": 1833,
+    "roster": "current-master-merge-base-numstat.txt",
+    "ancestryInheritedNotRetested": true
+  },
+  "checks": {
+    "ordinaryTests": {
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "extra": 0,
+      "exitCode": 0,
+      "testedCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+      "evidence": [
+        "ordinary-tests.tap",
+        "test-command.json",
+        "test-result.json",
+        "case-membership.json"
+      ]
+    },
+    "syntaxJsonOwnDiff": {
+      "exitCode": 0,
+      "evidence": "syntax-and-diff-checks.json"
+    },
+    "ownCommitRange": {
+      "exitCode": 0,
+      "evidence": "commit-range-result.json"
+    },
+    "docsLint": {
+      "exitCode": 0,
+      "evidence": "docs-style-result.json",
+      "invalidArgumentAttemptRetained": true
+    },
+    "frontendStyle": {
+      "exitCode": 1,
+      "diagnostics": 349,
+      "path": "tests/tools/ux-viewport-plan.test.mjs",
+      "evidence": "frontend-style-summary.json",
+      "gatePassed": false
+    },
+    "full123FilePrContract": "NOT RUN; source owner does not claim full inherited naming/generated contract acceptance",
+    "browserAndHeldQualification": "NOT RUN; not authorized for this ordinary source task"
+  },
+  "controlledNumericalObservationsAreProductEvidence": false,
+  "browserEvaluationsInPendingInputControl": 0,
+  "fullGeometryVerified": false,
+  "fullVisualVerified": false,
+  "wholeIssueAccepted": false,
+  "wholeAssignmentAccepted": false,
+  "nextOwnerActions": [
+    "1894 owns analyzer source roster and diagnostic caller integration using returned domObservation",
+    "upstream scene/fixture/capability owners must release exact current-run required inputs before runtime admission",
+    "parent is sole GitHub content writer and can publish proposed full draft metadata after review; no PR API write performed",
+    "frontend source formatting remains a failed gate, requiring separately governed narrow format work if authorized"
+  ],
+  "siblingPrMergeOrCrossChainConflictResolution": false,
+  "destructiveOrProductionActions": false,
+  "newParentSteering": {
+    "receivedAtUtc": "2026-10-09T08:55:06.391267+00:00",
+    "externalPredicateWorkers": [
+      "chrome",
+      "flow-order",
+      "overflow"
+    ],
+    "sourceBase": "7499b5bd82d3ce888672abc2e054bb08736da08d",
+    "publishedPredicateCommitsSupplied": false,
+    "predicateFileOwnership": "each worker owns its two new predicate/test files; caller task does not implement them",
+    "futureConsumption": "only parent-supplied exact published commits and matching canonical contracts; preserve unknown/unimplemented predicates and fullGeometryVerified=false",
+    "geometrySourceRosterOwner": 1894,
+    "pendingStateAndNullFixtureFactsUnchanged": true
+  }
+}

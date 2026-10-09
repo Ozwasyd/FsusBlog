@@ -1,0 +1,28 @@
+{
+  "sourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "matrixPath": "tests/frontend/fixtures/layout-archetype-matrix.json",
+  "archetypes": 12,
+  "stateCount": 91,
+  "bindingStatusCounts": {
+    "pending-current-run": 91
+  },
+  "nullFixtureRefs": 79,
+  "capabilityBindings": [
+    {
+      "issue": 1814,
+      "capability": "authoring-product-model",
+      "status": "pending-exact-commit",
+      "sourceCommit": null,
+      "evidenceRefs": []
+    },
+    {
+      "issue": 1895,
+      "capability": "fsusui-control-origin",
+      "status": "pending-exact-commit",
+      "sourceCommit": null,
+      "evidenceRefs": []
+    }
+  ],
+  "runtimeExecution": "NOT RUN; existing actual-pending-input refusal control passed before both page evaluations",
+  "syntheticAdmissionCreated": false
+}

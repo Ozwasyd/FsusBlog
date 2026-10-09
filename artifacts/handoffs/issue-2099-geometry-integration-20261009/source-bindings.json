@@ -1,0 +1,34 @@
+{
+  "sourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "originMaster": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "mergeBase": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+  "suppliedSourceCommit": "2c688e912067e08069f3c98ee42a963071864263",
+  "suppliedGeometryCommit": "7499b5bd82d3ce888672abc2e054bb08736da08d",
+  "componentFiles": [
+    {
+      "path": "tests/frontend/support/layout/compositionGeometry.mjs",
+      "suppliedCommit": "7499b5bd82d3ce888672abc2e054bb08736da08d",
+      "sha256": "ea79af0e94df0f36201e2755b6fd79272fae15bb8c59f3de286cc5a8f572666f",
+      "gitBlob": "50c2d022a456b04ab2780b245af31b89d065870f",
+      "byteIdentical": true
+    },
+    {
+      "path": "tests/tools/layout-composition-geometry.test.mjs",
+      "suppliedCommit": "7499b5bd82d3ce888672abc2e054bb08736da08d",
+      "sha256": "181dfec8e1a3fc665e78aa24d05edbec7f69ef3053f8f49de8e7c087358210dd",
+      "gitBlob": "7c1333e13e47d0212391cd29b02894098be218ac",
+      "byteIdentical": true
+    }
+  ],
+  "canonicalMatrix": {
+    "path": "tests/frontend/fixtures/layout-archetype-matrix.json",
+    "currentBlob": "2fe92f9c9d37f3e8ecc605ca12b2ec229bb67aa2",
+    "suppliedSourceBlob": "2fe92f9c9d37f3e8ecc605ca12b2ec229bb67aa2",
+    "originalContractsBlob": "a6148df0ff549810bf13e652e3ac744c2cf8e51e",
+    "currentSourcePreserved": true,
+    "originalContractsMatrixNotOverlaid": true
+  },
+  "nodeVersion": "v24.16.0",
+  "nodeSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+  "sourceTreeStatus": ""
+}

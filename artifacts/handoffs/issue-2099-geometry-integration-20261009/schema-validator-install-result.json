@@ -1,0 +1,13 @@
+{
+    "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+        "ci",
+        "--ignore-scripts",
+        "--prefix",
+        "tools/test-matrix/schema-validator",
+        "--cache",
+        "/workspace/FsusBlog-2099-geometry-integration/.tmp/issue-2099-geometry-integration-20261009/npm-cache"
+    ],
+    "exitCode": 0
+}

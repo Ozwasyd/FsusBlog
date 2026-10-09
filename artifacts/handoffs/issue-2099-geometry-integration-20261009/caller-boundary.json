@@ -1,0 +1,40 @@
+{
+  "sourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "existingViewportCaller": {
+    "path": "tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
+    "line": 815,
+    "call": "assertViewportBoundaryContract(session.page, label)",
+    "plannerLine": 141,
+    "plannerCall": "buildUxViewportPlan({matrix,routes,mode,filters})",
+    "provided": "legacy UX route/theme/viewport/media plan; no canonical composition archetype/state or current verified fixture proof"
+  },
+  "missingInputs": [
+    "canonical matrix archetype/state admission",
+    "actual current-run verified fixture and scene/terminal-ready proof",
+    "current FsusUI baseline and composition identity",
+    "current runId and source/runBinding that includes geometry in the analyzer closure",
+    "original native zoom/render/font/local-published transport bindings for full issue acceptance"
+  ],
+  "upstreamHook": {
+    "path": "tests/frontend/checks/runtime/check-layout-composition-probe.mjs",
+    "line": 205,
+    "ownerIssue": 1894,
+    "currentCall": "probeCompositionPage(page,{archetype:candidate,graph,identity:run.identity,currentIdentity:run.identity,runId,runBinding,state:item.state})",
+    "limit": "controlled diagnostic candidate; not a qualified current product state"
+  },
+  "sourceRoster": {
+    "path": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+    "line": 9,
+    "symbol": "compositionAnalyzerSources",
+    "ownerIssue": 1894,
+    "geometryIncluded": false,
+    "modifiedByThisTask": false
+  },
+  "integrationConstraint": "Any future analyzer integration must consume the exact domObservation returned by probeCompositionGeometryPage; no independent recapture or assumed correspondence.",
+  "probeAdmissionGuardLine": 184,
+  "probeCapturesLines": [
+    192,
+    193
+  ],
+  "newRunnerOrInventedInputs": false
+}

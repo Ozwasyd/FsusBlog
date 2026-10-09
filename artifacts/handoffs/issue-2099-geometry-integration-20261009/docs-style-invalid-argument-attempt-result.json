@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--domain",
+    "docs",
+    "--mode",
+    "changed",
+    "--operation",
+    "check",
+    "--base",
+    "7499b5bd82d3ce888672abc2e054bb08736da08d",
+    "--file",
+    "docs/testing.md",
+    "--require-tools"
+  ],
+  "startedAtUtc": "2026-10-09T08:49:04.866094+00:00",
+  "exitCode": 1,
+  "log": "docs-style.log",
+  "environmentPathPrefix": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin",
+    "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/docs-toolchain/node_modules/.bin"
+  ],
+  "mutation": false
+}

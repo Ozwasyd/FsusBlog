@@ -1,0 +1,6 @@
+10	0	artifacts/change-contract/issue-2099-viewport-source-external-naming.json
+2	0	docs/testing.md
+28	0	tests/frontend/fixtures/ux-viewport-matrix.json
+196	0	tests/frontend/support/layout/compositionGeometry.mjs
+266	0	tests/tools/layout-composition-geometry.test.mjs
+37	5	tests/tools/ux-viewport-plan.test.mjs

@@ -1,0 +1,4 @@
+A	artifacts/change-contract/issue-2099-viewport-source-external-naming.json
+M	docs/testing.md
+M	tests/frontend/fixtures/ux-viewport-matrix.json
+M	tests/tools/ux-viewport-plan.test.mjs

@@ -1,0 +1,124 @@
+ .../control-integration-external-naming.json       |   41 +
+ .../control-legality-external-naming.json          |   32 +
+ .../control-legality-generated-binding.json        |   12 +
+ .../issue-1892-external-naming-exceptions.json     |   12 +
+ ...issue-2099-viewport-source-external-naming.json |   10 +
+ .../frontend/locale-menu-probe/error-retry.png     |  Bin 0 -> 47197 bytes
+ .../locale-menu-probe/generated-binding.json       |   31 +
+ .../frontend/locale-menu-probe/local-probe.json    |   88 +
+ .../locale-menu-probe/menu-alternative.png         |  Bin 0 -> 45609 bytes
+ .../frontend/locale-menu-probe/migration/README.md |   59 +
+ .../locale-menu-probe/migration/binding.json       |  223 ++
+ .../locale-menu-probe/migration/blog-unit.log      |   14 +
+ .../migration/broader-consumer-typecheck.log       |  293 ++
+ .../frontend/locale-menu-probe/migration/build.log |   79 +
+ .../migration/consumer-1440-dark-zoom1.png         |  Bin 0 -> 42123 bytes
+ .../migration/consumer-375-dark-zoom2.png          |  Bin 0 -> 83488 bytes
+ .../migration/consumer-375-light-zoom1.png         |  Bin 0 -> 38149 bytes
+ .../locale-menu-probe/migration/error-retry.png    |  Bin 0 -> 47553 bytes
+ .../migration/export-typecheck.log                 |   10 +
+ .../fsusui-377d0a88-introduced-type-error.log      |    9 +
+ .../migration/fsusui-baseline-web-typecheck.log    |    8 +
+ .../locale-menu-probe/migration/fsusui-unit.log    |    9 +
+ .../migration/fsusui-web-typecheck.log             |    8 +
+ .../implementation-start-classification.json       |   49 +
+ .../locale-menu-probe/migration/layout.log         |    1 +
+ .../locale-menu-probe/migration/local-command.log  |  147 +
+ .../locale-menu-probe/migration/local-probe.json   |  182 +
+ .../migration/menu-alternative.png                 |  Bin 0 -> 45886 bytes
+ .../locale-menu-probe/migration/pending.png        |  Bin 0 -> 45475 bytes
+ .../migration/published-command.log                |    8 +
+ .../migration/published-probe.json                 |   26 +
+ .../migration/selector-typecheck.log               |    0
+ .../frontend/locale-menu-probe/migration/style.log |    1 +
+ ...stream-implementation-start-classification.json |   81 +
+ artifacts/frontend/locale-menu-probe/pending.png   |  Bin 0 -> 46270 bytes
+ .../locale-menu-probe/published-install.txt        |    8 +
+ .../locale-menu-probe/published-probe.json         |   25 +
+ benchmarks/core/packages.lock.json                 |    7 +
+ config/frontend/control-legality.json              |    4 +
+ .../layout-composition-contract.schema.json        | 1386 +++++++
+ docs/frontend/layout-visual-governance.md          |  180 +
+ docs/frontend/motion-guidelines.md                 |    4 +-
+ docs/i18n.md                                       |   14 +
+ docs/security/comment-draft-privacy.md             |   14 +-
+ docs/testing.generated.md                          |   15 +-
+ docs/testing.md                                    |    2 +
+ package.json                                       |   14 +
+ .../components/article/ArticleCommentComposer.vue  |  581 ++-
+ .../components/article/ArticleImageLightbox.vue    |  207 +-
+ .../i18n/LocaleSelectorRuntimeAdapter.vue          |    2 +
+ .../components/i18n/useLocaleSelectorRuntime.ts    |   16 +-
+ src/frontend/src/components/ui/LocaleSelector.vue  |  767 +---
+ .../src/components/ui/localeSelectorTypes.ts       |    2 +
+ .../composables/article/useArticleImageLightbox.ts |   13 +-
+ src/frontend/src/fsusui/README.md                  |   33 +-
+ src/frontend/src/fsusui/checkbox.ts                |    2 +
+ src/frontend/src/fsusui/input.ts                   |    2 +
+ src/frontend/src/views/admin/PluginAdmin.vue       |  124 +-
+ tests/backend/packages.lock.json                   |    1 +
+ tests/frontend/README.md                           |   24 +
+ .../runtime/check-layout-composition-probe.mjs     |  290 ++
+ .../runtime/check-plugin-collection-probe.mjs      |  547 +++
+ .../runtime/probe-article-image-lightbox.mjs       |  229 ++
+ .../checks/runtime/probe-image-viewer-consumer.mjs |  358 ++
+ .../frontend/checks/runtime/probe-locale-menu.mjs  |  431 +++
+ .../check-article-image-lightbox-overlay.mjs       |  357 +-
+ .../static/check-fsusui-boundary-fixture.mjs       |   12 +
+ .../checks/static/check-fsusui-boundary.mjs        |   43 +-
+ .../checks/static/check-layout-composition.mjs     |   44 +
+ .../checks/static/check-public-reading-motion.mjs  |   15 +-
+ .../checks/static/check-views-constraints.mjs      |   13 +-
+ .../article-comment-composer-primitives.spec.ts    |  184 +
+ tests/frontend/e2e/ux/viewport-boundaries.spec.ts  |   10 +-
+ tests/frontend/fixtures/articleCommentComposer.ts  |   97 +
+ .../frontend/fixtures/imageViewerConsumerProbe.ts  |  112 +
+ .../frontend/fixtures/layout-archetype-matrix.json | 3968 +++++++++++++++++++-
+ tests/frontend/fixtures/localeMenuProbe/App.vue    |  117 +
+ .../frontend/fixtures/localeMenuProbe/Consumer.vue |   53 +
+ tests/frontend/fixtures/localeMenuProbe/README.md  |   70 +
+ tests/frontend/fixtures/localeMenuProbe/index.html |   12 +
+ tests/frontend/fixtures/localeMenuProbe/main.ts    |    5 +
+ .../PluginCollectionProbe.vue                      |  278 ++
+ .../fixtures/pluginCollectionProbe/index.html      |   12 +
+ .../fixtures/pluginCollectionProbe/main.ts         |    7 +
+ tests/frontend/fixtures/ux-viewport-matrix.json    |   28 +
+ tests/frontend/package-lock.json                   |   39 +
+ tests/frontend/package.json                        |    6 +-
+ .../support/layout/compositionAnalyzer.mjs         |  132 +
+ .../support/layout/compositionContracts.mjs        |  480 +++
+ tests/frontend/support/layout/compositionDom.mjs   |  446 +++
+ .../support/layout/compositionGeometry.mjs         |  196 +
+ .../frontend/support/layout/compositionRoutes.mjs  |  325 ++
+ .../frontend/support/layout/compositionSource.mjs  | 1266 +++++++
+ .../support/playwright/acceptance-shared.ts        |   23 +-
+ .../article-comment-composer-consumer-contract.ts  |   24 +
+ tests/frontend/typecheck/fsusui-export-contract.ts |    1 +
+ .../unit/components/ArticleCommentComposer.test.ts |  262 +-
+ .../unit/components/ArticleImageLightbox.test.ts   |  267 +-
+ .../unit/components/LocaleSelector.test.ts         |  164 +-
+ .../LocaleSelectorRuntimeAdapter.test.ts           |   61 +-
+ .../unit/views/PluginAdminCollection.test.ts       |  139 +
+ tests/governance/frontend-test-layout.json         |    1 +
+ tests/matrix.yml                                   |   12 +-
+ tests/tools/control-legality.test.mjs              |  279 ++
+ .../tools/layout-component-guards-source.test.mjs  |   70 +
+ tests/tools/layout-component-props-source.test.mjs |  172 +
+ tests/tools/layout-composition-contracts.test.mjs  |  496 +++
+ tests/tools/layout-composition-geometry.test.mjs   |  266 ++
+ tests/tools/layout-composition-source.test.mjs     |  327 ++
+ tests/tools/layout-factory-source.test.mjs         |  142 +
+ tests/tools/package-lock.json                      |   23 +-
+ tests/tools/package.json                           |    4 +-
+ tests/tools/ux-viewport-plan.test.mjs              |   42 +-
+ .../packages.lock.json                             |    7 +
+ .../packages.lock.json                             |    7 +
+ .../packages.lock.json                             |    7 +
+ .../FsusBlog.OpenApiObservation/packages.lock.json |    7 +
+ .../packages.lock.json                             |   74 +
+ tools/frontend/control-legality/admission.mjs      |  139 +
+ tools/frontend/control-legality/package-lock.json  |   23 +
+ tools/frontend/control-legality/package.json       |   13 +
+ tools/frontend/control-legality/source.mjs         | 1637 ++++++++
+ tools/package.json                                 |    6 +-
+ 123 files changed, 17924 insertions(+), 1833 deletions(-)

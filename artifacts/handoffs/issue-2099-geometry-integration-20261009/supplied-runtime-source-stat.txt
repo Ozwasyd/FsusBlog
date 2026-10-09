@@ -1,0 +1,7 @@
+ ...issue-2099-viewport-source-external-naming.json |  10 +
+ docs/testing.md                                    |   2 +
+ tests/frontend/fixtures/ux-viewport-matrix.json    |  28 +++
+ .../support/layout/compositionGeometry.mjs         | 196 +++++++++++++++
+ tests/tools/layout-composition-geometry.test.mjs   | 266 +++++++++++++++++++++
+ tests/tools/ux-viewport-plan.test.mjs              |  42 +++-
+ 6 files changed, 539 insertions(+), 5 deletions(-)

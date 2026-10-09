@@ -1,0 +1,160 @@
+TAP version 13
+# Subtest: geometry finite visible primary is a partial diagnostic
+ok 1 - geometry finite visible primary is a partial diagnostic
+  ---
+  duration_ms: 1.785439
+  type: 'test'
+  ...
+# Subtest: geometry positive viewport intersection uses fractional bounds without scroll offsets
+ok 2 - geometry positive viewport intersection uses fractional bounds without scroll offsets
+  ---
+  duration_ms: 0.398012
+  type: 'test'
+  ...
+# Subtest: geometry edge contact and offscreen bounds fail intersection
+ok 3 - geometry edge contact and offscreen bounds fail intersection
+  ---
+  duration_ms: 0.637924
+  type: 'test'
+  ...
+# Subtest: geometry nonfinite or nonnumeric rectangle values fail
+ok 4 - geometry nonfinite or nonnumeric rectangle values fail
+  ---
+  duration_ms: 0.929244
+  type: 'test'
+  ...
+# Subtest: geometry invalid viewport or scroll values fail
+ok 5 - geometry invalid viewport or scroll values fail
+  ---
+  duration_ms: 0.285181
+  type: 'test'
+  ...
+# Subtest: geometry nonpositive or inverted primary area fails
+ok 6 - geometry nonpositive or inverted primary area fails
+  ---
+  duration_ms: 0.230859
+  type: 'test'
+  ...
+# Subtest: geometry hidden primary and inconsistent computed visibility fail
+ok 7 - geometry hidden primary and inconsistent computed visibility fail
+  ---
+  duration_ms: 0.234335
+  type: 'test'
+  ...
+# Subtest: geometry exact node and page correspondence mismatches fail
+ok 8 - geometry exact node and page correspondence mismatches fail
+  ---
+  duration_ms: 0.299253
+  type: 'test'
+  ...
+# Subtest: geometry missing or malformed observations never pass
+ok 9 - geometry missing or malformed observations never pass
+  ---
+  duration_ms: 0.550121
+  type: 'test'
+  ...
+# Subtest: geometry predicate must target the canonical primary region
+ok 10 - geometry predicate must target the canonical primary region
+  ---
+  duration_ms: 0.742252
+  type: 'test'
+  ...
+# Subtest: geometry missing duplicate or wrongly owned primary fails
+ok 11 - geometry missing duplicate or wrongly owned primary fails
+  ---
+  duration_ms: 0.523782
+  type: 'test'
+  ...
+# Subtest: geometry actual pending inputs refuse before browser evaluation
+ok 12 - geometry actual pending inputs refuse before browser evaluation
+  ---
+  duration_ms: 90.846888
+  type: 'test'
+  ...
+# Subtest: geometry malformed inputs refuse before browser evaluation
+ok 13 - geometry malformed inputs refuse before browser evaluation
+  ---
+  duration_ms: 59.527701
+  type: 'test'
+  ...
+# Subtest: plan/progress tier summary binds the exact executable governance suite to its fresh run
+ok 14 - plan/progress tier summary binds the exact executable governance suite to its fresh run
+  ---
+  duration_ms: 1.422641
+  type: 'test'
+  ...
+# Subtest: shared planner preserves the exact smoke, visual, and boundaries coverage budgets
+ok 15 - shared planner preserves the exact smoke, visual, and boundaries coverage budgets
+  ---
+  duration_ms: 16.455599
+  type: 'test'
+  ...
+# Subtest: canonical boundaries enumerate the 375 and 768 viewport records for every route and theme
+ok 16 - canonical boundaries enumerate the 375 and 768 viewport records for every route and theme
+  ---
+  duration_ms: 13.820786
+  type: 'test'
+  ...
+# Subtest: canonical boundaries reject missing and duplicate 375 or 768 viewport registrations
+ok 17 - canonical boundaries reject missing and duplicate 375 or 768 viewport registrations
+  ---
+  duration_ms: 1.492306
+  type: 'test'
+  ...
+# Subtest: safe-area matrix only pairs overlay-risk surfaces and freezes profile table
+ok 18 - safe-area matrix only pairs overlay-risk surfaces and freezes profile table
+  ---
+  duration_ms: 8.586082
+  type: 'test'
+  ...
+# Subtest: safe-area plan rejects non-overlay-risk cartesian explosion mutations
+ok 19 - safe-area plan rejects non-overlay-risk cartesian explosion mutations
+  ---
+  duration_ms: 1.929968
+  type: 'test'
+  ...
+# Subtest: group and step identities are stable semantic values without ordinal prefixes
+ok 20 - group and step identities are stable semantic values without ordinal prefixes
+  ---
+  duration_ms: 7.540751
+  type: 'test'
+  ...
+# Subtest: planner keeps matrix media order inside one cold navigation per viewport
+ok 21 - planner keeps matrix media order inside one cold navigation per viewport
+  ---
+  duration_ms: 0.464051
+  type: 'test'
+  ...
+# Subtest: local production risk plan covers every dimension within 48 navigations
+ok 22 - local production risk plan covers every dimension within 48 navigations
+  ---
+  duration_ms: 2.535464
+  type: 'test'
+  ...
+# Subtest: risk matrix plus safe-area stays bounded and overlay-risk only
+ok 23 - risk matrix plus safe-area stays bounded and overlay-risk only
+  ---
+  duration_ms: 0.99192
+  type: 'test'
+  ...
+# Subtest: unknown filters fail closed even when another requested value is valid
+ok 24 - unknown filters fail closed even when another requested value is valid
+  ---
+  duration_ms: 0.472624
+  type: 'test'
+  ...
+# Subtest: mobile-landscape canary is a planner parity list, not a fabricated golden catalog
+ok 25 - mobile-landscape canary is a planner parity list, not a fabricated golden catalog
+  ---
+  duration_ms: 0.401888
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 389.927069

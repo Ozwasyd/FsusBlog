@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "7499b5bd82d3ce888672abc2e054bb08736da08d",
+    "--file",
+    "tests/frontend/support/layout/compositionGeometry.mjs",
+    "--file",
+    "tests/tools/layout-composition-geometry.test.mjs",
+    "--file",
+    "tests/frontend/support/playwright/uxViewportPlan.mjs",
+    "--file",
+    "tests/tools/ux-viewport-plan.test.mjs"
+  ],
+  "startedAtUtc": "2026-10-09T08:47:39.439676+00:00",
+  "exitCode": 1,
+  "log": "frontend-style.log",
+  "fixOrBaselineMutation": false
+}

@@ -1,0 +1,14 @@
+{
+    "sourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+    "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "--test-reporter=tap",
+        "tests/tools/ux-viewport-plan.test.mjs",
+        "tests/tools/layout-composition-geometry.test.mjs"
+    ],
+    "environmentOverrides": {
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI"
+    },
+    "startedAtUtc": "2026-10-09T08:40:59.698208+00:00"
+}

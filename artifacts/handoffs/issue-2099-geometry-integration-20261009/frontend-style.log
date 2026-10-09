@@ -1,0 +1,349 @@
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:1:40 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:2:44 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:3:29 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:6:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:7:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:8:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:9:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:10:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:11:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:12:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:13:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:14:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:15:8 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `ux-viewport-plan.test.mjs` to same directory as `../frontend/support/playwright/uxViewportPlan.mjs` or consider making `../frontend/support/playwright/uxViewportPlan.mjs` a package.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:15:59 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:16:1 eslint/import-x/order: `../../tools/ux/run-viewport-plan-progress.mjs` import should occur before import of `../frontend/support/playwright/uxViewportPlan.mjs`
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:17:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:18:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:19:8 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `ux-viewport-plan.test.mjs` to same directory as `../../tools/ux/run-viewport-plan-progress.mjs` or consider making `../../tools/ux/run-viewport-plan-progress.mjs` a package.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:19:55 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:22:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:23:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:24:3 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:27:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:28:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:29:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:30:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:31:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:32:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:33:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:34:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:35:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:36:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:37:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:38:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:39:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:40:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:41:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:42:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:43:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:44:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:45:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:46:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:47:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:48:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:49:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:50:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:51:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:52:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:53:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:54:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:55:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:56:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:57:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:58:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:59:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:60:2 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:62:56 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:65:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:66:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:67:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:69:103 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:70:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:71:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:72:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:73:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:74:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:75:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:76:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:77:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:77:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:79:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:79:42 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:80:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:80:49 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:81:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:81:59 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:82:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:82:59 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:83:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:83:74 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:84:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:85:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:86:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:87:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:88:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:89:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:89:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:91:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:91:108 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:92:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:92:57 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:93:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:93:48 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:94:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:94:45 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:95:3 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:97:97 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:98:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:98:71 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:99:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:99:73 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:100:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:100:81 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:102:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:103:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:104:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:105:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:106:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:107:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:108:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:109:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:109:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:110:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:111:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:112:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:113:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:114:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:115:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:116:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:117:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:117:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:118:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:119:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:120:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:121:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:122:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:123:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:124:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:125:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:125:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:126:3 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:160:91 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:161:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:161:42 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:162:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:162:82 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:164:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:164:71 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:165:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:165:54 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:166:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:166:35 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:167:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:168:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:169:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:170:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:171:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:172:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:173:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:174:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:174:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:176:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:177:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:177:81 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:178:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:178:51 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:179:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:179:52 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:180:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:181:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:182:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:183:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:183:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:184:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:185:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:186:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:187:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:187:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:189:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:189:62 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:190:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:191:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:192:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:193:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:194:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:195:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:196:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:196:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:197:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:198:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:199:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:200:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:201:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:202:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:203:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:204:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:204:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:205:3 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:207:85 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:208:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:208:43 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:209:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:210:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:211:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:212:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:213:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:214:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:215:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:216:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:217:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:218:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:219:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:220:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:220:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:221:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:222:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:223:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:224:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:224:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:225:3 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:227:93 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:228:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:228:75 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:229:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:229:110 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:231:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:231:63 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:232:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:232:96 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:233:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:233:66 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:234:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:234:73 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:235:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:235:87 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:236:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:236:100 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:237:3 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:239:88 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:240:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:241:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:242:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:243:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:244:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:245:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:246:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:247:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:248:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:249:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:250:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:250:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:252:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:252:38 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:253:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:253:51 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:254:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:254:43 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:255:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:256:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:257:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:258:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:258:4 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:259:3 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:261:87 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:262:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:263:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:264:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:265:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:266:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:267:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:267:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:269:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:269:44 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:270:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:270:39 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:271:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:271:43 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:272:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:272:74 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:273:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:273:82 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:274:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:274:72 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:275:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:275:76 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:276:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:276:74 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:277:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:277:76 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:278:3 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:280:78 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:281:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:282:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:283:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:284:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:285:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:286:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:286:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:287:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:287:49 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:288:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:288:46 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:289:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:289:46 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:290:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:290:48 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:291:3 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:293:86 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:294:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:295:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:296:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:297:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:298:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:299:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:299:6 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:300:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:301:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:302:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:303:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:303:6 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:304:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:305:3 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:307:97 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:308:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:309:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:310:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:311:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:312:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:313:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:314:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:314:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:316:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:317:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:318:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:319:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:320:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:321:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:322:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:323:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:324:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:325:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:325:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:326:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:327:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:328:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:328:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:329:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:330:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:331:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:332:1 eslint/@stylistic/indent: Expected indentation of 16 spaces but found 8.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:333:1 eslint/@stylistic/indent: Expected indentation of 12 spaces but found 6.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:334:1 eslint/@stylistic/indent: Expected indentation of 8 spaces but found 4.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:335:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:335:5 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:337:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:337:34 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:338:1 eslint/@stylistic/indent: Expected indentation of 4 spaces but found 2.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:338:37 eslint/@stylistic/semi: Missing semicolon.
+[frontend-style] tests/tools/ux-viewport-plan.test.mjs:339:3 eslint/@stylistic/semi: Missing semicolon.

@@ -1,0 +1,9 @@
+{
+  "exitCode": 1,
+  "diagnosticCountsByPath": {
+    "tests/tools/ux-viewport-plan.test.mjs": 349
+  },
+  "geometryComponentFilesHaveNoReportedDiagnostic": true,
+  "wholeScopedStylePassed": false,
+  "noFixApplied": true
+}

@@ -1,0 +1,74 @@
+{
+  "sourceCommit": "e95c5c8b2e9503ef6735e1ebb9c320c55964ad4e",
+  "recordedAtUtc": "2026-10-09T08:46:11.669505+00:00",
+  "results": [
+    {
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "--check",
+        "tests/frontend/support/layout/compositionGeometry.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "--check",
+        "tests/tools/layout-composition-geometry.test.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "--check",
+        "tests/frontend/support/playwright/uxViewportPlan.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "--check",
+        "tests/tools/ux-viewport-plan.test.mjs"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check",
+        "7499b5bd82d3ce888672abc2e054bb08736da08d",
+        "HEAD"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python3",
+        "json.loads",
+        "tests/frontend/fixtures/ux-viewport-matrix.json"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "python3",
+        "json.loads",
+        "artifacts/change-contract/issue-2099-viewport-source-external-naming.json"
+      ],
+      "exitCode": 0
+    }
+  ]
+}
