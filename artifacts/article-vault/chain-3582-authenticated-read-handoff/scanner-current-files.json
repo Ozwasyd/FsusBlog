@@ -1,0 +1,10 @@
+{
+  "sourceCommit": "0df1a63682e8e357b397dc1d19cbee30fdc94ef9",
+  "findings": {
+    "tests/backend/Unit/ArticleVaultExecutionTests.cs": [],
+    "tests/backend/Unit/ArticleVaultAuthenticatedConflictReviewAdapterTests.cs": [],
+    "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs": []
+  },
+  "scope": "original production-source-read scanner only; no retention/replacement/global audit",
+  "qualification": false
+}

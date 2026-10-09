@@ -1,0 +1,119 @@
+{
+  "status": "PASS",
+  "sourceCommit": "0df1a63682e8e357b397dc1d19cbee30fdc94ef9",
+  "fsusUiCommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "counts": {
+    "Vault authenticated historical read host": 24,
+    "Vault historical private authoring transport": 3
+  },
+  "methods": [
+    {
+      "file": "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts",
+      "group": "Vault authenticated historical read host",
+      "title": "calls the sole private API with owned exact references and exposes only compatible historical display",
+      "cases": 1,
+      "pattern": "^Vault authenticated historical read host > calls the sole private API with owned exact references and exposes only compatible historical display$"
+    },
+    {
+      "file": "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts",
+      "group": "Vault authenticated historical read host",
+      "title": "hides old results and aborts pending reads synchronously on %s change",
+      "cases": 9,
+      "pattern": "^Vault authenticated historical read host > hides old results and aborts pending reads synchronously on .+ change$"
+    },
+    {
+      "file": "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts",
+      "group": "Vault authenticated historical read host",
+      "title": "refuses missing context and mismatched request before any transport call",
+      "cases": 1,
+      "pattern": "^Vault authenticated historical read host > refuses missing context and mismatched request before any transport call$"
+    },
+    {
+      "file": "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts",
+      "group": "Vault authenticated historical read host",
+      "title": "uses the original private surface %s transition to hide and abort even before host context updates",
+      "cases": 4,
+      "pattern": "^Vault authenticated historical read host > uses the original private surface .+ transition to hide and abort even before host context updates$"
+    },
+    {
+      "file": "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts",
+      "group": "Vault authenticated historical read host",
+      "title": "refuses incompatible %s response without promoting history to current review",
+      "cases": 5,
+      "pattern": "^Vault authenticated historical read host > refuses incompatible .+ response without promoting history to current review$"
+    },
+    {
+      "file": "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts",
+      "group": "Vault authenticated historical read host",
+      "title": "suppresses an old completion after a repeated read even when transport ignores its aborted signal",
+      "cases": 1,
+      "pattern": "^Vault authenticated historical read host > suppresses an old completion after a repeated read even when transport ignores its aborted signal$"
+    },
+    {
+      "file": "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts",
+      "group": "Vault authenticated historical read host",
+      "title": "propagates closed read failure and permits retry without exposing server exception context",
+      "cases": 1,
+      "pattern": "^Vault authenticated historical read host > propagates closed read failure and permits retry without exposing server exception context$"
+    },
+    {
+      "file": "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts",
+      "group": "Vault authenticated historical read host",
+      "title": "clears before returning focus and refuses stale return intents after context changes",
+      "cases": 1,
+      "pattern": "^Vault authenticated historical read host > clears before returning focus and refuses stale return intents after context changes$"
+    },
+    {
+      "file": "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts",
+      "group": "Vault authenticated historical read host",
+      "title": "disposing the component scope aborts and suppresses outstanding completion with repeat-safe cleanup",
+      "cases": 1,
+      "pattern": "^Vault authenticated historical read host > disposing the component scope aborts and suppresses outstanding completion with repeat-safe cleanup$"
+    },
+    {
+      "file": "tests/frontend/unit/api/articleVault.test.ts",
+      "group": "Vault historical private authoring transport",
+      "title": "uses the actual authoring envelope with exact references and cookie/private scope",
+      "cases": 1,
+      "pattern": "^Vault historical private authoring transport > uses the actual authoring envelope with exact references and cookie/private scope$"
+    },
+    {
+      "file": "tests/frontend/unit/api/articleVault.test.ts",
+      "group": "Vault historical private authoring transport",
+      "title": "propagates permission/transport rejection without a second request",
+      "cases": 1,
+      "pattern": "^Vault historical private authoring transport > propagates permission/transport rejection without a second request$"
+    },
+    {
+      "file": "tests/frontend/unit/api/articleVault.test.ts",
+      "group": "Vault historical private authoring transport",
+      "title": "passes an interrupted caller signal through the same private runtime",
+      "cases": 1,
+      "pattern": "^Vault historical private authoring transport > passes an interrupted caller signal through the same private runtime$"
+    }
+  ],
+  "selector": "^(Vault authenticated historical read host|Vault historical private authoring transport) ",
+  "hashes": {
+    "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts": "4a5aab4423ce129bcbada5689e4e14cd41f7920cdd54d77adecfbfdf53f04eed",
+    "tests/frontend/unit/api/articleVault.test.ts": "bb973daac357f09384b23c670b233ae5502a189c40517f5e75d891d10bc6cba0",
+    "src/frontend/vitest.config.ts": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+    "src/frontend/vitest.shared.mjs": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
+    "tests/frontend/support/unit/setup.ts": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a",
+    "tests/frontend/support/unit/animationFrameEnvironment.ts": "e7e5e496be89938974cc31d56c2580a8aa2b264ff5e782e492442efc016113ca",
+    "src/frontend/src/composables/useArticleVaultRecoveryHistory.ts": "bc9f7265b12c20a4d146b1f038ea5bbc04940bfb190727305994995f56908064",
+    "src/frontend/src/api/articleVault.ts": "253109945bb6c16b0467ecf0895689064a5d69a294993fae7ce3a647309062a1",
+    "src/frontend/src/api/authoring.ts": "1701a61217b559feb1360668e3d8dd9772908e325311e474bd5da505af1c9531",
+    "src/frontend/src/services/privateSurfaceRuntime.ts": "b2e8ac3916cdf3d21e2c1b64a54243d9b9e1c0efb5c5abd39681737cb7be8854",
+    "src/frontend/src/services/privateRequestRuntime.ts": "b7787cb76eba272b694d0020fbf74ff3e6b42251d523847569bde076c331bb91",
+    "src/frontend/src/services/articleVault/storedRecoveryPresentation.ts": "ebd5b6a144d9de0211270652c76d7d43bacf29066545712a0d16f9816679df1a"
+  },
+  "hooksInspection": {
+    "selectedFixture": "new host uses actual Vue effectScope/ref/watch and original API mocked at its boundary; original client uses real authoring/AEDS encoder with binary transport mock; no network/native/database resource",
+    "workerAfterEach": "new file afterEach stops every task-owned effectScope, resets original private surface/request owners and mocks; original client beforeEach clears calls",
+    "rootHooks": "all async deferred promises resolved and awaited; scope disposal/abort tested; no global browser/native resources",
+    "sharedSetup": "one HappyDOM Window, task-local animation timers; beforeAll activates local zh-CN locale graph, topology logging optional; afterAll disposes all timers; original AEDS/PoW/search mocks do not replace markdown runtime",
+    "scope": "ordinary exact original-project tests, not qualification or verified-input transport"
+  },
+  "node": "v24.19.0",
+  "vitest": "4.1.11"
+}

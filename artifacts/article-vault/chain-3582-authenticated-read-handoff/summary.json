@@ -1,0 +1,182 @@
+{
+  "sourceCommit": "0df1a63682e8e357b397dc1d19cbee30fdc94ef9",
+  "sourceParent": "89b1a14c238e919069f9377b4310d86d64dae414",
+  "branch": "codex/chain-3582-authenticated-review-transport-20261009",
+  "latestFetchedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "masterMerged": false,
+  "sourcePaths": {
+    "docs/architecture/article-vault-dependencies.md": "4adaff2844660245f5bcd8ccb6d14ddd78807dddf89408ed6c53d9d3efb2ab8d",
+    "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "80c140b6988d726302375c328770e559e315e9119db5eebe576adba1164bb781",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs": "485ed2e4fe8a938c79ab0a07736715c37a084a5d7165e03b8344b08b8be8a9c7",
+    "src/backend/Services/ArticleVault/ArticleVaultAuthenticatedConflictReviewAdapter.cs": "87a859f6363e4e681ff9ef0d7502d104dfb163cfb64bc7d9edfe250c44918877",
+    "src/frontend/src/composables/useArticleVaultRecoveryHistory.ts": "bc9f7265b12c20a4d146b1f038ea5bbc04940bfb190727305994995f56908064",
+    "tests/backend/Unit/ArticleVaultAuthenticatedConflictReviewAdapterTests.cs": "32f15db33539e85083df81f68506a7f91adfd55be8b1c416a054816fff5666f5",
+    "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs": "3901915e81859aaa50a81882a7de517219312005e03856a4fb0fda4bc2842ff4",
+    "tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts": "4a5aab4423ce129bcbada5689e4e14cd41f7920cdd54d77adecfbfdf53f04eed"
+  },
+  "sdk": "10.0.302",
+  "runtime": "10.0.10",
+  "node": "24.19.0",
+  "vitest": "4.1.11",
+  "fsusUiCommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "verifiedAtUtc": "2026-10-09T12:31:36.287505+00:00",
+  "acceptedIssues": 0,
+  "qualified": false,
+  "gitHubContentWrites": "HOLD",
+  "motherBranch": "read-only; published 8fc099e30968951f804714208b8674a8b92c1749; draft PR3900 unchanged",
+  "checks": [
+    {
+      "check": "original locked backend restore",
+      "command": "dotnet restore tests/backend/FsusBlog.Server.Tests.csproj --locked-mode",
+      "exitCode": 0
+    },
+    {
+      "check": "original Release backend build",
+      "command": "dotnet build tests/backend/FsusBlog.Server.Tests.csproj --configuration Release --no-restore --verbosity quiet",
+      "exitCode": 0,
+      "warnings": 1507,
+      "errors": 0
+    },
+    {
+      "check": "strict backend discovery + original exact tests",
+      "exitCode": 0,
+      "methods": 40,
+      "passed": 78,
+      "failed": 0,
+      "skipped": 0,
+      "partition": {
+        "originalExecutionOwner": 37,
+        "newRuntimeComposition": 3,
+        "authenticatedAdapter": 13,
+        "originalHistoricalTransport": 15,
+        "originalProtectedComposition": 10
+      },
+      "artifact": "backend/preflight.json"
+    },
+    {
+      "check": "strict closed boundary #3558 discovery + original exact tests",
+      "exitCode": 0,
+      "methods": 3,
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "19 compiled contract types plus original constructor/nested-member refusal and benign controls; not a re-acceptance of all boundary issue gates",
+      "artifact": "boundary/preflight.json"
+    },
+    {
+      "check": "strict original PostgreSQL persistence discovery + exact original project tests",
+      "exitCode": 0,
+      "methods": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "database": "task-scoped real PostgreSQL18 with original collection fixture; new database per test",
+      "artifact": "persistence/result.json",
+      "qualification": false,
+      "processCrashInjected": false,
+      "scope": "actual canonical ArticleService/executor/store rollback and terminal ledger replay; original controlled publication/fence/Redis boundaries retained, no production session or native receipt"
+    },
+    {
+      "check": "strict frontend discovery + original Vitest project",
+      "exitCode": 0,
+      "methods": 12,
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "partition": {
+        "historyHost": 24,
+        "originalAedsClient": 3
+      },
+      "artifact": "frontend/preflight.json"
+    },
+    {
+      "check": "original source-scanner unit controls",
+      "exitCode": 0,
+      "methods": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "artifact": "scanner/preflight.json",
+      "heldAuditExecuted": false
+    },
+    {
+      "check": "original source scanner on exact current execution/adapter/registration tests",
+      "exitCode": 0,
+      "files": 3,
+      "findings": 0,
+      "artifact": "scanner-current-files.json"
+    },
+    {
+      "check": "C# style",
+      "exitCode": 0,
+      "files": 5
+    },
+    {
+      "check": "frontend original changed-file style",
+      "exitCode": 0,
+      "files": 1,
+      "excludedByOriginalOwnership": "unit test file"
+    },
+    {
+      "check": "document lifecycle",
+      "exitCode": 0,
+      "documents": 379
+    },
+    {
+      "check": "document authority",
+      "exitCode": 0,
+      "documents": 11
+    },
+    {
+      "check": "original published FsusUI typecheck",
+      "command": "npm run typecheck",
+      "exitCode": 2,
+      "diagnosticLines": 17,
+      "reason": "missing published @ozwasyd/element-plus declarations and dependent export-contract diagnostics; this is not application coverage"
+    },
+    {
+      "check": "original application typecheck",
+      "command": "node node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.app.json",
+      "exitCode": 2,
+      "diagnosticLines": 329,
+      "newHostDiagnostics": 0,
+      "reason": "published FsusUI module declarations plus existing application errors; no private config/alias or gate weakening"
+    },
+    {
+      "check": "original full matrix, full acceptance scanner/retention, live exact-head PR contract",
+      "status": "not run in this increment",
+      "reason": "coordinator holds and existing global authority/acceptance blockers; old receipts are not current passes"
+    },
+    {
+      "check": "production session/database permission; native IPC/filesystem/materialization; rendered browser/product; destructive migration backup/restore",
+      "status": "not run",
+      "reason": "not admitted by these controlled original-project tests; no synthetic artifacts or receipts"
+    }
+  ],
+  "retainedFailures": [
+    {
+      "run": "final-working",
+      "exitCode": 1,
+      "passed": 77,
+      "failed": 1,
+      "skipped": 0,
+      "reason": "new registration fixture lacked IHttpContextAccessor; corrected with original host AddHttpContextAccessor, then fresh build/exact discovery 78 passed"
+    },
+    {
+      "run": "backend-preflight bootstrap",
+      "exitCode": 1,
+      "executedTests": 0,
+      "reason": "scratch relative import path; fixed orchestration path only"
+    },
+    {
+      "run": "first C# style active",
+      "exitCode": 1,
+      "reason": "Microsoft using directives out of order; corrected original source ordering"
+    },
+    {
+      "run": "first document checker invocation",
+      "exitCode": 1,
+      "reason": "nonexistent command path; used original tools/docs/generate-document-lifecycle.mjs --check"
+    }
+  ]
+}

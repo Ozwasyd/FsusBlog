@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+    "/workspace/FsusBlog/src/frontend/node_modules/vitest/vitest.mjs",
+    "list",
+    "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts",
+    "/workspace/FsusBlog/tests/frontend/unit/api/articleVault.test.ts",
+    "--config",
+    "vitest.config.ts",
+    "--testNamePattern",
+    "^(Vault authenticated historical read host|Vault historical private authoring transport) ",
+    "--json=/workspace/FsusBlog/.tmp/chain-3582-authenticated-transport/frozen-0df1a6368-frontend/discovery.json"
+  ],
+  "cwd": "/workspace/FsusBlog/src/frontend",
+  "start": "2026-10-09T12:23:19.950Z",
+  "end": "2026-10-09T12:23:22.170Z",
+  "exitCode": 0,
+  "error": null
+}

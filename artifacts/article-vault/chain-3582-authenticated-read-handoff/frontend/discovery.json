@@ -1,0 +1,110 @@
+[
+  {
+    "name": "Vault authenticated historical read host > calls the sole private API with owned exact references and exposes only compatible historical display",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > hides old results and aborts pending reads synchronously on actor change",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > hides old results and aborts pending reads synchronously on session change",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > hides old results and aborts pending reads synchronously on site change",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > hides old results and aborts pending reads synchronously on vault change",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > hides old results and aborts pending reads synchronously on device change",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > hides old results and aborts pending reads synchronously on server-document change",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > hides old results and aborts pending reads synchronously on portable-document change",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > hides old results and aborts pending reads synchronously on plan change",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > hides old results and aborts pending reads synchronously on checkpoint change",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > refuses missing context and mismatched request before any transport call",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > uses the original private surface logout transition to hide and abort even before host context updates",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > uses the original private surface admin-logout transition to hide and abort even before host context updates",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > uses the original private surface account-switch transition to hide and abort even before host context updates",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > uses the original private surface session-expired transition to hide and abort even before host context updates",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > refuses incompatible proposal response without promoting history to current review",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > refuses incompatible checkpoint response without promoting history to current review",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > refuses incompatible permission response without promoting history to current review",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > refuses incompatible canExecute response without promoting history to current review",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > refuses incompatible historical response without promoting history to current review",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > suppresses an old completion after a repeated read even when transport ignores its aborted signal",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > propagates closed read failure and permits retry without exposing server exception context",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > clears before returning focus and refuses stale return intents after context changes",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault authenticated historical read host > disposing the component scope aborts and suppresses outstanding completion with repeat-safe cleanup",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/composables/useArticleVaultRecoveryHistory.test.ts"
+  },
+  {
+    "name": "Vault historical private authoring transport > uses the actual authoring envelope with exact references and cookie/private scope",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/api/articleVault.test.ts"
+  },
+  {
+    "name": "Vault historical private authoring transport > propagates permission/transport rejection without a second request",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/api/articleVault.test.ts"
+  },
+  {
+    "name": "Vault historical private authoring transport > passes an interrupted caller signal through the same private runtime",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/api/articleVault.test.ts"
+  }
+]

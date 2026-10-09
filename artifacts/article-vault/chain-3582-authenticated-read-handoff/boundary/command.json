@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--configuration",
+    "Release",
+    "--no-build",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_ContractSliceHasOneRegistryAndNoExecutionOrAlternateParserAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_AcceptsContractOnlyRecordAndNestedMembers",
+    "--logger",
+    "trx;LogFileName=authenticated-transport.trx",
+    "--results-directory",
+    "/workspace/FsusBlog/.tmp/chain-3582-authenticated-transport/frozen-boundary-0df1a6368"
+  ],
+  "startedUtc": "2026-10-09T12:26:49.383Z",
+  "endedUtc": "2026-10-09T12:26:51.235Z",
+  "exitCode": 0,
+  "signal": null,
+  "error": null
+}

@@ -1,0 +1,98 @@
+{
+  "sourceCommit": "0df1a63682e8e357b397dc1d19cbee30fdc94ef9",
+  "workingTree": "",
+  "sourceFiles": {
+    "src/backend/Services/ArticleVault/ArticleVaultAuthenticatedConflictReviewAdapter.cs": "87a859f6363e4e681ff9ef0d7502d104dfb163cfb64bc7d9edfe250c44918877",
+    "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "80c140b6988d726302375c328770e559e315e9119db5eebe576adba1164bb781",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs": "485ed2e4fe8a938c79ab0a07736715c37a084a5d7165e03b8344b08b8be8a9c7",
+    "tests/backend/Unit/ArticleVaultAuthenticatedConflictReviewAdapterTests.cs": "32f15db33539e85083df81f68506a7f91adfd55be8b1c416a054816fff5666f5",
+    "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs": "3901915e81859aaa50a81882a7de517219312005e03856a4fb0fda4bc2842ff4",
+    "tests/backend/Unit/ArticleVaultExecutionTests.cs": "97b1a0cc048334dbe880ced401671b9086926119afdf9c99f07fc12c1d01ba76",
+    "tests/backend/Unit/DocumentExportContractTests.cs": "e46e0c397c0bb9fad725c98da99879ba6c919d7132c23958254d13ef9de46ee4",
+    "tests/backend/Unit/AccountSubjectHashProjectionTests.cs": "fc24efba33b6b1124822e5f5832b57727e25dc9079d6bce63d967132a0a77f84",
+    "tests/backend/Unit/ArticleVaultRecoveryHistoryTransportTests.cs": "0e27a4b9227aa9a048376946dadbc2ae9b6a191628e3316ea603dde59fbe1202",
+    "tests/backend/Unit/ArticleVaultRecoveryCheckpointReaderTests.cs": "fa742c99cb2c235a65ae46a322d714b513a1b87ed150d7f66b42db8de1beec99",
+    "tests/backend/Helpers/TestInfrastructure/EndpointSecurityTestHost.cs": "54f0b86a888867c45fece3226aba4656f00d56a3b5a866a85753982fe5fcb817",
+    "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b"
+  },
+  "expectedCaseCount": 8,
+  "expectedMethods": {
+    "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_ContractSliceHasOneRegistryAndNoExecutionOrAlternateParserAuthority": 1,
+    "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution": 6,
+    "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_AcceptsContractOnlyRecordAndNestedMembers": 1
+  },
+  "actualCaseCount": 8,
+  "actualMethods": {
+    "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_ContractSliceHasOneRegistryAndNoExecutionOrAlternateParserAuthority": 1,
+    "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution": 6,
+    "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_AcceptsContractOnlyRecordAndNestedMembers": 1
+  },
+  "selected": [
+    {
+      "id": "cceef248-34a0-105d-e9af-961ef3fc7b1e",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_ContractSliceHasOneRegistryAndNoExecutionOrAlternateParserAuthority",
+      "displayName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_ContractSliceHasOneRegistryAndNoExecutionOrAlternateParserAuthority",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "5c2d2221-8503-a3cb-e19f-f83443c0cdf8",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution",
+      "displayName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution(type: typeof(FsusBlog.Server.Tests.Unit.DocumentExportContractTests+NonCatalogContractFixture), forbidden: \"GetLatest\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "8fd7a994-8500-8b8e-7672-91a4935cbd65",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution",
+      "displayName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution(type: typeof(FsusBlog.Server.Tests.Unit.DocumentExportContractTests+InstanceExecutionFixture), forbidden: \"Process.Start\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "6f0e885f-1a5a-e028-60f8-90682e288506",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution",
+      "displayName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution(type: typeof(FsusBlog.Server.Tests.Unit.DocumentExportContractTests+StaticExecutionFixture), forbidden: \"ProcessStartInfo\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "3b03d9c2-594c-9a54-222a-a7f94c841ab7",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution",
+      "displayName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution(type: typeof(FsusBlog.Server.Tests.Unit.DocumentExportContractTests+UncalledNestedExecutionFixture), forbidden: \"HttpClient\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "294e15f7-b2d3-e3b4-7056-9f8ea0865ed1",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution",
+      "displayName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution(type: typeof(FsusBlog.Server.Tests.Unit.DocumentExportContractTests+ParserExecutionFixture), forbidden: \"HtmlToMarkdown\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "9afed232-59db-9754-5710-fb530521564e",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution",
+      "displayName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution(type: typeof(FsusBlog.Server.Tests.Unit.DocumentExportContractTests+UncalledNestedCaptureFixture), forbidden: \"Screenshot\")",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "ee942eeb-05f3-974d-5af9-d0dd0dae214e",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_AcceptsContractOnlyRecordAndNestedMembers",
+      "displayName": "FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_AcceptsContractOnlyRecordAndNestedMembers",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    }
+  ],
+  "filter": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_ContractSliceHasOneRegistryAndNoExecutionOrAlternateParserAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution|FullyQualifiedName=FsusBlog.Server.Tests.Unit.DocumentExportContractTests.StaticGovernance_AcceptsContractOnlyRecordAndNestedMembers",
+  "discoveryHostLogSha256": "3414409693c82fd58f6f84acb3994dc850e0e27a7ee01e8e45444eb5b45b98fe",
+  "fixtureReview": {
+    "selectedClasses": "original closed boundary #3558 compiled contract owner: exact 3 methods, 8 cases; no class/collection/assembly fixture or lifecycle hooks; static compiled type/member/constructor inspection only; forbidden-type fixtures are described without construction/invocation; no resource acquisition",
+    "setup": "new adapter uses original pure checkpoint fixture and NSubstitute proposal/permission ports; exact refusal input not acquisition receipt. Original execution fixture uses controlled in-memory proposal/result stores and observation/writer ports with all owned CancellationTokenSources disposed, no hooks or external IO. Original/new RuntimeDI uses actual factory with owned unopened NpgsqlDataSource and SqlSugar port mock. Existing history uses original EndpointSecurityTestServer/TestServer and real AEDS encoder/auth pipeline, controlled claims/permission/store ports.",
+    "cleanup": "all selected server/client/message/response/DI scopes/data source and CancellationTokenSource use disposal; no physical network or DB connections, file/native handles or production keys",
+    "assemblyHook": "RedisOperationFailureDiagnosticCollector original opt-in absent"
+  },
+  "heldAudits": false,
+  "replacementHarness": false
+}

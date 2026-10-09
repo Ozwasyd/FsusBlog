@@ -1,0 +1,73 @@
+{
+  "runtimeRunId": "chain3582-read-pg-20261009123724615",
+  "originalContainers": "fsusblog-dev-redis redis:7-alpine\nfsusblog-dev-postgres postgres:17-alpine\n",
+  "sourceCommit": "0df1a63682e8e357b397dc1d19cbee30fdc94ef9",
+  "workingTree": "",
+  "sourceFiles": {
+    "src/backend/Services/ArticleVault/ArticleVaultAuthenticatedConflictReviewAdapter.cs": "87a859f6363e4e681ff9ef0d7502d104dfb163cfb64bc7d9edfe250c44918877",
+    "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "80c140b6988d726302375c328770e559e315e9119db5eebe576adba1164bb781",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs": "485ed2e4fe8a938c79ab0a07736715c37a084a5d7165e03b8344b08b8be8a9c7",
+    "tests/backend/Unit/ArticleVaultAuthenticatedConflictReviewAdapterTests.cs": "32f15db33539e85083df81f68506a7f91adfd55be8b1c416a054816fff5666f5",
+    "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs": "3901915e81859aaa50a81882a7de517219312005e03856a4fb0fda4bc2842ff4",
+    "tests/backend/Unit/ArticleVaultExecutionTests.cs": "97b1a0cc048334dbe880ced401671b9086926119afdf9c99f07fc12c1d01ba76",
+    "tests/backend/Integration/ArticleVaultExecutionPostgresIntegrationTests.cs": "5f54b13070ee1fb183e1382058baca1375b5fe2098589b91dd12cb32db97f6f8",
+    "tests/backend/Fixtures/PostgresSchemaMigrationFixture.cs": "b9338609c41550add97c2baf3af243595038ca4726c7052ad9994e32f255f136",
+    "tests/backend/Fixtures/SchemaMigrationPostgresCollection.cs": "c4b0c0b4f400f07ca11cbd1773d05ac8e219d83e194ba9aa3be56bbf5ef4f457",
+    "tests/backend/Helpers/TestInfrastructure/PostgresSqlSugarTestClient.cs": "93111e11bd7d953c75078dc56b55a74b8e0b69bd54c4ce09f62e6caed50c76d3",
+    "tests/backend/Helpers/TestInfrastructure/TestTemporalContext.cs": "693f89c477fcab14eaf259940d83a88dc8e29caeb4e2071b015ed4b640a06d59",
+    "tests/backend/Unit/ArticleVaultRecoveryHistoryTransportTests.cs": "0e27a4b9227aa9a048376946dadbc2ae9b6a191628e3316ea603dde59fbe1202",
+    "tests/backend/Unit/ArticleVaultRecoveryCheckpointReaderTests.cs": "fa742c99cb2c235a65ae46a322d714b513a1b87ed150d7f66b42db8de1beec99",
+    "tests/backend/Helpers/TestInfrastructure/EndpointSecurityTestHost.cs": "54f0b86a888867c45fece3226aba4656f00d56a3b5a866a85753982fe5fcb817",
+    "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b"
+  },
+  "expectedCaseCount": 2,
+  "expectedMethods": {
+    "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.TwoOperationGroup_WhenSecondWriteFails_RollsBackEveryBusinessSideEffectAndRetryAddsNone": 1,
+    "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.CommittedGroup_WhenTerminalWriteCrashes_RetryReplaysLedgerWithoutDuplicateFacts": 1
+  },
+  "actualCaseCount": 2,
+  "actualMethods": {
+    "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.TwoOperationGroup_WhenSecondWriteFails_RollsBackEveryBusinessSideEffectAndRetryAddsNone": 1,
+    "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.CommittedGroup_WhenTerminalWriteCrashes_RetryReplaysLedgerWithoutDuplicateFacts": 1
+  },
+  "selected": [
+    {
+      "id": "277dc922-1a4f-602a-7e5b-8a54c79762fc",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.TwoOperationGroup_WhenSecondWriteFails_RollsBackEveryBusinessSideEffectAndRetryAddsNone",
+      "displayName": "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.TwoOperationGroup_WhenSecondWriteFails_RollsBackEveryBusinessSideEffectAndRetryAddsNone",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Integration"
+        ],
+        "Dependency": [
+          "Docker"
+        ]
+      }
+    },
+    {
+      "id": "9c99fee3-a023-e01e-fcd0-db5ac754d1a2",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.CommittedGroup_WhenTerminalWriteCrashes_RetryReplaysLedgerWithoutDuplicateFacts",
+      "displayName": "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.CommittedGroup_WhenTerminalWriteCrashes_RetryReplaysLedgerWithoutDuplicateFacts",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {
+        "Category": [
+          "Integration"
+        ],
+        "Dependency": [
+          "Docker"
+        ]
+      }
+    }
+  ],
+  "filter": "FullyQualifiedName=FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.TwoOperationGroup_WhenSecondWriteFails_RollsBackEveryBusinessSideEffectAndRetryAddsNone|FullyQualifiedName=FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.CommittedGroup_WhenTerminalWriteCrashes_RetryReplaysLedgerWithoutDuplicateFacts",
+  "discoveryHostLogSha256": "577792c628a5f114ee938899c160127d79391d119ddc941d5e7717bb75b14104",
+  "fixtureReview": {
+    "selectedClasses": "exact original integration class, 2 Fact methods; Collection SchemaMigrationPostgresCollectionA with original PostgresSchemaMigrationFixture IAsyncLifetime",
+    "setup": "original fixture docker run --rm ephemeral PostgreSQL18 localhost port; original CreateDatabaseAsync creates a new database per case; original CodeFirst table initialization only. No destructive migration or ResetAsync/DROP SCHEMA invoked. Real canonical ArticleService/store/executor; Redis/fence/publication external ports remain original controlled fixtures.",
+    "cleanup": "both SqlSugarClients using disposed; Npgsql/process handles original await using/using; original collection DisposeAsync removes only its own named task container and volume. Existing development containers untouched.",
+    "assemblyHook": "original opt-in Redis diagnostics absent; original TestTemporalContext/SQL session canonical UTC assertions preserved"
+  },
+  "heldAudits": false,
+  "replacementHarness": false
+}

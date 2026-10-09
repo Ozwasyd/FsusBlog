@@ -1,0 +1,13 @@
+{
+  "sourceCommit": "0df1a63682e8e357b397dc1d19cbee30fdc94ef9",
+  "file": "tests/tools/test-suite-convergence.test.mjs",
+  "names": [
+    "backend source-locking owner accepts runtime artifacts and rejects production docs and test source",
+    "backend source-locking owner does not mistake a temporary JSON artifact for repository source",
+    "backend source-locking owner reconstructs segmented repository paths"
+  ],
+  "expected": 3,
+  "pattern": "^(backend source-locking owner accepts runtime artifacts and rejects production docs and test source|backend source-locking owner does not mistake a temporary JSON artifact for repository source|backend source-locking owner reconstructs segmented repository paths)$",
+  "sourceSha256": "9f97de6db36e22e2c78407ddcc7a99eca48f201952bcb49d8de8a287de74ed7b",
+  "fixtureReview": "three existing synchronous source-scanner tests; only original immutable .fixture.cs.txt file reads and scalar source strings; no setup/teardown, native or external resources; held replacement/matrix/graph tests excluded"
+}

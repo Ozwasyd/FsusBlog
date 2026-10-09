@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+    "--test",
+    "--test-name-pattern",
+    "^(backend source-locking owner accepts runtime artifacts and rejects production docs and test source|backend source-locking owner does not mistake a temporary JSON artifact for repository source|backend source-locking owner reconstructs segmented repository paths)$",
+    "tests/tools/test-suite-convergence.test.mjs"
+  ],
+  "startedUtc": "2026-10-09T12:25:20.114Z",
+  "endedUtc": "2026-10-09T12:25:21.166Z",
+  "exitCode": 0
+}
