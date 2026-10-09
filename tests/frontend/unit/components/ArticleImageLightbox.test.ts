@@ -1,233 +1,94 @@
 // @vitest-environment happy-dom
-
 import { mount, flushPromises } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, reactive } from 'vue'
-
 import ArticleImageLightbox from '@/components/article/ArticleImageLightbox.vue'
 
 vi.mock('@/composables/useI18nText', () => ({
-  useI18nText: () => ({
-    messages: reactive({
-      common: {
-        actions: {
-          close: '关闭'
-        }
-      },
-      article: {
-        actions: {
-          viewImage: '查看大图',
-          closeImage: '关闭大图',
-          previousImage: '上一张',
-          nextImage: '下一张'
-        }
-      }
-    })
-  })
+  useI18nText: () => ({ messages: reactive({ article: { actions: {
+    viewImage: '查看大图', closeImage: '关闭大图', previousImage: '上一张', nextImage: '下一张'
+  } } }) })
 }))
+const images = [{ src: '/fixtures/one.svg', alt: 'First figure' }, { src: '/fixtures/two.svg', alt: 'Second figure' }]
+const wrappers: ReturnType<typeof mount>[] = []
+const mountLightbox = (props = {}) => {
+  const wrapper = mount(ArticleImageLightbox, { props: { open: true, images, activeIndex: 0, ...props }, attachTo: document.body })
+  wrappers.push(wrapper)
+  return wrapper
+}
+const settle = async () => { await flushPromises(); await nextTick(); await nextTick() }
+const control = (wrapper: ReturnType<typeof mount>, name: string) => wrapper.get(`[role="button"][aria-label="${name}"]`)
+const activeImage = (wrapper: ReturnType<typeof mount>) => wrapper.findAll('img').find(image => !image.classes().includes('is-hidden'))!
 
-const images = [
-  { src: '/fixtures/one.svg', alt: 'First figure' },
-  { src: '/fixtures/two.svg', alt: 'Second figure' }
-] as const
-
-const mountLightbox = (props: {
-  open?: boolean
-  images?: ReadonlyArray<{ src: string; alt: string }>
-  activeIndex?: number
-} = {}) => mount(ArticleImageLightbox, {
-  props: {
-    open: props.open ?? true,
-    images: props.images ?? [...images],
-    activeIndex: props.activeIndex ?? 0
-  },
-  attachTo: document.body,
-  global: {
-    stubs: {
-      // Keep content in-tree for deterministic unit queries; Blog still owns Teleport at runtime.
-      teleport: true,
-      Transition: false,
-      FsuTransition: {
-        name: 'FsuTransition',
-        template: '<div data-test="fsu-transition"><slot /></div>'
-      }
-    }
-  }
-})
-
-describe('ArticleImageLightbox Overlay migration (#1788)', () => {
-  afterEach(() => {
-    document.body.className = ''
+describe('ArticleImageLightbox public ImageViewer composition (#1892)', () => {
+  afterEach(async () => {
+    for (const wrapper of wrappers.splice(0)) wrapper.unmount()
+    await new Promise(resolve => setTimeout(resolve, 250))
     document.body.innerHTML = ''
   })
-
-  it('renders media content through FsusUiOverlay scrim root', async () => {
+  it('retains article names, alt and caption in one public dialog', async () => {
     const wrapper = mountLightbox()
-    await flushPromises()
-    await nextTick()
-
-    expect(wrapper.find('.el-overlay').exists()).toBe(true)
-    const dialog = wrapper.find('[data-article-lightbox="true"]')
-    expect(dialog.exists()).toBe(true)
-    expect(dialog.attributes('role')).toBe('dialog')
-    expect(dialog.attributes('aria-modal')).toBe('true')
-    expect(dialog.attributes('data-fsus-material')).toBe('glass')
-    expect(dialog.attributes('aria-label')).toBe('查看大图')
-    expect(wrapper.find('.article-image-lightbox img').attributes('alt')).toBe('First figure')
-    expect(wrapper.find('.article-image-lightbox img').attributes('src')).toBe('/fixtures/one.svg')
-    expect(wrapper.find('figcaption').text()).toBe('First figure')
-    expect(wrapper.html()).not.toMatch(/image-viewer|ElImageViewer/i)
-
-    wrapper.unmount()
+    await settle()
+    const dialogs = wrapper.findAll('[role="dialog"]')
+    expect(dialogs).toHaveLength(1)
+    expect(dialogs[0]!.attributes('aria-modal')).toBe('true')
+    expect(dialogs[0]!.attributes('aria-label')).toBe('查看大图')
+    expect(dialogs[0]!.attributes('data-fsus-material')).toBe('glass')
+    expect(activeImage(wrapper).attributes('alt')).toBe('First figure')
+    expect(activeImage(wrapper).attributes('src')).toBe('/fixtures/one.svg')
+    expect(wrapper.find('[data-article-lightbox-caption]').text()).toBe('First figure')
+    expect(dialogs[0]!.attributes('aria-describedby')).toBeTruthy()
+    expect(wrapper.findAll('[role="button"]').map(button => button.attributes('aria-label'))).toEqual(['关闭大图', '上一张', '下一张'])
   })
-
-  it('renders navigation controls conditionally based on image count', async () => {
-    const singleWrapper = mountLightbox({
-      images: [{ src: '/fixtures/single.svg', alt: 'Single figure' }],
-      activeIndex: 0
-    })
-    await flushPromises()
-    await nextTick()
-
-    expect(singleWrapper.find('.article-image-lightbox__close').exists()).toBe(true)
-    expect(singleWrapper.find('.article-image-lightbox__nav--prev').exists()).toBe(false)
-    expect(singleWrapper.find('.article-image-lightbox__nav--next').exists()).toBe(false)
-    singleWrapper.unmount()
-
-    const multiWrapper = mountLightbox({
-      images: [
-        { src: '/fixtures/one.svg', alt: 'First' },
-        { src: '/fixtures/two.svg', alt: 'Second' }
-      ],
-      activeIndex: 0
-    })
-    await flushPromises()
-    await nextTick()
-
-    expect(multiWrapper.find('.article-image-lightbox__close').exists()).toBe(true)
-    expect(multiWrapper.find('.article-image-lightbox__nav--prev').exists()).toBe(true)
-    expect(multiWrapper.find('.article-image-lightbox__nav--next').exists()).toBe(true)
-    expect(multiWrapper.find('.article-image-lightbox__nav--prev').attributes('aria-label')).toBe('上一张')
-    expect(multiWrapper.find('.article-image-lightbox__nav--next').attributes('aria-label')).toBe('下一张')
-    multiWrapper.unmount()
+  it('preserves single, closed and empty states without adding tools', async () => {
+    const wrapper = mountLightbox({ images: [images[0]] })
+    await settle()
+    expect(wrapper.findAll('[role="button"]')).toHaveLength(1)
+    await wrapper.setProps({ images: [] })
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    await wrapper.setProps({ images, open: false })
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
-
-  it('handles empty images gracefully without rendering overlay', async () => {
-    const wrapper = mountLightbox({
-      images: [],
-      activeIndex: 0
-    })
-    await flushPromises()
-    await nextTick()
-
-    expect(wrapper.find('.el-overlay').exists()).toBe(false)
-    expect(wrapper.find('[data-article-lightbox="true"]').exists()).toBe(false)
-    wrapper.unmount()
-  })
-
-  it('emits previous/next and close from controls without losing active media', async () => {
-    const wrapper = mountLightbox({ activeIndex: 0 })
-    await flushPromises()
-    await nextTick()
-
-    await wrapper.get('.article-image-lightbox__nav--next').trigger('click')
+  it('adapts circular two-image navigation intent and controlled active content', async () => {
+    const wrapper = mountLightbox()
+    await settle()
+    await control(wrapper, '下一张').trigger('click')
     expect(wrapper.emitted('next')).toHaveLength(1)
-
     await wrapper.setProps({ activeIndex: 1 })
-    await nextTick()
-    expect(wrapper.find('.article-image-lightbox img').attributes('alt')).toBe('Second figure')
-    expect(wrapper.find('.article-image-lightbox img').attributes('src')).toBe('/fixtures/two.svg')
-    expect(wrapper.find('figcaption').text()).toBe('Second figure')
-
-    await wrapper.get('.article-image-lightbox__nav--prev').trigger('click')
+    expect(activeImage(wrapper).attributes('alt')).toBe('Second figure')
+    expect(wrapper.find('[data-article-lightbox-caption]').text()).toBe('Second figure')
+    await control(wrapper, '下一张').trigger('click')
+    expect(wrapper.emitted('next')).toHaveLength(2)
+    expect(wrapper.emitted('previous')).toBeUndefined()
+    await wrapper.setProps({ activeIndex: 0 })
+    await control(wrapper, '上一张').trigger('click')
     expect(wrapper.emitted('previous')).toHaveLength(1)
-
-    await wrapper.get('.article-image-lightbox__close').trigger('click')
+    await control(wrapper, '关闭大图').trigger('click')
     expect(wrapper.emitted('close')).toHaveLength(1)
-
-    wrapper.unmount()
   })
-
-  it('closes on overlay backdrop click but not on image or caption', async () => {
+  it('does not close on image/caption clicks and handles document Escape', async () => {
     const wrapper = mountLightbox()
-    await flushPromises()
-    await nextTick()
-
-    const overlay = wrapper.get('.el-overlay')
-    const figure = wrapper.get('.article-image-lightbox__figure')
-    const img = wrapper.get('.article-image-lightbox__figure img')
-    const caption = wrapper.get('figcaption')
-
-    await figure.trigger('mousedown')
-    await figure.trigger('mouseup')
-    await figure.trigger('click')
-    await img.trigger('mousedown')
-    await img.trigger('mouseup')
-    await img.trigger('click')
-    await caption.trigger('mousedown')
-    await caption.trigger('mouseup')
-    await caption.trigger('click')
-    expect(wrapper.emitted('close') ?? []).toHaveLength(0)
-
-    // Overlay useSameTarget: only same-target mask clicks emit.
-    await overlay.trigger('mousedown')
-    await overlay.trigger('mouseup')
-    await overlay.trigger('click')
-    await nextTick()
-    expect(wrapper.emitted('close')?.length ?? 0).toBeGreaterThanOrEqual(1)
-
-    wrapper.unmount()
-  })
-
-  it('closes on Escape while dialog owns focus', async () => {
-    const wrapper = mountLightbox()
-    await flushPromises()
-    await nextTick()
-
-    const dialog = wrapper.get('[data-article-lightbox="true"]')
-    ;(dialog.element as HTMLElement).focus()
-    expect(document.activeElement).toBe(dialog.element)
-
-    await dialog.trigger('keydown.esc')
+    await settle()
+    await activeImage(wrapper).trigger('click')
+    await wrapper.get('[data-article-lightbox-caption]').trigger('click')
+    expect(wrapper.emitted('close')).toBeUndefined()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }))
+    await settle()
     expect(wrapper.emitted('close')).toHaveLength(1)
-
-    wrapper.unmount()
   })
-
-  it('locks body scroll on open and clears on close and unmount', async () => {
+  it('releases shared locks after repeated close and interrupted unmount', async () => {
     const wrapper = mountLightbox({ open: false })
-    await flushPromises()
-    expect(document.body.classList.contains('article-image-lightbox-open')).toBe(false)
-
-    await wrapper.setProps({ open: true })
-    await nextTick()
-    expect(document.body.classList.contains('article-image-lightbox-open')).toBe(true)
-
     for (let i = 0; i < 20; i += 1) {
-      await wrapper.setProps({ open: false })
-      await nextTick()
-      expect(document.body.classList.contains('article-image-lightbox-open')).toBe(false)
       await wrapper.setProps({ open: true })
-      await nextTick()
-      expect(document.body.classList.contains('article-image-lightbox-open')).toBe(true)
+      await settle()
+      expect(document.body.classList.contains('el-popup-parent--hidden')).toBe(true)
+      await wrapper.setProps({ open: false })
     }
-
-    await wrapper.setProps({ open: false })
-    await nextTick()
-    expect(document.body.classList.contains('article-image-lightbox-open')).toBe(false)
-
     await wrapper.setProps({ open: true })
-    await nextTick()
     wrapper.unmount()
+    await new Promise(resolve => setTimeout(resolve, 250))
+    expect(document.body.classList.contains('el-popup-parent--hidden')).toBe(false)
     expect(document.body.classList.contains('article-image-lightbox-open')).toBe(false)
-  })
-
-  it('does not introduce ImageViewer markers into the mounted tree', async () => {
-    const wrapper = mountLightbox()
-    await flushPromises()
-    await nextTick()
-    expect(wrapper.find('.el-image-viewer').exists()).toBe(false)
-    expect(wrapper.html()).not.toMatch(/image-viewer|zoom-in|rotate/i)
-    wrapper.unmount()
+    expect(document.querySelector('[inert]')).toBeNull()
   })
 })

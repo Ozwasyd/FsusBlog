@@ -9,6 +9,7 @@
             :items="items"
             :active-locale="activeLocale"
             :pending-locale="pendingLocale"
+            :retry-locale="retryLocale"
             :open="menuOpen"
             :error-message="errorMessage"
             :compact="compact"
@@ -33,6 +34,7 @@ const {
     activeLocale,
     items,
     pendingLocale,
+    retryLocale,
     errorMessage,
     menuOpen,
     handleOpenChange,

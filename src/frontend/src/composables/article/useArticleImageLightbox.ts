@@ -20,7 +20,6 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
     const images = ref<ArticleLightboxImage[]>([]);
     const activeIndex = ref(0);
     const open = ref(false);
-    const triggerImage = ref<HTMLImageElement | null>(null);
     const listeners: ListenerRecord[] = [];
     const revealControls = useScrollReveal({ ...fsusBlogScrollRevealOptions });
 
@@ -42,7 +41,8 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
     const show = (index: number, trigger?: HTMLImageElement | null): void =>
     {
         activeIndex.value = index;
-        triggerImage.value = trigger ?? listeners[index]?.image ?? null;
+        // Establish the article trigger before ImageViewer takes modal focus.
+        (trigger ?? listeners[index]?.image)?.focus({ preventScroll: true });
         open.value = true;
     };
 
@@ -105,15 +105,6 @@ export function useArticleImageLightbox(contentRoot: MaybeRefOrGetter<HTMLElemen
     const close = (): void =>
     {
         open.value = false;
-        const target = triggerImage.value;
-        triggerImage.value = null;
-        if (target && typeof document !== 'undefined' && document.contains(target))
-        {
-            void nextTick(() =>
-            {
-                target.focus();
-            });
-        }
     };
 
     const next = (): void =>

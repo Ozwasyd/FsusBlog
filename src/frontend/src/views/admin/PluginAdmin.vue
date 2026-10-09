@@ -35,34 +35,58 @@
                     <strong>{{ overview?.plugins.length ?? 0 }} 个插件</strong>
                     <span>当前节点 {{ overview?.currentNodeId ?? '—' }}</span>
                 </div>
-                <button
-                    v-for="plugin in overview?.plugins ?? []"
-                    :key="plugin.pluginId"
-                    type="button"
-                    class="plugin-admin-list__item"
-                    :class="{ 'is-active': plugin.pluginId === selectedId }"
-                    @click="selectPlugin(plugin.pluginId)"
+                <FsusUiDataList
+                    :rows="pluginRows"
+                    :columns="pluginColumns"
+                    row-key="pluginId"
+                    :active-key="selectedId"
+                    :loading="loading"
+                    :loading-key="detailLoading ? selectedId : null"
+                    aria-label="已安装插件"
+                    density="compact"
+                    variant="navigation"
+                    responsive
+                    :show-header="false"
+                    @change="(_row, key) => selectPlugin(String(key))"
                 >
-                    <span class="plugin-admin-list__identity">
-                        <strong>{{ plugin.name }}</strong>
-                        <small>{{ plugin.pluginId }} · {{ plugin.version }}</small>
-                    </span>
-                    <span class="plugin-admin-list__status">
-                        <ElTag
-                            :type="healthTag(plugin.healthState)"
-                            size="small"
+                    <template #cell="{ row, column }">
+                        <span
+                            v-if="column.key === 'identity'"
+                            class="plugin-admin-list__identity"
                         >
-                            {{ healthLabel(plugin.healthState) }}
-                        </ElTag>
-                        <small>{{ plugin.runtime }}</small>
-                    </span>
-                </button>
-                <p
-                    v-if="!loading && overview?.plugins.length === 0"
-                    class="plugin-admin-empty"
-                >
-                    尚未安装插件。安装包只会写入受控 Registry，不会在确认权限前执行。
-                </p>
+                            <strong>{{ row.name }}</strong>
+                            <small>{{ row.pluginId }} · {{ row.version }}</small>
+                        </span>
+                        <span
+                            v-else
+                            class="plugin-admin-list__status"
+                        >
+                            <ElTag
+                                :type="healthTag(String(row.healthState))"
+                                size="small"
+                            >
+                                {{ healthLabel(String(row.healthState)) }}
+                            </ElTag>
+                            <small>{{ row.runtime }}</small>
+                        </span>
+                    </template>
+                    <template #empty>
+                        <FsusUiEmptyState
+                            size="inline"
+                            :title="loading ? '正在读取插件列表…' : listError ? '插件列表加载失败' : '尚未安装插件'"
+                            :description="!loading && !listError ? '安装包只会写入受控 Registry，不会在确认权限前执行。' : ''"
+                            :illustration="false"
+                            role="status"
+                            aria-live="polite"
+                        />
+                    </template>
+                </FsusUiDataList>
+                <ElAlert
+                    v-if="overview?.plugins.length && (loading || listError)"
+                    :title="loading ? '正在读取插件列表…' : '插件列表加载失败'"
+                    :type="listError ? 'error' : 'info'"
+                    :closable="false"
+                />
             </aside>
 
             <main class="plugin-admin-detail">
@@ -498,6 +522,8 @@ import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import {
     FsusUiKeyValueGrid,
     FsusUiKeyValueItem,
+    FsusUiDataList,
+    FsusUiEmptyState,
     FsusUiSettingsSection,
     FsusUiTaskPageHeader
 } from '@/fsusui';
@@ -515,6 +541,7 @@ interface ConfigField {
 }
 
 const loading = ref(false);
+const listError = ref(false);
 const detailLoading = ref(false);
 const installing = ref(false);
 const actionLoading = ref('');
@@ -523,7 +550,12 @@ const selectedId = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
 const overview = shallowRef<PluginAdminOverview | null>(null);
 const detail = shallowRef<PluginAdminDetail | null>(null);
+const pluginRows = computed(() => overview.value?.plugins.map((plugin) => ({ ...plugin })) ?? []);
 const configDraft = ref<Record<string, any>>({});
+const pluginColumns = [
+    { key: 'identity', label: '插件', grid: 'minmax(0, 1fr)' },
+    { key: 'status', label: '状态', grid: 'minmax(90px, 0.5fr)', align: 'end' as const }
+];
 
 const configFields = computed<ConfigField[]>(() =>
 {
@@ -546,6 +578,7 @@ const configFields = computed<ConfigField[]>(() =>
 async function loadOverview(): Promise<void>
 {
     loading.value = true;
+    listError.value = false;
     try
     {
         overview.value = await listPlugins();
@@ -564,6 +597,7 @@ async function loadOverview(): Promise<void>
     }
     catch (error)
     {
+        listError.value = true;
         showErrorToast(error, '插件列表加载失败');
     }
     finally
@@ -850,8 +884,14 @@ onMounted(loadOverview);
     background: var(--fsusblog-panel-bg);
 }
 
-.plugin-admin-list__summary,
-.plugin-admin-list__item
+.plugin-admin-layout
+ {
+    display: grid;
+    grid-template-columns: minmax(240px, 0.32fr) minmax(0, 1fr);
+    gap: var(--fsus-space-6);
+}
+
+.plugin-admin-list__summary
  {
     display: flex;
     justify-content: space-between;
@@ -866,23 +906,6 @@ onMounted(loadOverview);
     font-size: 13px;
 }
 
-.plugin-admin-list__item
- {
-    width: 100%;
-    border: 0;
-    border-bottom: 1px solid var(--fsusblog-panel-border);
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    text-align: left;
-}
-
-.plugin-admin-list__item:hover,
-.plugin-admin-list__item.is-active
- {
-    background: var(--fsusblog-surface-muted);
-}
-
 .plugin-admin-list__identity,
 .plugin-admin-list__status
  {
@@ -890,10 +913,9 @@ onMounted(loadOverview);
     min-width: 0;
     flex-direction: column;
     gap: var(--fsus-space-1);
-    overflow: hidden;
     color: var(--fsusblog-text-secondary);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .plugin-admin-list__status
@@ -901,18 +923,12 @@ onMounted(loadOverview);
     align-items: flex-end;
 }
 
-.plugin-admin-empty,
 .plugin-admin-hint
  {
     margin: 0;
     color: var(--fsusblog-text-secondary);
     font-size: 13px;
     line-height: 1.7;
-}
-
-.plugin-admin-empty
- {
-    padding: var(--fsus-space-5);
 }
 
 .plugin-admin-placeholder

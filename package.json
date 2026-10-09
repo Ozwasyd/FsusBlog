@@ -1,0 +1,14 @@
+{
+    "name": "@fsusblog/layout-governance",
+    "version": "0.0.0",
+    "private": true,
+    "exports": {
+        "./fsusui-source-resolver": "./src/frontend/scripts/fsusui-root.mjs",
+        "./schema-validator": "./tools/test-matrix/schema-validator/validate.mjs",
+        "./composition-contracts": "./tests/frontend/support/layout/compositionContracts.mjs",
+        "./composition-analyzer": "./tests/frontend/support/layout/compositionAnalyzer.mjs",
+        "./composition-source": "./tests/frontend/support/layout/compositionSource.mjs",
+        "./composition-dom": "./tests/frontend/support/layout/compositionDom.mjs",
+        "./composition-routes": "./tests/frontend/support/layout/compositionRoutes.mjs"
+    }
+}

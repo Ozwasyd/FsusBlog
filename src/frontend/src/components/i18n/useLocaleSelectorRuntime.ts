@@ -15,6 +15,7 @@ export type LocaleSelectorRuntimeProjection = Readonly<{
     activeLocale: ComputedRef<SupportedLocale>;
     items: ComputedRef<readonly LocaleSelectorItem[]>;
     pendingLocale: ComputedRef<string | null>;
+    retryLocale: ComputedRef<string | null>;
     errorMessage: ComputedRef<string | null>;
     menuOpen: Ref<boolean>;
     handleOpenChange: (open: boolean) => void;
@@ -51,6 +52,8 @@ export function useLocaleSelectorRuntime(): LocaleSelectorRuntimeProjection
    * surface works without new translation keys.
    */
     const lastFailedTarget = ref<SupportedLocale | null>(null);
+    const retryLocale = computed(() => lastFailedTarget.value);
+    let selectionGeneration = 0;
 
     const errorMessage = computed(() =>
     {
@@ -82,7 +85,9 @@ export function useLocaleSelectorRuntime(): LocaleSelectorRuntimeProjection
             return;
         }
 
-        if (code === activeLocale.value && !errorMessage.value)
+        const generation = ++selectionGeneration;
+
+        if (code === activeLocale.value && !errorMessage.value && !pendingLocale.value)
         {
             menuOpen.value = false;
             return;
@@ -92,11 +97,19 @@ export function useLocaleSelectorRuntime(): LocaleSelectorRuntimeProjection
         try
         {
             await requestLocalePreference({ mode: 'fixed', locale: code });
+            if (generation !== selectionGeneration)
+            {
+                return;
+            }
             lastFailedTarget.value = null;
             menuOpen.value = false;
         }
         catch
         {
+            if (generation !== selectionGeneration)
+            {
+                return;
+            }
             lastFailedTarget.value = code;
             // Keep menu open so pending progress / error + retry stay reachable.
         }
@@ -116,6 +129,7 @@ export function useLocaleSelectorRuntime(): LocaleSelectorRuntimeProjection
         activeLocale,
         items,
         pendingLocale,
+        retryLocale,
         errorMessage,
         menuOpen,
         handleOpenChange,
