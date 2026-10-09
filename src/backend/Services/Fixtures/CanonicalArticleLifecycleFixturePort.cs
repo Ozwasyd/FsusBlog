@@ -260,6 +260,9 @@ public sealed class CanonicalArticleLifecycleFixturePort(
             fenceEstablished = true;
             var transaction = await db.Ado.UseTranAsync(async () =>
             {
+                using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
+                await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken)
+                    .ConfigureAwait(false);
                 await db.Ado.ExecuteCommandAsync(
                     "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 2174));",
                     new SugarParameter(
@@ -426,6 +429,9 @@ public sealed class CanonicalArticleLifecycleFixturePort(
             fenceEstablished = true;
             var transaction = await db.Ado.UseTranAsync(async () =>
             {
+                using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
+                await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken)
+                    .ConfigureAwait(false);
                 // Serialize with the production transition and re-read the original authority
                 // under the same article lock; a stale or altered receipt cannot add facts.
                 await db.Ado.GetScalarAsync(

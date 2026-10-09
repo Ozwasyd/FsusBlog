@@ -854,7 +854,7 @@ public partial class ArticleService(
                     created.Version.RevisionNo,
                     IdempotencyReplay: false,
                     (byte)ErrorCode.None);
-            });
+            }, ct);
 
             mutationCommitted = result.IsSuccess && result.Data.ArticleId > 0;
             ct.ThrowIfCancellationRequested();

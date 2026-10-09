@@ -63,6 +63,8 @@ public static class ArticleCreateMutationAuthority
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(request);
+        using var callerCancellation = new CallerCancellationScope(db);
+        await RequireSourceMutationTransactionAsync(db, cancellationToken).ConfigureAwait(false);
 
         string title = ArticleProductionNormalizers.NormalizeText(
             request.Title, ArticleProductionNormalizers.MaxTitleLength);
@@ -225,7 +227,9 @@ public static class ArticleCreateMutationAuthority
             after: afterScope,
             occurredAt: request.Now,
             publicUpdatedAt: request.PublicUpdatedAt);
-        await db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
+        await db.Insertable(outbox).ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
+        await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken)
+            .ConfigureAwait(false);
 
         ArticleMutationCommand? mutationCommand = null;
         if (request.MutationIdentity is { } identity)
@@ -257,5 +261,22 @@ public static class ArticleCreateMutationAuthority
             version,
             outbox,
             mutationCommand);
+    }
+
+    internal static async Task RequireSourceMutationTransactionAsync(
+        ISqlSugarClient db,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var (connection, transaction) = ArticleSourceGenerationAuthority.RequireTransaction(db);
+        await ArticleSourceGenerationPersistence.RequireLockAsync(connection, transaction, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    internal sealed class CallerCancellationScope(ISqlSugarClient db) : IDisposable
+    {
+        private readonly CancellationToken? _previousCancellation = db.Ado.CancellationToken;
+
+        public void Dispose() => db.Ado.CancellationToken = _previousCancellation;
     }
 }
