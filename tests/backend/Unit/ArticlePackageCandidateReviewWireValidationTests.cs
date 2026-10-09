@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -60,6 +61,8 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
     [InlineData("callerPolicyDigest", "\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"")]
     [InlineData("createdAtUtc", "\"2026-02-30T01:02:03Z\"")]
     [InlineData("createdAtUtc", "\"2026-10-09T01:02:03+00:00\"")]
+    [InlineData("createdAtUtc", "\"2026-10-09T01:02:03Z\\n\"")]
+    [InlineData("callerPolicyDigest", "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"")]
     [InlineData("expiresAtUtc", "\"2026-10-09T01:02:03Z\"")]
     [InlineData("expectedPlanDigest", "\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"")]
     public void RequestWrongPrimitiveBudgetAndIntent_AreRefused(string property, string raw)
@@ -110,6 +113,7 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
     [InlineData("-1")]
     [InlineData("1.0")]
     [InlineData("9223372036854775808")]
+    [InlineData("1\n")]
     public void NestedTargetRevision_RefusesNoncanonicalInt64Strings(string revision)
     {
         JsonNode request = UpdateRequest(revision);
@@ -163,6 +167,9 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
         targets.RemoveAt(1000);
         targets[1]!["requestedTargetArticleId"] = 1;
         Assert.False(ReadRequest(root.ToJsonString(), out _));
+        JsonNode portable = UpdateRequest("1");
+        portable["requestedTargets"]![0]!["portableArticle"] = "article:11111111-1111-1111-1111-111111111111\n";
+        Assert.False(ReadRequest(portable.ToJsonString(), out _));
     }
 
     [Fact]
@@ -250,29 +257,15 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
     }
 
     [Fact]
-    public async Task EndpointInitializationRequiredDenialCancellationAndStorageFailure_RemainPrivateRefusals()
+    public async Task EndpointInitializationRequiredAndStorageFailure_RemainPrivateRefusals()
     {
         byte[] frame = new AedsEncoder().Encode((AedsFrameType)288, Encoding.UTF8.GetBytes(RequestJson));
         await using (EndpointCase owned = Endpoint(frame, false))
         {
             owned.Reader.State = SystemSiteIdentityState.InitializationRequired;
             await owned.Execute();
+            Assert.Equal(400, owned.Context.Response.StatusCode);
             Assert.Contains("article_package_candidate_review_site_unavailable", Encoding.UTF8.GetString(((MemoryStream)owned.Context.Response.Body).ToArray()));
-        }
-        await using (EndpointCase owned = Endpoint(frame, false))
-        {
-            owned.Context.User = new ClaimsPrincipal();
-            await owned.Execute();
-            Assert.Equal(0, owned.Reader.Calls);
-            Assert.Contains("article_package_candidate_review_access_denied", Encoding.UTF8.GetString(((MemoryStream)owned.Context.Response.Body).ToArray()));
-        }
-        await using (EndpointCase owned = Endpoint(frame, false))
-        {
-            using var cancellation = new CancellationTokenSource();
-            cancellation.Cancel();
-            await owned.Execute(cancellation.Token);
-            Assert.Equal(0, owned.Reader.Calls);
-            Assert.Contains("article_package_import_cancelled", Encoding.UTF8.GetString(((MemoryStream)owned.Context.Response.Body).ToArray()));
         }
         await using (EndpointCase owned = Endpoint(frame, false))
         {
@@ -281,6 +274,126 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
             Assert.Equal(500, owned.Context.Response.StatusCode);
             Assert.DoesNotContain("private-canary", Encoding.UTF8.GetString(((MemoryStream)owned.Context.Response.Body).ToArray()));
         }
+    }
+
+    [Theory]
+    [InlineData("anonymous", 401)]
+    [InlineData("non-admin", 403)]
+    [InlineData("invalid-id", 403)]
+    [InlineData("missing-session", 403)]
+    [InlineData("missing-permission", 403)]
+    public async Task EndpointIdentityDenial_UsesOriginalStatusBeforeBodyOrReader(string input, int status)
+    {
+        await using EndpointCase owned = Endpoint([], false);
+        await owned.Context.Request.Body.DisposeAsync();
+        var unread = new UnreadBody();
+        owned.Context.Request.Body = unread;
+        var claims = new List<Claim>
+        {
+            new("identity_kind", input == "non-admin" ? "user" : AnonymousIdentityRuntime.AdminPrincipalKind),
+            new("admin_id", input == "invalid-id" ? "0" : "73")
+        };
+        if (input != "missing-session")
+        {
+            claims.Add(new("admin_sid", "controlled-session"));
+        }
+        if (input != "missing-permission")
+        {
+            claims.Add(new(AdminPermissions.PermissionClaimType, AdminPermissions.ArticleWrite));
+        }
+        owned.Context.User = input == "anonymous" ? new() : new(new ClaimsIdentity(claims, "controlled-unit"));
+        await owned.Execute();
+        Assert.Equal(status, owned.Context.Response.StatusCode);
+        Assert.Equal(0, unread.Reads);
+        Assert.Equal(0, owned.Reader.Calls);
+        var decoded = new AedsEncoder().TryDecode(((MemoryStream)owned.Context.Response.Body).ToArray());
+        Assert.True(decoded.IsSuccess);
+        Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var error));
+        Assert.Equal(input == "anonymous" ? "UNAUTHORIZED" : "article_package_candidate_review_access_denied",
+            PodBinaryCodec.ToErrorDetail(error).Message);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EndpointCallerOrRequestAbort_ProducesNoResponseBodyOrIdentityRead(bool requestAborted)
+    {
+        await using EndpointCase owned = Endpoint([], false);
+        await owned.Context.Request.Body.DisposeAsync();
+        var unread = new UnreadBody();
+        owned.Context.Request.Body = unread;
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        if (requestAborted)
+        {
+            owned.Context.RequestAborted = cancellation.Token;
+        }
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            owned.Execute(requestAborted ? CancellationToken.None : cancellation.Token));
+        Assert.Equal(0, unread.Reads);
+        Assert.Equal(0, owned.Reader.Calls);
+        Assert.Equal(0, owned.Context.Response.Body.Length);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task EndpointAbortDuringOriginalIdentityRead_ProducesNoResponse(int cancelledRead)
+    {
+        JsonNode request = JsonNode.Parse(RequestJson)!;
+        request["archiveBytes"] = Convert.ToBase64String(Archive());
+        await using EndpointCase owned = Endpoint(new AedsEncoder().Encode((AedsFrameType)288,
+            Encoding.UTF8.GetBytes(request.ToJsonString())), false);
+        using var cancellation = new CancellationTokenSource();
+        owned.Context.RequestAborted = cancellation.Token;
+        owned.Reader.OnRead = count =>
+        {
+            if (count == cancelledRead)
+            {
+                cancellation.Cancel();
+            }
+        };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => owned.Execute());
+        Assert.Equal(cancelledRead, owned.Reader.Calls);
+        Assert.Equal(0, owned.Context.Response.Body.Length);
+    }
+
+    [Fact]
+    public async Task EndpointUnsignalledCancellation_PropagatesWithoutPublicResponse()
+    {
+        await using EndpointCase owned = Endpoint(new AedsEncoder().Encode((AedsFrameType)288,
+            Encoding.UTF8.GetBytes(RequestJson)), false);
+        owned.Reader.OnRead = _ => throw new OperationCanceledException("private-canary");
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => owned.Execute());
+        Assert.Equal(1, owned.Reader.Calls);
+        Assert.Equal(0, owned.Context.Response.Body.Length);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EndpointStalePlanOrOwnerDrift_UsesOriginalConflict(bool ownerDrift)
+    {
+        JsonNode request = JsonNode.Parse(RequestJson)!;
+        request["archiveBytes"] = Convert.ToBase64String(Archive());
+        if (!ownerDrift)
+        {
+            request["expectedPlanDigest"] = new string('f', 64);
+            request["expectedContext"] = JsonNode.Parse(ResponseJson)!["context"]!.DeepClone();
+        }
+        await using EndpointCase owned = Endpoint(new AedsEncoder().Encode((AedsFrameType)288,
+            Encoding.UTF8.GetBytes(request.ToJsonString())), false);
+        if (ownerDrift)
+        {
+            owned.Reader.OnRead = _ => owned.Context.User = new ClaimsPrincipal();
+        }
+        await owned.Execute();
+        Assert.Equal(409, owned.Context.Response.StatusCode);
+        string response = Encoding.UTF8.GetString(((MemoryStream)owned.Context.Response.Body).ToArray());
+        Assert.Contains(ownerDrift ? "article_package_candidate_review_context_drift" : "article_package_candidate_review_plan_stale", response);
+        Assert.DoesNotContain("controlled-session", response, StringComparison.Ordinal);
+        Assert.DoesNotContain("controlled.example", response, StringComparison.Ordinal);
     }
 
     private static bool ReadRequest(string json, out ArticlePackageCandidateReviewReadRequest? request)
@@ -356,16 +469,28 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
         public int Calls { get; private set; }
         public SystemSiteIdentityState State { get; set; } = SystemSiteIdentityState.Current;
         public bool Fail { get; set; }
+        public Action<int>? OnRead { get; set; }
         public Task<SystemSiteIdentityReadModel> ReadCurrentSiteIdentityAsync(CancellationToken cancellationToken = default)
         {
             Calls++;
             cancellationToken.ThrowIfCancellationRequested();
+            OnRead?.Invoke(Calls);
             if (Fail)
             {
                 throw new IOException("private-canary");
             }
             return Task.FromResult(new SystemSiteIdentityReadModel(State, "fsus-site:" + new string('a', 64), 1, 2, 7,
                 new[] { new SystemSiteIdentityScope("https://controlled.example", 3) }));
+        }
+    }
+
+    private sealed class UnreadBody : MemoryStream
+    {
+        public int Reads { get; private set; }
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            Reads++;
+            throw new InvalidOperationException("Identity refusal must not read source bytes.");
         }
     }
 

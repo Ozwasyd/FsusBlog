@@ -50,7 +50,8 @@ test('request closed shape rejects duplicates missing null wrong primitives and 
         ['requestId', null], ['pageSize', 0], ['pageSize', 51], ['pageSize', '50'], ['pageIndex', 9007199254740992],
         ['requestedMode', 'Execute'], ['archiveBytes', 'AR=='], ['archiveBytes', 'AQ== '], ['callerPolicyDigest', 'A'.repeat(64)],
         ['createdAtUtc', '2026-02-30T01:02:03Z'], ['createdAtUtc', '2026-10-09T01:02:03+00:00'],
-        ['createdAtUtc', '2026-10-09T24:00:00Z'], ['expiresAtUtc', '2026-10-09T01:02:03Z'], ['expectedPlanDigest', 'f'.repeat(64)]
+        ['createdAtUtc', '2026-10-09T24:00:00Z'], ['expiresAtUtc', '2026-10-09T01:02:03Z'], ['expectedPlanDigest', 'f'.repeat(64)],
+        ['createdAtUtc', '2026-10-09T01:02:03Z\n'], ['callerPolicyDigest', 'a'.repeat(64) + '\n']
     ])
     {
         assert.throws(() => parseRequest({ ...JSON.parse(requestLiteral), [property]: value }), invalid);
@@ -93,7 +94,7 @@ test('nested targets preserve exact Int64 strings and reject numeric or noncanon
     const response = parseResponse(updateResponse());
     assert.equal(response.review.targets[0].expectedTargetRevision, '9223372036854775807');
     assert.equal(parseRequest(updateRequest()).requestedTargets[0].expectedTargetRevision, '9223372036854775807');
-    for (const value of ['0', '01', '+1', '-1', '1.0', '9223372036854775808', 73, null])
+    for (const value of ['0', '01', '+1', '-1', '1.0', '9223372036854775808', '1\n', 73, null])
     {
         assert.throws(() => parseRequest(updateRequest(value)), invalid);
         assert.throws(() => parseResponse(updateResponse(value)), invalid);
@@ -143,6 +144,8 @@ test('requestedTargets budget and original target identity closure are finite', 
     request.requestedTargets.push({ portableArticle: 'article:000003e9-1111-1111-1111-111111111111', requestedTargetArticleId: 1001, expectedTargetRevision: '1' });
     assert.throws(() => parseRequest(request), invalid);
     request.requestedTargets = [{ portableArticle: 'article:00000000-0000-0000-0000-000000000000', requestedTargetArticleId: 1, expectedTargetRevision: '1' }];
+    assert.throws(() => parseRequest(request), invalid);
+    request.requestedTargets[0].portableArticle = 'article:11111111-1111-1111-1111-111111111111\n';
     assert.throws(() => parseRequest(request), invalid);
 });
 

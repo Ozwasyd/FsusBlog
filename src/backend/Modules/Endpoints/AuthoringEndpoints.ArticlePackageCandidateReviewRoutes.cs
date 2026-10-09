@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Results;
@@ -31,10 +32,26 @@ public static partial class AuthoringEndpoints
         try
         {
             token.ThrowIfCancellationRequested();
+            if (context.User.Identity?.IsAuthenticated != true)
+            {
+                return AedsJsonResults.Unauthorized(aeds);
+            }
+            if (!context.User.IsAdminPrincipal() || !context.User.TryGetAdminPrincipalId(out _)
+                || string.IsNullOrWhiteSpace(context.User.GetAdminSessionId())
+                || !context.User.HasAdminPermission(AdminPermissions.ArticleWrite))
+            {
+                return AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default403Forbidden,
+                    "article_package_candidate_review_access_denied");
+            }
+            if (context.Request.ContentLength > ArticlePackageCandidateReviewReadLimits.MaxRequestBytes)
+            {
+                return AedsJsonResults.BadRequest(aeds, "authoring_binary_body_too_large");
+            }
             var requestContext = context.RequestServices.GetRequiredService<IBinaryEndpointRequestContext>();
             using BinaryRequestPayload payload = await requestContext.ReadFrameAsync(context, aeds,
                 (AedsFrameType)ArticlePackageCandidateReviewWireValidation.ReservedRequestFrame, token,
                 ArticlePackageCandidateReviewReadLimits.MaxRequestBytes).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
             if (!payload.IsSuccess)
             {
                 return BinaryResults.FromError(payload.Error, aeds);
@@ -46,6 +63,7 @@ public static partial class AuthoringEndpoints
                 var remaining = await context.Request.BodyReader.ReadAsync(token).ConfigureAwait(false);
                 bool trailing = !remaining.Buffer.IsEmpty;
                 context.Request.BodyReader.AdvanceTo(remaining.Buffer.End);
+                token.ThrowIfCancellationRequested();
                 if (remaining.IsCanceled)
                 {
                     throw new OperationCanceledException(token);
@@ -68,7 +86,15 @@ public static partial class AuthoringEndpoints
             token.ThrowIfCancellationRequested();
             if (!outcome.Result.IsValid)
             {
-                return AedsJsonResults.BadRequest(aeds, outcome.Result.ReasonCode ?? ArticlePackageCandidateReviewWireValidation.InvalidResponse);
+                string reason = outcome.Result.ReasonCode ?? ArticlePackageCandidateReviewWireValidation.InvalidRequest;
+                ApiErrorTransportMappingId mapping = reason switch
+                {
+                    "article_package_candidate_review_context_drift" or "article_package_candidate_review_plan_stale"
+                        => ApiErrorTransportMappingId.Default409Conflict,
+                    "article_package_candidate_review_access_denied" => ApiErrorTransportMappingId.Default403Forbidden,
+                    _ => ApiErrorTransportMappingId.Default400Validation
+                };
+                return AedsJsonResults.Error(aeds, mapping, reason);
             }
             // Validate serialized output too: Web deserialization alone cannot close nested shapes.
             byte[] responseBytes = JsonSerializer.SerializeToUtf8Bytes(outcome.Response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -80,12 +106,13 @@ public static partial class AuthoringEndpoints
             token.ThrowIfCancellationRequested();
             return BinaryResults.FrameRaw(aeds, (AedsFrameType)ArticlePackageCandidateReviewWireValidation.ReservedResponseFrame, responseBytes);
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            return AedsJsonResults.BadRequest(aeds, "article_package_import_cancelled");
+            throw;
         }
         catch (Exception)
         {
+            token.ThrowIfCancellationRequested();
             // No exception text, archive bytes or private reader context enters the public error.
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "article_package_candidate_review_unavailable"), aeds);
         }

@@ -97,6 +97,8 @@ int main()
         {"\"requestedMode\":\"CreateNew\"", "\"requestedMode\":\"Execute\""},
         {"2026-10-09T01:02:03Z", "2026-02-30T01:02:03Z"}, {"2026-10-09T01:02:03Z", "2026-10-09T24:00:00Z"},
         {"2026-10-09T01:02:03Z", "2026-10-09T01:02:03+00:00"}, {"wire-read", "\\ud800"},
+        {"2026-10-09T01:02:03Z", "2026-10-09T01:02:03Z\\n"},
+        {std::string(64, 'a'), std::string(64, 'a') + "\\n"},
         {"wire-read", "\\u0085"}, {"\"requestId\":", "\"adminSession\":\"private-canary\",\"requestId\":"}})
     {
         passed = Check(!RequestValid(Replace(Request, from, to)), ++control) && passed;
@@ -125,6 +127,8 @@ int main()
     updateResponse = Replace(updateResponse, "\"requestedTargetArticleId\":null", "\"requestedTargetArticleId\":73");
     updateResponse = Replace(updateResponse, "\"expectedTargetRevision\":null", "\"expectedTargetRevision\":\"9223372036854775807\"");
     passed = Check(RequestValid(update) && ResponseValid(updateResponse), ++control) && passed;
+    passed = Check(!RequestValid(Replace(update, "article:11111111-1111-1111-1111-111111111111",
+        "article:11111111-1111-1111-1111-111111111111\\n")), ++control) && passed;
     const std::string context = R"json({"identity":"fsus-site:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","lifecycleVersion":1,"generation":2,"mappingRevision":7,"scopeRevision":3})json";
     std::string replay = Replace(update, "\"expectedPlanDigest\":null", "\"expectedPlanDigest\":\"" + std::string(64, 'f') + "\"");
     replay = Replace(replay, "\"expectedContext\":null", "\"expectedContext\":" + context);
@@ -149,7 +153,7 @@ int main()
     targets.pop_back();
     targets += ",{\"portableArticle\":\"article:00001001-1111-1111-1111-111111111111\",\"requestedTargetArticleId\":1001,\"expectedTargetRevision\":\"1\"}]";
     passed = Check(!RequestValid(Replace(update, target, targets)), ++control) && passed;
-    for (std::string_view revision : { "0", "01", "+1", "-1", "1.0", "9223372036854775808" })
+    for (std::string_view revision : { "0", "01", "+1", "-1", "1.0", "9223372036854775808", "1\\n" })
     {
         passed = Check(!RequestValid(Replace(update, "9223372036854775807", revision))
             && !ResponseValid(Replace(updateResponse, "9223372036854775807", revision)), ++control) && passed;

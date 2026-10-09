@@ -1,49 +1,18 @@
+import { AEDS_HEADER_LENGTH } from '../../../wasm/web/protocol/frame.ts';
+
+import type { ArticlePackageCandidateReadContext, ArticlePackageCandidateReadRequest, ArticlePackageCandidateReadResponse, ArticlePackageCandidateReadTarget } from '@/api/types/articlePackageCandidateRead';
 import type { ArticlePackageCandidateReview } from '@/api/types/articlePackageCandidateReview';
 
 /** Reserved allocation only; the central frame/route owner has not activated this pair. */
 export const articlePackageCandidateReviewReservedFrames = Object.freeze({ request: 288, response: 289 });
 
-export interface ArticlePackageCandidateReviewContextExpectation
-{
-    readonly identity: string;
-    readonly lifecycleVersion: number;
-    readonly generation: number;
-    readonly mappingRevision: number;
-    readonly scopeRevision: number;
-}
+/** Original host-owned DTOs; these aliases add no transport or browser authority. */
+export type ArticlePackageCandidateReviewContextExpectation = ArticlePackageCandidateReadContext;
+export type ArticlePackageCandidateReviewRequestedTarget = ArticlePackageCandidateReadTarget;
+export type ArticlePackageCandidateReviewReadRequest = ArticlePackageCandidateReadRequest;
+export type ArticlePackageCandidateReviewReadResponse = ArticlePackageCandidateReadResponse;
 
-export interface ArticlePackageCandidateReviewRequestedTarget
-{
-    readonly portableArticle: string;
-    readonly requestedTargetArticleId: number;
-    readonly expectedTargetRevision: string;
-}
-
-/** Caller assertions only. No owner, session or approved scope can be supplied here. */
-export interface ArticlePackageCandidateReviewReadRequest
-{
-    readonly requestId: string;
-    readonly archiveBytes: string;
-    readonly requestedMode: 'CreateNew' | 'UpdateRequested';
-    readonly callerPolicyDigest: string;
-    readonly callerPermissionContextDigest: string;
-    readonly createdAtUtc: string;
-    readonly expiresAtUtc: string;
-    readonly requestedTargets: readonly ArticlePackageCandidateReviewRequestedTarget[] | null;
-    readonly pageIndex: number;
-    readonly pageSize: number;
-    readonly expectedPlanDigest: string | null;
-    readonly expectedContext: ArticlePackageCandidateReviewContextExpectation | null;
-}
-
-export interface ArticlePackageCandidateReviewReadResponse
-{
-    readonly requestId: string;
-    readonly review: ArticlePackageCandidateReview;
-    readonly context: ArticlePackageCandidateReviewContextExpectation;
-}
-
-const maxPayloadBytes = 1048576 - 16;
+const maxPayloadBytes = 1048576 - AEDS_HEADER_LENGTH;
 const invalidWire = 'article_package_candidate_review_wire_invalid';
 const authorities = Object.freeze([
     'archive_intake', 'complete_package_schema', 'canonical_source_and_property_provenance',
@@ -231,18 +200,18 @@ function integer(value: unknown, minimum: number, maximum: number): value is num
 
 function digest(value: unknown): value is string
 {
-    return typeof value === 'string' && /^[0-9a-f]{64}$/u.test(value);
+    return typeof value === 'string' && value.length === 64 && /^[0-9a-f]{64}$/u.test(value);
 }
 
 function revision(value: unknown): value is string
 {
-    return typeof value === 'string' && /^[1-9][0-9]{0,18}$/u.test(value)
+    return typeof value === 'string' && /^[1-9][0-9]{0,18}(?![\s\S])/u.test(value)
         && (value.length < 19 || value <= '9223372036854775807');
 }
 
 function portable(value: unknown): value is string
 {
-    return typeof value === 'string' && /^article:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value)
+    return typeof value === 'string' && value.length === 44 && /^article:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value)
         && value !== 'article:00000000-0000-0000-0000-000000000000';
 }
 
@@ -254,7 +223,7 @@ function requestId(value: unknown): value is string
 
 function utc(value: unknown): string | null
 {
-    if (typeof value !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,7})?Z$/u.test(value)
+    if (typeof value !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,7})?Z(?![\s\S])/u.test(value)
         || value.slice(0, 4) === '0000')
     {
         return null;
