@@ -122,17 +122,23 @@ this module requires `GENERATED ALWAYS AS IDENTITY`; no identity conversion,
 alternate migration or weakened compatibility check is supplied here.
 
 The bound domain source is private freezer input and must not be serialized to
-UI. It does not supply the complete frozen export property/assets/fonts/renderer
-closure, retained embeds, public choice wire contract or authenticated routes.
-The backend catalog's `ImplementationAvailable` flag declares source capability;
-it cannot be promoted to admitted native availability in a browser registry.
+UI. The registered source-options POST operations project only the persisted
+choice ID, label and complete coordinate through the canonical Shared wire
+contract; they do not supply the complete frozen export property/assets/fonts/
+renderer closure or retained embeds. The backend contract catalog's
+`ImplementationAvailable` flag declares source capability; it cannot be promoted
+to admitted native availability in a browser registry.
 Existing `ServerDraftResponse` has `serverRevision` but no persisted document epoch
 or export source-version authority; revision/detail/release responses likewise
 lack the full export closure. Neither `serverRevision`, `revisionNo` nor a release
-ID is silently substituted for the generated export `sourceVersion`. There is no
-current authenticated export catalog/source projection wire route. Request
-preparation, article navigation and route/bootstrap activation therefore remain
-unbound until those original inputs are supplied.
+ID is silently substituted for the generated export `sourceVersion`. The source
+choices response does not carry provider availability, supported layout/theme
+profiles, per-choice privacy policy or locale. A browser host must obtain those
+facts from their actual authorities and prepare the original request against the
+exact returned choice. The existing active locale runtime is a locale authority;
+the choices response is not. Article navigation, host mounting and route/bootstrap
+activation remain separate integration work, not evidence supplied by a choices
+factory or the two POST registrations.
 
 The original binding exposes `FreezeDecodedRequestAsync(context, actor, request, ct)`
 for an endpoint-level consumer that already read the existing request POD. It never
