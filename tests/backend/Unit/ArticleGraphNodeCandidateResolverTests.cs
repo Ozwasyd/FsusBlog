@@ -115,6 +115,50 @@ public sealed class ArticleGraphNodeCandidateResolverTests
         Assert.Equal(4, readers.MetadataReads);
     }
 
+    [Theory]
+    [InlineData("permission")]
+    [InlineData("coordinate")]
+    public async Task CancellationWaitsForBorrowedLookupCompletion(string boundary)
+    {
+        var fixture = new Fixture();
+        var started = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool completed = false;
+        async Task PauseAsync(CancellationToken token)
+        {
+            started.TrySetResult(token);
+            await release.Task;
+            completed = true;
+        }
+        if (boundary == "permission")
+        {
+            fixture.BeforeContext = PauseAsync;
+        }
+        else
+        {
+            fixture.BeforeLookup = PauseAsync;
+        }
+        using var cancellation = new CancellationTokenSource();
+        Task<ArticleGraphNodeCandidates?> pending = fixture.ResolveAsync([Article(1)], token: cancellation.Token);
+        try
+        {
+            CancellationToken token = await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            cancellation.Cancel();
+            Assert.True(token.IsCancellationRequested);
+            Assert.False(completed);
+            // Observe cancellation continuations while the simulated lookup remains held.
+            Task observation = Task.Delay(TimeSpan.FromMilliseconds(25));
+            Assert.Same(observation, await Task.WhenAny(pending, observation).WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.False(pending.IsCompleted);
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.True(completed);
+    }
+
     private static string Article(int id) => $"article:b0000000-0000-0000-0000-{id:D12}";
 
     private sealed class NeighborReaders : IAuthorArticlePinPermissionProjectionProvider, IAuthorArticlePinArticleProjectionSource
@@ -178,13 +222,26 @@ public sealed class ArticleGraphNodeCandidateResolverTests
         {
             get; set;
         }
+        internal Func<CancellationToken, Task>? BeforeContext
+        {
+            get; set;
+        }
+        internal Func<CancellationToken, Task>? BeforeLookup
+        {
+            get; set;
+        }
 
         internal Task<ArticleGraphNodeCandidates?> ResolveAsync(IReadOnlyList<string> identities, int operations = 4096, CancellationToken token = default)
             => _resolver.ResolveAsync(new(1, "site:fixture"), Guid.NewGuid(), identities, operations, 250, token);
 
-        public Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(AuthorArticlePinPermissionBatchRequest request,
+        public async Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(AuthorArticlePinPermissionBatchRequest request,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (BeforeContext is not null)
+            {
+                await BeforeContext(cancellationToken);
+            }
             cancellationToken.ThrowIfCancellationRequested();
             Assert.Empty(request.ArticleIds);
             ContextReads++;
@@ -193,14 +250,19 @@ public sealed class ArticleGraphNodeCandidateResolverTests
                 ContextMutation == "owner" ? new(9, request.Owner.SiteScope) : request.Owner,
                 "permission:1", "site:1", SessionRevision,
                 ContextMutation == "nonempty" ? [new(1, true, true, "permission:1")] : [], string.Empty);
-            return Task.FromResult(value with
+            return value with
             {
                 ContentDigest = ContextMutation == "digest" ? "tampered" : AuthorArticlePinProjectionContract.ComputePermissionDigest(value)
-            });
+            };
         }
 
-        private Task<ArticleRelationArticleCoordinate?> FindAsync(string identity, CancellationToken token)
+        private async Task<ArticleRelationArticleCoordinate?> FindAsync(string identity, CancellationToken token)
         {
+            token.ThrowIfCancellationRequested();
+            if (BeforeLookup is not null)
+            {
+                await BeforeLookup(token);
+            }
             token.ThrowIfCancellationRequested();
             Lookups.Add(identity);
             int id = identity == Article(1) ? 1 : 2;
@@ -215,7 +277,7 @@ public sealed class ArticleGraphNodeCandidateResolverTests
             Action? callback = AfterLookup;
             AfterLookup = null;
             callback?.Invoke();
-            return Task.FromResult(coordinate);
+            return coordinate;
         }
     }
 }

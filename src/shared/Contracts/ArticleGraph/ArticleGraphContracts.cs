@@ -29,7 +29,11 @@ public enum ArticleGraphStatus : byte
     Cancelled = 6
 }
 
-/// <summary>Hard per-query limits. The source must apply these before reading private facts.</summary>
+/// <summary>
+/// Hard per-query fact-admission limits, applied before reading private facts. QueryMilliseconds
+/// bounds accepting facts and requests cancellation; borrowed command/reader completion is awaited
+/// and may exceed that window. It is not a hard real-time cleanup or response deadline.
+/// </summary>
 public sealed record ArticleGraphBudget(int Nodes, int Edges, int PayloadBytes, int IndexOperations, int QueryMilliseconds)
 {
     public static ArticleGraphBudget Default { get; } = new(1000, 2000, 1_048_576, 4096, 250);

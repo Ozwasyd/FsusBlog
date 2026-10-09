@@ -29,6 +29,8 @@ internal sealed record ArticleGraphNodeReadRequest(
 /// staged read immediately before publication, alongside the native adjacency lease. Coordinate
 /// reads remain exact calls to the canonical authority; metadata is read in authorized batches.
 /// Published-source selection and category/tag filters require their real producers and are refused.
+/// Reader completion must include borrowed-work cleanup. Cancellation/time limits deny late facts;
+/// this consumer awaits reader termination and does not promise cleanup within the admission window.
 /// </remarks>
 public sealed class ArticleGraphNodeProjectionConsumer
 {
@@ -174,7 +176,9 @@ public sealed class ArticleGraphNodeProjectionConsumer
     {
         read.Take();
         AuthorArticlePinPermissionSnapshot value = await _permissions.ResolveAsync(
-            new(read.Request.Owner, read.Request.RequestId, Array.AsReadOnly(ids.ToArray())), token).WaitAsync(token).ConfigureAwait(false);
+            new(read.Request.Owner, read.Request.RequestId, Array.AsReadOnly(ids.ToArray())), token).ConfigureAwait(false);
+        read.Check();
+        token.ThrowIfCancellationRequested();
         value = value with
         {
             Decisions = Array.AsReadOnly(Copy(value.Decisions, ids.Count))
@@ -198,8 +202,11 @@ public sealed class ArticleGraphNodeProjectionConsumer
             return [];
         }
         read.Take();
-        AuthorArticlePinArticleFact[] articles = Copy(await _articles.ReadCurrentBatchAsync(Array.AsReadOnly(ids), token)
-            .WaitAsync(token).ConfigureAwait(false), ids.Length).OrderBy(static article => article.ArticleId).ToArray();
+        IReadOnlyList<AuthorArticlePinArticleFact> value = await _articles.ReadCurrentBatchAsync(Array.AsReadOnly(ids), token)
+            .ConfigureAwait(false);
+        read.Check();
+        token.ThrowIfCancellationRequested();
+        AuthorArticlePinArticleFact[] articles = Copy(value, ids.Length).OrderBy(static article => article.ArticleId).ToArray();
         Require(articles.Length == ids.Length && articles.Select(static article => article.ArticleId).SequenceEqual(ids)
             && articles.All(static article => article.Exists && !article.IsDeleted && Enum.IsDefined(article.Status)
                 && article.Status != ArticleStatus.Deleted && article.Title is { Length: <= 256 }
@@ -219,7 +226,9 @@ public sealed class ArticleGraphNodeProjectionConsumer
         {
             read.Take();
             ArticleRelationRevisionCoordinate? source = await _readCoordinate(candidates[index].ArticleId,
-                articles[index].CurrentRevisionId, token).WaitAsync(token).ConfigureAwait(false);
+                articles[index].CurrentRevisionId, token).ConfigureAwait(false);
+            read.Check();
+            token.ThrowIfCancellationRequested();
             Require(source is not null && source.ArticleId == candidates[index].ArticleId
                 && source.ArticleIdentity == candidates[index].ArticleIdentity
                 && source.RevisionId == articles[index].CurrentRevisionId && source.RevisionNo == articles[index].RevisionNo

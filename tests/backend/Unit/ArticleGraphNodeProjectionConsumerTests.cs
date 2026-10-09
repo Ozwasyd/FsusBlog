@@ -244,6 +244,58 @@ public sealed class ArticleGraphNodeProjectionConsumerTests
         Assert.Empty(read.Nodes);
     }
 
+    [Theory]
+    [InlineData("permission")]
+    [InlineData("metadata")]
+    [InlineData("coordinate")]
+    public async Task AdmissionDeadlineWaitsForBorrowedReaderCompletionAndDeniesLateFacts(string boundary)
+    {
+        var fixture = new Fixture();
+        var started = new TaskCompletionSource<CancellationToken>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool completed = false;
+        async Task PauseAsync(CancellationToken token)
+        {
+            started.TrySetResult(token);
+            await release.Task;
+            completed = true;
+        }
+        switch (boundary)
+        {
+            case "permission":
+                fixture.BeforePermission = PauseAsync;
+                break;
+            case "metadata":
+                fixture.BeforeMetadata = PauseAsync;
+                break;
+            default:
+                fixture.BeforeCoordinate = PauseAsync;
+                break;
+        }
+        Task<ArticleGraphNodeProjectionConsumer.NodeRead?> pending = fixture.Consumer.ReadAsync(fixture.Request() with
+        {
+            RemainingMilliseconds = 250
+        });
+        try
+        {
+            CancellationToken token = await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using CancellationTokenRegistration registration = token.Register(() => cancelled.TrySetResult());
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(completed);
+            // Observe cancellation continuations while the simulated reader remains held.
+            Task observation = Task.Delay(TimeSpan.FromMilliseconds(25));
+            Assert.Same(observation, await Task.WhenAny(pending, observation).WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.False(pending.IsCompleted);
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+        Assert.Null(await pending.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.True(completed);
+    }
+
     private static string Article(int id) => $"article:80000000-0000-0000-0000-{id:D12}";
     private static string Revision(int id, int version) => $"revision:90000000-0000-0000-{version:D4}-{id:D12}";
 
@@ -286,6 +338,18 @@ public sealed class ArticleGraphNodeProjectionConsumerTests
             get; set;
         }
         internal bool Fresh { get; set; } = true;
+        internal Func<CancellationToken, Task>? BeforePermission
+        {
+            get; set;
+        }
+        internal Func<CancellationToken, Task>? BeforeMetadata
+        {
+            get; set;
+        }
+        internal Func<CancellationToken, Task>? BeforeCoordinate
+        {
+            get; set;
+        }
 
         internal ArticleGraphNodeReadRequest Request(int count = 2)
             => new(new AuthorArticlePinOwner(1, "site:fixture"), Guid.NewGuid(),
@@ -320,9 +384,14 @@ public sealed class ArticleGraphNodeProjectionConsumerTests
             }
         }
 
-        public Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(
+        public async Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(
             AuthorArticlePinPermissionBatchRequest request, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (BeforePermission is not null)
+            {
+                await BeforePermission(cancellationToken);
+            }
             cancellationToken.ThrowIfCancellationRequested();
             PermissionRequests.Add(string.Join(',', request.ArticleIds));
             AuthorArticlePinPermissionDecision[] decisions = request.ArticleIds.Select(id =>
@@ -344,15 +413,20 @@ public sealed class ArticleGraphNodeProjectionConsumerTests
                     AdminPrincipalId = 9
                 } : request.Owner,
                 PermissionRevision, SiteRevision, SessionRevision, decisions, string.Empty);
-            return Task.FromResult(value with
+            return value with
             {
                 ContentDigest = PermissionMutation == "digest" ? "tampered" : AuthorArticlePinProjectionContract.ComputePermissionDigest(value)
-            });
+            };
         }
 
-        public Task<IReadOnlyList<AuthorArticlePinArticleFact>> ReadCurrentBatchAsync(
+        public async Task<IReadOnlyList<AuthorArticlePinArticleFact>> ReadCurrentBatchAsync(
             IReadOnlyList<int> articleIds, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (BeforeMetadata is not null)
+            {
+                await BeforeMetadata(cancellationToken);
+            }
             cancellationToken.ThrowIfCancellationRequested();
             MetadataRequests.Add(string.Join(',', articleIds));
             AuthorArticlePinArticleFact[] facts = articleIds.Select(Fact).Reverse().ToArray();
@@ -360,7 +434,7 @@ public sealed class ArticleGraphNodeProjectionConsumerTests
             {
                 facts = [facts[0], facts[0]];
             }
-            return Task.FromResult<IReadOnlyList<AuthorArticlePinArticleFact>>(facts);
+            return facts;
         }
 
         private AuthorArticlePinArticleFact Fact(int id)
@@ -383,8 +457,13 @@ public sealed class ArticleGraphNodeProjectionConsumerTests
             };
         }
 
-        private Task<ArticleRelationRevisionCoordinate?> CoordinateAsync(int id, long revisionId, CancellationToken cancellationToken)
+        private async Task<ArticleRelationRevisionCoordinate?> CoordinateAsync(int id, long revisionId, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (BeforeCoordinate is not null)
+            {
+                await BeforeCoordinate(cancellationToken);
+            }
             cancellationToken.ThrowIfCancellationRequested();
             CoordinateReads.Add(id);
             var value = new ArticleRelationRevisionCoordinate(id, revisionId, Version, Article(id), Revision(id, Version), SourceEpoch);
@@ -401,7 +480,7 @@ public sealed class ArticleGraphNodeProjectionConsumerTests
             Action? callback = AfterCoordinate;
             AfterCoordinate = null;
             callback?.Invoke();
-            return Task.FromResult(coordinate);
+            return coordinate;
         }
     }
 }

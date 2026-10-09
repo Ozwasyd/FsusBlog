@@ -17,6 +17,8 @@ internal sealed record ArticleGraphNodeCandidates(
 /// through the sole canonical coordinate reader. These internal coordinates grant no node access;
 /// the node consumer must independently authorize every neighbor before reading metadata.
 /// No graph, relation index, source scanner, host, cache or publication proof is created here.
+/// Native task completion must include borrowed-work cleanup; cancellation denies late mappings
+/// while this boundary awaits termination without disposing/replacing the caller client.
 /// </summary>
 public sealed class ArticleGraphNodeCandidateResolver
 {
@@ -83,7 +85,8 @@ public sealed class ArticleGraphNodeCandidateResolver
             {
                 CheckFresh();
                 ArticleRelationArticleCoordinate? coordinate = await _findArticle(identities[index], token)
-                    .WaitAsync(token).ConfigureAwait(false);
+                    .ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
                 if (coordinate is null || coordinate.ArticleId <= 0 || coordinate.ArticleIdentity != identities[index]
                     || !numericIds.Add(coordinate.ArticleId))
                 {
@@ -112,7 +115,8 @@ public sealed class ArticleGraphNodeCandidateResolver
     private async Task<AuthorArticlePinPermissionSnapshot> ContextAsync(AuthorArticlePinOwner owner, Guid requestId, CancellationToken token)
     {
         AuthorArticlePinPermissionSnapshot value = await _permissions.ResolveAsync(new(owner, requestId, []), token)
-            .WaitAsync(token).ConfigureAwait(false);
+            .ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         // An empty context snapshot authenticates the lookup call, never any neighbor or metadata.
         if (value.Status != AuthorArticlePinPermissionSnapshotStatus.Current || value.Owner != owner || value.Decisions.Count != 0
             || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(value.PermissionRevision)

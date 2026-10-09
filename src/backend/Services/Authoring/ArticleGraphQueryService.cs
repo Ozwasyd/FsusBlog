@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 using FsusBlog.Shared.Contracts.ArticleGraph;
 
 namespace FsusBlog.Server.Services.Authoring;
@@ -5,7 +7,12 @@ namespace FsusBlog.Server.Services.Authoring;
 /// <summary>Integration port owned by the canonical relation query. It must filter permissions before expansion/counts/budgets.</summary>
 public interface IArticleGraphRelationProjection
 {
-    /// <summary>Returns an actor-bound bounded projection, or null when the real source is unavailable. Never scan source text.</summary>
+    /// <summary>
+    /// Returns an actor-bound bounded projection, or null when the real source/cancellation capability is unavailable.
+    /// Completion includes all borrowed command/reader work and disposal. Cancellation closes fact admission;
+    /// it does not authorize abandoning work, replacing/disposing the caller client, or promise a cleanup deadline.
+    /// Never scan source text.
+    /// </summary>
     Task<ArticleGraphProjection?> ReadAsync(ArticleGraphRequest request, CancellationToken cancellationToken);
 }
 
@@ -24,6 +31,7 @@ public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection sou
 {
     public async Task<ArticleGraphResult> QueryAsync(ArticleGraphRequest request, CancellationToken cancellationToken)
     {
+        long started = Stopwatch.GetTimestamp();
         string? reason = ArticleGraphContract.Validate(request);
         if (reason is not null)
         {
@@ -39,11 +47,22 @@ public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection sou
             }
         };
         using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        deadline.CancelAfter(request.Budget.QueryMilliseconds);
+        TimeSpan remaining = TimeSpan.FromMilliseconds(request.Budget.QueryMilliseconds) - Stopwatch.GetElapsedTime(started);
+        if (remaining <= TimeSpan.Zero)
+        {
+            deadline.Cancel();
+        }
+        else
+        {
+            deadline.CancelAfter(remaining);
+        }
         try
         {
-            ArticleGraphProjection? projection = await source.ReadAsync(request, deadline.Token).WaitAsync(deadline.Token);
-            deadline.Token.ThrowIfCancellationRequested();
+            CheckDeadline(deadline, started, request.Budget.QueryMilliseconds);
+            // Await the source's completion/cleanup contract even after cancellation. WaitAsync would
+            // release this boundary while a borrowed command could still be using the caller client.
+            ArticleGraphProjection? projection = await source.ReadAsync(request, deadline.Token).ConfigureAwait(false);
+            CheckDeadline(deadline, started, request.Budget.QueryMilliseconds);
             if (projection is null)
             {
                 return Empty(request, ArticleGraphStatus.Unavailable, "relation-api-unavailable");
@@ -58,14 +77,34 @@ public sealed class ArticleGraphQueryService(IArticleGraphRelationProjection sou
                 Nodes = Array.AsReadOnly(projection.Nodes.ToArray()),
                 Edges = Array.AsReadOnly(projection.Edges.ToArray())
             };
+            CheckDeadline(deadline, started, request.Budget.QueryMilliseconds);
             reason = ArticleGraphContract.Validate(request, projection);
-            return reason is null ? ArticleGraphContract.Seal(request, projection)
+            ArticleGraphResult result = reason is null ? ArticleGraphContract.Seal(request, projection)
                 : Empty(request, reason == "stale-identity" ? ArticleGraphStatus.Stale : ArticleGraphStatus.Refused, reason);
+            CheckDeadline(deadline, started, request.Budget.QueryMilliseconds);
+            return result;
         }
-        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        catch (Exception) when (CancelIfExpired(deadline, started, request.Budget.QueryMilliseconds))
         {
+            // A source may fault during cancellation/cleanup. Its task is now observed and complete;
+            // no late facts or private driver diagnostics become a result.
             return Empty(request, ArticleGraphStatus.Cancelled, cancellationToken.IsCancellationRequested ? "cancelled" : "time-budget");
         }
+    }
+
+    private static void CheckDeadline(CancellationTokenSource deadline, long started, int milliseconds)
+    {
+        _ = CancelIfExpired(deadline, started, milliseconds);
+        deadline.Token.ThrowIfCancellationRequested();
+    }
+
+    private static bool CancelIfExpired(CancellationTokenSource deadline, long started, int milliseconds)
+    {
+        if (Stopwatch.GetElapsedTime(started) >= TimeSpan.FromMilliseconds(milliseconds))
+        {
+            deadline.Cancel();
+        }
+        return deadline.IsCancellationRequested;
     }
 
     private static ArticleGraphResult Empty(ArticleGraphRequest request, ArticleGraphStatus status, string reason)
