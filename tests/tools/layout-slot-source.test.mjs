@@ -182,7 +182,7 @@ test('ordinary callback rejects function name and VNode annotation as runtime au
 test('ordinary callback rejects shadowed Vue APIs and component imports', () =>
 {
     assert.throws(() => expressionProof('import {h,cloneVNode} from "vue";function helper(cloneVNode){return cloneVNode(h("button",{},[]),{});}const result=helper(()=>null);'), /shadowed source binding/);
-    assert.throws(() => expressionProof('import {h} from "vue";import {FsusTaskPageHeader as Header} from "@ozwasyd/element-plus";const callback=(Header)=>h(Header,{},[]);const result=callback("button");'), /unbound finite component binding/);
+    assert.throws(() => expressionProof('import {h} from "vue";import {FsusTaskPageHeader as Header} from "@ozwasyd/element-plus";const callback=(Header)=>h(Header,{},[]);const result=callback("button");'), /shadowed source binding/);
 });
 
 test('ordinary callback rejects private public-package imports', () =>
