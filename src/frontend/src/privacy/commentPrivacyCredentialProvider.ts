@@ -212,7 +212,8 @@ export function createCommentPrivacyCredentialProvider(
                 {
                     return null;
                 }
-                if (!matchesMetadata(issuerResponse, metadata) || issuerResponse.rootExpiresAtUnixMs <= now())
+                if (!matchesMetadata(issuerResponse, metadata) ||
+                    !Number.isSafeInteger(issuerResponse.expiresAtUnixMs) || issuerResponse.expiresAtUnixMs <= now())
                 {
                     return failClosed(signal);
                 }
@@ -252,8 +253,7 @@ export function createCommentPrivacyCredentialProvider(
                 {
                     return failClosed(signal);
                 }
-                const canApplyDelta = Boolean(cachedArtifact &&
-          cachedArtifact.version === metadata.revocationDistribution.version - 1 &&
+                const canApplyDelta = Boolean(cachedArtifact?.version === metadata.revocationDistribution.version - 1 &&
           metadata.revocationDistribution.deltaPath);
                 const artifactKind: 1 | 2 = canApplyDelta ? 2 : 1;
                 const artifactPath = canApplyDelta
@@ -299,7 +299,7 @@ export function createCommentPrivacyCredentialProvider(
                     entryHashes: cloneBytes(workerResult.entryHashes)
                 });
 
-                const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.rootExpiresAtUnixMs);
+                const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.expiresAtUnixMs);
                 if (expiresAtUnixMs <= now())
                 {
                     return failClosed(signal);
@@ -440,8 +440,8 @@ function readRevocationDistribution(root: AnonymousCredentialRootSnapshot): Comm
             protocol: value.protocol as CommentPrivacyRevocationDistribution['protocol'],
             epoch,
             version,
-            contentAddress: String(value.contentAddress ?? '').toLowerCase(),
-            snapshotPath: String(value.snapshotPath ?? ''),
+            contentAddress: (typeof value.contentAddress === 'string' ? value.contentAddress : '').toLowerCase(),
+            snapshotPath: typeof value.snapshotPath === 'string' ? value.snapshotPath : '',
             deltaPath: typeof value.deltaPath === 'string' ? value.deltaPath : null,
             entryBytes: Number(value.entryBytes) as 32,
             maxArtifactBytes: Number(value.maxArtifactBytes)
