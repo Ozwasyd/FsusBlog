@@ -234,6 +234,18 @@ Source changes during the scan remain graph errors. Ordinary factory controls:
 FSUSBLOG_LOCAL_FSUSUI_ROOT=/path/to/FsusUI node --test tests/tools/layout-factory-source.test.mjs
 ```
 
+An actual Vue `defineComponent` export in TS/TSX may bind a finite render
+source through its exact setup and returned arrow function. Direct default
+exports and immutable named exports follow the actual import graph. JSX and Vue
+`h`/`createVNode` preserve native/component targets, attributes, branches and
+unchanged slots with original source locations and digests. Instrumentation
+inserts markers into the original opening tag or vnode props object. Unknown
+children, constructors, props spreads, slot substitution/escape, mutation,
+shadowing, setup return alternatives, async rendering and fallthrough remain
+errors. A proven native target does not authorize opaque children. Route-name
+visual branches remain errors in script render sources as well. This source
+proof supplies no product state, receipt or runtime qualification.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;
