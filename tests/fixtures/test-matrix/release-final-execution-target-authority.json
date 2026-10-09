@@ -3675,8 +3675,8 @@
         },
         {
             "path": "tools/release/check-release-final.mjs",
-            "contentDigest": "sha256:96976c14b39d535899cab605513893b6aeffb9b4fb78065229412323532556a6",
-            "indexDigest": "sha256:96976c14b39d535899cab605513893b6aeffb9b4fb78065229412323532556a6"
+            "contentDigest": "sha256:c5e9e066394ed406cc5a82b5da20762667ac643dd694f715533fbb86bd7cf253",
+            "indexDigest": "sha256:c5e9e066394ed406cc5a82b5da20762667ac643dd694f715533fbb86bd7cf253"
         },
         {
             "path": "tools/release/clean-attempt-evidence-source.mjs",
@@ -3699,19 +3699,14 @@
             "indexDigest": "sha256:60a614d7912abbe1789749d01f453d72bfb5023945a4b0629efb691a11ec89c2"
         },
         {
-            "path": "tools/release/font-license-evidence.mjs",
-            "contentDigest": "sha256:3e6cb755dbedfeb1c154c648f11531c04a121ae3cbff03b122574df96baa7618",
-            "indexDigest": "sha256:3e6cb755dbedfeb1c154c648f11531c04a121ae3cbff03b122574df96baa7618"
-        },
-        {
             "path": "tools/release/public-preview-quality-receipt-contract.mjs",
             "contentDigest": "sha256:a9426e397c6b69f4f178cf500f47383612386df935c7b229e8bba246be6f4ac0",
             "indexDigest": "sha256:a9426e397c6b69f4f178cf500f47383612386df935c7b229e8bba246be6f4ac0"
         },
         {
-            "path": "tools/release/public-preview-release-evidence.mjs",
-            "contentDigest": "sha256:1abc412ec4e04f66be9b4953af71047c169cbc54c428f5cfb31d47aa3af5ca66",
-            "indexDigest": "sha256:1abc412ec4e04f66be9b4953af71047c169cbc54c428f5cfb31d47aa3af5ca66"
+            "path": "tools/release/publish-release-final-bindings.mjs",
+            "contentDigest": "sha256:964bb94059c5855b352953fe9c710ac42bf919de398f40d14436cdcff1e5056e",
+            "indexDigest": "sha256:964bb94059c5855b352953fe9c710ac42bf919de398f40d14436cdcff1e5056e"
         },
         {
             "path": "tools/release/register-required-evidence-verifier-imports.mjs",
@@ -3727,21 +3722,6 @@
             "path": "tools/release/release-domain-final-binding.mjs",
             "contentDigest": "sha256:08876f28462ac10e7c26991f958e086b7e4bc83d47c4ad379ac5b9270e741a8c",
             "indexDigest": "sha256:08876f28462ac10e7c26991f958e086b7e4bc83d47c4ad379ac5b9270e741a8c"
-        },
-        {
-            "path": "tools/release/release-final-diagnostics.mjs",
-            "contentDigest": "sha256:97b25cbc48f50f844f55836f481c3b525186bd743636ea3676b1d9a6435a11f2",
-            "indexDigest": "sha256:97b25cbc48f50f844f55836f481c3b525186bd743636ea3676b1d9a6435a11f2"
-        },
-        {
-            "path": "tools/release/release-final-domain-evidence.mjs",
-            "contentDigest": "sha256:e6e27e7b7b8feb6c7c026be86ceab0185347e33a60e17ae586e59befd6178b11",
-            "indexDigest": "sha256:e6e27e7b7b8feb6c7c026be86ceab0185347e33a60e17ae586e59befd6178b11"
-        },
-        {
-            "path": "tools/release/release-final-terminal-acceptance.mjs",
-            "contentDigest": "sha256:243e7612329e8a23e05bc5f1d80636553ab24538d01ae5cce8c1fb02a563e884",
-            "indexDigest": "sha256:243e7612329e8a23e05bc5f1d80636553ab24538d01ae5cce8c1fb02a563e884"
         },
         {
             "path": "tools/release/release-id.mjs",
@@ -3792,11 +3772,6 @@
             "path": "tools/release/test-evidence-receipts.mjs",
             "contentDigest": "sha256:1f010397bea884c97f41d58b5b8b5bde0666e9776597586541af5ead4b1993ea",
             "indexDigest": "sha256:1f010397bea884c97f41d58b5b8b5bde0666e9776597586541af5ead4b1993ea"
-        },
-        {
-            "path": "tools/release/theme-css-safety-evidence.mjs",
-            "contentDigest": "sha256:329ead144af99a4aa20a5cc85bf6bd229b615e448b70b9af31a90bda74af44bf",
-            "indexDigest": "sha256:329ead144af99a4aa20a5cc85bf6bd229b615e448b70b9af31a90bda74af44bf"
         },
         {
             "path": "tools/retention/audit-input.mjs",
@@ -4575,8 +4550,8 @@
         },
         {
             "path": "tools/test-matrix/release-final-static-boundary.mjs",
-            "contentDigest": "sha256:89e18f63eb9edaf6541b4b4bf2c07f7bf93a045a764b7b1fa171299cd6e2adb3",
-            "indexDigest": "sha256:89e18f63eb9edaf6541b4b4bf2c07f7bf93a045a764b7b1fa171299cd6e2adb3"
+            "contentDigest": "sha256:99149ab2713ab7657d33466ee5786af9da2d1537a5906745949c23c6ec4f2acc",
+            "indexDigest": "sha256:99149ab2713ab7657d33466ee5786af9da2d1537a5906745949c23c6ec4f2acc"
         },
         {
             "path": "tools/test-matrix/release-reliability-scheduler-projection.mjs",
@@ -5095,8 +5070,8 @@
         },
         {
             "path": "tools/test/generate-evidence-location-governance.mjs",
-            "contentDigest": "sha256:99f40ec565fe484ef1c36fd930eb0f7e0d5cbeed4eee3f1a588e3e68d44f65d7",
-            "indexDigest": "sha256:99f40ec565fe484ef1c36fd930eb0f7e0d5cbeed4eee3f1a588e3e68d44f65d7"
+            "contentDigest": "sha256:c77f764ae64374c1f9e5508cd1021a28aabacb3dc707619e666b28d2101a484c",
+            "indexDigest": "sha256:c77f764ae64374c1f9e5508cd1021a28aabacb3dc707619e666b28d2101a484c"
         },
         {
             "path": "tools/test/governance-suite-plan.mjs",
@@ -37544,8 +37519,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:cff35b87471c1932ac0d3aba65cc3485c332fb1eaa1220985c47aea8ca19a7e7",
-            "indexDigest": "sha256:cff35b87471c1932ac0d3aba65cc3485c332fb1eaa1220985c47aea8ca19a7e7",
+            "contentDigest": "sha256:68decc8b05ac6589935e71be526854b503e3f3dbf1cc50c13b3c7fa375e145fc",
+            "indexDigest": "sha256:68decc8b05ac6589935e71be526854b503e3f3dbf1cc50c13b3c7fa375e145fc",
             "dependencyClosure": [
                 "tests/browser-contract/contract-core.mjs",
                 "tests/frontend/package.json",
@@ -37628,14 +37603,10 @@
                 "tools/release/clean-attempt-evidence-source.mjs",
                 "tools/release/clean-attempt-evidence-transport.mjs",
                 "tools/release/clean-first-attempt-verifier.mjs",
-                "tools/release/font-license-evidence.mjs",
                 "tools/release/public-preview-quality-receipt-contract.mjs",
-                "tools/release/public-preview-release-evidence.mjs",
+                "tools/release/publish-release-final-bindings.mjs",
                 "tools/release/release-clean-attempt-cohort.mjs",
                 "tools/release/release-domain-final-binding.mjs",
-                "tools/release/release-final-diagnostics.mjs",
-                "tools/release/release-final-domain-evidence.mjs",
-                "tools/release/release-final-terminal-acceptance.mjs",
                 "tools/release/release-id.mjs",
                 "tools/release/release-manifest.mjs",
                 "tools/release/release-reliability-qualified-receipt.mjs",
@@ -37645,7 +37616,6 @@
                 "tools/release/required-evidence-verifier-registry.mjs",
                 "tools/release/schema-compatibility-coordinate.mjs",
                 "tools/release/test-evidence-receipts.mjs",
-                "tools/release/theme-css-safety-evidence.mjs",
                 "tools/runtime-profiles/release-runtime-matrix.mjs",
                 "tools/runtime-profiles/runtime-publish-evidence.mjs",
                 "tools/runtime-profiles/runtime-publish-profile.mjs",
@@ -37705,7 +37675,6 @@
                 "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
                 "tools/test-matrix/production-resource-enforcement.mjs",
                 "tools/test-matrix/production-systemd-resource-boundary.mjs",
-                "tools/test-matrix/release-domain-evidence.mjs",
                 "tools/test-matrix/release-domain-ledger.mjs",
                 "tools/test-matrix/release-domain-native-evidence.mjs",
                 "tools/test-matrix/release-domain-projection-receipt.mjs",
