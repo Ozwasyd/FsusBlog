@@ -1,0 +1,16 @@
+{
+  "testedCommit": "c07ecec8f5a4d2349e09bd67464108198586414b",
+  "command": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "7b374e71f89433cf04e5e315fdd1d43816728f85",
+    "--file",
+    "tests/tools/aeds-protocol-generation.test.mjs"
+  ],
+  "exitCode": 0,
+  "files": 1,
+  "violations": 0
+}

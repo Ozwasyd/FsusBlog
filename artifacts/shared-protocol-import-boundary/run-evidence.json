@@ -1,0 +1,92 @@
+{
+  "sourceCommit": "c07ecec8f5a4d2349e09bd67464108198586414b",
+  "baseSource": "6324264ab60fbf6b196f14c09a447eca58402bbe",
+  "branch": "codex/shared-protocol-import-boundary-20261009",
+  "originalFrozenEvidence": "0015897304873f75858e0e5546313b43007834d8",
+  "latestFetchedMaster": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "latestMasterDelta": "39DocumentExport/PoSpace files; no owned protocol/test/package paths. Existing evidence remains bound to actual tested SHA.",
+  "sourceDeltaPaths": [
+    "tests/tools/aeds-protocol-generation.test.mjs",
+    "tools/package.json"
+  ],
+  "packageAuthority": {
+    "name": "@fsusblog/governance-tools",
+    "export": "./frontend/aeds-protocol",
+    "target": "./frontend/generate-aeds-protocol.mjs",
+    "testDependency": "existing file:../../tools and unchanged package-lock local link",
+    "setup": "existing actual ignored node_modules directory plus package-lock target link; no package installation/lifecycle script"
+  },
+  "test": "original36/36PASS0fail0skip,21negativeincluded; exactpositive preflight before bodies",
+  "producer": "original5products--checkPASS0",
+  "style": {
+    "testedCommit": "c07ecec8f5a4d2349e09bd67464108198586414b",
+    "command": [
+      "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/frontend/check-frontend-style.mjs",
+      "--mode",
+      "changed",
+      "--base",
+      "7b374e71f89433cf04e5e315fdd1d43816728f85",
+      "--file",
+      "tests/tools/aeds-protocol-generation.test.mjs"
+    ],
+    "exitCode": 0,
+    "files": 1,
+    "violations": 0
+  },
+  "unchangedClosure": [
+    {
+      "path": "tools/frontend/generate-aeds-protocol.mjs",
+      "sha256": "13ddf5ad32553fe00908981d827f5b76bc478b6a341c726241d7e84f7e8bafa9",
+      "byteExactParent": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+      "sha256": "91767861176d83d0404759540a93d28cbc961a6012c27f8c5fc0e4e56236d122",
+      "byteExactParent": true
+    },
+    {
+      "path": "src/core/Algorithms/AedsFrameType.cs",
+      "sha256": "5fb16d756cf355f8d05bea151db1d93b54439dfe0beda3213463270a20e74ca2",
+      "byteExactParent": true
+    },
+    {
+      "path": "src/shared/AedsFrameHeader.cs",
+      "sha256": "b2c8250aba7a45c9e2a43a32110d92fa35047acee6aaa7aae61c79903ca1f85c",
+      "byteExactParent": true
+    },
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "sha256": "9126a69fda8a9b86492fcbd8651f83081d2a8d046a0e158bfd18c2b9a84ceb1e",
+      "byteExactParent": true
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+      "sha256": "285b6e502934ece491144a45180a296fa34893b858cb849cde3f1ab974890709",
+      "byteExactParent": true
+    },
+    {
+      "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+      "sha256": "76f9cf1d4ea2de7a52c3ca19bfcb7f9342e61ca7c313faef9d6fb7cbae8a447c",
+      "byteExactParent": true
+    },
+    {
+      "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+      "sha256": "c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
+      "byteExactParent": true
+    },
+    {
+      "path": "config/development/frontend-style-policy.json",
+      "sha256": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+      "byteExactParent": true
+    }
+  ],
+  "originalAssertionsAndDigests": "entire parent test source is byte-identical except one literal import specifier; historical5hashes and21negativecallbacks unchanged",
+  "formatSource": "6324264ab60fbf6b196f14c09a447eca58402bbe",
+  "canonicalFormatEquivalence": "BLOCKED missing pinned parser at separate formatting commit; this ordinary import boundary change does not qualify it",
+  "blameMetadataChanged": false,
+  "qualification": false,
+  "fullFrontendTypesRuntimeHttpPostgresUX": "NOT RUN",
+  "setupFailure": "initial dependency-reuse copy looked for absent src/frontend/node_modules; FileNotFoundError before checks. Corrected to existing original tools/frontend/style-toolchain modules without installation.",
+  "heldOrDeniedWorkRetried": false
+}
