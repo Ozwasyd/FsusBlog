@@ -487,6 +487,119 @@ public sealed class SqlArticleGraphAdmissionReaderIntegrationTests(PostgresSchem
         }
     }
 
+    [Fact]
+    public async Task AutocommitAdmissionKeepsConnectionIdentityAcrossLegalOpenAndClose()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        ArticleGraphCurrentArticleReadRequest request = await RequestAsync(db);
+        var connection = Assert.IsType<NpgsqlConnection>(db.Ado.Connection);
+        var reader = Reader(db, CreatePermission(db), new SqlAuthorArticlePinArticleProjectionSource(db));
+        Assert.True(db.CurrentConnectionConfig.IsAutoCloseConnection);
+        Assert.Null(db.Ado.Transaction);
+        db.Ado.Close();
+        Assert.Equal(System.Data.ConnectionState.Closed, connection.State);
+
+        ArticleGraphCurrentArticleAdmission admission = Assert.IsType<ArticleGraphCurrentArticleAdmission>(
+            await reader.ReadCurrentAsync(request));
+        Assert.Same(connection, db.Ado.Connection);
+        Assert.Null(db.Ado.Transaction);
+        db.Ado.Open();
+        Assert.Equal(System.Data.ConnectionState.Open, connection.State);
+        ArticleGraphCurrentArticleAdmission current = Assert.IsType<ArticleGraphCurrentArticleAdmission>(
+            await reader.RevalidateCurrentAsync(request, admission));
+        Assert.Equal(admission.Source, current.Source);
+        Assert.Equal(admission.Article, current.Article);
+        Assert.Same(connection, db.Ado.Connection);
+        Assert.Null(db.Ado.Transaction);
+    }
+
+    [Theory]
+    [InlineData("begin-transaction")]
+    [InlineData("replace-transaction")]
+    [InlineData("replace-connection")]
+    public async Task AdmissionAndRevalidationRefuseContextReplacementWithoutEndingCallerContext(string change)
+    {
+        foreach (bool revalidate in new[] { false, true })
+        {
+            using SqlSugarClient db = await CreateDatabaseAsync();
+            ArticleGraphCurrentArticleReadRequest request = await RequestAsync(db);
+            ArticleGraphCurrentArticleAdmission admission = Assert.IsType<ArticleGraphCurrentArticleAdmission>(
+                await Reader(db, CreatePermission(db), new SqlAuthorArticlePinArticleProjectionSource(db))
+                    .ReadCurrentAsync(request));
+            var originalConnection = Assert.IsType<NpgsqlConnection>(db.Ado.Connection);
+            db.CurrentConnectionConfig.IsAutoCloseConnection = false;
+            await using var replacementConnection = new NpgsqlConnection(db.CurrentConnectionConfig.ConnectionString);
+            NpgsqlTransaction? originalTransaction = null;
+            NpgsqlTransaction? replacementTransaction = null;
+            if (change == "replace-transaction")
+            {
+                await db.Ado.BeginTranAsync(System.Data.IsolationLevel.ReadCommitted);
+                await db.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;");
+                originalTransaction = Assert.IsType<NpgsqlTransaction>(db.Ado.Transaction);
+            }
+            var articles = new ArticleProbe(new SqlAuthorArticlePinArticleProjectionSource(db))
+            {
+                AfterRead = async count =>
+                {
+                    if (count != 1)
+                    {
+                        return;
+                    }
+                    // Only this test owner changes the context, after an actual metadata read.
+                    if (change == "replace-connection")
+                    {
+                        await replacementConnection.OpenAsync();
+                        db.Ado.Connection = replacementConnection;
+                        return;
+                    }
+                    if (originalTransaction is not null)
+                    {
+                        await db.Ado.RollbackTranAsync();
+                    }
+                    await db.Ado.BeginTranAsync(System.Data.IsolationLevel.ReadCommitted);
+                    await db.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;");
+                    replacementTransaction = Assert.IsType<NpgsqlTransaction>(db.Ado.Transaction);
+                }
+            };
+            var reader = Reader(db, CreatePermission(db), articles);
+            try
+            {
+                Assert.Null(revalidate
+                    ? await reader.RevalidateCurrentAsync(request, admission)
+                    : await reader.ReadCurrentAsync(request));
+                Assert.Equal(1, articles.Reads);
+                if (change == "replace-connection")
+                {
+                    Assert.Same(replacementConnection, db.Ado.Connection);
+                    Assert.Null(db.Ado.Transaction);
+                }
+                else
+                {
+                    Assert.NotNull(replacementTransaction);
+                    Assert.NotSame(originalTransaction, replacementTransaction);
+                    Assert.Same(replacementTransaction, db.Ado.Transaction);
+                    Assert.Same(originalConnection, replacementTransaction.Connection);
+                    Assert.Equal(System.Data.IsolationLevel.ReadCommitted, replacementTransaction.IsolationLevel);
+                    Assert.Equal("on", await db.Ado.GetStringAsync("SHOW transaction_read_only;"));
+                }
+                Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+                using var cancellation = new CancellationTokenSource();
+                cancellation.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                    reader.RevalidateCurrentAsync(request, admission, cancellation.Token));
+                Assert.Same(replacementTransaction, db.Ado.Transaction);
+            }
+            finally
+            {
+                db.Ado.Connection = originalConnection;
+                if (db.Ado.Transaction is not null)
+                {
+                    await db.Ado.RollbackTranAsync();
+                }
+            }
+        }
+    }
+
     private async Task<SqlSugarClient> CreateDatabaseAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);

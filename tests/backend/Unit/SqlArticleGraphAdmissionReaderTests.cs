@@ -4,8 +4,10 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class SqlArticleGraphAdmissionReaderTests
+public sealed class SqlArticleGraphAdmissionReaderTests : IDisposable
 {
+    private readonly List<SqlSugarClient> _ownedClients = [];
+
     private static readonly ArticleGraphCurrentArticleReadRequest s_request = new(
         new(1, "primary-site"), Guid.NewGuid(),
         "article:dd90413e-7d50-4264-9910-d89294ac2f18",
@@ -127,8 +129,30 @@ public sealed class SqlArticleGraphAdmissionReaderTests
         Assert.Equal(System.Data.ConnectionState.Closed, db.Ado.Connection.State);
     }
 
-    private static SqlArticleGraphAdmissionReader CreateReader(PermissionSource permission, ISqlSugarClient? db = null)
-        => new(db!, new(), permission, new ForbiddenArticleSource());
+    private SqlArticleGraphAdmissionReader CreateReader(PermissionSource permission, ISqlSugarClient? db = null)
+    {
+        if (db is null)
+        {
+            var client = new SqlSugarClient(new ConnectionConfig
+            {
+                DbType = SqlSugar.DbType.PostgreSQL,
+                ConnectionString = "Host=unused.invalid;Database=unit-source-must-not-open;Username=unit",
+                InitKeyType = InitKeyType.Attribute,
+                IsAutoCloseConnection = true
+            });
+            _ownedClients.Add(client);
+            db = client;
+        }
+        return new(db, new(), permission, new ForbiddenArticleSource());
+    }
+
+    public void Dispose()
+    {
+        foreach (SqlSugarClient client in _ownedClients)
+        {
+            client.Dispose();
+        }
+    }
 
     private static AuthorArticlePinPermissionSnapshot Snapshot(AuthorArticlePinPermissionBatchRequest request)
         => Seal(new(AuthorArticlePinPermissionSnapshotStatus.Current, request.Owner,
