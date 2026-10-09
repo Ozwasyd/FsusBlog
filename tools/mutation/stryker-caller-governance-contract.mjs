@@ -47,12 +47,15 @@ const contractError = 'requires the exact canonical producer invocation and repo
 // cannot declare a function. Preserve raw words for the closed AST comparison.
 function shellTokens(input)
 {
-    const source = input.replace(/\r\n/gu, '\n');
+    const source = input;
     const tokens = [];
     const heredocs = [];
     let index = 0;
     let wantsDelimiter = null;
     let wordEnd = -1;
+    let previousIndex = -1;
+    const newlineLength = (position) => source[position] === '\n' ? 1 : source[position] === '\r' && source[position + 1] === '\n' ? 2 : 0;
+    const unsupportedWhitespace = (character) => /\s/u.test(character) && ![' ', '\t', '\n', '\r'].includes(character);
     const quoted = (quote) =>
     {
         index++;
@@ -117,10 +120,19 @@ function shellTokens(input)
     };
     while (index < source.length)
     {
-        const character = source[index];
-        if (character === '\\' && source[index + 1] === '\n')
+        if (index <= previousIndex)
         {
-            index += 2;
+            throw new Error('Shell tokenizer must advance or refuse');
+        }
+        previousIndex = index;
+        const character = source[index];
+        if (unsupportedWhitespace(character) || character === '\r' && !newlineLength(index))
+        {
+            throw new Error('unsupported Shell whitespace');
+        }
+        if (character === '\\' && newlineLength(index + 1))
+        {
+            index += 1 + newlineLength(index + 1);
             continue;
         }
         if (character === ' ' || character === '\t')
@@ -136,17 +148,17 @@ function shellTokens(input)
             }
             continue;
         }
-        if (character === '\n')
+        if (newlineLength(index))
         {
             tokens.push('\n');
-            index++;
+            index += newlineLength(index);
             for (const { delimiter, stripTabs } of heredocs.splice(0))
             {
                 let found = false;
                 while (index < source.length)
                 {
                     const end = source.indexOf('\n', index);
-                    const line = source.slice(index, end < 0 ? source.length : end);
+                    const line = source.slice(index, end < 0 ? source.length : end).replace(/\r$/u, '');
                     index = end < 0 ? source.length : end + 1;
                     if ((stripTabs ? line.replace(/^\t+/u, '') : line) === delimiter)
                     {
@@ -163,7 +175,7 @@ function shellTokens(input)
         }
         if ('();{}<>|&'.includes(character))
         {
-            const operator = /^(?:<\(|<<<|<<-|<<|>>|\|\||&&|[();{}<>|&])/u.exec(source.slice(index))[0];
+            const operator = /^(?:<\(|<<<|<<-|<<|>>|;;|\|\||&&|[();{}<>|&])/u.exec(source.slice(index))[0];
             tokens.push(operator === '(' && wordEnd === index && tokens.at(-1)?.endsWith('=') ? 'array(' : operator);
             index += operator.length;
             if (operator === '<<' || operator === '<<-')
@@ -173,8 +185,14 @@ function shellTokens(input)
             continue;
         }
         const start = index;
-        while (index < source.length && !/[\s();{}<>|&]/u.test(source[index]))
+        const parts = [];
+        let partStart = index;
+        while (index < source.length && !/[ \t\r\n();{}<>|&]/u.test(source[index]))
         {
+            if (unsupportedWhitespace(source[index]))
+            {
+                throw new Error('unsupported Shell whitespace');
+            }
             if (["'", '"', '`'].includes(source[index]))
             {
                 quoted(source[index]);
@@ -189,14 +207,28 @@ function shellTokens(input)
                 {
                     throw new Error('incomplete Shell escape');
                 }
-                index += 2;
+                if (newlineLength(index + 1))
+                {
+                    parts.push(source.slice(partStart, index));
+                    index += 1 + newlineLength(index + 1);
+                    partStart = index;
+                }
+                else
+                {
+                    index += 2;
+                }
             }
             else
             {
                 index++;
             }
         }
-        const word = source.slice(start, index).replace(/\\\n/gu, '');
+        if (index <= start)
+        {
+            throw new Error('Shell tokenizer must advance or refuse');
+        }
+        parts.push(source.slice(partStart, index));
+        const word = parts.join('');
         tokens.push(word);
         wordEnd = index;
         if (wantsDelimiter !== null)
@@ -228,6 +260,193 @@ function literalName(word)
     return word.replace(/\\(.)/gu, '$1').replace(/["']/gu, '');
 }
 
+// Prefix grammar establishes lexical top-level context, independently of the
+// selected body. Other function/compound bodies are opaque balanced regions;
+// the caller cannot be selected from inside them. Only ordinary statements and
+// closed if/then/else/fi contexts are supported outside function bodies. This
+// proves placement, not that arbitrary preceding commands execute successfully.
+function requireTopLevelContext(tokens, target)
+{
+    let index = 0;
+    const controls = [];
+    const fail = () =>
+    {
+        throw new Error(`mutation caller requires a supported top-level definition context (token ${index})`);
+    };
+    const separator = (word) => word === '\n' || word === ';';
+    const next = (position) =>
+    {
+        while (tokens[position] === '\n')
+        {
+            position++;
+        }
+        return position;
+    };
+    const region = () =>
+    {
+        const open = tokens[index++];
+        const close = open === '{' ? '}' : ')';
+        let depth = 1;
+        const cases = [];
+        let statementStart = true;
+        while (index < tokens.length && depth > 0)
+        {
+            const word = tokens[index++];
+            // Unrelated subshell function bodies may contain case arms: their
+            // pattern ')' is not the end of the enclosing subshell. Preserve
+            // that lexical distinction while keeping these bodies opaque.
+            if (close === ')')
+            {
+                if (word === 'case' && statementStart && cases.at(-1) !== 'pattern')
+                {
+                    cases.push('subject');
+                }
+                else if (word === 'in' && cases.at(-1) === 'subject')
+                {
+                    cases[cases.length - 1] = 'pattern';
+                }
+                else if (word === 'esac' && statementStart && cases.length > 0)
+                {
+                    cases.pop();
+                }
+                else if (word === ')' && cases.at(-1) === 'pattern')
+                {
+                    cases[cases.length - 1] = 'body';
+                    statementStart = true;
+                    continue;
+                }
+                else if (word === ';;' && cases.at(-1) === 'body')
+                {
+                    cases[cases.length - 1] = 'pattern';
+                }
+                statementStart = ['\n', ';', ';;', '&&', '||', 'then', 'else', 'do'].includes(word);
+            }
+            if (word === open || close === ')' && ['(', 'array(', '<('].includes(word))
+            {
+                depth++;
+            }
+            else if (word === close)
+            {
+                depth--;
+            }
+        }
+        if (depth !== 0 || cases.length > 0 || index > target)
+        {
+            fail();
+        }
+    };
+    const simple = () =>
+    {
+        let testDepth = 0;
+        while (index < target && !separator(tokens[index]))
+        {
+            if (['{', '(', 'array(', '<('].includes(tokens[index]))
+            {
+                region();
+            }
+            else
+            {
+                const word = tokens[index];
+                if (word === '[[')
+                {
+                    testDepth++;
+                }
+                else if (word === ']]')
+                {
+                    testDepth--;
+                }
+                if (testDepth < 0 || ['}', ')', ';;'].includes(word) || testDepth === 0 && ['&&', '||', '|'].includes(word))
+                {
+                    fail();
+                }
+                index++;
+            }
+        }
+        if (testDepth !== 0)
+        {
+            fail();
+        }
+    };
+    while (index < target)
+    {
+        const start = index;
+        while (separator(tokens[index]))
+        {
+            index++;
+        }
+        if (index === target)
+        {
+            break;
+        }
+        const word = tokens[index];
+        if (word === 'if')
+        {
+            controls.push('if');
+            index++;
+            simple();
+            while (separator(tokens[index]))
+            {
+                index++;
+            }
+            if (tokens[index++] !== 'then')
+            {
+                fail();
+            }
+        }
+        else if (word === 'else' || word === 'fi')
+        {
+            if (controls.at(-1) !== 'if')
+            {
+                fail();
+            }
+            if (word === 'fi')
+            {
+                controls.pop();
+            }
+            index++;
+        }
+        else if (['elif', 'then', 'for', 'while', 'until', 'select', 'case', 'esac', 'do', 'done', 'coproc', 'time', '!'].includes(word))
+        {
+            fail();
+        }
+        else
+        {
+            const nameIndex = word === 'function' ? next(index + 1) : index;
+            let position = next(nameIndex + 1);
+            const signature = tokens[position] === '(' && tokens[next(position + 1)] === ')';
+            if (signature)
+            {
+                position = next(next(position + 1) + 1);
+            }
+            if (signature || word === 'function')
+            {
+                if (!literalName(tokens[nameIndex]) || !['{', '('].includes(tokens[position]))
+                {
+                    fail();
+                }
+                index = position;
+                region();
+            }
+            else
+            {
+                simple();
+            }
+        }
+        if (index <= start || index >= target && index !== target)
+        {
+            fail();
+        }
+        if (index === target && !separator(tokens[index - 1]))
+        {
+            fail();
+        }
+    }
+    if (index !== target || controls.length !== 0)
+    {
+        fail();
+    }
+}
+
 function callerBody(tokens)
 {
     const declarations = [];
@@ -241,6 +460,7 @@ function callerBody(tokens)
     };
     for (let index = 0; index < tokens.length; index++)
     {
+        const declarationIndex = index;
         const withKeyword = tokens[index] === 'function';
         const nameIndex = withKeyword ? next(index + 1) : index;
         let position = next(nameIndex + 1);
@@ -291,6 +511,7 @@ function callerBody(tokens)
         {
             throw new Error(contractError);
         }
+        requireTopLevelContext(tokens, declarationIndex);
         declarations.push(tokens.slice(position + 1, end - 1));
     }
     if (declarations.length !== 1)
@@ -306,19 +527,37 @@ function callerBody(tokens)
 // commands, conditions and groups are admissible; nothing is silently ignored.
 function program(tokens)
 {
+    if (tokens.includes(';;'))
+    {
+        throw new Error('unsupported repeated Shell semicolon');
+    }
     let index = 0;
     const separator = (word) => word === '\n' || word === ';';
-    const skip = () =>
+    const skip = (allowSemicolon = true) =>
     {
+        let semicolon = false;
+        let newline = false;
         while (separator(tokens[index]))
         {
+            if (tokens[index] === ';')
+            {
+                if (!allowSemicolon || semicolon || newline)
+                {
+                    throw new Error('unsupported repeated or empty Shell separator');
+                }
+                semicolon = true;
+            }
+            else
+            {
+                newline = true;
+            }
             index++;
         }
     };
     const statements = (stops = []) =>
     {
         const nodes = [];
-        skip();
+        skip(false);
         while (index < tokens.length && !stops.includes(tokens[index]))
         {
             if (tokens[index] === 'if')
@@ -332,6 +571,11 @@ function program(tokens)
                 if (tokens[index++] !== 'then' || condition.length === 0 || !separator(condition.at(-1)))
                 {
                     throw new Error(contractError);
+                }
+                const semicolonIndex = condition.indexOf(';');
+                if (semicolonIndex >= 0 && (condition[semicolonIndex - 1] === '\n' || condition.slice(semicolonIndex + 1).some((word) => word !== '\n')))
+                {
+                    throw new Error('unsupported repeated Shell separator');
                 }
                 while (separator(condition.at(-1)))
                 {

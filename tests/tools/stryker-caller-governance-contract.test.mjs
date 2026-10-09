@@ -219,3 +219,63 @@ test('ordinary mutation soundness accepts supported declaration spacing and equi
         assert.deepEqual(verify({ laneSource: changed }), []);
     }
 });
+
+test('ordinary mutation lexical progress refuses unsupported whitespace without empty tokens', () =>
+{
+    // Execute only the corrected pure string verifier. The old tokenizer's
+    // non-advancing whitespace path is source-derived; never execute that path.
+    for (const whitespace of ['\r', '\v', '\f', '\u00a0', '\u2028', '\u2029', '\ufeff'])
+    {
+        for (const changed of [caller.replace('local configPath', `${whitespace}local configPath`),
+            caller.replace('local configPath', `local${whitespace}configPath`)])
+        {
+            assert.match(verify({ laneSource: changed }).join('\n'), /unsupported Shell whitespace/u);
+        }
+    }
+});
+
+test('ordinary mutation lexical literals preserve single quoted backslash newline semantics', () =>
+{
+    for (const pattern of ["'log-\\\n*.txt'", "'log-\\\r\n*.txt'", "'log-\r\n*.txt'"])
+    {
+        assert.notDeepEqual(verify({ laneSource: caller.replace("'log-*.txt'", pattern) }), [], pattern);
+    }
+});
+
+test('ordinary mutation lexical grammar refuses repeated and empty shell separators', () =>
+{
+    for (const separator of [';;', '; ;', ';\n;', '\n;'])
+    {
+        assert.notDeepEqual(verify({ laneSource: caller.replace('local configPath="$1"', `local configPath="$1"${separator}`) }), [], separator);
+    }
+    for (const changed of [caller.replace(']]; then', ']];; then'), caller.replace(']]; then', ']]; ; then'),
+        caller.replace('then\n', 'then;\n'), caller.replace('else\n', 'else;\n'),
+        caller.replace('() {\n', '() {;\n')])
+    {
+        assert.notDeepEqual(verify({ laneSource: changed }), []);
+    }
+});
+
+test('ordinary mutation definition context refuses conditional enclosing and subshell callers', () =>
+{
+    for (const changed of [`if false; then\n${caller}\nfi\n`, `NeverCalled() {\n${caller}\n}\n`,
+        `NeverCalled() (\n${caller}\n)\n`, `{\n${caller}\n}\n`, `(\n${caller}\n)\n`,
+        `while false; do\n${caller}\ndone\n`, `for item in one; do\n${caller}\ndone\n`,
+        `case value in value)\n${caller}\n;; esac\n`, `true && ${caller}`,
+        `false &&\n${caller}`, `false ||\n${caller}`, `printf value |\n${caller}`])
+    {
+        assert.match(verify({ laneSource: changed }).join('\n'), /top-level definition context/u);
+    }
+});
+
+test('ordinary mutation definition context accepts closed unrelated top level declarations', () =>
+{
+    for (const prefix of ['Unrelated() { printf "ordinary metadata"; }\n',
+        'Unrelated() ( printf "ordinary metadata" )\n',
+        'Unrelated() ( case "$value" in one) :;; two) :;; esac )\n',
+        'if false; then\n    printf "ordinary metadata"\nelse\n    :\nfi\n',
+        'if false; then\n    Unrelated() { :; }\nfi\n'])
+    {
+        assert.deepEqual(verify({ laneSource: `${prefix}${caller}` }), [], prefix);
+    }
+});
