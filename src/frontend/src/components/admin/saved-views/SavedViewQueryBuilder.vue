@@ -218,8 +218,10 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus';
+import { ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus';
 import { computed, nextTick, ref, watch } from 'vue';
+
+import { FsusUiButton as ElButton } from '@/fsusui/button';
 
 import {
     cloneSavedViewDraft,

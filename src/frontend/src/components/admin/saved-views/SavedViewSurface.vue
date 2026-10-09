@@ -57,8 +57,9 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton } from '@ozwasyd/element-plus';
 import { computed } from 'vue';
+
+import { FsusUiButton as ElButton } from '@/fsusui/button';
 
 export interface SavedViewSummary {
     viewId: string;
