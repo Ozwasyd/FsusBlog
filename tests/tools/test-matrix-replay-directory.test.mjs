@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { withRuntimeRoleReplayDirectory } from '../../tools/fact-extractors/test-matrix/extract.mjs';
+const { withRuntimeRoleReplayDirectory } = await import(new URL('../../tools/fact-extractors/test-matrix/extract.mjs', import.meta.url));
 
 // These are directory-lifecycle fixtures only; they create no build identity or receipt.
 function createDirectoryFixture(t)
