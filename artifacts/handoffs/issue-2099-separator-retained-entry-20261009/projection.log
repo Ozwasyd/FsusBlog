@@ -1,0 +1,35 @@
+{
+  "schema": "fsusblog.observed-context-projection-diagnostic.v1",
+  "projectedWithSourceCommit": "8f3e46e17e6fa0f118bf4bd89b5b2de6392cb65b",
+  "observedAtUtc": "2026-10-09T11:24:45.186Z",
+  "results": [
+    {
+      "input": ".tmp/issue-2099-migration-closure-20261009/backend-context-query.json",
+      "inputSha256": "00abbbb76a627ee47ac4b3da432cccbd381ca7b374c562038c8df79f99488b9d",
+      "observationSourceCommit": "4efa87ebb5d085afd54a19a22d3fc97293c5c775",
+      "intermediate": "obj\\Debug/net10.0/",
+      "actualCompileItems": 690,
+      "compileItemsFiltered": false,
+      "projection": "accepted",
+      "observedSources": 690,
+      "intermediateOutput": "/workspace/FsusBlog-2099-geometry-integration/tests/backend/obj/Debug/net10.0/FsusBlog.Server.Tests.dll"
+    },
+    {
+      "input": ".tmp/issue-2099-migration-closure-20261009/owned-layout/backend-original-compile-query.json",
+      "inputSha256": "1f22b3d2e43ceaf324c313acba99cf950cd99cae0c2f0d7ad1d5b9cf7e4c02bb",
+      "observationSourceCommit": "4efa87ebb5d085afd54a19a22d3fc97293c5c775",
+      "intermediate": "/workspace/FsusBlog-2099-geometry-integration/.tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Server.Tests/obj/Debug/net10.0/",
+      "actualCompileItems": 694,
+      "compileItemsFiltered": false,
+      "projection": "refused",
+      "error": "xunit Compile source is outside its canonical repository boundary: ../.setup/nuget/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs"
+    }
+  ],
+  "newBuilds": 0,
+  "testsExecuted": 0,
+  "donorControlsExecuted": 0,
+  "sdkOrCacheRelocated": false,
+  "inventoryProduced": false,
+  "runtimeQualification": false,
+  "previousBuildResultsRebound": false
+}

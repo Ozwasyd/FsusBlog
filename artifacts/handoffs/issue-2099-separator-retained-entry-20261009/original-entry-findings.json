@@ -1,0 +1,64 @@
+{
+  "inspectedSourceCommit": "8f3e46e17e6fa0f118bf4bd89b5b2de6392cb65b",
+  "canonicalSdkClassificationSuppliedCommit": "2cf8f6d63841db81039f0eb7ec4720d6c0b800fa",
+  "canonicalSdkClassificationExists": true,
+  "canonicalSdkClassificationConsumed": false,
+  "classificationBoundary": ".tmp/**/nuget-packages plus selected project packages.lock.json, matching NuGet metadata, actual GenerateProgramFile/GeneratedProgramFile/NuGetPackageRoot/TargetFramework and defining Microsoft.NET.Test.Sdk.targets, retained in-process source identity; no SDK test ownership",
+  "originalInventoryLaneCreatesAttemptNugetLayout": false,
+  "originalInventoryProducerBuildEnvironment": "inherited; prior actual builds used /workspace/.setup/nuget",
+  "generalOriginalEnvelopeCreatesAttemptNugetLayout": true,
+  "generalOriginalEnvelopeRoot": ".tmp/test-execution-envelope/run-owned/<run>/<producer>/<attempt>/nuget-packages",
+  "generalOriginalEnvelopeRetainsActualPreparedObject": true,
+  "currentWorktreeRunOwnedRootExists": false,
+  "qualifiedOriginalInventoryBuildAttemptSupplied": false,
+  "preparedNugetIngressOwner": "behavior-doc-static-admission only; other producers explicitly refuse",
+  "testInventoryPolicy": {
+    "executionClass": "build",
+    "evidenceClass": "correctness",
+    "requiredServices": [],
+    "allowedEnvironment": [
+      "DOTNET_ROOT",
+      "PATH"
+    ]
+  },
+  "networkPolicy": "correctness default deny; only declared exact endpoint classes; no fallback ambient cache ingress",
+  "sourceBindings": [
+    {
+      "path": "tools/test/lanes/test-inventory.sh",
+      "sha256": "98b53f4dbd406a845b7e9b94c29cebf2f6f4518f5de9434591040610e46097a9"
+    },
+    {
+      "path": "tools/test-inventory/produce.mjs",
+      "sha256": "53519cd6f1efb08aa489a334e46726a83337b52626870041e65cea50319d5007"
+    },
+    {
+      "path": "tools/test/execution-envelope-directories.mjs",
+      "sha256": "edf30afadffc6712d50a15785baeca384f143bdceedd62c5bec10e1f834a1a6d"
+    },
+    {
+      "path": "tools/test/run-deterministic-command.mjs",
+      "sha256": "cef2a0012b006db64d361a0de5db475eda98f1b6db5e73ab87841adf0de4f9d7"
+    },
+    {
+      "path": "tools/test/behavior-doc-nuget-preparation.mjs",
+      "sha256": "9de98df6773155c3cc6086ee0453549ed5a6c8d601cd4c0daaaf539132afff33"
+    },
+    {
+      "path": "config/testing/test-execution-envelope-applicability.json",
+      "sha256": "56187457f27a922333626fca45f50424d7a4c388ede1e176ed6515952387791c"
+    },
+    {
+      "path": "config/testing/test-execution-network-policy.json",
+      "sha256": "65c547f7d6cbee7bfd47e462463afe61b91e6b3acce16e517a67ec6b99855cd1"
+    }
+  ],
+  "executionPrerequisite": "Original authorized inventory build/resource owner must supply a genuine source-bound retained attempt with its locked NuGet restore and matching SDK source/targets/package metadata in its own .tmp/**/nuget-packages, including the actual MSBuild properties and Compile graphs and lifecycle evidence. An arbitrary environment override or copied cache cannot establish that owner.",
+  "noCacheCopyOrMove": true,
+  "noCompileFiltering": true,
+  "noSecondSdkClassification": true,
+  "heldDonorControlsExecuted": 0,
+  "newBuilds": 0,
+  "newTests": 0,
+  "newBrowserRuns": 0,
+  "runtimeQualification": false
+}

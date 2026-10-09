@@ -1,0 +1,118 @@
+{
+  "sourceCommit": "8f3e46e17e6fa0f118bf4bd89b5b2de6392cb65b",
+  "suppliedSeparatorCommit": "9b1455c00389daf6472749f78c22d4a77a37766e",
+  "wholeFourPathPatchAppliedWithoutConflict": true,
+  "manualSharedSourceEdits": false,
+  "exactBindings": [
+    {
+      "path": "tools/test-inventory/discovery.mjs",
+      "currentBlob": "97a5d811b9681059501421aeeee88d8fd580330b",
+      "suppliedBlob": "97a5d811b9681059501421aeeee88d8fd580330b",
+      "byteIdentical": true
+    },
+    {
+      "path": "tests/tools/xunit-configuration-context.test.mjs",
+      "currentBlob": "03c91e99b301393ff7e65b0e603743deb3a9042b",
+      "suppliedBlob": "03c91e99b301393ff7e65b0e603743deb3a9042b",
+      "byteIdentical": true
+    },
+    {
+      "path": "artifacts/change-contract/xunit-msbuild-separators-external-naming.json",
+      "currentBlob": "3a4d2c767c24dab0bda95a7d49495b12b0463eec",
+      "suppliedBlob": "3a4d2c767c24dab0bda95a7d49495b12b0463eec",
+      "byteIdentical": true
+    }
+  ],
+  "docsTestingExactOriginalTwoLineDeltaApplied": true,
+  "existingDocsOtherContentPreserved": true,
+  "priorBuildSourceCommit": "4efa87ebb5d085afd54a19a22d3fc97293c5c775",
+  "priorBuildReceiptsRebound": false,
+  "node": "24.16.0",
+  "commands": [
+    {
+      "command": [
+        "node",
+        "--check",
+        "tools/test-inventory/discovery.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "node",
+        "--check",
+        "tests/tools/xunit-configuration-context.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "node",
+        ".tmp/issue-2099-separator-closure-20261009/project-observed-context.mjs"
+      ],
+      "exitCode": 0,
+      "kind": "diagnostic re-projection of preserved actual observations; no new SDK command"
+    },
+    {
+      "command": [
+        "node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "6abc3c276a5f2af8536e2ad845280bbb00f579f7..HEAD"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--base",
+        "6abc3c276a5f2af8536e2ad845280bbb00f579f7",
+        "--file",
+        "tools/test-inventory/discovery.mjs",
+        "--file",
+        "tests/tools/xunit-configuration-context.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "node",
+        "tools/style/check-native-tooling-style.mjs",
+        "--domain",
+        "docs",
+        "--mode",
+        "changed",
+        "--operation",
+        "lint",
+        "--base",
+        "6abc3c276a5f2af8536e2ad845280bbb00f579f7",
+        "--file",
+        "docs/testing.md",
+        "--require-tools"
+      ],
+      "initialExitCode": 1,
+      "initialFailure": "markdownlint-cli2 not on PATH",
+      "withExistingOfficialToolOnPathExitCode": 0,
+      "toolDirectory": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/docs-toolchain/node_modules/.bin"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check",
+        "6abc3c276a5f2af8536e2ad845280bbb00f579f7",
+        "HEAD"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "noTestCasesExecuted": true,
+  "inventoryProduced": false,
+  "qualifiedRuntime": false,
+  "baselineOriginMaster": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "branch": "codex/issue-2099-geometry-integration-20261009",
+  "githubMetadataWritesPaused": true
+}

@@ -1,0 +1,2 @@
+.markdownlint-cli2.jsonc:1 missing-tool: markdownlint-cli2 is required by --require-tools
+[native-tooling-style] failed selected=1 checked=1 baseline=0 violations=1

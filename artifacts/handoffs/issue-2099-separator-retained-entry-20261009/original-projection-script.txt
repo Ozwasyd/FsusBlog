@@ -1,0 +1,35 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { projectXunitCompileContext } from '../../tools/test-inventory/discovery.mjs';
+import { xunitTestProjects } from '../../tools/test-inventory/adapters.mjs';
+const root = process.cwd();
+const observations = [
+    '.tmp/issue-2099-migration-closure-20261009/backend-context-query.json',
+    '.tmp/issue-2099-migration-closure-20261009/owned-layout/backend-original-compile-query.json'
+];
+const results = observations.map((file) => {
+    const bytes = readFileSync(file);
+    const context = JSON.parse(bytes);
+    const result = { input: file, inputSha256: createHash('sha256').update(bytes).digest('hex'),
+        observationSourceCommit: '4efa87ebb5d085afd54a19a22d3fc97293c5c775',
+        intermediate: context.Properties.IntermediateOutputPath,
+        actualCompileItems: context.Items.Compile.length, compileItemsFiltered: false };
+    try {
+        const projected = projectXunitCompileContext(root, xunitTestProjects[0], context, 'Debug');
+        return { ...result, projection: 'accepted', observedSources: projected.sources.length,
+            intermediateOutput: projected.intermediateOutput };
+    } catch (error) {
+        return { ...result, projection: 'refused', error: error.message };
+    }
+});
+const record = { schema: 'fsusblog.observed-context-projection-diagnostic.v1',
+    projectedWithSourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+    observedAtUtc: new Date().toISOString(), results, newBuilds: 0, testsExecuted: 0,
+    donorControlsExecuted: 0, sdkOrCacheRelocated: false, inventoryProduced: false,
+    runtimeQualification: false, previousBuildResultsRebound: false };
+writeFileSync('.tmp/issue-2099-separator-closure-20261009/observed-context-projection.json', JSON.stringify(record, null, 2) + '\n');
+console.log(JSON.stringify(record, null, 2));
+if (results[0].projection !== 'accepted' || results[0].observedSources !== 690
+    || results[1].projection !== 'refused'
+    || !results[1].error.includes('outside its canonical repository boundary: ../.setup/nuget/')) process.exitCode = 1;
