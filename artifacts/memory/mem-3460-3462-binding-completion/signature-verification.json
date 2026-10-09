@@ -1,0 +1,8 @@
+{
+    "kind": "lossless-actual-verifier-command-output",
+    "reason": "GnuPG PLAINTEXT status emits a trailing empty field; preserve every actual byte as JSON string data rather than trimming the original machine output",
+    "rawOutputUtf8": "[GNUPG:] PLAINTEXT 74 0 \n[GNUPG:] NEWSIG\ngpg: Signature made Thu May 21 13:19:35 2026 UTC\ngpg:                using EDDSA key 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356\n[GNUPG:] KEY_CONSIDERED 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356 0\n[GNUPG:] SIG_ID FubAYsV0+T6IncuCm5IF905o2Vc 2026-05-21 1779369575\ngpg: /workspace/task-tools/mem-gpu-node24.16/keyring/trustdb.gpg: trustdb created\n[GNUPG:] GOODSIG 20B1A390B168D356 Antoine du Hamel <antoine.duhamel@platformatic.dev>\ngpg: Good signature from \"Antoine du Hamel <antoine.duhamel@platformatic.dev>\" [unknown]\ngpg:                 aka \"Antoine du Hamel <duhamelantoine1995@gmail.com>\" [unknown]\n[GNUPG:] VALIDSIG 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356 2026-05-21 1779369575 0 4 0 22 8 01 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356\n[GNUPG:] TRUST_UNDEFINED 0 pgp\ngpg: WARNING: This key is not certified with a trusted signature!\ngpg:          There is no indication that the signature belongs to the owner.\nPrimary key fingerprint: 5BE8 A3F6 C8A5 C01D 106C  0AD8 20B1 A390 B168 D356\n",
+    "rawOutputSha256": "13ecff2207fdb601c46ffa3eed621918d03479bb7a6150ed1bd10032a3f512a3",
+    "actualExitCode": 0,
+    "originalRawOutputRetainedAt": "/workspace/task-tools/mem-gpu-node24.16/downloads/signature-verification.log"
+}
