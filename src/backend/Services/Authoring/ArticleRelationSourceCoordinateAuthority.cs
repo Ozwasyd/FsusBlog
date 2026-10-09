@@ -1,10 +1,10 @@
 using System.Data;
 
+using FsusBlog.Shared.Contracts.ArticleEmbeds;
+
 using Npgsql;
 
 using SqlSugar;
-
-using FsusBlog.Shared.Contracts.ArticleEmbeds;
 
 namespace FsusBlog.Server.Services.Authoring;
 
