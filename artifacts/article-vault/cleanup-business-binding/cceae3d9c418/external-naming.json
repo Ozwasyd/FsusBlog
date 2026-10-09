@@ -1,0 +1,21 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "src/backend/Interfaces/IFileService.cs",
+        "src/backend/Services/FileService.AttachmentCleanup.cs",
+        "src/backend/Services/Authoring/CurrentUploadAssetCleanupBindingReader.cs"
+      ],
+      "reason": "Declare the registered source surface while preserving all original caller-visible environment spellings. This increment changes no environment key and grants no exception to private C# identifiers, ordering, formatting, auth or runtime acceptance."
+    },
+    {
+      "id": "content-doc-exactness-authority",
+      "paths": [
+        "docs/api/contracts.md"
+      ],
+      "reason": "Preserve the original current API documentation identifiers and external contract spelling while documenting server-only original cleanup operations. This declaration waives no document exactness, receipt or runtime qualification gate."
+    }
+  ]
+}

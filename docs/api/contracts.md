@@ -3139,7 +3139,6 @@ The caller commits its original transaction and then reads actual durable
 queue/state for any cleanup observation. `SchedulingRequired` remains an unmet
 scheduling fact until that original durable observation confirms otherwise.
 
-
 `IFileService.ObserveAttachmentCleanupAsync(access, sha256, expectedAssetVersionSha256?,
 expectedReferenceObservationSha256?, ct)` and
 `RecordAttachmentCleanupAsync(access, sha256, expectedAssetVersionSha256,

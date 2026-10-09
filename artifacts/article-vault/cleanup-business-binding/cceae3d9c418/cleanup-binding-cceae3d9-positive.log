@@ -1,0 +1,5 @@
+Test run for /workspace/chain1975-cleanup-business-binding/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/chain-1975-evidence/cleanup-binding-cceae3d9-positive.trx
+
+Passed!  - Failed:     0, Passed:     2, Skipped:     0, Total:     2, Duration: 1 s - FsusBlog.Server.Tests.dll (net10.0)

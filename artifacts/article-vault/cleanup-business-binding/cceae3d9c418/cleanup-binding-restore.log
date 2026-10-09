@@ -1,0 +1,7 @@
+  Determining projects to restore...
+  Restored /workspace/chain1975-cleanup-business-binding/src/shared/FsusBlog.Shared.csproj (in 106 ms).
+  Restored /workspace/chain1975-cleanup-business-binding/src/core/FsusBlog.Core.csproj (in 4.67 sec).
+  Restored /workspace/chain1975-cleanup-business-binding/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 4.81 sec).
+  Restored /workspace/chain1975-cleanup-business-binding/src/backend/FsusBlog.Server.csproj (in 4.85 sec).
+  Restored /workspace/chain1975-cleanup-business-binding/src/migration/FsusBlog.Migration.csproj (in 42 ms).
+  Restored /workspace/chain1975-cleanup-business-binding/tests/backend/FsusBlog.Server.Tests.csproj (in 4.86 sec).

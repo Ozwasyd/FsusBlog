@@ -1,0 +1,7 @@
+{
+  "scope": "offline incremental metadata validation only; not remote checks, merge-ready or full master-diff acceptance",
+  "errors": [
+    "changes to registered external naming surfaces require External naming exception classification: src/backend/Interfaces/IFileService.cs, src/backend/Services/FileService.AttachmentCleanup.cs, src/backend/Services/Authoring/CurrentUploadAssetCleanupBindingReader.cs, docs/api/contracts.md"
+  ],
+  "exitCode": 1
+}

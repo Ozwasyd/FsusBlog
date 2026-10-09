@@ -1,0 +1,2 @@
+[csharp-style] src/backend/Services/FileService.AttachmentCleanup.cs:5 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Core.Common]
+[csharp-style] tests/backend/Unit/AttachmentCleanupObservationTests.cs:9 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Core.Common]

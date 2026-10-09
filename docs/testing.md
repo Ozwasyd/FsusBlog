@@ -1850,7 +1850,6 @@ publication does not retag those runs or activate a runtime consumer. The bundle
 also contains the sole DI owner's unapplied hunk and a full draft PR body;
 it does not create a second current contract or an acceptance authority.
 
-
 ## Original upload cleanup business binding controls
 
 The ordinary bounded selectors are exactly
