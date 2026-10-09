@@ -1,0 +1,15 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./scripts/fsusui-local" without a file extension (vitest.config.ts:5:61). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.11 /workspace/FsusBlog-registration-current/src/frontend
+
+ ✓ ../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts (13 tests) 1246ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  05:53:06
+   Duration  2.16s (transform 1.71s, setup 551ms, import 63ms, tests 1.25s, environment 0ms)
+
+JSON report written to /workspace/FsusBlog-registration-current/.tmp/test-results/vitest/unit/shared-canvas-contract-af301b7.json
+JUNIT report written to /workspace/FsusBlog-registration-current/.tmp/test-results/vitest/unit/shared-canvas-contract-af301b7.xml
