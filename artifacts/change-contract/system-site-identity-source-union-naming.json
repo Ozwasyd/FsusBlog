@@ -1,0 +1,42 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+                "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+                "src/backend/Services/SystemService.SiteIdentity.cs",
+                "src/migration/Definitions/SystemSiteIdentityMigrationDefinitions.cs",
+                "src/migration/PgCurrentSchemaBootstrapOperation.cs",
+                "src/migration/PgLegacyNonArticlePreparation.cs",
+                "tools/mutation/stryker-caller-governance-contract.mjs"
+            ],
+            "reason": "Preserve existing external process environment spellings in the registered source and canonical mutation contract while internal identifiers retain repository naming; this metadata grants no resource, execution or product authority."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/check-backend-test-governance.mjs"
+            ],
+            "reason": "Preserve the existing registered governance checker interface while admitting only the reviewed canonical mutation caller source validator; no post-runtime observation or policy authority is promoted."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Preserve existing lifecycle, inventory and fixture catalog JSON field spellings while recording the actual original producer output and canonical PostgreSQL collection metadata."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/system-site-identity.md"
+            ],
+            "reason": "Preserve the current installation identity contract document and its registered caller-facing contract spelling without introducing new naming policy or runtime permission."
+        }
+    ]
+}
