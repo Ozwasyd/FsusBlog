@@ -303,8 +303,8 @@ public sealed class PublicHotReadRiskProjection : IPublicHotReadRiskProjection
                     || string.Equals(write.Reason, SecurityRiskEventReasons.RiskReset, StringComparison.Ordinal)));
     }
 
-    /// <summary>Applies valid, unexpired risk updates and requires replacements to advance the epoch, timestamp and event ID version.</summary>
-    /// <param name="update">The risk fact; expiry is capped to the configured lifetime and nonauthoritative zero cannot replace positive risk.</param>
+    /// <summary>Applies valid, unexpired risk updates; replacements must be newer by epoch, then timestamp, then ordinal event ID, with later fields used only to break ties.</summary>
+    /// <param name="update">The risk fact; expiry is capped to the configured lifetime from the current projection clock, and nonauthoritative zero cannot replace positive risk.</param>
     /// <param name="durableReplay">Whether to count an accepted update as originating from durable replay.</param>
     /// <param name="distributedUpdate">Whether to count an accepted update as originating from distributed delivery.</param>
     /// <returns><see langword="true"/> when stored within the entry and estimated-byte budgets; otherwise <see langword="false"/>. Capacity reclamation does not evict unexpired positive risk.</returns>
