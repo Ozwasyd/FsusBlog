@@ -1,0 +1,357 @@
+{
+  "issue": 3601,
+  "executionIssues": [
+    3601
+  ],
+  "trackingOnlyIssues": [],
+  "state": "OPEN/WIP; real current-master source integration verified, full acceptance outstanding",
+  "wholeAssignmentAccepted": false,
+  "createdAt": "2026-10-09T06:23:37.045242+00:00",
+  "sourceBranch": "codex/chain-3601-master-integration-20261009",
+  "sourceHead": "73ffeaed8bf7833a67259aa89e278ec1cd7a2048",
+  "actualMasterBase": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "masterIsActualAncestor": true,
+  "mergeBase": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "finalParents": [
+    "4ba4f9d28fb1511d6869a3a51a7ec72b6ef43bb5",
+    "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea"
+  ],
+  "firstIntegration": {
+    "head": "b5035927b6e9a06dc6f269c73c2d7e29bade68c5",
+    "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+    "parents": [
+      "562551892c9a0af87f1a9d2d77f8a2ddf4823362",
+      "720d9948087cf176eccf7bdd5cc0be85f8cab606"
+    ]
+  },
+  "remoteHeadAndLiveMasterVerified": true,
+  "frozenSourcePreserved": "562551892c9a0af87f1a9d2d77f8a2ddf4823362",
+  "frozenOlderHeads": {
+    "source": "f50ad57f8e4e70c035e01661615daf61fbe333ec",
+    "documentation": "1d276775e43f0d3f3f1cea79b524e3ddba63286d"
+  },
+  "paths": [
+    {
+      "path": "artifacts/change-contract/chain-3601-runtime-asset-external-naming.json",
+      "headBlob": "5cfcc42f87049bdf98ae7104abbab50b6823dcfb",
+      "headSha256": "4e004ad81004a7025ea932ca88f698f45ac7c2316828b4f0153c33ca3a9f3453",
+      "wholeFileEqualFrozen562": true,
+      "wholeFileEqualPreviousIntegration4ba": true
+    },
+    {
+      "path": "artifacts/change-contract/chain-3601-runtime-asset-generated-binding.json",
+      "headBlob": "8320eaf7384fca5b87e5cf577a70a40f94925fb6",
+      "headSha256": "235cf06756827520a88f4f3daecf2fbc6ea7b7e02a86d78459b2f2e1cd85b686",
+      "wholeFileEqualFrozen562": false,
+      "wholeFileEqualPreviousIntegration4ba": true
+    },
+    {
+      "path": "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+      "headBlob": "08cabb0e3fa0d1b6ebd4e69c82cd1139c2ea8d89",
+      "headSha256": "76d677a47a5e8c11f9ef790ae92af19c4bea726cb359bc6590be85385b40a0c6",
+      "wholeFileEqualFrozen562": false,
+      "wholeFileEqualPreviousIntegration4ba": true
+    },
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "headBlob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+      "headSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+      "wholeFileEqualFrozen562": true,
+      "wholeFileEqualPreviousIntegration4ba": true
+    },
+    {
+      "path": "docs/testing.md",
+      "headBlob": "61d76896b2be4c8989d8a4dc6a0d1935ee016aac",
+      "headSha256": "7722b96aee0ece1a5f675181a01728fa5790b05f4b55d4060544ce6b21e346a1",
+      "wholeFileEqualFrozen562": true,
+      "wholeFileEqualPreviousIntegration4ba": true
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "headBlob": "79342322997043c1dbcb585912a800557fb03dfc",
+      "headSha256": "080805d5871b845e8b62ad416dceaabcf2ce4ea8c2e0712f2f69f3d1c88181a5",
+      "wholeFileEqualFrozen562": false,
+      "wholeFileEqualPreviousIntegration4ba": true
+    },
+    {
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "headBlob": "33e14abbbed9b3d7d074aae96cc679e9e313b8b3",
+      "headSha256": "0103479f0ce7ccf2a30a6a2460fd3fcb82f48e8b518c6c14528a4c548fa1aac7",
+      "wholeFileEqualFrozen562": true,
+      "wholeFileEqualPreviousIntegration4ba": true
+    },
+    {
+      "path": "tests/tools/support/esm-fixture-materializer-contracts.mjs",
+      "headBlob": "009e6e69d9ea9f622cafd0504e22d0af9e992cda",
+      "headSha256": "0808af92d0cabed184b914961de0dd62563f8b7c38927557d96ff3846deec431",
+      "wholeFileEqualFrozen562": true,
+      "wholeFileEqualPreviousIntegration4ba": true
+    },
+    {
+      "path": "tests/tools/support/locked-schema-validator-fixture.mjs",
+      "headBlob": "e7be62abedcefd891e565e66fb3f5cdb2f24fcf6",
+      "headSha256": "d9bc95b6986cbddcc7347288e0317e8e544cf1a1ad1ce12cafdd98ec6670664a",
+      "wholeFileEqualFrozen562": true,
+      "wholeFileEqualPreviousIntegration4ba": true
+    },
+    {
+      "path": "tests/tools/test-matrix-scheduler.test.mjs",
+      "headBlob": "7fc0173f8d64eb57bdc65c3c5fc0f37f8f0a0d80",
+      "headSha256": "4ee30b849304a9e352dce46b3faa0c9d9cb6c26e0824483a91f12ccbf68729f4",
+      "wholeFileEqualFrozen562": true,
+      "wholeFileEqualPreviousIntegration4ba": true
+    },
+    {
+      "path": "tools/test/correctness-attempt-migration.mjs",
+      "headBlob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+      "headSha256": "f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+      "wholeFileEqualFrozen562": true,
+      "wholeFileEqualPreviousIntegration4ba": true
+    }
+  ],
+  "diffStat": "11 files changed, 426 insertions(+), 16 deletions(-)",
+  "pathCount": 11,
+  "changesOutsideAssignedPaths": [],
+  "sourceIntegrationSemantics": {
+    "textConflicts": [],
+    "upstreamOverlap": [
+      "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+    ],
+    "resolution": "unchanged original producer over actual combined source; no manual governed-output or source replacement",
+    "ownedFilesUnchangedVsFrozen": 8,
+    "changedOwnedFiles": 3,
+    "newSevenNativeQueryIntakeFiles": "current master baseline only; not run or qualified by this chain",
+    "canonical226RowsWholeFileEqualFrozen": true,
+    "all8SourceDigestsMatch": true,
+    "completeRosterValidatorUnchanged": true,
+    "beforeWholeFileEqualFrozen": true,
+    "beforeBlob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+    "replacementLedgerWholeFileEqualCurrentMaster": true,
+    "qpsRowsEqualFrozen": [
+      {
+        "id": "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#backend-qps-lane-rejects-every-legacy-argument-before-ex-c81f0d3f88",
+        "replacementRowEqualFrozen562": true,
+        "rowSha256": "18b78acd24fb6e5d2ba6e0cef19e6df12e0855722242a85cfb0b7a45238c62ab"
+      },
+      {
+        "id": "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#zero-argument-backend-qps-lane-delegates-only-to-the-cur-e536405a30",
+        "replacementRowEqualFrozen562": true,
+        "rowSha256": "6cfb1423a3f59a175a2750b65deed94413e55974df75531a0afcdd054d8033a5"
+      }
+    ],
+    "latestThirteenFrontendBootstrapPaths": "current master baseline only; zero owned11 or actual1132 runner input overlap; no acceptance asserted for those upstream changes"
+  },
+  "ownBinding": {
+    "originalProducer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+    "producerBytesUnchanged": true,
+    "output": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "sha256": "080805d5871b845e8b62ad416dceaabcf2ce4ea8c2e0712f2f69f3d1c88181a5",
+    "closureFiles": 1129,
+    "targets": 102,
+    "currentFinalFixedPoint": true,
+    "bothOwnBindingsMatch": true,
+    "supplierOutputCopied": false,
+    "supplierReceiptCopied": false,
+    "qualification": false
+  },
+  "verification": {
+    "runId": "chain3601-master-integration-20261009T053942Z-05c1deb22f",
+    "freshlyRunOnFirstIntegration": {
+      "sha": "b5035927b6e9a06dc6f269c73c2d7e29bade68c5",
+      "exactAllowlist": "positive-test-allowlist.json",
+      "expected": 36,
+      "observed": 36,
+      "passed": 36,
+      "failed": 0,
+      "unexpected": 0,
+      "missing": 0,
+      "groupCounts": {
+        "materializer": 18,
+        "assets": 7,
+        "caller": 10,
+        "sealedCli": 1
+      }
+    },
+    "retainedAtFrozenIdentity": {
+      "sha": "562551892c9a0af87f1a9d2d77f8a2ddf4823362",
+      "runId": "chain3601-publication-20261008T152350Z-d219565f47",
+      "callbacks": 15,
+      "roster": 7,
+      "finalizerUnitModels": 8,
+      "inputProof": "input-proof.json",
+      "rosterExactModuleInputs": 10,
+      "rosterExactDataInputs": 10,
+      "finalizerExactReadInputs": 2,
+      "historicalBinaryChecksumInvented": false,
+      "publishedArchiveAndLogsVerified": "retained-evidence-identity.json"
+    },
+    "retained36AtFirstIntegrationIdentity": {
+      "sha": "b5035927b6e9a06dc6f269c73c2d7e29bade68c5",
+      "sameRunId": "chain3601-master-integration-20261009T053942Z-05c1deb22f",
+      "callbacks": 36,
+      "finalReuseProof": "latest-537/latest-input-proof.json",
+      "authorityPlusTestHelperLockInputsVerified": 1132,
+      "sameExecutionWorktree": true,
+      "sameObservedNodeBinary": true
+    },
+    "newFinalTestCallbacks": {
+      "sha": "73ffeaed8bf7833a67259aa89e278ec1cd7a2048",
+      "expected": 0,
+      "executed": 0,
+      "allowlist": "latest-537/positive-test-allowlist.json",
+      "reason": "actual13frontendbaseline advance outside all1132 runner inputs; retain historical test identities; no repeated callbacks"
+    },
+    "actualFinalChecks": {
+      "sha": "73ffeaed8bf7833a67259aa89e278ec1cd7a2048",
+      "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+      "commands": {
+        "authoritative-docs": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/authoritative-docs.run.json",
+          "log": "latest-537/authoritative-docs.log"
+        },
+        "static-boundary": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/static-boundary.run.json",
+          "log": "latest-537/static-boundary.log"
+        },
+        "source-style": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/source-style.run.json",
+          "log": "latest-537/source-style.log"
+        },
+        "markdownlint": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/markdownlint.run.json",
+          "log": "latest-537/markdownlint.log"
+        },
+        "producer": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/producer.run.json",
+          "log": "latest-537/producer.log"
+        },
+        "pr-contract": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/pr-contract.run.json",
+          "log": "latest-537/pr-contract.log"
+        },
+        "commit-contract": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/commit-contract.run.json",
+          "log": "latest-537/commit-contract.log"
+        },
+        "preservation": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/preservation.run.json",
+          "log": "latest-537/preservation.log"
+        },
+        "declarations": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/declarations.run.json",
+          "log": "latest-537/declarations.log"
+        },
+        "layout": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/layout.run.json",
+          "log": "latest-537/layout.log"
+        },
+        "catalog": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/catalog.run.json",
+          "log": "latest-537/catalog.log"
+        },
+        "docs": {
+          "exit": 0,
+          "runId": "chain3601-master-integration-20261009T061320Z-0c5c509720",
+          "record": "latest-537/docs.run.json",
+          "log": "latest-537/docs.log"
+        }
+      },
+      "staticBoundaryErrors": [],
+      "declarationsTiers": 146,
+      "qualification": false,
+      "sourceDirtyDuringChecks": false
+    },
+    "firstIntegrationStyleDocs": {
+      "sha": "b5035927b6e9a06dc6f269c73c2d7e29bade68c5",
+      "sourceDiffStyleFiles": 4,
+      "sourceDiffStyleViolations": 0,
+      "officialMarkdownlintVersion": "0.23.1",
+      "markdownFiles": 1,
+      "markdownIssues": 0
+    },
+    "safeSetup": {
+      "offlineFirst": "three ENOTCACHED refusals retained",
+      "officialLockedCiIgnoreScripts": "schema5,tsadapter1,style257 packages recovered; replacement1 local alias offline installed",
+      "packagePublishing": false
+    },
+    "initialInputProofFailure": "ENOBUFS on historical authority git-show capture; bounded16MiB correction passed before tests",
+    "source93": false,
+    "fullScheduler": false,
+    "knownCgroupLaneRerun": false,
+    "heldReceiptGitReplacementCohortLeaseNativeAuditsRun": false,
+    "nativeRuntimeQualification": false
+  },
+  "realRemainingGates": [
+    {
+      "owner": "SAME reviewer01a11b5c-e4f5-7766-8857-424457fa7008",
+      "need": "complete final11-path review of head73ffeaed8bf7833a67259aa89e278ec1cd7a2048 against actualmaster537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea; original562 review remains distinct",
+      "state": "NOT PERFORMED in this session; route through coordinator; no replacement reviewer"
+    },
+    {
+      "owner": "canonical catalog3521/3520",
+      "need": "independent current-epoch generated-only formal catalog admission; unchanged producer/matrix inputs cannot obtain provenance from consumer migration edits",
+      "state": "OPEN; output freshness/226ordinary checks do not promote"
+    },
+    {
+      "owner": "QPS history1851 via coordinator",
+      "need": "independent current-epoch exact Node transition71932bb4333248ae82559fa1bf0983822086a766 and both original QPS replacement rows under original authority",
+      "state": "both historical BEFORE refusals preserved; held/unrun here; no BEFORE/index/grammar/epoch edits"
+    },
+    {
+      "owner": "native execution environment and original runtime owners",
+      "need": "valid cgroup namespace/membership mapping plus actual resource delegation, then original applicable runtime/native and interrupted/cleanup qualification",
+      "state": "current read-only observation0::/,mountroot/..,cgroup read-only; known69714fresh failure retained; no new lane execution"
+    },
+    {
+      "owner": "coordinator global phase barrier",
+      "need": "later separately authorized review/merge/current-master acceptance; do not qualify downstream3527 or close3601 from these controls",
+      "state": "not performed"
+    }
+  ],
+  "sameReviewerRequest": "same-reviewer-final-combination-request.json",
+  "preparedPrRequest": "final-pr-request.json",
+  "actualGithubEventOrNewPrCreated": false,
+  "contentApisUsed": false,
+  "remotePrMerged": false,
+  "masterPushed": false,
+  "issuesClosed": false,
+  "deployed": false,
+  "packagePublished": false,
+  "evidenceBranch": "codex/chain-3601-master-integration-verified-evidence-20261009",
+  "previousPublishedIntegration": {
+    "head": "4ba4f9d28fb1511d6869a3a51a7ec72b6ef43bb5",
+    "base": "5dcd62096f97ccb2297781f2fcebf04fa8dbedd6",
+    "evidenceCommit": "0b0dea25957510d2bb0d62a92de31c78bff92526",
+    "archiveSha256": "4463462986ab8e41434b7e2fbc2d16ed158edc975508239214ea2411e2969e2b"
+  },
+  "sourcePublicationReadback": "latest-537/source-publication-readback.json",
+  "supersededIneligibleEvidence": {
+    "sha": "44533a44ec3cdbff11970ba276999f12cbf3e35a",
+    "branch": "codex/chain-3601-master-integration-final-evidence-20261009",
+    "reason": "commit scope evidence rejected by original change-contract check; not a consumable candidate",
+    "sourceUnaffected": true,
+    "failedRecord": "latest-537/evidence-publication-failure.json"
+  }
+}

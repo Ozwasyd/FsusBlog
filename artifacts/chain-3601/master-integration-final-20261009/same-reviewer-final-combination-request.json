@@ -1,0 +1,37 @@
+{
+  "reviewerThreadId": "01a11b5c-e4f5-7766-8857-424457fa7008",
+  "request": "Validate the complete final11-path source combination for #3601; retain the frozen562 review identity and independently inspect the actual current-master ancestry and newly generated own binding.",
+  "head": "73ffeaed8bf7833a67259aa89e278ec1cd7a2048",
+  "base": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "branch": "codex/chain-3601-master-integration-20261009",
+  "paths": [
+    "artifacts/change-contract/chain-3601-runtime-asset-external-naming.json",
+    "artifacts/change-contract/chain-3601-runtime-asset-generated-binding.json",
+    "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+    "config/testing/correctness-attempt-producers.json",
+    "docs/testing.md",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "tests/tools/correctness-attempt-migration.test.mjs",
+    "tests/tools/support/esm-fixture-materializer-contracts.mjs",
+    "tests/tools/support/locked-schema-validator-fixture.mjs",
+    "tests/tools/test-matrix-scheduler.test.mjs",
+    "tools/test/correctness-attempt-migration.mjs"
+  ],
+  "evidenceBranch": "codex/chain-3601-master-integration-verified-evidence-20261009",
+  "evidencePath": "artifacts/chain-3601/master-integration-final-20261009",
+  "actualFirstIntegrationTestedSha": "b5035927b6e9a06dc6f269c73c2d7e29bade68c5",
+  "freshCount": 36,
+  "oldUnchangedCount": 15,
+  "oldTestedSha": "562551892c9a0af87f1a9d2d77f8a2ddf4823362",
+  "finalCallbacksExecuted": 0,
+  "inputProofs": [
+    "input-proof.json",
+    "latest-537/latest-input-proof.json",
+    "retained-evidence-identity.json"
+  ],
+  "actualFinalProducerStaticPrContractPassed": true,
+  "scope": "source/ordinary controls only; no new native/history/cohort qualification; no content APIs or new reviewer",
+  "delivery": "coordinator forwards to SAME reviewer; no direct cloud_threads tool callable in this session",
+  "reviewPerformed": false,
+  "finalActualCheckRunId": "chain3601-master-integration-20261009T061320Z-0c5c509720"
+}

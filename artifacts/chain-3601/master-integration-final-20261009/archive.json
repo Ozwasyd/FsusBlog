@@ -1,0 +1,11 @@
+{
+  "archive": "evidence.tar.gz",
+  "sha256": "296d6c76d2289690137e8f01b168e85b9f2787a082f7872c458625e2529e13c8",
+  "bytes": 195489,
+  "fileCount": 206,
+  "innerVerified": true,
+  "createdAt": "2026-10-09T06:24:05.487536+00:00",
+  "sourceHead": "73ffeaed8bf7833a67259aa89e278ec1cd7a2048",
+  "masterBase": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "qualification": false
+}
