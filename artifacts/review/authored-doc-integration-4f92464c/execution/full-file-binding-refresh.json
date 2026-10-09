@@ -1,0 +1,91 @@
+{
+  "recordedAt": "2026-10-09T06:42:20.137272+00:00",
+  "producerPrecursor": "7f1451e947ed8c42e2a09dd5e05ee5194e1bbc69",
+  "originalProducerExit": 0,
+  "generatedSnapshotUnchanged": true,
+  "sources": [
+    "tools/docs/generated-fact-sections/renderers.mjs"
+  ],
+  "outputs": [
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "beforeSha256": "c1a43603e921f57d72ba8b930d534d78b28cd8755aaa90d7d2d04d35cfa223a3",
+      "currentSha256": "c1a43603e921f57d72ba8b930d534d78b28cd8755aaa90d7d2d04d35cfa223a3",
+      "changed": false
+    },
+    {
+      "path": "docs/api.md",
+      "beforeSha256": "f46980c91ebedd1a3e937edb21252442ecf053b423c214d586027ded047c28f3",
+      "currentSha256": "15ee88e7e3db876c69ea122afa1c8dcc452a1e5574fa0290d82438df6f3c92c7",
+      "changed": true
+    },
+    {
+      "path": "docs/api/aeds-only-policy.md",
+      "beforeSha256": "122283a1e3b68230dba31fc8ecf1a1d16e6cfdd47638d5f561d2b7284610cdd6",
+      "currentSha256": "bb753d315074c29e5ebc7d9ace2eafb09a2210599e6da47fb94b94b09e0bdfe6",
+      "changed": true
+    },
+    {
+      "path": "docs/api/quick-reference.md",
+      "beforeSha256": "c7ce8792d7de9ef5d2c4bd9feb127584e0086814fd5fe6ab0dca66120eb61000",
+      "currentSha256": "356d2949a894a15fd7c59ee074728e4b5e9a35a5fb2caccc7d10bbc533b5762b",
+      "changed": true
+    },
+    {
+      "path": "docs/api/schemas-and-errors.md",
+      "beforeSha256": "cd90e72d431cf85071271822de538e54e4b391f49b6b2f88926db50780fa145c",
+      "currentSha256": "0ae7619fe0a35b6295ffad0b52c9eefd3f62eeca09e50f1aa4e68b1f9fd73754",
+      "changed": true
+    },
+    {
+      "path": "docs/api/stability.md",
+      "beforeSha256": "ae603d0da335dfa41a4bc2435534bed6279d2ac9f6c8f5555678bc050307aa2a",
+      "currentSha256": "5c088fe36175127cf8cd9d70aac83e88a2ac6ff8423cefb8486d2405d8b39aa1",
+      "changed": true
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "beforeSha256": "9765e342f0a338a2733b0968babaab022b501ad5703e569a1c7e3f53ae16db18",
+      "currentSha256": "9765e342f0a338a2733b0968babaab022b501ad5703e569a1c7e3f53ae16db18",
+      "changed": false
+    },
+    {
+      "path": "docs/architecture/comment-query-boundary.md",
+      "beforeSha256": "d9ff076c51a51a423f67f9620f2051f4a8dddfbf691bb4e9aeb61bb3e62dd9ed",
+      "currentSha256": "123ba8364aa7379f2a2651af0e6f7a9e724433202ecefc0001e5436d27561975",
+      "changed": true
+    },
+    {
+      "path": "docs/architecture/monolithic-distributed-boundary.md",
+      "beforeSha256": "56a6269f5a94d84ef6d07ef2d73129ac5f02de200c0e3131a0c33b15ba06e98b",
+      "currentSha256": "56a6269f5a94d84ef6d07ef2d73129ac5f02de200c0e3131a0c33b15ba06e98b",
+      "changed": false
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "beforeSha256": "82fcd64c5cc218ab064d76f8e7c69639be6361a0ade2bf39772b5b008998ef2b",
+      "currentSha256": "82fcd64c5cc218ab064d76f8e7c69639be6361a0ade2bf39772b5b008998ef2b",
+      "changed": false
+    },
+    {
+      "path": "docs/releases/blue-green-deployment-runbook.md",
+      "beforeSha256": "86dd540e7290577e719ad4f8bc0093f3b53e44ce189cb427e9abc2d8ece5ef88",
+      "currentSha256": "86dd540e7290577e719ad4f8bc0093f3b53e44ce189cb427e9abc2d8ece5ef88",
+      "changed": false
+    },
+    {
+      "path": "docs/releases/release-identity.md",
+      "beforeSha256": "021f9eacd89b499dcd423d41846059c04d4db1449fe5a8283efc6a4e5645c4d2",
+      "currentSha256": "021f9eacd89b499dcd423d41846059c04d4db1449fe5a8283efc6a4e5645c4d2",
+      "changed": false
+    },
+    {
+      "path": "docs/testing.md",
+      "beforeSha256": "ae09573524dac73a86c97798d30fb51fd992de1e0157739d69c50a2cf5569d3f",
+      "currentSha256": "ae09573524dac73a86c97798d30fb51fd992de1e0157739d69c50a2cf5569d3f",
+      "changed": false
+    }
+  ],
+  "wholeFileHashChanges": 6,
+  "generatedBodiesUnchangedIsNotUsedAsWholeFileHashProof": true
+}

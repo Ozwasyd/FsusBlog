@@ -1,0 +1,16 @@
+{
+  "name": "final-root-source-convergence",
+  "command": [
+    "node",
+    "tools/check-test-suite-convergence.mjs",
+    "--out",
+    "/workspace/3556-evidence/renderer-composition/final-root-source-convergence-summary.json"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/renderer-composition",
+  "testedCommit": "d219c182f5087293b15a50b330f54478c0d4695c",
+  "startedAt": "2026-10-09T05:38:45.654983+00:00",
+  "finishedAt": "2026-10-09T05:39:05.315984+00:00",
+  "durationSeconds": 19.661061738000058,
+  "exitCode": 1,
+  "log": "/workspace/3556-evidence/renderer-composition/final-root-source-convergence.log"
+}

@@ -1,0 +1,31 @@
+{
+  "name": "final-six-document-native",
+  "command": [
+    "node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--mode",
+    "changed",
+    "--domain",
+    "docs",
+    "--require-tools",
+    "--file",
+    "docs/api.md",
+    "--file",
+    "docs/api/aeds-only-policy.md",
+    "--file",
+    "docs/api/quick-reference.md",
+    "--file",
+    "docs/api/schemas-and-errors.md",
+    "--file",
+    "docs/api/stability.md",
+    "--file",
+    "docs/architecture/comment-query-boundary.md"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/authored-doc-integration",
+  "testedCommit": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "startedAt": "2026-10-09T06:42:56.829318+00:00",
+  "finishedAt": "2026-10-09T06:42:58.953800+00:00",
+  "durationSeconds": 2.1244951379994745,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/authored-doc-integration/final-six-document-native.log"
+}

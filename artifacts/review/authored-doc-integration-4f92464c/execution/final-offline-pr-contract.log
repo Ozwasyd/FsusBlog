@@ -1,0 +1,37 @@
+{
+  "kind": "offline-proposed-PR-contract-validation",
+  "actualGitHubEvent": false,
+  "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "head": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "authorityRoot": "/workspace/.task-toolchains/3556/trusted-master-be7",
+  "changedFiles": [
+    "artifacts/change-contract/chain-3556-renderer-source-binding.json",
+    "artifacts/change-contract/chain-3556-renderer-source-naming.json",
+    "docs/api.md",
+    "docs/api/aeds-only-policy.md",
+    "docs/api/quick-reference.md",
+    "docs/api/schemas-and-errors.md",
+    "docs/api/stability.md",
+    "docs/architecture/comment-command-boundary.md",
+    "docs/architecture/comment-query-boundary.md",
+    "docs/architecture/monolithic-distributed-boundary.md",
+    "docs/architecture/overview.md",
+    "docs/releases/blue-green-deployment-runbook.md",
+    "docs/releases/release-identity.md",
+    "docs/testing.md",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "tests/tools/generated-fact-sections.test.mjs",
+    "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+    "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+    "tools/docs/generated-fact-sections/renderers.mjs"
+  ],
+  "title": "fix(governance): compose generated facts with current document structure",
+  "labels": [
+    "release-note:internal"
+  ],
+  "exitCode": 0,
+  "errors": []
+}

@@ -1,0 +1,14 @@
+{
+  "name": "final-current-observations",
+  "command": [
+    "node",
+    "/workspace/3556-evidence/authored-doc-integration/produce-current-observations.mjs"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/authored-doc-integration",
+  "testedCommit": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "startedAt": "2026-10-09T06:42:55.518975+00:00",
+  "finishedAt": "2026-10-09T06:48:09.619594+00:00",
+  "durationSeconds": 314.10062938400006,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/authored-doc-integration/final-current-observations.log"
+}

@@ -1,0 +1,2 @@
+[native-tooling-style] compatibility-aliases=9 raw-markdownlint-exit=1
+[native-tooling-style] ok operation=lint domain=docs mode=changed selected=6 checked=6 baseline=0 violations=0

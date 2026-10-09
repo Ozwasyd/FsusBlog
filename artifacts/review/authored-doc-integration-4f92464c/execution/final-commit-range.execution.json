@@ -1,0 +1,16 @@
+{
+  "name": "final-commit-range",
+  "command": [
+    "node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "be7c53d99b64342925ca63d061bacde34d22ba4c..HEAD"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/authored-doc-integration",
+  "testedCommit": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "startedAt": "2026-10-09T06:42:56.802080+00:00",
+  "finishedAt": "2026-10-09T06:42:59.206190+00:00",
+  "durationSeconds": 2.404122877000191,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/authored-doc-integration/final-commit-range.log"
+}

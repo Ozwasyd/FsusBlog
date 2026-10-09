@@ -1,0 +1,16 @@
+{
+  "name": "final-diff-check",
+  "command": [
+    "git",
+    "diff",
+    "--check",
+    "be7c53d99b64342925ca63d061bacde34d22ba4c..HEAD"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/authored-doc-integration",
+  "testedCommit": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "startedAt": "2026-10-09T06:42:56.812701+00:00",
+  "finishedAt": "2026-10-09T06:42:56.962281+00:00",
+  "durationSeconds": 0.14958401300009427,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/authored-doc-integration/final-diff-check.log"
+}

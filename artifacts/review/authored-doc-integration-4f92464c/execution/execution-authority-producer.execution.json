@@ -1,0 +1,14 @@
+{
+  "name": "execution-authority-producer",
+  "command": [
+    "node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/authored-doc-integration",
+  "testedCommit": "7f1451e947ed8c42e2a09dd5e05ee5194e1bbc69",
+  "startedAt": "2026-10-09T06:40:07.586002+00:00",
+  "finishedAt": "2026-10-09T06:41:49.579859+00:00",
+  "durationSeconds": 101.99383791200034,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/authored-doc-integration/execution-authority-producer.log"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "final-renderer-full-style",
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tools/docs/generated-fact-sections/renderers.mjs",
+    "--file",
+    "tests/tools/generated-fact-sections.test.mjs"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/authored-doc-integration",
+  "testedCommit": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "startedAt": "2026-10-09T06:42:56.762818+00:00",
+  "finishedAt": "2026-10-09T06:43:04.376168+00:00",
+  "durationSeconds": 7.61335888099984,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/authored-doc-integration/final-renderer-full-style.log"
+}

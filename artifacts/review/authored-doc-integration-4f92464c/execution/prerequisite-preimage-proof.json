@@ -1,0 +1,108 @@
+{
+  "observedAt": "2026-10-09T06:39:39.163554+00:00",
+  "frozenSourceBase": "d219c182f5087293b15a50b330f54478c0d4695c",
+  "latestFetchedMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "latestMasterIncorporated": false,
+  "sourceIncrements": {
+    "b2e5c2e12153227ce819ec449d8a97c9448e9261": {
+      "parent": "d219c182f5087293b15a50b330f54478c0d4695c",
+      "paths": [
+        "docs/api.md",
+        "docs/api/aeds-only-policy.md",
+        "docs/api/schemas-and-errors.md",
+        "docs/api/stability.md",
+        "docs/architecture/comment-query-boundary.md"
+      ],
+      "preimages": {
+        "docs/api.md": {
+          "sourceParentBlob": "7d4830645517f840945ef85b006f0df296443212",
+          "frozenBaseBlob": "7d4830645517f840945ef85b006f0df296443212",
+          "sourceHeadBlob": "c1179b6ea79a6ff34c15ea6d1387efccb905bdbc"
+        },
+        "docs/api/aeds-only-policy.md": {
+          "sourceParentBlob": "3daf875e5b3771994ba2ae78192d96fed4a23846",
+          "frozenBaseBlob": "3daf875e5b3771994ba2ae78192d96fed4a23846",
+          "sourceHeadBlob": "1077cb130d097865ae7d4dceee0931aaa6710562"
+        },
+        "docs/api/schemas-and-errors.md": {
+          "sourceParentBlob": "601eddbacaf9e6cf84b9014c6ad1f4669eefaf42",
+          "frozenBaseBlob": "601eddbacaf9e6cf84b9014c6ad1f4669eefaf42",
+          "sourceHeadBlob": "c53aeb0c8844d43049b613f0b4da930f270db158"
+        },
+        "docs/api/stability.md": {
+          "sourceParentBlob": "0f2c6ef6e5ad772d7446d8eb863e18d3dbaf6250",
+          "frozenBaseBlob": "0f2c6ef6e5ad772d7446d8eb863e18d3dbaf6250",
+          "sourceHeadBlob": "19779942a35cd9c38da096c288f319b8746c39d8"
+        },
+        "docs/architecture/comment-query-boundary.md": {
+          "sourceParentBlob": "b68e10dc9fceee494a9afe20e3c86c963791eb40",
+          "frozenBaseBlob": "b68e10dc9fceee494a9afe20e3c86c963791eb40",
+          "sourceHeadBlob": "ffa833503cf4a59702a5376c423a613bb09f4854"
+        }
+      }
+    },
+    "207425a6b8e4a3c3c69367d4daca67b4a46e2060": {
+      "parent": "d219c182f5087293b15a50b330f54478c0d4695c",
+      "paths": [
+        "docs/api/quick-reference.md"
+      ],
+      "preimages": {
+        "docs/api/quick-reference.md": {
+          "sourceParentBlob": "a4e3197aa86eaa6775f26586951ab42a10fd9ce6",
+          "frozenBaseBlob": "a4e3197aa86eaa6775f26586951ab42a10fd9ce6",
+          "sourceHeadBlob": "2649089d5660cea9b7496bf7c26bbe5706c1c86c"
+        }
+      }
+    }
+  },
+  "masterChangedPaths": [
+    "artifacts/change-contract/query-producer-intake-external-naming.json",
+    "artifacts/style/query-producer-role-intake-shfmt-idempotence.json",
+    "src/frontend/src/App.vue",
+    "src/frontend/src/bootstrap/bootstrapImportRecovery.ts",
+    "src/frontend/src/bootstrap/entry.ts",
+    "src/frontend/src/bootstrap/publicActivationCoordinator.ts",
+    "src/frontend/src/bootstrap/publicActivationRuntime.ts",
+    "src/frontend/src/bootstrap/publicBootKernel.ts",
+    "src/frontend/src/bootstrap/publicHydrationBootstrap.ts",
+    "src/frontend/src/bootstrap/publicShell.ts",
+    "src/frontend/src/fsusui/markdown.ts",
+    "tests/frontend/unit/bootstrap/bootstrapImportRecovery.test.ts",
+    "tests/frontend/unit/bootstrap/publicActivationCausalMatrix.test.ts",
+    "tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts",
+    "tests/frontend/unit/bootstrap/publicActivationRuntime.test.ts",
+    "tests/frontend/unit/bootstrap/publicSeedReaders.test.ts",
+    "tools/data-scale/expected-query-case-catalog.md",
+    "tools/data-scale/query-producer-role-intake/QueryPostgresProducerIntake.cs",
+    "tools/data-scale/query-producer-role-intake/QueryProducerRoleIntake.cs",
+    "tools/data-scale/query-producer-role-intake/QueryProducerRoleIntakeControls.cs",
+    "tools/data-scale/query-producer-role-intake/check.sh"
+  ],
+  "documentOverlapWithLatestMaster": [],
+  "currentAuthorityBlobs": {
+    "AGENTS.md": {
+      "candidateBase": "1445755f3eceb7c05fec62ae9feea4badd7b30fc",
+      "latestMaster": "1445755f3eceb7c05fec62ae9feea4badd7b30fc"
+    },
+    "tools/governance/change-contract.mjs": {
+      "candidateBase": "bc01aab0c28f178808b994c38d81b1af43ac53fe",
+      "latestMaster": "bc01aab0c28f178808b994c38d81b1af43ac53fe"
+    },
+    "tools/governance/change-contract-registry.mjs": {
+      "candidateBase": "01f4638626218b6c324f94db534c731fa1a5c471",
+      "latestMaster": "01f4638626218b6c324f94db534c731fa1a5c471"
+    },
+    "tools/style/check-native-tooling-style.mjs": {
+      "candidateBase": "60fc3b7d9020fd2cd6b87c6dd08fde71584c6757",
+      "latestMaster": "60fc3b7d9020fd2cd6b87c6dd08fde71584c6757"
+    },
+    "config/development/native-tooling-style-policy.json": {
+      "candidateBase": "37ec38a661ba5257b5a42c17bc1d486e8a6671a5",
+      "latestMaster": "37ec38a661ba5257b5a42c17bc1d486e8a6671a5"
+    },
+    ".markdownlint-cli2.jsonc": {
+      "candidateBase": "c1acd022b71e4d9762688c87706002cb2e8334e0",
+      "latestMaster": "c1acd022b71e4d9762688c87706002cb2e8334e0"
+    }
+  }
+}

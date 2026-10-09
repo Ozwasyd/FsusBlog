@@ -1,0 +1,58 @@
+TAP version 13
+# Subtest: RendererRegistry exposes exactly the admitted typed renderers
+ok 1 - RendererRegistry exposes exactly the admitted typed renderers
+  ---
+  duration_ms: 2.773869
+  type: 'test'
+  ...
+# Subtest: typed renderers are deterministic across two runs
+ok 2 - typed renderers are deterministic across two runs
+  ---
+  duration_ms: 2.821777
+  type: 'test'
+  ...
+# Subtest: enum-set sorts by ordinal and ignores observation order / filesystem order
+ok 3 - enum-set sorts by ordinal and ignores observation order / filesystem order
+  ---
+  duration_ms: 0.257555
+  type: 'test'
+  ...
+# Subtest: ordered-set preserves observation order
+ok 4 - ordered-set preserves observation order
+  ---
+  duration_ms: 0.315182
+  type: 'test'
+  ...
+# Subtest: table observation text cannot become inline HTML or an HTML entity
+ok 5 - table observation text cannot become inline HTML or an HTML entity
+  ---
+  duration_ms: 0.395772
+  type: 'test'
+  ...
+# Subtest: transition-table and route-table emit fixed columns
+ok 6 - transition-table and route-table emit fixed columns
+  ---
+  duration_ms: 0.473306
+  type: 'test'
+  ...
+# Subtest: string transitions retain action and guard parsing and reject invalid source states
+ok 7 - string transitions retain action and guard parsing and reject invalid source states
+  ---
+  duration_ms: 0.386381
+  type: 'test'
+  ...
+# Subtest: emptyPolicy fail rejects empty sets; render-empty emits placeholder
+ok 8 - emptyPolicy fail rejects empty sets; render-empty emits placeholder
+  ---
+  duration_ms: 0.263455
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 195.779171

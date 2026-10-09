@@ -1,0 +1,14 @@
+{
+  "name": "final-offline-pr-contract",
+  "command": [
+    "node",
+    "/workspace/3556-evidence/authored-doc-integration/validate-proposed-metadata.mjs"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/authored-doc-integration",
+  "testedCommit": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "startedAt": "2026-10-09T06:48:51.909937+00:00",
+  "finishedAt": "2026-10-09T06:48:53.542054+00:00",
+  "durationSeconds": 1.632127863000278,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/authored-doc-integration/final-offline-pr-contract.log"
+}

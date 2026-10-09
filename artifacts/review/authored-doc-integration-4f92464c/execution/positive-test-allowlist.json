@@ -1,0 +1,21 @@
+{
+  "head": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "file": "tests/tools/generated-fact-sections.test.mjs",
+  "fileBlob": "2e24cf7b3e6bdbd3522c78c6ddf7d205b1642cbf",
+  "allowedNames": [
+    "RendererRegistry exposes exactly the admitted typed renderers",
+    "typed renderers are deterministic across two runs",
+    "enum-set sorts by ordinal and ignores observation order / filesystem order",
+    "ordered-set preserves observation order",
+    "table observation text cannot become inline HTML or an HTML entity",
+    "transition-table and route-table emit fixed columns",
+    "string transitions retain action and guard parsing and reject invalid source states",
+    "emptyPolicy fail rejects empty sets; render-empty emits placeholder"
+  ],
+  "expectedExecuted": 8,
+  "declaredTotal": 27,
+  "pattern": "^(?:RendererRegistry\\ exposes\\ exactly\\ the\\ admitted\\ typed\\ renderers|typed\\ renderers\\ are\\ deterministic\\ across\\ two\\ runs|enum\\-set\\ sorts\\ by\\ ordinal\\ and\\ ignores\\ observation\\ order\\ /\\ filesystem\\ order|ordered\\-set\\ preserves\\ observation\\ order|table\\ observation\\ text\\ cannot\\ become\\ inline\\ HTML\\ or\\ an\\ HTML\\ entity|transition\\-table\\ and\\ route\\-table\\ emit\\ fixed\\ columns|string\\ transitions\\ retain\\ action\\ and\\ guard\\ parsing\\ and\\ reject\\ invalid\\ source\\ states|emptyPolicy\\ fail\\ rejects\\ empty\\ sets;\\ render\\-empty\\ emits\\ placeholder)$",
+  "reason": "Pure typed-renderer formatting/determinism/grammar only; no receipt substitution/cohort/solution held audits. Selected before execution, no broad-run then filtering.",
+  "expectedNotExecutedDeclarations": 19,
+  "createdBeforeExecutionAt": "2026-10-09T06:42:55.484541+00:00"
+}

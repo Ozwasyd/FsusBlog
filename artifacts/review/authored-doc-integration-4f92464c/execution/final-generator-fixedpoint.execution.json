@@ -1,0 +1,31 @@
+{
+  "name": "final-generator-fixedpoint",
+  "command": [
+    "node",
+    "tools/docs/generate-fact-sections.mjs",
+    "--generate",
+    "--receipt",
+    "/workspace/3556-evidence/authored-doc-integration/fact-observations/auth-session-permission-fact-extractor.json",
+    "--receipt",
+    "/workspace/3556-evidence/authored-doc-integration/fact-observations/code-intent-fact-extractor.json",
+    "--receipt",
+    "/workspace/3556-evidence/authored-doc-integration/fact-observations/config-error-security-policy-fact-extractor.json",
+    "--receipt",
+    "/workspace/3556-evidence/authored-doc-integration/fact-observations/content-lifecycle-fact-extractor.json",
+    "--receipt",
+    "/workspace/3556-evidence/authored-doc-integration/fact-observations/document-lifecycle-fact-extractor.json",
+    "--receipt",
+    "/workspace/3556-evidence/authored-doc-integration/fact-observations/openapi-aeds-fact-extractor.json",
+    "--receipt",
+    "/workspace/3556-evidence/authored-doc-integration/fact-observations/test-asset-audit-fact-extractor.json",
+    "--receipt",
+    "/workspace/3556-evidence/authored-doc-integration/fact-observations/test-matrix-fact-extractor.json"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/authored-doc-integration",
+  "testedCommit": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "startedAt": "2026-10-09T06:48:26.561623+00:00",
+  "finishedAt": "2026-10-09T06:48:27.142273+00:00",
+  "durationSeconds": 0.5806602069997098,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/authored-doc-integration/final-generator-fixedpoint.log"
+}

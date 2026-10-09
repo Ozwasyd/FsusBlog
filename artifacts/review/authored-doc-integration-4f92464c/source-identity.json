@@ -1,0 +1,80 @@
+{
+  "candidateCommit": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "candidateTree": "95a6b720196a3ed77e3696dd9661b23114a0c663",
+  "sourceIdentity": {
+    "sourceCommit": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+    "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+  },
+  "sourceFiles": [
+    {
+      "path": "AGENTS.md",
+      "gitBlob": "1445755f3eceb7c05fec62ae9feea4badd7b30fc",
+      "sha256": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d"
+    },
+    {
+      "path": "tools/docs/generate-fact-sections.mjs",
+      "gitBlob": "3aa28855b52487a82d70ebe22d71e6aa54c98fc8",
+      "sha256": "3d9beefcb82e004f2eecfe66de597f5469b8045163b45a161affae27d2edfbcb"
+    },
+    {
+      "path": "tools/docs/generated-fact-sections/renderers.mjs",
+      "gitBlob": "11f0ff7200fe3123eb0cfb416501540365fcab82",
+      "sha256": "4380d20a6e22de09589c227a0d367c1faa150c13d3e6bd323b0422fe8b5fd5b9"
+    },
+    {
+      "path": "tools/docs/generated-fact-sections/markers.mjs",
+      "gitBlob": "bc307c89f0ba0ed2edbdd402b729b5f49856bcec",
+      "sha256": "def8315b163df15189aa353e6e05b35c01dcc71a30165792c1f17e4262640023"
+    },
+    {
+      "path": "tools/docs/behavior-doc-minimal-contract-build.mjs",
+      "gitBlob": "8ca9da4c252bd5acad5927ca9e3571052795883c",
+      "sha256": "061e979c766a3fbb6434bc9ad4445f4b17a73662bf2bbc1089463ecabe545a45"
+    },
+    {
+      "path": "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+      "gitBlob": "b7c7a3c240785df846839583e972fce4267665a1",
+      "sha256": "2040f32153b8c7a6610d0334cca881384129b7be5207d11c1883dd9c0e70f24d"
+    },
+    {
+      "path": "tools/fact-extractors/runner.mjs",
+      "gitBlob": "871d4ff9316e9f9c1ce8e01a03784f9e81fd5183",
+      "sha256": "a379b789959b603fe2440a94e292a65470138058a0565122085609258ed78598"
+    },
+    {
+      "path": "tools/fact-extractors/identity.mjs",
+      "gitBlob": "cdf7f56d4125ceefd326c426e4946b8618642dd8",
+      "sha256": "f5a45ff84b254e2e55b5a49ed3aa3d5b3d7b48ea3b54ad344b2b6e0733a0a1fe"
+    },
+    {
+      "path": "config/contracts/behavior-fact-extractors.json",
+      "gitBlob": "ea0d7dac98756dac202ac0a6b7eba83fde066eda",
+      "sha256": "f62a9f77fd94aa149d37d0bd646d95709709c20be12d7339d954febe5ea3a0e9"
+    },
+    {
+      "path": "tools/style/check-native-tooling-style.mjs",
+      "gitBlob": "60fc3b7d9020fd2cd6b87c6dd08fde71584c6757",
+      "sha256": "603947a4065f7fb617a157dc3ffac7f5b7a9ff59819c8c9fb625a786e7a7fb68"
+    },
+    {
+      "path": "config/development/native-tooling-style-policy.json",
+      "gitBlob": "37ec38a661ba5257b5a42c17bc1d486e8a6671a5",
+      "sha256": "17ef12cad465acc82cbd1e07f0204d34a1dbdc913bfd53df7bce906a52237822"
+    },
+    {
+      "path": ".markdownlint-cli2.jsonc",
+      "gitBlob": "c1acd022b71e4d9762688c87706002cb2e8334e0",
+      "sha256": "3e1c46bc2ba6674623ab3bf35f7cadfb1b1e5703e3ff83d006da6dd1020e3140"
+    },
+    {
+      "path": "artifacts/change-contract/chain-3556-renderer-source-binding.json",
+      "gitBlob": "fbe9221b28b45fa0d6d959d689db5ce25abfbfbb",
+      "sha256": "7105f02b537171461b591b8f7704124c1f92f8e6f34498f0abee2dc8da4288fb"
+    }
+  ],
+  "sourceIncrements": [
+    "b2e5c2e12153227ce819ec449d8a97c9448e9261",
+    "207425a6b8e4a3c3c69367d4daca67b4a46e2060"
+  ],
+  "frozenBase": "d219c182f5087293b15a50b330f54478c0d4695c"
+}

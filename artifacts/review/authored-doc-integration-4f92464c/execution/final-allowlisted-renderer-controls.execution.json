@@ -1,0 +1,18 @@
+{
+  "name": "final-allowlisted-renderer-controls",
+  "command": [
+    "node",
+    "--test",
+    "--test-reporter=tap",
+    "--test-name-pattern",
+    "^(?:RendererRegistry\\ exposes\\ exactly\\ the\\ admitted\\ typed\\ renderers|typed\\ renderers\\ are\\ deterministic\\ across\\ two\\ runs|enum\\-set\\ sorts\\ by\\ ordinal\\ and\\ ignores\\ observation\\ order\\ /\\ filesystem\\ order|ordered\\-set\\ preserves\\ observation\\ order|table\\ observation\\ text\\ cannot\\ become\\ inline\\ HTML\\ or\\ an\\ HTML\\ entity|transition\\-table\\ and\\ route\\-table\\ emit\\ fixed\\ columns|string\\ transitions\\ retain\\ action\\ and\\ guard\\ parsing\\ and\\ reject\\ invalid\\ source\\ states|emptyPolicy\\ fail\\ rejects\\ empty\\ sets;\\ render\\-empty\\ emits\\ placeholder)$",
+    "tests/tools/generated-fact-sections.test.mjs"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/authored-doc-integration",
+  "testedCommit": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "startedAt": "2026-10-09T06:42:56.796185+00:00",
+  "finishedAt": "2026-10-09T06:42:57.089215+00:00",
+  "durationSeconds": 0.29303901599996607,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/authored-doc-integration/final-allowlisted-renderer-controls.log"
+}

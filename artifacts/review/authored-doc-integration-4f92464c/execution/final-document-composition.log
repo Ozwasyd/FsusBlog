@@ -1,0 +1,93 @@
+{
+  "sourceBase": "d219c182f5087293b15a50b330f54478c0d4695c",
+  "head": "4f92464c6a0508df32a5e911cdf31735b16417dc",
+  "rows": [
+    {
+      "path": "docs/api.md",
+      "sourceCommit": "b2e5c2e12153227ce819ec449d8a97c9448e9261",
+      "sourceBlob": "c1179b6ea79a6ff34c15ea6d1387efccb905bdbc",
+      "currentBlob": "c1179b6ea79a6ff34c15ea6d1387efccb905bdbc",
+      "donorBytesExact": true,
+      "generatedBytesPreserved": true,
+      "generatedSectionIds": [
+        "api.operations"
+      ]
+    },
+    {
+      "path": "docs/api/aeds-only-policy.md",
+      "sourceCommit": "b2e5c2e12153227ce819ec449d8a97c9448e9261",
+      "sourceBlob": "1077cb130d097865ae7d4dceee0931aaa6710562",
+      "currentBlob": "1077cb130d097865ae7d4dceee0931aaa6710562",
+      "donorBytesExact": true,
+      "generatedBytesPreserved": true,
+      "generatedSectionIds": [
+        "api.protocol",
+        "api.protocol-states"
+      ]
+    },
+    {
+      "path": "docs/api/schemas-and-errors.md",
+      "sourceCommit": "b2e5c2e12153227ce819ec449d8a97c9448e9261",
+      "sourceBlob": "c53aeb0c8844d43049b613f0b4da930f270db158",
+      "currentBlob": "c53aeb0c8844d43049b613f0b4da930f270db158",
+      "donorBytesExact": true,
+      "generatedBytesPreserved": true,
+      "generatedSectionIds": [
+        "api.domain-errors-active",
+        "api.domain-errors-retired",
+        "api.domain-errors-migration-only",
+        "api.error-transport-mappings",
+        "api.operation-count",
+        "api.error-authority-reference",
+        "api.public-error-codes"
+      ]
+    },
+    {
+      "path": "docs/api/stability.md",
+      "sourceCommit": "b2e5c2e12153227ce819ec449d8a97c9448e9261",
+      "sourceBlob": "19779942a35cd9c38da096c288f319b8746c39d8",
+      "currentBlob": "19779942a35cd9c38da096c288f319b8746c39d8",
+      "donorBytesExact": true,
+      "generatedBytesPreserved": true,
+      "generatedSectionIds": [
+        "api.observation-digest"
+      ]
+    },
+    {
+      "path": "docs/architecture/comment-query-boundary.md",
+      "sourceCommit": "b2e5c2e12153227ce819ec449d8a97c9448e9261",
+      "sourceBlob": "ffa833503cf4a59702a5376c423a613bb09f4854",
+      "currentBlob": "ffa833503cf4a59702a5376c423a613bb09f4854",
+      "donorBytesExact": true,
+      "generatedBytesPreserved": true,
+      "generatedSectionIds": [
+        "content.comment.max-depth"
+      ]
+    },
+    {
+      "path": "docs/api/quick-reference.md",
+      "sourceCommit": "207425a6b8e4a3c3c69367d4daca67b4a46e2060",
+      "sourceBlob": "2649089d5660cea9b7496bf7c26bbe5706c1c86c",
+      "currentBlob": "2649089d5660cea9b7496bf7c26bbe5706c1c86c",
+      "donorBytesExact": true,
+      "generatedBytesPreserved": true,
+      "generatedSectionIds": [
+        "api.operation-keys"
+      ]
+    }
+  ],
+  "generatedRegionCount": 13,
+  "renderer": [
+    {
+      "path": "tools/docs/generated-fact-sections/renderers.mjs",
+      "baseBlob": "11f0ff7200fe3123eb0cfb416501540365fcab82",
+      "currentBlob": "11f0ff7200fe3123eb0cfb416501540365fcab82"
+    },
+    {
+      "path": "tests/tools/generated-fact-sections.test.mjs",
+      "baseBlob": "2e24cf7b3e6bdbd3522c78c6ddf7d205b1642cbf",
+      "currentBlob": "2e24cf7b3e6bdbd3522c78c6ddf7d205b1642cbf"
+    }
+  ],
+  "errors": []
+}
