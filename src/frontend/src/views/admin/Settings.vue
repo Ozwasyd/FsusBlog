@@ -620,7 +620,7 @@
                                         </ElFormItem>
                                         <ElFormItem label="版权起始年份">
                                             <ElInputNumber
-                                                v-model="complianceForm.copyrightStartYear"
+                                                v-model="copyrightStartYearInput"
                                                 :min="1990"
                                                 :max="new Date().getFullYear()"
                                                 :disabled="complianceFormDisabled"
@@ -934,6 +934,14 @@ const {
     visible: taskVisible,
     ariaMessage: taskMessage
 } = taskFeedback;
+
+const copyrightStartYearInput = computed({
+    get: () => complianceForm.copyrightStartYear ?? undefined,
+    set: (value: number | undefined) =>
+    {
+        complianceForm.copyrightStartYear = value ?? null;
+    }
+});
 
 const primarySaveText = computed(() => (
     activeTab.value === 'site' ? siteSubmitText.value

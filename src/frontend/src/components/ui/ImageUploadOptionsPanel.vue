@@ -206,6 +206,8 @@ import type { ImageCompressionOptions } from '@/api/upload';
 import { FsusUiSectionHeader } from '@/fsusui';
 import type { ImageCompressionPreview } from '@/utils/imageCompression';
 
+import type { SliderEmits } from '@ozwasyd/element-plus';
+
 const props = defineProps<{
     options: ImageCompressionOptions;
     statusText?: string;
@@ -250,18 +252,32 @@ function updateFormat(value: string | number | boolean): void
     }
 }
 
-function updateQuality(value: string | number | boolean | undefined): void
+type UploadNumberValue = Parameters<SliderEmits['update:modelValue']>[0] | undefined;
+
+function updateQuality(value: UploadNumberValue): void
 {
+    if (Array.isArray(value))
+    {
+        return;
+    }
     updateOption('quality', Number(value));
 }
 
-function updateScaleRatio(value: string | number | boolean | undefined): void
+function updateScaleRatio(value: UploadNumberValue): void
 {
+    if (Array.isArray(value))
+    {
+        return;
+    }
     updateOption('scaleRatio', Number(value));
 }
 
-function updateMaxEdge(value: string | number | boolean | undefined): void
+function updateMaxEdge(value: UploadNumberValue): void
 {
+    if (Array.isArray(value))
+    {
+        return;
+    }
     updateOption('maxEdge', Number(value));
 }
 
