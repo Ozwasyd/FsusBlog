@@ -267,7 +267,7 @@ public sealed class ArticleRelationSourceCoordinateAuthority
         var transaction = db.Ado.Transaction as NpgsqlTransaction;
         Require((db.Ado.Transaction is null || transaction is not null)
             && (!requireTransaction || transaction is not null)
-            && (transaction is null || (ReferenceEquals(transaction.Connection, connection)
+            && (transaction is null || (!transaction.IsCompleted && ReferenceEquals(transaction.Connection, connection)
                 && connection.State == ConnectionState.Open)), "article_relation_caller_transaction_required");
         return new(db, connection, transaction);
     }
@@ -280,7 +280,7 @@ public sealed class ArticleRelationSourceCoordinateAuthority
             Require(ReferenceEquals(Db.Ado.Connection, Connection)
                 && ReferenceEquals(Db.Ado.Transaction, Transaction)
                 && Connection.State == ConnectionState.Open
-                && (Transaction is null || ReferenceEquals(Transaction.Connection, Connection)),
+                && (Transaction is null || (!Transaction.IsCompleted && ReferenceEquals(Transaction.Connection, Connection))),
                 "article_relation_caller_transaction_changed");
         }
 
