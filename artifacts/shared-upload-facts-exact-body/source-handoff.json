@@ -290,13 +290,35 @@
       "failureReason": "release-final static boundary rejected execution target authority owner/content/dependency closure drift",
       "expectedAuthoritySha256": "204b765f0ea8110d8f623e122a7bf1984e7a864d6cc4d168e4eff98c3bb0760a",
       "actualAuthoritySha256": "0c8e170fc50a3eb4f578e2f41ed3c692ff836f140b9c51be0135b3c3df9267f8"
+    },
+    {
+      "sourceCommit": "0d899f060f703f46db47e44e1b77916fb74edb11",
+      "argv": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "cwd": "/workspace/FsusBlog-upload-facts-exact-body",
+      "startedAtUtc": "2026-10-09T14:59:19.769470+00:00",
+      "endedAtUtc": "2026-10-09T15:02:15.757892+00:00",
+      "exitCode": 1,
+      "seconds": 175.989,
+      "runtimeQualification": false,
+      "stdoutArtifactLocalOnly": "/workspace/FsusBlog-upload-facts-exact-body/.tmp/upload-facts-exact-body/evidence/current-candidate-preflight.log",
+      "failureReason": "release-final static boundary rejected execution target authority owner/content/dependency closure drift",
+      "stdoutSha256": "d295ddcaa3351301d4c970ad28cedb9262ace1c1a6b31f73a09ca3d1358ab603",
+      "metadataArtifactLocalOnly": "/workspace/FsusBlog-upload-facts-exact-body/.tmp/upload-facts-exact-body/evidence/current-candidate-preflight.json",
+      "expectedAuthoritySha256": "204b765f0ea8110d8f623e122a7bf1984e7a864d6cc4d168e4eff98c3bb0760a",
+      "actualAuthoritySha256": "0c8e170fc50a3eb4f578e2f41ed3c692ff836f140b9c51be0135b3c3df9267f8"
     }
   ],
-  "currentCandidateAdmission": "NOT GRANTED; original source/authority gate must pass before dependent SDK/discovery/bodies",
+  "currentCandidateAdmission": "REFUSED at exact current candidate; dependent SDK compilation/discovery/bodies remain UNRUN. Do not rerun unchanged failed gate; canonical owner must repair original authority/inventory first.",
   "parentReportedPreviousIndependentControls": "52Node,31native+22supplemental,5generators passed against original df6 complete30 paths; no HTTP boundary reproduction and no current-source rebind or whole acceptance.",
   "requiredFollowup": "Return this complete33-path exact source to the SAME independent reviewer after original admission; no new wire writer or review owner.",
   "initialSourceRosterDriverFailure": "First assertion counted all116 changed paths including artifact records. Corrected only explicit source roster projection:33 actual source/document/control paths,83 artifact paths; all original source and gate checks remain unchanged.",
   "qualification": false,
   "rawLogsPublished": false,
-  "createdAtUtc": "2026-10-09T14:56:34.534314+00:00"
+  "createdAtUtc": "2026-10-09T14:56:34.534314+00:00",
+  "updatedAtUtc": "2026-10-09T15:05:54.207384+00:00",
+  "remainingNextAction": "Original execution-target authority owner supplies corrected dependency closure/authority digest and preflight admission; SAME reviewer01a12105 reviews complete33-source-path roster. No root authority rewrite."
 }
