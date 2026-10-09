@@ -1,0 +1,15 @@
+{
+  "node": "v24.16.0",
+  "typescript": "6.0.3",
+  "canonicalProject": "/workspace/scratch/issue-1889/current-master-complete/src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json",
+  "facade": "/workspace/scratch/issue-1889/current-master-complete/src/frontend/src/fsusui/input.ts",
+  "exportName": "FsusUiInputInstance",
+  "actualType": "any",
+  "any": true,
+  "sourceOnly": true,
+  "applicationCodeExecuted": false,
+  "originalEvidenceSourceCommit": null,
+  "candidate": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "reboundViaByteIdentityProof": "preserved-guards-and-docs.json",
+  "currentRun": "locale-aae5914b-20261009"
+}

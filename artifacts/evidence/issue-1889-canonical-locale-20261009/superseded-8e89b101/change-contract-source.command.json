@@ -1,0 +1,11 @@
+{
+  "command": [
+    "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "73a318a5707cd7b5da74abcf263a185f2550badc..HEAD"
+  ],
+  "exitCode": 1,
+  "utc": "2026-10-09T05:52:41.888621+00:00",
+  "sourceCommit": "8e89b101841582d967eb70228e2b54e467a640d8"
+}

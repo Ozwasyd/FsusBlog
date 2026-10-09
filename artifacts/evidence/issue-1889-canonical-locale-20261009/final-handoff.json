@@ -1,0 +1,87 @@
+{
+  "issue": 1889,
+  "status": "OPEN: canonical locale source consumed and verified; whole assigned issue not accepted",
+  "assignedExecutionIssues": [
+    1889
+  ],
+  "assignedTrackingIssues": [],
+  "sourceBranch": "codex/issue-1889-canonical-locale-complete",
+  "sourceCommit": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "sourceParent": "73a318a5707cd7b5da74abcf263a185f2550badc",
+  "wholeSourceBase": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "fetchedOriginMasterAtStart": "5dcd62096f97ccb2297781f2fcebf04fa8dbedd6",
+  "latestMasterIntegrated": false,
+  "scope": "Only exact SupportedLocale import and the two fixedLocale annotations from canonical f1cef71ba0bd39cd69ef9e9787621bb9bdacb5d8; no WritingAid re-export or backend donor work",
+  "sourceDiffSinceParentPaths": 1,
+  "cumulativeProductPaths": 33,
+  "requiredGeneratedDocsNewDiff": false,
+  "sourcePreimageProof": "preimage-and-consumption.json",
+  "guardsAndDocByteIdentityProof": "preserved-guards-and-docs.json",
+  "runId": "locale-aae5914b-20261009",
+  "gates": {
+    "canonicalBinaryDtoESLint": {
+      "exitCode": 0,
+      "diagnostics": 0,
+      "log": "focused-lint.log"
+    },
+    "wholeOriginalSOURCE": {
+      "sourceCommit": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "runId": "locale-aae5914b-20261009",
+      "wholeSourceExit": 1,
+      "composerInputDiagnostics": 32,
+      "binaryDtoDiagnostics": 0,
+      "docsTotal": 452,
+      "generated": 404,
+      "authored": 48,
+      "docDiagnosticsExactMatchPreviousCurrentProduct": true,
+      "pureSourceCases": 98,
+      "pureSourceFailed": 0,
+      "qualificationEligible": false
+    },
+    "canonicalBehaviorDoc": {
+      "exitCode": 0,
+      "verifyExitCode": 0,
+      "facts": 8,
+      "mutationControls": 35,
+      "documents": 34,
+      "digest": "dc9c3f49f99441e12fd66eaabb94882a4388e36d57670987d6c34d4ff5c2c186",
+      "candidateSpawnCountBeforeReceipt": 0,
+      "rawCanonicalCompanions": 12
+    },
+    "permittedOrdinaryUnit": {
+      "exitCode": 0,
+      "files": 9,
+      "passed": 75,
+      "failed": 0,
+      "pending": 0,
+      "assertions": "ordinary-unit.json",
+      "FsusUIAliasSHA": "6c836baff8bc1879b487bf019359fd5e433f58ea",
+      "privacyZkAndHeldQASelected": false
+    },
+    "wholeCommitRangeChangeContract": {
+      "exitCode": 0,
+      "base": "85aa75af8949401ef9997c5042d22b1071414e0a"
+    }
+  },
+  "remainingSourceOwnerRequests": "remaining-owner-requests.json",
+  "remainingIssueAcceptance": {
+    "InputTypeProjectionDiagnostics": 32,
+    "requiredGeneratedDocumentDiagnostics": 404,
+    "preservedAuthoredDocumentDiagnostics": 48,
+    "localPublishedFsusUiConsumer": "OPEN; existing complete-product full checks failed, not rerun or promoted by this type-only import repair",
+    "nativeImeATAndCurrentComposerUiAcceptance": "UNRUN; held scopes unchanged",
+    "fullBuildReleaseQualification": "UNRUN for this current locale candidate; SOURCE exit1 is not qualification"
+  },
+  "publication": {
+    "sourceRemoteVerified": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+    "evidenceBranch": "codex/issue-1889-canonical-locale-evidence",
+    "evidenceRoot": "artifacts/evidence/issue-1889-canonical-locale-20261009",
+    "priorDraftPR": "https://github.com/Ozwasyd/FsusBlog/pull/3854",
+    "priorDraftUpdated": false,
+    "newPRCreated": false,
+    "githubContentWritesOwnedByCoordinatingParent": true
+  },
+  "metadataCorrection": "superseded-commit.json; original 8e89b101 remote branch and failed footer check preserved, no ref rewritten",
+  "phaseBarrier": "No merge, issue closure, auto-merge, deploy, package publish, production resources or held audits",
+  "utc": "2026-10-09T06:00:39.598209+00:00"
+}

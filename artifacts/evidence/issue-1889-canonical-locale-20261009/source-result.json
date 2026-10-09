@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "runId": "locale-aae5914b-20261009",
+  "wholeSourceExit": 1,
+  "composerInputDiagnostics": 32,
+  "binaryDtoDiagnostics": 0,
+  "docsTotal": 452,
+  "generated": 404,
+  "authored": 48,
+  "docDiagnosticsExactMatchPreviousCurrentProduct": true,
+  "pureSourceCases": 98,
+  "pureSourceFailed": 0,
+  "qualificationEligible": false
+}

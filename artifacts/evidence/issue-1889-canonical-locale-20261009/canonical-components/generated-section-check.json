@@ -1,0 +1,718 @@
+{
+  "schema": "fsusblog.generated-section-check-receipt.v1",
+  "sourceCommit": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48",
+  "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+  "sectionCatalogDigest": "4d51e7df1b3393b55614abfa1006c726353559475757b02fa2ea90970b4925cf",
+  "factObservationDigests": [
+    {
+      "extractorId": "auth-session-permission-fact-extractor",
+      "contentDigest": "1b6988e422c43b1213fb166a33ca9cda57d1773015474ac35ca620733758d6da"
+    },
+    {
+      "extractorId": "code-intent-fact-extractor",
+      "contentDigest": "7e9f0c224d63f7ac2bd8791395dfd742ef41d684e575bea98c35d4f85475f914"
+    },
+    {
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "contentDigest": "ffa7e25e5c85f64ed31ead51ea1aa84ee44ac62d91a6a569d3cd0cc043e5ad5e"
+    },
+    {
+      "extractorId": "content-lifecycle-fact-extractor",
+      "contentDigest": "42d3abb99a7379e15d0ec48ed436efe017111a831237730261e611cd6d4349bf"
+    },
+    {
+      "extractorId": "document-lifecycle-fact-extractor",
+      "contentDigest": "6a1b4c98910a5566834e0a72ff949511abbdc251dc499945a956d05885b0900d"
+    },
+    {
+      "extractorId": "openapi-aeds-fact-extractor",
+      "contentDigest": "122f5aefa92576851b621cdec72e07bb696bec7cd3327d12788d62556eef7092"
+    },
+    {
+      "extractorId": "test-asset-audit-fact-extractor",
+      "contentDigest": "7782c3ba60423f7461ae3322419149051e7b62c8b1b99c6940af80a6217e0f66"
+    },
+    {
+      "extractorId": "test-matrix-fact-extractor",
+      "contentDigest": "d6d22b6c62ef75219c402b3ac1f02914d7f0ff108f15bc227c3e2eb5754b40ab"
+    }
+  ],
+  "sections": [
+    {
+      "sectionId": "api.aeds-version",
+      "behaviorId": "binary-api-aeds-contract",
+      "documentPath": "docs/api/contracts.md",
+      "factPath": "aedsVersion",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.domain-errors-active",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "factPath": "facts.error-codes.domain.active",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.domain-errors-migration-only",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "factPath": "facts.error-codes.domain.migrationOnly",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.domain-errors-retired",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "factPath": "facts.error-codes.domain.retired",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.error-authority-reference",
+      "behaviorId": "binary-api-aeds-contract",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "factPath": "errorAuthority",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.error-transport-mappings",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "factPath": "facts.error-codes.transport-mapping",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.observation-digest",
+      "behaviorId": "binary-api-aeds-contract",
+      "documentPath": "docs/api/stability.md",
+      "factPath": "observationDigest",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.operation-count",
+      "behaviorId": "binary-api-aeds-contract",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "factPath": "operationCount",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.operation-keys",
+      "behaviorId": "binary-api-aeds-contract",
+      "documentPath": "docs/api/quick-reference.md",
+      "factPath": "operationKeys",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.operations",
+      "behaviorId": "binary-api-aeds-contract",
+      "documentPath": "docs/api.md",
+      "factPath": "operations",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.protocol",
+      "behaviorId": "binary-api-aeds-contract",
+      "documentPath": "docs/api/aeds-only-policy.md",
+      "factPath": "protocol",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.protocol-states",
+      "behaviorId": "binary-api-aeds-contract",
+      "documentPath": "docs/api/aeds-only-policy.md",
+      "factPath": "protocolStates",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.public-error-codes",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/api/schemas-and-errors.md",
+      "factPath": "facts.error-codes.public",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "api.security-cache-policies",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/api/contracts.md",
+      "factPath": "facts.security.cache-policy-classes",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.admin.permissions",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security.md",
+      "factPath": "facts.admin.permissions.all",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.admin.permissions-partial-policy",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security.md",
+      "factPath": "facts.admin.permissions.partial-policy",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.admin.permissions-read-only",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security.md",
+      "factPath": "facts.admin.permissions.read-only",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.credential-session-revocation",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "factPath": "facts.auth.credential-session-revocation",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.methods.active",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/anonymous-identity-smoke-flow.md",
+      "factPath": "facts.auth.authentication-methods.active",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.mfa.states",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "factPath": "facts.auth.mfa.states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.passkey.states",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "factPath": "facts.auth.passkey.states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.recovery.states",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "factPath": "facts.auth.recovery.states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.session.absolute-expiry-policy",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "factPath": "facts.auth.session.absolute-expiry-policy",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.session.duration-modes",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "factPath": "facts.auth.session.duration-modes.modes",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.session.idle-expiry-policy",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "factPath": "facts.auth.session.idle-expiry-policy",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.session.refresh-context",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "factPath": "facts.auth.refresh.context-preservation",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.step-up.binding",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "factPath": "facts.auth.step-up.binding.fields",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.step-up.freshness",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/security/user-session-authentication-context.md",
+      "factPath": "facts.auth.step-up.freshness",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "auth.strengths.active",
+      "behaviorId": "authentication-session-permission",
+      "documentPath": "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
+      "factPath": "facts.auth.authentication-strengths.active",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "configuration.allowed-values",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/configuration/appsettings-authority.md",
+      "factPath": "facts.configuration.allowed-values",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "configuration.defaults",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/configuration-layout.md",
+      "factPath": "facts.configuration.defaults",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "configuration.keys",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/configuration-layout.md",
+      "factPath": "facts.configuration.keys",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "configuration.required-production-values",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/configuration-layout.md",
+      "factPath": "facts.configuration.required-production-values",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.admin-visibility",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+      "factPath": "facts.article.admin-visibility.states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.allowed-transitions",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/api/contracts.md",
+      "factPath": "facts.article.lifecycle.allowed-transitions",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.delete-semantics",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+      "factPath": "facts.article.delete.semantics",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.forbidden-transitions",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/api/contracts.md",
+      "factPath": "facts.article.lifecycle.forbidden-transitions",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.optional-outbox-edges",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/article-mutation-side-effect-boundaries.md",
+      "factPath": "facts.article.outbox.optional-edges",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.outbox-events",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/article-mutation-outbox-versioning.md",
+      "factPath": "facts.article.outbox.event-types",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.outbox-terminal-states",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/article-mutation-outbox-versioning.md",
+      "factPath": "facts.article.outbox.terminal-states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.public-visibility",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/article-deletion-lifecycle.md",
+      "factPath": "facts.article.public-visibility.states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.publication-coordinates",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/api/article-publication-revisions.md",
+      "factPath": "facts.article.publication.required-coordinates",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.required-outbox-edges",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/article-mutation-outbox-claim-lease.md",
+      "factPath": "facts.article.outbox.required-edges",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.responsibility",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/api/article-publication-revisions.md",
+      "factPath": "facts.article.responsibility.requirement",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.restore-semantics",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/api/article-publication-revisions.md",
+      "factPath": "facts.article.restore.semantics",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.rights-fields",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/article-asset-reference-lifecycle.md",
+      "factPath": "facts.article.rights.required-fields",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.rollback-semantics",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/article-revision-concurrency.md",
+      "factPath": "facts.article.rollback.semantics",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.scheduled-boundary",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/api/article-publication-revisions.md",
+      "factPath": "facts.article.scheduled.boundary",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.article.states",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/api/design.md",
+      "factPath": "facts.article.lifecycle.states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.admin-visibility",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+      "factPath": "facts.comment.admin-visibility.states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.allowed-transitions",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/moderation.md",
+      "factPath": "facts.comment.moderation.allowed-transitions",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.appeal-source-states",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/moderation.md",
+      "factPath": "facts.comment.appeal.allowed-source-states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.child-limit",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-command-boundary.md",
+      "factPath": "facts.comment.thread.child-limit",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.edit-delete-version",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-command-boundary.md",
+      "factPath": "facts.comment.edit-delete.version-semantics",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.forbidden-fields",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-attribution-privacy-boundary.md",
+      "factPath": "facts.comment.privacy.forbidden-exact-fields",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.forbidden-transitions",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/moderation.md",
+      "factPath": "facts.comment.moderation.forbidden-transitions",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.max-depth",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-query-boundary.md",
+      "factPath": "facts.comment.thread.max-depth",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.notification",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-notification-boundary.md",
+      "factPath": "facts.comment.notification.conditions",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.outbox-consumers",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-mutation-outbox.md",
+      "factPath": "facts.comment.outbox.consumer-registry",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.outbox-terminal-states",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-mutation-outbox.md",
+      "factPath": "facts.comment.outbox.terminal-states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.persisted-fields",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-attribution-privacy-boundary.md",
+      "factPath": "facts.comment.privacy.persisted-fields",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.public-visibility",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+      "factPath": "facts.comment.public-visibility.states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.region-visibility",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-moderation-visibility-boundary.md",
+      "factPath": "facts.comment.region.visibility-states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.required-outbox-edges",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-mutation-outbox.md",
+      "factPath": "facts.comment.outbox.required-edges",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.states",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/moderation.md",
+      "factPath": "facts.comment.moderation.states",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "content.comment.thread-invariants",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "documentPath": "docs/architecture/comment-command-boundary.md",
+      "factPath": "facts.comment.thread.root-parent-invariants",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "deployment.blue-green-contract",
+      "behaviorId": "deployment-blue-green-runtime-role",
+      "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+      "factPath": "facts.deployment.blue-green-contract",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "deployment.runtime-roles",
+      "behaviorId": "deployment-blue-green-runtime-role",
+      "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+      "factPath": "facts.deployment.runtime-role-contract",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "governance.intent-entry-count",
+      "behaviorId": "code-intent-governance",
+      "documentPath": "docs/development/code-intent-governance.md",
+      "factPath": "intentEntryCount",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "release.aggregate-contract",
+      "behaviorId": "release-final-aggregate-contract",
+      "documentPath": "docs/releases/release-identity.md",
+      "factPath": "facts.release-final.aggregate-contract",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "release.final-input-schemas",
+      "behaviorId": "browserless-production-correctness",
+      "documentPath": "docs/releases/release-identity.md",
+      "factPath": "facts.release-final.required-input-schemas",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "release.finalizer-authority",
+      "behaviorId": "release-final-aggregate-contract",
+      "documentPath": "docs/testing.md",
+      "factPath": "facts.release-final.finalizer-authority",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "release.production-bundle-order",
+      "behaviorId": "browserless-production-correctness",
+      "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+      "factPath": "facts.production-fresh.bundle-ordering",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "security.challenge.fail-modes",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/security.md",
+      "factPath": "facts.security.fail-open-closed-modes",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "security.challenge.kinds",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/security.md",
+      "factPath": "facts.security.challenge-kinds.active",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "security.challenge.numeric-boundaries",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/security.md",
+      "factPath": "facts.security.numeric-boundaries",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "security.challenge.rate-policies",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/security.md",
+      "factPath": "facts.security.rate-limit-policies",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "security.challenge.retired-kinds",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/security.md",
+      "factPath": "facts.security.challenge-retired-kinds",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "security.challenge.verification-window",
+      "behaviorId": "configuration-error-security-policy",
+      "documentPath": "docs/security.md",
+      "factPath": "facts.security.challenge-verification-window",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "testing.candidate-predecessors",
+      "behaviorId": "browserless-production-correctness",
+      "documentPath": "docs/architecture.md",
+      "factPath": "facts.test.candidate-admission-predecessors",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "testing.coverage-entry-count",
+      "behaviorId": "test-asset-audit-reconciliation",
+      "documentPath": "docs/testing.md",
+      "factPath": "coverageEntryCount",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "testing.dependency-edges",
+      "behaviorId": "browserless-production-correctness",
+      "documentPath": "docs/architecture/overview.md",
+      "factPath": "facts.test.topology.dependencies.edges",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "testing.execution-classes",
+      "behaviorId": "browserless-production-correctness",
+      "documentPath": "docs/architecture/monolithic-distributed-boundary.md",
+      "factPath": "facts.test.execution-classes",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    },
+    {
+      "sectionId": "testing.tiers",
+      "behaviorId": "browserless-production-correctness",
+      "documentPath": "docs/testing.md",
+      "factPath": "facts.test.topology.tiers",
+      "status": "ok",
+      "reason": "generated section matches current fact observation"
+    }
+  ],
+  "status": "ok",
+  "failureReasons": [],
+  "contentDigest": "85866e1e771dda4237847ceb67b22e7fd3218f104471a36c1da928ea2b5d1e44"
+}

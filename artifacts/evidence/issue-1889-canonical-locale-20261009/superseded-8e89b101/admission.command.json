@@ -1,0 +1,31 @@
+{
+  "name": "admission",
+  "command": [
+    "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/docs/behavior-doc-static-admission.mjs",
+    "--out",
+    "/workspace/scratch/issue-1889/current-master-complete/.tmp/issue-1889-locale-20261009/admission.json",
+    "--run-id",
+    "locale-8e89b101-20261009"
+  ],
+  "cwd": "/workspace/scratch/issue-1889/current-master-complete",
+  "sourceCommit": "8e89b101841582d967eb70228e2b54e467a640d8",
+  "utcStart": "2026-10-09T05:50:19.422463+00:00",
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_DATA_ROOT": "/workspace/.setup/blog-data",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/scratch/issue-1889/fsusui-c987",
+    "PATH": "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin:/workspace/scratch/issue-1889/dotnet:/workspace/scratch/issue-1889/markdownlint-toolchain/node_modules/.bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+    "FSUSBLOG_NODE": "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "FSUSBLOG_CI_STAGE": "source-integration",
+    "FSUSBLOG_BASE_REF": "85aa75af8949401ef9997c5042d22b1071414e0a",
+    "FSUSBLOG_TEST_RUN_ID": "locale-8e89b101-20261009",
+    "DOTNET_ROOT": "/workspace/scratch/issue-1889/dotnet",
+    "DOTNET_CLI_HOME": "/workspace/scratch/issue-1889/dotnet-home",
+    "NUGET_PACKAGES": "/workspace/scratch/issue-1889/nuget",
+    "CI": "true",
+    "TMPDIR": "/workspace/scratch/issue-1889/current-master-complete/.tmp/issue-1889-locale-20261009/private-tmp"
+  },
+  "exitCode": 0,
+  "utcEnd": "2026-10-09T05:54:23.103032+00:00"
+}

@@ -1,0 +1,7 @@
+{
+  "artifact": "source-locale.diff.gz",
+  "encoding": "gzip",
+  "uncompressedSHA256": "8cd1b199d64dc49d2310d218b4eabf4e9df5590d701f58f0d8605ad0c8365634",
+  "uncompressedBytes": 932,
+  "reason": "Lossless transport of original unified diff context whitespace"
+}

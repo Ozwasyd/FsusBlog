@@ -1,0 +1,17 @@
+import os,sys,subprocess,pathlib,json,datetime,time
+root=pathlib.Path('/workspace/scratch/issue-1889/current-master-complete'); out=root/'.tmp/issue-1889-locale-final-20261009'
+node='/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node'; env=os.environ.copy(); env.update(PATH=str(pathlib.Path(node).parent)+':/workspace/scratch/issue-1889/dotnet:/workspace/scratch/issue-1889/markdownlint-toolchain/node_modules/.bin:'+env['PATH'],FSUSBLOG_NODE=node,FSUSBLOG_LOCAL_FSUSUI_ROOT='/workspace/scratch/issue-1889/fsusui-c987',FSUSBLOG_CI_STAGE='source-integration',FSUSBLOG_BASE_REF='85aa75af8949401ef9997c5042d22b1071414e0a',FSUSBLOG_TEST_RUN_ID='locale-aae5914b-20261009',DOTNET_ROOT='/workspace/scratch/issue-1889/dotnet',DOTNET_CLI_HOME='/workspace/scratch/issue-1889/dotnet-home',NUGET_PACKAGES='/workspace/scratch/issue-1889/nuget',CI='true')
+tmp=out/'private-tmp';tmp.mkdir(exist_ok=True,mode=0o700); env['TMPDIR']=str(tmp)
+name=sys.argv[1];cwd=root
+if name=='focused-lint': args=[node,'tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js','--config','tools/frontend/style-toolchain/eslint.config.mjs','--format','json','--no-error-on-unmatched-pattern','--no-warn-ignored','src/frontend/src/contracts/binaryApi.ts']; env['FSUSBLOG_STYLE_ROOT']=str(root)
+elif name=='source-whole': args=['bash','tools/test.sh','source-governance']
+elif name=='admission': args=[node,'tools/docs/behavior-doc-static-admission.mjs','--out',str(out/'admission.json'),'--run-id',env['FSUSBLOG_TEST_RUN_ID']]
+elif name=='admission-verify': args=[node,'tools/docs/behavior-doc-static-admission.mjs','--verify',str(out/'admission.json')]
+elif name=='ordinary-unit':
+ cwd=root/'src/frontend'; args=[node,'node_modules/vitest/vitest.mjs','run','--config','vitest.config.ts',*['../../tests/frontend/unit/'+s for s in ['privacy/commentPrivacyAdapter.test.ts','privacy/commentPrivacyCredentialProvider.test.ts','privacy/commentPrivacyRevocationLocal.test.ts','privacy/commentPrivacyWasmProver.test.ts','api/comment.test.ts','privacy/commentPrivacyCredentialVault.test.ts','privacy/commentPrivacyCredentialLifecycle.test.ts','privacy/commentPrivacyCredentialPublicBoundary.test.ts','privacy/commentPrivacyRuntime.test.ts']],'--maxWorkers=2','--reporter=default','--reporter=json','--outputFile='+str(out/'ordinary-unit.json')];env.update(FSUSBLOG_LOCAL_FSUSUI_ROOT='/workspace/FsusUI',FSUSBLOG_VITEST_LANE='issue-1889-locale-ordinary',FSUSBLOG_TEST_SOURCE_COMMIT=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip())
+else: raise ValueError(name)
+record={'name':name,'command':args,'cwd':str(cwd),'sourceCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),'utcStart':datetime.datetime.now(datetime.timezone.utc).isoformat(),'environment':{k:v for k,v in env.items() if k.startswith('FSUSBLOG_') or k in ['DOTNET_ROOT','DOTNET_CLI_HOME','NUGET_PACKAGES','CI','TMPDIR','PATH']}}
+(out/(name+'.command.json')).write_text(json.dumps(record,indent=2)+'\n')
+with (out/(name+'.log')).open('w') as log: code=subprocess.run(args,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT).returncode
+record.update(exitCode=code,utcEnd=datetime.datetime.now(datetime.timezone.utc).isoformat());(out/(name+'.command.json')).write_text(json.dumps(record,indent=2)+'\n');(out/(name+'.exit')).write_text(str(code)+'\n');print(name+' exit='+str(code),flush=True)
+sys.exit(code)

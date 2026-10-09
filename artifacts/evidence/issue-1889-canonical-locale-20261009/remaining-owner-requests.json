@@ -1,0 +1,30 @@
+{
+  "sourceCommit": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "runId": "locale-aae5914b-20261009",
+  "routeThrough": "coordinating parent",
+  "requests": [
+    {
+      "owner": "sole1686, canonical source/style projection provenance",
+      "count": 32,
+      "scope": "Public FsusUI InputInstance = InstanceType<typeof Input> SFC type projection in canonical application ESLint project",
+      "evidence": "public-input-type-owner-request.json",
+      "requiredHandoff": "Exact accepted owner commit and executable public Input consumer/type projection evidence; do not replace public API with structural facade or suppress any."
+    },
+    {
+      "owner": "Original generated-fact renderer/extractor owners, map by sectionId/catalog entry",
+      "count": 404,
+      "scope": "Required generated document lint violations; compiler lowered angle-bracket identifiers and other exact catalog findings",
+      "evidence": "documentation-current-owner-handoff.json",
+      "requiredHandoff": "Exact matching canonical producer repair plus fresh generated output/BehaviorDoc evidence. No handwritten edits to generated output."
+    },
+    {
+      "owner": "Registered current document owner backend, preserve exact blame/preimage",
+      "count": 48,
+      "scope": "Retained authored doc lines; sole3659 may own only supplied exact empty-anchor hunks",
+      "evidence": "documentation-current-owner-handoff.json",
+      "requiredHandoff": "Exact matching authorized authored fixes. Do not expand sole3659 to generated sections or all authored findings."
+    }
+  ],
+  "sole3735LocaleTwoDiagnostics": "Consumed exact f1cef71ba0bd39cd69ef9e9787621bb9bdacb5d8 three-hunk source; focused lint and whole SOURCE confirm zero DTO diagnostics",
+  "deniedOrHeldScopesRemainUnrun": true
+}

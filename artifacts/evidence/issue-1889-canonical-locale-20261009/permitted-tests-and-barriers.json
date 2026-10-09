@@ -1,0 +1,18 @@
+{
+  "issue": 1889,
+  "allowedOrdinaryTestFiles": [
+    "tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
+    "tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+    "tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts",
+    "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+    "tests/frontend/unit/api/comment.test.ts",
+    "tests/frontend/unit/privacy/commentPrivacyCredentialVault.test.ts",
+    "tests/frontend/unit/privacy/commentPrivacyCredentialLifecycle.test.ts",
+    "tests/frontend/unit/privacy/commentPrivacyCredentialPublicBoundary.test.ts",
+    "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts"
+  ],
+  "admissionRequiredBeforeAnySelectedCandidateSpawn": true,
+  "excluded": "Held privacy/security QA, denied audits, composer browser/native/AT, aggregate privacy-zk, production resources",
+  "oldReferencesPreserved": true,
+  "githubContentWrites": "coordinating parent only; no outbound cloud_threads API in this executor"
+}

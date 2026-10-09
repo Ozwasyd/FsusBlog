@@ -1,0 +1,121 @@
+{
+  "schema": "fsusblog.behavior-owner-binding-receipt.v1",
+  "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+  "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "status": "ok",
+  "bindingCount": 10,
+  "bindings": [
+    {
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "language": "javascript",
+      "sourcePath": "tools/fact-extractors/content-lifecycle/extract.mjs",
+      "symbol": "extract",
+      "bindingKind": "marker",
+      "sourceDigest": "f356594982d0954475f54f31d55829c821df3676bcfed0b680a686a93480debb",
+      "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+      "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "status": "ok"
+    },
+    {
+      "behaviorId": "authentication-session-permission",
+      "language": "javascript",
+      "sourcePath": "tools/fact-extractors/auth-session-permission/extract.mjs",
+      "symbol": "extract",
+      "bindingKind": "marker",
+      "sourceDigest": "755ace5208aa47d0e04a40b509a1d2e77973d01835956e425c4d32766449171c",
+      "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+      "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "status": "ok"
+    },
+    {
+      "behaviorId": "binary-api-aeds-contract",
+      "language": "javascript",
+      "sourcePath": "tools/fact-extractors/openapi-aeds/extract.mjs",
+      "symbol": "extract",
+      "bindingKind": "marker",
+      "sourceDigest": "30ab4b2e57b5ce40ee6f6169a95d58af6108c08ecb537a02cb6548cb06064f2c",
+      "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+      "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "status": "ok"
+    },
+    {
+      "behaviorId": "browserless-production-correctness",
+      "language": "javascript",
+      "sourcePath": "tools/run-test-matrix.mjs",
+      "symbol": "main",
+      "bindingKind": "marker",
+      "sourceDigest": "9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+      "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "status": "ok"
+    },
+    {
+      "behaviorId": "code-intent-governance",
+      "language": "javascript",
+      "sourcePath": "tools/governance/check-code-intent.mjs",
+      "symbol": "checkCodeIntent",
+      "bindingKind": "marker",
+      "sourceDigest": "8ae73dfe785c550f71a2fe7a23db99366d3cd7029d4f80f87bd45457a93905f9",
+      "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+      "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "status": "ok"
+    },
+    {
+      "behaviorId": "configuration-error-security-policy",
+      "language": "javascript",
+      "sourcePath": "tools/fact-extractors/config-error-security-policy/extract.mjs",
+      "symbol": "extract",
+      "bindingKind": "marker",
+      "sourceDigest": "c5cf7f776e76990bd6723818962c66eff16171b3ac5507124813139a91e356b9",
+      "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+      "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "status": "ok"
+    },
+    {
+      "behaviorId": "deployment-blue-green-runtime-role",
+      "language": "javascript",
+      "sourcePath": "tools/run-test-matrix.mjs",
+      "symbol": "validateDeploymentDomainAuthorities",
+      "bindingKind": "marker",
+      "sourceDigest": "9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+      "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "status": "ok"
+    },
+    {
+      "behaviorId": "document-lifecycle-governance",
+      "language": "javascript",
+      "sourcePath": "tools/docs/document-lifecycle.mjs",
+      "symbol": "ValidateDocumentLifecycle",
+      "bindingKind": "marker",
+      "sourceDigest": "9c386d3cfa5b35a0f20edeaf4ca80d9d61ef1252e501c563230bfe8485b9c91f",
+      "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+      "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "status": "ok"
+    },
+    {
+      "behaviorId": "release-final-aggregate-contract",
+      "language": "javascript",
+      "sourcePath": "tools/run-test-matrix.mjs",
+      "symbol": "validateReleaseFinalAggregateAuthorities",
+      "bindingKind": "marker",
+      "sourceDigest": "9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74",
+      "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+      "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "status": "ok"
+    },
+    {
+      "behaviorId": "test-asset-audit-reconciliation",
+      "language": "javascript",
+      "sourcePath": "tools/test/run-test-asset-audit.mjs",
+      "symbol": "main",
+      "bindingKind": "marker",
+      "sourceDigest": "e638bf5a6133ee8e201160114d7461f36fc34dbec12b00cc728025e389f5f1dd",
+      "catalogDigest": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+      "worktreeDigest": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+      "status": "ok"
+    }
+  ],
+  "errors": [],
+  "contentDigest": "0e288bfe10cdef4b1b252f5f2dbab40cea694d62a6aa109ca7f7c0aa3e0e803f"
+}

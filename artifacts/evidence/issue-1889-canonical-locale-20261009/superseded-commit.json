@@ -1,0 +1,9 @@
+{
+  "preservedRemoteBranch": "codex/issue-1889-canonical-locale-source",
+  "supersededSHA": "8e89b101841582d967eb70228e2b54e467a640d8",
+  "reason": "Commit lacked canonical Refs footer; original change-contract exit1 preserved",
+  "correctedSHA": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "sourceTreeByteIdentical": true,
+  "oldBranchNotRewritten": true,
+  "newAdmissionRequired": true
+}

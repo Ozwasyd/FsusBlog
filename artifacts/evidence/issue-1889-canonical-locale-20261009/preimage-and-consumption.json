@@ -1,0 +1,24 @@
+{
+  "schema": "issue-1889.locale-donor-consumption.v1",
+  "utc": "2026-10-09T05:49:30.386952+00:00",
+  "hostname": "f8906d446887",
+  "kernel": "6.18.44",
+  "baseCommit": "73a318a5707cd7b5da74abcf263a185f2550badc",
+  "fetchedOriginMaster": "5dcd62096f97ccb2297781f2fcebf04fa8dbedd6",
+  "donorCommit": "f1cef71ba0bd39cd69ef9e9787621bb9bdacb5d8",
+  "path": "src/frontend/src/contracts/binaryApi.ts",
+  "preimageBlob": "40afd51a0d29494b29942864cf786f846b7d72e3",
+  "donorParentBlob": "47c67ec55408d10af0a858ccd133c0ea5658c100",
+  "exactInterfacePreimagesMatched": true,
+  "outsideThreeChangesUnchanged": true,
+  "excludedWritingAidExport": true,
+  "changes": [
+    "SupportedLocale type import",
+    "UserLocalePreference.fixedLocale named type",
+    "UserLocalePreferenceUpdate.fixedLocale named type"
+  ],
+  "consumedInto": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "finalBranch": "codex/issue-1889-canonical-locale-complete",
+  "remoteHeadVerified": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "noBroadCherryPick": true
+}

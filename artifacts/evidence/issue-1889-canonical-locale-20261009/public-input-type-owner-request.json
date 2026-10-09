@@ -1,0 +1,252 @@
+{
+  "candidate": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "masterBase": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "diagnosticCount": 32,
+  "diagnostics": [
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 366,
+      "column": 7,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 366,
+      "column": 28,
+      "rule": "eslint/@typescript-eslint/no-redundant-type-constituents",
+      "message": "'any' overrides all other types in this union type."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 367,
+      "column": 7,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 367,
+      "column": 33,
+      "rule": "eslint/@typescript-eslint/no-redundant-type-constituents",
+      "message": "'any' overrides all other types in this union type."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 560,
+      "column": 11,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 560,
+      "column": 65,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 560,
+      "column": 88,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 561,
+      "column": 5,
+      "rule": "eslint/@typescript-eslint/no-unsafe-call",
+      "message": "Unsafe call of a type that could not be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 561,
+      "column": 13,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .focus on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 569,
+      "column": 9,
+      "rule": "eslint/@typescript-eslint/no-unsafe-call",
+      "message": "Unsafe call of a type that could not be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 569,
+      "column": 29,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 570,
+      "column": 52,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 574,
+      "column": 41,
+      "rule": "eslint/@typescript-eslint/no-redundant-type-constituents",
+      "message": "'any' overrides all other types in this union type."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 576,
+      "column": 11,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 576,
+      "column": 30,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .textarea on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 580,
+      "column": 13,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 580,
+      "column": 29,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .selectionStart on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 581,
+      "column": 13,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 581,
+      "column": 27,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .selectionEnd on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 582,
+      "column": 13,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 582,
+      "column": 33,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .selectionDirection on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 587,
+      "column": 41,
+      "rule": "eslint/@typescript-eslint/no-redundant-type-constituents",
+      "message": "'any' overrides all other types in this union type."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 591,
+      "column": 9,
+      "rule": "eslint/@typescript-eslint/no-unsafe-call",
+      "message": "Unsafe call of a type that could not be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 591,
+      "column": 17,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .textarea on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 613,
+      "column": 15,
+      "rule": "eslint/@typescript-eslint/no-unsafe-assignment",
+      "message": "Unsafe assignment of an error typed value."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 613,
+      "column": 69,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 613,
+      "column": 92,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 617,
+      "column": 58,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 617,
+      "column": 81,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 634,
+      "column": 47,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 643,
+      "column": 52,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    },
+    {
+      "file": "src/frontend/src/components/article/ArticleCommentComposer.vue",
+      "line": 662,
+      "column": 43,
+      "rule": "eslint/@typescript-eslint/no-unsafe-member-access",
+      "message": "Unsafe member access .value on a type that cannot be resolved."
+    }
+  ],
+  "canonicalTypeProjection": "public-input-instance-lint-type.json",
+  "actualType": "any",
+  "publicTypeSource": "FsusUI vue/packages/components/input/src/instance.ts:3 (InputInstance = InstanceType<typeof Input>, public SFC import)",
+  "FsusUIRevision": "c987c645a6ddc915bbc28429a97a3f21fafe258b",
+  "vueTscComparison": {
+    "applicationExitCode": 2,
+    "allDiagnostics": 230,
+    "composerPrivacyDiagnostics": 0
+  },
+  "canonicalSourceStyleOwnerProvenance": {
+    "root": 1686,
+    "commit": "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131",
+    "source": "tools/frontend/style-toolchain/eslint.config.mjs"
+  },
+  "noLocalWorkaround": true,
+  "smallestNextAction": "Coordinator routes canonical Vue-aware source/style projection to sole1686 with actual public Input SFC declaration preimage. Supply a real public type projection supported by the original strict checker; no casts, structural facade invention, any suppression, registry-project fallback or weakened gates.",
+  "firstSourceCandidate": "87d6f31243917bbea2e715e85f3181bbd2449172",
+  "currentCandidate": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "originalEvidenceSourceCommit": "87d6f31243917bbea2e715e85f3181bbd2449172",
+  "reboundViaByteIdentityProof": "preserved-guards-and-docs.json",
+  "currentRun": "locale-aae5914b-20261009"
+}

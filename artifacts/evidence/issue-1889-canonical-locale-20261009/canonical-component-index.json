@@ -1,0 +1,66 @@
+{
+  "sourceCommit": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "rawReceiptCount": 12,
+  "files": [
+    {
+      "path": "behavior-owner-binding.json",
+      "bytes": 5369,
+      "sha256": "e439d58bfff379a48ad67ca6b5f6b6f406bf3e787e3a574d3cc9608975e2b870"
+    },
+    {
+      "path": "doc-claim-parse.json",
+      "bytes": 99876,
+      "sha256": "dae8f8e45b04eadb1bd75db6c88fc4741615e225d52645fe963a19653da3f465"
+    },
+    {
+      "path": "doc-claim-verification.json",
+      "bytes": 17438,
+      "sha256": "7ac00c59f8b214d8a6bd4b08c398953d94397f0b1acf0c8a3738b962def5d111"
+    },
+    {
+      "path": "fact-observations/auth-session-permission-fact-extractor.json",
+      "bytes": 292117,
+      "sha256": "59084ce32c478f0878ca17ce5d0ba5fc0f25a067f30d8099a9eaa7235aa186c2"
+    },
+    {
+      "path": "fact-observations/code-intent-fact-extractor.json",
+      "bytes": 1505,
+      "sha256": "518c0d3ebfd926a952289dc285312342fdc4bf2eba9c1dc34cd3a9c31e7173e7"
+    },
+    {
+      "path": "fact-observations/config-error-security-policy-fact-extractor.json",
+      "bytes": 562841,
+      "sha256": "cbbfdfa91ee3c7e2c128647fce8e2deeb151c5bafece33c0a1228b85cb910b9a"
+    },
+    {
+      "path": "fact-observations/content-lifecycle-fact-extractor.json",
+      "bytes": 291111,
+      "sha256": "b11ea7ec68bf87b4ce77a974387c065ac8bdd6da1a26c52d2bbc1baa069ca7fb"
+    },
+    {
+      "path": "fact-observations/document-lifecycle-fact-extractor.json",
+      "bytes": 1061,
+      "sha256": "c77596d6362a7c7c99f0e1d17d7ad40446edcc903a0a27c311dc926049aac2a2"
+    },
+    {
+      "path": "fact-observations/openapi-aeds-fact-extractor.json",
+      "bytes": 2267581,
+      "sha256": "6d99d9ada0eb4a478f53ac215cc291762009d236ef41f0574ae7efea5ac9c1ac"
+    },
+    {
+      "path": "fact-observations/test-asset-audit-fact-extractor.json",
+      "bytes": 11395,
+      "sha256": "e7b48a88a1d711146e1cf8735e8267e483ab1533720362edfbf234cbeace84dd"
+    },
+    {
+      "path": "fact-observations/test-matrix-fact-extractor.json",
+      "bytes": 369908,
+      "sha256": "f511a8617ffd1e48f13cdb39000e073fb27b3b08cd29d4ea3fa525d7c1183698"
+    },
+    {
+      "path": "generated-section-check.json",
+      "bytes": 29519,
+      "sha256": "253415df904fa3d7f5a29b79facd75c4d71696aec57b7211be8c3a8787d176c7"
+    }
+  ]
+}

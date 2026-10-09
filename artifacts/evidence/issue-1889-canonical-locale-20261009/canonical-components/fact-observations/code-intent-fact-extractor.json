@@ -1,0 +1,41 @@
+{
+  "schema": "fsusblog.fact-observation-receipt.v1",
+  "extractorId": "code-intent-fact-extractor",
+  "behaviorIds": [
+    "code-intent-governance"
+  ],
+  "sourceCommit": "aae5914bfcf2e98bbc8ee74198ba784dc8ca57d0",
+  "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48",
+  "buildIdentity": null,
+  "extractorDigest": "a2b9c244ae82bc626cd8cb3195a5e27ae1e1171781a23b762e8029347ebabe4e",
+  "registryDigest": "dd2566d3d9c34900fb7b13220adc8b1243fae897b7839eeeccd0cbdcd1632bc2",
+  "consumedInputDigests": [
+    {
+      "path": "tests/governance/code-intent-registry.json",
+      "digest": "a1d398b286fd914604d99f0762b8ef48198353d8a75a1cccff3c9d639e3d4bb1"
+    }
+  ],
+  "observations": {
+    "catalogSchema": "fsusblog.code-intent-registry.v1",
+    "intentEntryCount": 14,
+    "intentEntryIds": [
+      "aeds-cache-miss-owned-frame",
+      "aeds-frame-buffer-lifetime",
+      "aeds-frame-cost",
+      "article-summary-unicode-boundary",
+      "banned-user-recovery-boundary",
+      "binary-preencoded-result-lease",
+      "crawler-range-atomic-publication",
+      "jwt-singleton-token-material",
+      "owned-aeds-frame-read-leases",
+      "pod-binary-codec-batch",
+      "redis-pow-bounded-hash-buffer",
+      "startup-runtime-state-snapshot-lock",
+      "system-page-write-fail-closed",
+      "vite-worker-sourcemap-compatibility"
+    ]
+  },
+  "status": "ok",
+  "failureReasons": [],
+  "contentDigest": "7e9f0c224d63f7ac2bd8791395dfd742ef41d684e575bea98c35d4f85475f914"
+}

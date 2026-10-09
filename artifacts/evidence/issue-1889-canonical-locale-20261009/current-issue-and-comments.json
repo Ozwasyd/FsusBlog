@@ -1,0 +1,51 @@
+{
+  "fetchedAt": "2026-10-09",
+  "issue": {
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1889",
+    "title": "refactor(comments): 将 ArticleCommentComposer 内部通用控件单向收敛到 FsusUI",
+    "issue_number": 1889,
+    "body": "## 已裁决评论身份控件（2026-08-03）\n\n评论“以公开身份发送”精确使用 **FsusUI Checkbox**，不使用 Switch：\n\n- Checkbox 表达的是**本次评论提交的显式选择/确认**，不是立即生效或持续保存的账户级偏好；\n- 勾选状态只绑定当前 composer/session 的 `authorMode` 与 `publicSendConfirmed` 事务，不在用户账户、Cookie、localStorage或全局store中持久化为默认；\n- 新评论composer默认值继续来自现有隐私产品合同，不因上一次提交勾选而自动恢复公开身份；\n- label必须直接说明公开身份后果，不能只写“公开”或使用无label图标；privacy blocked/anonymous unavailable时显示明确disabled reason；\n- Checkbox change只更新composer产品状态，不立即发送、不切换账户身份、不触发网络mutation；\n- 不允许Switch、SegmentedControl、双入口或运行时根据设备/viewport切换控件；\n- FsusUI Checkbox的checked/indeterminate/disabled/focus/keyboard/a11y由公共组件拥有，Blog不得重画track/box。\n\n本节覆盖下文所有“Checkbox/Switch”“必须按语义选择一种”的未决措辞。\n\n## 执行分类\n\n- 类型：`bounded-specialized-control-primitive-delegation`\n- 优先级：P0\n- 审计基线：`master@d6d0867f2a6cd084692ef873117b117229901e74`\n- 责任仓：FsusBlog\n- 本 issue 只迁移 `ArticleCommentComposer.vue` 内部重复实现的通用交互 primitive；评论业务、匿名协议、草稿隐私、Markdown 检查和提交状态机继续由 FsusBlog 拥有。\n\n## 已确认问题\n\n`src/frontend/src/components/article/ArticleCommentComposer.vue` 是合法的 FsusBlog 产品组件，但其内部同时存在 FsusUI 控件和本地通用控件复制：\n\n1. 评论身份使用原生 `<input type=\"checkbox\">` + 自绘 box/label，实现 Checkbox 基础行为；\n2. 普通编辑区与扩展编辑 Dialog 各复制一组原生 `role=\"tablist\"` / `role=\"tab\"` 按钮，实现“编写 / 预览”模式；\n3. 草稿“审查 / 丢弃”使用原生按钮；\n4. 普通编辑区使用 FsusUI textarea，扩展编辑区改用原生 `<textarea>`，形成两套 focus、disabled、IME、主题和键盘语义。\n\n这些行为不是评论业务本身，而是 FsusUI 已拥有的 Checkbox、SegmentedControl、Button、Input textarea 职责。\n\n## 固定目标\n\n保留一个 FsusBlog 产品组件，但内部结构必须收敛为：\n\n```text\nArticleCommentComposer\n  ├─ FsusUI Checkbox：本次评论公开身份选择\n  ├─ FsusUI SegmentedControl：编写/预览\n  ├─ FsusUI Button：草稿和编辑动作\n  ├─ FsusUI Input textarea：普通/扩展编辑\n  ├─ FsusDialog：扩展编辑壳\n  └─ FsusBlog：评论业务与隐私状态机\n```\n\n## 精确迁移范围\n\n### A. 评论身份选择\n\n- 删除原生 checkbox 和自绘通用 track/box。\n- 使用唯一的 FsusUI Checkbox；Switch、SegmentedControl或第二入口禁止。\n- `authorMode`、`publicSendConfirmed`、anonymous availability、privacy blocked 等产品状态继续由现有 computed/emit 管理。\n- Checkbox只表达本次提交选择，不写账户偏好或跨composer默认值。\n- disabled/blocked状态必须保留label、原因与screen-reader说明，不能只降低opacity。\n\n### B. 编写 / 预览\n\n- 普通编辑区和扩展 Dialog 共用同一份 `commentComposerModeOptions` 和同一个 FsusUI SegmentedControl 产品配置。\n- 删除本地 `role=tablist`、`role=tab`、active CSS、键盘和 selected 状态实现。\n- 不得在一个表面使用 Tabs、另一个表面使用 SegmentedControl。\n\n### C. 草稿动作\n\n- “审查草稿”“丢弃”等动作迁移到 FsusUI Button 的 text/link/danger 公共变体。\n- 保留现有产品文案和 draft privacy 函数，不改变数据语义。\n\n### D. 扩展 textarea\n\n- 普通和扩展编辑面都使用同一种 FsusUI textarea primitive。\n- 两个表面绑定同一 `contentModel`、disabled、placeholder、提交快捷键和 accessible name 合同。\n- 不维护第二套原生 textarea CSS、focus ring、resize 或 disabled 样式。\n\n## 必须完成\n\n1. 完成上述四类 primitive 迁移并删除重复 DOM/CSS。\n2. 保持当前评论业务 API、props、emits 和 privacy storage schema 不变。\n3. 建立可复用但仍属该组件内部的产品配置，不创建新的全仓 CommentSegmentedControl/CommentCheckbox wrapper。\n4. 更新单元测试，使用真实 FsusUI stub/组件验证 prop 与 event 委托，不重新测试 FsusUI 内部实现。\n5. 增加真实浏览器测试，覆盖普通编辑与扩展 Dialog 的内容、selection、IME、focus 和提交连续性。\n6. 增加Checkbox-specific tests：本次选择、提交后新composer默认、disabled reason、keyboard/label activation、账户偏好零写入。\n7. local/published FsusUI 两种 typecheck 均通过。\n8. 一次迁移，不保留 native fallback、Switch branch、feature detection、双模板或旧 CSS。\n\n## 严格约束\n\n- 不得把整个评论编辑器迁入 FsusUI。\n- 不得改变匿名凭据、公开身份确认、评论额度、草稿清理或发布权限规则。\n- 不得将评论编辑器替换成完整文章 MarkdownEditor。\n- 不得将本次Checkbox值保存为账户级或跨会话默认偏好。\n- 不得通过 `as any`、组件字符串名或动态 `component :is` 绕过类型。\n- 不得保留原生控件作为“移动端 fallback”“SSR fallback”或“专注模式 fallback”。\n- 不得用 `.el-*` 私有选择器重写新控件外观。\n- 不得通过只隐藏旧控件而保留第二个可交互 DOM 获得截图通过。\n\n## 验收条件\n\n- [ ] 评论身份选择精确由FsusUI Checkbox渲染，无Switch、原生checkbox或第二入口。\n- [ ] Checkbox只影响当前composer/submit，不立即mutation、不持久化账户偏好、不自动继承上次提交值。\n- [ ] Label、disabled reason、keyboard和screen-reader语义完整。\n- [ ] 生产模板中不存在该组件自实现的 checkbox、tablist/segmented、通用 action button 或原生 textarea。\n- [ ] 评论身份、编写/预览、草稿动作和两个编辑表面全部委托 FsusUI 公共 primitive。\n- [ ] 普通与扩展编辑共享同一 content、mode、disabled 和 submit contract。\n- [ ] 打开/关闭扩展 Dialog 不丢内容、selection direction、composition/IME 状态或 draft state。\n- [ ] Esc 关闭和明确收起后 focus 返回触发入口；Ctrl/Cmd+Enter 在两个编辑表面行为一致。\n- [ ] anonymous/public、disabled、banned、submitting、draft restored/blocked 状态保持原业务结果。\n- [ ] Light/Dark、375/768/1440、200% zoom、keyboard、touch、screen reader 测试通过。\n- [ ] 代码搜索不存在Switch branch、复制品换名、本地通用 wrapper、原生 fallback 或私有 selector 覆盖。\n\n## 必测反例\n\n1. 使用FsusUI Switch代替Checkbox：失败。\n2. Desktop Checkbox、mobile Switch：失败。\n3. 提交一次公开身份后新composer自动勾选：失败。\n4. Checkbox change立即调用身份/偏好API：失败。\n5. 仅把原生 checkbox 包进 `CommentIdentityToggle.vue`：失败。\n6. 普通区用 FsusUI，Dialog 继续原生 textarea：失败。\n7. 两处模式控件分别维护 options/active state：失败。\n8. FsusUI 控件隐藏后仍保留旧可交互原生 DOM：失败。\n9. 迁移导致匿名草稿被自动公开、或旧草稿身份自动恢复：失败。\n10. composition 输入期间打开 Dialog 造成内容丢失或重复：失败。\n11. 通过私有 `.el-input__*` 修补基础几何：失败。\n\n## 非目标\n\n- 不重做评论编辑器视觉构图。\n- 不修改 CommentMarkdownRenderer。\n- 不修改服务端评论协议或数据库。\n- 不引入新的 FsusBlog 通用表单组件库。",
+    "state": "open",
+    "user": {
+      "login": "Ozwasyd",
+      "name": "Ozwasyd",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/262509976?v=4",
+      "id": 262509976
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "status:triage",
+        "color": "ededed",
+        "description": "New item awaiting maintainer review."
+      }
+    ],
+    "milestone": null,
+    "state_reason": null,
+    "comments": 3,
+    "created_at": "2026-08-02T15:39:10Z",
+    "updated_at": "2026-10-08T06:08:32Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Ozwasyd/FsusBlog/issues/1889",
+    "display_title": "refactor(comments): 将 ArticleCommentComposer 内部通用控件单向收敛到 FsusUI"
+  },
+  "comments": [
+    {
+      "body": "WIP：#1889 源实现已发布，完整验收仍阻塞。\n\n- 草稿 PR #3854；分支 `codex/issue-1889-comment-composer-primitives`；远端 SHA `cebd4ba362714b732dcf508abbed18e0910d7bb6`。唯一 Checkbox、同配置 SegmentedControl、公共 Button 和两个同配置 Input textarea 已迁移；props/emits 与 v3 storage owner 保持不变。\n- 真实复现后修复 article/reply 切换串用已审查重试标识，以及清空正文后同文复用旧事务；保留同 scope 连续重试。恢复草稿须审查和重新明确选择公开身份；负对照 9 不放宽。\n- 本候选主准入：退出 1，10 文档/12 generated regions 漂移；8 个真实 extractor 和最小观察构建完成。只含 canonical producer 生成差异的隔离工作树：真实准入通过（34 文档、37 主张、35 负控），绑定相同提交与不同 generated fingerprint，尚未进入候选。\n- 在已准入隔离树实际执行：单元 27/27 通过（退出 0），Chromium 16/17 通过（退出 1）。article、reply、正文清空三项负控与同 scope 正控都通过。唯一浏览器失败保留 `cspSafe=true/resize=none` 下实际 `resize:vertical` 的公共 Input 问题。截图与 console/page-error 已检查；合成 CompositionEvent/CSS zoom 不冒充真实 OS IME/native zoom。\n- local/published typecheck 都实际跑过（退出 2）：local 160 项其他消费者错误，composer/新消费合同无错误；published 265 项，锁定包无法读取。本地 alias 实际消费 FsusUI `6c836baff8bc1879b487bf019359fd5e433f58ea`，没有 upstream 源码改动、包发布或私有 CSS 补丁。\n- 标准构建实际运行（退出 1）：官方 emsdk6、canonical 校验 CMake4.3.3/Binaryen123，WASM/generator/vue-tsc 阶段完成；client/SSR 因其他未改消费者要求的 `createMarkdownOutlineTree`、`resolveMarkdownOutlineActive` 公共导出缺失失败。失败 dist 已清理；direct build 不代表 qualified release，实际 vcpkg 未观察到且 codec fallback 有记录。\n- 源探针、27 static AST、change contract、起点 master 的 test identity 检查通过。最新取回 master `0a755584aa256995fd9997ca974806e8a0e29d2e` 未整合；相对此 master 的 test identity 检查还阻塞于其他链两份测试变更。Style/旧 v2 privacy scanner 失败也保留。\n- 需要：原 generated section owners 的确切修复提交及 fresh admission；已分配 FsusUI Input/Markdown outline API owners 的确切提交和 public consumer 证据；原消费者 type repairs、published package 合法读取、实际 desktop IME/AT 与独立 UX 验收。#3656 是 SDK 临时命名空间 owner，#3659 是手写空锚点 owner（禁止 generated 修改），不能隐式扩展成这 12 区域的 owner。没有直接外部 prerequisite；这些是实际验收边界缺口。Related to #1889。\n",
+      "url": "https://github.com/Ozwasyd/FsusBlog/issues/1889#issuecomment-6051365440",
+      "id": 6051365440
+    },
+    {
+      "body": "Independent new integration regression on #2245 source eb3afe257edbb5352b3530dfbe30f2213ff89e40 confirms baseline ArticleCommentComposer auto-restores publicSendConfirmed=true from real same-policy localStorage draft. Canonical #1889 latest b4aa6c403e44b12242e9239cd2e4227f6eb660c0 changes this to pending review/anonymous/unconfirmed; QA is preserving baseline failure and will test exact canonical source separately, not ask you to repeat the implemented fix. New claimed test tests/frontend/unit/integration/commentPendingIdentityBoundaries.test.ts. Source integration needs exact canonical ArticleCommentComposer.vue plus checkbox.ts/input.ts public facades; no QA edits to owner product. docs/security/comment-draft-privacy.md still describes v2/automatic public restore, unlike actual v3/canonical issue contract—please reconcile through original docs owner.",
+      "url": "https://github.com/Ozwasyd/FsusBlog/issues/1889#issuecomment-6053335878",
+      "id": 6053335878
+    },
+    {
+      "body": "New real integration test independently confirms the same-mounted retry scope defect at canonical b4aa6c403e44b12242e9239cd2e4227f6eb660c0: review draft then article42→43, top→reply, replyA→replyB, reply→top each submits the prior scope's public retry ID. Four added cases all FAIL; full new canonical suite 10 PASS/4 FAIL, no unhandled errors. Source in Draft QA PR #3990 new commentPendingIdentityBoundaries.test.ts; final test blob 904d77ba53824d4650d6bd413d84364533d95ec9. I understand original owner is already fixing; no QA production edit and no assumption of unpublished fix. Preserve exact old-source failure and consume new exact fix SHA when supplied. Separate preview cache/anchor/source-admission checks pass identical-body article switch and source ABA (revision changes away/back) boundaries; SSR disclosure composition foreign attribution remains separately routed to #2283.",
+      "url": "https://github.com/Ozwasyd/FsusBlog/issues/1889#issuecomment-6053476844",
+      "id": 6053476844
+    }
+  ],
+  "scopeChangedMaterially": false
+}
