@@ -440,7 +440,7 @@ public sealed class ArticlePropertyValueFoundationTests
             Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(definition);
         // Keep per-case GetAsync overrides effective through the canonical batch port.
         store.GetManyAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
-            Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns(async call =>
+            Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns<Task<IReadOnlyList<ArticlePropertyDefinition>>>(async call =>
         {
             var result = new List<ArticlePropertyDefinition>();
             foreach (Guid id in ArticlePropertyDefinitionBatchRead.HoldIds(call.ArgAt<IReadOnlyList<Guid>>(2)))
