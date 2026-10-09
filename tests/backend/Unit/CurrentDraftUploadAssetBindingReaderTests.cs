@@ -1,8 +1,6 @@
 using System.Security.Claims;
 using System.Text;
 
-using NSubstitute;
-
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Interfaces;
@@ -10,6 +8,8 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleVault;
+
+using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -330,7 +330,10 @@ public sealed class CurrentDraftUploadAssetBindingReaderTests
 
         internal IAuthoringDraftLifecycle Drafts { get; } = Substitute.For<IAuthoringDraftLifecycle>();
         internal IFileService Files { get; } = Substitute.For<IFileService>();
-        internal ClaimsPrincipal Principal { get; } = new(new ClaimsIdentity(
+        internal ClaimsPrincipal Principal
+        {
+            get;
+        } = new(new ClaimsIdentity(
             [new("admin_id", "7"), new("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind)], "controlled-unit-identity"));
         internal UploadSessionAccess Session { get; }
         internal string Sha256 { get; } = new('1', 64);
