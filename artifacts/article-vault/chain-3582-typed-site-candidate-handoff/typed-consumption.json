@@ -1,0 +1,16 @@
+{
+  "supplier": "467857b3cc88aaa2916159552c24088f6f9910b8",
+  "consumedPaths": {
+    "src/backend/Interfaces/ISystemSiteIdentityReader.cs": "ee6371258149f8fc98b5540b7092a8751cde8adca73e22d405d7fc4c411159c6",
+    "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs": "dfee059d43725064e6fc345e6a57cd73520005b4dc60ed0234244181bc2b1ba8"
+  },
+  "excluded": [
+    "SystemService.SiteIdentity.cs",
+    "SystemConfig",
+    "original #3735 scoped alias",
+    "runtime lifecycle operations",
+    "producer registries"
+  ],
+  "qualificationInherited": false,
+  "runtimeAuthorityActivation": false
+}

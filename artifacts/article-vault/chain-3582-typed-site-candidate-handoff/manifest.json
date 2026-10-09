@@ -1,0 +1,29 @@
+{
+  "sourceCommit": "08dbbac2bb522ca7f6b2433c02acbb60490149f0",
+  "qualification": false,
+  "files": {
+    "README.md": "99a00de39a843c07c7afc46e2a9afc979c50e4a9272124695fc5097a02c63957",
+    "backend/build.log.gz": "e148e4d6460ed4ff38ebd7c79c8fe2c911201987c9dff44d8933b921ed61aada",
+    "backend/discovery-command.json": "52cf8d3fd7d273a7e4f3ba9c9ab441b0e65eec13f3bf7a0d0e0c315a7182c6ba",
+    "backend/orchestration.mjs.gz": "83808e6386bee5fed36ba8f473bd836adab355bd77b91039e217763f5a3076db",
+    "backend/preflight.json": "ac083524563834f3112ee1c0f0314475b8eb87bfd529993755eb5891dbe56b8f",
+    "backend/result.json": "018e7e15997254202e78fbd15ba61b3aa374a3fffe30ae45f0f35dbccb5f201d",
+    "backend/results.trx.gz": "ee7a7c2bef040204452481466ee22521b1b44067de0a77b0cd860f5b7031f12a",
+    "backend/test-command.json": "69849f3496f27299e941983006ab595c8739e384bfb516f6ed429db421b61c52",
+    "backend/test.log.gz": "3f615db78b0266487e4e0c0b7bd08e892ab1b1cd898f61d4fc83304e7cc91e51",
+    "callback/exact-supplier.patch.gz": "363549c800ffd0eed51e139dbd5e29a32d9f0700334931ff6a62ade70a966769",
+    "callback/inspection.json": "974423e817bcf1b9268031904b79a33070db8ab66667fc117b41ebbeef14ecd9",
+    "callback/patch-check.log.gz": "365c2f2e23b47637751c57b440be1befa62b266b9b328aac7c8634eaab466182",
+    "callback/required-types-search.log.gz": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+    "callback/root-context.diff.gz": "e0f35275fcc21bebaed8cf71532840f9d47ebe7fd5436e508b0357b37bab6bfa",
+    "checks/document-authority.log.gz": "a3e03c1acc29b867efc4de6c501cba1ce542d866ae360193e9c0a42e51ee5a33",
+    "checks/document-lifecycle.log.gz": "e7b7c634b66033c56d79847d570b50aeee35588e86c86582156321fa34267524",
+    "checks/initial-warning-build.log.gz": "a5cd08b3d918032f739439c6ef388baadf5f8c83972b05cb69d6edfe67d60711",
+    "checks/style.log.gz": "d4618defa0f470405567139c1b6d21fc2e49ced47514370c41ff9e7de63a1fb6",
+    "issue-accounting.json": "c30d1d427164e09a6399b4d136ea65cdea47e027fa979e00b7032a2b248ddb8f",
+    "issue-accounting.md": "7bd81b007ecbb7ffe1025b142a88141d2756a5a8d22d3dbcde034ae4a58bf826",
+    "source-scanner.json": "90c88f1bc5821648c29db364e3df5251d1cb1d299a7a944a4453b884a93c00c4",
+    "summary.json": "fb2759ff650780f677b44348806b7ff094cb75a72d0c05e35ffa1b28ee83862a",
+    "typed-consumption.json": "d17c6c496a9cb83b617f9a72894e328f67b66b9cbffb4ead9cc14449abaac51c"
+  }
+}
