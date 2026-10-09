@@ -5,6 +5,7 @@ import {
 import type { DocumentExportPrivateDeliver } from '@/api/documentExport';
 import type { DocumentExportJobResponse, DocumentExportRequest, DocumentExportSource } from '@/codecs/binary/documentExportWire.generated';
 
+import { createDocumentExportPrivateUiLifecycle } from './documentExportPrivateUiLifecycle';
 import { documentExportValidatePresentation } from './documentExportUiPort';
 
 import type {
@@ -53,19 +54,59 @@ export function inspectDocumentExportWire(snapshot: DocumentExportJobResponse): 
 
 export function createDocumentExportWireUiPort(options: DocumentExportWireUiOptions): DocumentExportUiPort<DocumentExportJobResponse, DocumentExportRequest>
 {
+    let catalog: readonly DocumentExportFormatChoice[] = Object.freeze(options.catalog.map(choice => Object.freeze({
+        ...choice, layouts: Object.freeze([...choice.layouts]), themes: Object.freeze([...choice.themes]), support: Object.freeze([...choice.support])
+    })));
+    let sources: DocumentExportWireUiOptions['sources'] = Object.freeze(options.sources.map(choice => Object.freeze({
+        ...choice, coordinate: Object.freeze({ ...choice.coordinate })
+    })));
+    let prepareRequest: DocumentExportWireUiOptions['prepareRequest'] | undefined = options.prepareRequest;
+    let deliverPrivate: DocumentExportPrivateDeliver | undefined = options.deliverPrivate;
+    const lifecycle = createDocumentExportPrivateUiLifecycle(() =>
+    {
+        catalog = [];
+        sources = [];
+        prepareRequest = undefined;
+        deliverPrivate = undefined;
+    });
+
+    async function run<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T>
+    {
+        lifecycle.assertCurrent();
+        try
+        {
+            const result = await operation(lifecycle.signal);
+            lifecycle.assertCurrent();
+            return result;
+        }
+        catch (error)
+        {
+            lifecycle.assertCurrent();
+            throw error;
+        }
+    }
+
     return {
-        catalog: options.catalog,
-        sources: options.sources,
+        get catalog()
+        {
+            return catalog;
+        },
+        get sources()
+        {
+            return sources;
+        },
         prepareRequest: selection =>
         {
-            const format = options.catalog.find(choice => choice.id === selection.formatId);
-            const source = options.sources.find(choice => choice.id === selection.sourceId);
+            lifecycle.assertCurrent();
+            const format = catalog.find(choice => choice.id === selection.formatId);
+            const source = sources.find(choice => choice.id === selection.sourceId);
             if (!format?.available || !format.layouts.includes(selection.layout) || !format.themes.includes(selection.theme)
                 || !source)
             {
                 throw new RangeError('document_export_selection_unavailable');
             }
-            const request = captureDocumentExportRequest(options.prepareRequest(selection));
+            const request = captureDocumentExportRequest(prepareRequest!(selection));
+            lifecycle.assertCurrent();
             if (request.formatId !== selection.formatId || request.layoutProfile !== selection.layout
                 || request.themeProfile !== selection.theme || !documentExportSameSource(request.source, source.coordinate))
             {
@@ -73,15 +114,22 @@ export function createDocumentExportWireUiPort(options: DocumentExportWireUiOpti
             }
             return request;
         },
-        captureRequest: captureDocumentExportRequest,
-        request: requestDocumentExport,
-        list: async (offset, limit) => (await listDocumentExports(offset, limit)).jobs,
-        status: getDocumentExport,
-        cancel: cancelDocumentExport,
-        retry: retryDocumentExport,
-        delete: deleteDocumentExport,
-        download: (taskId, signal) => downloadDocumentExport(taskId, signal, options.deliverPrivate),
+        captureRequest: request =>
+        {
+            lifecycle.assertCurrent();
+            return captureDocumentExportRequest(request);
+        },
+        request: request => run(signal => requestDocumentExport(request, signal)),
+        list: async (offset, limit) => (await run(signal => listDocumentExports(offset, limit, signal))).jobs,
+        status: taskId => run(signal => getDocumentExport(taskId, signal)),
+        cancel: taskId => run(signal => cancelDocumentExport(taskId, signal)),
+        retry: taskId => run(signal => retryDocumentExport(taskId, signal)),
+        delete: taskId => run(signal => deleteDocumentExport(taskId, signal)),
+        download: (taskId, signal) => run(privateSignal => downloadDocumentExport(taskId,
+            AbortSignal.any([signal, privateSignal]), deliverPrivate!)),
         inspect: inspectDocumentExportWire,
-        classifyFailure: classifyDocumentExportFailure
+        classifyFailure: classifyDocumentExportFailure,
+        subscribePermissionRevoked: lifecycle.subscribePermissionRevoked,
+        dispose: lifecycle.dispose
     };
 }
