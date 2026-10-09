@@ -5,9 +5,10 @@
             "id": "json-wire-key",
             "paths": [
                 "config/development/csharp-style-baseline.json",
-                "config/development/csharp-style-policy.json"
+                "config/development/csharp-style-policy.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
-            "reason": "Preserve the original policy/baseline JSON fields while adding only the singular Access directory entry and rebinding its policy digest through the pinned original owner operation."
+            "reason": "Preserve the original policy/baseline JSON fields while adding only the singular Access directory entry and rebinding its policy digest through the pinned original owner operation. Bind the exact owned checker in the shared execution authority using its unchanged canonical producer."
         },
         {
             "id": "css-like-contract",
@@ -66,7 +67,7 @@
                 "src/backend/Infrastructure/Memory/Platform/LinuxOwnedSpillDirectory.cs",
                 "tools/dotnet/check-csharp-style.mjs"
             ],
-            "reason": "Preserve existing process environment names and actual native ABI string spelling across the unchanged checker and complete immutable Memory provider source. This existing external-boundary declaration does not exempt any CSharp identifier, delegate name or baseline finding."
+            "reason": "Preserve existing environment and native ABI string spelling on the complete immutable provider roster and original checker. This existing boundary declaration grants no CSharp identifier, delegate, policy or baseline exemption."
         }
     ]
 }
