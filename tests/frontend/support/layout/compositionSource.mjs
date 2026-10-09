@@ -46,7 +46,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         function visit(node)
         {
             if (ts.isIdentifier(node) && node.text === name && node !== declaration
-                && ((ts.isVariableDeclaration(node.parent) || ts.isParameter(node.parent) || ts.isBindingElement(node.parent))
+                && ((ts.isVariableDeclaration(node.parent) || ts.isParameter(node.parent) || ts.isBindingElement(node.parent)
+                    || ts.isFunctionDeclaration(node.parent) || ts.isClassDeclaration(node.parent))
                     && node.parent.name === node))
             {
                 invalid = true;
@@ -388,6 +389,51 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         return { usesRouteName };
     }
 
+    function propMacroValues(record, property)
+    {
+        const standalone = record.scripts.filter(({ setup }) => setup).flatMap(({ ast }) => ast.statements
+            .filter(ts.isExpressionStatement).map((statement) => unwrap(statement.expression))
+            .filter((node) => node && ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+                && ['defineProps', 'withDefaults'].includes(node.expression.text)));
+        if (!standalone.length)
+        {
+            return [...record.variables.values()];
+        }
+        const macros = [];
+        function visit(node)
+        {
+            if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+                && ['defineProps', 'withDefaults'].includes(node.expression.text))
+            {
+                const parent = node.parent;
+                const nestedProps = node.expression.text === 'defineProps' && ts.isCallExpression(parent)
+                    && ts.isIdentifier(parent.expression) && parent.expression.text === 'withDefaults'
+                    && parent.arguments[0] === node;
+                if (!nestedProps)
+                {
+                    macros.push(node);
+                }
+            }
+            ts.forEachChild(node, visit);
+        }
+        record.scripts.forEach(({ ast }) => visit(ast));
+        if (standalone.length !== 1 || macros.length !== 1 || macros[0] !== standalone[0]
+            || ['defineProps', 'withDefaults', property].some((name) => record.imports.has(name) || record.variables.has(name)))
+        {
+            fail(`unknown standalone prop macro ${record.file}#${property}`);
+        }
+        const macro = standalone[0];
+        if (macro.arguments.some(ts.isSpreadElement) || (macro.expression.text === 'withDefaults'
+            ? macro.arguments.length !== 2 : macro.arguments.length !== (macro.typeArguments?.length ? 0 : 1)))
+        {
+            fail(`unknown standalone prop macro arguments ${record.file}#${property}`);
+        }
+        for (const name of ['defineProps', 'withDefaults', property])
+        {
+            unchangedBinding(record, name, null);
+        }
+        return [...record.variables.values(), standalone[0]];
+    }
     function nativePropTargets(record, identifier)
     {
         function literal(node, file, seen = new Set())
@@ -442,7 +488,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             return null;
         }
-        for (const value of record.variables.values())
+        for (const value of propMacroValues(record, identifier))
         {
             if (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && value.expression.text === 'defineProps')
             {
@@ -531,7 +577,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             return null;
         }
-        for (const value of record.variables.values())
+        for (const value of propMacroValues(record, name))
         {
             if (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && value.expression.text === 'withDefaults'
                 && !record.imports.has('withDefaults') && !record.variables.has('withDefaults')
@@ -1029,6 +1075,15 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     output(node.whenFalse, parentId, ancestors, [...conditional, { name: 'else', expression: node.condition.getText() }], new Set(seen));
                     return;
                 }
+                if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)
+                {
+                    if (branches.usesRouteName(node.left))
+                    {
+                        errors.push({ ...location(record.file, node.getStart()), reason: 'route-name-visual-branch' });
+                    }
+                    output(node.right, parentId, ancestors, [...conditional, { name: 'if', expression: node.left.getText() }], new Set(seen));
+                    return;
+                }
                 if (ts.isArrayLiteralExpression(node))
                 {
                     node.elements.forEach((element) => output(element, parentId, ancestors, conditional, new Set(seen)));
@@ -1107,7 +1162,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 });
                 return terminal;
             }
-            if (ts.isVariableStatement(node) || ts.isExpressionStatement(node) || ts.isEmptyStatement(node))
+            if (ts.isVariableStatement(node) || ts.isExpressionStatement(node) || ts.isEmptyStatement(node) || ts.isFunctionDeclaration(node))
             {
                 return false;
             }
@@ -1263,6 +1318,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     if (!origin)
                     {
                         const targets = resolver.resolveComponentInput(file, exp, { templateRefs: true });
+                        if (targets.some((target) => target.selectorSource && localNames.has(target.selectorSource.name)))
+                        {
+                            fail(`template-shadowed returned component selector ${file}:${offset}`);
+                        }
                         if (targets.some((target) => target.kind === 'component-prop' && localNames.has(target.property)))
                         {
                             fail(`unbound template component prop ${file}:${offset}`);
@@ -1404,34 +1463,9 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         const graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
         const nativePropBindings = [];
         const nativePropErrors = [];
-        for (const node of graphNodes.filter((node) => node.origin.kind === 'native-prop'))
-        {
-            const calls = graphNodes.filter((call) => call.definition === node.file);
-            if (!calls.length)
-            {
-                nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property });
-            }
-            for (const call of calls)
-            {
-                try
-                {
-                    const value = staticPropValue(resolver.parse(node.file), call, node.origin.property);
-                    if (typeof value !== 'string' || !dom.parserOptions.isNativeTag(value))
-                    {
-                        nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property, callNode: call.id });
-                        continue;
-                    }
-                    nativePropBindings.push({ sourceNode: node.id, callNode: call.id, tag: value,
-                        inputDigest: controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }) });
-                }
-                catch (error)
-                {
-                    nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property, callNode: call.id, message: error.message });
-                }
-            }
-        }
         const componentPropBindings = [];
         const componentPropErrors = [];
+        const objectKeyAbsenceProofs = [];
         const absent = Symbol('absent-component-input');
         const unwrapInput = (node) =>
         {
@@ -1441,10 +1475,66 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             return node;
         };
+        function unchangedObjectProp(file, property)
+        {
+            const record = resolver.parse(file);
+            const name = resolver.componentProps(file)?.propsName;
+            const bindings = [];
+            function collect(node)
+            {
+                if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && ts.isIdentifier(node.name) && node.name.text === name)
+                {
+                    bindings.push(node.name);
+                }
+                ts.forEachChild(node, collect);
+            }
+            record.scripts.forEach(({ ast }) => collect(ast));
+            if (!name || bindings.length !== 1)
+            {
+                fail(`unknown object prop owner ${file}#${property}`);
+            }
+            unchangedBinding(record, name, bindings[0]);
+            function selected(node)
+            {
+                node = unwrapInput(node);
+                return node && (ts.isIdentifier(node) && node.text === name
+                    || ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression)
+                        && node.expression.text === name && node.name.text === property
+                    || ts.isElementAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === name);
+            }
+            function escaped(node)
+            {
+                const call = ts.isCallExpression(node) || ts.isNewExpression(node);
+                const argumentsToCheck = call ? node.arguments ?? []
+                    : ts.isVariableDeclaration(node) && node.initializer ? [node.initializer] : [];
+                const unrelatedVueRef = ts.isCallExpression(node) && vueBinding(record, node.expression, 'toRef')
+                    && node.arguments.length === 2 && ts.isIdentifier(node.arguments[0]) && node.arguments[0].text === name
+                    && ts.isStringLiteral(node.arguments[1]) && node.arguments[1].text !== property;
+                if (!unrelatedVueRef && (argumentsToCheck.some(selected) || call && selected(node.expression)))
+                {
+                    fail(`escaped object prop input ${file}#${property}`);
+                }
+                ts.forEachChild(node, escaped);
+            }
+            record.scripts.forEach(({ ast }) => escaped(ast));
+        }
         function spreadInput(file, exp, property, seen = new Set())
         {
             exp = unwrapInput(exp);
             const record = resolver.parse(file);
+            if (exp && ts.isBinaryExpression(exp) && exp.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)
+            {
+                const selected = unwrapInput(exp.left);
+                const props = resolver.componentProps(file);
+                const fallback = unwrapInput(exp.right);
+                if (selected && ts.isPropertyAccessExpression(selected) && ts.isIdentifier(selected.expression)
+                    && selected.expression.text === props?.propsName && ts.isObjectLiteralExpression(fallback)
+                    && resolver.componentPropDeclaration(file, selected.name.text))
+                {
+                    unchangedObjectProp(file, selected.name.text);
+                    return { objectProp: { file, property: selected.name.text, key: property, fallback, fallbackFile: file } };
+                }
+            }
             if (exp && ts.isIdentifier(exp))
             {
                 const props = resolver.componentProps(file);
@@ -1478,6 +1568,33 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     || !(declarations[0].parent.flags & ts.NodeFlags.Const))
                 {
                     fail(`unknown component input spread ${file}#${property}`);
+                }
+                unchangedBinding(record, exp.text, declarations[0].name);
+                function escaped(node)
+                {
+                    const argumentsToCheck = ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments ?? []
+                        : ts.isVariableDeclaration(node) && node.initializer ? [node.initializer] : [];
+                    const root = (value) =>
+                    {
+                        value = unwrapInput(value);
+                        while (value && (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)))
+                        {
+                            value = unwrapInput(value.expression);
+                        }
+                        return value && ts.isIdentifier(value) ? value.text : null;
+                    };
+                    if (argumentsToCheck.some((argument) => root(argument) === exp.text)
+                        || ((ts.isCallExpression(node) || ts.isNewExpression(node)) && root(node.expression) === exp.text))
+                    {
+                        fail(`escaped component input spread ${key}`);
+                    }
+                    ts.forEachChild(node, escaped);
+                }
+                record.scripts.forEach(({ ast }) => escaped(ast));
+                if (ts.isCallExpression(value) && vueBinding(record, value.expression, 'useAttrs'))
+                {
+                    objectKeyAbsenceProofs.push(resolver.resolveObjectKeyAbsence(file, exp, property));
+                    return absent;
                 }
                 return spreadInput(file, value, property, new Set([...seen, key]));
             }
@@ -1520,16 +1637,20 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 }
                 return absent;
             }
-            fail(`unknown component input spread ${file}#${property}`);
+            try
+            {
+                const proof = resolver.resolveObjectKeyAbsence(file, exp, property);
+                objectKeyAbsenceProofs.push(proof);
+                return absent;
+            }
+            catch
+            {
+                fail(`unknown component input spread ${file}#${property}`);
+            }
         }
-        function componentInput(call, property, seen = new Set())
+        function readComponentInput(call, property)
         {
             const key = `${call.id}#${property}`;
-            if (seen.has(key))
-            {
-                fail(`cyclic component input ${key}`);
-            }
-            const next = new Set([...seen, key]);
             const declaration = resolver.componentPropDeclaration(call.definition, property);
             if (!declaration || call.directives.some((entry) => entry.name === 'bind' && entry.argumentStatic === false))
             {
@@ -1563,6 +1684,22 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             {
                 input = { file: call.file, expression: expression(JSON.stringify(call.attributes[attributes[0]]), call.file) };
             }
+            if (input !== absent && input.expression && input.file === call.file)
+            {
+                let root = unwrapInput(input.expression);
+                while (root && (ts.isPropertyAccessExpression(root) || ts.isElementAccessExpression(root)))
+                {
+                    root = unwrapInput(root.expression);
+                }
+                if (root && ts.isIdentifier(root) && call.scopedBindings?.includes(root.text))
+                {
+                    fail(`template-shadowed component input ${key}`);
+                }
+            }
+            return input;
+        }
+        function defaultComponentInput(input, declaration)
+        {
             const suppliedUndefined = input !== absent && input.expression && ts.isIdentifier(unwrapInput(input.expression))
                 && unwrapInput(input.expression).text === 'undefined' && !resolver.parse(input.file).imports.has('undefined')
                 && !resolver.parse(input.file).variables.has('undefined');
@@ -1575,6 +1712,88 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 }
                 input = value ? { file: declaration.file, expression: value } : absent;
             }
+            return input;
+        }
+        function objectPropInputs(edge, seen)
+        {
+            const identity = `${edge.file}#${edge.property}#${edge.key}`;
+            if (seen.has(identity))
+            {
+                fail(`cyclic object prop input ${identity}`);
+            }
+            const next = new Set([...seen, identity]);
+            const parents = graphNodes.filter((entry) => entry.definition === edge.file);
+            if (!parents.length)
+            {
+                fail(`unbound object prop input ${identity}`);
+            }
+            return parents.flatMap((parent) =>
+            {
+                const declaration = resolver.componentPropDeclaration(parent.definition, edge.property);
+                let input = defaultComponentInput(readComponentInput(parent, edge.property), declaration);
+                const value = input !== absent && input.expression ? unwrapInput(input.expression) : null;
+                const record = input !== absent && input.file ? resolver.parse(input.file) : null;
+                const props = record && resolver.componentProps(record.file);
+                const forwarded = input !== absent && input.forwarded ? input.forwarded
+                    : value && ts.isPropertyAccessExpression(value) && ts.isIdentifier(value.expression)
+                        && value.expression.text === props?.propsName ? { file: record.file, property: value.name.text }
+                        : value && ts.isIdentifier(value) && !record.variables.has(value.text) && !record.imports.has(value.text)
+                            && resolver.componentPropDeclaration(record.file, value.text) ? { file: record.file, property: value.text } : null;
+                if (forwarded)
+                {
+                    if (value && ts.isPropertyAccessExpression(value))
+                    {
+                        unchangedObjectProp(record.file, value.name.text);
+                    }
+                    return objectPropInputs({ ...edge, ...forwarded }, next)
+                        .map((entry) => ({ ...entry, callPath: [parent.id, ...entry.callPath] }));
+                }
+                if (input === absent || value?.kind === ts.SyntaxKind.NullKeyword)
+                {
+                    input = { file: edge.fallbackFile, expression: edge.fallback };
+                }
+                if (!input.expression)
+                {
+                    fail(`unknown object prop payload ${identity}`);
+                }
+                const field = spreadInput(input.file, input.expression, edge.key, next);
+                if (field !== absent && field.objectProp)
+                {
+                    return objectPropInputs(field.objectProp, next)
+                        .map((entry) => ({ ...entry, callPath: [parent.id, ...entry.callPath] }));
+                }
+                return [{ input: field, callPath: [parent.id] }];
+            });
+        }
+        function componentInput(call, property, seen = new Set(), override = undefined)
+        {
+            const key = `${call.id}#${property}`;
+            if (seen.has(key))
+            {
+                fail(`cyclic component input ${key}`);
+            }
+            const next = new Set([...seen, key]);
+            const declaration = resolver.componentPropDeclaration(call.definition, property);
+            if (!declaration)
+            {
+                fail(`unknown component input ${key}`);
+            }
+            let input = override === undefined ? readComponentInput(call, property) : override;
+            if (input !== absent && input.objectProp)
+            {
+                return objectPropInputs(input.objectProp, next).flatMap((entry) => componentInput(call, property, seen, entry.input)
+                    .map((result) =>
+                    {
+                        const tail = result.callPath.slice(1);
+                        let overlap = Math.min(entry.callPath.length, tail.length);
+                        while (overlap && entry.callPath.slice(-overlap).some((id, index) => id !== tail[index]))
+                        {
+                            overlap--;
+                        }
+                        return { ...result, callPath: [call.id, ...entry.callPath, ...tail.slice(overlap)] };
+                    }));
+            }
+            input = defaultComponentInput(input, declaration);
             const expand = (edge) =>
             {
                 const parents = graphNodes.filter((entry) => entry.definition === edge.file);
@@ -1649,6 +1868,41 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             return results.map((result) => ({ ...result, callPath: [call.id, ...result.callPath] }));
         }
+        for (const node of graphNodes.filter((node) => node.origin.kind === 'native-prop'))
+        {
+            const calls = graphNodes.filter((call) => call.definition === node.file);
+            if (!calls.length)
+            {
+                nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property });
+            }
+            for (const call of calls)
+            {
+                try
+                {
+                    const value = staticPropValue(resolver.parse(node.file), call, node.origin.property);
+                    const inputs = typeof value === 'string' && dom.parserOptions.isNativeTag(value)
+                        ? [{ target: { kind: 'native', name: value }, callPath: [call.id] }]
+                        : componentInput(call, node.origin.property);
+                    for (const input of inputs)
+                    {
+                        if (input.target?.kind !== 'native' || !dom.parserOptions.isNativeTag(input.target.name))
+                        {
+                            fail(`unknown native prop input ${node.file}#${node.origin.property}`);
+                        }
+                        nativePropBindings.push({ sourceNode: node.id, callNode: call.id, tag: input.target.name,
+                            callPath: input.callPath, inputDigests: input.callPath.map((id) =>
+                            {
+                                const entry = nodes.get(id);
+                                return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
+                            }), inputDigest: controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }) });
+                    }
+                }
+                catch (error)
+                {
+                    nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property, callNode: call.id, message: error.message });
+                }
+            }
+        }
         // Bind every deferred prop to its actual calls. Names and declared types
         // never authorize an unknown supplied value or an unproven default.
         for (const node of graphNodes.filter((entry) => entry.origin.kind === 'component-prop'))
@@ -1671,7 +1925,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                             exp = unwrapInput(exp);
                             if (exp && ts.isIdentifier(exp))
                             {
-                                return exp.text === node.origin.property;
+                                return exp.text === node.origin.property || node.origin.selectorSource?.bindingFile === node.file
+                                    && node.origin.selectorSource.property === node.origin.property && exp.text === node.origin.selectorSource.name;
                             }
                             return exp && ts.isBinaryExpression(exp) && exp.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
                                 && (requiresInput(exp.left) || requiresInput(exp.right));
@@ -1816,7 +2071,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         errors.push(...bindings.errors);
         return { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
             files: [...records.values()].filter((record) => reachable.has(record.file)),
-            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings, resolverInputs: bindings.files,
+            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings,
+            objectKeyAbsenceProofs: [...new Map(objectKeyAbsenceProofs.map((proof) => [proof.proofDigest, proof])).values()], resolverInputs: bindings.files,
             errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors], sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
     }
     function instrument(file, code)

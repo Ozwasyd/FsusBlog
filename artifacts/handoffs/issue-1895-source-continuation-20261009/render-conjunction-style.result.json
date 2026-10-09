@@ -1,0 +1,48 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/tools/layout-render-conjunction-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791542764.7567985,
+  "durationSeconds": 4.954806804656982,
+  "source": {
+    "blog": {
+      "commit": "b473fdb1649d5c418987e72ff12bc72bd3d73b61",
+      "tree": "0d87b5c33cb4d638476783d4ea8f0d85c2bb23f4",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n?? tests/tools/layout-render-conjunction-source.test.mjs",
+      "diffDigest": "2eb5061c98c11a314bb9da568cc24968f28da5bbc54032b111f1ea0d749a7acb"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "b473fdb1649d5c418987e72ff12bc72bd3d73b61",
+      "tree": "0d87b5c33cb4d638476783d4ea8f0d85c2bb23f4",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n?? tests/tools/layout-render-conjunction-source.test.mjs",
+      "diffDigest": "2eb5061c98c11a314bb9da568cc24968f28da5bbc54032b111f1ea0d749a7acb"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/render-conjunction-evidence/style.log",
+  "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+}

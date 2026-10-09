@@ -203,7 +203,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                     fail(`${file}: unresolved external script`);
                 }
                 return { ast: parseScript(block.content, file + (block.lang === 'tsx' ? '.tsx' : '.ts')),
-                    offset: block.loc.start.offset };
+                    offset: block.loc.start.offset, setup: block === result.descriptor.scriptSetup };
             });
             if (result.descriptor.template)
             {
@@ -903,6 +903,14 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         if (value && ts.isIdentifier(value) && !record.imports.has(value.text) && !record.variables.has(value.text))
         {
+            if (templateRefs)
+            {
+                const returned = returnedPropSelector(file, value);
+                if (returned)
+                {
+                    return returned;
+                }
+            }
             const declaration = componentPropDeclaration(file, value.text);
             if (declaration)
             {
@@ -1089,6 +1097,405 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         const script = parse(file).scripts.find(({ ast }) => ast === node.getSourceFile());
         return { file, offset: script ? script.offset + node.getStart() : null,
             kind: script ? 'script-source' : 'selector-expression', digest: controlDigest(node.getText()) };
+    };
+    const returnedPropSelector = (file, identifier) =>
+    {
+        const record = parse(file);
+        const matches = [];
+        function find(node)
+        {
+            if (ts.isVariableDeclaration(node) && ts.isObjectBindingPattern(node.name)
+                && node.name.elements.some((binding) => ts.isIdentifier(binding.name) && binding.name.text === identifier.text))
+            {
+                matches.push(node);
+            }
+            ts.forEachChild(node, find);
+        }
+        record.scripts.forEach(({ ast }) => find(ast));
+        if (!matches.length)
+        {
+            return null;
+        }
+        finiteComponentBinding(file, identifier.text);
+        const binding = matches[0];
+        const call = unwrap(binding.initializer);
+        if (!call || !ts.isCallExpression(call) || !call.arguments.length)
+        {
+            return null;
+        }
+        const field = binding.name.elements.find((entry) => entry.name.text === identifier.text);
+        if (matches.length !== 1 || !call || !ts.isCallExpression(call) || call.arguments.some(ts.isSpreadElement)
+            || field.initializer || field.dotDotDotToken || field.propertyName && ts.isComputedPropertyName(field.propertyName))
+        {
+            fail(`unknown returned prop selector ${file}#${identifier.text}`);
+        }
+        const props = componentProps(file);
+        const input = unwrap(call.arguments[0]);
+        if (!props || !input || !ts.isIdentifier(input) || input.text !== props.propsName)
+        {
+            fail(`unbound returned selector props ${file}#${identifier.text}`);
+        }
+        const directSetup = record.scripts.some(({ ast, setup }) => setup && ast === binding.getSourceFile()
+            && ts.isVariableStatement(binding.parent.parent) && binding.parent.parent.parent === ast);
+        if (!directSetup)
+        {
+            let parent = binding.parent;
+            while (parent && !ts.isMethodDeclaration(parent) && !ts.isArrowFunction(parent) && !ts.isFunctionExpression(parent))
+            {
+                parent = parent.parent;
+            }
+            const exportedSetup = record.scripts.some(({ ast }) => ast.statements.filter(ts.isExportAssignment).some((statement) =>
+            {
+                const definition = unwrap(statement.expression);
+                const imported = definition && ts.isCallExpression(definition) && ts.isIdentifier(definition.expression)
+                    ? record.imports.get(definition.expression.text) : null;
+                const setup = imported?.specifier === 'vue' && imported.name === 'defineComponent' && definition.arguments.length === 1
+                    ? objectProperty(definition.arguments[0], 'setup') : null;
+                const returned = setup?.body && ts.isBlock(setup.body) ? setup.body.statements.at(-1) : null;
+                let value = returned && ts.isReturnStatement(returned) ? objectProperty(returned.expression, identifier.text) : null;
+                value = value && ts.isShorthandPropertyAssignment(value) ? value.name : value;
+                return setup === parent && value && ts.isIdentifier(value) && value.text === identifier.text;
+            }));
+            if (!exportedSetup)
+            {
+                fail(`unexposed returned selector ${file}#${identifier.text}`);
+            }
+        }
+        const target = componentFunction(file, call.expression);
+        const fn = target.fn;
+        if (!ts.isBlock(fn.body) || call.arguments.length !== fn.parameters.length || !fn.parameters.length
+            || fn.parameters.some((parameter) => !ts.isIdentifier(parameter.name) || parameter.initializer || parameter.dotDotDotToken))
+        {
+            fail(`unknown returned selector arguments ${file}#${identifier.text}`);
+        }
+        const parameter = fn.parameters[0].name.text;
+        const returns = [];
+        const readonlySteps = [];
+        function validate(node, owner = target.file, name = parameter, follow = false, declaration = null, visiting = new Set())
+        {
+            const root = (value) =>
+            {
+                value = unwrap(value);
+                while (value && (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)))
+                {
+                    value = unwrap(value.expression);
+                }
+                return value && ts.isIdentifier(value) ? value.text : null;
+            };
+            if (ts.isIdentifier(node) && node.text === name && node !== declaration && node.parent.name === node
+                && (ts.isParameter(node.parent) || ts.isVariableDeclaration(node.parent) || ts.isBindingElement(node.parent)))
+            {
+                fail(`shadowed selector props ${owner}#${name}`);
+            }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment && root(node.left) === name
+                || ts.isDeleteExpression(node) && root(node.expression) === name
+                || (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+                    && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) && root(node.operand) === name)
+            {
+                fail(`mutated selector props ${owner}#${name}`);
+            }
+            const args = ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments ?? []
+                : ts.isVariableDeclaration(node) && node.initializer ? [node.initializer] : [];
+            if (args.some((argument) => ts.isIdentifier(unwrap(argument)) && unwrap(argument).text === name) && node !== call)
+            {
+                if (!follow || !ts.isCallExpression(node) || !ts.isIdentifier(unwrap(args[0])) || unwrap(args[0]).text !== name
+                    || args.slice(1).some((argument) => root(argument) === name))
+                {
+                    fail(`escaped selector props ${owner}#${name}`);
+                }
+                const helper = componentFunction(owner, node.expression);
+                const key = `${helper.file}#${helper.name}`;
+                const parameter = helper.fn.parameters[0];
+                if (visiting.has(key) || !parameter || !ts.isIdentifier(parameter.name) || parameter.initializer || parameter.dotDotDotToken)
+                {
+                    fail(`unknown readonly selector helper ${key}`);
+                }
+                readonlySteps.push(componentSourceStep(helper.file, helper.fn));
+                validate(helper.fn.body, helper.file, parameter.name.text, false, null, new Set([...visiting, key]));
+            }
+            if (ts.isReturnStatement(node) && node.expression && ts.isIdentifier(unwrap(node.expression)) && unwrap(node.expression).text === name)
+            {
+                fail(`escaped selector props return ${owner}#${name}`);
+            }
+            ts.forEachChild(node, (child) => validate(child, owner, name, follow, declaration, visiting));
+        }
+        validate(fn.body);
+        const callerBindings = [];
+        function propsBinding(node)
+        {
+            if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && ts.isIdentifier(node.name) && node.name.text === props.propsName)
+            {
+                callerBindings.push(node.name);
+            }
+            ts.forEachChild(node, propsBinding);
+        }
+        record.scripts.forEach(({ ast }) => propsBinding(ast));
+        if (callerBindings.length !== 1)
+        {
+            fail(`unknown caller selector props ${file}`);
+        }
+        record.scripts.forEach(({ ast }) => validate(ast, file, props.propsName, true, callerBindings[0]));
+        function findReturns(node)
+        {
+            if (ts.isFunctionLike(node))
+            {
+                return;
+            }
+            if (ts.isReturnStatement(node))
+            {
+                returns.push(node);
+                return;
+            }
+            ts.forEachChild(node, findReturns);
+        }
+        findReturns(fn.body);
+        const returned = returns[0];
+        const object = returned && unwrap(returned.expression);
+        if (returns.length !== 1 || fn.body.statements.at(-1) !== returned || !object || !ts.isObjectLiteralExpression(object)
+            || object.properties.some((entry) => !(ts.isPropertyAssignment(entry) || ts.isShorthandPropertyAssignment(entry))
+                || ts.isComputedPropertyName(entry.name) || entry.name.text === '__proto__')
+            || new Set(object.properties.map((entry) => entry.name.text)).size !== object.properties.length)
+        {
+            fail(`unknown selector object return ${target.file}`);
+        }
+        let selected = objectProperty(object, (field.propertyName ?? field.name).text);
+        selected = selected && ts.isShorthandPropertyAssignment(selected) ? selected.name : selected;
+        const steps = [componentSourceStep(file, binding), componentSourceStep(file, call), componentSourceStep(target.file, fn), ...readonlySteps];
+        const edges = [];
+        let emptyBranches = 0;
+        function selector(node, seen = new Set())
+        {
+            node = unwrap(node);
+            if (!node || seen.has(node.getText()))
+            {
+                fail(`unknown selector value ${target.file}`);
+            }
+            const next = new Set([...seen, node.getText()]);
+            steps.push(componentSourceStep(target.file, node));
+            if (ts.isIdentifier(node))
+            {
+                finiteComponentBinding(target.file, node.text);
+                function escaped(candidate)
+                {
+                    const root = (value) =>
+                    {
+                        value = unwrap(value);
+                        while (value && (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)))
+                        {
+                            value = unwrap(value.expression);
+                        }
+                        return value && ts.isIdentifier(value) ? value.text : null;
+                    };
+                    const argumentsToCheck = ts.isCallExpression(candidate) || ts.isNewExpression(candidate) ? candidate.arguments ?? []
+                        : ts.isVariableDeclaration(candidate) && candidate.initializer ? [candidate.initializer] : [];
+                    if (argumentsToCheck.some((argument) => root(argument) === node.text)
+                        || ((ts.isCallExpression(candidate) || ts.isNewExpression(candidate)) && root(candidate.expression) === node.text))
+                    {
+                        fail(`escaped returned selector ${target.file}#${node.text}`);
+                    }
+                    ts.forEachChild(candidate, escaped);
+                }
+                escaped(fn.body);
+                selector(parse(target.file).variables.get(node.text), next);
+                return;
+            }
+            if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+                && parse(target.file).imports.get(node.expression.text)?.specifier === 'vue'
+                && parse(target.file).imports.get(node.expression.text)?.name === 'computed')
+            {
+                finiteComponentBinding(target.file, node.expression.text);
+                const callback = node.arguments.length === 1 ? node.arguments[0] : null;
+                if (!callback || !ts.isArrowFunction(callback) || callback.parameters.length || callback.modifiers?.length || ts.isBlock(callback.body))
+                {
+                    fail(`unknown returned selector computed ${target.file}`);
+                }
+                selector(callback.body, next);
+                return;
+            }
+            if (ts.isConditionalExpression(node))
+            {
+                selector(node.whenTrue, new Set(next));
+                selector(node.whenFalse, new Set(next));
+                return;
+            }
+            if (ts.isStringLiteral(node) && node.text === '' || node.kind === ts.SyntaxKind.NullKeyword || node.kind === ts.SyntaxKind.FalseKeyword)
+            {
+                emptyBranches++;
+                return;
+            }
+            if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === parameter)
+            {
+                const declaration = componentPropDeclaration(file, node.name.text);
+                if (!declaration)
+                {
+                    fail(`undeclared returned selector prop ${file}#${node.name.text}`);
+                }
+                edges.push({ kind: 'component-prop', file, property: node.name.text, declarationFile: declaration.file,
+                    declarationDigest: declaration.declarationDigest });
+                return;
+            }
+            fail(`unknown returned selector branch ${target.file}`);
+        }
+        selector(selected);
+        if (!edges.length)
+        {
+            fail(`returned selector has no bound prop ${target.file}`);
+        }
+        return [...new Map(edges.map((edge) => [controlDigest(edge), edge])).values()].map((edge) => ({ ...edge,
+            selectorSource: { bindingFile: file, name: identifier.text, property: edge.property, emptyBranches, steps,
+                proofDigest: controlDigest({ steps, property: edge.property, emptyBranches }) } }));
+    };
+    // Prove only the absence of one object key. Values are not component sources:
+    // every actual return must construct the closed shape independently of inputs.
+    const resolveObjectKeyAbsence = (file, expression, property, { templateRefs = false } = {}) =>
+    {
+        const steps = [];
+        function returned(owner, fn, seen, refs, blocked)
+        {
+            if (fn.asteriskToken || fn.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword)
+                || fn.parameters.some((parameter) => !ts.isIdentifier(parameter.name) || parameter.initializer || parameter.dotDotDotToken))
+            {
+                fail(`unknown object shape function ${owner}#${property}`);
+            }
+            const names = new Set([...blocked, ...fn.parameters.map((parameter) => parameter.name.text)]);
+            steps.push(componentSourceStep(owner, fn));
+            let body = fn.body;
+            if (ts.isBlock(body))
+            {
+                const statements = body.statements;
+                if (!statements.length || !ts.isReturnStatement(statements.at(-1)) || !statements.at(-1).expression
+                    || statements.slice(0, -1).some((statement) => !ts.isVariableStatement(statement)
+                        || !(statement.declarationList.flags & ts.NodeFlags.Const)))
+                {
+                    fail(`unknown object shape return flow ${owner}#${property}`);
+                }
+                body = statements.at(-1).expression;
+            }
+            walk(owner, body, seen, refs, names);
+        }
+        function walk(owner, node, seen = new Set(), refs = false, blocked = new Set())
+        {
+            node = unwrap(node);
+            const identity = `${owner}:${node?.getText() ?? 'missing'}#${property}:${refs}`;
+            if (!node || seen.has(identity))
+            {
+                fail(`cyclic/unknown object shape ${identity}`);
+            }
+            const next = new Set([...seen, identity]);
+            const record = parse(owner);
+            steps.push(componentSourceStep(owner, node));
+            if (ts.isIdentifier(node))
+            {
+                if (blocked.has(node.text))
+                {
+                    fail(`input-dependent object shape ${identity}`);
+                }
+                finiteComponentBinding(owner, node.text);
+                function escaped(candidate)
+                {
+                    const root = (value) =>
+                    {
+                        value = unwrap(value);
+                        while (value && (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)))
+                        {
+                            value = unwrap(value.expression);
+                        }
+                        return value && ts.isIdentifier(value) ? value.text : null;
+                    };
+                    const argumentsToCheck = ts.isCallExpression(candidate) || ts.isNewExpression(candidate) ? candidate.arguments ?? []
+                        : ts.isVariableDeclaration(candidate) && candidate.initializer ? [candidate.initializer] : [];
+                    if (argumentsToCheck.some((argument) => root(argument) === node.text)
+                        || ((ts.isCallExpression(candidate) || ts.isNewExpression(candidate)) && root(candidate.expression) === node.text))
+                    {
+                        fail(`escaped object shape ${identity}`);
+                    }
+                    ts.forEachChild(candidate, escaped);
+                }
+                record.scripts.forEach(({ ast }) => escaped(ast));
+                const imported = record.imports.get(node.text);
+                if (imported)
+                {
+                    const target = modulePath(imported.specifier, owner, mode === 'local' && owner.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
+                    const exported = typeof target === 'string' ? exportsOf(target).get(imported.name) : null;
+                    if (!exported?.file || exported.ambiguous || exported.unresolved)
+                    {
+                        fail(`unknown object shape import ${identity}`);
+                    }
+                    walk(exported.file, parse(exported.file).variables.get(exported.name), next, refs, new Set());
+                }
+                else
+                {
+                    walk(owner, record.variables.get(node.text), next, refs, blocked);
+                }
+                return;
+            }
+            if (ts.isPropertyAccessExpression(node) && node.name.text === 'value')
+            {
+                if (refs)
+                {
+                    fail(`nested object ref read ${identity}`);
+                }
+                walk(owner, node.expression, next, true, blocked);
+                return;
+            }
+            if (ts.isConditionalExpression(node))
+            {
+                walk(owner, node.whenTrue, new Set(next), refs, blocked);
+                walk(owner, node.whenFalse, new Set(next), refs, blocked);
+                return;
+            }
+            if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && !blocked.has(node.expression.text)
+                && !node.arguments.some(ts.isSpreadElement))
+            {
+                const imported = record.imports.get(node.expression.text);
+                if (!refs && imported?.specifier === 'vue' && imported.name === 'useAttrs' && !node.arguments.length
+                    && componentPropDeclaration(owner, property))
+                {
+                    finiteComponentBinding(owner, node.expression.text);
+                    return;
+                }
+                if (imported?.specifier === 'vue' && imported.name === 'computed')
+                {
+                    finiteComponentBinding(owner, node.expression.text);
+                    const fn = node.arguments.length === 1 ? node.arguments[0] : null;
+                    if (!refs || !fn || !ts.isArrowFunction(fn) || fn.parameters.length)
+                    {
+                        fail(`unknown computed object shape ${identity}`);
+                    }
+                    returned(owner, fn, next, false, blocked);
+                    return;
+                }
+                const target = componentFunction(owner, node.expression);
+                returned(target.file, target.fn, next, refs, new Set());
+                return;
+            }
+            if (ts.isObjectLiteralExpression(node) && !refs)
+            {
+                const keys = new Set();
+                for (const field of node.properties)
+                {
+                    if (ts.isSpreadAssignment(field))
+                    {
+                        walk(owner, field.expression, new Set(next), false, blocked);
+                    }
+                    else if ((ts.isPropertyAssignment(field) || ts.isShorthandPropertyAssignment(field))
+                        && !ts.isComputedPropertyName(field.name) && field.name.text !== '__proto__'
+                        && field.name.text !== property && !keys.has(field.name.text))
+                    {
+                        keys.add(field.name.text);
+                    }
+                    else
+                    {
+                        fail(`unknown or present object key ${identity}`);
+                    }
+                }
+                return;
+            }
+            fail(`unknown object shape ${identity}`);
+        }
+        walk(file, expression, new Set(), templateRefs);
+        return { file, property, absent: true, steps, proofDigest: controlDigest({ property, steps }) };
     };
     const componentMember = (file, object, property, seen = new Set(), templateRefs = false) =>
     {
@@ -1650,7 +2057,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         return inspect(source.definition, source.exportName);
     };
     return { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations,
-        modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent,
+        modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent, resolveObjectKeyAbsence,
         isInteractive,
         identity: { mode, package: packageId, publicRoot, packageDigest: controlDigest(metadata),
             upstream: initialUpstreamIdentity, resolutionInputs, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,

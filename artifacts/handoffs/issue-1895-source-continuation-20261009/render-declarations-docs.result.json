@@ -1,0 +1,50 @@
+{
+  "command": [
+    "node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--domain",
+    "docs",
+    "--operation",
+    "lint",
+    "--mode",
+    "full",
+    "--file",
+    "docs/frontend/layout-visual-governance.md"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791541780.4229045,
+  "durationSeconds": 0.4232785701751709,
+  "source": {
+    "blog": {
+      "commit": "0188ccb1e84071c7184caa96ee73692466206f15",
+      "tree": "1a4c45a084a6f9954a4b075f501936b8cb2b40b2",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n?? tests/tools/layout-render-declarations-source.test.mjs",
+      "diffDigest": "289df5bfa268d7881e7db424710973f20bf25685c23fc51c25eb3324b8546271"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "0188ccb1e84071c7184caa96ee73692466206f15",
+      "tree": "1a4c45a084a6f9954a4b075f501936b8cb2b40b2",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n?? tests/tools/layout-render-declarations-source.test.mjs",
+      "diffDigest": "289df5bfa268d7881e7db424710973f20bf25685c23fc51c25eb3324b8546271"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/render-declarations-evidence/docs.log",
+  "logSha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e"
+}

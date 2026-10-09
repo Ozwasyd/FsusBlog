@@ -1,0 +1,48 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/tools/layout-standalone-props-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791542400.9733744,
+  "durationSeconds": 4.218979120254517,
+  "source": {
+    "blog": {
+      "commit": "97b7b9af051fed98ae7aae9aabdceca8021a19a9",
+      "tree": "7490d66d0bc81f2ed90a5dbe58ebc7bd5d1eb51b",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n?? tests/tools/layout-standalone-props-source.test.mjs",
+      "diffDigest": "ea0054d3954323f2c453e57e2fc15eae118c26aa4a40c5a8399f9f4f5c378099"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "97b7b9af051fed98ae7aae9aabdceca8021a19a9",
+      "tree": "7490d66d0bc81f2ed90a5dbe58ebc7bd5d1eb51b",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n?? tests/tools/layout-standalone-props-source.test.mjs",
+      "diffDigest": "ea0054d3954323f2c453e57e2fc15eae118c26aa4a40c5a8399f9f4f5c378099"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/standalone-props-evidence/style.log",
+  "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+}

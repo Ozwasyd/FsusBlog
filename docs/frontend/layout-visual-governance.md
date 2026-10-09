@@ -282,8 +282,59 @@ still fails. An actual imported fallback may follow a closed immutable object
 destructuring with no default or rest binding. Closed prop declaration spreads
 retain their actual fields and reject unknown overrides. Declared Vue attrs
 exclude declared props, but opaque forwarded spreads remain errors even beside
-an explicit component input. The current Dialog motion spread is unresolved;
-its traced Close fallback does not establish a rendered binding or acceptance.
+an explicit component input.
+
+Object key absence follows the actual immutable source and closed return shapes,
+including parameterized helpers whose every return constructs the shape without
+using inputs as its keys or object. This proves only that one requested key is
+excluded; opaque field values receive no component identity or admission.
+Unknown returns, dynamic keys, getters, prototype keys, mutation, escape and
+nested ref reads fail. Actual `useAttrs()` excludes only props declared by that
+same component. The Dialog motion spread now binds the actual Close fallback
+through its real helper returns and declared attrs exclusion; source proof
+does not grant runtime, geometry or visual qualification.
+
+Object-valued prop spreads follow their actual parent calls and declaration
+defaults. A nullish fallback must be the object authored by that source;
+unknown payloads never become an empty object. The same ordered call path and
+per-call input digests bind component and native prop values. Nested forwarding
+retains every supplier, and source-only matching rejects missing, reordered or
+changed suppliers. Mutable, escaped, template-shadowed, dynamically keyed and
+unknown supplied objects remain errors. The Dropdown Button bindings now follow
+the actual `buttonProps ?? {}` paths rather than guessing Button inputs or
+discarding its split-button branch.
+
+A returned computed prop selector binds the actual helper's props argument,
+closed final return object and immutable selected member. The caller must expose
+that same member through the actual Vue setup return or script-setup binding.
+Every selector branch must be a declared prop edge or an empty render value;
+no branch is chosen as product state. Unknown returns, changed or escaped props
+and members, hidden setup members and template shadowing remain errors. An
+absence guard may use only the selector alias carrying that complete source
+proof. This binds Select's actual suffix-icon path and does not grant runtime
+state, legality registration or qualification.
+
+A local function declaration in the actual render body does not execute its
+body or contribute a rendered return. This preserves Options' helper declaration
+while retaining its unresolved escaped slot return. Calling an unknown helper,
+mutating or escaping a rendered value, or shadowing an actual Vue constructor or
+component import remains an error. This declaration rule proves no helper effects
+or slot provenance.
+
+Standalone script-setup prop macros bind their native default and actual literal
+call inputs through the same prop declaration path as assigned macros. The
+actual Vue compiler exposes PublicReadingPageFrame's unassigned `as` prop;
+no local variable is fabricated. Only one actual top-level macro supplies the
+declaration. Duplicate, nested, imported, shadowed or malformed macros and unknown
+defaults or call inputs remain errors. A declaration without actual suppliers
+retains its unbound input error.
+
+Script render conjunctions retain their actual right-hand render source and
+authored guard without choosing a product state. Unknown render targets, children
+and prop spreads remain errors, and route-name guards retain their visual-branch
+rejection. TableV2's conjunction syntax now exposes its actual guarded renderer
+locations; unsupported renderer definitions and scoped slot objects still fail.
+Logical disjunctions and nullish render fallbacks receive no inferred source.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state

@@ -1,0 +1,50 @@
+{
+  "command": [
+    "node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--domain",
+    "docs",
+    "--operation",
+    "lint",
+    "--mode",
+    "full",
+    "--file",
+    "docs/frontend/layout-visual-governance.md"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791542405.2255812,
+  "durationSeconds": 0.446915864944458,
+  "source": {
+    "blog": {
+      "commit": "97b7b9af051fed98ae7aae9aabdceca8021a19a9",
+      "tree": "7490d66d0bc81f2ed90a5dbe58ebc7bd5d1eb51b",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n?? tests/tools/layout-standalone-props-source.test.mjs",
+      "diffDigest": "ea0054d3954323f2c453e57e2fc15eae118c26aa4a40c5a8399f9f4f5c378099"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "97b7b9af051fed98ae7aae9aabdceca8021a19a9",
+      "tree": "7490d66d0bc81f2ed90a5dbe58ebc7bd5d1eb51b",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n?? tests/tools/layout-standalone-props-source.test.mjs",
+      "diffDigest": "ea0054d3954323f2c453e57e2fc15eae118c26aa4a40c5a8399f9f4f5c378099"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/standalone-props-evidence/docs.log",
+  "logSha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e"
+}

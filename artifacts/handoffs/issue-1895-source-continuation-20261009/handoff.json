@@ -1,0 +1,560 @@
+{
+  "schema": "fsusblog.chain-1895-source-continuation-handoff.v1",
+  "generatedAtUtc": "2026-10-09T10:55:46.499503+00:00",
+  "scope": "ordinary canonical AST source implementation and exact selected source regressions; no production inventory/receipt or qualification run",
+  "qualificationEligible": false,
+  "fullVisualVerified": false,
+  "sourceHead": "b2d4ca368eb8cf596d55393bc6b635afd313b112",
+  "sourceTree": "14f1a115f614d29d83a440949de445ef7d98698c",
+  "branch": "codex/chain-1895-component-prop-source",
+  "sourceRemoteVerified": true,
+  "latestFetchedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "scopedMasterDriftLog": "/workspace/chain-1895-component-prop-source/render-conjunction-evidence/master-scoped-diff.log",
+  "upstream": {
+    "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+    "clean": true,
+    "edited": false
+  },
+  "commits": {
+    "object-key": "d47e4ed0b1d3549560b36b5733dd0350915eefff",
+    "object-props": "9214a6ed04ef0bdd538bbb8852d6a9f06c815e3f",
+    "returned-props": "0188ccb1e84071c7184caa96ee73692466206f15",
+    "render-declarations": "97b7b9af051fed98ae7aae9aabdceca8021a19a9",
+    "standalone-props": "b473fdb1649d5c418987e72ff12bc72bd3d73b61",
+    "render-conjunction": "b2d4ca368eb8cf596d55393bc6b635afd313b112"
+  },
+  "ordinaryRuns": [
+    {
+      "name": "object-key",
+      "testedCommit": "d47e4ed0b1d3549560b36b5733dd0350915eefff",
+      "selected": 249,
+      "passed": 249,
+      "failed": 0,
+      "skipped": 0,
+      "ordinarySourceVerificationOnly": true,
+      "qualificationEligible": false,
+      "receipt": "object-key-positive-committed.result.json",
+      "log": "object-key-positive-committed.txt",
+      "logSha256": "772b7671c0c26f05a33cafecddbb1b18ce640a7ddf88aa852ebd04814ae40599"
+    },
+    {
+      "name": "object-props",
+      "testedCommit": "9214a6ed04ef0bdd538bbb8852d6a9f06c815e3f",
+      "selected": 270,
+      "passed": 270,
+      "failed": 0,
+      "skipped": 0,
+      "ordinarySourceVerificationOnly": true,
+      "qualificationEligible": false,
+      "receipt": "object-props-positive-committed.result.json",
+      "log": "object-props-positive-committed.txt",
+      "logSha256": "2525ab120213a4531427ff82391db624fb830c6c9a2a76779afc12abf6f6a8f7"
+    },
+    {
+      "name": "returned-props",
+      "testedCommit": "0188ccb1e84071c7184caa96ee73692466206f15",
+      "selected": 291,
+      "passed": 291,
+      "failed": 0,
+      "skipped": 0,
+      "ordinarySourceVerificationOnly": true,
+      "qualificationEligible": false,
+      "receipt": "returned-props-positive-committed.result.json",
+      "log": "returned-props-positive-committed.txt",
+      "logSha256": "b84a990bde24f687b843d990bbaf1f96b5f3c8eebdbe837496259527c0a6e4e3"
+    },
+    {
+      "name": "render-declarations",
+      "testedCommit": "97b7b9af051fed98ae7aae9aabdceca8021a19a9",
+      "selected": 299,
+      "passed": 299,
+      "failed": 0,
+      "skipped": 0,
+      "ordinarySourceVerificationOnly": true,
+      "qualificationEligible": false,
+      "receipt": "render-declarations-positive-committed.result.json",
+      "log": "render-declarations-positive-committed.txt",
+      "logSha256": "c6e6b64a8c8a54672742dd492388e7554411aab1af655415cfb8c7b7131b1cc0"
+    },
+    {
+      "name": "standalone-props",
+      "testedCommit": "b473fdb1649d5c418987e72ff12bc72bd3d73b61",
+      "selected": 319,
+      "passed": 319,
+      "failed": 0,
+      "skipped": 0,
+      "ordinarySourceVerificationOnly": true,
+      "qualificationEligible": false,
+      "receipt": "standalone-props-positive-committed.result.json",
+      "log": "standalone-props-positive-committed.txt",
+      "logSha256": "ad544a70c86f8605936908c89bd5fad5e61bc599c5bd2c9e2b55924cbcac89cf"
+    },
+    {
+      "name": "render-conjunction",
+      "testedCommit": "b2d4ca368eb8cf596d55393bc6b635afd313b112",
+      "selected": 331,
+      "passed": 331,
+      "failed": 0,
+      "skipped": 0,
+      "ordinarySourceVerificationOnly": true,
+      "qualificationEligible": false,
+      "receipt": "render-conjunction-positive-committed.result.json",
+      "log": "render-conjunction-positive-committed.txt",
+      "logSha256": "c159589fd46be49e7af4262768d788f86ba090737a341e07da249542dfcebcf2"
+    }
+  ],
+  "retainedFailedAttempts": [
+    {
+      "attempt": "object-key-failed-first.result.json",
+      "exitCode": 1,
+      "portableLog": "object-key-failed-first.txt.gz",
+      "logEncoding": "gzip",
+      "originalLogSha256": "0d91efd1bc3890c75e14a68619cec4dab183bce05f9031e9f0f7af3a87c9520a",
+      "status": "retained failed ordinary attempt; corrected before the clean committed passing run; never qualification evidence"
+    },
+    {
+      "attempt": "render-declarations-failed-first.result.json",
+      "exitCode": 1,
+      "portableLog": "render-declarations-failed-first.txt.gz",
+      "logEncoding": "gzip",
+      "originalLogSha256": "3876db199186e63fa6d9761c688f68b40469d770de065a7140bdb7cadd92d299",
+      "status": "retained failed ordinary attempt; corrected before the clean committed passing run; never qualification evidence"
+    },
+    {
+      "attempt": "standalone-failed-name-preflight.json",
+      "status": "test-name list parsing stopped before any test command; fixture table representation corrected, fresh nonempty preflight then passed"
+    }
+  ],
+  "canonicalSourceClosure": {
+    "originalRegistryFile": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+    "originalPackageFile": "package.json",
+    "fileCount": 10,
+    "rawFileSha256": {
+      "tests/frontend/support/layout/compositionAnalyzer.mjs": "129c4767e58a246558baea7a95e579cd844ab5500ab5e9474b6cff157f6187eb",
+      "tests/frontend/support/layout/compositionSource.mjs": "20877bddd0d63b86079f6033b0158ce2ec648c1556e8d0457b53aad19d2224ed",
+      "tests/frontend/support/layout/compositionRoutes.mjs": "46808957bfcb5082f881bbc9330de75966c2906ddd1cbbed3e91ca32c43cd8c1",
+      "tests/frontend/support/layout/compositionDom.mjs": "4392c2c9028fea788b83735d6facd202ba843f03992ca7b9d5d89a92eca08cd0",
+      "tests/frontend/support/layout/compositionGeometry.mjs": "ea79af0e94df0f36201e2755b6fd79272fae15bb8c59f3de286cc5a8f572666f",
+      "tests/frontend/support/layout/compositionOrderGeometry.mjs": "628a77e720054a665646ee37bb6c71a587a71bcb178711567d0f3a4c627db094",
+      "tests/frontend/support/layout/compositionOverflowGeometry.mjs": "91d3dbb3578170c4e4fee60b0c1b40441b585763999b8ef8fdb5e4dde6d9e4aa",
+      "tests/frontend/support/layout/compositionChromeGeometry.mjs": "31e0de2dfcded482485dc75f23dd3f79b070ba10f0a0cf8d85e44c15e7d5f9b0",
+      "tests/frontend/support/layout/compositionContracts.mjs": "bf5752f757afbf9e3e168469b972a230923166e76dff9c8b56595ae2f7a0ef5b",
+      "tools/frontend/control-legality/source.mjs": "78a93b5f1848a1e4a74f9cd40451a87f64c829c0499f9104fdb19813d4912073"
+    },
+    "qualificationDigest": "NOT computed here; file hashes do not replace the canonical current graph/run identity",
+    "matrixFile": "tests/frontend/fixtures/layout-archetype-matrix.json",
+    "unchangedMatrixGitBlob": "2fe92f9c9d37f3e8ecc605ca12b2ec229bb67aa2",
+    "fullGeometryVerified": false
+  },
+  "exactSelection": {
+    "file": "exact-331-selection.json",
+    "selected": 331,
+    "files": 16,
+    "cleanupHooksReviewed": 16,
+    "gitHooks": {
+      "configuration": "unset (exit1 expected)",
+      "directory": "/workspace/FsusBlog/.git/hooks",
+      "active": []
+    },
+    "heldExcluded": [
+      "all twelve fixtures bind to actual router AST/import graph without a second map",
+      "actual contract, design and FsusUI digests are bound to the current run"
+    ],
+    "replacementHarness": false
+  },
+  "historicalProductionBaseline": {
+    "file": "/workspace/chain-1895-component-prop-source/alternatives-evidence/production-final.json",
+    "sourceCommit": "8f376bc258736fa96d1bf18954b31720fb44e4d5",
+    "counts": {
+      "src/frontend/src/views/admin/Settings.vue": 8,
+      "src/frontend/src/components/admin/settings/SettingsPageEditor.vue": 0,
+      "src/frontend/src/components/ui/LocaleSelector.vue": 7
+    },
+    "currentProductionRescan": "not-run per coordinating parent; no subtraction-derived fresh counts"
+  },
+  "fifteenRootCauses": [
+    {
+      "id": "S1",
+      "historicalEntry": "src/frontend/src/views/admin/Settings.vue",
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "line": 87,
+      "offset": 3009,
+      "propertyOrRender": "validateIcon",
+      "originalReason": "unknown-component-source",
+      "originalMessage": "[control-legality] /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]",
+      "actualContract": "ValidateComponentsMap has three own icon fields; injected validateState is an open runtime string and Vue prop validators warn rather than filter.",
+      "classification": "own injected provider/call-context binding gap; finite producer closure is not established by types or values. Actual Settings has no supplied status-icon/validate-status; do not add consumer false overrides.",
+      "sourceCaseFixedAt": null,
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance"
+    },
+    {
+      "id": "S2",
+      "historicalEntry": "src/frontend/src/views/admin/Settings.vue",
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "line": 44,
+      "offset": 1069,
+      "propertyOrRender": "withDirectives(cloneVNode(firstLegitNode, attrs))",
+      "originalReason": "unknown-render-source",
+      "originalMessage": "[composition-source] unknown script render output /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])",
+      "actualContract": "Actual public Vue cloneVNode and withDirectives wrap the actual slot VNode; findFirstLegitChild filters, recurses Fragment and can emit a native span.",
+      "classification": "own slot/input provenance, helper effect and clone attrs binding gap; no name-based public admission",
+      "sourceCaseFixedAt": null,
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance"
+    },
+    {
+      "id": "S3",
+      "historicalEntry": "src/frontend/src/views/admin/Settings.vue",
+      "file": "FsusUI/vue/packages/components/select/src/select.vue",
+      "line": 228,
+      "offset": 8694,
+      "propertyOrRender": "iconComponent / suffixIcon",
+      "originalReason": "unknown-component-source",
+      "originalMessage": "[control-legality] /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/select/src/select.vue: unresolved component expression iconComponent",
+      "actualContract": "Actual useSelect(props,states,ctx) returns a computed member whose every branch is the declared suffixIcon prop or an empty string; actual default is ArrowDown.",
+      "classification": "source case fixed by actual returned selector, caller props and setup exposure proof",
+      "sourceCaseFixedAt": "0188ccb1e84071c7184caa96ee73692466206f15",
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance"
+    },
+    {
+      "id": "S4",
+      "historicalEntry": "src/frontend/src/views/admin/Settings.vue",
+      "file": "FsusUI/vue/packages/components/select/src/options.ts",
+      "line": 25,
+      "offset": 668,
+      "propertyOrRender": "filterOptions declaration",
+      "originalReason": "unknown-render-source",
+      "originalMessage": "unknown script render flow /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/select/src/options.ts:668",
+      "actualContract": "A function declaration creates the helper without executing its body.",
+      "classification": "source case fixed; does not prove helper calls or slot return",
+      "sourceCaseFixedAt": "97b7b9af051fed98ae7aae9aabdceca8021a19a9",
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance"
+    },
+    {
+      "id": "S5",
+      "historicalEntry": "src/frontend/src/views/admin/Settings.vue",
+      "file": "FsusUI/vue/packages/components/select/src/options.ts",
+      "line": 55,
+      "offset": 1664,
+      "propertyOrRender": "children returned after filterOptions(children[0]?.children)",
+      "originalReason": "unknown-render-source",
+      "originalMessage": "[composition-source] escaped script render constant /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/select/src/options.ts#children",
+      "actualContract": "Actual helper iterates descendants and may execute item.children.default(); returned children are passed into this helper.",
+      "classification": "own slot/helper effect binding gap; arbitrary callbacks are not pure by function name or VNode annotation",
+      "sourceCaseFixedAt": null,
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance"
+    },
+    {
+      "id": "S6",
+      "historicalEntry": "src/frontend/src/views/admin/Settings.vue",
+      "file": "FsusUI/vue/packages/components/slider/src/marker.ts",
+      "line": 39,
+      "offset": 1035,
+      "propertyOrRender": "label.value / mark",
+      "originalReason": "unknown-render-source",
+      "originalMessage": "[composition-source] unknown script render output /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/slider/src/marker.ts:1035: label.value",
+      "actualContract": "Public mark accepts string or an object with label:any. Actual ImageUploadOptionsPanel has three Slider calls without marks; actual useMarks returns [] if !props.marks.",
+      "classification": "own actual no-marks supplier and empty-collection conditional binding gap; provided opaque labels remain rejected",
+      "sourceCaseFixedAt": null,
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance"
+    },
+    {
+      "id": "S7",
+      "historicalEntry": "src/frontend/src/views/admin/Settings.vue",
+      "file": "FsusUI/vue/packages/components/tabs/src/tab-nav.tsx",
+      "line": 311,
+      "offset": 8632,
+      "propertyOrRender": "props.panes.map / pane.slots.label / pane.props.label",
+      "originalReason": "unknown-render-source",
+      "originalMessage": "[composition-source] unknown script render output /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/tabs/src/tab-nav.tsx:8632: props.panes.map((pane, index) => {\n        const uid = pane.uid\n        const disabled = pane.props.disabled\n        const tabName = pane.props.name ?? pane.index ?? `${index}`\n        const closable = !disabled && (pane.isClosable || props.editable)\n        pane.index = `${index}`\n\n        const btnClose = closable ? (\n          <ElIcon\n            class=\"is-icon-close\"\n            // `onClick` not exist when generate dts\n            // eslint-disable-next-line @typescript-eslint/ban-ts-comment\n            // @ts-ignore\n            onClick={(ev: MouseEvent) => emit('tabRemove', pane, ev)}\n          >\n            <Close />\n          </ElIcon>\n        ) : null\n\n        const tabLabelContent = pane.slots.label?.() || pane.props.label\n        const tabindex = !disabled && pane.active ? 0 : -1\n\n        return (\n          <div\n            ref={`tab-${uid}`}\n            class={[\n              ns.e('item'),\n              ns.is(rootTabs.props.tabPosition),\n              ns.is('active', pane.active),\n              ns.is('disabled', disabled),\n              ns.is('closable', closable),\n              ns.is('focus', isFocus.value),\n            ]}\n            id={`tab-${tabName}`}\n            key={`tab-${uid}`}\n            aria-controls={`pane-${tabName}`}\n            role=\"tab\"\n            aria-selected={pane.active}\n            tabindex={tabindex}\n            onFocus={() => setFocus()}\n            onBlur={() => removeFocus()}\n            onClick={(ev: MouseEvent) => {\n              removeFocus()\n              emit('tabClick', pane, tabName, ev)\n            }}\n            onKeydown={(ev: KeyboardEvent) => {\n              if (\n                closable &&\n                (ev.code === EVENT_CODE.delete ||\n                  ev.code === EVENT_CODE.backspace)\n              ) {\n                emit('tabRemove', pane, ev)\n              }\n            }}\n          >\n            {...[tabLabelContent, btnClose]}\n          </div>\n        )\n      })",
+      "actualContract": "Actual callback builds a native tab and imported Close icon, mutates pane.index, and returns an opaque slot-label or prop value.",
+      "classification": "own collection item/slot supplier binding and callback effect gap; panes type alone cannot close render provenance",
+      "sourceCaseFixedAt": null,
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance"
+    },
+    {
+      "id": "S8",
+      "historicalEntry": "src/frontend/src/views/admin/Settings.vue",
+      "file": "FsusUI/vue/packages/components/dialog/src/dialog-content.vue",
+      "line": 17,
+      "offset": 531,
+      "propertyOrRender": "closeIcon",
+      "originalReason": "unbound-component-prop-source",
+      "originalMessage": "[composition-source] unknown component input spread /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/dialog/src/dialog.vue#closeIcon",
+      "actualContract": "Actual useComponentMotionAttrs closed return shapes exclude closeIcon, and actual same-component useAttrs excludes the declared prop. Real default is Close.",
+      "classification": "source case fixed with closed helper shapes and declared attrs exclusion",
+      "sourceCaseFixedAt": "d47e4ed0b1d3549560b36b5733dd0350915eefff",
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance",
+      "actualCallNode": "669b7ac2dd5396f3f5c7be72"
+    },
+    {
+      "id": "L1",
+      "historicalEntry": "src/frontend/src/components/ui/LocaleSelector.vue",
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "line": 44,
+      "offset": 1069,
+      "propertyOrRender": "withDirectives(cloneVNode(firstLegitNode, attrs))",
+      "originalReason": "unknown-render-source",
+      "originalMessage": "[composition-source] unknown script render output /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])",
+      "actualContract": "Actual public Vue cloneVNode and withDirectives wrap the actual slot VNode; findFirstLegitChild filters, recurses Fragment and can emit a native span.",
+      "classification": "own slot/input provenance, helper effect and clone attrs binding gap; no name-based public admission",
+      "sourceCaseFixedAt": null,
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance"
+    },
+    {
+      "id": "L2",
+      "historicalEntry": "src/frontend/src/components/ui/LocaleSelector.vue",
+      "file": "FsusUI/vue/packages/components/button/src/button.vue",
+      "line": 2,
+      "offset": 13,
+      "propertyOrRender": "tag",
+      "originalReason": "unbound-native-prop-source",
+      "originalMessage": null,
+      "actualContract": "Actual Dropdown buttonProps ?? {} comes from its actual caller or authored fallback; actual Button default is button.",
+      "classification": "source case fixed only for the two actual Dropdown supplier calls; native-only proof does not cover RouterLink component tag",
+      "sourceCaseFixedAt": "9214a6ed04ef0bdd538bbb8852d6a9f06c815e3f",
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance",
+      "actualCallNode": "f158080caeca77be3744b65d"
+    },
+    {
+      "id": "L3",
+      "historicalEntry": "src/frontend/src/components/ui/LocaleSelector.vue",
+      "file": "FsusUI/vue/packages/components/button/src/button.vue",
+      "line": 2,
+      "offset": 13,
+      "propertyOrRender": "tag",
+      "originalReason": "unbound-native-prop-source",
+      "originalMessage": null,
+      "actualContract": "Actual Dropdown buttonProps ?? {} comes from its actual caller or authored fallback; actual Button default is button.",
+      "classification": "source case fixed only for the two actual Dropdown supplier calls; native-only proof does not cover RouterLink component tag",
+      "sourceCaseFixedAt": "9214a6ed04ef0bdd538bbb8852d6a9f06c815e3f",
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance",
+      "actualCallNode": "2b611a1e085c576f63a0b834"
+    },
+    {
+      "id": "L4",
+      "historicalEntry": "src/frontend/src/components/ui/LocaleSelector.vue",
+      "file": "FsusUI/vue/packages/components/button/src/button.vue",
+      "line": 30,
+      "offset": 836,
+      "propertyOrRender": "loadingIcon",
+      "originalReason": "unbound-component-prop-source",
+      "originalMessage": "[composition-source] unknown component input spread /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon",
+      "actualContract": "Same actual Dropdown object supplier chain; actual Button imported default is Loading.",
+      "classification": "source case fixed with complete ordered per-call inputs",
+      "sourceCaseFixedAt": "9214a6ed04ef0bdd538bbb8852d6a9f06c815e3f",
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance",
+      "actualCallNode": "f158080caeca77be3744b65d"
+    },
+    {
+      "id": "L5",
+      "historicalEntry": "src/frontend/src/components/ui/LocaleSelector.vue",
+      "file": "FsusUI/vue/packages/components/button/src/button.vue",
+      "line": 30,
+      "offset": 836,
+      "propertyOrRender": "loadingIcon",
+      "originalReason": "unbound-component-prop-source",
+      "originalMessage": "[composition-source] unknown component input spread /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#loadingIcon",
+      "actualContract": "Same actual Dropdown object supplier chain; actual Button imported default is Loading.",
+      "classification": "source case fixed with complete ordered per-call inputs",
+      "sourceCaseFixedAt": "9214a6ed04ef0bdd538bbb8852d6a9f06c815e3f",
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance",
+      "actualCallNode": "2b611a1e085c576f63a0b834"
+    },
+    {
+      "id": "L6",
+      "historicalEntry": "src/frontend/src/components/ui/LocaleSelector.vue",
+      "file": "FsusUI/vue/packages/components/button/src/button.vue",
+      "line": 34,
+      "offset": 949,
+      "propertyOrRender": "icon",
+      "originalReason": "unbound-component-prop-source",
+      "originalMessage": "[composition-source] unknown component input spread /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon",
+      "actualContract": "Same actual Dropdown object supplier chain; actual Button has no supplied icon and its exact guard is retained.",
+      "classification": "source case fixed with complete ordered per-call inputs and absent-input guard",
+      "sourceCaseFixedAt": "9214a6ed04ef0bdd538bbb8852d6a9f06c815e3f",
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance",
+      "actualCallNode": "f158080caeca77be3744b65d"
+    },
+    {
+      "id": "L7",
+      "historicalEntry": "src/frontend/src/components/ui/LocaleSelector.vue",
+      "file": "FsusUI/vue/packages/components/button/src/button.vue",
+      "line": 34,
+      "offset": 949,
+      "propertyOrRender": "icon",
+      "originalReason": "unbound-component-prop-source",
+      "originalMessage": "[composition-source] unknown component input spread /workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/dropdown/src/dropdown.vue#icon",
+      "actualContract": "Same actual Dropdown object supplier chain; actual Button has no supplied icon and its exact guard is retained.",
+      "classification": "source case fixed with complete ordered per-call inputs and absent-input guard",
+      "sourceCaseFixedAt": "9214a6ed04ef0bdd538bbb8852d6a9f06c815e3f",
+      "acceptance": "OPEN; source case verification only, no fresh production inventory or product acceptance",
+      "actualCallNode": "2b611a1e085c576f63a0b834"
+    }
+  ],
+  "consumerEvidence": {
+    "artifactCommit": "218db5725bd7becc44fe7cb31429e64352a29cfb",
+    "actualSourceCommit": "175248a681a590e4f05fe7d57878147776810c68",
+    "sourceContextsArtifact": "artifacts/handoffs/issue-2099-composition-source-diagnostics-20261009/source-contexts.json",
+    "sourceContextsSha256": "8cb37f7744d51477915cfbeb95367af866613e9ed40544e5c8a6b587efb7e0a3",
+    "byteIdenticalReferencedFiles": "24/24",
+    "mapping": "consumer-166-mapping.json",
+    "previousFourFixesMappedRows": 88,
+    "standaloneMacroMappedRows": 2,
+    "mappingIsNotConsumerAcceptance": true,
+    "consumerPrivatePackage401": "independent unverified blocker; not repaired by source/parser work"
+  },
+  "canonicalInterfaceChanges": [
+    {
+      "commit": "d47e4ed0b1d3549560b36b5733dd0350915eefff",
+      "api": "resolver.resolveObjectKeyAbsence(file, expression, property, {templateRefs=false})",
+      "result": "{file,property,absent:true,steps,proofDigest}; graph.objectKeyAbsenceProofs binds these actual facts. Opaque field values have no component identity."
+    },
+    {
+      "commit": "9214a6ed04ef0bdd538bbb8852d6a9f06c815e3f",
+      "api": "nativePropBindings.callPath/inputDigests; matchCompositionNativeProp(graph,source,ancestors)",
+      "result": "Original component/native ordered supplier matching; complete current per-call inputs, legacy inputDigest equality and actual native tags required. Pure matching ordinary controls only; no analyze/capture/receipt/admission tests executed."
+    },
+    {
+      "commit": "0188ccb1e84071c7184caa96ee73692466206f15",
+      "api": "component-prop origin.selectorSource",
+      "result": "{bindingFile,name,property,emptyBranches,steps,proofDigest}; alias absence requires actual props binding and setup exposure. No selected product state."
+    },
+    {
+      "commit": "97b7b9af051fed98ae7aae9aabdceca8021a19a9",
+      "api": "No new public API or schema; actual local function declaration flow and constructor/import shadow checks"
+    },
+    {
+      "commit": "b473fdb1649d5c418987e72ff12bc72bd3d73b61",
+      "api": "No new public API or schema; actual top-level standalone macro joins original prop declaration path"
+    },
+    {
+      "commit": "b2d4ca368eb8cf596d55393bc6b635afd313b112",
+      "api": "No new public API or schema; actual conjunction adds original conditional render path"
+    }
+  ],
+  "remainingExclusiveModuleProposals": [
+    {
+      "proposal": "canonical slot/helper source submodule",
+      "suggestedExclusiveFile": "tests/frontend/support/layout/compositionSlotSource.mjs",
+      "status": "NOT IMPLEMENTED; root may assign exclusive module work, integration stays with canonical resolver owner",
+      "cases": [
+        "OnlyChild #S2/#L1 and 12 consumer rows",
+        "Options #S5 and four consumer rows",
+        "TableV2 scoped slot objects and AutoResizer actual slot argument payload"
+      ],
+      "contract": "Use existing canonical parser/resolver records and source steps. Prove actual slot input supplier identity, permitted clone props and callback effects. Unknown attrs/spreads/callbacks/private imports remain errors. No separate scanner, name allowlist, route registry or runtime receipt."
+    },
+    {
+      "proposal": "canonical collection/call-condition source submodule",
+      "suggestedExclusiveFile": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+      "status": "NOT IMPLEMENTED; own remaining binding gap, not an external chain-completion blocker",
+      "cases": [
+        "Slider no-marks actual authored empty branch #S6",
+        "TabNav actual panes/item/label slot #S7",
+        "Pagination navigation/information/root children built by push/map and class mutation"
+      ],
+      "contract": "Keep complete actual supplier paths, readonly/effect checks, every provided collection branch and source digests. Missing marks may prove only its actual empty branch, never authorize an unknown provided label. Unknown/mutated source arrays and callbacks remain errors."
+    },
+    {
+      "proposal": "canonical functional-render source submodule",
+      "suggestedExclusiveFile": "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+      "status": "NOT IMPLEMENTED; renderer definitions remain rejected by the actual new TableV2 source test",
+      "cases": [
+        "TableV2 actual functional renderer arrows with props/context slots and displayName metadata",
+        "actual closed JSX prop spread fields; use-table helper-derived fields stay unbound until proved"
+      ],
+      "contract": "Derive definitions/parameters/returns from actual source, not FunctionalComponent annotations. Protect original render identities and reserved provenance markers. Use existing graph schema and canonical source closure, no package-name admission."
+    },
+    {
+      "proposal": "canonical mixed-target/framework slot binding",
+      "suggestedExclusiveFile": "tests/frontend/support/layout/compositionTargetSource.mjs",
+      "status": "NOT IMPLEMENTED; original route owner #3576 supplies actual route AST binding; no alternate route map",
+      "cases": [
+        "native a / genuine RouterLink literals in ArticleDetailHeader and PublicArticleDetailPageContent",
+        "native aside / actual registered publicDrawer in OutlineRail and InspectorShell",
+        "Button tag=actual RouterLink",
+        "RouterView exposed Component in BlogLayout/AccountRouteFrame"
+      ],
+      "contract": "Preserve each actual native/component/framework target and declared call provenance without guessing selected state. Mixed provenance instrumentation/matching requires coordinated canonical source+DOM interfaces; held receipt/qualification tests are not authorization here."
+    },
+    {
+      "proposal": "canonical finite ref-write source submodule",
+      "suggestedExclusiveFile": "tools/frontend/control-legality/source-ref-selectors.mjs",
+      "status": "NOT IMPLEMENTED; no blanket acceptance of mutable refs or component maps",
+      "cases": [
+        "ImageViewer mode shallowRef and actual modes assignments",
+        "InspectorRail actual v-for icon supplier collection"
+      ],
+      "contract": "Derive all actual initializer/writes/keys and escape effects through the one canonical resolver, with actual Vue imports and imported icon declarations. Unknown writes/key domains/mutations stay rejected; types do not constrain runtime."
+    }
+  ],
+  "upstreamFiniteProducerSuggestion": {
+    "status": "PROPOSAL ONLY, not an applied upstream hunk or accepted prerequisite; original UI owner needed",
+    "routeVia": "Settings root #1899 and coordinating parent; do not edit Settings",
+    "file": "FsusUI/vue/packages/components/input/src/input.vue",
+    "lines": [
+      264,
+      266
+    ],
+    "actualBefore": "() => validateState.value && ValidateComponentsMap[validateState.value]",
+    "proposedAfter": "() => validateState.value === 'validating' ? ValidateComponentsMap.validating : validateState.value === 'success' ? ValidateComponentsMap.success : validateState.value === 'error' ? ValidateComponentsMap.error : null",
+    "reason": "Actual map fields are closed; actual injected validateStatus producer and Vue runtime validators do not enforce a closed string. Explicit producer branches would reject prototype/unknown keys and expose real finite imported components. Still need focused upstream source/runtime negatives; current Settings statusIcon=false provider path remains an own call-context proof gap."
+  },
+  "issueByIssue": {
+    "1894": {
+      "status": "source/runtime WIP frozen and previously delivered; complete acceptance OPEN",
+      "blogSource": "cab9382452ff0ebdd22e2751a519555cc6073c38",
+      "uiSource": "7e52be36eb8c359dbb0897ef738df2e2cfc2f54e",
+      "handoff": "/workspace/chain-1894-minimal-pair/evidence/corrected-handoff.json",
+      "newRootTests": "not-run; historical ordinary runtime evidence was not promoted",
+      "remaining": [
+        "same paired reviewer complete review",
+        "genuine published/canonical parity",
+        "authenticated production/full visual/device/human screen reader evidence",
+        "full application type acceptance"
+      ]
+    },
+    "1895": {
+      "status": "own source fixes implemented/published/ordinarily verified; complete default-deny gate and acceptance OPEN",
+      "ownRemaining": [
+        "S1/S2/S5/S6/S7/L1 actual supplier/context/slot/collection binding proof",
+        "remaining consumer source capabilities in actual 166 diagnostic map",
+        "complete current production zero-illegal-control evidence"
+      ],
+      "externalPrerequisiteRequests": {
+        "1889": "sole root #1889: exact qualified retry identity commit and current acceptance evidence",
+        "1891": "sole root #1891: exact compatible public/published/native/runtime qualified commit and evidence",
+        "1892": "sole root #1892: exact compatible UI+consumer commits and qualified acceptance/conflict limits"
+      },
+      "sameTaskGate": "#1894 full acceptance remains OPEN",
+      "closedBoundaryCurrentAcceptanceStillRequired": [
+        1888,
+        1890,
+        1893,
+        1896,
+        1898
+      ]
+    },
+    "trackingOnly": []
+  },
+  "notRun": [
+    "fresh production inventory",
+    "held shared role/contract/matrix tests",
+    "held two source qualification tests",
+    "semantic adapter receipt/substitution/audit",
+    "analyze/capture/verify receipt admission",
+    "geometry worker tests/qualified comparators",
+    "browser/runtime/published/native qualification",
+    "full application build/types/lint acceptance"
+  ],
+  "publication": {
+    "draftPRCreatedHere": false,
+    "githubContentMetadataWriter": "coordinating parent",
+    "githubContentApi": "paused",
+    "masterPush": false,
+    "merge": false,
+    "issueClose": false,
+    "deployment": false
+  }
+}

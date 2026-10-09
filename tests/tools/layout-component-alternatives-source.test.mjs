@@ -52,7 +52,7 @@ test('a missing prop uses only its actual imported fallback and a supplied value
     assert.ok(result.componentPropBindings.every((binding) => !binding.absent && binding.definition));
 });
 
-test('actual dialog Close fallback retains its source and rejects the opaque forwarded motion spread', () =>
+test('actual dialog Close fallback binds after its real motion spread excludes the declared prop', () =>
 {
     const entry = fixture(`<script setup>import {ElDialog} from '@ozwasyd/element-plus';</script><template><ElDialog/></template>`);
     const result = source().graph([entry]);
@@ -61,9 +61,11 @@ test('actual dialog Close fallback retains its source and rejects the opaque for
     assert.equal(selector.origin.kind, 'component-prop');
     assert.equal(selector.origin.fallbackSource.memberSource.property, 'Close');
     const binding = result.componentPropBindings.find((binding) => binding.sourceNode === selector.id);
-    assert.equal(binding, undefined);
-    assert.ok(result.errors.some((error) => error.file === selector.file && error.offset === selector.offset
-        && error.reason === 'unbound-component-prop-source' && error.message.includes('unknown component input spread')));
+    assert.ok(binding.definition.endsWith('/icons-vue/src/components/close.vue'));
+    assert.equal(binding.absent, false);
+    assert.ok(result.errors.every((error) => error.file !== selector.file || error.offset !== selector.offset));
+    assert.ok(result.objectKeyAbsenceProofs.some((proof) => proof.property === 'closeIcon'
+        && proof.steps.some((step) => step.file.endsWith('/components/motion.ts'))));
     assert.equal(selector.origin.fallbackSource.kind, 'local');
     assert.ok(selector.origin.fallbackSource.file.endsWith('/icons-vue/src/components/close.vue'));
 });

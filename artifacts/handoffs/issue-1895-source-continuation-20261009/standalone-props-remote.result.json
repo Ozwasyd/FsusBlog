@@ -1,0 +1,44 @@
+{
+  "command": [
+    "git",
+    "ls-remote",
+    "origin",
+    "refs/heads/codex/chain-1895-component-prop-source"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791542524.7743793,
+  "durationSeconds": 1.107654094696045,
+  "source": {
+    "blog": {
+      "commit": "b473fdb1649d5c418987e72ff12bc72bd3d73b61",
+      "tree": "0d87b5c33cb4d638476783d4ea8f0d85c2bb23f4",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "b473fdb1649d5c418987e72ff12bc72bd3d73b61",
+      "tree": "0d87b5c33cb4d638476783d4ea8f0d85c2bb23f4",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/standalone-props-evidence/remote.log",
+  "logSha256": "a518ea02d4caf530de36981cd2a40542503c04d06f8fc9bfe4dd0c3217eb51fd"
+}
