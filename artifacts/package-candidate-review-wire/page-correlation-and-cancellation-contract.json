@@ -1,0 +1,133 @@
+{
+  "sourceCommit": "dedf804ad6231affb698c4ddddb110be68207085",
+  "status": "STATIC_SOURCE_REVIEW_ONLY; dynamic bodies UNRUN",
+  "qualification": false,
+  "pageCorrelation": {
+    "producerChain": [
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+        "line": 78,
+        "behavior": "Sort held canonical portable identities with ordinal comparison"
+      },
+      {
+        "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
+        "line": 199,
+        "behavior": "Iterate sorted manifest articles; associate update hints by identity rather than caller hint order"
+      },
+      {
+        "path": "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
+        "line": 41,
+        "behavior": "Use zero-based pageIndex*pageSize and original plan target slice"
+      }
+    ],
+    "validatorBehavior": "Copy and ordinal-sort bounded requested hints; require exact original current-page count/order/portable identity/id/revision. No new archive parsing, plan, projection or authority.",
+    "zeroBasedControls": "For canonical A<B and pageSize=1: pageIndex=0 accepts A/refuses B; pageIndex=1 accepts B/refuses A.",
+    "requestOrder": "Arbitrary bounded requestedTargets order remains valid and unmodified",
+    "nativeResponsibility": "Response structure verifies canonical within-page order/duplicates; native payload structure does not acquire request/plan authority"
+  },
+  "cancellationContract": {
+    "productionRoute": "Inactive MapPost method group; no central mapping/DI/registry activation",
+    "handlerSignature": "Task<IResult> ReadArticlePackageCandidateReviewAsync(HttpContext, IAedsEncoder, ArticlePackageCandidateReviewReadService, CancellationToken)",
+    "productionIndependentTokenSourceFound": false,
+    "callsiteInspection": "rg ReadArticlePackageCandidateReviewAsync src tests: owned MapPost and owned direct-call tests only; frozen prototype excluded",
+    "frameworkBinding": "Minimal API handler CancellationToken binds to the same HttpContext.RequestAborted in pinned runtime and source-generator implementations; source evidence, not compiled execution observation",
+    "officialPinnedSources": [
+      {
+        "url": "https://raw.githubusercontent.com/dotnet/aspnetcore/v10.0.12/src/Http/Http.Extensions/src/RequestDelegateFactory.cs",
+        "locations": "RequestAbortedExpr; CancellationToken parameter branch; ExecuteTaskResult awaits handler then executes IResult",
+        "scope": "Static framework contract"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/dotnet/aspnetcore/v10.0.12/src/Http/Http.Extensions/gen/Microsoft.AspNetCore.Http.RequestDelegateGenerator/StaticRouteHandlerModel/EndpointParameter.cs",
+        "locations": "TryGetSpecialTypeAssigningCode: CancellationToken -> httpContext.RequestAborted",
+        "scope": "Static source-generator parameter contract"
+      }
+    ],
+    "handlerLifetime": "Read-phase linked CTS includes caller and request tokens; checked around binder/read/service/output; disposed when handler completes. Direct-call independent test token controls this read task.",
+    "deferredResultLifetime": "All owned results have route-local guard that checks ExecuteAsync HttpContext.RequestAborted before delegating unchanged original IResult. No CTS/context mutation/resource handoff.",
+    "globalHelper": "BinaryFrameResult.cs unchanged; original header/frame/CRC/body/flush rules retained; request token still supplied to original flush/write",
+    "limitation": "Abort may race after guard precheck; this does not assert atomic transport cancellation, no delivered bytes, or cancelled clients receiving content. Independent direct-call token cancellation after handler completion is not an observed production contract.",
+    "declaredLateAbortControls": [
+      "success",
+      "denial",
+      "storage-failure"
+    ],
+    "declaredPositiveControl": "Original successful producer asserts canonical ContentType/header and correlated frame; UNRUN"
+  },
+  "dynamicExecution": {
+    "mandatoryPreflight": {
+      "name": "page-lifecycle-correction-mandatory-preflight",
+      "argv": [
+        "node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "sourceCommit": "dedf804ad6231affb698c4ddddb110be68207085",
+      "exitCode": 1,
+      "seconds": 126.72,
+      "status": "FAIL",
+      "sdkGate": "UNRUN",
+      "managedDiscovery": "UNRUN",
+      "testBodies": "UNRUN",
+      "qualification": false,
+      "rawLogLocation": "local /tmp only; not published",
+      "failureReason": "release-final static boundary rejected matrix parse; independent release-final Node parser identity drift and execution target authority owner/content/dependency closure mismatch",
+      "expectedClosureSha256": "142d04ffc89385fb9de39a0322902fdb2d1a7d5382c6cb688e74511808f940ea",
+      "actualClosureSha256": "e9d3a2cc7920a8a47b7fe03b7a8b83f1f19c0f857f2298e1db84f8ad6b3f9658"
+    },
+    "sdkGate": "UNRUN",
+    "managedDiscovery": "UNRUN",
+    "managedBodies": "UNRUN",
+    "nodeBodies": "UNRUN",
+    "nativeBodies": "UNRUN",
+    "networkDelivery": "UNRUN",
+    "supplierCredit": false
+  },
+  "ownedSourceBindings": [
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+      "sha256": "9a687fd6796da55d1ffb45f4afeb2c7b02c2cbc15c0eee1edeab1f996c8b8ac1",
+      "baseAbsent": true,
+      "blob": "98854c0ffa172eeee34aa002e5eb72083bd5b8e4"
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewWireValidation.cs",
+      "sha256": "a6d16a9ea791163b074d048f1d1ab438206c2d9b0480afa082b490aedd3ebfd7",
+      "baseAbsent": true,
+      "blob": "e7fc4a1951e215856bdae9e76192468e17aa609b"
+    },
+    {
+      "path": "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
+      "sha256": "e0697fdc9d0e474e6ef70b0d49dc43f59b0cd05df91659bc629c2d031eb7b31a",
+      "baseAbsent": true,
+      "blob": "c15309e938ee5b5a65c264dc958bd4863dc7c220"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/article_package_candidate_review_wire.hpp",
+      "sha256": "71c668bd43d1db3c3e06e234eeafa8823b6b73087882ffe732f6d39b9f3a4be8",
+      "baseAbsent": true,
+      "blob": "74bb47321505986ff6429d5a47d38918965e27c8"
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
+      "sha256": "18d5e39f69c479c689f0ae0d23edbc887ce916c008096f63882bfdaff111a8f2",
+      "baseAbsent": true,
+      "blob": "9cf4b60bdbbf82a801851fa7cb9d3cad2b9f442a"
+    },
+    {
+      "path": "tests/tools/article-package-candidate-review-wire.test.mjs",
+      "sha256": "f04f498ad8079b1f6470ca7a5a97530a91bc9127842195b07eaff268b4e94aee",
+      "baseAbsent": true,
+      "blob": "b685a4d10e80e8a16111febf67649de3e2120452"
+    },
+    {
+      "path": "tests/native/ArticlePackageCandidateReviewWireTests.cpp",
+      "sha256": "4bb9cd61a054d6e8e5babd432b4424524961eec8df4f8abf410a81736e05c669",
+      "baseAbsent": true,
+      "blob": "69d76dff8571d65dc7f99de1f50a36c836f4848f"
+    }
+  ],
+  "noNewRawLogPublication": true,
+  "globalHelperEdited": false,
+  "runtimeAuthorityClaimed": false
+}

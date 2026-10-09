@@ -30,6 +30,6 @@
   "requiredPermission": "article.write",
   "canonicalImplementationSupplier": "adc2e50070ffecbd1e003e7a051450c2dea6ff1f",
   "canonicalQualification": false,
-  "sourceCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
+  "sourceCommit": "dedf804ad6231affb698c4ddddb110be68207085",
   "originalProposalSource": "d33a417865ec41b16d7470178288a5d78679f553"
 }

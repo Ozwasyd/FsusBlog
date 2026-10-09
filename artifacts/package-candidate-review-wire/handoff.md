@@ -2,7 +2,7 @@
 
 Sole central owner: `01a11963-efb0-7431-8fc4-3a54b35e7034`; issues #2406/#2418 under #3735.
 
-Corrected implementation source: `4a353be288a519bd8e025377eb20ef6a2383ac87`.
+Corrected implementation source: `dedf804ad6231affb698c4ddddb110be68207085`.
 Independent branch: `codex/package-candidate-review-wire-2406-2418-20261009`.
 Base: `9d72a1c93b297f719d8695a642cdfb1615cf1d51`.
 Canonical Shared release: `9d1f98d0279bb65c51140a762f7c0b9d75da1614`.
@@ -23,6 +23,16 @@ The TS codec aliases the byte-exact original3663 host DTOs rather than maintaini
 Finite profile: complete request frame 1048576 bytes including the canonical 16-byte header, including unknown-length bodies; decoded ZIP 524288 bytes; requestId 128 UTF-16 units; pageSize 50; requestedTargets 1000. A trailing byte is refused before typed service/reader work. Exact imported ZIP/planner ownership retains maxArticles 1000, maxFiles 1002, maxUncompressed 67108864 and compressionRatio 100. No new ZIP parser, planner, identity store, receipt, registry or execution API was added. Source ZIP, titles, actor/session/credentials/receipts and private scope lists are absent from the projection and public error text.
 
 SiteIdentity declarations are byte-exact from `adc2e50070ffecbd1e003e7a051450c2dea6ff1f`, including InitializationRequired. Only the original typed service's Current state with exact configured approved scope and exact generation/mapping/scope revisions may bind. Canonical storage/lifecycle/scope review remains pending. Neither its alias nor route/read service/frame registry is active.
+
+## Current-page and deferred-result corrections
+
+At the corrected source above, Shared and TS update correlation requires the exact canonical current-page slice, target count and ordinal order, including each target ID and exact Int64 revision. The original manifest sorts portable identities; the original planner iterates that order and the original projection uses zero-based pageIndex * pageSize. Bounded requested hints are copied for comparison and remain unchanged in caller order. Shared/TS/native response shape also refuses reversed or duplicate identities. With A < B and pageSize=1, index 0 must return A and index 1 must return B. Added controls exercise real original service/ZIP/projection pages, wrong in-set slices, reversed/duplicate responses, partial/final/full pages and unchanged hints. No second projection was introduced.
+
+The only production callsite proposed here is the inactive Minimal API MapPost method group. Pinned ASP.NET Core 10.0.12 [runtime parameter binding and deferred result execution](https://raw.githubusercontent.com/dotnet/aspnetcore/v10.0.12/src/Http/Http.Extensions/src/RequestDelegateFactory.cs), and its [source-generator parameter binding](https://raw.githubusercontent.com/dotnet/aspnetcore/v10.0.12/src/Http/Http.Extensions/gen/Microsoft.AspNetCore.Http.RequestDelegateGenerator/StaticRouteHandlerModel/EndpointParameter.cs), bind the handler CancellationToken to HttpContext.RequestAborted. The read-phase linked CTS can therefore be disposed when the handler completes; independent direct-call tokens in owned tests are a read-task seam rather than a second observed production lifetime. This conclusion is static source evidence; the inactive route has not been executed through a compiled host.
+
+Every returned success/refusal/private-failure result now has an owned route-local ExecuteAsync guard that checks the actual HttpContext.RequestAborted before invoking the unchanged original result. No CTS is retained or handed off; no response/context mutation or resource owner is introduced. Original BinaryFrameResult still owns envelope, headers, framing, CRC, body writing and flushing. Late-abort controls declare empty header/body refusal before execution for success, denial and storage failure; the positive control checks original content type/frame header. All controls are UNRUN. An abort racing after the guard precheck retains original helper semantics; no atomic network cancellation, delivery proof, or assertion that cancelled clients received data is claimed. Global BinaryFrameResult was not edited.
+
+`page-correlation-and-cancellation-contract.json` records source/callsite evidence, limitations, exact hashes and gate results. `reviewer-handoff.json` is the sanitized response for independent reviewer thread `01a12123-cafa-7562-8714-89037362c018`. The prior reported 111.437-second independent preflight failure is retained as user-reported only: its exact command/source were not supplied. No outgoing cross-thread send capability is callable in this environment; the parent can relay this artifact and final response. No new raw log was published.
 
 ## Prerequisites and original ownership
 
@@ -53,14 +63,15 @@ The DI hunk is conditional: base SystemService does not implement the under-revi
 
 `admission-observations.json` preserves every prior first failure, including the initial 55-second capture interruptions at `934211fa851a4a2d4353d60af0fe8daecaad096a`, dirty-evidence refusal at `54edafc83a2a9d7b245ecc67dea494745227b050`, and actual clean-candidate selection/preflight failures at `4c0ce525795367bb3c3c1f26e421cb11a7fe6a93`.
 
-The original `node tools/run-test-matrix.mjs preflight` was rerun without an outer capture timeout at both corrected clean sources:
+The original `node tools/run-test-matrix.mjs preflight` was rerun without an outer capture timeout at corrected clean sources:
 
 - `c0c6c312cfae9e18620f3ecf4b7046282dbb8409`: FAIL, exit 1, 100.885 seconds.
 - `4a353be288a519bd8e025377eb20ef6a2383ac87`: FAIL, exit 1, 104.659 seconds.
+- `dedf804ad6231affb698c4ddddb110be68207085`: FAIL, exit 1, 126.720 seconds.
 
-Both report release-final static boundary rejection, independent release-final Node parser identity drift, and execution target authority owner/content/dependency closure mismatch: expected `sha256:142d04ffc89385fb9de39a0322902fdb2d1a7d5382c6cb688e74511808f940ea`, actual `sha256:e9d3a2cc7920a8a47b7fe03b7a8b83f1f19c0f857f2298e1db84f8ad6b3f9658`. Structured command/SHA/exit/timing/refusal records are published; the new raw logs stay local in /tmp and are not published. Older already-published evidence is preserved without modification.
+These runs report release-final static boundary rejection, independent release-final Node parser identity drift, and execution target authority owner/content/dependency closure mismatch: expected `sha256:142d04ffc89385fb9de39a0322902fdb2d1a7d5382c6cb688e74511808f940ea`, actual `sha256:e9d3a2cc7920a8a47b7fe03b7a8b83f1f19c0f857f2298e1db84f8ad6b3f9658`. Structured command/SHA/exit/timing/refusal records are published; the new raw logs stay local in /tmp and are not published. Older already-published evidence is preserved without modification.
 
-Dependent compilation, SDK gate, managed discovery, Node/native/managed test bodies and isolated resource grants are UNRUN. Current source selectors are declared nonempty: 147 managed cases across five original-project classes (46 in the wire class), eight exact Node cases and one proposed native target. Counts are source declarations, not discovery or PASS credit. Hook/source hashes, canonical Node support closure and finite owned resource estimates/root cgroup observations are in `selectors-hooks-resources.json`; those observations are not an isolated producer grant. The original build-with-data-env.sh --info observation of SDK 10.0.401/runtime 10.0.12 is not the required original SDK admission gate.
+Dependent compilation, SDK gate, managed discovery, Node/native/managed test bodies and isolated resource grants are UNRUN. Current source selectors are declared nonempty: 154 managed cases across five original-project classes (53 in the wire class), nine exact Node cases and one proposed native target. Counts are source declarations, not discovery or PASS credit. Hook/source hashes, canonical Node support closure and finite owned resource estimates/root cgroup observations are in `selectors-hooks-resources.json`; those observations are not an isolated producer grant. The original build-with-data-env.sh --info observation of SDK 10.0.401/runtime 10.0.12 is not the required original SDK admission gate.
 
 Source/test whitespace, exact dependency hashes, unchanged central source checks and all four proposal patch-context checks PASS. A prior full-tree whitespace check flagged literal unified-patch blank context/raw-log terminal lines; its exact-source failure remains recorded, and reviewable patch/raw-log bytes are retained. These static checks do not qualify behavior. The final artifact-only delivery commit inherits no test qualification.
 

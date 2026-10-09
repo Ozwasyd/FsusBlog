@@ -3,43 +3,50 @@
   "canonicalOwnerRelease": "9d1f98d0279bb65c51140a762f7c0b9d75da1614",
   "supplierSource": "d49a430828354760ec42463d98739babdbec9312",
   "supplierFinal": "76f900f3266560af64e05f6936d4096f76577361",
-  "sourceCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
+  "sourceCommit": "dedf804ad6231affb698c4ddddb110be68207085",
   "ownerThread": "01a11963-efb0-7431-8fc4-3a54b35e7034",
   "ownedFiles": [
     {
       "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
-      "sha256": "371d5167f366dacfa413350d54a46bcde2fff060a292b10386b48f055fd7f5af",
-      "baseAbsent": true
+      "sha256": "9a687fd6796da55d1ffb45f4afeb2c7b02c2cbc15c0eee1edeab1f996c8b8ac1",
+      "baseAbsent": true,
+      "blob": "98854c0ffa172eeee34aa002e5eb72083bd5b8e4"
     },
     {
       "path": "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewWireValidation.cs",
-      "sha256": "453246d5439261b3760bea7bc04f86420ff52e896a680e8da020967b4349037d",
-      "baseAbsent": true
+      "sha256": "a6d16a9ea791163b074d048f1d1ab438206c2d9b0480afa082b490aedd3ebfd7",
+      "baseAbsent": true,
+      "blob": "e7fc4a1951e215856bdae9e76192468e17aa609b"
     },
     {
       "path": "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
-      "sha256": "7262585ff7a9a810348ab804e938f3c806d24bb53f017c5d2ac527449d113fde",
-      "baseAbsent": true
+      "sha256": "e0697fdc9d0e474e6ef70b0d49dc43f59b0cd05df91659bc629c2d031eb7b31a",
+      "baseAbsent": true,
+      "blob": "c15309e938ee5b5a65c264dc958bd4863dc7c220"
     },
     {
       "path": "src/frontend/wasm/aeds/include/article_package_candidate_review_wire.hpp",
-      "sha256": "8fd62f13213ffb7c66c073abadf80a7035b5bb5a0235d1a83605580ab5f4b5a4",
-      "baseAbsent": true
+      "sha256": "71c668bd43d1db3c3e06e234eeafa8823b6b73087882ffe732f6d39b9f3a4be8",
+      "baseAbsent": true,
+      "blob": "74bb47321505986ff6429d5a47d38918965e27c8"
     },
     {
       "path": "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
-      "sha256": "8f22c774171dc35ae61ea10a35369d86cd8011c121bd19af19b30af9e8274e00",
-      "baseAbsent": true
+      "sha256": "18d5e39f69c479c689f0ae0d23edbc887ce916c008096f63882bfdaff111a8f2",
+      "baseAbsent": true,
+      "blob": "9cf4b60bdbbf82a801851fa7cb9d3cad2b9f442a"
     },
     {
       "path": "tests/tools/article-package-candidate-review-wire.test.mjs",
-      "sha256": "67597e760109058368617009fc0df1e9b865d9bb789a9166f454046f1f7396f7",
-      "baseAbsent": true
+      "sha256": "f04f498ad8079b1f6470ca7a5a97530a91bc9127842195b07eaff268b4e94aee",
+      "baseAbsent": true,
+      "blob": "b685a4d10e80e8a16111febf67649de3e2120452"
     },
     {
       "path": "tests/native/ArticlePackageCandidateReviewWireTests.cpp",
-      "sha256": "90de39408b52accc60fd00455691ae6684d6245706ca05cf4d3d96b5131afb80",
-      "baseAbsent": true
+      "sha256": "4bb9cd61a054d6e8e5babd432b4424524961eec8df4f8abf410a81736e05c669",
+      "baseAbsent": true,
+      "blob": "69d76dff8571d65dc7f99de1f50a36c836f4848f"
     }
   ],
   "consumedDependencies": [
@@ -287,7 +294,7 @@
   "routeMapped": false,
   "executeDisabled": true,
   "qualification": false,
-  "previousImplementationCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "previousImplementationCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
   "canonicalExistingHelpers": [
     {
       "path": "src/frontend/wasm/web/protocol/frame.ts",
@@ -345,5 +352,6 @@
       "sha256": "557537868c482284559f12a1bb18d25c23df6b9749f22bef542a80940a713faa",
       "byteExact": true
     }
-  ]
+  ],
+  "moduleSourceFileCount": 41
 }

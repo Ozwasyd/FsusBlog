@@ -1,0 +1,67 @@
+{
+  "reviewerThread": "01a12123-cafa-7562-8714-89037362c018",
+  "sourceCommit": "dedf804ad6231affb698c4ddddb110be68207085",
+  "previousDelivery": "b7917148b6296583da676b6c3aa66ed35598d788",
+  "sourceRoster": "source-bindings.json",
+  "delta": {
+    "from": "b7917148b6296583da676b6c3aa66ed35598d788",
+    "to": "dedf804ad6231affb698c4ddddb110be68207085",
+    "paths": [
+      "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+      "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewWireValidation.cs",
+      "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
+      "src/frontend/wasm/aeds/include/article_package_candidate_review_wire.hpp",
+      "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
+      "tests/tools/article-package-candidate-review-wire.test.mjs",
+      "tests/native/ArticlePackageCandidateReviewWireTests.cpp"
+    ],
+    "files": 7,
+    "insertions": 258,
+    "deletions": 22
+  },
+  "P2Responses": {
+    "currentPage": "Fixed exact zero-based original canonical current-page slice, count and order in Shared/TS; ordered/duplicate response structure controls in native; unsorted input hints preserved",
+    "deferredResult": "Pinned Minimal API CancellationToken equals RequestAborted; no production independent token source found. Route-local ExecuteAsync guard before original writer delegation; global helper unchanged. No atomic network/client-delivery claim"
+  },
+  "staticEvidence": "page-correlation-and-cancellation-contract.json",
+  "mandatoryPreflight": {
+    "name": "page-lifecycle-correction-mandatory-preflight",
+    "argv": [
+      "node",
+      "tools/run-test-matrix.mjs",
+      "preflight"
+    ],
+    "sourceCommit": "dedf804ad6231affb698c4ddddb110be68207085",
+    "exitCode": 1,
+    "seconds": 126.72,
+    "status": "FAIL",
+    "sdkGate": "UNRUN",
+    "managedDiscovery": "UNRUN",
+    "testBodies": "UNRUN",
+    "qualification": false,
+    "rawLogLocation": "local /tmp only; not published",
+    "failureReason": "release-final static boundary rejected matrix parse; independent release-final Node parser identity drift and execution target authority owner/content/dependency closure mismatch",
+    "expectedClosureSha256": "142d04ffc89385fb9de39a0322902fdb2d1a7d5382c6cb688e74511808f940ea",
+    "actualClosureSha256": "e9d3a2cc7920a8a47b7fe03b7a8b83f1f19c0f857f2298e1db84f8ad6b3f9658"
+  },
+  "dependentGates": "UNRUN SDK/discovery/builds/managed/Node/native bodies; no supplier credit",
+  "declaredSelectors": {
+    "managed": 154,
+    "wireManaged": 53,
+    "node": 9,
+    "nativeTarget": "^FsusArticlePackageCandidateReviewWireTests$",
+    "status": "DECLARED_ONLY; original selection and resources not admitted"
+  },
+  "independentReviewReport": {
+    "provenance": "User-reported prior 41-source review; not our execution",
+    "reportedPreflightStatus": "FAIL",
+    "reportedSeconds": 111.437,
+    "exactSourceCommit": null,
+    "exactCommand": null,
+    "rawLogsPublished": false
+  },
+  "centralOwner": "01a11963-efb0-7431-8fc4-3a54b35e7034",
+  "centralIntegration": "Existing exact unapplied central-integration, generated-enum, original-native-project and compiled-request-observer proposal patches; central files unchanged/inactive",
+  "coordinationStatus": "No callable outgoing cross-thread send tool available; artifact/final available to parent for relay",
+  "qualification": false
+}

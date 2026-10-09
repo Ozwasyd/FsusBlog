@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
+  "sourceCommit": "dedf804ad6231affb698c4ddddb110be68207085",
   "status": "DECLARED_ONLY_ADMISSION_REJECTED",
   "mandatoryPreflight": "FAIL_AT_CORRECTED_SOURCE",
   "actualSelection": "UNRUN_AT_CORRECTED_SOURCE_AFTER_MANDATORY_PREFLIGHT_REFUSAL",
@@ -11,8 +11,8 @@
   "managedDeclaredSelectors": [
     {
       "path": "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
-      "sha256": "8f22c774171dc35ae61ea10a35369d86cd8011c121bd19af19b30af9e8274e00",
-      "declaredCaseCount": 46,
+      "sha256": "18d5e39f69c479c689f0ae0d23edbc887ce916c008096f63882bfdaff111a8f2",
+      "declaredCaseCount": 53,
       "cases": [
         {
           "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.LiteralSeedAndReadonlyProjection_PreserveCorrelationWithoutAuthority",
@@ -57,6 +57,14 @@
         {
           "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointOriginalProducer_PreservesAuthContextCorrelationAndRefusal",
           "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.UpdatePages_MatchOriginalProjectionSliceAndOrderWithoutMutatingHints",
+          "declaredInlineCases": 4
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.ReturnedResult_RequestAbortBeforeExecutionPreservesEmptyHeadersAndBody",
+          "declaredInlineCases": 3
         },
         {
           "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointInitializationRequiredAndStorageFailure_RemainPrivateRefusals",
@@ -299,7 +307,7 @@
     }
   ],
   "nodeFile": "tests/tools/article-package-candidate-review-wire.test.mjs",
-  "nodeExactSelector": "^(literal\\ seed\\ and\\ projection\\ retain\\ refusal\\ and\\ exact\\ correlation|request\\ closed\\ shape\\ rejects\\ duplicates\\ missing\\ null\\ wrong\\ primitives\\ and\\ unsafe\\ numbers|every\\ nested\\ response\\ level\\ rejects\\ unknown\\ duplicate\\ missing\\ and\\ required\\ null\\ members|nested\\ targets\\ preserve\\ exact\\ Int64\\ strings\\ and\\ reject\\ numeric\\ or\\ noncanonical\\ revisions|archive\\ requestId\\ and\\ complete\\ frame\\ budgets\\ use\\ original\\ byte\\ and\\ UTF16\\ units|requestedTargets\\ budget\\ and\\ original\\ target\\ identity\\ closure\\ are\\ finite|correlation\\ refuses\\ old\\ request\\ plan\\ context\\ dates\\ and\\ changed\\ target\\ hints|private\\ material\\ and\\ malformed\\ UTF8\\ never\\ enter\\ accepted\\ projection\\ or\\ error\\ text)$",
+  "nodeExactSelector": "^(literal\\ seed\\ and\\ projection\\ retain\\ refusal\\ and\\ exact\\ correlation|request\\ closed\\ shape\\ rejects\\ duplicates\\ missing\\ null\\ wrong\\ primitives\\ and\\ unsafe\\ numbers|every\\ nested\\ response\\ level\\ rejects\\ unknown\\ duplicate\\ missing\\ and\\ required\\ null\\ members|nested\\ targets\\ preserve\\ exact\\ Int64\\ strings\\ and\\ reject\\ numeric\\ or\\ noncanonical\\ revisions|archive\\ requestId\\ and\\ complete\\ frame\\ budgets\\ use\\ original\\ byte\\ and\\ UTF16\\ units|requestedTargets\\ budget\\ and\\ original\\ target\\ identity\\ closure\\ are\\ finite|correlation\\ refuses\\ old\\ request\\ plan\\ context\\ dates\\ and\\ changed\\ target\\ hints|private\\ material\\ and\\ malformed\\ UTF8\\ never\\ enter\\ accepted\\ projection\\ or\\ error\\ text|update\\ pages\\ match\\ the\\ exact\\ canonical\\ slice\\ and\\ order\\ without\\ changing\\ requested\\ hints)$",
   "nodeDeclaredTestNames": [
     "literal seed and projection retain refusal and exact correlation",
     "request closed shape rejects duplicates missing null wrong primitives and unsafe numbers",
@@ -308,7 +316,8 @@
     "archive requestId and complete frame budgets use original byte and UTF16 units",
     "requestedTargets budget and original target identity closure are finite",
     "correlation refuses old request plan context dates and changed target hints",
-    "private material and malformed UTF8 never enter accepted projection or error text"
+    "private material and malformed UTF8 never enter accepted projection or error text",
+    "update pages match the exact canonical slice and order without changing requested hints"
   ],
   "nativeOriginalProject": "tests/native/CMakeLists.txt",
   "nativeProposedTarget": "FsusArticlePackageCandidateReviewWireTests",
@@ -337,7 +346,7 @@
       "cpuUnits": 1,
       "memoryGiB": 2,
       "services": [],
-      "resourceOwners": "memory ZIP; original claims/configuration; controlled typed reader; HttpContext memory BodyReader/BodyWriter; scoped provider and streams disposed; no live server/database/Redis",
+      "resourceOwners": "memory ZIP; original claims/configuration; controlled typed reader; HttpContext memory BodyReader/BodyWriter; scoped provider and streams disposed; no live server/database/Redis; response guard owns no CTS/provider/body and delegates canonical IResult; read-phase linked CTS disposed at handler completion",
       "minimumObservedSetupEnvelope": {
         "cpuUnits": 1,
         "memoryGiB": 3,
@@ -384,14 +393,14 @@
     "sourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
     "reason": "PR impact requires a clean committed source candidate; uncommitted evidence files"
   },
-  "previousSourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "previousSourceCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
   "priorAdmissionCandidateCommit": "4c0ce525795367bb3c3c1f26e421cb11a7fe6a93",
-  "admissionCandidateCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
-  "managedDeclaredCaseCount": 147,
+  "admissionCandidateCommit": "dedf804ad6231affb698c4ddddb110be68207085",
+  "managedDeclaredCaseCount": 154,
   "nodeSupportSources": [
     {
       "path": "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
-      "sha256": "7262585ff7a9a810348ab804e938f3c806d24bb53f017c5d2ac527449d113fde"
+      "sha256": "e0697fdc9d0e474e6ef70b0d49dc43f59b0cd05df91659bc629c2d031eb7b31a"
     },
     {
       "path": "src/frontend/src/api/types/articlePackageCandidateRead.ts",
@@ -408,11 +417,16 @@
   ],
   "nativeTestSource": {
     "path": "tests/native/ArticlePackageCandidateReviewWireTests.cpp",
-    "sha256": "90de39408b52accc60fd00455691ae6684d6245706ca05cf4d3d96b5131afb80"
+    "sha256": "4bb9cd61a054d6e8e5babd432b4424524961eec8df4f8abf410a81736e05c669"
   },
   "nativeValidatorSource": {
     "path": "src/frontend/wasm/aeds/include/article_package_candidate_review_wire.hpp",
-    "sha256": "8fd62f13213ffb7c66c073abadf80a7035b5bb5a0235d1a83605580ab5f4b5a4"
+    "sha256": "71c668bd43d1db3c3e06e234eeafa8823b6b73087882ffe732f6d39b9f3a4be8"
   },
-  "resourceAdmission": "UNRUN; sizing declarations/root cgroup observations are not the required isolated producer grant"
+  "resourceAdmission": "UNRUN; sizing declarations/root cgroup observations are not the required isolated producer grant",
+  "nodeTestSource": {
+    "path": "tests/tools/article-package-candidate-review-wire.test.mjs",
+    "sha256": "f04f498ad8079b1f6470ca7a5a97530a91bc9127842195b07eaff268b4e94aee"
+  },
+  "staticDeclarationInventory": "PASS_NONEMPTY_SOURCE_ATTRIBUTE_AND_NAME_INVENTORY; not discovery, selector execution or test-body credit"
 }

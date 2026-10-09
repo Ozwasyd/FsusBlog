@@ -1,0 +1,41 @@
+{
+  "sourceCommit": "dedf804ad6231affb698c4ddddb110be68207085",
+  "status": "PASS_STATIC_ONLY",
+  "qualifiedBehavior": false,
+  "sourceAndTestsWhitespace": "PASS",
+  "dependencyPathHashBindings": {
+    "status": "PASS",
+    "consumed": 34,
+    "owned": 7,
+    "canonicalExistingHelpers": 8
+  },
+  "centralAuthoringEndpoints": "BYTE_IDENTICAL_TO_BASE",
+  "centralRuntimeDI": "BYTE_IDENTICAL_TO_BASE",
+  "globalBinaryFrameResult": "BYTE_IDENTICAL_TO_BASE",
+  "originalPrototypeRoutesAndTests": "ABSENT_EXCLUDED",
+  "patchContext": [
+    {
+      "path": "artifacts/package-candidate-review-wire/central-integration.patch",
+      "sha256": "b5645ae2e21df4560167d9473cc2b080c5181dcab2c4ac100ef76088a5ac0d4f",
+      "status": "PASS_CHECK_ONLY_UNAPPLIED"
+    },
+    {
+      "path": "artifacts/package-candidate-review-wire/generated-enum-integration-proposal.patch",
+      "sha256": "10140269a25aa38ffd1ac73b78716c149ae418ddd7292736c020633779592d00",
+      "status": "PASS_CHECK_ONLY_UNAPPLIED"
+    },
+    {
+      "path": "artifacts/package-candidate-review-wire/original-native-project-proposal.patch",
+      "sha256": "cf3425b47672d2885a9088db902ba3afc923f52a6826de51c9cb2a8aed713573",
+      "status": "PASS_CHECK_ONLY_UNAPPLIED"
+    },
+    {
+      "path": "artifacts/package-candidate-review-wire/central-compiled-request-observer-proposal.patch",
+      "sha256": "a24ab6066573ddcdede03de1226709ce1ba1b22f8cb745c68f4813632936ee71",
+      "status": "PASS_CHECK_ONLY_UNAPPLIED"
+    }
+  ],
+  "newRawLogs": "NONE",
+  "dynamicBodies": "UNRUN",
+  "priorFullTreeWhitespaceFailure": "Preserved at ca662412aec9648f94b26f0f67ae72789a2259b8; do not extend source/test whitespace PASS to all artifacts"
+}
