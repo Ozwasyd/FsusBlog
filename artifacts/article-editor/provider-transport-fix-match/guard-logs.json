@@ -1,0 +1,13 @@
+{
+  "fixed": {
+    "originalExit": 1,
+    "raw": "[binary-import-boundaries] FAILED\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/contracts/authoringCanvas.ts: contracts must not have runtime import @/codecs/binary/authoringCanvasWire.generated\n"
+  },
+  "negative": {
+    "originalExit": 1,
+    "raw": "[binary-import-boundaries] FAILED\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/api/uploadFacts.ts: API must not import binary decoder adapter: @/adapters/binary/uploadAdapter\n- .tmp/chain-2246/provider-transport-fix-match/guard-source/contracts/authoringCanvas.ts: contracts must not have runtime import @/codecs/binary/authoringCanvasWire.generated\n"
+  },
+  "guardNodeActual": "v24.19.0",
+  "guardSourceRootMode": "documented original FSUSBLOG_BINARY_IMPORT_SOURCE_ROOT task overlay; no production source edit",
+  "qualification": false
+}
