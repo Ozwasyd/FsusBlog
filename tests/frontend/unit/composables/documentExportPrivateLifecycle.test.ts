@@ -168,7 +168,7 @@ it('lets an original generation notification construct a fresh authorized port a
 });
 
 it('honors another listener being detached during the same queued revocation notification', async () => {
-    const adapter = port(); const detached = vi.fn(); let unsubscribe = () => undefined;
+    const adapter = port(); const detached = vi.fn(); let unsubscribe: () => void = () => undefined;
     adapter.subscribePermissionRevoked!(() => unsubscribe());
     unsubscribe = adapter.subscribePermissionRevoked!(detached);
     adapter.dispose?.(); await Promise.resolve(); expect(detached).not.toHaveBeenCalled();
