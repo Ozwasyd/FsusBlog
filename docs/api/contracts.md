@@ -3138,3 +3138,31 @@ await ledger.ScheduleUnreferencedOwnedAssetsAsync(
 The caller commits its original transaction and then reads actual durable
 queue/state for any cleanup observation. `SchedulingRequired` remains an unmet
 scheduling fact until that original durable observation confirms otherwise.
+
+
+`IFileService.ObserveAttachmentCleanupAsync(access, sha256, expectedAssetVersionSha256?,
+expectedReferenceObservationSha256?, ct)` and
+`RecordAttachmentCleanupAsync(access, sha256, expectedAssetVersionSha256,
+expectedReferenceObservationSha256, ct)` expose the original FileService cleanup
+module. Its statuses are ObservationRequired, SchedulingRequired,
+RetainedReferences, StateChanged and Recorded. Only Recorded contains a current
+bound durable queue observation. The original recorder uses the canonical store
+inside its transaction and verifies the committed state in a separate locked
+transaction. It does not delete native bytes or remove references. Successful
+reads with another status remain unmet cleanup obligations.
+
+`CurrentUploadAssetCleanupBindingReader.ObserveCurrentAsync` and
+`RecordCurrentAsync` bind these original operations to the actual authenticated
+admin principal, original upload/session/AssetId/digest coordinates and a caller's
+current-context guard checked before and after the operation. They preserve the
+original refusal statuses and queue fields. An optional original
+`AttachmentCleanupObservation expectedCleanup` supports repeated observation or
+recording with its actual asset/reference versions; its upload/asset/owner
+coordinates must match. The original native upload observation requires active
+assets and cannot be refreshed after pending-delete scheduling. Reuse the actual
+cleanup observation rather than constructing a replacement native observation.
+All supplied versions are revalidated by the original module and confer no new
+authority. A late current-context rejection suppresses delivery of the result;
+it does not undo a real committed queue write. Transport and DI activation remain
+with the sole runtime owner; these server composition methods introduce no wire
+operation, receipt verifier or release qualification.

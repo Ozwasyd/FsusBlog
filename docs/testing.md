@@ -1849,3 +1849,29 @@ to source commit `3a4729cc2c8bf6a01830049d7bbcb734ee16ce06`. The later documenta
 publication does not retag those runs or activate a runtime consumer. The bundle
 also contains the sole DI owner's unapplied hunk and a full draft PR body;
 it does not create a second current contract or an acceptance authority.
+
+
+## Original upload cleanup business binding controls
+
+The ordinary bounded selectors are exactly
+`FsusBlog.Server.Tests.AttachmentCleanupObservationTests` and
+`FsusBlog.Server.Tests.CurrentUploadAssetCleanupBindingTests`. Discover nonempty
+actual FQNs, inspect original module initialization and task-owned fixture hooks,
+and run the original first-recording plus interface-consumer positive controls
+before selecting both classes. Stop on failure. These cases use the original
+PostgreSQL fixture with disposable per-case databases and actual native PNG
+upload/session/commit facts. They check canonical scheduling, post-commit reads,
+retained/restored references, unchanged grace, stale versions, original token
+refusal, cancellation, transaction rollback and current-owner rejection. The
+business control preserves the original active-only native observation refusal
+and repeats with the actual original cleanup observation. A post-commit owner
+change suppresses the business result while retaining the real committed queue;
+it must not be reported as rollback.
+
+Bind source/run identity, exact selectors and observed counts; capture original
+resource limits, owned container events/teardown and per-case native-root cleanup.
+These ordinary queue tests perform no native deletion, production data access,
+private policy, held audit, receipt verification or terminal migration acceptance.
+Supplier20/20 results remain bound to their original source; combined-source
+acceptance requires a new execution. Runtime DI/transport activation remains with
+its sole owner and is not proved by interface composition tests.
