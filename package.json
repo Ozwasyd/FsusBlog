@@ -9,6 +9,7 @@
         "./composition-analyzer": "./tests/frontend/support/layout/compositionAnalyzer.mjs",
         "./composition-source": "./tests/frontend/support/layout/compositionSource.mjs",
         "./composition-dom": "./tests/frontend/support/layout/compositionDom.mjs",
+        "./composition-geometry": "./tests/frontend/support/layout/compositionGeometry.mjs",
         "./composition-routes": "./tests/frontend/support/layout/compositionRoutes.mjs"
     }
 }

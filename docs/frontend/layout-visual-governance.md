@@ -296,3 +296,30 @@ browser observations remain `diagnostic-only` and `fullVisualVerified: false`.
 Authenticated production fixture binding, control admission and the separate
 geometry/state and visual owners remain required. This analyzer neither runs the
 complete geometry/state matrix nor issues visual adjudication.
+
+The separate geometry owner supplies `composition-geometry`; its actual module
+is included in the canonical analyzer source digest closure. Its public exports
+are `captureCompositionGeometry()`,
+`compareCompositionGeometry({ archetype, domObservation, geometryObservation })`
+and the guarded page caller below. The caller consumes the same current inputs,
+identity and worktree/analyzer binding; it creates no second scene matrix:
+
+```js
+import { probeCompositionGeometryPage } from '@fsusblog/layout-governance/composition-geometry';
+
+await probeCompositionGeometryPage(page, {
+    inputs: run.inputs,
+    archetypeId,
+    stateId,
+    identity: run.identity,
+    currentIdentity,
+    runId: run.runId,
+    runBinding: { worktree: run.worktree, analyzerDigest: run.analyzerDigest }
+});
+```
+
+The existing runtime-binding guard runs before either browser evaluation.
+Current pending bindings and null fixture references remain rejected. The
+comparison covers only `primary-content-visible`; all other predicates remain
+pending, and `fullGeometryVerified` and `fullVisualVerified` remain false. Module
+registration does not qualify a runtime run or authorize a receipt audit.
