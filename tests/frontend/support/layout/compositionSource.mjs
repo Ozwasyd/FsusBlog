@@ -2291,6 +2291,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     }
                     else
                     {
+                        if (supplier.callbackPending)
+                        {
+                            fail(`missing actual slot callback invocation ${slot.file}:${slot.offset}`);
+                        }
                         slotBindings.push({ sourceNode: slot.id, supplier, result: null });
                     }
                 }

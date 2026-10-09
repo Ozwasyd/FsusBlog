@@ -315,6 +315,21 @@ test('canonical target supplier API rejects a non target owner and another sourc
     assert.throws(() => source().resolveTargetInputs(node, graph), /actual canonical graph/);
 });
 
+test('central template outlet cannot consume a JSX callback supplier without its actual invocation', () =>
+{
+    const owner = fixture('<template><slot/></template>');
+    const file = fixture(`import {defineComponent,h} from 'vue';import Owner from './${owner.split('/').at(-1)}';
+        export default defineComponent({setup(){return()=> <Owner>{{default:()=>h('button',{},[])}}</Owner>;}});`, 'tsx');
+    const s = source();
+    const graph = s.graph([file]);
+    const call = graph.nodes.find((node) => node.file === file && node.tag === 'Owner');
+    const binding = createCompositionSlotSource({ source: s }).bindSlot({ graph, callNode: call.id });
+    assert.equal(binding.callbackPending, true);
+    assert.ok(graph.errors.some((error) => error.reason === 'unbound-slot-source'
+        && error.file === owner && /missing actual slot callback invocation/.test(error.message)));
+    assert.equal(graph.slotBindings.some((entry) => entry.supplier.callNode === call.id), false);
+});
+
 for (const [label, text] of [
     ['functional unknown helper', 'export default()=>foreign();'],
     ['functional injected prop VNode', 'export default(props)=>props.child;'],

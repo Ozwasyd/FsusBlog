@@ -50,7 +50,7 @@ test('render conjunction preserves the actual imported public component source',
         'import {ElIcon} from "@ozwasyd/element-plus";import {Check as Glyph} from "@ozwasyd/element-plus/icons-vue";');
     assert.equal(result.errors.length, 1);
     assert.equal(result.errors[0].reason, 'unbound-slot-source');
-    assert.match(result.errors[0].message, /script slot supplier requires actual callback invocation binding/);
+    assert.match(result.errors[0].message, /unbound conditional\/script slot supplier/);
     const component = result.nodes.find((node) => node.tag === 'ElIcon');
     assert.equal(component.origin.kind, 'fsusui-public');
     assert.deepEqual(component.conditional, [{ name: 'if', expression: 'productState' }]);

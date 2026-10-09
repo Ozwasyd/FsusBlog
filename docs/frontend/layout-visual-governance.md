@@ -149,6 +149,18 @@ through `check-layout-composition.mjs`. Its source graph uses the canonical
 imports. A restricted AST interpreter follows constant objects, spreads, pure
 path helpers, route maps and lazy component imports; unknown expressions fail
 closed. It creates no route/file allowlist or alternate composition contract.
+`resolveCompositionRoutes` retains each declaration's named views and matched
+record chain. `resolveCompositionRouterViewSlot(source, routes, {file, offset,
+callPath})` consumes that original source observation and the actual default
+RouterView slot binding at the dynamic-component offset. A reused SFC requires
+the nearest-first original component call path to its route-declared owner.
+The result records every finite route component backing the slot's VNode and
+empty outlets; it does not select a current route or authorize navigation.
+Unknown slot suppliers, shadow scopes, custom route overrides, dynamic view
+names, ambiguous declarations and changed source inputs refuse. Serialized
+records cannot replace the original source observation. This source interface
+does not register itself with a central consumer or grant rendered, geometry,
+fixture/state, inventory or runtime qualification.
 SFC nodes retain slots, branch directives, teleports, exact public/local import
 origins and original source locations/digests. Public aliases follow their actual
 export factories and unambiguous named/star reexports. Upstream module aliases
@@ -393,6 +405,10 @@ Only this source instance's actual node and unchanged graph or original node
 array are accepted. Unknown suppliers, omitted/substituted graph arrays and
 source drift are rejected; returned identities are isolated from resolver state.
 This is source provenance, not a rendered supplier or runtime permission proof.
+JSX slot callback bindings retain `callbackPending` until an actual invocation
+is proved. A template outlet cannot substitute for that callback invocation;
+its unresolved edge remains `unbound-slot-source`. Functional supplier facts
+and their dependencies remain bound to original AST steps and source digests.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
