@@ -16,6 +16,11 @@ const { resolveLocalFsusUiApplicationProject } = await import(
     new URL('../../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
 );
 const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot });
+if (process.env.FSUSBLOG_STYLE_APPLICATION_PROJECT !== undefined
+    && process.env.FSUSBLOG_STYLE_APPLICATION_PROJECT !== (localApplicationProject ?? ''))
+{
+    throw new Error('typed ESLint application project does not match the style baseline scan');
+}
 const applicationProjectOptions = localApplicationProject
     ? { projectService: false, project: [localApplicationProject], extraFileExtensions: ['.vue'] }
     : { projectService: true };
