@@ -225,6 +225,208 @@ public sealed class CurrentArticleEmbedTargetReaderTests(PostgresSchemaMigration
         }
     }
 
+    [Theory]
+    [InlineData("REPEATABLE READ", "permission")]
+    [InlineData("REPEATABLE READ", "pointer")]
+    [InlineData("REPEATABLE READ", "delete")]
+    [InlineData("SERIALIZABLE", "permission")]
+    [InlineData("SERIALIZABLE", "pointer")]
+    [InlineData("SERIALIZABLE", "delete")]
+    public async Task RetainedSnapshotAfterCommittedChangeIsRefused(string isolation, string change)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (ArticleRelationRevisionCoordinate saved, RevisionCompareReadContext context) = await SeedAsync(db);
+        using SqlSugarClient committer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await db.Ado.BeginTranAsync();
+        Assert.Contains(isolation, new[] { "REPEATABLE READ", "SERIALIZABLE" });
+        await db.Ado.ExecuteCommandAsync("SET TRANSACTION ISOLATION LEVEL " + isolation + ", READ ONLY;");
+        NpgsqlTransaction caller = Assert.IsType<NpgsqlTransaction>(db.Ado.Transaction);
+        var lifecycle = new AuthoringDraftLifecycleService(db, null!, null!, null!);
+        var admission = new AuthoringRevisionCompareAuthority(db, lifecycle);
+        try
+        {
+            Assert.Equal(saved.RevisionId, (await admission.GetAuthorizedArticleAsync(context, saved.ArticleId, default))!.CurrentRevisionId);
+            await CommitExternalChangeAsync(committer, saved, context, change);
+            Assert.NotEqual(((NpgsqlConnection)db.Ado.Connection).ProcessID, _lastCommitterPid);
+            // Establish the retained snapshot with the real unchanged authority, after B has committed.
+            Assert.Equal(saved.RevisionId, (await admission.GetAuthorizedArticleAsync(context, saved.ArticleId, default))!.CurrentRevisionId);
+            Assert.Null(await Reader(db).ReadAsync(context, Target(saved)));
+            Assert.Same(caller, db.Ado.Transaction);
+            Assert.Same(db.Ado.Connection, caller.Connection);
+            Assert.Equal(1, await db.Ado.SqlQuerySingleAsync<int>("SELECT 1;"));
+        }
+        finally
+        {
+            await db.Ado.RollbackTranAsync();
+        }
+    }
+
+    [Theory]
+    [InlineData(false, "permission")]
+    [InlineData(false, "pointer")]
+    [InlineData(false, "delete")]
+    [InlineData(true, "permission")]
+    [InlineData(true, "pointer")]
+    [InlineData(true, "delete")]
+    public async Task CommittedChangeDuringReadRefusesSourceWithFreshStatements(bool callerTransaction, string change)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (ArticleRelationRevisionCoordinate saved, RevisionCompareReadContext context) = await SeedAsync(db);
+        using SqlSugarClient committer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        NpgsqlTransaction? caller = null;
+        if (callerTransaction)
+        {
+            await db.Ado.BeginTranAsync();
+            await db.Ado.ExecuteCommandAsync("SET TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY;");
+            caller = Assert.IsType<NpgsqlTransaction>(db.Ado.Transaction);
+        }
+        bool committed = false;
+        var reader = Reader(db, async _ =>
+        {
+            int readerPid = await db.Ado.SqlQuerySingleAsync<int>("SELECT pg_backend_pid();");
+            await CommitExternalChangeAsync(committer, saved, context, change);
+            Assert.NotEqual(readerPid, _lastCommitterPid);
+            committed = true;
+        });
+        try
+        {
+            Assert.Null(await reader.ReadAsync(context, Target(saved)));
+            Assert.True(committed);
+            Assert.Same(caller, db.Ado.Transaction);
+            if (caller is not null)
+            {
+                Assert.Same(db.Ado.Connection, caller.Connection);
+                Assert.Equal(1, await db.Ado.SqlQuerySingleAsync<int>("SELECT 1;"));
+            }
+        }
+        finally
+        {
+            if (caller is not null)
+            {
+                await db.Ado.RollbackTranAsync();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CallerTransactionReplacementDuringReadIsRefusedWithoutEndingIt()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (ArticleRelationRevisionCoordinate saved, RevisionCompareReadContext context) = await SeedAsync(db);
+        NpgsqlTransaction? replacement = null;
+        var reader = Reader(db, async _ =>
+        {
+            await db.Ado.BeginTranAsync();
+            await db.Ado.ExecuteCommandAsync("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY;");
+            replacement = Assert.IsType<NpgsqlTransaction>(db.Ado.Transaction);
+        });
+        try
+        {
+            Assert.Null(await reader.ReadAsync(context, Target(saved)));
+            Assert.NotNull(replacement);
+            Assert.Same(replacement, db.Ado.Transaction);
+            Assert.Same(db.Ado.Connection, replacement.Connection);
+            Assert.Equal(1, await db.Ado.SqlQuerySingleAsync<int>("SELECT 1;"));
+        }
+        finally
+        {
+            if (replacement is not null)
+            {
+                await db.Ado.RollbackTranAsync();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ActiveAmbientTransactionIsRefusedWithoutChangingCallerContext()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (ArticleRelationRevisionCoordinate saved, RevisionCompareReadContext context) = await SeedAsync(db);
+        using var ambient = new System.Transactions.TransactionScope(
+            System.Transactions.TransactionScopeOption.Required,
+            System.Transactions.TransactionScopeAsyncFlowOption.Enabled);
+        System.Transactions.Transaction? caller = System.Transactions.Transaction.Current;
+        Assert.NotNull(caller);
+        Assert.Null(await Reader(db).ReadAsync(context, Target(saved)));
+        Assert.Same(caller, System.Transactions.Transaction.Current);
+        Assert.Null(db.Ado.Transaction);
+        ambient.Complete();
+    }
+
+    [Fact]
+    public async Task SuppressedAmbientRetainedSnapshotIsRefusedByActualServerIsolation()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (ArticleRelationRevisionCoordinate saved, RevisionCompareReadContext context) = await SeedAsync(db);
+        using SqlSugarClient committer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        db.CurrentConnectionConfig.IsAutoCloseConnection = false;
+        using var ambient = new System.Transactions.TransactionScope(
+            System.Transactions.TransactionScopeOption.Required,
+            new System.Transactions.TransactionOptions { IsolationLevel = System.Transactions.IsolationLevel.RepeatableRead },
+            System.Transactions.TransactionScopeAsyncFlowOption.Enabled);
+        db.Ado.Open();
+        await db.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;");
+        var admission = new AuthoringRevisionCompareAuthority(db, new AuthoringDraftLifecycleService(db, null!, null!, null!));
+        Assert.Equal(saved.RevisionId, (await admission.GetAuthorizedArticleAsync(context, saved.ArticleId, default))!.CurrentRevisionId);
+        using (var suppression = new System.Transactions.TransactionScope(
+            System.Transactions.TransactionScopeOption.Suppress,
+            System.Transactions.TransactionScopeAsyncFlowOption.Enabled))
+        {
+            await CommitExternalChangeAsync(committer, saved, context, "permission");
+            Assert.Null(System.Transactions.Transaction.Current);
+            Assert.Null(db.Ado.Transaction);
+            Assert.Equal("repeatable read", await db.Ado.SqlQuerySingleAsync<string>("SHOW transaction_isolation;"));
+            Assert.Equal(saved.RevisionId, (await admission.GetAuthorizedArticleAsync(context, saved.ArticleId, default))!.CurrentRevisionId);
+            Assert.Null(await Reader(db).ReadAsync(context, Target(saved)));
+            Assert.Equal(1, await db.Ado.SqlQuerySingleAsync<int>("SELECT 1;"));
+            suppression.Complete();
+        }
+        Assert.NotNull(System.Transactions.Transaction.Current);
+        ambient.Complete();
+    }
+
+    private int _lastCommitterPid;
+
+    private async Task CommitExternalChangeAsync(SqlSugarClient committer, ArticleRelationRevisionCoordinate saved,
+        RevisionCompareReadContext context, string change)
+    {
+        await committer.Ado.BeginTranAsync();
+        _lastCommitterPid = ((NpgsqlConnection)committer.Ado.Connection).ProcessID;
+        switch (change)
+        {
+            case "permission":
+                await committer.Updateable<AdminPrincipal>().SetColumns(row => new AdminPrincipal { Permissions = "" })
+                    .Where(row => row.Id == context.AdminPrincipalId).ExecuteCommandAsync();
+                break;
+            case "pointer":
+                await committer.Updateable<Article>().SetColumns(row => new Article { CurrentRevisionId = null })
+                    .Where(row => row.Id == saved.ArticleId).ExecuteCommandAsync();
+                break;
+            case "delete":
+                await committer.Updateable<Article>().SetColumns(row => new Article { IsDeleted = true })
+                    .Where(row => row.Id == saved.ArticleId).ExecuteCommandAsync();
+                break;
+            default:
+                throw new InvalidOperationException("unknown fixture change");
+        }
+        await committer.Ado.CommitTranAsync();
+        if (change == "permission")
+        {
+            Assert.Equal("", await committer.Queryable<AdminPrincipal>().Where(row => row.Id == context.AdminPrincipalId)
+                .Select(row => row.Permissions).FirstAsync());
+        }
+        else if (change == "pointer")
+        {
+            Assert.Null(await committer.Queryable<Article>().Where(row => row.Id == saved.ArticleId)
+                .Select(row => row.CurrentRevisionId).FirstAsync());
+        }
+        else
+        {
+            Assert.True(await committer.Queryable<Article>().Where(row => row.Id == saved.ArticleId)
+                .Select(row => row.IsDeleted).FirstAsync());
+        }
+    }
+
     private CurrentArticleEmbedTargetReader Reader(SqlSugarClient db, Func<RevisionComparePackageReadResult, Task>? afterRead = null)
     {
         // The read path uses the real lifecycle; these write-only collaborators must not be invoked.
