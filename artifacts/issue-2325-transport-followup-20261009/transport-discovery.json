@@ -1,0 +1,138 @@
+[
+  {
+    "name": "binaryApiClient credentials handling > strips auth-bearing headers when credentials are omitted",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient credentials handling > adds csrf token from document metadata for credentialed mutations",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient credentials handling > exposes a cloned response-header snapshot to contract-aware callers",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient credentials handling > does not merge requests whose callers each require response metadata",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient pow abort handling > buildBinaryPowHeaders passes signal to pow challenge fetch",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient pow abort handling > buildBinaryPowHeaders gives browser pow enough time for release acceptance difficulty",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient pow abort handling > buildBinaryPowHeaders aborts before calculate when signal is aborted after challenge",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient pow abort handling > aborted pow header construction rejects as AbortError",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient pow abort handling > binary request does not send business request after pow abort",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient one-time pow headers > uses fresh one-time pow headers for concurrent builds with same scope",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient one-time pow headers > builds independent pow headers for different pow scopes",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient one-time pow headers > single abort only cancels its own pow build",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient one-time pow headers > builds a fresh pow header after success",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient one-time pow headers > builds a fresh pow header after failure",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient binary request in-flight dedupe > dedupes concurrent identical binary GET requests",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient binary request in-flight dedupe > does not dedupe different binary request bodies",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient risk challenge proof transport > attaches the three typed proof headers and commits an accepted response",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient risk challenge proof transport > restores a reservation when cancellation happens before fetch",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient risk challenge proof transport > marks an in-flight network failure terminal instead of restoring it",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient risk challenge proof transport > settles server proof outcome expired as expired",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient risk challenge proof transport > settles server proof outcome replayed_or_missing as replayed",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient risk challenge proof transport > settles server proof outcome binding_mismatch as binding_mismatch",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient risk challenge proof transport > settles server proof outcome revoked as revoked",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient risk challenge proof transport > settles server proof outcome rejected as rejected",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClient.test.ts"
+  },
+  {
+    "name": "binaryApiClient transport rejection and option preservation > preserves the original shared 'TypeError' rejection value and cleans every waiter",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  },
+  {
+    "name": "binaryApiClient transport rejection and option preservation > preserves the original shared 'AbortError' rejection value and cleans every waiter",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  },
+  {
+    "name": "binaryApiClient transport rejection and option preservation > preserves the original shared 'string' rejection value and cleans every waiter",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  },
+  {
+    "name": "binaryApiClient transport rejection and option preservation > preserves the original shared 'number' rejection value and cleans every waiter",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  },
+  {
+    "name": "binaryApiClient transport rejection and option preservation > preserves the original shared 'null' rejection value and cleans every waiter",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  },
+  {
+    "name": "binaryApiClient transport rejection and option preservation > preserves the original shared 'undefined' rejection value and cleans every waiter",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  },
+  {
+    "name": "binaryApiClient transport rejection and option preservation > preserves the original shared 'object' rejection value and cleans every waiter",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  },
+  {
+    "name": "binaryApiClient transport rejection and option preservation > cancels one waiter without cancelling its peer and removes the listener before rejection",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  },
+  {
+    "name": "binaryApiClient transport rejection and option preservation > cancels the shared fetch after the final waiter is cleaned and ignores its late rejection",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  },
+  {
+    "name": "binaryApiClient transport rejection and option preservation > strips proof and observer without mutating input or changing proof settlement and fetch options",
+    "file": "/workspace/FsusBlog-2325-transport-followup/tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  }
+]

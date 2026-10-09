@@ -1,0 +1,161 @@
+{
+  "frozenBase": "7b374e71f89433cf04e5e315fdd1d43816728f85",
+  "sourceOffer": "d61f0977e1f8a45873ac33122c028461d22e5a80",
+  "original2246Pr3818Head": "987e7956967c3a1b1c53120b58b887fbe960ed33",
+  "claimedSourcePaths": [
+    "src/frontend/src/api/binaryApiClient.ts",
+    "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  ],
+  "claimedIntersectionWithOriginal2246": [],
+  "preimages": [
+    {
+      "path": "src/frontend/src/api/binaryApiClient.ts",
+      "frozenBlob": "0dbf8a69be5929f59a11a7f79efa7842df43e6cd",
+      "upstreamPreimageBlob": "f75932afdcedce739e1b7e99bba684d7be72d1c5",
+      "offeredPostimageBlob": "df0caa94404634c19fa75cf7d989253005847a5b",
+      "compatible": true,
+      "difference": "only held Error annotation"
+    },
+    {
+      "path": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+      "frozenBlob": "4e480d97843054c239f649da2a745d246eacfdc2",
+      "upstreamPreimageBlob": "4e480d97843054c239f649da2a745d246eacfdc2",
+      "offeredPostimageBlob": "fe5a3776bddca45e51d249d19c58c19bf1dac947",
+      "compatible": true,
+      "difference": "none"
+    }
+  ],
+  "protocolPreflight": {
+    "path": "tests/tools/aeds-protocol-generation.test.mjs",
+    "sha256": "13f0b162c00c3a78332b35adc584422eb9b31f6181bbdb3d01306acff4363ace",
+    "positiveFqns": [
+      "the original producer owns five products with manifest-derived identities and explicit metadata",
+      "the Canvas and article-link additions retain independently named roots and wire identities",
+      "the original 236 golden records, evidence and retirement remain unchanged",
+      "the original four renderer outputs and complete golden bytes are preserved for the retained source",
+      "every frame, including future registrations, must explicitly provide complete golden metadata",
+      "source values and explicit metadata, not old output values, determine the complete catalog",
+      "the FontRegistryList golden identity comes from the same protocol frame used by every language",
+      "the FontRegistryDetail golden identity comes from the same protocol frame used by every language",
+      "the FontActivationList golden identity comes from the same protocol frame used by every language",
+      "the ThemeRegistryList golden identity comes from the same protocol frame used by every language",
+      "the ThemeRegistryDetail golden identity comes from the same protocol frame used by every language",
+      "the ThemeActivationList golden identity comes from the same protocol frame used by every language",
+      "the ThemeActivation golden identity comes from the same protocol frame used by every language",
+      "the ThemeActivationHistory golden identity comes from the same protocol frame used by every language",
+      "the original renderer refuses missing golden metadata before any output",
+      "the original renderer refuses unknown golden metadata field before any output",
+      "the original renderer refuses unknown catalog version before any output",
+      "the original renderer refuses empty evidence before any output",
+      "the original renderer refuses duplicate evidence before any output",
+      "the original renderer refuses outside evidence before any output",
+      "the original renderer refuses traversing evidence before any output",
+      "the original renderer refuses evidence with terminal LF before any output",
+      "the original renderer refuses missing family before any output",
+      "the original renderer refuses empty family before any output",
+      "the original renderer refuses family with terminal LF before any output",
+      "the original renderer refuses missing order before any output",
+      "the original renderer refuses duplicate order before any output",
+      "the original renderer refuses negative order before any output",
+      "the original renderer refuses out of range order before any output",
+      "the original renderer refuses fractional order before any output",
+      "the original renderer refuses unannotated registered frame before any output",
+      "the original renderer refuses removed registered frame leaving a metadata gap before any output",
+      "the original renderer refuses duplicate frame identity before any output",
+      "the original renderer refuses retired frame reused as active before any output",
+      "the original renderer refuses empty frame collection before any output"
+    ],
+    "expectedCount": 35,
+    "hooks": [],
+    "execution": "pure original renderer/unit owner; no CLI producer main, runtime/security/device/audit task"
+  },
+  "hooksReview": {
+    "config": "src/frontend/vitest.config.ts",
+    "setup": "tests/frontend/support/unit/setup.ts",
+    "globalHooks": [
+      "beforeEach/afterEach optional task-local topology trace",
+      "afterAll animationFrames.dispose",
+      "beforeAll locale reset/activate after test mocks"
+    ],
+    "mocked": [
+      "fetch in every original transport suite/new controls",
+      "usePow.calculate",
+      "browser fingerprint",
+      "@wasm/aeds init/decode",
+      "@wasm/pow init/solve",
+      "@wasm/search"
+    ],
+    "realSecurityChallengeOrNetworkExecution": false,
+    "heldAuditsStarted": false
+  },
+  "preflightFailedAttempts": [
+    {
+      "reason": "Discovery helper array delimiter matched an inner closing call; positive count assertion stopped before worktree creation/test execution. Corrected helper to exact newline closing-array delimiter, preserving expected35 and all original tests.",
+      "testsExecuted": 0
+    }
+  ],
+  "readFailure": {
+    "action": "git fetch refs/pull/3818/head",
+    "reason": "credential prompt unavailable",
+    "fallback": "existing authorized read-only GitHub fetch_pr returned current head987; no credentials or write API used"
+  },
+  "propertyListOffer": {
+    "source": "0e246ef7f3ecd50563b5b4a70b12752d26711a00",
+    "consumed": false,
+    "reason": "No runtime reference from current metadata production roots or frozen host; exact upstream composition source requested"
+  },
+  "setupFailedAttempts": [
+    {
+      "reason": "Initial dependency-cache lookup used /workspace/FsusBlog toolchain path, absent. Stopped before copying source or running tests. Reused verified frozen-worktree cache pointing to existing fields toolchain.",
+      "testsExecuted": 0
+    }
+  ],
+  "frontendPreflight": {
+    "discovery": "transport-discovery.json",
+    "expectedCount": 34,
+    "countsByFile": {
+      "binaryApiClient.test.ts": 24,
+      "binaryApiClientTransportStyle.test.ts": 10
+    },
+    "positiveFullNames": [
+      "binaryApiClient credentials handling strips auth-bearing headers when credentials are omitted",
+      "binaryApiClient credentials handling adds csrf token from document metadata for credentialed mutations",
+      "binaryApiClient credentials handling exposes a cloned response-header snapshot to contract-aware callers",
+      "binaryApiClient credentials handling does not merge requests whose callers each require response metadata",
+      "binaryApiClient pow abort handling buildBinaryPowHeaders passes signal to pow challenge fetch",
+      "binaryApiClient pow abort handling buildBinaryPowHeaders gives browser pow enough time for release acceptance difficulty",
+      "binaryApiClient pow abort handling buildBinaryPowHeaders aborts before calculate when signal is aborted after challenge",
+      "binaryApiClient pow abort handling aborted pow header construction rejects as AbortError",
+      "binaryApiClient pow abort handling binary request does not send business request after pow abort",
+      "binaryApiClient one-time pow headers uses fresh one-time pow headers for concurrent builds with same scope",
+      "binaryApiClient one-time pow headers builds independent pow headers for different pow scopes",
+      "binaryApiClient one-time pow headers single abort only cancels its own pow build",
+      "binaryApiClient one-time pow headers builds a fresh pow header after success",
+      "binaryApiClient one-time pow headers builds a fresh pow header after failure",
+      "binaryApiClient binary request in-flight dedupe dedupes concurrent identical binary GET requests",
+      "binaryApiClient binary request in-flight dedupe does not dedupe different binary request bodies",
+      "binaryApiClient risk challenge proof transport attaches the three typed proof headers and commits an accepted response",
+      "binaryApiClient risk challenge proof transport restores a reservation when cancellation happens before fetch",
+      "binaryApiClient risk challenge proof transport marks an in-flight network failure terminal instead of restoring it",
+      "binaryApiClient risk challenge proof transport settles server proof outcome expired as expired",
+      "binaryApiClient risk challenge proof transport settles server proof outcome replayed_or_missing as replayed",
+      "binaryApiClient risk challenge proof transport settles server proof outcome binding_mismatch as binding_mismatch",
+      "binaryApiClient risk challenge proof transport settles server proof outcome revoked as revoked",
+      "binaryApiClient risk challenge proof transport settles server proof outcome rejected as rejected",
+      "binaryApiClient transport rejection and option preservation preserves the original shared 'TypeError' rejection value and cleans every waiter",
+      "binaryApiClient transport rejection and option preservation preserves the original shared 'AbortError' rejection value and cleans every waiter",
+      "binaryApiClient transport rejection and option preservation preserves the original shared 'string' rejection value and cleans every waiter",
+      "binaryApiClient transport rejection and option preservation preserves the original shared 'number' rejection value and cleans every waiter",
+      "binaryApiClient transport rejection and option preservation preserves the original shared 'null' rejection value and cleans every waiter",
+      "binaryApiClient transport rejection and option preservation preserves the original shared 'undefined' rejection value and cleans every waiter",
+      "binaryApiClient transport rejection and option preservation preserves the original shared 'object' rejection value and cleans every waiter",
+      "binaryApiClient transport rejection and option preservation cancels one waiter without cancelling its peer and removes the listener before rejection",
+      "binaryApiClient transport rejection and option preservation cancels the shared fetch after the final waiter is cleaned and ignores its late rejection",
+      "binaryApiClient transport rejection and option preservation strips proof and observer without mutating input or changing proof settlement and fetch options"
+    ],
+    "namePattern": "(?:^| )(?:binaryApiClient\\ credentials\\ handling\\ strips\\ auth\\-bearing\\ headers\\ when\\ credentials\\ are\\ omitted|binaryApiClient\\ credentials\\ handling\\ adds\\ csrf\\ token\\ from\\ document\\ metadata\\ for\\ credentialed\\ mutations|binaryApiClient\\ credentials\\ handling\\ exposes\\ a\\ cloned\\ response\\-header\\ snapshot\\ to\\ contract\\-aware\\ callers|binaryApiClient\\ credentials\\ handling\\ does\\ not\\ merge\\ requests\\ whose\\ callers\\ each\\ require\\ response\\ metadata|binaryApiClient\\ pow\\ abort\\ handling\\ buildBinaryPowHeaders\\ passes\\ signal\\ to\\ pow\\ challenge\\ fetch|binaryApiClient\\ pow\\ abort\\ handling\\ buildBinaryPowHeaders\\ gives\\ browser\\ pow\\ enough\\ time\\ for\\ release\\ acceptance\\ difficulty|binaryApiClient\\ pow\\ abort\\ handling\\ buildBinaryPowHeaders\\ aborts\\ before\\ calculate\\ when\\ signal\\ is\\ aborted\\ after\\ challenge|binaryApiClient\\ pow\\ abort\\ handling\\ aborted\\ pow\\ header\\ construction\\ rejects\\ as\\ AbortError|binaryApiClient\\ pow\\ abort\\ handling\\ binary\\ request\\ does\\ not\\ send\\ business\\ request\\ after\\ pow\\ abort|binaryApiClient\\ one\\-time\\ pow\\ headers\\ uses\\ fresh\\ one\\-time\\ pow\\ headers\\ for\\ concurrent\\ builds\\ with\\ same\\ scope|binaryApiClient\\ one\\-time\\ pow\\ headers\\ builds\\ independent\\ pow\\ headers\\ for\\ different\\ pow\\ scopes|binaryApiClient\\ one\\-time\\ pow\\ headers\\ single\\ abort\\ only\\ cancels\\ its\\ own\\ pow\\ build|binaryApiClient\\ one\\-time\\ pow\\ headers\\ builds\\ a\\ fresh\\ pow\\ header\\ after\\ success|binaryApiClient\\ one\\-time\\ pow\\ headers\\ builds\\ a\\ fresh\\ pow\\ header\\ after\\ failure|binaryApiClient\\ binary\\ request\\ in\\-flight\\ dedupe\\ dedupes\\ concurrent\\ identical\\ binary\\ GET\\ requests|binaryApiClient\\ binary\\ request\\ in\\-flight\\ dedupe\\ does\\ not\\ dedupe\\ different\\ binary\\ request\\ bodies|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ attaches\\ the\\ three\\ typed\\ proof\\ headers\\ and\\ commits\\ an\\ accepted\\ response|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ restores\\ a\\ reservation\\ when\\ cancellation\\ happens\\ before\\ fetch|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ marks\\ an\\ in\\-flight\\ network\\ failure\\ terminal\\ instead\\ of\\ restoring\\ it|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ settles\\ server\\ proof\\ outcome\\ expired\\ as\\ expired|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ settles\\ server\\ proof\\ outcome\\ replayed_or_missing\\ as\\ replayed|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ settles\\ server\\ proof\\ outcome\\ binding_mismatch\\ as\\ binding_mismatch|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ settles\\ server\\ proof\\ outcome\\ revoked\\ as\\ revoked|binaryApiClient\\ risk\\ challenge\\ proof\\ transport\\ settles\\ server\\ proof\\ outcome\\ rejected\\ as\\ rejected|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'TypeError'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'AbortError'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'string'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'number'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'null'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'undefined'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ preserves\\ the\\ original\\ shared\\ 'object'\\ rejection\\ value\\ and\\ cleans\\ every\\ waiter|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ cancels\\ one\\ waiter\\ without\\ cancelling\\ its\\ peer\\ and\\ removes\\ the\\ listener\\ before\\ rejection|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ cancels\\ the\\ shared\\ fetch\\ after\\ the\\ final\\ waiter\\ is\\ cleaned\\ and\\ ignores\\ its\\ late\\ rejection|binaryApiClient\\ transport\\ rejection\\ and\\ option\\ preservation\\ strips\\ proof\\ and\\ observer\\ without\\ mutating\\ input\\ or\\ changing\\ proof\\ settlement\\ and\\ fetch\\ options)$",
+    "runnerNameSemantics": "actual @vitest/runner getTaskFullName joins suite/file names with spaces; exact suite/test suffix anchored at end",
+    "topologyTraceEnvPresent": false
+  },
+  "currentSource": "0cf5953abcff3d3d35980235387b76d84e8fc0ed"
+}

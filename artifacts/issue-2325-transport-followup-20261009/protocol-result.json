@@ -1,0 +1,17 @@
+{
+  "source": "0cf5953abcff3d3d35980235387b76d84e8fc0ed",
+  "exitCode": 1,
+  "tests": 35,
+  "pass": 30,
+  "fail": 5,
+  "skip": 0,
+  "failedNames": [
+    "the original producer owns five products with manifest-derived identities and explicit metadata",
+    "the Canvas and article-link additions retain independently named roots and wire identities",
+    "the original 236 golden records, evidence and retirement remain unchanged",
+    "the original four renderer outputs and complete golden bytes are preserved for the retained source",
+    "every frame, including future registrations, must explicitly provide complete golden metadata"
+  ],
+  "scope": "Original protocol TestOwner only; no whole91-case aggregate rerun or actual native/runtime/device/audit task",
+  "expectedHistoricalFiveRemain": true
+}

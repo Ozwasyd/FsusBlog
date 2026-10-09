@@ -1,0 +1,481 @@
+TAP version 13
+# Subtest: the original producer owns five products with manifest-derived identities and explicit metadata
+not ok 1 - the original producer owns five products with manifest-derived identities and explicit metadata
+  ---
+  duration_ms: 4.839044
+  type: 'test'
+  location: '/workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:45:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    263 !== 260
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 260
+  actual: 263
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:58:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.start (node:internal/test_runner/test:1242:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+  ...
+# Subtest: the Canvas and article-link additions retain independently named roots and wire identities
+not ok 2 - the Canvas and article-link additions retain independently named roots and wire identities
+  ---
+  duration_ms: 2.039448
+  type: 'test'
+  location: '/workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:61:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    ... Skipped lines
+    
+      [
+        [
+          'AuthoringCanvasCreateRequest',
+          253,
+          'authoring-canvas'
+    ...
+        ],
+    +   [
+    +     'ArticlePropertyValueReadResponse',
+    +     269,
+    +     'article-property-value-read'
+    +   ],
+    +   [
+    +     'AuthoringWorkspaceSnapshotRequest',
+    +     270,
+    +     'authoring-workspace-snapshot'
+    +   ],
+    +   [
+    +     'AuthoringWorkspaceSnapshotResponse',
+    +     271,
+    +     'authoring-workspace-snapshot'
+    +   ]
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      0: 'AuthoringCanvasCreateRequest'
+      1: 253
+      2: 'authoring-canvas'
+    1:
+      0: 'AuthoringCanvasDocumentHeader'
+      1: 254
+      2: 'authoring-canvas'
+    2:
+      0: 'AuthoringCanvasListResponse'
+      1: 255
+      2: 'authoring-canvas'
+    3:
+      0: 'AuthoringCanvasNodesResponse'
+      1: 256
+      2: 'authoring-canvas'
+    4:
+      0: 'AuthoringCanvasEdgesResponse'
+      1: 257
+      2: 'authoring-canvas'
+    5:
+      0: 'AuthoringCanvasApplyRequest'
+      1: 258
+      2: 'authoring-canvas'
+    6:
+      0: 'AuthoringCanvasOperationReceipt'
+      1: 259
+      2: 'authoring-canvas'
+    7:
+      0: 'AuthoringCanvasUndoRedoRequest'
+      1: 260
+      2: 'authoring-canvas'
+    8:
+      0: 'AuthoringCanvasHistoryResponse'
+      1: 261
+      2: 'authoring-canvas'
+    9:
+      0: 'AuthoringCanvasDeleteRequest'
+      1: 262
+      2: 'authoring-canvas'
+    10:
+      0: 'AuthoringCanvasWriteReceipt'
+      1: 263
+      2: 'authoring-canvas'
+    11:
+      0: 'AuthoringCanvasResolveRequest'
+      1: 264
+      2: 'authoring-canvas'
+    12:
+      0: 'AuthoringCanvasReferenceResolutionBatch'
+      1: 265
+      2: 'authoring-canvas'
+    13:
+      0: 'ArticleCanvasLinkRequest'
+      1: 266
+      2: 'article-canvas-link'
+    14:
+      0: 'ArticleCanvasLinkReceipt'
+      1: 267
+      2: 'article-canvas-link'
+    15:
+      0: 'ArticleCanvasLinkHistoryResponse'
+      1: 268
+      2: 'article-canvas-link'
+  actual:
+    0:
+      0: 'AuthoringCanvasCreateRequest'
+      1: 253
+      2: 'authoring-canvas'
+    1:
+      0: 'AuthoringCanvasDocumentHeader'
+      1: 254
+      2: 'authoring-canvas'
+    2:
+      0: 'AuthoringCanvasListResponse'
+      1: 255
+      2: 'authoring-canvas'
+    3:
+      0: 'AuthoringCanvasNodesResponse'
+      1: 256
+      2: 'authoring-canvas'
+    4:
+      0: 'AuthoringCanvasEdgesResponse'
+      1: 257
+      2: 'authoring-canvas'
+    5:
+      0: 'AuthoringCanvasApplyRequest'
+      1: 258
+      2: 'authoring-canvas'
+    6:
+      0: 'AuthoringCanvasOperationReceipt'
+      1: 259
+      2: 'authoring-canvas'
+    7:
+      0: 'AuthoringCanvasUndoRedoRequest'
+      1: 260
+      2: 'authoring-canvas'
+    8:
+      0: 'AuthoringCanvasHistoryResponse'
+      1: 261
+      2: 'authoring-canvas'
+    9:
+      0: 'AuthoringCanvasDeleteRequest'
+      1: 262
+      2: 'authoring-canvas'
+    10:
+      0: 'AuthoringCanvasWriteReceipt'
+      1: 263
+      2: 'authoring-canvas'
+    11:
+      0: 'AuthoringCanvasResolveRequest'
+      1: 264
+      2: 'authoring-canvas'
+    12:
+      0: 'AuthoringCanvasReferenceResolutionBatch'
+      1: 265
+      2: 'authoring-canvas'
+    13:
+      0: 'ArticleCanvasLinkRequest'
+      1: 266
+      2: 'article-canvas-link'
+    14:
+      0: 'ArticleCanvasLinkReceipt'
+      1: 267
+      2: 'article-canvas-link'
+    15:
+      0: 'ArticleCanvasLinkHistoryResponse'
+      1: 268
+      2: 'article-canvas-link'
+    16:
+      0: 'ArticlePropertyValueReadResponse'
+      1: 269
+      2: 'article-property-value-read'
+    17:
+      0: 'AuthoringWorkspaceSnapshotRequest'
+      1: 270
+      2: 'authoring-workspace-snapshot'
+    18:
+      0: 'AuthoringWorkspaceSnapshotResponse'
+      1: 271
+      2: 'authoring-workspace-snapshot'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:83:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: the original 236 golden records, evidence and retirement remain unchanged
+not ok 3 - the original 236 golden records, evidence and retirement remain unchanged
+  ---
+  duration_ms: 1.631068
+  type: 'test'
+  location: '/workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:86:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + '8c0c28a3a3efd6d5d15d0fa598cf8a64efaffa994b56036b034fea1b46a2fd51'
+    - '3d21d351288b0cdf7c8d9852fda94b108f8111b0ed9e3c941c5453b9f687edaa'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: '3d21d351288b0cdf7c8d9852fda94b108f8111b0ed9e3c941c5453b9f687edaa'
+  actual: '8c0c28a3a3efd6d5d15d0fa598cf8a64efaffa994b56036b034fea1b46a2fd51'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:90:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: the original four renderer outputs and complete golden bytes are preserved for the retained source
+not ok 4 - the original four renderer outputs and complete golden bytes are preserved for the retained source
+  ---
+  duration_ms: 1.002574
+  type: 'test'
+  location: '/workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:93:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    tests/backend/Fixtures/aeds-golden-catalog.json
+    + actual - expected
+    
+    + '8c0c28a3a3efd6d5d15d0fa598cf8a64efaffa994b56036b034fea1b46a2fd51'
+    - '3d21d351288b0cdf7c8d9852fda94b108f8111b0ed9e3c941c5453b9f687edaa'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: '3d21d351288b0cdf7c8d9852fda94b108f8111b0ed9e3c941c5453b9f687edaa'
+  actual: '8c0c28a3a3efd6d5d15d0fa598cf8a64efaffa994b56036b034fea1b46a2fd51'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:99:16)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: the FontRegistryList golden identity comes from the same protocol frame used by every language
+ok 5 - the FontRegistryList golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 2.267253
+  type: 'test'
+  ...
+# Subtest: the FontRegistryDetail golden identity comes from the same protocol frame used by every language
+ok 6 - the FontRegistryDetail golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 1.343486
+  type: 'test'
+  ...
+# Subtest: the FontActivationList golden identity comes from the same protocol frame used by every language
+ok 7 - the FontActivationList golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 1.522218
+  type: 'test'
+  ...
+# Subtest: the ThemeRegistryList golden identity comes from the same protocol frame used by every language
+ok 8 - the ThemeRegistryList golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 1.443673
+  type: 'test'
+  ...
+# Subtest: the ThemeRegistryDetail golden identity comes from the same protocol frame used by every language
+ok 9 - the ThemeRegistryDetail golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 1.133727
+  type: 'test'
+  ...
+# Subtest: the ThemeActivationList golden identity comes from the same protocol frame used by every language
+ok 10 - the ThemeActivationList golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 0.948044
+  type: 'test'
+  ...
+# Subtest: the ThemeActivation golden identity comes from the same protocol frame used by every language
+ok 11 - the ThemeActivation golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 1.061891
+  type: 'test'
+  ...
+# Subtest: the ThemeActivationHistory golden identity comes from the same protocol frame used by every language
+ok 12 - the ThemeActivationHistory golden identity comes from the same protocol frame used by every language
+  ---
+  duration_ms: 0.94552
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses missing golden metadata before any output
+ok 13 - the original renderer refuses missing golden metadata before any output
+  ---
+  duration_ms: 0.76886
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses unknown golden metadata field before any output
+ok 14 - the original renderer refuses unknown golden metadata field before any output
+  ---
+  duration_ms: 0.38052
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses unknown catalog version before any output
+ok 15 - the original renderer refuses unknown catalog version before any output
+  ---
+  duration_ms: 0.499374
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses empty evidence before any output
+ok 16 - the original renderer refuses empty evidence before any output
+  ---
+  duration_ms: 0.328282
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses duplicate evidence before any output
+ok 17 - the original renderer refuses duplicate evidence before any output
+  ---
+  duration_ms: 0.535948
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses outside evidence before any output
+ok 18 - the original renderer refuses outside evidence before any output
+  ---
+  duration_ms: 0.386458
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses traversing evidence before any output
+ok 19 - the original renderer refuses traversing evidence before any output
+  ---
+  duration_ms: 0.588415
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses evidence with terminal LF before any output
+ok 20 - the original renderer refuses evidence with terminal LF before any output
+  ---
+  duration_ms: 0.406107
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses missing family before any output
+ok 21 - the original renderer refuses missing family before any output
+  ---
+  duration_ms: 0.576638
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses empty family before any output
+ok 22 - the original renderer refuses empty family before any output
+  ---
+  duration_ms: 0.340771
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses family with terminal LF before any output
+ok 23 - the original renderer refuses family with terminal LF before any output
+  ---
+  duration_ms: 0.454678
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses missing order before any output
+ok 24 - the original renderer refuses missing order before any output
+  ---
+  duration_ms: 0.3337
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses duplicate order before any output
+ok 25 - the original renderer refuses duplicate order before any output
+  ---
+  duration_ms: 0.634923
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses negative order before any output
+ok 26 - the original renderer refuses negative order before any output
+  ---
+  duration_ms: 0.330867
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses out of range order before any output
+ok 27 - the original renderer refuses out of range order before any output
+  ---
+  duration_ms: 0.405346
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses fractional order before any output
+ok 28 - the original renderer refuses fractional order before any output
+  ---
+  duration_ms: 0.389422
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses unannotated registered frame before any output
+ok 29 - the original renderer refuses unannotated registered frame before any output
+  ---
+  duration_ms: 0.397344
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses removed registered frame leaving a metadata gap before any output
+ok 30 - the original renderer refuses removed registered frame leaving a metadata gap before any output
+  ---
+  duration_ms: 0.407209
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses duplicate frame identity before any output
+ok 31 - the original renderer refuses duplicate frame identity before any output
+  ---
+  duration_ms: 0.227704
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses retired frame reused as active before any output
+ok 32 - the original renderer refuses retired frame reused as active before any output
+  ---
+  duration_ms: 0.213424
+  type: 'test'
+  ...
+# Subtest: the original renderer refuses empty frame collection before any output
+ok 33 - the original renderer refuses empty frame collection before any output
+  ---
+  duration_ms: 0.23796
+  type: 'test'
+  ...
+# Subtest: every frame, including future registrations, must explicitly provide complete golden metadata
+not ok 34 - every frame, including future registrations, must explicitly provide complete golden metadata
+  ---
+  duration_ms: 0.498983
+  type: 'test'
+  location: '/workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:161:1'
+  failureType: 'testCodeFailure'
+  error: 'AEDS golden order must uniquely cover every frame: FutureFrame'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    validateManifest (file:///workspace/FsusBlog-2325-transport-followup/tools/frontend/generate-aeds-protocol.mjs:104:19)
+    renderAedsProtocolOutputs (file:///workspace/FsusBlog-2325-transport-followup/tools/frontend/generate-aeds-protocol.mjs:287:5)
+    goldenFrom (file:///workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:42:31)
+    TestContext.<anonymous> (file:///workspace/FsusBlog-2325-transport-followup/tests/tools/aeds-protocol-generation.test.mjs:165:20)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: source values and explicit metadata, not old output values, determine the complete catalog
+ok 35 - source values and explicit metadata, not old output values, determine the complete catalog
+  ---
+  duration_ms: 1.169079
+  type: 'test'
+  ...
+1..35
+# tests 35
+# suites 0
+# pass 30
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 113.677825

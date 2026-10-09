@@ -1,0 +1,13 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog-2325-transport-followup/src/frontend
+
+ ✓ ../../tests/frontend/unit/api/binaryApiClient.test.ts (24 tests) 755ms
+ ✓ ../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts (10 tests) 1059ms
+
+ Test Files  2 passed (2)
+      Tests  34 passed (34)
+   Start at  08:02:55
+   Duration  1.55s (transform 1.37s, setup 543ms, import 211ms, tests 1.81s, environment 1ms)
+
+JSON report written to /workspace/FsusBlog-2325-transport-followup/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog-2325-transport-followup/.tmp/test-results/vitest/unit/unsharded.xml

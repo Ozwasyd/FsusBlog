@@ -1,0 +1,23 @@
+#2325 canonical transport successor — source WIP, issue OPEN
+
+Branch: codex/issue-2325-transport-followup-20261009
+Frozen predecessor: 7b374e71f89433cf04e5e315fdd1d43816728f85
+Exact tested successor source: 0cf5953abcff3d3d35980235387b76d84e8fc0ed
+Pinned original master base: 537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea
+Canonical offer: d61f0977e1f8a45873ac33122c028461d22e5a80 / PR4094
+
+Only two source paths changed from frozen7b: src/frontend/src/api/binaryApiClient.ts and tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts. Both postimages exactly match d61. No whole owner evidence branch, ANSI logs, schema/authority/host/SOURCE gate or FsusUI edits. Frozen7b branch/head, old manifests, failed attempts and historical evidence remain unchanged. Source closure remains117 changed source/test paths versus pinned537; complete source/blob/SHA256 provenance is the new dependency-manifest.json.
+
+Real canonical completeWaiter<unknown>(reject) forwards raw TypeError/DOMException/string/number/null/undefined/object reasons. settled=true, cleanup and completion retain synchronous ordering; URL href, proof stripping and cancellation behavior remain. No Error-only annotation, cast, lint suppression or rejection normalization authored here.
+
+Own exact-source evidence: explicit two-file discovery returned34 nonempty unique full names (original24 plus canonical10). Original global/file hooks reviewed, actual FsusUI83036006 alias, fetch/PoW/WASM/fingerprint mocked; no real network/challenge/security/runtime/device or held audit started. Positive full-name pattern bounded execution:34PASS/0FAIL/0SKIP. Scoped repository product style:1file, eslint1/stylelint0, violations0/new0; test TS remains outside configured product style roots.
+
+Original protocol TestOwner preflight enumerated35 explicit names and no hooks. Own exact-source run:35cases,30PASS/5FAIL/0SKIP, exit1. Same five historical failures remain; protocol source/inputs are unchanged. Exact failure names and full output are protocol-result.json/protocol-tests.txt. This is not a rerun of the full91-case/native aggregate and does not establish any protocol repair. No broad fallback, held audit or failed-case suppression.
+
+Current full application typecheck, SOURCE stage, managed/backend, runtime/device/product/independent acceptance UNRUN. Prior419frontend pass/202type diagnostics bind b8; prior five protocol aggregate failures and failed SOURCE bind e02. These are retained, not reissued for this successor. dotnet unavailable remains an environment blocker.
+
+PropertyList0e246 three-path offer was read and preimages match pinned base; not consumed because current metadata runtime roots/frozen host do not reference it. Prior manifest lists it as base component/test coverage. Actual original2246 composition source requested before enlarging dependency scope.
+
+Host clarification: parent confirms original2246's4b Write.vue already mounts ArticleMetadataRead. This candidate does not include that host; final production admission remains incomplete. Backend persisted read closure and formal typed mutation/definitions/reference/URL/validation/reconciliation still require sole3735; Save stays disabled. Issue2325 remains OPEN.
+
+Preflight helper assertion/setup failure and Git PR-ref fetch failure are preserved in preimages-and-hooks.json, all before tests. Successful positive discovery/count/hook review preceded every selected test run. No new credentials, Library transfer, content API, package publication, merge/deployment or default-branch push. Root remains sole GitHub-content owner.
