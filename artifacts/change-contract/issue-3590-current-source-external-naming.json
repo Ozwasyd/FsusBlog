@@ -24,7 +24,8 @@
                 "config/testing/correctness-attempt-producers.json",
                 "config/testing/test-execution-envelope-applicability.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "config/testing/fixture-profile-matrix.generated.json"
+                "config/testing/fixture-profile-matrix.generated.json",
+                "config/testing/content-field-contracts.generated.json"
             ],
             "reason": "Preserve canonical applicability, schema, producer inventory and execution-target wire keys while regenerating actual candidate identities."
         }
