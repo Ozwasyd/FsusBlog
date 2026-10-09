@@ -530,3 +530,64 @@ test('probe nested helper evaluates captured locals in each invocation frame', (
     const proof = expressionProof('const render=(label)=>{function helper(){return child;}const child=label;return helper();};const result=[render("A"),render("B")];');
     assert.deepEqual(proof.value, ['A', 'B']);
 });
+
+
+test('boundary top-level lazy dependency must reject pre-initialization helper call', () =>
+{
+    assert.throws(() => expressionProof('const helper=()=>child;const before=helper();const child="A";const result=before;'), /unbound source constant.*child/);
+    assert.throws(() =>
+    {
+        const helper = () => child;
+        const before = helper();
+        const child = 'A';
+        return before;
+    }, ReferenceError);
+    assert.throws(() => expressionProof('const helper=()=>child;const before=helper();const child="A";const result=[child,before];'), /unbound source constant.*child/);
+    assert.equal(expressionProof('const helper=()=>child;const child="A";const before=helper();const result=before;').value, 'A');
+});
+
+function factorySlotFixture(setupLocal = false, label = '"A"', callback = 'h("button",{title:label},[])')
+{
+    const { source, slots } = tools();
+    const owner = fixture('import {defineComponent} from "vue";export default defineComponent({setup(_, {slots}){return()=>slots.cell?.({});}});');
+    const factory = setupLocal ? `const make=(label)=>{return {cell:(_)=>${callback}};};` : `const make=(label)=>({cell:(_)=>${callback}});`;
+    const file = fixture(`import {defineComponent,h} from "vue";import Owner from "./${owner.split('/').at(-1)}";${setupLocal ? '' : factory}export default defineComponent({setup(){${setupLocal ? factory : ''}const slotObject=make(${label});return()=> <Owner>{slotObject}</Owner>;}});`);
+    const graph = source.graph([file]);
+    const call = graph.nodes.find((entry) => entry.file === file && entry.tag === 'Owner');
+    assert.ok(call);
+    const ts = source.resolver.ts;
+    const invocation = find(source, owner, (node) => ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'cell');
+    return { source, slots, graph, call, file, owner, invocation };
+}
+
+test('boundary supplier factory must preserve captured parent parameter across invokeSlot context', () =>
+{
+    const { slots, graph, call, owner, invocation, file } = factorySlotFixture();
+    const binding = slots.bindSlot({ graph, callNode: call.id, name: 'cell' });
+    const proof = slots.invokeSlot({ graph, binding, file: owner, invocation });
+    assert.equal(proof.value.props.title, 'A');
+    assert.equal(proof.value.target.kind, 'native');
+    assert.equal(proof.value.target.name, 'button');
+    assert.ok(proof.steps.some((entry) => entry.file === file));
+    assert.ok(proof.effects.some((effect) => effect.parameters?.[0] === 'label'));
+});
+
+test('boundary setup-local factory preserves captured parent frame across slot invocation', () =>
+{
+    const { slots, graph, call, owner, invocation } = factorySlotFixture(true);
+    const binding = slots.bindSlot({ graph, callNode: call.id, name: 'cell' });
+    assert.equal(binding.callbackPending, true);
+    const proof = slots.invokeSlot({ graph, binding, file: owner, invocation });
+    assert.equal(proof.value.props.title, 'A');
+    assert.equal(proof.supplierProofDigest, binding.proofDigest);
+});
+
+test('ordinary finite slot factory rejects unknown inputs and deferred opaque effects', () =>
+{
+    const unknown = factorySlotFixture(false, 'unknownLabel');
+    assert.throws(() => unknown.slots.bindSlot({ graph: unknown.graph, callNode: unknown.call.id, name: 'cell' }), /unknown runtime value.*unknownLabel/);
+    const opaque = factorySlotFixture(true, undefined, 'opaque(label)');
+    const binding = opaque.slots.bindSlot({ graph: opaque.graph, callNode: opaque.call.id, name: 'cell' });
+    assert.equal(binding.callbackPending, true);
+    assert.throws(() => opaque.slots.invokeSlot({ graph: opaque.graph, binding, file: opaque.owner, invocation: opaque.invocation }), /unknown runtime value.*opaque/);
+});
