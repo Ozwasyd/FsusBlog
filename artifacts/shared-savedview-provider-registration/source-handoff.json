@@ -1,0 +1,91 @@
+{
+  "schema": "fsusblog.single-definition-only-savedview-provider-registration.v1",
+  "sourceCommit": "25114ce36d2e58736b0b8fef72a4b8dafe4b0b1c",
+  "base": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "branch": "codex/shared-savedview-provider-registration-20261009",
+  "supplierExactSource": "d64f8298155bc6d9d451c9edda54d8bfe1253f25",
+  "changedPaths": [
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "src/backend/Services/Authoring/ArticlePropertySavedViewDependencyProvider.cs"
+  ],
+  "providerExactBlob": "00d2d9177a8493de7d6a5427851c55520659b890",
+  "centralDiPreimage": "6138f3b208d98d1392d6511abfff1985630a5f88",
+  "centralDiPostimage": "fc1e42852778139094001d1c02bd61d2dad9f186",
+  "centralChange": "One scoped IAuthorSavedViewDependencyProvider->ArticlePropertySavedViewDependencyProvider registration beside existing taxonomy provider. Existing store/catalog/query validator remain original authorities.",
+  "providerConstructorDependencies": [
+    "IArticlePropertyDefinitionStore",
+    "IHttpContextAccessor",
+    "IConfiguration"
+  ],
+  "originalScopedDependenciesRetained": [
+    "IArticlePropertyDefinitionStore, ArticlePropertyDefinitionStore",
+    "IArticlePropertyDefinitionPersistence, PostgresArticlePropertyDefinitionPersistence",
+    "IArticlePropertyDefinitionPermissionAuthority, ArticlePropertyDefinitionPermissionAuthority",
+    "IArticlePropertyDefinitionImpactAuthority, UnavailableArticlePropertyDefinitionImpactAuthority",
+    "IAuthorSavedViewDependencyProvider, PostgresAuthorSavedViewDependencyProvider",
+    "IAuthorSavedViewDependencyCatalog, AuthorSavedViewDependencyCatalog",
+    "IAuthorSavedViewQueryValidator, AuthorSavedViewQueryValidator"
+  ],
+  "foundation": "Existing AddFsusApiFoundation calls AddHttpContextAccessor, registers actual business TimeProvider, and receives IConfiguration from original WebApplication host.",
+  "unchangedPaths": [
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionStore.cs",
+      "unchangedBlob": "497aaef761df9345c903514c1bdd7b2be997ba20"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs",
+      "unchangedBlob": "2971ea5d7ca77ec0db97b2285d3110785eb77497"
+    },
+    {
+      "path": "src/backend/Services/Authoring/PostgresArticlePropertyDefinitionPersistence.cs",
+      "unchangedBlob": "901ac89c571f9b0780f368ef0be3e1777317248b"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionVerifier.cs",
+      "unchangedBlob": "21a51ea89ec6f69a7f1e4c37aebe8a27f348554c"
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthorSavedViewContracts.cs",
+      "unchangedBlob": "3a77a93bbb9e5e0df6cdc6755b7c8a76bd5ac42d"
+    },
+    {
+      "path": "src/backend/Services/Authoring/PostgresAuthorSavedViewDependencyProvider.cs",
+      "unchangedBlob": "9e504c81e5cf314f5f8d4e0687e0e64edac44e42"
+    },
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
+      "unchangedBlob": "71431c5552ffe099f95723ed5e21c03f08e1d109"
+    }
+  ],
+  "existingPriorRootComposition": "Rootf3 provider is already byte-identical and uniquely registered (original central hunk cb53ddb3db115118a168737c4e7f0e59aa42766b). This master-based minimum offers clean exact production consumption; do not duplicate the registration in that root.",
+  "supplierReportedControls": {
+    "originalUnit": 11,
+    "originalPostgres": 4,
+    "independentReview": false,
+    "whole2324Acceptance": false,
+    "sourceBinding": "d64f8298155bc6d9d451c9edda54d8bfe1253f25",
+    "first14pass1failure": "retained by original owner; corrected legitimate Deleted read fixture without admitting Delete command",
+    "originalPreflightGovernanceCollectionInventoryStyle": "supplier reports passed its exact15 roster; not root qualification"
+  },
+  "testsAndFixtures": "None consumed. Supplier Integration fixture remains its original owner source; original collection/preflight and independent review must be provided before future execution. No source-only result promoted to PG/runtime.",
+  "capabilityLimits": [
+    "Definition projection only, request-authenticated and owner/site point reads revalidated",
+    "Condition/sort index execution stays unavailable",
+    "No fabricated operators/index facts",
+    "Unavailable impact authority keeps Delete command closed"
+  ],
+  "rootManagedDiscovery": "UNRUN",
+  "rootManagedBodies": "UNRUN",
+  "runtimeQualification": false,
+  "strictLane": "Existing original strict SDK/output-only binding failures remain. Normal production build is separate and not acceptance substitute.",
+  "createdAtUtc": "2026-10-09T14:03:35.280205+00:00",
+  "rootProductionControls": {
+    "restoreExitCode": 0,
+    "serverBuildExitCode": 0,
+    "warnings": 323,
+    "errors": 0,
+    "changedFileDiagnostics": 0,
+    "actualOriginalDiLifetimeAnalyzerBuilt": true,
+    "runtimeDiResolution": "NOT RUN; compilation/analyzer source observation only"
+  }
+}

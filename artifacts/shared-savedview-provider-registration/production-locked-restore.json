@@ -1,0 +1,20 @@
+{
+  "sourceCommit": "25114ce36d2e58736b0b8fef72a4b8dafe4b0b1c",
+  "argv": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "restore",
+    "src/backend/FsusBlog.Server.csproj",
+    "--locked-mode",
+    "--artifacts-path",
+    ".tmp/savedview-provider/build"
+  ],
+  "cwd": "/workspace/FsusBlog-savedview-provider-registration",
+  "startedAtUtc": "2026-10-09T14:02:49.767839+00:00",
+  "endedAtUtc": "2026-10-09T14:02:54.052844+00:00",
+  "exitCode": 0,
+  "seconds": 4.285,
+  "stdoutArtifact": "production-locked-restore.log",
+  "runtimeQualification": false
+}
