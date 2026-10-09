@@ -1,0 +1,20 @@
+{
+  "key": "canonical-producer-source-read",
+  "sourceCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+  "cwd": "/workspace/FsusBlog-geometry-authority-probe-bd61a779",
+  "command": [
+    "sed",
+    "-n",
+    "2242,2265p",
+    "tools/test-matrix/release-final-static-boundary.mjs"
+  ],
+  "startedUtc": "2026-10-09T09:12:43.618291+00:00",
+  "completedUtc": "2026-10-09T09:12:43.623322+00:00",
+  "elapsedSeconds": 0.005,
+  "exitCode": 0,
+  "pid": 114657,
+  "logSha256": "e9881963e045a992b69f89c018fdb55b101c9652396119daf65a51054f44374a",
+  "logBytes": 1034,
+  "rawLogArchive": "canonical-producer-source-read.log.gz",
+  "qualification": false
+}

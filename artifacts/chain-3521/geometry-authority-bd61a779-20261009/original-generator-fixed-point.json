@@ -1,0 +1,18 @@
+{
+  "key": "original-generator-fixed-point",
+  "sourceCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+  "cwd": "/workspace/FsusBlog-geometry-authority-probe-bd61a779",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "startedUtc": "2026-10-09T09:13:59.591870+00:00",
+  "completedUtc": "2026-10-09T09:16:02.586190+00:00",
+  "elapsedSeconds": 122.994,
+  "exitCode": 0,
+  "pid": 115633,
+  "logSha256": "38851a94ebb244b6132c39d44678b5affcb3e0568a42af669e4bf0755ea07c38",
+  "logBytes": 258,
+  "rawLogArchive": "original-generator-fixed-point.log.gz",
+  "qualification": false
+}

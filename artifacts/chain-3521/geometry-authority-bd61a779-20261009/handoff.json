@@ -1,0 +1,44 @@
+{
+  "purpose": "original static producer consumer binding observation; no acceptance grant",
+  "candidateCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+  "candidateParent": "7499b5bd82d3ce888672abc2e054bb08736da08d",
+  "originalAuthorSession": "01a11fdc-f838-7577-80b1-9801d201c030",
+  "candidateBranch": "worker-2099-order-geometry-20261009",
+  "latestFetchedMaster": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "producerUnchangedFromSavedDraftConsumer": true,
+  "producerSupportedArguments": [],
+  "toolchain": {
+    "node": "v24.16.0",
+    "acorn": "8.16.0",
+    "amaro": "1.1.9",
+    "nodeExecutableSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd"
+  },
+  "writesExactly": [
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "independentIndexReadOnly": "config/testing/release-final-execution-authority-index.json",
+  "status": {
+    "staticGenerator": "passed",
+    "fixedPoint": "passed",
+    "generatedRangeCheck": "passed",
+    "matrixPreflightAfterWrite": "not run",
+    "build": "not run",
+    "discovery": "not run",
+    "tests": "not run",
+    "executedTests": 0,
+    "runtimeQualification": "not granted"
+  },
+  "limits": [
+    "exact existing-source drift comprises eight changed global closure entries and three legitimate newly reached existing paths; declaration and 102-target rosters unchanged",
+    "two new geometry files remain outside computed original closure; authored 12 controls were not executed",
+    "current independent index matches parser/declarations/target path digests; preserve its exact committed bytes",
+    "generator writes no generated-binding manifest; metadata publication belongs to its original owner and contract",
+    "only task-private detached probe writes the fixture; published branch carries evidence artifacts only",
+    "do not reuse this output on saved-draft or another composition; canonical shared-output writer must regenerate for actual candidate",
+    "no manual digest rewrite, reseal, index/schema/source/gate change or held target execution"
+  ]
+}

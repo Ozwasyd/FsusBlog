@@ -1,0 +1,51 @@
+{
+  "candidateCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+  "closureFiles": 1128,
+  "targets": 102,
+  "changedExistingClosureCount": 8,
+  "changedExistingClosure": [
+    {
+      "path": "tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
+      "recordedContentDigest": "sha256:46bf80cda86b1950bcee10377e3466c324cde3283e3eecbda5fcdfd845810c4d",
+      "currentContentDigest": "sha256:622792938291f8086178dfa5c196058c9987562bbcd1df4083f4c50a04e68d23"
+    },
+    {
+      "path": "tests/frontend/checks/static/check-fsusui-boundary-fixture.mjs",
+      "recordedContentDigest": "sha256:05e134721ebe3fc3d80ba97db0b3fc086227c0f47de20cc332ee9133e0a59045",
+      "currentContentDigest": "sha256:d8f09f16ca5ff5962e359dca8defbb60a9a3610e3b3044a3d0c271a08bf91e9b"
+    },
+    {
+      "path": "tests/frontend/checks/static/check-fsusui-boundary.mjs",
+      "recordedContentDigest": "sha256:9c2f49f29af8e3bda240de6a4aa2160d7337791d1e84a836b041cd413d2a44a7",
+      "currentContentDigest": "sha256:b7ed645c8bec48dd1066927eebda042dc46ee3d08667e879b24c5ee09c40d392"
+    },
+    {
+      "path": "tests/frontend/checks/static/check-public-reading-motion.mjs",
+      "recordedContentDigest": "sha256:7490136861c7f834d44ef8419d223bc1a48c7f6ed42af45ce28c8b3945052a7e",
+      "currentContentDigest": "sha256:5e30416c2a1cd88d7e2bce5295ac9bc437366d844f79e97f81ebc971785fb5b1"
+    },
+    {
+      "path": "tests/frontend/checks/static/check-views-constraints.mjs",
+      "recordedContentDigest": "sha256:d8af1beff5fd854de5d7401353f525e90367f684ec145fb5b0b8564f92cb9d8a",
+      "currentContentDigest": "sha256:fccd9bc6b4939f16f149072828b992e6aff650693d349a2d2396b1744d26d180"
+    },
+    {
+      "path": "tests/frontend/package.json",
+      "recordedContentDigest": "sha256:5bb05cbc46c4df7bdebc76ebbe4576bb03bf4e3f2f60e7417906ef1645f6fff8",
+      "currentContentDigest": "sha256:649a224fb9a3a6fd346c691eb458c0807fc28ae74b2824e98808c4c755f2909f"
+    },
+    {
+      "path": "tests/tools/package.json",
+      "recordedContentDigest": "sha256:553a3def95f5b06bde33391361004fcd540a1d6f395f577a9227d20879e8b251",
+      "currentContentDigest": "sha256:e999207bd4691588ea9e17dd4f4960259af3c4f48fb13c009fd9a8490234db04"
+    },
+    {
+      "path": "tools/package.json",
+      "recordedContentDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd",
+      "currentContentDigest": "sha256:9a54957f6481adf8a2e20c00f631cc90fe43d1ea4ec84ab114374529bacf2fae"
+    }
+  ],
+  "geometryFilesDeclared": [],
+  "recordedAuthorityDigest": "sha256:dae33c003a58d2c894c310307dc060d3f66bcf10518c06a1e52eacfe0fbeb60d",
+  "authorityOutputInOwnClosure": false
+}

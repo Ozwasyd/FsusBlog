@@ -1,0 +1,19 @@
+{
+  "key": "generated-range-check",
+  "sourceCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+  "cwd": "/workspace/FsusBlog-geometry-authority-probe-bd61a779",
+  "command": [
+    "git",
+    "diff",
+    "--check"
+  ],
+  "startedUtc": "2026-10-09T09:14:45.512523+00:00",
+  "completedUtc": "2026-10-09T09:14:45.578825+00:00",
+  "elapsedSeconds": 0.066,
+  "exitCode": 0,
+  "pid": 117080,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "generated-range-check.log.gz",
+  "qualification": false
+}

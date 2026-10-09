@@ -1,0 +1,17 @@
+{
+  "candidateCommit": "53bba36b436502c3dd3e4b4d48b229a1c348d28b",
+  "indexPath": "config/testing/release-final-execution-authority-index.json",
+  "indexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+  "committedIndexBytesUnchanged": true,
+  "generatedAuthorityIndexDigestMatches": true,
+  "nodeParserIdentityMatches": true,
+  "declarationsDigestMatches": true,
+  "targetPathsDigestMatches": true,
+  "indexMetadataProducer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+  "metadataProducerIsFixtureGeneratorNotAnIndexWritePermission": true,
+  "indexRegistrationOwner": "tools/test-matrix/register-public-shell-finite-input.mjs --write (reviewed finite registration scope only; not executed)",
+  "actualRequiredChangedOutputSet": [
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "qualificationEligible": false
+}

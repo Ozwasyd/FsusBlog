@@ -1,0 +1,475 @@
+{
+  "sourceCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+  "outputPath": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "outputSha256": "4b7c021e50594bad982040e66fd5a001610f181d67520515bf671e2db8a826e2",
+  "recordedAuthorityDigest": "sha256:dae33c003a58d2c894c310307dc060d3f66bcf10518c06a1e52eacfe0fbeb60d",
+  "generatedAuthorityDigest": "sha256:a34c86137cc51124ce117ca14407fe9b64451b1823a828fef72d5e0bd310fc30",
+  "closureFiles": 1131,
+  "targets": 102,
+  "closurePathRosterUnchanged": false,
+  "targetPathRosterUnchanged": true,
+  "targetDeclarationsUnchanged": true,
+  "topLevelMetadataUnchanged": true,
+  "changedClosureCount": 8,
+  "changedClosurePaths": [
+    "tests/frontend/checks/static/check-article-image-lightbox-overlay.mjs",
+    "tests/frontend/checks/static/check-fsusui-boundary-fixture.mjs",
+    "tests/frontend/checks/static/check-fsusui-boundary.mjs",
+    "tests/frontend/checks/static/check-public-reading-motion.mjs",
+    "tests/frontend/checks/static/check-views-constraints.mjs",
+    "tests/frontend/package.json",
+    "tests/tools/package.json",
+    "tools/package.json"
+  ],
+  "allClosureContentMatchesIndex": true,
+  "changedWorktreePaths": [
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "qualificationEligible": false,
+  "targetDependencyClosureChanges": [
+    {
+      "target": "tools/coverage/collect-backend-coverage.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test-matrix/source-governance.mjs",
+      "addedPaths": [
+        "package.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/bundles/behavior-document-consistency-final.sh",
+      "addedPaths": [
+        "package.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/bundles/behavior-evidence-post-runtime.sh",
+      "addedPaths": [
+        "package.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/acceptance-playwright.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/article-private-preview.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/backend-api-integration.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/backend-auth-state-machine.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/backend-build-governance.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/backend-concurrency.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/backend-fast.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/backend-golden.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/backend-mutation.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/backend-property.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/backend-test-governance.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/backend-unit.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/bootstrap-acceptance-env.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/browser-contract.sh",
+      "addedPaths": [
+        "package.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/browser-diagnostics.sh",
+      "addedPaths": [
+        "package.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/cross-browser-smoke.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/cross-stack-contract.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/csrf-browser-matrix.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/distributed-contract-fast.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/fault-injection.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/frontend-build.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/frontend-property-model-perf.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/frontend-runtime-contracts.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/frontend-static-governance.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/frontend-unit-shard.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/homogeneous-two-node-fixture.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/load-smoke.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/perception-v2-test-matrix.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/perf-regression.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/privacy-zk-comment-matrix.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/production-correctness-receipt.sh",
+      "addedPaths": [
+        "package.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/production-xss-fast.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/production-xss-release.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/release-evidence.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/release-final.sh",
+      "addedPaths": [
+        "package.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/release-public.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/resilience-runtime.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/runtime-integration.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/security-runtime.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/static-governance.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/ux-viewport-boundaries.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/ux-viewport-smoke.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/ux-viewport-visual.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/visual-console-playwright.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    },
+    {
+      "target": "tools/test/lanes/visual-public-playwright.sh",
+      "addedPaths": [
+        "package.json",
+        "tests/frontend/checks/static/check-layout-composition.mjs",
+        "tests/frontend/package-lock.json"
+      ],
+      "removedPaths": []
+    }
+  ],
+  "addedClosurePaths": [
+    "package.json",
+    "tests/frontend/checks/static/check-layout-composition.mjs",
+    "tests/frontend/package-lock.json"
+  ],
+  "removedClosurePaths": [],
+  "geometryFilesDeclaredAfter": [],
+  "fixedPointBytesUnchanged": true
+}

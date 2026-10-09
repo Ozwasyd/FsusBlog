@@ -36,7 +36,7 @@
     "staticGenerator": "passed",
     "fixedPoint": "passed",
     "generatedRangeCheck": "passed",
-    "completeTwoOutputRegeneration": "blocked: second requested output not identified by same producer; named ordinary metadata has no corresponding writer in tools",
+    "completeTwoOutputRegeneration": "not required for index+fixture: index verified unchanged and matching; ordinary metadata publication remains separate",
     "matrixPreflightAfterWrite": "not run",
     "build": "not run",
     "discovery": "not run",
@@ -50,5 +50,6 @@
     "only task-private detached probe writes the original fixture; published branch carries artifacts only",
     "no index/schema/gate/source changes, manual digest rewriting or manual resealing",
     "candidate output must be regenerated for any different commit or composition by the canonical shared-output owner"
-  ]
+  ],
+  "twoOutputWordingClarification": "If two outputs means index plus fixture, the unchanged canonical generator legitimately needs only the fixture changed; current independent index already matches and must be retained. Ordinary generated-binding metadata is separate publication accounting and is not an output of this generator."
 }

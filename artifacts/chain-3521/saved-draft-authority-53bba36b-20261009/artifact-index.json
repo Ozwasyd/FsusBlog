@@ -43,8 +43,13 @@
     },
     {
       "path": "handoff.json",
-      "sha256": "952a14e809395ae0eb84fc558442bee374ac08d4769a6919cbc79ef7d589fd27",
-      "bytes": 2826
+      "sha256": "52b3241b1e4e684456b4f21cf3d4a356887c8f7ed2d72c3750046f87509d7b11",
+      "bytes": 3150
+    },
+    {
+      "path": "independent-index-observation.json",
+      "sha256": "6f91df9ec4c0ec27c4742ed96e994790b71b6430cd478cd401d71a7a98318117",
+      "bytes": 908
     },
     {
       "path": "original-generator-fixed-point.json",

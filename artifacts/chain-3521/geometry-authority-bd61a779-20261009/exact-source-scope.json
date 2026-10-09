@@ -1,0 +1,21 @@
+{
+  "key": "exact-source-scope",
+  "sourceCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+  "cwd": "/workspace/FsusBlog-geometry-authority-probe-bd61a779",
+  "command": [
+    "git",
+    "diff",
+    "--name-status",
+    "7499b5bd82d3ce888672abc2e054bb08736da08d",
+    "bd61a779a690413975a219f933fddb6b2cd479c4"
+  ],
+  "startedUtc": "2026-10-09T09:12:43.536685+00:00",
+  "completedUtc": "2026-10-09T09:12:43.545677+00:00",
+  "elapsedSeconds": 0.009,
+  "exitCode": 0,
+  "pid": 114654,
+  "logSha256": "97f5b06ded745dd9a92e6cf727bed12b7ec4e937ed256b558d6850c2a21d0605",
+  "logBytes": 118,
+  "rawLogArchive": "exact-source-scope.log.gz",
+  "qualification": false
+}

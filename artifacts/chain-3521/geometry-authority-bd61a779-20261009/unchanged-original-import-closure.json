@@ -1,0 +1,28 @@
+{
+  "key": "unchanged-original-import-closure",
+  "sourceCommit": "bd61a779a690413975a219f933fddb6b2cd479c4",
+  "cwd": "/workspace/FsusBlog-geometry-authority-probe-bd61a779",
+  "command": [
+    "git",
+    "diff",
+    "53bba36b436502c3dd3e4b4d48b229a1c348d28b",
+    "bd61a779a690413975a219f933fddb6b2cd479c4",
+    "--",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs",
+    "tools/test-matrix/release-final-static-boundary.mjs",
+    "tools/test-matrix/parse-matrix.mjs",
+    "tools/yaml/parse-document.mjs",
+    "tools/test-matrix/pr-impact-plan.mjs",
+    "tools/test-matrix/release-final-evidence-contract.mjs",
+    "tools/test-matrix/release-final-spawn-seal.mjs"
+  ],
+  "startedUtc": "2026-10-09T09:12:43.692603+00:00",
+  "completedUtc": "2026-10-09T09:12:43.701568+00:00",
+  "elapsedSeconds": 0.009,
+  "exitCode": 0,
+  "pid": 114659,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "unchanged-original-import-closure.log.gz",
+  "qualification": false
+}
