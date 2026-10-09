@@ -96,5 +96,12 @@
     "stagedEvidenceExit": 2,
     "completeBranchPlusStagedEvidenceExit": 2,
     "reason": "Existing preserved raw ANSI failure log whitespace and three unified consumer patch blank-context lines; patch remains exact checked source delta. No full-branch whitespace gate pass asserted."
+  },
+  "rawArtifactSha256": {
+    "collection-failure.log": "fae4cb114df2521dc0b333fe5f2c7d229e2e90ac4a9024a3f88bf2629655a763",
+    "collection-pass.log": "0d9e701c2b6fe66a3c20675cdd0068c5849b693d614d759223b88e4e34511127",
+    "filtered-collection.log": "0d9e701c2b6fe66a3c20675cdd0068c5849b693d614d759223b88e4e34511127",
+    "style-pass.log": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+    "vitest-run.log": "2844019de9aa4c0c16feefb257971da28e53aeb3620400b307f1a3cf8a822048"
   }
 }
