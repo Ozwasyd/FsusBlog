@@ -1,0 +1,13 @@
+{
+  "candidate": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "command": [
+    "npm",
+    "--prefix",
+    "src/frontend",
+    "run",
+    "check:canonical-viewport-safe-area"
+  ],
+  "exitCode": 0,
+  "log": "/tmp/2228-828-menu-padding-blog-canonical-final-first.log",
+  "checkerBlob": "04ecf201800231f71f66388a17a432c87c73c7b5"
+}

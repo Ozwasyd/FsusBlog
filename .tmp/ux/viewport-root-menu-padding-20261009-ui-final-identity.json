@@ -1,0 +1,6 @@
+{
+  "candidate": "543879f08ca17959e2c2116bcc057d26f6545f86",
+  "fetchedMain": "b17077f3afd4a80ff3bdc0fe81d5dfc353ffddf2",
+  "remoteMain": "b17077f3afd4a80ff3bdc0fe81d5dfc353ffddf2\trefs/heads/main",
+  "sourceRemote": "543879f08ca17959e2c2116bcc057d26f6545f86\trefs/heads/fix/828-inline-native-end-buffer-20261008"
+}

@@ -1,0 +1,5 @@
+Evidence-only root2228 supplement links the separate FsusUI default-menu Search correction and current original regression/native checks. Exact UI tested543879f08ca17959e2c2116bcc057d26f6545f86, evidence34707d3e3caad3ccf3a6779d8eaf043d723595a3:48new+42original browserpasses,27units/fourtypes/API/doc/design gates0,576strictnative checks0. First collection failure and24default-menu failures retained; low-height budgets andolde307full656/51remainfailed, newfullnotrun.
+
+FreshBlog537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea originalcanonicalchecker0/3surfaces/4negatives, no duplicate3477fix.2228runtime/browsers and2229realdevice/verifier remain unqualified;1789trackingopen. No Blog implementation/test/matrix/helper/snapshot changes. Fullcriteria/rawlogs/custody and exact owner requests are in the flat `.tmp/ux/viewport-root-menu-padding-20261009*` records.
+
+Prepared only under centralized GitHub content-write embargo; existing3931/851drafts frozen/unmerged. No publishing, deployment or merge. Same independent PublicShell reviewer01a11b52-ec77-7602-9d9e-3f040157403f; later review/merge separate.
