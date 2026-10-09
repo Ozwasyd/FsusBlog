@@ -79,6 +79,8 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
     /// The caller must serialize use of its borrowed client and own its connection and transaction
     /// lifecycle. Cancellation may leave a PostgreSQL transaction aborted; this reader never replaces
     /// the client, commits or rolls back that transaction, or abandons pending SQL work.
+    /// Command completion follows the native driver's cancellation response policy. This contract
+    /// does not impose an execution deadline or prove the Graph metadata reader's 250 ms budget.
     /// </remarks>
     public async Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(
         AuthorArticlePinPermissionBatchRequest request,
