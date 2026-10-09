@@ -1,0 +1,295 @@
+{
+  "kind": "API-owned bounded proposal for sole Shared registration owner; not protocol registry, allocation, acceptance or durable job authority",
+  "issue": 2436,
+  "soleRegistryOwner": 3735,
+  "sharedQueueSource": "3705e7c5ef06901b7f03c54f6f9b65da1523774e",
+  "frozenSourceInputs": {
+    "apiDtoAndGoldenSource": "29f89672ef8aa456bd36dca5118fd1a9101adbf5",
+    "unchangedUiRepairHead": "ecbc3e97fbab8f20424cdd703ab5bf7020801c57",
+    "soleJobs": "e8b4b9faf510afa9b1db53512ff4bdb9498f82ba"
+  },
+  "sourceBranch": "codex/export-api-ui-2436-bounded-wire-20261008",
+  "fieldAuthority": "Exact constructor order/types in src/core/Mapping/Models/DocumentExportModels.cs; actual grammar/guards/writer in src/core/Cache/PodBinaryCodec.DocumentExport.cs. This handoff consumes them, adds no second parser or job persistence.",
+  "encoding": {
+    "aedsHeaderBytes": 16,
+    "aedsVersion": 2,
+    "flags": 0,
+    "crc": "existing payload CRC16; no custom checksum authority",
+    "payloadRevision": 1,
+    "scalars": "little endian signed int32/int64, strict UTF8 with int32 byte-length prefix, byte0/1 bool and presence",
+    "numericFrontendBinding": "All signed int64 fields lossless canonical decimal strings (or generated bigint before exact decimal conversion); never JS Number for IDs/revisions/source/job versions/length/timestamps. Offset/limit/status/count are int32.",
+    "identifierUtf16Units": 192,
+    "identifierEarlyUtf8ByteGuard": 768,
+    "identifierMaximumValidUtf8Bytes": 576,
+    "reasonUtf16Units": 2048,
+    "reasonEarlyUtf8ByteGuard": 8192,
+    "reasonMaximumValidUtf8Bytes": 6144,
+    "digests": "ASCII sha256: +64lowerhex=71characters; length-prefixed wire75bytes",
+    "unicodeWhitespaceOnly": "Reject identifier consisting only of U+0009..000D/0020/0085/00A0/1680/2000..200A/2028/2029/202F/205F/3000; control characters are independently forbidden anywhere. Other valid Unicode including noncharacters is not silently normalized or repaired."
+  },
+  "roots": [
+    {
+      "frameName": "DocumentExportRequest",
+      "model": "DocumentExportRequestCoreModel",
+      "namespace": "FsusBlog.Core.Mapping.Models",
+      "goldenFamily": "document-export-request",
+      "direction": "request",
+      "codecOwner": "FsusBlog.Core.Cache.PodBinaryCodec",
+      "symbols": [
+        "EncodeDocumentExportRequest",
+        "WriteDocumentExportRequest",
+        "TryDecodeDocumentExportRequest"
+      ],
+      "maxPayloadBytes": 16368,
+      "maxCompleteFrameBytes": 16384,
+      "maximumValidGrammarPayloadBytes": 3530,
+      "maximumValidGrammarFrameBytes": 3546,
+      "frameId": null,
+      "errorId": null,
+      "errors": [
+        "Payload revision is not int32 1; missing revision, truncation at any field or trailing payload bytes.",
+        "Wrong root grammar, negative or over-limit length/count, integer overflow or a declared span outside remaining bounded input.",
+        "Invalid strict UTF8 (overlong/surrogate/out-of-range/truncated encodings), decoded identifier>192 or reason>2048 UTF16 units, any Control U+0000..001F or U+007F..009F.",
+        "Identifier empty or all .NET Unicode whitespace; reason may be empty/whitespace. Preserve nonempty values exactly, with no trim, normalization, Guid parsing or surrogate repair.",
+        "Presence/boolean tag other than byte0/1.",
+        "Kind outside1/2/3; ArticleId or SourceVersion<=0.",
+        "Draft: requires nonempty bounded DraftKey and null RevisionId/PublicationId; revision: DraftKey null, RevisionId>0, PublicationId null; publication: DraftKey null and RevisionId>0 and PublicationId>0.",
+        "Unknown format (closed four formats only)."
+      ]
+    },
+    {
+      "frameName": "DocumentExportTaskRequest",
+      "model": "DocumentExportTaskRequestCoreModel",
+      "namespace": "FsusBlog.Core.Mapping.Models",
+      "goldenFamily": "document-export-task-request",
+      "direction": "request",
+      "codecOwner": "FsusBlog.Core.Cache.PodBinaryCodec",
+      "symbols": [
+        "EncodeDocumentExportTaskRequest",
+        "WriteDocumentExportTaskRequest",
+        "TryDecodeDocumentExportTaskRequest"
+      ],
+      "maxPayloadBytes": 1008,
+      "maxCompleteFrameBytes": 1024,
+      "maximumValidGrammarPayloadBytes": 584,
+      "maximumValidGrammarFrameBytes": 600,
+      "frameId": null,
+      "errorId": null,
+      "errors": [
+        "Payload revision is not int32 1; missing revision, truncation at any field or trailing payload bytes.",
+        "Wrong root grammar, negative or over-limit length/count, integer overflow or a declared span outside remaining bounded input.",
+        "Invalid strict UTF8 (overlong/surrogate/out-of-range/truncated encodings), decoded identifier>192 or reason>2048 UTF16 units, any Control U+0000..001F or U+007F..009F.",
+        "Identifier empty or all .NET Unicode whitespace; reason may be empty/whitespace. Preserve nonempty values exactly, with no trim, normalization, Guid parsing or surrogate repair.",
+        "Presence/boolean tag other than byte0/1."
+      ]
+    },
+    {
+      "frameName": "DocumentExportJobResponse",
+      "model": "DocumentExportJobResponseCoreModel",
+      "namespace": "FsusBlog.Core.Mapping.Models",
+      "goldenFamily": "document-export-job-response",
+      "direction": "response",
+      "codecOwner": "FsusBlog.Core.Cache.PodBinaryCodec",
+      "symbols": [
+        "EncodeDocumentExportJobResponse",
+        "WriteDocumentExportJobResponse",
+        "TryDecodeDocumentExportJobResponse"
+      ],
+      "maxPayloadBytes": 32768,
+      "maxCompleteFrameBytes": 32784,
+      "maximumValidGrammarPayloadBytes": 31466,
+      "maximumValidGrammarFrameBytes": 31482,
+      "frameId": null,
+      "errorId": null,
+      "errors": [
+        "Payload revision is not int32 1; missing revision, truncation at any field or trailing payload bytes.",
+        "Wrong root grammar, negative or over-limit length/count, integer overflow or a declared span outside remaining bounded input.",
+        "Invalid strict UTF8 (overlong/surrogate/out-of-range/truncated encodings), decoded identifier>192 or reason>2048 UTF16 units, any Control U+0000..001F or U+007F..009F.",
+        "Identifier empty or all .NET Unicode whitespace; reason may be empty/whitespace. Preserve nonempty values exactly, with no trim, normalization, Guid parsing or surrogate repair.",
+        "Presence/boolean tag other than byte0/1.",
+        "Kind outside1/2/3; ArticleId or SourceVersion<=0.",
+        "Draft: requires nonempty bounded DraftKey and null RevisionId/PublicationId; revision: DraftKey null, RevisionId>0, PublicationId null; publication: DraftKey null and RevisionId>0 and PublicationId>0.",
+        "Job status outside1..10, Version<=0, unknown format (only self-contained-html/pdf/docx/epub).",
+        "Digest not exact ASCII sha256: plus64lowercasehex; preserve original bytes, never strip/reseal/hash a second receipt.",
+        "Any timestamp outside [-62135596800000,253402300799999] milliseconds; job/output expires<=created; attempt finish<start. Nullable finish/delete remains nullable; no wall-clock expiry inference in decoder.",
+        "Attempt count outside0..3, attempt Number not1..count, attempt status outside1..10, invalid diagnostic/finished presence tag or reason.",
+        "Output length negative, invalid output/delete presence, bounded output identifiers/digests/times invalid. Output may be null, diagnostic may be true and cleanup status10 may include revoked output; no successful download or lifecycle inference."
+      ]
+    },
+    {
+      "frameName": "DocumentExportPageResponse",
+      "model": "DocumentExportPageResponseCoreModel",
+      "namespace": "FsusBlog.Core.Mapping.Models",
+      "goldenFamily": "document-export-page-response",
+      "direction": "response",
+      "codecOwner": "FsusBlog.Core.Cache.PodBinaryCodec",
+      "symbols": [
+        "EncodeDocumentExportPageResponse",
+        "WriteDocumentExportPageResponse",
+        "TryDecodeDocumentExportPageResponse"
+      ],
+      "maxPayloadBytes": 2097152,
+      "maxCompleteFrameBytes": 2097168,
+      "maximumValidGrammarPayloadBytes": 1573117,
+      "maximumValidGrammarFrameBytes": 1573133,
+      "frameId": null,
+      "errorId": null,
+      "errors": [
+        "Payload revision is not int32 1; missing revision, truncation at any field or trailing payload bytes.",
+        "Wrong root grammar, negative or over-limit length/count, integer overflow or a declared span outside remaining bounded input.",
+        "Invalid strict UTF8 (overlong/surrogate/out-of-range/truncated encodings), decoded identifier>192 or reason>2048 UTF16 units, any Control U+0000..001F or U+007F..009F.",
+        "Identifier empty or all .NET Unicode whitespace; reason may be empty/whitespace. Preserve nonempty values exactly, with no trim, normalization, Guid parsing or surrogate repair.",
+        "Presence/boolean tag other than byte0/1.",
+        "Kind outside1/2/3; ArticleId or SourceVersion<=0.",
+        "Draft: requires nonempty bounded DraftKey and null RevisionId/PublicationId; revision: DraftKey null, RevisionId>0, PublicationId null; publication: DraftKey null and RevisionId>0 and PublicationId>0.",
+        "Job status outside1..10, Version<=0, unknown format (only self-contained-html/pdf/docx/epub).",
+        "Digest not exact ASCII sha256: plus64lowercasehex; preserve original bytes, never strip/reseal/hash a second receipt.",
+        "Any timestamp outside [-62135596800000,253402300799999] milliseconds; job/output expires<=created; attempt finish<start. Nullable finish/delete remains nullable; no wall-clock expiry inference in decoder.",
+        "Attempt count outside0..3, attempt Number not1..count, attempt status outside1..10, invalid diagnostic/finished presence tag or reason.",
+        "Output length negative, invalid output/delete presence, bounded output identifiers/digests/times invalid. Output may be null, diagnostic may be true and cleanup status10 may include revoked output; no successful download or lifecycle inference.",
+        "Offset<0, Limit outside1..50, Count<0 or Count>Limit, or boolean HasMore outside0/1.",
+        "HasMore true with Count!=Limit; duplicate task IDs by exact ordinal identity.",
+        "Any nested job malformed; nested job has NO independent int32 payload revision. Page begins revision/offset/limit/HasMore/count (17bytes), then only nested job bodies."
+      ]
+    }
+  ],
+  "nativeErrorProposal": {
+    "symbol": "DocumentExportPayloadInvalid",
+    "text": "document_export_payload_invalid",
+    "numericValue": null,
+    "scope": "All four exact export roots share one private malformed/oversize/flag/payload-domain error. No cross-family error reuse; Shared alone assigns numeric error value.",
+    "failureResult": "Existing MakeError contract: ok=false, frame_type=Unknown, payload_ptr=nullptr, payload_len=0, stable text only. Do not return a partial parsed view or create Failed/Cancelled/success receipt, retry, fallback or grant.",
+    "order": [
+      "Keep existing common checks: null/short->InvalidInput; bad magic->MagicMismatch; outer version->VersionMismatch; header length->HeaderLengthMismatch; actual frame bytes!=16+declared payload->PayloadLengthMismatch; retired->FrameTypeRetired; unknown->FrameTypeUnsupported.",
+      "For a recognized Export root only, reject flags!=0 or declared payload/root complete frame cap exceeded with DocumentExportPayloadInvalid BEFORE CRC scan or inner parse. This bounds work; preserves unrelated families.",
+      "For within-budget Export bytes, bad payload CRC->existing PayloadCrcMismatch BEFORE inner grammar validation.",
+      "Any valid-header/within-budget/good-CRC inner grammar refusal listed for its root->DocumentExportPayloadInvalid. Success exposes existing borrowed input payload view only."
+    ]
+  },
+  "budgets": {
+    "change": "Replace original all-root4MiB decoder guard with source-enforced per-root caps; admission/task endpoint limits unchanged. Response32KiB/2MiB payload caps each add16header for fullframe. All valid grammar fits; no valid wire format changed.",
+    "maximumGlobalPayloadBytes": 2097152,
+    "proof": {
+      "textWithPrefix": 580,
+      "reasonWithPrefix": 6148,
+      "draftCoordinate": 603,
+      "attemptWithOptionalFinish": 6174,
+      "outputWithOptionalDelete": 1923,
+      "nestedJobWithoutRevision": 31462,
+      "pageFormula": "17+50*31462=1573117; root job=4+31462=31466"
+    },
+    "httpQualifier": "Existing IBinaryEndpointRequestContext/IBinaryRequestBinder owns complete-frame reading. Missing Content-Length extra chunked-body bytes after declared payload are not currently proven rejected by that owner; this proposal proves payload/native complete-frame exact consumption and adds no second HTTP parser."
+  },
+  "goldens": {
+    "existingPayloadFile": "tests/backend/Fixtures/document-export-payload-goldens-v1.json",
+    "existingPayloadVectors": [
+      {
+        "name": "request-revision",
+        "payloadBytes": 121,
+        "payloadSha256": "23b7dd2ec31aecc4abdaefdc55489ff3bbbe61ec0f04acb6a3735a45e0c81da6"
+      },
+      {
+        "name": "task-request",
+        "payloadBytes": 14,
+        "payloadSha256": "a04b4e5925a65ae313cebd3f473957d5db3505db4d8c278861450ebf5c484654"
+      },
+      {
+        "name": "queued-job-response",
+        "payloadBytes": 327,
+        "payloadSha256": "50d6322685bddfdb9b33fd248546c079ffcf1dc6d4b1144cb47b169502705af7"
+      },
+      {
+        "name": "empty-page-response",
+        "payloadBytes": 17,
+        "payloadSha256": "b0182c804b5c8dac35f4473cbf7e4cc3772e2231c928291d74824af8956279c8"
+      },
+      {
+        "name": "single-page-response",
+        "payloadBytes": 340,
+        "payloadSha256": "2594ab9993e5322f5c60ff55762893430fbfa2d745dd8a2804cf60eb81c41732"
+      }
+    ],
+    "validAdditionalCases": [
+      "Request exact draft/revision/publication coordinate; 192-unit CJK and96supplementary-character IDs; pinned int64 values beyond JS safe integer preserved exactly.",
+      "Task identity584-byte maximum valid payload.",
+      "Job queued with no attempts/output; diagnostic cleanup status10 with nullable finish and deleted output; all statuses1..10 are display facts, never decoder-owned progress/lifecycle.",
+      "Page empty, single, exactly50distinct nested jobs/full HasMore; maximum1573117-byte structural page with Unicode identifiers/reasons/3attempts/nullable-output branches."
+    ],
+    "malformedAdditionalCases": [
+      "Payload revision is not int32 1; missing revision, truncation at any field or trailing payload bytes.",
+      "Wrong root grammar, negative or over-limit length/count, integer overflow or a declared span outside remaining bounded input.",
+      "Invalid strict UTF8 (overlong/surrogate/out-of-range/truncated encodings), decoded identifier>192 or reason>2048 UTF16 units, any Control U+0000..001F or U+007F..009F.",
+      "Identifier empty or all .NET Unicode whitespace; reason may be empty/whitespace. Preserve nonempty values exactly, with no trim, normalization, Guid parsing or surrogate repair.",
+      "Presence/boolean tag other than byte0/1.",
+      "Kind outside1/2/3; ArticleId or SourceVersion<=0.",
+      "Draft: requires nonempty bounded DraftKey and null RevisionId/PublicationId; revision: DraftKey null, RevisionId>0, PublicationId null; publication: DraftKey null and RevisionId>0 and PublicationId>0.",
+      "Job status outside1..10, Version<=0, unknown format (only self-contained-html/pdf/docx/epub).",
+      "Digest not exact ASCII sha256: plus64lowercasehex; preserve original bytes, never strip/reseal/hash a second receipt.",
+      "Any timestamp outside [-62135596800000,253402300799999] milliseconds; job/output expires<=created; attempt finish<start. Nullable finish/delete remains nullable; no wall-clock expiry inference in decoder.",
+      "Attempt count outside0..3, attempt Number not1..count, attempt status outside1..10, invalid diagnostic/finished presence tag or reason.",
+      "Output length negative, invalid output/delete presence, bounded output identifiers/digests/times invalid. Output may be null, diagnostic may be true and cleanup status10 may include revoked output; no successful download or lifecycle inference.",
+      "Offset<0, Limit outside1..50, Count<0 or Count>Limit, or boolean HasMore outside0/1.",
+      "HasMore true with Count!=Limit; duplicate task IDs by exact ordinal identity.",
+      "Any nested job malformed; nested job has NO independent int32 payload revision. Page begins revision/offset/limit/HasMore/count (17bytes), then only nested job bodies.",
+      "Each root over its own payload/fullframe cap; exact cap+1 with matching actual/header lengths -> family error before CRC.",
+      "Short/magic/version/header-length/declared-length/retired/unsupported/badCRC outer cases preserve existing common native errors; flags!=0 export-only family error.",
+      "193CJK or97supplementary characters (<early-byte guards but>192UTF16 units), U+3000-only identifier, U+0085 inside text, invalidUTF8; do not count Unicode scalars asUTF16 units."
+    ],
+    "composition": "Shared builds actual outer AEDS frames from these payloads using sole registry and original encoder/CRC producer; this API source allocates no IDs and supplies no fake activation golden.",
+    "execution": "Managed payload goldens/grammar/bounds can run before registration. Native/generated TS/full framed goldens require Shared-owned real allocation and products; remain NOT RUN here."
+  },
+  "privacyAndAuthorities": [
+    "All four roots remain sensitive/private pooled frames; do not add to IsPublicImmutable or expose source content/bytes, owner/site/session, storage paths, filenames or grants. The authorized exact Source coordinate intentionally remains in request/job DTOs.",
+    "HTTP auth/permission/PoW/API error semantics stay original; malformed native payload is distinct from uniform authenticated document_export_unavailable API denial.",
+    "Canonical freezer, soleJobs persistence/lifecycle and original sandbox/provider/receipt remain separate owners; DTO validation cannot authorize access or certify successful output."
+  ],
+  "existing83ExecutionEvidence": {
+    "artifact": "/workspace/export2436-evidence/wire-tests-final/wire-domain-final.trx",
+    "rawLog": "/workspace/export2436-evidence/wire-backend-tests-final.log",
+    "source": "29f89672ef8aa456bd36dca5118fd1a9101adbf5",
+    "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --configuration Release --filter FullyQualifiedName~DocumentExportEndpointsTests|FullyQualifiedName~DocumentExportBinaryCodecTests|FullyQualifiedName~DocumentExportEndpointBindingTests",
+    "sdk": "10.0.401",
+    "counts": {
+      "codec": 31,
+      "endpoint": 31,
+      "binding": 21,
+      "passed": 83,
+      "failed": 0,
+      "skipped": 0
+    },
+    "qualification": "Original execution evidence only. Shared queue source enumeration alone is not execution; original running DLL/SDK/test hashes will be supplied in local handed manifest, no new reviewer acceptance. Historical portable evidence is explicitly external to this minimal master component.",
+    "portableSourceEvidence": "https://github.com/Ozwasyd/FsusBlog/blob/502e51056d7e28bb60142b42b7706e3f8c6878c0/artifacts/document-export-api-ui/original83-source-binding.json",
+    "portableTrx": "https://github.com/Ozwasyd/FsusBlog/blob/502e51056d7e28bb60142b42b7706e3f8c6878c0/artifacts/document-export-api-ui/original83-results.trx",
+    "portableRawLog": "https://github.com/Ozwasyd/FsusBlog/blob/502e51056d7e28bb60142b42b7706e3f8c6878c0/artifacts/document-export-api-ui/original83-execution.log",
+    "publishedEvidenceSourceCommit": "502e51056d7e28bb60142b42b7706e3f8c6878c0",
+    "portableFilesIncludedInThisTree": false
+  },
+  "allocation": {
+    "frameNumbersAssigned": false,
+    "errorNumbersAssigned": false,
+    "sharedFilesEdited": false
+  },
+  "newManagedValidation": {
+    "testClasses": {
+      "DocumentExportBinaryCodecTests": 31,
+      "DocumentExportEndpointBindingTests": 21,
+      "DocumentExportPayloadBoundsTests": 13
+    },
+    "passed": 65,
+    "failed": 0,
+    "skipped": 0,
+    "scopedCsharpStyle": {
+      "files": 3,
+      "violations": 0
+    },
+    "qualification": "Historical bounded-wire source run only; this minimal master component is separately validated as96backend/82frontend in its handoff. Managed payload/actor/refusal/bounds only; no native/TS/fullframe/HTTPauth/download qualification.",
+    "source": "c1e493168fcc6701ef2ce35e91d481ec83d6085e"
+  },
+  "reviewedSourceHashes": {
+    "src/core/Mapping/Models/DocumentExportModels.cs": "3d311922d3a4e3b972392903435132265ca10c3b6762e2d4dd8046bdf41699b4",
+    "src/core/Cache/PodBinaryCodec.DocumentExport.cs": "ecf08d2478f09f1c9a7aceb54966e485826fc9d6821ef2f88d6f642124d7bf53",
+    "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs": "308fc58b846d5bc4889bba7c3da6935efd174d40502c6bdb4bdb5e0194a2c0e8",
+    "tests/backend/Unit/DocumentExportPayloadBoundsTests.cs": "dbf2497e2650342d989b8a1b708ae49b1da693475c38a9b79fa814e65dd4f65b",
+    "tests/backend/Fixtures/document-export-payload-goldens-v1.json": "bcc6ae78c019adb7837332ed87012db85031997a55fb6a64bbdb34ae6a906411"
+  }
+}

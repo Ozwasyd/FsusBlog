@@ -38,31 +38,33 @@ export type FsusBlogMotionSurface =
   | 'banner';
 
 export const fsusBlogMotionPresets = {
-    homeHero: 'fade-in',
-    articleCards: 'fade-in',
-    searchDialog: 'scale-fade',
-    mobileDrawer: 'slide-right',
-    mobileBar: 'slide-up',
-    toast: 'slide-up',
-    articleTitle: 'fade-in',
-    mediaOverlay: 'scale-fade',
-    backToTop: 'scale-fade',
-    tagChip: 'fade-in',
+    // Use FsusUI's documented alias targets to preserve the existing effects;
+    // selecting a different surface preset would also change runtime behavior.
+    homeHero: 'surface-settle',
+    articleCards: 'surface-settle',
+    searchDialog: 'dialog-settle',
+    mobileDrawer: 'sheet-settle',
+    mobileBar: 'sheet-settle',
+    toast: 'sheet-settle',
+    articleTitle: 'surface-settle',
+    mediaOverlay: 'dialog-settle',
+    backToTop: 'dialog-settle',
+    tagChip: 'surface-settle',
     // FsusUI's route-settle preset currently emits empty `filter` keyframes,
     // which Firefox rejects. The ownership-transfer preset is route-governed,
     // opacity-only, and preserves the same short atomic handoff semantics.
     route: 'ownership-transfer-snapshot',
     identityRoute: 'ownership-transfer-snapshot',
-    banner: 'fade-down'
+    banner: 'paper-settle'
 } as const satisfies Record<FsusBlogMotionSurface, MotionPresetName>;
 
 export const fsusBlogScrollRevealMotion = {
-    name: 'fade-in',
+    name: 'surface-settle',
     once: true
 } as const satisfies MotionDirectiveValue;
 
 export const fsusBlogScrollRevealOptions = {
-    name: 'fade-in',
+    name: 'surface-settle',
     once: true,
     start: 'top 88%'
 } as const satisfies ScrollRevealRunOptions;
