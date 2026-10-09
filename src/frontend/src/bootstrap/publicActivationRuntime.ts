@@ -1,5 +1,6 @@
 import { readonly, shallowRef } from 'vue';
 
+import type * as FullAppExports from '@/bootstrap/fullApp';
 import {
     PublicActivationCoordinator,
     createPublicBootActivationIntent,
@@ -19,7 +20,7 @@ import {
 import { prewarmPublicRoute } from '@/router/publicRoutePreload';
 import { emitTelemetry } from '@/services/telemetryBus';
 
-type FullAppModule = typeof import('@/bootstrap/fullApp');
+type FullAppModule = typeof FullAppExports;
 type PreparedFullApp = ReturnType<FullAppModule['prepareFullApp']>;
 
 const initialState: PublicActivationState = {
@@ -60,14 +61,11 @@ function getFullAppActivationOwner(): FullAppActivationOwner
  */
 async function loadFullApp(): Promise<FullAppModule>
 {
-    if (!coreModulePromise)
+    coreModulePromise ??= import('@/bootstrap/fullApp').catch((error) =>
     {
-        coreModulePromise = import('@/bootstrap/fullApp').catch((error) =>
-        {
-            coreModulePromise = null;
-            throw error;
-        });
-    }
+        coreModulePromise = null;
+        throw error;
+    });
     return await coreModulePromise;
 }
 
@@ -178,9 +176,9 @@ export function getPublicActivationOwner(): PublicActivationState['owner']
 }
 
 /** Idle FullApp core warming — no route URL, no navigation snapshot. */
-export function warmPublicFullAppCore(source = 'idle'): Promise<PublicCoreWarmResult>
+export function warmPublicFullAppCore(): Promise<PublicCoreWarmResult>
 {
-    return coordinator.warmCore(source);
+    return coordinator.warmCore();
 }
 
 /** Intent-targeted route preparation (pointerenter/focus). Does not commit FullApp. */
@@ -216,13 +214,17 @@ export function requestPublicSearchFocusIntent(): void
     }
 
     void warmPublicActivation('/search', 'search-focus').catch(() =>
-    {});
+    {
+        // Foreground activation owns fallback; speculative warming stays optional.
+    });
     void submitPublicActivationIntent({
         kind: 'activate',
         source: 'search-focus',
         target: currentTarget()
     }).catch(() =>
-    {});
+    {
+        // The coordinator owns terminal fallback; this UI intent has no further action.
+    });
 }
 
 export function adoptPublicBootIntent(intent: PublicBootIntent | null): void

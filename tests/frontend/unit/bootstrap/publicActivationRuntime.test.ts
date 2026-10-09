@@ -58,10 +58,11 @@ describe('public activation browser composition', () => {
       warmPublicFullAppCore
     } = await import('@/bootstrap/publicActivationRuntime')
 
-    await warmPublicFullAppCore('idle')
+    await warmPublicFullAppCore()
     await warmPublicActivation('/archive', 'pointerenter')
 
-    expect(warmCore).toHaveBeenCalledWith('idle')
+    expect(warmCore).toHaveBeenCalledOnce()
+    expect(warmCore).toHaveBeenCalledWith()
     expect(warm).toHaveBeenCalledWith('/archive', 'pointerenter')
   })
 

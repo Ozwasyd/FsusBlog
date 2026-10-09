@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/data-scale/query-producer-role-intake/check.sh"
+            ],
+            "reason": "Preserve the Bash-defined BASH_SOURCE spelling consumed by the exact-source harness. The script retains its existing shell and SDK interfaces, while task variables and functions follow repository naming; no environment or production access settings change."
+        }
+    ]
+}

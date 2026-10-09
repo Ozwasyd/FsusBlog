@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import { PUBLIC_AOT_HYDRATION_MEDIA_TYPE } from '@/api/contracts'
@@ -190,6 +191,55 @@ describe('public seed readers', () => {
     expect(document.getElementById('app')?.hasAttribute('aria-busy')).toBe(false)
   })
 
+  it('reuses the binary hydration script and cached snapshot without refetching', async () => {
+    vi.resetModules()
+    const payload = { pageKind: 'Home', routeKey: 'home', title: 'Binary hydration' }
+    const rawPayload = encodePublicAotPayload(payload)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const { readPublicHydrationPayloadAsync, replacePublicHydrationPayloadBinary } =
+      await import('@/bootstrap/publicHydrationBootstrap')
+    try {
+      const first = replacePublicHydrationPayloadBinary(rawPayload)
+      const script = document.getElementById('fsus-aot-hydration-props')
+      expect(script).toBeInstanceOf(HTMLScriptElement)
+      expect(script?.getAttribute('type')).toBe('application/octet-stream')
+      expect(script?.textContent).toBe(rawPayload)
+      expect(first).toEqual(payload)
+      expect(await readPublicHydrationPayloadAsync()).toBe(first)
+
+      replacePublicHydrationPayloadBinary(rawPayload)
+      expect(document.getElementById('fsus-aot-hydration-props')).toBe(script)
+      expect(fetchSpy).not.toHaveBeenCalled()
+
+      expect(replacePublicHydrationPayloadBinary(null)).toBeNull()
+      expect(document.getElementById('fsus-aot-hydration-props')).toBeNull()
+      expect(await readPublicHydrationPayloadAsync()).toBeNull()
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  it('rejects a non-script hydration carrier before changing the accepted snapshot', async () => {
+    vi.resetModules()
+    const payload = { pageKind: 'Home', routeKey: 'home', title: 'Accepted hydration' }
+    const rawPayload = encodePublicAotPayload(payload)
+    const { readPublicHydrationPayload, replacePublicHydrationPayloadBinary } =
+      await import('@/bootstrap/publicHydrationBootstrap')
+    const accepted = replacePublicHydrationPayloadBinary(rawPayload)
+    document.getElementById('fsus-aot-hydration-props')?.remove()
+    const carrier = document.createElement('div')
+    carrier.id = 'fsus-aot-hydration-props'
+    carrier.textContent = 'untrusted carrier'
+    document.body.appendChild(carrier)
+
+    expect(() => replacePublicHydrationPayloadBinary(encodePublicAotPayload({ ...payload, title: 'Rejected' })))
+      .toThrow('public_hydration_script_invalid')
+    expect(carrier.textContent).toBe('untrusted carrier')
+    expect(readPublicHydrationPayload()).toBe(accepted)
+    expect((window as PublicSeedWindow).__FSUS_PUBLIC_HYDRATION_RAW__).toBe(rawPayload)
+  })
+
   it('fetches hydration payloads from an AEDS sidecar marker before falling back to inline text', async () => {
     vi.resetModules()
 
@@ -231,5 +281,34 @@ describe('public seed readers', () => {
     expect(readPublicHydrationPayload()?.title).toBe('Sidecar hydration')
 
     fetchSpy.mockRestore()
+  })
+
+  it.each(['', '   '])('preserves src fallback only for an empty dataset sidecar marker: %j', async (marker) => {
+    vi.resetModules()
+    const payload = { pageKind: 'Home', routeKey: 'home', title: 'Sidecar fallback' }
+    const rawPayload = encodePublicAotPayload(payload)
+    const script = document.createElement('script')
+    script.id = 'fsus-aot-hydration-props'
+    script.type = 'application/octet-stream'
+    script.dataset.aedsSrc = marker
+    script.setAttribute('src', '/aot-cache/payloads/aa/sidecar.aeds')
+    document.body.appendChild(script)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(base64UrlToBytes(rawPayload)))
+    const { readPublicHydrationPayloadAsync } = await import('@/bootstrap/publicHydrationBootstrap')
+    try {
+      const observed = await readPublicHydrationPayloadAsync()
+      if (marker === '') {
+        expect(observed).toEqual(payload)
+        expect(fetchSpy).toHaveBeenCalledOnce()
+        expect(fetchSpy.mock.calls[0]?.[0]).toBe('http://127.0.0.1:7568/aot-cache/payloads/aa/sidecar.aeds')
+        expect(await readPublicHydrationPayloadAsync()).toBe(observed)
+        expect(fetchSpy).toHaveBeenCalledOnce()
+      } else {
+        expect(observed).toBeNull()
+        expect(fetchSpy).not.toHaveBeenCalled()
+      }
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 })

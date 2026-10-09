@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "formatter": {
+        "identity": "shfmt",
+        "version": "3.11.0",
+        "command": "shfmt -w -i 4 -ci tools/data-scale/query-producer-role-intake/check.sh"
+    },
+    "paths": [
+        "tools/data-scale/query-producer-role-intake/check.sh"
+    ],
+    "firstPassTreeSha256": "5d2a1f8c7cf454c686675ccbfb0d74fcff756f0e2f61832ec1ca20c0507fd654",
+    "secondPassTreeSha256": "5d2a1f8c7cf454c686675ccbfb0d74fcff756f0e2f61832ec1ca20c0507fd654",
+    "idempotent": true,
+    "sourceRevisionBeforeCorrection": "2edf92bd89044abb722988ee10cf2c46a163d698"
+}
