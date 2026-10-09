@@ -1,0 +1,27 @@
+{
+  "checkpointCommand": "bounded actual git/head/status + existing tool output read; no tests rerun",
+  "cwd": "/workspace/FsusBlog-2325-transport-followup",
+  "head": "1c11082133df53e2694d9480429824bf48a2d421",
+  "trackedAndUntrackedStatus": "",
+  "installedTrustedParserPackages": {
+    "espree": "10.4.0",
+    "acorn": "8.18.0",
+    "acorn-jsx": "5.3.2",
+    "eslint-visitor-keys": "4.2.1"
+  },
+  "existingInstallOutput": "\nadded 4 packages in 553ms\nnpm notice\nnpm notice New major version of npm available! 11.13.0 -> 12.2.0\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0\nnpm notice To update run: npm install -g npm@12.2.0\nnpm notice\n",
+  "existingOriginalEquivalenceResult": {
+    "errors": []
+  },
+  "existingPublicationErrors": [
+    "[change-contract] 373bcaa74f37aed9b07504040ec7ddca8bf293d9: commit message must contain a Refs: #1234 footer",
+    "[change-contract] 1c11082133df53e2694d9480429824bf48a2d421: header must use type(scope): imperative summary",
+    "[change-contract] missing blame-ignore entry: 9f4af3a81e7f8acd8635345bf027ed780c78a898",
+    "[change-contract] Formatter idempotence evidence must be changed in this PR: artifacts/shared-protocol-format/idempotence.json",
+    "[change-contract] Formatter idempotence evidence cannot be read from candidate head: repository path does not resolve to one exact Git object at 1c11082133df53e2694d9480429824bf48a2d421: artifacts/shared-protocol-format/idempotence.json"
+  ],
+  "declaredFormatterNodeReady": true,
+  "formatterFirstSecondRunPerformed": false,
+  "newBranchOrSourceEditSince1c": false,
+  "heldAuditsStarted": false
+}

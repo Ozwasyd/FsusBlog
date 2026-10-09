@@ -1,0 +1,26 @@
+{
+  "sourceHead": "1c11082133df53e2694d9480429824bf48a2d421",
+  "sourceCodeCommit": "373bcaa74f37aed9b07504040ec7ddca8bf293d9",
+  "formatRevision": "9f4af3a81e7f8acd8635345bf027ed780c78a898",
+  "formatter": {
+    "identity": "eslint",
+    "version": "10.8.0",
+    "command": "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node tools/frontend/check-frontend-style.mjs --mode strict-full --file tests/tools/aeds-protocol-generation.test.mjs --fix"
+  },
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/tools/aeds-protocol-generation.test.mjs",
+    "--fix"
+  ],
+  "paths": [
+    "tests/tools/aeds-protocol-generation.test.mjs"
+  ],
+  "exitCode": 0,
+  "fileBytesUnchanged": true,
+  "algorithmicTreeSha256": "1ccb0fb12f5e0d67a6ac4bf469fff32d0c76aa260d5b23fb6de4360e64a23016",
+  "firstPassTreeSha256": "1ccb0fb12f5e0d67a6ac4bf469fff32d0c76aa260d5b23fb6de4360e64a23016"
+}
