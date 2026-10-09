@@ -5,6 +5,7 @@ using System.Text.Json;
 
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Xunit;
 
@@ -214,14 +215,10 @@ public sealed class DocumentExportBinaryCodecTests
 
     private static byte[] Golden(string name)
     {
-        DirectoryInfo? root = new(AppContext.BaseDirectory);
-        while (root is not null && !File.Exists(Path.Combine(root.FullName, "tests/backend/Fixtures/document-export-payload-goldens-v1.json")))
-        {
-            root = root.Parent;
-        }
+        DirectoryInfo root = new(BackendTestPaths.RepositoryRoot);
         Assert.NotNull(root);
-        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root.FullName,
-            "tests/backend/Fixtures/document-export-payload-goldens-v1.json")));
+        using var document = JsonDocument.Parse(BackendTestPaths.ReadAllTextFromRoot(
+            "tests/backend/Fixtures/document-export-payload-goldens-v1.json"));
         string hex = document.RootElement.GetProperty("vectors").EnumerateArray()
             .Single(vector => vector.GetProperty("name").GetString() == name).GetProperty("hex").GetString()!;
         return Convert.FromHexString(hex);
