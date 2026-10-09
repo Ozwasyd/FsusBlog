@@ -1,0 +1,48 @@
+{
+  "expectedCount": 1,
+  "positiveNames": [
+    "pnpm-latest"
+  ],
+  "profile": {
+    "description": "Same install pins under pnpm consumer profile",
+    "manager": "pnpm",
+    "name": "pnpm-latest",
+    "packages": {
+      "vue": "3.5.32"
+    },
+    "peerFloor": "3.5.0",
+    "toolchain": {
+      "@vitejs/plugin-vue": "6.0.5",
+      "typescript": "6.0.2",
+      "vite": "7.3.1",
+      "vue-tsc": "3.2.6"
+    },
+    "digest": "82e09b07eb814cf2a90e8ac30d7c3a4f05e9715b95a361f5b8a5421ef4020188"
+  },
+  "hooks": [
+    "candidate verify before install",
+    "fresh template copy",
+    "locked install / dependency singleton",
+    "public ESM+CJS exports and forbidden private paths",
+    "SSR",
+    "public declaration typecheck including motion imports",
+    "Vite production build / forbidden warnings",
+    "worker and WASM production assets",
+    "unchanged bundle budgets",
+    "pnpm-latest heavy runtime: lazy identity/client/frame, pending LaTeX, code/Mermaid/KaTeX, same origin, zero retained resource/listener/observer/runtime/task, unmount and preview cleanup",
+    "tarball immutability after install",
+    "canonical receipt"
+  ],
+  "stages": [
+    "install",
+    "exports",
+    "ssr",
+    "typecheck",
+    "build",
+    "worker",
+    "bundle"
+  ],
+  "candidateSha256": "297494722e2f1ec11b4ffb910d6d511d8e4937c5c855cb54c2fe37f588fcc033",
+  "store": "/workspace/.setup/pnpm-store",
+  "freshFixture": true
+}

@@ -1,0 +1,236 @@
+{
+  "recordedAt": "2026-10-09T07:43:39.847880+00:00",
+  "binding": {
+    "uiHead": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037",
+    "uiBranch": "task/830-canonical-package-20261009",
+    "uiMain": "b17077f3afd4a80ff3bdc0fe81d5dfc353ffddf2",
+    "frozenUI": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+    "blogProbeHead": "bba57bab07d2fcb87da3c30a2f65ad88bfb3b651",
+    "blogMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "blogProductCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6",
+    "blogEvidenceBranch": "task/1891-canonical-package-evidence-20261009",
+    "owners": {
+      "rendererWorkerChunk": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "motionDeclarations": "f452107578815e7fe4534de18bcb074549e6b584"
+    },
+    "reviewer": "01a11b3a-b8fa-7638-ae1c-eaea38fdb032",
+    "candidateSha256": "297494722e2f1ec11b4ffb910d6d511d8e4937c5c855cb54c2fe37f588fcc033",
+    "candidateLocalPath": "/workspace/FsusUI-dropdown-current-main/dist/npm-candidate/fsusui-npm-candidate.tgz",
+    "publication": "none; local candidate only",
+    "openIssues": [
+      1891,
+      830
+    ],
+    "qualification": false
+  },
+  "commands": [
+    {
+      "command": [
+        "pnpm",
+        "typecheck:no-cache"
+      ],
+      "exitCode": 0,
+      "log": "typecheck.log",
+      "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+    },
+    {
+      "command": [
+        "pnpm",
+        "exec",
+        "tsx",
+        "--test",
+        "scripts/motion-declaration-path.test.mjs"
+      ],
+      "exitCode": 0,
+      "log": "motion.log",
+      "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+    },
+    {
+      "command": [
+        "pnpm",
+        "avalonia:baseline:check"
+      ],
+      "exitCode": 0,
+      "log": "api.log",
+      "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+    },
+    {
+      "command": [
+        "pnpm",
+        "contract-v2:check"
+      ],
+      "exitCode": 0,
+      "log": "contract.log",
+      "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+    },
+    {
+      "command": [
+        "pnpm",
+        "conformance:v2:vue-public"
+      ],
+      "exitCode": 0,
+      "log": "public.log",
+      "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+    },
+    {
+      "command": [
+        "pnpm",
+        "check:fsusui-design-conformance"
+      ],
+      "exitCode": 0,
+      "log": "design.log",
+      "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+    },
+    {
+      "command": [
+        "pnpm",
+        "check:documentation-architecture"
+      ],
+      "exitCode": 0,
+      "log": "docs.log",
+      "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+    },
+    {
+      "command": "pnpm install --frozen-lockfile --offline --store-dir /workspace/.setup/pnpm-store",
+      "exitCode": 0,
+      "log": "install.log",
+      "count": null
+    },
+    {
+      "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-830-canonical-browsers pnpm exec playwright install chromium",
+      "exitCode": 0,
+      "log": "browser-install.log",
+      "count": null
+    },
+    {
+      "command": "pnpm avalonia:baseline",
+      "exitCode": 0,
+      "log": "api-producer.log",
+      "count": null
+    },
+    {
+      "command": "pnpm contract-v2:generate",
+      "exitCode": 0,
+      "log": "contract-producer.log",
+      "count": null
+    },
+    {
+      "command": "pnpm exec vitest run --config vue/vitest.config.ts vue/packages/components/dropdown/__tests__ vue/packages/components/popper/__tests__ vue/packages/components/check-tag/__tests__ vue/packages/components/focus-trap/__tests__ vue/packages/hooks/__tests__/use-popper.test.tsx vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx",
+      "exitCode": 0,
+      "log": "focused.log",
+      "count": {
+        "tests": 123,
+        "files": 13
+      }
+    },
+    {
+      "command": "pnpm exec vitest run --config vue/vitest.config.ts vue/packages/wasm/__tests__/markdown-projection-worker-entry.test.ts vue/packages/wasm/__tests__/markdown-editor-projection-worker.test.ts",
+      "exitCode": 0,
+      "log": "worker.log",
+      "count": {
+        "tests": 5,
+        "files": 2
+      }
+    },
+    {
+      "command": "pnpm package:candidate:build",
+      "exitCode": 1,
+      "log": "package-build.log",
+      "count": null
+    },
+    {
+      "command": "NPM_CONFIG_CACHE=/workspace/.setup/npm-cache pnpm package:candidate:build",
+      "exitCode": 0,
+      "log": "package-build-cache-retry.log",
+      "count": null
+    },
+    {
+      "command": "NPM_CONFIG_CACHE=/workspace/.setup/npm-cache pnpm package:candidate:verify dist/npm-candidate/fsusui-npm-candidate.tgz",
+      "exitCode": 0,
+      "log": "package-verify.log",
+      "count": null
+    },
+    {
+      "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-830-canonical-browsers node cancellation.mjs /workspace/FsusUI-dropdown-current-main cancellation-result.json /workspace/FsusBlog",
+      "exitCode": 0,
+      "log": "cancellation-result.json",
+      "count": {
+        "positiveNames": 6
+      }
+    },
+    {
+      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-dropdown-current-main FSUSBLOG_LOCALE_PROBE_REAL_ZOOM=1 PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-830-canonical-browsers node /workspace/FsusBlog/tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI-dropdown-current-main local",
+      "exitCode": 0,
+      "log": "local/probe.json",
+      "count": {
+        "positiveNames": 35
+      }
+    },
+    {
+      "command": "pnpm test:consumer-install -- --profile npm-latest --candidate dist/npm-candidate/fsusui-npm-candidate.tgz",
+      "exitCode": 0,
+      "log": "consumer-npm.log",
+      "count": null
+    },
+    {
+      "command": "pnpm test:consumer-install -- --profile pnpm-latest --candidate dist/npm-candidate/fsusui-npm-candidate.tgz",
+      "exitCode": 1,
+      "log": "consumer-pnpm.log",
+      "count": null
+    },
+    {
+      "command": "npm_config_store_dir=/workspace/.setup/pnpm-store pnpm test:consumer-install -- --profile pnpm-latest --candidate dist/npm-candidate/fsusui-npm-candidate.tgz",
+      "exitCode": 0,
+      "log": "consumer-pnpm-cache-retry.log",
+      "count": null
+    }
+  ],
+  "checks": {
+    "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037",
+    "sourceStatus": "",
+    "candidateSha256": "297494722e2f1ec11b4ffb910d6d511d8e4937c5c855cb54c2fe37f588fcc033",
+    "frozenDropdownPreserved": true,
+    "canonicalSource16Matches": true,
+    "motionSource4Matches": true,
+    "unchangedReviewerHarness": true,
+    "artifactContainment": "No dependency caches/node_modules; production build manifests copied as JSON evidence."
+  },
+  "currentConsumerReceipts": [
+    "consumer-npm.json",
+    "consumer-pnpm.json"
+  ],
+  "runtimeLog": "consumer-pnpm-cache-retry.log",
+  "reviewedScreenshots": [
+    "local/consumer-375-light-real-browser-zoom2-active.png",
+    "local/error-retry.png",
+    "cancellation-result.png"
+  ],
+  "preflight": {
+    "initialBrowserDiscovery": "failed: 36 vs 35; downstream stopped; catch-only diagnostic excluded after static inspection",
+    "correctedBrowserDiscovery": "passed exact 35 + 6; unchanged runners",
+    "consumer": "passed exact two profiles; retry passed exact one pnpm-latest; canonical hooks unchanged",
+    "accidentalBroadRun": false
+  },
+  "issueStatus": {
+    "1891": "OPEN/WIP: local migration verified, published and product qualification gates outstanding",
+    "830": "OPEN/WIP: public source/cancellation correction and genuine local package verified, published and independent acceptance gates outstanding"
+  },
+  "notRunThisContinuation": [
+    "published-package parity",
+    "npm-peer-floor",
+    "full visual/profile qualification",
+    "WebKit",
+    "denied runtime audit",
+    "new native acceptance",
+    "real-device/screen-reader/live-production-service acceptance",
+    "new Blog unit run (Blog source unchanged; historical 33 are not a current receipt)"
+  ],
+  "noActions": [
+    "registry package publication",
+    "merge",
+    "default branch push",
+    "issue closure",
+    "GitHub metadata write",
+    "new independent review task"
+  ]
+}

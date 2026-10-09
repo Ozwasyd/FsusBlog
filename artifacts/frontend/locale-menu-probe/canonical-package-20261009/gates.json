@@ -1,0 +1,68 @@
+[
+  {
+    "command": [
+      "pnpm",
+      "typecheck:no-cache"
+    ],
+    "exitCode": 0,
+    "log": "typecheck.log",
+    "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+  },
+  {
+    "command": [
+      "pnpm",
+      "exec",
+      "tsx",
+      "--test",
+      "scripts/motion-declaration-path.test.mjs"
+    ],
+    "exitCode": 0,
+    "log": "motion.log",
+    "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+  },
+  {
+    "command": [
+      "pnpm",
+      "avalonia:baseline:check"
+    ],
+    "exitCode": 0,
+    "log": "api.log",
+    "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+  },
+  {
+    "command": [
+      "pnpm",
+      "contract-v2:check"
+    ],
+    "exitCode": 0,
+    "log": "contract.log",
+    "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+  },
+  {
+    "command": [
+      "pnpm",
+      "conformance:v2:vue-public"
+    ],
+    "exitCode": 0,
+    "log": "public.log",
+    "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+  },
+  {
+    "command": [
+      "pnpm",
+      "check:fsusui-design-conformance"
+    ],
+    "exitCode": 0,
+    "log": "design.log",
+    "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+  },
+  {
+    "command": [
+      "pnpm",
+      "check:documentation-architecture"
+    ],
+    "exitCode": 0,
+    "log": "docs.log",
+    "source": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037"
+  }
+]

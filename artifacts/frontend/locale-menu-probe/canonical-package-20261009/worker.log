@@ -1,0 +1,9 @@
+
+ RUN  v4.1.5 /workspace/FsusUI-dropdown-current-main
+
+
+ Test Files  2 passed (2)
+      Tests  5 passed (5)
+   Start at  07:27:19
+   Duration  1.49s (transform 749ms, setup 165ms, import 824ms, tests 314ms, environment 1.14s)
+

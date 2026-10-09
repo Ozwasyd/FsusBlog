@@ -1,0 +1,25 @@
+
+> @ conformance:v2:vue-public /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node --test tests/conformance-v2-vue-public-gate.test.mjs && node ./scripts/with-node-heap.mjs node ./scripts/conformance-v2-vue-public-gate.mjs
+
+✔ real Vue baseline and Contract V2 have complete public-member coverage (10.42876ms)
+✔ a real baseline member addition fails Vue public coverage (15.353668ms)
+✔ a real registry member deletion fails Vue public coverage (28.915474ms)
+✔ a real registry member rename fails Vue public coverage (33.240668ms)
+✔ a real registry member kind drift fails Vue public coverage (30.579564ms)
+✔ content-region compiler metadata drift fails Vue public coverage (52.057039ms)
+✔ enum values and deprecated compiler metadata drift fail Vue public coverage (21.624627ms)
+✔ a real registry cross-kind duplicate fails Vue public coverage (35.257324ms)
+✔ a real registry same-kind duplicate fails Vue public coverage (35.978097ms)
+✔ a real registry duplicate component fails Vue public coverage (26.384026ms)
+✔ a real web-only status drift fails Vue public coverage (28.159774ms)
+✔ a member-level web-only disposition cannot be synthesized in Contract V2 (30.031237ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 723.729753
+Contract V2 Vue public gate passed: 228 components, 2457 members, 62 web-only members

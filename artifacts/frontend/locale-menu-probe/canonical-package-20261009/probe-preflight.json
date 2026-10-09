@@ -1,0 +1,75 @@
+{
+  "positiveNames": {
+    "locale": [
+      "defaultRowHeight",
+      "publicOpen",
+      "triggerAssociation",
+      "radioItem",
+      "publicClose",
+      "keyboardEntry",
+      "keyboard",
+      "pendingOpen",
+      "commandKeepsUrl",
+      "commandsAfterEnter",
+      "commandsAfterSpace",
+      "escapeFocusReturn",
+      "outsideClose",
+      "outsideFocus",
+      "retryCommand",
+      "retryOpen",
+      "disabledItemIgnored",
+      "linkKeyboardHash",
+      "linkPointerHash",
+      "linkPointerCommand",
+      "triggerDisabled",
+      "disabledOpen",
+      "selectAfterActivation",
+      "selectRetryReachable",
+      "menuAlternativeRole",
+      "menuAlternativeKeyboardEntry",
+      "menuAlternativeOpenAfterArrow",
+      "menuAlternativeArrowDown",
+      "consumerFailureRetry",
+      "consumerUrl",
+      "consumerVariants",
+      "consumerAccessibilitySnapshot",
+      "consumerComposition",
+      "consumerTouchPendingOutside",
+      "realBrowserZoom"
+    ],
+    "cancellation": [
+      "trigger opens visible menu",
+      "item focus",
+      "cancelled Escape keeps menu visible",
+      "outside click hides menu",
+      "page errors empty",
+      "outside button retains focus"
+    ]
+  },
+  "expectedCounts": {
+    "locale": 35,
+    "cancellation": 6
+  },
+  "diagnosticsExcluded": [
+    "escapeActiveElement"
+  ],
+  "hooks": {
+    "locale": [
+      "Vite listen",
+      "Chromium launch",
+      "real200%tabZoom",
+      "browser/server finally cleanup"
+    ],
+    "cancellation": [
+      "Vite listen",
+      "finite animation completion",
+      "browser/server finally cleanup"
+    ]
+  },
+  "emptyFallback": false,
+  "held": [
+    "full-profile",
+    "WebKit",
+    "denied runtime audit"
+  ]
+}

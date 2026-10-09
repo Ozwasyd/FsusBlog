@@ -1,0 +1,82 @@
+{
+  "schema": "fsusui.consumer-profile-receipt.v1",
+  "profile": "pnpm-latest",
+  "candidate": {
+    "name": "@ozwasyd/element-plus",
+    "version": "1.5.1",
+    "sha256": "297494722e2f1ec11b4ffb910d6d511d8e4937c5c855cb54c2fe37f588fcc033"
+  },
+  "packageManager": {
+    "name": "pnpm",
+    "version": "10.33.0"
+  },
+  "toolchain": {
+    "node": "24.19.0",
+    "vue": "3.5.32",
+    "vite": "7.3.1",
+    "typescript": "6.0.2",
+    "vueTsc": "3.2.6"
+  },
+  "statuses": {
+    "install": "passed",
+    "typecheck": "passed",
+    "build": "passed",
+    "ssr": "passed",
+    "exports": "passed",
+    "worker": "passed",
+    "wasm": "passed",
+    "bundle": "passed"
+  },
+  "durationsMs": {
+    "install": 9955,
+    "typecheck": 9042,
+    "build": 10061,
+    "ssr": 846,
+    "exports": 1453,
+    "worker": 30,
+    "wasm": 30,
+    "bundle": 6
+  },
+  "budgets": {
+    "startup": {
+      "actual": {
+        "raw": 148945,
+        "gzip": 46281,
+        "brotli": 41499
+      },
+      "limit": {
+        "raw": 149002,
+        "gzip": 46365,
+        "brotli": 41554
+      }
+    },
+    "markdownHydration": {
+      "actual": {
+        "raw": 91555,
+        "gzip": 32246,
+        "brotli": 29214
+      },
+      "limit": {
+        "raw": 91730,
+        "gzip": 32277,
+        "brotli": 29323
+      }
+    }
+  },
+  "artifacts": {
+    "workerFiles": [
+      "assets/markdown-renderer.worker-BkgCUl-C.mjs"
+    ],
+    "wasmFiles": [
+      "assets/ep_wasm-DS4t0SLk.wasm",
+      "assets/markdown_basic-Cdz4W9hU.wasm",
+      "assets/markdown_simd-CpGVm2np.wasm"
+    ]
+  },
+  "digests": {
+    "authority": "cbbfc945c7fbc24bb65fe2c94074bb552494cc1e16c2f7ad0d087835fb14df13",
+    "profile": "82e09b07eb814cf2a90e8ac30d7c3a4f05e9715b95a361f5b8a5421ef4020188",
+    "config": "17fe1daf63ed695ed4fdde5ef4eaae21d2261a0be054576fa674faf9913044d7"
+  },
+  "fixturePath": "/tmp/chain-830-canonical-package-20261009/consumer-fixtures/fsusui-consumer-w0TrRV/fixture"
+}

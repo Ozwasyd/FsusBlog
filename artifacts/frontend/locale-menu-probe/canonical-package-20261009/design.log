@@ -1,0 +1,31 @@
+
+> @ check:fsusui-design-conformance /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/check-fsusui-design-conformance.mjs
+
+[fsusui-design-conformance] receipts=3 negative-controls=12 policy=620c4f746c1f259e3b640044975ad2878b7913806038706f7991bee9d72104d3
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "maxItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/then/properties/blockers" (strictTypes)
+strict mode: missing type "array" for keyword "minItems" at "https://fsusui.dev/contracts/ux-acceptance-receipt.v2.schema.json#/allOf/0/else/properties/blockers" (strictTypes)

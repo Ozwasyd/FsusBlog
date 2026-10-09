@@ -1,0 +1,38 @@
+{
+  "expectedCounts": {
+    "motion": 4,
+    "public": 12
+  },
+  "positiveNames": {
+    "motion": [
+      "esm motion facade declarations resolve the implementation index",
+      "esm preserves existing motion leaf and unrelated package mappings",
+      "cjs motion facade declarations resolve the implementation index",
+      "cjs preserves existing motion leaf and unrelated package mappings"
+    ],
+    "public": [
+      "real Vue baseline and Contract V2 have complete public-member coverage",
+      "a real baseline member addition fails Vue public coverage",
+      "a real registry member deletion fails Vue public coverage",
+      "a real registry member rename fails Vue public coverage",
+      "a real registry member kind drift fails Vue public coverage",
+      "content-region compiler metadata drift fails Vue public coverage",
+      "enum values and deprecated compiler metadata drift fail Vue public coverage",
+      "a real registry cross-kind duplicate fails Vue public coverage",
+      "a real registry same-kind duplicate fails Vue public coverage",
+      "a real registry duplicate component fails Vue public coverage",
+      "a real web-only status drift fails Vue public coverage",
+      "a member-level web-only disposition cannot be synthesized in Contract V2"
+    ]
+  },
+  "hooks": {
+    "motion": [],
+    "public": []
+  },
+  "fallback": "forbidden",
+  "held": [
+    "full-profile",
+    "WebKit",
+    "denied runtime audit"
+  ]
+}

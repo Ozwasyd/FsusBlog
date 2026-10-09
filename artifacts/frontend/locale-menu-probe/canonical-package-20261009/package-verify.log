@@ -1,0 +1,5 @@
+
+> @ package:candidate:verify /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/package-candidate.mjs verify dist/npm-candidate/fsusui-npm-candidate.tgz
+
+Verified /workspace/FsusUI-dropdown-current-main/dist/npm-candidate/fsusui-npm-candidate.tgz (297494722e2f1ec11b4ffb910d6d511d8e4937c5c855cb54c2fe37f588fcc033) for @ozwasyd/element-plus@1.5.1 with dist-tag latest.

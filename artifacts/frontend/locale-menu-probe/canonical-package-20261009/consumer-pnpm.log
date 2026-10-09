@@ -1,0 +1,40 @@
+
+> @ test:consumer-install /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/test-consumer-install.mjs -- --profile pnpm-latest --candidate dist/npm-candidate/fsusui-npm-candidate.tgz
+
+ ENOENT  ENOENT: no such file or directory, mkdir '/home/agent/.local/share/pnpm'
+
+pnpm: ENOENT: no such file or directory, mkdir '/home/agent/.local/share/pnpm'
+    at async Object.mkdir (node:internal/fs/promises:916:10)
+    at async createNewStoreController (/workspace/.setup/tools/node_modules/pnpm/dist/pnpm.cjs:106002:7)
+    at async installDeps (/workspace/.setup/tools/node_modules/pnpm/dist/pnpm.cjs:164659:21)
+    at async /workspace/.setup/tools/node_modules/pnpm/dist/pnpm.cjs:201528:23
+    at async main (/workspace/.setup/tools/node_modules/pnpm/dist/pnpm.cjs:201486:34)
+    at async runPnpm (/workspace/.setup/tools/node_modules/pnpm/dist/pnpm.cjs:201753:5)
+    at async /workspace/.setup/tools/node_modules/pnpm/dist/pnpm.cjs:201745:7
+Consumer fixture retained at /tmp/chain-830-canonical-package-20261009/consumer-fixtures/fsusui-consumer-M8pskD/fixture.
+node:internal/errors:985
+  const err = new Error(message);
+              ^
+
+Error: Command failed: pnpm install --lockfile-only --ignore-scripts
+    at genericNodeError (node:internal/errors:985:15)
+    at wrappedFn (node:internal/errors:539:14)
+    at checkExecSyncError (node:child_process:942:11)
+    at execFileSync (node:child_process:978:15)
+    at run (file:///workspace/FsusUI-dropdown-current-main/scripts/test-consumer-install.mjs:171:3)
+    at file:///workspace/FsusUI-dropdown-current-main/scripts/test-consumer-install.mjs:1167:9
+    at stage (file:///workspace/FsusUI-dropdown-current-main/scripts/test-consumer-install.mjs:141:19)
+    at file:///workspace/FsusUI-dropdown-current-main/scripts/test-consumer-install.mjs:1146:5
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26 {
+  status: 254,
+  signal: null,
+  output: [ null, null, null ],
+  pid: 16367,
+  stdout: null,
+  stderr: null
+}
+
+Node.js v24.19.0
+ ELIFECYCLE  Command failed with exit code 1.

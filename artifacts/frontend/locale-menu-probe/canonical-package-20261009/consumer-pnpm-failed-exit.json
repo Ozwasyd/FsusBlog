@@ -1,0 +1,9 @@
+{
+  "exitCode": 1,
+  "nestedInstallExitCode": 254,
+  "profile": "pnpm-latest",
+  "stage": "install",
+  "reason": "default pnpm store parent /home/agent/.local/share/pnpm unavailable",
+  "log": "consumer-pnpm.log",
+  "subsequentStagesExecuted": false
+}

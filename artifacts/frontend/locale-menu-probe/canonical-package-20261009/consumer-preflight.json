@@ -1,0 +1,117 @@
+{
+  "expectedCount": 2,
+  "positiveNames": [
+    "npm-latest",
+    "pnpm-latest"
+  ],
+  "profiles": [
+    {
+      "description": "Consumer matrix profile using workspace install pins",
+      "manager": "npm",
+      "name": "npm-latest",
+      "packages": {
+        "vue": "3.5.32",
+        "vue-router": "4.6.4"
+      },
+      "peerFloor": "3.5.0",
+      "toolchain": {
+        "@vitejs/plugin-vue": "6.0.5",
+        "typescript": "6.0.2",
+        "vite": "7.3.1",
+        "vue-tsc": "3.2.6"
+      },
+      "digest": "b508c44be8ce65ec70b36a76d76e47650618e6f437fd2d2ce2f57d2f3070b509"
+    },
+    {
+      "description": "Same install pins under pnpm consumer profile",
+      "manager": "pnpm",
+      "name": "pnpm-latest",
+      "packages": {
+        "vue": "3.5.32"
+      },
+      "peerFloor": "3.5.0",
+      "toolchain": {
+        "@vitejs/plugin-vue": "6.0.5",
+        "typescript": "6.0.2",
+        "vite": "7.3.1",
+        "vue-tsc": "3.2.6"
+      },
+      "digest": "82e09b07eb814cf2a90e8ac30d7c3a4f05e9715b95a361f5b8a5421ef4020188"
+    }
+  ],
+  "stages": [
+    "install",
+    "exports",
+    "ssr",
+    "typecheck",
+    "build",
+    "worker",
+    "bundle"
+  ],
+  "expectedStageCount": 7,
+  "derivedStage": "wasm",
+  "hooks": [
+    "candidate verify before install",
+    "fresh template copy",
+    "locked install / dependency singleton",
+    "public ESM+CJS exports and forbidden private paths",
+    "SSR",
+    "public declaration typecheck including motion imports",
+    "Vite production build / forbidden warnings",
+    "worker and WASM production assets",
+    "unchanged bundle budgets",
+    "pnpm-latest heavy runtime: lazy identity/client/frame, pending LaTeX, code/Mermaid/KaTeX, same origin, zero retained resource/listener/observer/runtime/task, unmount and preview cleanup",
+    "tarball immutability after install",
+    "canonical receipt"
+  ],
+  "candidate": {
+    "artifact": {
+      "filename": "fsusui-npm-candidate.tgz",
+      "sha256": "297494722e2f1ec11b4ffb910d6d511d8e4937c5c855cb54c2fe37f588fcc033"
+    },
+    "build": {
+      "command": "pnpm run build:npm-package",
+      "inputFingerprint": "3a3caf46d03dadfc611870715d3f716e17fcb8a4adc993f5332d1653d8200f99",
+      "inputs": {
+        "package.json": "4e6502bacf6c8edfe52fd20f7d59bd5df9a05f8f627546e62fb889f6e5c50ace",
+        "pnpm-lock.yaml": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
+        "scripts/npm-candidate-lib.mjs": "b2015f52ba6652a4deb714b85fddbc11bc8463826d9767353b97278053e35d3e",
+        "scripts/package-candidate.mjs": "3eaa9761f4728e155531bf8eba34186596106730eff24561ceb8cf09a30c33b9",
+        "scripts/prepare-npm-package.mjs": "c3c5bf2ef26177999a0b470e5e0e6d89522a303e6920cd723da7b7fc32ca71f7",
+        "vue/packages/element-plus/package.json": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c"
+      },
+      "lockfileSha256": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
+      "scriptVersion": 1
+    },
+    "commitSha": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037",
+    "metadata": {
+      "provenanceEligible": true,
+      "publicAccess": true,
+      "publishConfigPresent": true,
+      "registry": "https://registry.npmjs.org/"
+    },
+    "package": {
+      "distTag": "latest",
+      "name": "@ozwasyd/element-plus",
+      "packageJsonCanonicalSha256": "d216a8a64ad6e47e612cecae710f237f7afdd990143d1e970aef1762e6f7c6aa",
+      "version": "1.5.1"
+    },
+    "schemaVersion": 1,
+    "sourceProfile": "Release",
+    "toolchain": {
+      "node": "v24.19.0",
+      "npm": "11.13.0",
+      "pnpm": "10.33.0"
+    }
+  },
+  "authorityDigest": "cbbfc945c7fbc24bb65fe2c94074bb552494cc1e16c2f7ad0d087835fb14df13",
+  "configDigest": "17fe1daf63ed695ed4fdde5ef4eaae21d2261a0be054576fa674faf9913044d7",
+  "implicitDefaults": false,
+  "checkpointResume": false,
+  "held": [
+    "npm-peer-floor",
+    "full-profile",
+    "WebKit",
+    "denied runtime audit"
+  ]
+}

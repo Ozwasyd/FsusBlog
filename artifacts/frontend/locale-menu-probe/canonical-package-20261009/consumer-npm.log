@@ -1,0 +1,202 @@
+
+> @ test:consumer-install /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/test-consumer-install.mjs -- --profile npm-latest --candidate dist/npm-candidate/fsusui-npm-candidate.tgz
+
+npm warn Unknown env config "_jsr-registry". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "shell-emulator". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "npm-globalconfig". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "peer-dependency-rules". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "verify-deps-before-run". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+up to date in 13s
+npm warn Unknown env config "_jsr-registry". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "shell-emulator". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "npm-globalconfig". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "peer-dependency-rules". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "verify-deps-before-run". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+added 223 packages in 6s
+npm warn Unknown env config "_jsr-registry". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "shell-emulator". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "npm-globalconfig". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "peer-dependency-rules". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "verify-deps-before-run". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+Packed Markdown runtime projection passed from the documented public subpath.
+Consumer runtime export and Markdown authority contract passed.
+npm warn Unknown env config "_jsr-registry". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "shell-emulator". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "npm-globalconfig". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "peer-dependency-rules". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "verify-deps-before-run". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 3234 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                             0.86 kB │ gzip:   0.40 kB
+dist/assets/markdown-renderer.worker-BkgCUl-C.mjs                           1.94 kB
+dist/assets/markdown_simd-BxxASas6.js                                      12.62 kB
+dist/assets/markdown_basic-CEL7zskG.js                                     12.63 kB
+dist/assets/ep_wasm-BDlSI6Or.mjs                                           39.19 kB
+dist/.vite/manifest.json                                                   72.77 kB │ gzip:   6.04 kB
+dist/assets/markdown_basic-Cdz4W9hU.wasm                                  144.85 kB │ gzip:  52.83 kB
+dist/assets/markdown_simd-CpGVm2np.wasm                                   145.36 kB │ gzip:  52.54 kB
+dist/assets/ep_wasm-DS4t0SLk.wasm                                         218.31 kB │ gzip:  78.58 kB
+dist/assets/markdown-heavy-feature-frame-B904ZPkL.mjs                   4,151.08 kB
+dist/assets/index-d34hb3yA.css                                             48.92 kB │ gzip:   7.21 kB
+dist/assets/_element-plus_markdown-heavy-feature-frame-url-DJla0eYh.js      0.10 kB │ gzip:   0.12 kB
+dist/assets/channel-CWSG5yAF.js                                             0.11 kB │ gzip:   0.12 kB
+dist/assets/init-Gi6I4Gst.js                                                0.15 kB │ gzip:   0.13 kB
+dist/assets/vendor-mermaid-chunk-Y2CYZVJY-DM6BcmAw.js                       0.15 kB │ gzip:   0.14 kB
+dist/assets/_baseAssignValue-B3L7yHoK.js                                    0.17 kB │ gzip:   0.16 kB
+dist/assets/vendor-mermaid-chunk-2Q5K7J3B-DlcQrXC8.js                       0.21 kB │ gzip:   0.18 kB
+dist/assets/vendor-mermaid-chunk-JWPE2WC7-pfv4Kksb.js                       0.24 kB │ gzip:   0.19 kB
+dist/assets/vendor-mermaid-chunk-XXDRQBXY-D-gGHgRm.js                       0.29 kB │ gzip:   0.25 kB
+dist/assets/vendor-mermaid-chunk-CLGD4ZFX-zbFeKm76.js                       0.37 kB │ gzip:   0.28 kB
+dist/assets/vendor-mermaid-chunk-5VM5RSS4-51sow7jd.js                       0.38 kB │ gzip:   0.29 kB
+dist/assets/v4-Dnyct6Ft.js                                                  0.62 kB │ gzip:   0.37 kB
+dist/assets/vendor-mermaid-chunk-POPQ4Y6H-UnlMUyR7.js                       0.64 kB │ gzip:   0.42 kB
+dist/assets/fsus-markdown-heavy-projection-cache-BEAPCZfn.js                0.82 kB │ gzip:   0.41 kB
+dist/assets/vendor-mermaid-infoDiagram-27XIBGKW-C2aD0F5T.js                 0.88 kB │ gzip:   0.54 kB
+dist/assets/vendor-mermaid-sizeCapture-INFHLROL-CxBle45M.js                 0.93 kB │ gzip:   0.53 kB
+dist/assets/preload-helper-BXl3LOEh.js                                      1.11 kB │ gzip:   0.65 kB
+dist/assets/fsus-icons-C66gIwnS.js                                          1.11 kB │ gzip:   0.50 kB
+dist/assets/ordinal-Cboi1Yqb.js                                             1.19 kB │ gzip:   0.57 kB
+dist/assets/pie-so9WmJYh.js                                                 1.23 kB │ gzip:   0.56 kB
+dist/assets/band-dPffDWoQ.js                                                1.33 kB │ gzip:   0.62 kB
+dist/assets/vendor-mermaid-stateDiagram-v2-MP3YSRHH-DYK5e4GJ.js             1.36 kB │ gzip:   0.62 kB
+dist/assets/vendor-mermaid-flowDiagram-HODETNUW-oOfPcaww.js                 1.39 kB │ gzip:   0.56 kB
+dist/assets/vendor-mermaid-classDiagram-ZZMXUADV-2jplTOHo.js                1.41 kB │ gzip:   0.64 kB
+dist/assets/vendor-mermaid-classDiagram-v2-VYDZK3BY-2jplTOHo.js             1.41 kB │ gzip:   0.64 kB
+dist/assets/vendor-mermaid-chunk-X3CZISLH-BgYI5yyc.js                       1.46 kB │ gzip:   0.58 kB
+dist/assets/vendor-mermaid-chunk-GVQU2GXP-M59HGBqs.js                       1.52 kB │ gzip:   0.83 kB
+dist/assets/vendor-mermaid-swimlanesDiagram-VR7AAH4N-BJvGIk9g.js            1.53 kB │ gzip:   0.70 kB
+dist/assets/_defineProperty-BjTHTA_3.js                                     1.68 kB │ gzip:   0.82 kB
+dist/assets/vendor-mermaid-chunk-PWAF6VOD-CjLb189p.js                       1.72 kB │ gzip:   0.91 kB
+dist/assets/fsus-markdown-heavy-isolated-adapter-DizzpdT5.js                1.84 kB │ gzip:   0.89 kB
+dist/assets/index-CwNcbkkA.js                                               1.90 kB │ gzip:   0.84 kB
+dist/assets/vendor-mermaid-railroadDiagram-O6MQD6OU-CN_idzNy.js             1.92 kB │ gzip:   0.88 kB
+dist/assets/vendor-mermaid-chunk-P2QGCYS3-CmJd9Rjr.js                       2.01 kB │ gzip:   0.99 kB
+dist/assets/vendor-mermaid-chunk-F27PBJKO-QV9qq2MS.js                       2.03 kB │ gzip:   0.91 kB
+dist/assets/vendor-mermaid-abnfDiagram-VCTEODGH-EGty1Hqg.js                 2.12 kB │ gzip:   1.01 kB
+dist/assets/clone-BUExEyJx.js                                               2.17 kB │ gzip:   0.93 kB
+dist/assets/vendor-mermaid-pegDiagram-XKGWAZYB-BNd_YFMd.js                  2.27 kB │ gzip:   1.05 kB
+dist/assets/vendor-mermaid-ebnfDiagram-PWID7BFC-ChhuXyFL.js                 2.32 kB │ gzip:   1.01 kB
+dist/assets/fsus-markdown-heavy-resource-XhXb3FmY.js                        3.18 kB │ gzip:   1.33 kB
+dist/assets/line-Br0mc9rK.js                                                3.21 kB │ gzip:   1.36 kB
+dist/assets/arc-fuXmTqhp.js                                                 3.45 kB │ gzip:   1.48 kB
+dist/assets/fsus-markdown-heavy-isolated-client-Bh6Zf8La.js                 3.94 kB │ gzip:   1.71 kB
+dist/assets/vendor-mermaid-cose-bilkent-JH36ORCC-Bvv3qT2g.js                4.33 kB │ gzip:   1.89 kB
+dist/assets/vendor-mermaid-chunk-TLUHSLCS-D629ADyR.js                       4.41 kB │ gzip:   1.68 kB
+dist/assets/html-AvPxgwwt.js                                                4.41 kB │ gzip:   2.01 kB
+dist/assets/Middleware-Ccdj8Snt.js                                          4.54 kB │ gzip:   2.12 kB
+dist/assets/vendor-mermaid-diagram-Z3DM3KII-DojaowA-.js                     4.63 kB │ gzip:   2.02 kB
+dist/assets/defaultLocale-5voVPcsN.js                                       4.69 kB │ gzip:   2.18 kB
+dist/assets/index-CvYzv8kf.js                                               4.74 kB │ gzip:   1.87 kB
+dist/assets/vendor-mermaid-pieDiagram-E7YTZNPT-ByqrUvmR.js                  5.62 kB │ gzip:   2.38 kB
+dist/assets/linear-Cs8_JvQu.js                                              5.65 kB │ gzip:   2.30 kB
+dist/assets/vendor-mermaid-diagram-UQ7AKVKN-CssSt9LH.js                     6.50 kB │ gzip:   2.80 kB
+dist/assets/dayjs.min-DiI28EGj.js                                           7.22 kB │ gzip:   3.15 kB
+dist/assets/sankeyLinkHorizontal-FH_jDQz2.js                                8.64 kB │ gzip:   3.02 kB
+dist/assets/vendor-mermaid-diagram-S7CK7UJ4-C818pG3E.js                     8.74 kB │ gzip:   3.89 kB
+dist/assets/vendor-mermaid-chunk-75Z2AOVW-DlEzbxab.js                       9.29 kB │ gzip:   4.20 kB
+dist/assets/vendor-mermaid-chunk-L3NEJ4N5-B61oFi8D.js                      10.05 kB │ gzip:   2.73 kB
+dist/assets/vendor-mermaid-chunk-GMAD6QVW-CrNnZbxI.js                      10.26 kB │ gzip:   4.18 kB
+dist/assets/vendor-mermaid-cynefinDiagram-5FMLGOSQ-cbnCWeUU.js             10.52 kB │ gzip:   3.81 kB
+dist/assets/vendor-mermaid-chunk-2E4U76K2-Cs9YJBB6.js                      10.80 kB │ gzip:   4.24 kB
+dist/assets/vendor-mermaid-diagram-VSXAHHWV-Cdc8jlRM.js                    11.08 kB │ gzip:   4.30 kB
+dist/assets/github-light-DAi9KRSo.js                                       11.18 kB │ gzip:   2.51 kB
+dist/assets/github-dark-DHJKELXO.js                                        11.41 kB │ gzip:   2.55 kB
+dist/assets/vendor-mermaid-stateDiagram-D77RDMKH-DiHRRFOJ.js               11.43 kB │ gzip:   4.03 kB
+dist/assets/vendor-mermaid-dagre-GXQ25YYZ-CB5zNGCB.js                      11.67 kB │ gzip:   4.46 kB
+dist/assets/vendor-mermaid-diagram-VX7I27RA-BFMGBg6Z.js                    11.71 kB │ gzip:   4.16 kB
+dist/assets/fsus-markdown-feature-gateway-Mmvn6-c9.js                      12.76 kB │ gzip:   4.21 kB
+dist/assets/vendor-mermaid-sankeyDiagram-P5KCCOFB-D9hWc-ZY.js              14.90 kB │ gzip:   5.89 kB
+dist/assets/vendor-mermaid-chunk-SVP7TREG-BinFwEd4.js                      15.92 kB │ gzip:   4.50 kB
+dist/assets/vendor-mermaid-ishikawaDiagram-5VMMS53U-BIdQW-7A.js            17.91 kB │ gzip:   6.85 kB
+dist/assets/fsus-markdown-D40xDLMh.js                                      18.77 kB │ gzip:   7.17 kB
+dist/assets/venn.esm-CHb8ktYf.js                                           20.22 kB │ gzip:   8.03 kB
+dist/assets/vendor-mermaid-kanban-definition-UXKFOSKX-rVi6jLpA.js          21.18 kB │ gzip:   7.56 kB
+dist/assets/graph-DK0ni3LQ.js                                              22.27 kB │ gzip:   7.73 kB
+dist/assets/vendor-mermaid-vennDiagram-4TSXK5OY-CyftQaYx.js                22.27 kB │ gzip:   8.21 kB
+dist/assets/merge-CoUvXLFM.js                                              22.60 kB │ gzip:   4.96 kB
+dist/assets/vendor-mermaid-mindmap-definition-YA3MSWOX-BNGnCe7f.js         23.51 kB │ gzip:   7.94 kB
+dist/assets/vendor-mermaid-journeyDiagram-3NMN7TZE-BLcgbD9x.js             23.92 kB │ gzip:   8.51 kB
+dist/assets/vendor-mermaid-wardleyDiagram-VM6X3IG4-C-LKTTrl.js             25.92 kB │ gzip:   6.97 kB
+dist/assets/vendor-mermaid-architectureDiagram-5GKGNRK7-TvRUhMdU.js        27.67 kB │ gzip:   9.04 kB
+dist/assets/rough.esm-CycZv-lV.js                                          27.72 kB │ gzip:   9.24 kB
+dist/assets/vendor-mermaid-gitGraphDiagram-WWUBYQGX-BdA3DM7t.js            29.80 kB │ gzip:   8.86 kB
+dist/assets/fsus-wasm-DdxuqT3U.js                                          30.22 kB │ gzip:  10.35 kB
+dist/assets/index-BHJTFkNs.js                                              30.72 kB │ gzip:  11.08 kB
+dist/assets/duration-CiwFsRBX.js                                           30.73 kB │ gzip:  10.93 kB
+dist/assets/vendor-mermaid-timeline-definition-24CTP7MA-C6ORo43-.js        31.27 kB │ gzip:  10.35 kB
+dist/assets/vendor-mermaid-erDiagram-RLTQ6QDP-UE_I51W4.js                  31.71 kB │ gzip:  10.96 kB
+dist/assets/vendor-mermaid-requirementDiagram-BXWQKSXE-BBWP6KD-.js         31.91 kB │ gzip:  10.10 kB
+dist/assets/vendor-mermaid-quadrantDiagram-AXDQQJYC-j_o5uzKU.js            34.25 kB │ gzip:  10.10 kB
+dist/assets/vendor-mermaid-core-BiK2Ztja.js                                35.00 kB │ gzip:  11.07 kB
+dist/assets/layout-CtAleF-K.js                                             35.36 kB │ gzip:  12.68 kB
+dist/assets/transform-BhAuhXLY.js                                          37.18 kB │ gzip:  12.56 kB
+dist/assets/vendor-mermaid-chunk-OSK3NFVY-BWut_ik-.js                      37.29 kB │ gzip:   8.26 kB
+dist/assets/vendor-mermaid-chunk-IMKFNOWR-DUggGey0.js                      38.44 kB │ gzip:  12.65 kB
+dist/assets/purify.es-B1k6xKAx.js                                          39.44 kB │ gzip:  14.97 kB
+dist/assets/vendor-mermaid-ganttDiagram-EL5Y4UJY-DXKR9Huw.js               39.73 kB │ gzip:  13.25 kB
+dist/assets/vendor-mermaid-blockDiagram-I7D4REHJ-CPghnv5d.js               40.47 kB │ gzip:  13.15 kB
+dist/assets/bash-Yzrsuije.js                                               41.48 kB │ gzip:   6.09 kB
+dist/assets/index-DGil7Fw-.js                                              42.26 kB │ gzip:  13.31 kB
+dist/assets/index-CytRuXBw.js                                              42.56 kB │ gzip:  14.75 kB
+dist/assets/vendor-mermaid-xychartDiagram-S5SC5T6Z-BiJPtgH_.js             43.88 kB │ gzip:  12.40 kB
+dist/assets/vendor-mermaid-chunk-LNGE3PJU-C3zP-klR.js                      47.59 kB │ gzip:  16.23 kB
+dist/assets/vendor-mermaid-chunk-TICWLB2K-DD-GLvSY.js                      49.56 kB │ gzip:  15.87 kB
+dist/assets/engine-javascript-CuxHA8oH.js                                  59.47 kB │ gzip:  20.84 kB
+dist/assets/vendor-mermaid-chunk-SHT3W25Y-DfW5lPR4.js                      62.21 kB │ gzip:  19.96 kB
+dist/assets/vue-vendor-m6iVSK_S.js                                         65.22 kB │ gzip:  25.94 kB
+dist/assets/vendor-mermaid-c4Diagram-7LVT6UL2-CWtPt0sf.js                  66.14 kB │ gzip:  19.07 kB
+dist/assets/cytoscape-cose-bilkent-CPC1I6BB.js                             77.56 kB │ gzip:  20.80 kB
+dist/assets/csharp-B_TYUkTI.js                                             91.44 kB │ gzip:  10.84 kB
+dist/assets/vendor-mermaid-chunk-4HAMMTFA-Dwu2eEhT.js                     106.83 kB │ gzip:  26.49 kB
+dist/assets/core-DVezgdzc.js                                              113.70 kB │ gzip:  36.28 kB
+dist/assets/vendor-mermaid-swimlanes-42K2YHIH-DewlAM35.js                 116.73 kB │ gzip:  42.93 kB
+dist/assets/vendor-mermaid-sequenceDiagram-WJ2MYXX4-9BFcrTb6.js           117.41 kB │ gzip:  31.32 kB
+dist/assets/fsus-markdown-heavy-identity-6eoo_j3r.js                      120.00 kB │ gzip:  46.40 kB
+dist/assets/cytoscape-fcose-DEpHqNqQ.js                                   124.53 kB │ gzip:  34.53 kB
+dist/assets/javascript-wDzz0qaB.js                                        174.83 kB │ gzip:  16.51 kB
+dist/assets/typescript-BPQ3VLAy.js                                        181.08 kB │ gzip:  16.04 kB
+dist/assets/vendor-mermaid-chunk-DU6HZSFF-BwGFKdH0.js                     198.81 kB │ gzip:  21.57 kB
+dist/assets/katex-DnlPpQZa.js                                             260.01 kB │ gzip:  77.34 kB
+dist/assets/katex-HP8lGamR.js                                             261.31 kB │ gzip:  77.57 kB
+dist/assets/cytoscape.esm-BB4DxJjf.js                                     443.04 kB │ gzip: 141.98 kB
+dist/assets/cynefin-OW5HDTMX-BWW9hRKz.js                                  687.92 kB │ gzip: 154.14 kB
+✓ built in 9.06s
+npm warn Unknown env config "_jsr-registry". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "shell-emulator". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "npm-globalconfig". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "peer-dependency-rules". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "verify-deps-before-run". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+Consumer initial graph: raw=145.45 KiB, gzip=45.20 KiB, brotli=40.53 KiB, files=7.
+Consumer initial file assets/vue-vendor-m6iVSK_S.js: raw=63.70 KiB, gzip=25.32 KiB, brotli=22.96 KiB.
+Consumer initial file assets/index-BHJTFkNs.js: raw=30.00 KiB, gzip=10.81 KiB, brotli=9.71 KiB.
+Consumer initial file assets/index-d34hb3yA.css: raw=47.78 KiB, gzip=6.99 KiB, brotli=6.03 KiB.
+Consumer initial file assets/_defineProperty-BjTHTA_3.js: raw=1.64 KiB, gzip=0.80 KiB, brotli=0.73 KiB.
+Consumer initial file assets/preload-helper-BXl3LOEh.js: raw=1.08 KiB, gzip=0.63 KiB, brotli=0.52 KiB.
+Consumer initial file assets/fsus-icons-C66gIwnS.js: raw=1.09 KiB, gzip=0.49 KiB, brotli=0.44 KiB.
+Consumer initial file assets/_baseAssignValue-B3L7yHoK.js: raw=0.16 KiB, gzip=0.16 KiB, brotli=0.13 KiB.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/architectureDiagram-5GKGNRK7.mjs: raw=1621.54 KiB, gzip=411.95 KiB, brotli=344.95 KiB, files=19.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/diagram-VX7I27RA.mjs: raw=1007.53 KiB, gzip=221.45 KiB, brotli=182.58 KiB, files=19.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/gitGraphDiagram-WWUBYQGX.mjs: raw=1011.94 KiB, gzip=219.89 KiB, brotli=181.20 KiB, files=13.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/diagram-S7CK7UJ4.mjs: raw=997.72 KiB, gzip=218.18 KiB, brotli=179.67 KiB, files=16.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/wardleyDiagram-VM6X3IG4.mjs: raw=1008.31 KiB, gzip=218.14 KiB, brotli=179.61 KiB, files=13.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/pieDiagram-E7YTZNPT.mjs: raw=997.49 KiB, gzip=217.69 KiB, brotli=179.20 KiB, files=18.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/diagram-VSXAHHWV.mjs: raw=993.45 KiB, gzip=215.28 KiB, brotli=177.12 KiB, files=12.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/cynefinDiagram-5FMLGOSQ.mjs: raw=993.27 KiB, gzip=215.08 KiB, brotli=176.84 KiB, files=13.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/diagram-UQ7AKVKN.mjs: raw=989.34 KiB, gzip=214.09 KiB, brotli=175.98 KiB, files=13.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/diagram-Z3DM3KII.mjs: raw=987.52 KiB, gzip=213.33 KiB, brotli=175.29 KiB, files=13.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/pegDiagram-XKGWAZYB.mjs: raw=967.76 KiB, gzip=207.03 KiB, brotli=169.64 KiB, files=11.
+Consumer dynamic graph node_modules/mermaid/dist/chunks/mermaid.core/ebnfDiagram-PWID7BFC.mjs: raw=967.82 KiB, gzip=206.98 KiB, brotli=169.61 KiB, files=11.
+Consumer performance ratchets passed (2026-09-04 two consecutive npm-latest measurements of the same locally built origin/main 1c842867c0 candidate on Node v24.16.0 produced byte-identical startup chunk hashes and metrics. The current main startup raw closure is 149002 after the accumulated public Markdown editor contracts through #797; gzip 46210 and Brotli 41433 remain below the tighter existing ratchets, so only raw advances. The #660 candidate initially measured 149017 before removing a redundant Mermaid container max-inline-size declaration; its functional min() width cap and the shared 100% max-inline-size remain intact. #660's Markdown hydration closure is 91730 raw and 29323 Brotli because the renderer now observes document key, epoch, and revision changes to reject stale cross-document feature output; gzip remains below the tighter 32277 cross-profile ratchet. The heavy identity projection chain, feature output gateway, adapter resource bridge, and isolated render adapter stay outside this closure behind dynamic boundaries that the consumer graph check asserts separately.).
+Consumer profile npm-latest passed for @ozwasyd/element-plus from candidate 297494722e2f1ec11b4ffb910d6d511d8e4937c5c855cb54c2fe37f588fcc033.
+Consumer fixture retained at /tmp/chain-830-canonical-package-20261009/consumer-fixtures/fsusui-consumer-6JsA00/fixture.

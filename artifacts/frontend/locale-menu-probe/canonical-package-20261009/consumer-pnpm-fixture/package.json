@@ -1,0 +1,29 @@
+{
+  "name": "fsusui-consumer-install-smoke",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "vue": "3.5.32",
+    "@ozwasyd/element-plus": "file:/workspace/FsusUI-dropdown-current-main/dist/npm-candidate/fsusui-npm-candidate.tgz"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.5",
+    "typescript": "6.0.2",
+    "vite": "7.3.1",
+    "vue-tsc": "3.2.6"
+  },
+  "pnpm": {
+    "overrides": {
+      "@vue/compiler-dom": "3.5.32",
+      "@vue/shared": "3.5.32"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

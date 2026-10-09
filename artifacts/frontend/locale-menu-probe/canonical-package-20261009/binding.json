@@ -1,0 +1,23 @@
+{
+  "uiHead": "f8a2153903b24c5304b8fd8b048ce14f6f5a1037",
+  "uiBranch": "task/830-canonical-package-20261009",
+  "uiMain": "b17077f3afd4a80ff3bdc0fe81d5dfc353ffddf2",
+  "frozenUI": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+  "blogProbeHead": "bba57bab07d2fcb87da3c30a2f65ad88bfb3b651",
+  "blogMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "blogProductCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6",
+  "blogEvidenceBranch": "task/1891-canonical-package-evidence-20261009",
+  "owners": {
+    "rendererWorkerChunk": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+    "motionDeclarations": "f452107578815e7fe4534de18bcb074549e6b584"
+  },
+  "reviewer": "01a11b3a-b8fa-7638-ae1c-eaea38fdb032",
+  "candidateSha256": "297494722e2f1ec11b4ffb910d6d511d8e4937c5c855cb54c2fe37f588fcc033",
+  "candidateLocalPath": "/workspace/FsusUI-dropdown-current-main/dist/npm-candidate/fsusui-npm-candidate.tgz",
+  "publication": "none; local candidate only",
+  "openIssues": [
+    1891,
+    830
+  ],
+  "qualification": false
+}

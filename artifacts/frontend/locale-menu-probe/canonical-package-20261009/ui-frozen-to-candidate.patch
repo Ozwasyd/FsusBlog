@@ -1,0 +1,720 @@
+diff --git a/.changeset/complete-canonical-icon-alias-exports.md b/.changeset/complete-canonical-icon-alias-exports.md
+new file mode 100644
+index 00000000..50552042
+--- /dev/null
++++ b/.changeset/complete-canonical-icon-alias-exports.md
+@@ -0,0 +1,5 @@
++---
++'element-plus': patch
++---
++
++Export the five existing canonical icon aliases from the generated Vue index, so visual preparation retains a stable source fingerprint.
+diff --git a/.changeset/markdown-pending-theme-invalidation.md b/.changeset/markdown-pending-theme-invalidation.md
+new file mode 100644
+index 00000000..8049f01c
+--- /dev/null
++++ b/.changeset/markdown-pending-theme-invalidation.md
+@@ -0,0 +1,5 @@
++---
++'element-plus': patch
++---
++
++Immediately abort pending Markdown heavy-feature activation when the shared theme changes, before the debounced rerender, including runtime import and adapter work while retaining unmount cleanup.
+diff --git a/.changeset/motion-declaration-owner.md b/.changeset/motion-declaration-owner.md
+new file mode 100644
+index 00000000..6a7e96ef
+--- /dev/null
++++ b/.changeset/motion-declaration-owner.md
+@@ -0,0 +1,5 @@
++---
++"element-plus": patch
++---
++
++Resolve public motion declarations through the implementation index so `useScrollReveal` and its types remain usable from the compiled package.
+diff --git a/.changeset/renderer-canonical-projection-reuse.md b/.changeset/renderer-canonical-projection-reuse.md
+new file mode 100644
+index 00000000..ee15cfc7
+--- /dev/null
++++ b/.changeset/renderer-canonical-projection-reuse.md
+@@ -0,0 +1,5 @@
++---
++'@ozwasyd/element-plus': patch
++---
++
++Reuse the current canonical document projection across MarkdownRenderer heavy-feature activations so long-document readiness is not blocked by repeated stable identity alignment.
+diff --git a/.changeset/renderer-equivalent-source-budget.md b/.changeset/renderer-equivalent-source-budget.md
+new file mode 100644
+index 00000000..6a3b7a38
+--- /dev/null
++++ b/.changeset/renderer-equivalent-source-budget.md
+@@ -0,0 +1,5 @@
++---
++'@ozwasyd/element-plus': patch
++---
++
++Reduce MarkdownRenderer source bytes while preserving heavy-feature selection and loading accessibility semantics.
+diff --git a/.changeset/renderer-heavy-projection-chunk.md b/.changeset/renderer-heavy-projection-chunk.md
+new file mode 100644
+index 00000000..c9302c9a
+--- /dev/null
++++ b/.changeset/renderer-heavy-projection-chunk.md
+@@ -0,0 +1,5 @@
++---
++'@ozwasyd/element-plus': patch
++---
++
++Keep MarkdownRenderer's private projection cache in its own consumer lazy chunk while preserving the canonical identity chunk and full-demo routing.
+diff --git a/.changeset/renderer-lazy-projection-cache.md b/.changeset/renderer-lazy-projection-cache.md
+new file mode 100644
+index 00000000..4e16975d
+--- /dev/null
++++ b/.changeset/renderer-lazy-projection-cache.md
+@@ -0,0 +1,5 @@
++---
++'@ozwasyd/element-plus': patch
++---
++
++Keep MarkdownRenderer's canonical projection reuse behind the heavy-feature lazy boundary so initial Markdown hydration does not pay for the cache implementation.
+diff --git a/.changeset/renderer-private-factory-dispatch.md b/.changeset/renderer-private-factory-dispatch.md
+new file mode 100644
+index 00000000..93fdf26f
+--- /dev/null
++++ b/.changeset/renderer-private-factory-dispatch.md
+@@ -0,0 +1,5 @@
++---
++'@ozwasyd/element-plus': patch
++---
++
++Use a compact default factory at MarkdownRenderer's private lazy projection boundary while preserving canonical identity, per-instance cache inputs, and unmount cleanup.
+diff --git a/docs/api/markdown-heavy-feature-lifecycle.md b/docs/api/markdown-heavy-feature-lifecycle.md
+index 93ca5754..6b3672f7 100644
+--- a/docs/api/markdown-heavy-feature-lifecycle.md
++++ b/docs/api/markdown-heavy-feature-lifecycle.md
+@@ -27,6 +27,14 @@ version mismatch prevents a stale commit. The stable syntax projection supplies
+ node identity; DOM paths, array indexes, source offsets, and body hashes are not
+ cache authority.
+ 
++MarkdownRenderer reuses the immutable canonical projection snapshot while the
++document key, epoch, and raw source remain exactly equal. Mounted chunks and
++theme changes do not rebuild whole-document stable identity alignment. A source
++or document change still uses the canonical tracker; revision and feature
++identity contexts are rebuilt for each activation. This single renderer-local
++snapshot is released on unmount and never becomes a parser or persisted source
++authority.
++
+ Mermaid and LaTeX output already materialized by the authorized Markdown render
+ result enters the same authority directly as a zero-resource `static-mounted`
+ node. Placeholder-driven Mermaid, KaTeX, and Shiki adapter work instead enters
+diff --git a/docs/api/markdown-runtime-projection.md b/docs/api/markdown-runtime-projection.md
+index 218d14b0..cfb56533 100644
+--- a/docs/api/markdown-runtime-projection.md
++++ b/docs/api/markdown-runtime-projection.md
+@@ -73,6 +73,15 @@ current anchor id, anchor-local offset, raw source offset, and direction agree.
+ An old epoch, deleted anchor, DOM path, or naked offset is not accepted as a
+ visual anchor.
+ 
++## Node worker source host
++
++The repository-only `markdown-projection.worker-node.mjs` host loads the same
++canonical projection worker through the locked `tsx/esm/api` source loader.
++This compiles its TypeScript dependency graph on Node 22.16 without relying on
++native type stripping. The host keeps the existing worker-thread message
++contract and stale-result checks; it is not a second projection runtime or a
++public package export. Type checking remains a separate required gate.
++
+ ## Projection node contract
+ 
+ `MarkdownEditorSyntaxNode` is a read-only projection of the unique Markdown
+diff --git a/docs/avalonia/vue-public-api-baseline.md b/docs/avalonia/vue-public-api-baseline.md
+index 4b5d435b..3631db00 100644
+--- a/docs/avalonia/vue-public-api-baseline.md
++++ b/docs/avalonia/vue-public-api-baseline.md
+@@ -6,7 +6,7 @@ This file is generated by `pnpm run avalonia:baseline`. Update the generator inp
+ 
+ | Field      | Value                                                              |
+ | ---------- | ------------------------------------------------------------------ |
+-| Commit     | `ea4e16b9b8bb62c5b75b1b60d66c6b73a489b8e4`                         |
++| Commit     | `568841efc55eb374b16f5a03fce5cd28d08b4481`                         |
+ | Package    | `element-plus@1.5.1`                                               |
+ | Token hash | `f40182721e8a812c248cb0bc43de556cd7568c5a9de1bc8b2c099df9b78e47b0` |
+ | Icon hash  | `6ae868b15cefc99ebec9d8a78c7602da1fb07b46ec172c43f6a3662af54be167` |
+diff --git a/docs/components/markdown-renderer.md b/docs/components/markdown-renderer.md
+index f74a4848..65a28cb0 100644
+--- a/docs/components/markdown-renderer.md
++++ b/docs/components/markdown-renderer.md
+@@ -52,6 +52,8 @@ Use `features` to disable an activation:
+ </template>
+ ```
+ 
++Shared theme changes immediately abort heavy-feature work, including pending runtime imports, before the debounced render of the new theme. The listener is installed as soon as activation starts, and unmount removes it.
++
+ Feature renderers no longer accept a consumer DOM adapter. Built-in Mermaid, KaTeX, and Shiki read only immutable source, theme, and controlled tokens, then return a `FeatureRenderOutput` with `kind`. Output is committed only after passing separate FsusUI-owned gateway policies for Mermaid SVG, KaTeX MathML, and Shiki HTML. Mermaid must use native SVG text instead of `foreignObject`, and color tokens are validated against the controlled color grammar before entering a third-party renderer. The three policies do not share a union of tags or attributes; unknown tags, namespaces, attributes, events, executable URLs, and external resources are removed. See [Converging the Markdown feature output gateway](../migration/markdown-feature-output-gateway.md) for migration.
+ 
+ ### Test-only XSS differential corpus
+diff --git a/scripts/motion-declaration-path.test.mjs b/scripts/motion-declaration-path.test.mjs
+new file mode 100644
+index 00000000..732a0b48
+--- /dev/null
++++ b/scripts/motion-declaration-path.test.mjs
+@@ -0,0 +1,31 @@
++import assert from 'node:assert/strict'
++import { createRequire } from 'node:module'
++import { test } from 'node:test'
++
++const require = createRequire(import.meta.url)
++const { pathRewriter } = require('../vue/internal/build/src/utils/pkg.ts')
++
++for (const [format, directory] of [
++  ['esm', 'es'],
++  ['cjs', 'lib'],
++]) {
++  test(`${format} motion facade declarations resolve the implementation index`, () => {
++    const rewrite = pathRewriter(format)
++    const declaration = `export { useScrollReveal } from '@element-plus/motion';\nexport type { ScrollRevealOptions } from "@element-plus/motion";`
++    const result = rewrite(declaration)
++    assert.equal(
++      result,
++      `export { useScrollReveal } from 'element-plus/${directory}/motion/index';\nexport type { ScrollRevealOptions } from "element-plus/${directory}/motion/index";`,
++    )
++    assert.doesNotMatch(result, /(['"])element-plus\/(?:es|lib)\/motion\1/)
++  })
++
++  test(`${format} preserves existing motion leaf and unrelated package mappings`, () => {
++    const declaration =
++      "export * from '@element-plus/motion/types';\nexport * from '@element-plus/motion-extra';\nexport * from '@element-plus/components/button';\nimport '@element-plus/theme-chalk/src/base.scss';"
++    assert.equal(
++      pathRewriter(format)(declaration),
++      `export * from 'element-plus/${directory}/motion/types';\nexport * from 'element-plus/${directory}/motion-extra';\nexport * from 'element-plus/${directory}/components/button';\nimport 'element-plus/theme-chalk/src/base.scss';`,
++    )
++  })
++}
+diff --git a/scripts/vite-manual-chunks.mjs b/scripts/vite-manual-chunks.mjs
+index 1d159850..8a8dc1a7 100644
+--- a/scripts/vite-manual-chunks.mjs
++++ b/scripts/vite-manual-chunks.mjs
+@@ -230,6 +230,14 @@ export const resolveFsusViteManualChunk = (
+     return 'fsus-wasm'
+   }
+ 
++  if (
++    /\/components\/markdown-renderer\/src\/markdown-renderer-heavy-projection\.(?:mjs|ts)$/u.test(
++      id,
++    )
++  ) {
++    return 'fsus-markdown-heavy-projection-cache'
++  }
++
+   if (
+     id.includes('/vue/packages/components/markdown-renderer/') ||
+     id.includes('/node_modules/@element-plus/components/markdown-renderer/') ||
+diff --git a/spec/baselines/vue-current.json b/spec/baselines/vue-current.json
+index 5172127e..15575bf6 100644
+--- a/spec/baselines/vue-current.json
++++ b/spec/baselines/vue-current.json
+@@ -1,18 +1,18 @@
+ {
+   "schemaVersion": 1,
+   "source": {
+-    "commitSha": "ea4e16b9b8bb62c5b75b1b60d66c6b73a489b8e4",
++    "commitSha": "568841efc55eb374b16f5a03fce5cd28d08b4481",
+     "packageName": "element-plus",
+     "packageVersion": "1.5.1",
+     "tokenHash": "f40182721e8a812c248cb0bc43de556cd7568c5a9de1bc8b2c099df9b78e47b0",
+     "iconHash": "6ae868b15cefc99ebec9d8a78c7602da1fb07b46ec172c43f6a3662af54be167",
+     "toolVersion": "avalonia-vue-public-api-baseline@1.4.0+vue-semantic-baseline@1.4.0",
+-    "inputTreeHash": "fc50b6f1119650d48f4b3c61d4773778d9df5c1131159bfa6ddcac4a055098f0",
++    "inputTreeHash": "988253ed4a8f80f517856380e501e36c2cd269c398aecafb3dd9fdf2a03fc194",
+     "compilerOptionsHash": "919b1f4f85e411ccb762efdc5a2d646f412fd73928c05ad302bbfdda0ab731e4",
+     "dependencyVersionHash": "79ca1004d5204ee4ddc2de6b1d63f0946d36a42283d113ce8ad01ac4adaa7d27",
+     "structuredOutputSelectionHash": "b4b7c00db1f817b08a1e7bec8a6af03a505f605d2dcf16fb2e52febbf830388f",
+     "contractSchemaVersion": "2.0.0",
+-    "outputHash": "d6b24d7666fd05c2e88cb12bbe77543663b879f3713bdee867485a3595a2699a"
++    "outputHash": "d0b52bf6dc1fc3c4ad43268d58fc8942df38c3457cfeec691accfc042785c88f"
+   },
+   "summary": {
+     "componentModules": 93,
+diff --git a/spec/components/contracts/v2/contract-v2.json b/spec/components/contracts/v2/contract-v2.json
+index df9073ea..03ac64a0 100644
+--- a/spec/components/contracts/v2/contract-v2.json
++++ b/spec/components/contracts/v2/contract-v2.json
+@@ -10,7 +10,7 @@
+   "baselines": {
+     "web": {
+       "path": "spec/baselines/vue-current.json",
+-      "hash": "5f31d3f0eb8460d9867e27a5f0c5bfa8e82c142793776a1de908171b6381b241",
++      "hash": "03e14b0a24850ea768cfe75739080d7be9787dc8e8f57dfb38d2eeabffc33369",
+       "packageVersion": "1.5.1"
+     },
+     "avalonia": {
+diff --git a/vue/internal/build/src/utils/pkg.ts b/vue/internal/build/src/utils/pkg.ts
+index bbf40bf9..78ee656d 100644
+--- a/vue/internal/build/src/utils/pkg.ts
++++ b/vue/internal/build/src/utils/pkg.ts
+@@ -8,6 +8,11 @@ export const pathRewriter = (module: Module) => {
+   const config = buildConfig[module]
+ 
+   return (id: string) => {
++    // The motion facade is motion.d.ts; its declarations must use the index owner.
++    id = id.replaceAll(
++      new RegExp(`(['"])${PKG_PREFIX}/motion\\1`, 'g'),
++      (_, quote) => `${quote}${config.bundle.path}/motion/index${quote}`,
++    )
+     id = id.replaceAll(`${PKG_PREFIX}/theme-chalk`, `${PKG_NAME}/theme-chalk`)
+     id = id.replaceAll(`${PKG_PREFIX}/`, `${config.bundle.path}/`)
+     return id
+diff --git a/vue/packages/components/cascader-panel/src/store.ts b/vue/packages/components/cascader-panel/src/store.ts
+index 27307b95..fe3fb7c4 100644
+--- a/vue/packages/components/cascader-panel/src/store.ts
++++ b/vue/packages/components/cascader-panel/src/store.ts
+@@ -22,11 +22,13 @@ const flatNodes = (nodes: Node[], leafOnly: boolean) => {
+ }
+ 
+ export default class Store {
++  readonly config: CascaderConfig
+   readonly nodes: Node[]
+   readonly allNodes: Node[]
+   readonly leafNodes: Node[]
+ 
+-  constructor(data: CascaderOption[], readonly config: CascaderConfig) {
++  constructor(data: CascaderOption[], config: CascaderConfig) {
++    this.config = config
+     const nodes = (data || []).map(
+       (nodeData) => new Node(nodeData, this.config)
+     )
+diff --git a/vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx b/vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx
+index cda148df..aab879e6 100644
+--- a/vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx
++++ b/vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx
+@@ -1,5 +1,5 @@
+ import { flushPromises, mount } from '@vue/test-utils'
+-import { createSSRApp, computed, h } from 'vue'
++import { createSSRApp, computed, h, ref } from 'vue'
+ import { renderToString } from '@vue/server-renderer'
+ import {
+   afterEach,
+@@ -22,6 +22,7 @@ import {
+   resolveMarkdownSourceIdentity,
+ } from '@element-plus/wasm'
+ import { activateMarkdownHeavyFeatures } from '../../../wasm/markdown-heavy-feature-activation'
++import { provideMarkdownHeavyFeatureDocumentContext } from '../../../hooks/use-markdown-heavy-feature-lifecycle'
+ import { createFsusError, fsusErr, fsusOk } from '@element-plus/utils'
+ import type {
+   MarkdownRuntimeHtmlResult,
+@@ -45,6 +46,26 @@ const markdownAuthorityMocks = vi.hoisted(() => ({
+   results: new WeakSet<object>(),
+ }))
+ 
++const heavyProjectionMocks = vi.hoisted(() => ({ project: vi.fn() }))
++
++vi.mock('../../../wasm/markdown-heavy-feature-identity', async () => {
++  const actual = await vi.importActual<
++    typeof import('../../../wasm/markdown-heavy-feature-identity')
++  >('../../../wasm/markdown-heavy-feature-identity')
++  return {
++    ...actual,
++    createMarkdownHeavyFeatureProjectionTracker: () => {
++      const tracker = actual.createMarkdownHeavyFeatureProjectionTracker()
++      return {
++        project: (input: Parameters<typeof tracker.project>[0]) => {
++          heavyProjectionMocks.project(input)
++          return tracker.project(input)
++        },
++      }
++    },
++  }
++})
++
+ vi.mock('@element-plus/wasm', async () => {
+   const actual =
+     await vi.importActual<typeof import('@element-plus/wasm')>(
+@@ -299,6 +320,7 @@ describe('MarkdownRenderer.vue', () => {
+ 
+   beforeEach(() => {
+     vi.useFakeTimers()
++    heavyProjectionMocks.project.mockClear()
+     MarkdownWorkerHarness.instances = []
+     renderMarkdownChunks.mockReset()
+     renderMarkdownHtml.mockReset()
+@@ -646,6 +668,115 @@ describe('MarkdownRenderer.vue', () => {
+     expect(renderMarkdownResult).toHaveBeenCalledTimes(initialCalls + 1)
+   })
+ 
++  test('invalidates pending heavy activation when the shared theme changes', async () => {
++    const source = '```mermaid\ngraph LR\nA-->B\n```'
++    const html =
++      '<figure class="markdown-renderer__mermaid" data-mermaid-placeholder="true"><code>graph LR\nA--&gt;B</code></figure>'
++    renderMarkdownResult.mockResolvedValue(fsusOk(makeResult(source, html)))
++    let settleActivation:
++      | ((
++          value: Awaited<ReturnType<typeof activateMarkdownHeavyFeatures>>,
++        ) => void)
++      | undefined
++    activateFeatures.mockImplementationOnce(
++      () =>
++        new Promise((resolve) => {
++          settleActivation = resolve
++        }),
++    )
++    const wrapper = mount(MarkdownRenderer, { props: { content: source } })
++    try {
++      await flushRenderer()
++      await vi.dynamicImportSettled()
++      await flushRenderer()
++      expect(settleActivation).toBeTypeOf('function')
++      const pendingSignal = activateFeatures.mock.calls[0][0].signal
++      expect(pendingSignal?.aborted).toBe(false)
++      const initialCalls = renderMarkdownResult.mock.calls.length
++
++      document.documentElement.dispatchEvent(
++        new CustomEvent('fsus:theme-change', {
++          detail: { mode: 'dark', resolved: 'dark' },
++        }),
++      )
++      expect(pendingSignal?.aborted).toBe(true)
++      await flushRenderer()
++      expect(renderMarkdownResult).toHaveBeenCalledTimes(initialCalls + 1)
++      expect(pendingSignal?.aborted).toBe(true)
++    } finally {
++      wrapper.unmount()
++      settleActivation?.({ activated: [], errors: [] })
++      await flushRenderer()
++    }
++  })
++
++  test('reuses only the current document projection across heavy activations', async () => {
++    const source = ref('```typescript\nconst current = 1\n```')
++    const documentKey = ref('projection-document-a')
++    const documentEpoch = ref(1)
++    const revision = ref(1)
++    renderMarkdownResult.mockImplementation(async (request) =>
++      fsusOk(
++        makeResult(
++          typeof request === 'string' ? request : request.source,
++          '<pre><code>current</code></pre>',
++        ),
++      ),
++    )
++    const host = mount({
++      setup() {
++        provideMarkdownHeavyFeatureDocumentContext({
++          documentKey: () => documentKey.value,
++          documentEpoch: () => documentEpoch.value,
++          revision: () => revision.value,
++        })
++        return () => h(MarkdownRenderer, { content: source.value })
++      },
++    })
++    const nodeIds = () =>
++      JSON.parse(
++        host
++          .find('[data-markdown-renderer="wasm"]')
++          .attributes('data-markdown-heavy-lifecycle'),
++      ).projectionNodeIds['code-highlight'] as string[]
++    try {
++      await flushRenderer()
++      await vi.dynamicImportSettled()
++      await flushRenderer()
++      expect(heavyProjectionMocks.project).toHaveBeenCalledTimes(1)
++      const firstIds = nodeIds()
++      expect(firstIds).toHaveLength(1)
++
++      document.documentElement.dispatchEvent(
++        new CustomEvent('fsus:theme-change'),
++      )
++      await flushRenderer()
++      expect(heavyProjectionMocks.project).toHaveBeenCalledTimes(1)
++      expect(nodeIds()).toEqual(firstIds)
++
++      source.value = `Introduction\n\n${source.value}`
++      revision.value += 1
++      await flushRenderer()
++      expect(heavyProjectionMocks.project).toHaveBeenCalledTimes(2)
++      expect(nodeIds()).toEqual(firstIds)
++
++      documentKey.value = 'projection-document-b'
++      await flushRenderer()
++      expect(heavyProjectionMocks.project).toHaveBeenCalledTimes(3)
++      const secondDocumentIds = nodeIds()
++      expect(secondDocumentIds).not.toEqual(firstIds)
++      expect(secondDocumentIds[0]).toContain('syn:projection-document-b:1:')
++
++      documentEpoch.value = 2
++      await flushRenderer()
++      expect(heavyProjectionMocks.project).toHaveBeenCalledTimes(4)
++      expect(nodeIds()).not.toEqual(secondDocumentIds)
++      expect(nodeIds()[0]).toContain('syn:projection-document-b:2:')
++    } finally {
++      host.unmount()
++    }
++  })
++
+   test('keeps the scroll anchor when the full result changes html', async () => {
+     let resolveFull:
+       | ((result: FsusResult<MarkdownRuntimeRenderResult>) => void)
+diff --git a/vue/packages/components/markdown-renderer/src/markdown-renderer-heavy-projection.ts b/vue/packages/components/markdown-renderer/src/markdown-renderer-heavy-projection.ts
+new file mode 100644
+index 00000000..305d5dec
+--- /dev/null
++++ b/vue/packages/components/markdown-renderer/src/markdown-renderer-heavy-projection.ts
+@@ -0,0 +1,33 @@
++import type {
++  MarkdownHeavyFeatureProjectionSnapshot,
++  MarkdownHeavyFeatureProjectionTracker,
++} from '../../../wasm/markdown-heavy-feature-identity'
++
++const createRendererHeavyProjectionTracker = async () => {
++  const { createMarkdownHeavyFeatureProjectionTracker } =
++    await import('../../../wasm/markdown-heavy-feature-identity')
++  const tracker = createMarkdownHeavyFeatureProjectionTracker()
++  let cached: Readonly<{
++    input: Parameters<MarkdownHeavyFeatureProjectionTracker['project']>[0]
++    projection: MarkdownHeavyFeatureProjectionSnapshot | null
++  }> | null = null
++
++  return Object.freeze({
++    project(
++      input: Parameters<MarkdownHeavyFeatureProjectionTracker['project']>[0],
++    ) {
++      if (
++        cached?.input.documentKey === input.documentKey &&
++        cached.input.documentEpoch === input.documentEpoch &&
++        cached.input.source === input.source
++      ) {
++        return cached.projection
++      }
++      const projection = tracker.project(input)
++      cached = Object.freeze({ input: Object.freeze({ ...input }), projection })
++      return projection
++    },
++  })
++}
++
++export default createRendererHeavyProjectionTracker
+diff --git a/vue/packages/components/markdown-renderer/src/markdown-renderer.vue b/vue/packages/components/markdown-renderer/src/markdown-renderer.vue
+index 2f923935..5f68c464 100644
+--- a/vue/packages/components/markdown-renderer/src/markdown-renderer.vue
++++ b/vue/packages/components/markdown-renderer/src/markdown-renderer.vue
+@@ -11,7 +11,7 @@
+     ]"
+     role="article"
+     aria-live="polite"
+-    :aria-busy="isRendering ? 'true' : 'false'"
++    :aria-busy="isRendering"
+     v-bind="rootRenderAttrs()"
+   >
+     <div
+@@ -136,6 +136,7 @@ const heavyLifecycle = createMarkdownHeavyFeatureLifecycle({
+ const heavyThemeRevision = ref(0)
+ let heavyThemeListenerInstalled = false
+ const handleHeavyFeatureThemeChange = () => {
++  activationController?.abort()
+   heavyThemeRevision.value += 1
+ }
+ const ensureHeavyFeatureThemeListener = () => {
+@@ -286,12 +287,10 @@ let heavyLifecycleProjectionNodeIds: Partial<
+ > = {}
+ let heavyProjectionTrackerPromise: Promise<MarkdownHeavyFeatureProjectionTracker> | null =
+   null
+-
+ const loadHeavyProjectionTracker = () =>
+   (heavyProjectionTrackerPromise ??=
+-    import('../../../wasm/markdown-heavy-feature-identity').then(
+-      ({ createMarkdownHeavyFeatureProjectionTracker }) =>
+-        createMarkdownHeavyFeatureProjectionTracker(),
++    import('./markdown-renderer-heavy-projection').then((module) =>
++      module.default(),
+     ))
+ 
+ function recordHeavyLifecycleMetrics() {
+@@ -882,12 +881,12 @@ const resolveMarkdownFeatureOptions = () => ({
+ })
+ 
+ const hasEnabledHeavyFeature = (
+-  result: MarkdownSafeRenderResult,
++  { features: renderedFeatures }: MarkdownSafeRenderResult,
+   features: ReturnType<typeof resolveMarkdownFeatureOptions>,
+ ) =>
+-  (features.codeHighlight && result.features.includes('code_block')) ||
+-  (features.latex && result.features.includes('latex')) ||
+-  (features.mermaid && result.features.includes('mermaid'))
++  (features.codeHighlight && renderedFeatures.includes('code_block')) ||
++  (features.latex && renderedFeatures.includes('latex')) ||
++  (features.mermaid && renderedFeatures.includes('mermaid'))
+ 
+ const resetFeatureActivation = () => {
+   removeHeavyFeatureThemeListener()
+@@ -1044,6 +1043,8 @@ const activateRenderedFeatures = async (
+   const activationStartedAt = readPerformanceNow()
+   const features = resolveMarkdownFeatureOptions()
+   const heavyFeaturesEnabled = hasEnabledHeavyFeature(result, features)
++  // Theme changes must invalidate pending imports and activation too.
++  if (heavyFeaturesEnabled) ensureHeavyFeatureThemeListener()
+   const resolveHeavyFeatureIdentity = heavyFeaturesEnabled
+     ? await createHeavyFeatureIdentityResolver(result)
+     : () => null
+@@ -1348,6 +1349,7 @@ onBeforeUnmount(() => {
+   currentTaskId += 1
+   isRendering.value = false
+   heavyLifecycle.dispose()
++  heavyProjectionTrackerPromise = null
+ })
+ 
+ defineExpose({
+diff --git a/vue/packages/components/menu/src/utils/menu-bar.ts b/vue/packages/components/menu/src/utils/menu-bar.ts
+index 3e25fa13..ae378f92 100644
+--- a/vue/packages/components/menu/src/utils/menu-bar.ts
++++ b/vue/packages/components/menu/src/utils/menu-bar.ts
+@@ -3,7 +3,9 @@ import MenuItem from './menu-item'
+ import type { RendererNode } from 'vue'
+ 
+ class Menu {
+-  constructor(public domNode: RendererNode, namespace: string) {
++  public domNode: RendererNode
++  constructor(domNode: RendererNode, namespace: string) {
++    this.domNode = domNode
+     this.init(namespace)
+   }
+   init(namespace: string): void {
+diff --git a/vue/packages/components/menu/src/utils/menu-item.ts b/vue/packages/components/menu/src/utils/menu-item.ts
+index 7df01518..75d41306 100644
+--- a/vue/packages/components/menu/src/utils/menu-item.ts
++++ b/vue/packages/components/menu/src/utils/menu-item.ts
+@@ -3,8 +3,10 @@ import { EVENT_CODE } from '@element-plus/constants'
+ import SubMenu from './submenu'
+ 
+ class MenuItem {
++  public domNode: HTMLElement
+   public submenu: SubMenu | null = null
+-  constructor(public domNode: HTMLElement, namespace: string) {
++  constructor(domNode: HTMLElement, namespace: string) {
++    this.domNode = domNode
+     this.init(namespace)
+   }
+ 
+diff --git a/vue/packages/components/menu/src/utils/submenu.ts b/vue/packages/components/menu/src/utils/submenu.ts
+index 9558578c..0962f27b 100644
+--- a/vue/packages/components/menu/src/utils/submenu.ts
++++ b/vue/packages/components/menu/src/utils/submenu.ts
+@@ -3,9 +3,13 @@ import { EVENT_CODE } from '@element-plus/constants'
+ import type MenuItem from './menu-item'
+ 
+ class SubMenu {
++  public parent: MenuItem
++  public domNode: ParentNode
+   public subMenuItems!: NodeListOf<HTMLElement>
+   public subIndex = 0
+-  constructor(public parent: MenuItem, public domNode: ParentNode) {
++  constructor(parent: MenuItem, domNode: ParentNode) {
++    this.parent = parent
++    this.domNode = domNode
+     this.subIndex = 0
+     this.init()
+   }
+diff --git a/vue/packages/icons-vue/src/components/index.ts b/vue/packages/icons-vue/src/components/index.ts
+index d11f17b8..a9b48d07 100644
+--- a/vue/packages/icons-vue/src/components/index.ts
++++ b/vue/packages/icons-vue/src/components/index.ts
+@@ -1,8 +1,10 @@
++export { default as AddDocument } from './document-add.vue'
+ export { default as AddLocation } from './add-location.vue'
+ export { default as Aim } from './aim.vue'
+ export { default as AlarmClock } from './alarm-clock.vue'
+ export { default as AlertTriangle } from './warning.vue'
+ export { default as Apple } from './apple.vue'
++export { default as ApplicationMenu } from './menu.vue'
+ export { default as ArrowDown } from './arrow-down.vue'
+ export { default as ArrowDownBold } from './arrow-down-bold.vue'
+ export { default as ArrowLeft } from './arrow-left.vue'
+@@ -231,16 +233,19 @@ export { default as Reading } from './reading.vue'
+ export { default as ReadingLamp } from './reading-lamp.vue'
+ export { default as Refresh } from './refresh.vue'
+ export { default as RefreshLeft } from './refresh-left.vue'
++export { default as RefreshReplace } from './refresh-right.vue'
+ export { default as RefreshRight } from './refresh-right.vue'
+ export { default as Refrigerator } from './refrigerator.vue'
+ export { default as Remove } from './remove.vue'
+ export { default as RemoveFilled } from './remove-filled.vue'
++export { default as Replace } from './refresh-right.vue'
+ export { default as Right } from './right.vue'
+ export { default as SaveAll } from './save-all.vue'
+ export { default as ScaleToOriginal } from './scale-to-original.vue'
+ export { default as School } from './school.vue'
+ export { default as Scissor } from './scissor.vue'
+ export { default as Search } from './search.vue'
++export { default as SearchFilter } from './filter.vue'
+ export { default as Select } from './select.vue'
+ export { default as Sell } from './sell.vue'
+ export { default as SemiSelect } from './semi-select.vue'
+diff --git a/vue/packages/wasm/markdown-projection.worker-node.mjs b/vue/packages/wasm/markdown-projection.worker-node.mjs
+index e4c10575..6cec4e94 100644
+--- a/vue/packages/wasm/markdown-projection.worker-node.mjs
++++ b/vue/packages/wasm/markdown-projection.worker-node.mjs
+@@ -1,25 +1,10 @@
+-import { registerHooks } from 'node:module'
+ import { isMainThread, parentPort } from 'node:worker_threads'
+-
+-registerHooks({
+-  resolve(specifier, context, nextResolve) {
+-    if (
+-      specifier.startsWith('.') &&
+-      !/\.(?:[cm]?[jt]s|json|wasm)$/.test(specifier)
+-    ) {
+-      try {
+-        return nextResolve(specifier, context)
+-      } catch {
+-        return nextResolve(`${specifier}.ts`, context)
+-      }
+-    }
+-    return nextResolve(specifier, context)
+-  },
+-})
++import { tsImport } from 'tsx/esm/api'
+ 
+ if (!isMainThread && parentPort) {
+-  const { bindMarkdownProjectionWorkerScope } = await import(
+-    './markdown-projection-worker.ts'
++  const { bindMarkdownProjectionWorkerScope } = await tsImport(
++    './markdown-projection-worker.ts',
++    import.meta.url,
+   )
+   const port = parentPort
+   bindMarkdownProjectionWorkerScope({
+diff --git a/vue/tests/consumer-install/template/src/main.ts b/vue/tests/consumer-install/template/src/main.ts
+index f964d64a..26cb66d0 100644
+--- a/vue/tests/consumer-install/template/src/main.ts
++++ b/vue/tests/consumer-install/template/src/main.ts
+@@ -9,7 +9,10 @@ import {
+   ElEmptyState,
+   type EmptyStateProps,
+ } from '__FSUS_PACKAGE_NAME__/es/components/empty-state/index.mjs'
+-import type { MotionPresetName } from '__FSUS_PACKAGE_NAME__/motion'
++import type {
++  MotionPresetName,
++  useScrollReveal,
++} from '__FSUS_PACKAGE_NAME__/motion'
+ import type {
+   CharacterChallengeProps,
+   PerceptionCharacterMedia,
+@@ -21,6 +24,22 @@ import '__FSUS_PACKAGE_NAME__/theme-chalk/el-empty-state.css'
+ import '__FSUS_PACKAGE_NAME__/theme-chalk/el-markdown-renderer.css'
+ import App from './App.vue'
+ 
++type AssertMotionDeclaration<T extends true> = T
++export type ConsumerScrollRevealControls = AssertMotionDeclaration<
++  'reveal' | 'kill' | 'refresh' | 'tweens' extends keyof ReturnType<
++    typeof useScrollReveal
++  >
++    ? true
++    : false
++>
++type RequireScrollRevealOptions<
++  T extends Parameters<typeof useScrollReveal>[0],
++> = T
++// @ts-expect-error compiled motion declarations must reject string disabled values
++export type ConsumerInvalidScrollRevealOptions = RequireScrollRevealOptions<{
++  disabled: 'true'
++}>
++
+ const loadPublicShellCriticalCss = () =>
+   import('__FSUS_PACKAGE_NAME__/dist/public-shell-critical.css')
+ void loadPublicShellCriticalCss

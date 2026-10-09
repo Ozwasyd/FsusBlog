@@ -1,0 +1,2382 @@
+diff --git a/.changeset/complete-canonical-icon-alias-exports.md b/.changeset/complete-canonical-icon-alias-exports.md
+new file mode 100644
+index 00000000..50552042
+--- /dev/null
++++ b/.changeset/complete-canonical-icon-alias-exports.md
+@@ -0,0 +1,5 @@
++---
++'element-plus': patch
++---
++
++Export the five existing canonical icon aliases from the generated Vue index, so visual preparation retains a stable source fingerprint.
+diff --git a/.changeset/dropdown-cancelled-escape-focus.md b/.changeset/dropdown-cancelled-escape-focus.md
+new file mode 100644
+index 00000000..78139e8b
+--- /dev/null
++++ b/.changeset/dropdown-cancelled-escape-focus.md
+@@ -0,0 +1,5 @@
++---
++'element-plus': patch
++---
++
++Restore Dropdown trigger focus only after an Escape that actually dismisses its popup. Respect cancelled item Escape events and preserve outside-button focus on a later dismissal without changing shared Menu or Popper behavior.
+diff --git a/.changeset/dropdown-controlled-radio-items.md b/.changeset/dropdown-controlled-radio-items.md
+new file mode 100644
+index 00000000..cfa32857
+--- /dev/null
++++ b/.changeset/dropdown-controlled-radio-items.md
+@@ -0,0 +1,10 @@
++---
++'element-plus': minor
++---
++
++Add consumer-controlled `checked` state to DropdownItem, rendering coherent menuitemradio and aria-checked semantics while preserving ordinary command items. Prefer the checked item on keyboard entry and support ArrowUp on the trigger. Document public URL/command adapters and asynchronous pending/error/retry composition without storing consumer selection or preferences.
++
++Add explicit multiline DropdownItem content with description/suffix slots and
++opt-in viewport-bounded Dropdown geometry, including body-teleported root CSS
++zoom coordinate normalization through the existing Popper modifiers. Default
++single-line rows remain unchanged.
+diff --git a/.changeset/dropdown-forced-colors-focus.md b/.changeset/dropdown-forced-colors-focus.md
+new file mode 100644
+index 00000000..7dcc5d11
+--- /dev/null
++++ b/.changeset/dropdown-forced-colors-focus.md
+@@ -0,0 +1,5 @@
++---
++'element-plus': patch
++---
++
++Keep Dropdown trigger and item keyboard focus visible in forced-colors mode when the browser suppresses box shadows, preserving the existing inset ring tokens and row geometry.
+diff --git a/.changeset/dropdown-forced-colors-surface.md b/.changeset/dropdown-forced-colors-surface.md
+new file mode 100644
+index 00000000..adac2e03
+--- /dev/null
++++ b/.changeset/dropdown-forced-colors-surface.md
+@@ -0,0 +1,5 @@
++---
++'element-plus': patch
++---
++
++Keep the Dropdown popup and arrow opaque in forced-colors mode, using the user's system Canvas palette without changing ordinary overlay tokens or consumer styles.
+diff --git a/.changeset/markdown-pending-theme-invalidation.md b/.changeset/markdown-pending-theme-invalidation.md
+new file mode 100644
+index 00000000..8049f01c
+--- /dev/null
++++ b/.changeset/markdown-pending-theme-invalidation.md
+@@ -0,0 +1,5 @@
++---
++'element-plus': patch
++---
++
++Immediately abort pending Markdown heavy-feature activation when the shared theme changes, before the debounced rerender, including runtime import and adapter work while retaining unmount cleanup.
+diff --git a/.changeset/motion-declaration-owner.md b/.changeset/motion-declaration-owner.md
+new file mode 100644
+index 00000000..6a7e96ef
+--- /dev/null
++++ b/.changeset/motion-declaration-owner.md
+@@ -0,0 +1,5 @@
++---
++"element-plus": patch
++---
++
++Resolve public motion declarations through the implementation index so `useScrollReveal` and its types remain usable from the compiled package.
+diff --git a/.changeset/renderer-canonical-projection-reuse.md b/.changeset/renderer-canonical-projection-reuse.md
+new file mode 100644
+index 00000000..ee15cfc7
+--- /dev/null
++++ b/.changeset/renderer-canonical-projection-reuse.md
+@@ -0,0 +1,5 @@
++---
++'@ozwasyd/element-plus': patch
++---
++
++Reuse the current canonical document projection across MarkdownRenderer heavy-feature activations so long-document readiness is not blocked by repeated stable identity alignment.
+diff --git a/.changeset/renderer-equivalent-source-budget.md b/.changeset/renderer-equivalent-source-budget.md
+new file mode 100644
+index 00000000..6a3b7a38
+--- /dev/null
++++ b/.changeset/renderer-equivalent-source-budget.md
+@@ -0,0 +1,5 @@
++---
++'@ozwasyd/element-plus': patch
++---
++
++Reduce MarkdownRenderer source bytes while preserving heavy-feature selection and loading accessibility semantics.
+diff --git a/.changeset/renderer-heavy-projection-chunk.md b/.changeset/renderer-heavy-projection-chunk.md
+new file mode 100644
+index 00000000..c9302c9a
+--- /dev/null
++++ b/.changeset/renderer-heavy-projection-chunk.md
+@@ -0,0 +1,5 @@
++---
++'@ozwasyd/element-plus': patch
++---
++
++Keep MarkdownRenderer's private projection cache in its own consumer lazy chunk while preserving the canonical identity chunk and full-demo routing.
+diff --git a/.changeset/renderer-lazy-projection-cache.md b/.changeset/renderer-lazy-projection-cache.md
+new file mode 100644
+index 00000000..4e16975d
+--- /dev/null
++++ b/.changeset/renderer-lazy-projection-cache.md
+@@ -0,0 +1,5 @@
++---
++'@ozwasyd/element-plus': patch
++---
++
++Keep MarkdownRenderer's canonical projection reuse behind the heavy-feature lazy boundary so initial Markdown hydration does not pay for the cache implementation.
+diff --git a/.changeset/renderer-private-factory-dispatch.md b/.changeset/renderer-private-factory-dispatch.md
+new file mode 100644
+index 00000000..93fdf26f
+--- /dev/null
++++ b/.changeset/renderer-private-factory-dispatch.md
+@@ -0,0 +1,5 @@
++---
++'@ozwasyd/element-plus': patch
++---
++
++Use a compact default factory at MarkdownRenderer's private lazy projection boundary while preserving canonical identity, per-instance cache inputs, and unmount cleanup.
+diff --git a/docs/api/markdown-heavy-feature-lifecycle.md b/docs/api/markdown-heavy-feature-lifecycle.md
+index 93ca5754..6b3672f7 100644
+--- a/docs/api/markdown-heavy-feature-lifecycle.md
++++ b/docs/api/markdown-heavy-feature-lifecycle.md
+@@ -27,6 +27,14 @@ version mismatch prevents a stale commit. The stable syntax projection supplies
+ node identity; DOM paths, array indexes, source offsets, and body hashes are not
+ cache authority.
+ 
++MarkdownRenderer reuses the immutable canonical projection snapshot while the
++document key, epoch, and raw source remain exactly equal. Mounted chunks and
++theme changes do not rebuild whole-document stable identity alignment. A source
++or document change still uses the canonical tracker; revision and feature
++identity contexts are rebuilt for each activation. This single renderer-local
++snapshot is released on unmount and never becomes a parser or persisted source
++authority.
++
+ Mermaid and LaTeX output already materialized by the authorized Markdown render
+ result enters the same authority directly as a zero-resource `static-mounted`
+ node. Placeholder-driven Mermaid, KaTeX, and Shiki adapter work instead enters
+diff --git a/docs/api/markdown-runtime-projection.md b/docs/api/markdown-runtime-projection.md
+index 218d14b0..cfb56533 100644
+--- a/docs/api/markdown-runtime-projection.md
++++ b/docs/api/markdown-runtime-projection.md
+@@ -73,6 +73,15 @@ current anchor id, anchor-local offset, raw source offset, and direction agree.
+ An old epoch, deleted anchor, DOM path, or naked offset is not accepted as a
+ visual anchor.
+ 
++## Node worker source host
++
++The repository-only `markdown-projection.worker-node.mjs` host loads the same
++canonical projection worker through the locked `tsx/esm/api` source loader.
++This compiles its TypeScript dependency graph on Node 22.16 without relying on
++native type stripping. The host keeps the existing worker-thread message
++contract and stale-result checks; it is not a second projection runtime or a
++public package export. Type checking remains a separate required gate.
++
+ ## Projection node contract
+ 
+ `MarkdownEditorSyntaxNode` is a read-only projection of the unique Markdown
+diff --git a/docs/avalonia/vue-public-api-baseline.md b/docs/avalonia/vue-public-api-baseline.md
+index bf983b70..3631db00 100644
+--- a/docs/avalonia/vue-public-api-baseline.md
++++ b/docs/avalonia/vue-public-api-baseline.md
+@@ -6,7 +6,7 @@ This file is generated by `pnpm run avalonia:baseline`. Update the generator inp
+ 
+ | Field      | Value                                                              |
+ | ---------- | ------------------------------------------------------------------ |
+-| Commit     | `5b0333a402cb848f6c612eb804c0f2fcfacd4d16`                         |
++| Commit     | `568841efc55eb374b16f5a03fce5cd28d08b4481`                         |
+ | Package    | `element-plus@1.5.1`                                               |
+ | Token hash | `f40182721e8a812c248cb0bc43de556cd7568c5a9de1bc8b2c099df9b78e47b0` |
+ | Icon hash  | `6ae868b15cefc99ebec9d8a78c7602da1fb07b46ec172c43f6a3662af54be167` |
+@@ -21,7 +21,7 @@ This file is generated by `pnpm run avalonia:baseline`. Update the generator inp
+ | Directives               |     3 |
+ | Services                 |     4 |
+ | Plugins                  |     7 |
+-| CSS variables            |   495 |
++| CSS variables            |   496 |
+ | Deprecated API markers   |    21 |
+ 
+ ## Classification
+@@ -89,8 +89,8 @@ This file is generated by `pnpm run avalonia:baseline`. Update the generator inp
+ | `ElDistributionList`               | `metric-primitives`     | portable          |     2 |     0 | default                                                                                                                                           | -                                                                                                                                                                                                                                                                           |
+ | `ElDivider`                        | `divider`               | portable          |     3 |     0 | default                                                                                                                                           | -                                                                                                                                                                                                                                                                           |
+ | `ElDrawer`                         | `drawer`                | platform-override |     6 |     0 | default, footer, header\*, title                                                                                                                  | -                                                                                                                                                                                                                                                                           |
+-| `ElDropdown`                       | `dropdown`              | native-adapter    |    25 |     0 | default, dropdown                                                                                                                                 | -                                                                                                                                                                                                                                                                           |
+-| `ElDropdownItem`                   | `dropdown`              | native-adapter    |     5 |     0 | default                                                                                                                                           | -                                                                                                                                                                                                                                                                           |
++| `ElDropdown`                       | `dropdown`              | native-adapter    |    28 |     0 | default, dropdown                                                                                                                                 | -                                                                                                                                                                                                                                                                           |
++| `ElDropdownItem`                   | `dropdown`              | native-adapter    |     7 |     0 | default, description, suffix                                                                                                                      | -                                                                                                                                                                                                                                                                           |
+ | `ElDropdownMenu`                   | `dropdown`              | native-adapter    |     1 |     0 | default                                                                                                                                           | -                                                                                                                                                                                                                                                                           |
+ | `ElEmpty`                          | `empty`                 | portable          |     5 |     0 | default, description, image                                                                                                                       | -                                                                                                                                                                                                                                                                           |
+ | `ElEmptySelectionState`            | `inbox-primitives`      | portable          |     3 |     0 | actions, description, title                                                                                                                       | -                                                                                                                                                                                                                                                                           |
+diff --git a/docs/components/dropdown.md b/docs/components/dropdown.md
+index 4b7657bd..47be02b5 100644
+--- a/docs/components/dropdown.md
++++ b/docs/components/dropdown.md
+@@ -35,48 +35,134 @@ Set `split-button` to turn the trigger into a two-part button group.
+ 
+ Use `handleOpen` / `handleClose` to control menu visibility manually.
+ 
++## Consumer-owned Single Selection
++
++Set `checked` on every selectable `DropdownItem` under a `role="menu"`
++Dropdown. Defined boolean values render `menuitemradio` with `aria-checked`;
++omitting `checked` preserves the ordinary `menuitem` command contract. The
++consumer supplies exactly one committed checked item in each selection group.
++Activation emits `command`; it never mutates `checked` itself.
++
++Use `hide-on-click="false"` for an asynchronous transaction. Keep `checked`
++bound to the last committed value while showing pending progress or a visible
++error/retry item in the menu. Update that value only after success, and close
++through the public `handleClose` method when the consumer decides the
++transaction is settled. Failed, interrupted, and superseded transactions remain
++consumer-owned. FsusUI does not store preferences, choose locale values, or
++perform resource requests.
++
++```vue
++<el-dropdown ref="dropdown" trigger="click" :hide-on-click="false">
++  <el-button>{{ committedLabel }}</el-button>
++  <template #dropdown>
++    <el-dropdown-menu>
++      <el-dropdown-item
++        v-for="item in items"
++        :key="item.id"
++        :command="item"
++        :checked="item.id === committedId"
++        :disabled="item.disabled"
++      >
++        {{ item.label }}
++        <span v-if="pendingId === item.id">{{ pendingLabel }}</span>
++      </el-dropdown-item>
++      <el-dropdown-item v-if="error" command="retry">
++        <span role="alert">{{ error }}</span>
++        {{ retryLabel }}
++      </el-dropdown-item>
++    </el-dropdown-menu>
++  </template>
++</el-dropdown>
++```
++
++Enter, Space, ArrowDown, and ArrowUp open a click-triggered dropdown. The
++existing roving focus model prefers a focusable checked item on keyboard
++entry, handles ArrowUp/Down/Home/End, skips disabled items, and restores focus
++to the trigger on Escape. A custom trigger, including compact content, remains
++in the default slot; public `visible-change` and `handleOpen` / `handleClose`
++provide an observable visibility contract. Changing `checked` does not move
++focus away from a user who is navigating pending or retry content.
++
++Trigger focus is restored only when Escape actually dismisses that dropdown.
++An item that cancels Escape with `@keydown.esc.stop.prevent` keeps the popup
++open; a later outside-button dismissal preserves the outside button's focus.
++An Escape handled by a nested dropdown does not close its parent.
++
++Forced-colors mode preserves the trigger and item inset keyboard focus rings when the browser
++suppresses box shadows. The ring uses the existing focus tokens and lets the
++browser map its border color to the user's contrast palette; it does not change
++row geometry or require a consumer style override. The popup and arrow use an
++opaque system Canvas surface in forced-colors mode so background content cannot
++show through the overlay token's alpha. Ordinary light/dark overlay tokens and
++automatic browser color adjustment remain unchanged.
++
++## URL and Command Activation Adapter
++
++The `command` event receives `(command, instance, event)`. Use a public
++consumer adapter to distinguish navigation records from async commands; do
++not query component-private DOM or add another keyboard handler. For example:
++
++```ts
++function activate(item, _instance, event) {
++  if (item.href) {
++    window.location.assign(item.href)
++    return
++  }
++  void requestResource(item.id)
++}
++```
++
++The adapter owns URL and transaction semantics. A nested anchor alone is not
++a keyboard activation adapter: Enter/Space on the menu item activate its
++public command rather than dispatching the nested anchor's native click.
++Choose and test one coherent URL/command adapter for the consumer.
++Keyboard activation intentionally prevents the browser's original key default
++before emitting `command`; its event can therefore have `defaultPrevented=true`
++while still representing a valid command. Do not discard a public keyboard
++command solely because that flag is set.
++
+ ---
+ 
+ ## Dropdown API
+ 
+ ### Dropdown Attributes
+ 
+-| 属性名 | 说明 | 类型 | 默认值 |
+-|--------|------|------|--------|
+-| type | 按钮类型（`split-button` 为 true 时有效） | `'default' \| 'primary' \| 'success' \| 'warning' \| 'info' \| 'danger'` | `''` |
+-| size | 菜单大小 | `'large' \| 'default' \| 'small'` | `''` |
+-| split-button | 是否使用分裂按钮 | `boolean` | `false` |
+-| disabled | 是否禁用 | `boolean` | `false` |
+-| placement | 弹出位置 | `'top' \| 'top-start' \| 'top-end' \| 'bottom' \| 'bottom-start' \| 'bottom-end'` | `bottom` |
+-| trigger | 触发方式 | `'click' \| 'hover' \| 'contextmenu'` | `hover` |
+-| hide-on-click | 点击菜单项后是否关闭菜单 | `boolean` | `true` |
+-| show-timeout | 显示延迟（ms，`hover` 模式有效） | `number` | `150` |
+-| hide-timeout | 隐藏延迟（ms，`hover` 模式有效） | `number` | `150` |
+-| max-height | 菜单最大高度 | `string \| number` | `''` |
+-| popper-class | 自定义弹出层 class | `string \| object` | `''` |
+-| teleported | 是否挂载到 body | `boolean` | `true` |
+-| persistent | 非激活时是否保留 DOM | `boolean` | `true` |
++| 属性名        | 说明                                      | 类型                                                                              | 默认值   |
++| ------------- | ----------------------------------------- | --------------------------------------------------------------------------------- | -------- |
++| type          | 按钮类型（`split-button` 为 true 时有效） | `'default' \| 'primary' \| 'success' \| 'warning' \| 'info' \| 'danger'`          | `''`     |
++| size          | 菜单大小                                  | `'large' \| 'default' \| 'small'`                                                 | `''`     |
++| split-button  | 是否使用分裂按钮                          | `boolean`                                                                         | `false`  |
++| disabled      | 是否禁用                                  | `boolean`                                                                         | `false`  |
++| placement     | 弹出位置                                  | `'top' \| 'top-start' \| 'top-end' \| 'bottom' \| 'bottom-start' \| 'bottom-end'` | `bottom` |
++| trigger       | 触发方式                                  | `'click' \| 'hover' \| 'contextmenu'`                                             | `hover`  |
++| hide-on-click | 点击菜单项后是否关闭菜单                  | `boolean`                                                                         | `true`   |
++| show-timeout  | 显示延迟（ms，`hover` 模式有效）          | `number`                                                                          | `150`    |
++| hide-timeout  | 隐藏延迟（ms，`hover` 模式有效）          | `number`                                                                          | `150`    |
++| max-height    | 菜单最大高度                              | `string \| number`                                                                | `''`     |
++| popper-class  | 自定义弹出层 class                        | `string \| object`                                                                | `''`     |
++| teleported    | 是否挂载到 body                           | `boolean`                                                                         | `true`   |
++| persistent    | 非激活时是否保留 DOM                      | `boolean`                                                                         | `true`   |
+ 
+ ### Dropdown Events
+ 
+-| 事件名 | 说明 | 回调参数 |
+-|--------|------|---------|
+-| click | `split-button` 为 true 时，点击左侧按钮触发 | `(e: MouseEvent) => void` |
+-| command | 点击菜单项时触发，参数为菜单项的 `command` 值 | `(...args: any[]) => void` |
+-| visible-change | 菜单显示/隐藏变化时触发 | `(val: boolean) => void` |
++| 事件名         | 说明                                          | 回调参数                   |
++| -------------- | --------------------------------------------- | -------------------------- |
++| click          | `split-button` 为 true 时，点击左侧按钮触发   | `(e: MouseEvent) => void`  |
++| command        | 点击菜单项时触发，参数为菜单项的 `command` 值 | `(...args: any[]) => void` |
++| visible-change | 菜单显示/隐藏变化时触发                       | `(val: boolean) => void`   |
+ 
+ ### Dropdown Slots
+ 
+-| 插槽名 | 说明 | 子组件 |
+-|--------|------|--------|
+-| default | 触发元素（有效 HTML 元素或 FsusUI 组件） | — |
+-| dropdown | 下拉菜单内容 | `DropdownMenu` |
++| 插槽名   | 说明                                     | 子组件         |
++| -------- | ---------------------------------------- | -------------- |
++| default  | 触发元素（有效 HTML 元素或 FsusUI 组件） | —              |
++| dropdown | 下拉菜单内容                             | `DropdownMenu` |
+ 
+ ### Dropdown Exposes
+ 
+-| 名称 | 说明 | 类型 |
+-|------|------|------|
+-| handleOpen | 打开下拉菜单 | `() => void` |
++| 名称        | 说明         | 类型         |
++| ----------- | ------------ | ------------ |
++| handleOpen  | 打开下拉菜单 | `() => void` |
+ | handleClose | 关闭下拉菜单 | `() => void` |
+ 
+ ---
+@@ -85,8 +171,8 @@ Use `handleOpen` / `handleClose` to control menu visibility manually.
+ 
+ ### Dropdown-Menu Slots
+ 
+-| 插槽名 | 说明 | 子组件 |
+-|--------|------|--------|
++| 插槽名  | 说明       | 子组件         |
++| ------- | ---------- | -------------- |
+ | default | 菜单项列表 | `DropdownItem` |
+ 
+ ---
+@@ -95,9 +181,48 @@ Use `handleOpen` / `handleClose` to control menu visibility manually.
+ 
+ ### Dropdown-Item Attributes
+ 
+-| 属性名 | 说明 | 类型 | 默认值 |
+-|--------|------|------|--------|
+-| command | 点击时传递给 `command` 事件的值 | `string \| number \| object` | — |
+-| disabled | 是否禁用 | `boolean` | `false` |
+-| divided | 是否显示上方分割线 | `boolean` | `false` |
+-| icon | 自定义图标 | `string \| Component` | — |
++| 属性名   | 说明                                                                                              | 类型                         | 默认值      |
++| -------- | ------------------------------------------------------------------------------------------------- | ---------------------------- | ----------- |
++| command  | 点击时传递给 `command` 事件的值                                                                   | `string \| number \| object` | —           |
++| disabled | 是否禁用                                                                                          | `boolean`                    | `false`     |
++| divided  | 是否显示上方分割线                                                                                | `boolean`                    | `false`     |
++| icon     | 自定义图标                                                                                        | `string \| Component`        | —           |
++| checked  | Consumer-controlled single-selection state under a menu parent; omit for an ordinary command item | `boolean \| undefined`       | `undefined` |
++
++### Explicit multiline content and viewport bounds
++
++`DropdownItem` accepts `multiline` (Boolean, default `false`). Opting in gives its
++primary default slot and optional `description` slot a natural block height with
++the existing option-height token as a minimum. Both lines wrap; font sizes remain
++canonical, and disabled, checked, hover and focus states retain the flat row
++surface. The optional `suffix` slot reserves space for consumer-owned status
++content without placing a second focus target in the row. Descriptions are read
++with the item; decorative suffix icons should be `aria-hidden`. Supplying a
++`description` without `multiline` does not change ordinary command-row geometry.
++
++```vue
++<el-dropdown trigger="click" viewport-bounded :hide-on-click="false">
++  <el-button>Language</el-button>
++  <template #dropdown>
++    <el-dropdown-menu>
++      <el-dropdown-item multiline :checked="true" text-value="日本語" command="ja">
++        日本語
++        <template #description>Japanese</template>
++        <template #suffix><span aria-hidden="true">✓</span></template>
++      </el-dropdown-item>
++    </el-dropdown-menu>
++  </template>
++</el-dropdown>
++```
++
++`Dropdown.viewportBounded` (Boolean, default `false`) explicitly constrains the
++panel width and scrollable height to the visual viewport. Its unset `maxHeight`
++uses the documented menu maximum; an explicit maximum remains an upper bound.
++For a body-teleported panel under root CSS `zoom`, a modifier adapter presents
++consistent client coordinates to the existing Popper engine, then converts style
++and arrow output to CSS coordinates. It keeps the enlarged text and delegates
++placement, flipping, tethering and lifecycle listeners to Popper. Positioned
++custom append contexts keep the existing engine's scale handling; nested or
++independently zoomed append contexts are not qualified by this root-zoom contract.
++The internal measured CSS properties are not theme tokens or consumer overrides.
++Browser page zoom and assistive technology still require separate qualification.
+diff --git a/docs/components/markdown-renderer.md b/docs/components/markdown-renderer.md
+index f74a4848..65a28cb0 100644
+--- a/docs/components/markdown-renderer.md
++++ b/docs/components/markdown-renderer.md
+@@ -52,6 +52,8 @@ Use `features` to disable an activation:
+ </template>
+ ```
+ 
++Shared theme changes immediately abort heavy-feature work, including pending runtime imports, before the debounced render of the new theme. The listener is installed as soon as activation starts, and unmount removes it.
++
+ Feature renderers no longer accept a consumer DOM adapter. Built-in Mermaid, KaTeX, and Shiki read only immutable source, theme, and controlled tokens, then return a `FeatureRenderOutput` with `kind`. Output is committed only after passing separate FsusUI-owned gateway policies for Mermaid SVG, KaTeX MathML, and Shiki HTML. Mermaid must use native SVG text instead of `foreignObject`, and color tokens are validated against the controlled color grammar before entering a third-party renderer. The three policies do not share a union of tags or attributes; unknown tags, namespaces, attributes, events, executable URLs, and external resources are removed. See [Converging the Markdown feature output gateway](../migration/markdown-feature-output-gateway.md) for migration.
+ 
+ ### Test-only XSS differential corpus
+diff --git a/docs/design.md b/docs/design.md
+index cb6d8a77..8a2efdd2 100644
+--- a/docs/design.md
++++ b/docs/design.md
+@@ -287,6 +287,7 @@ FsusUI 默认使用 paper/document material、细边框和稳定留白表达层
+ - 阴影默认 `none`，仅在需要明确层级时 opt into `--el-box-shadow-light`，不叠加额外外发光。
+ - 选中项用 `Scholarly Blue` 或浅蓝背景表达，不使用高饱和整行色块。
+ - 列表项需要稳定高度，Hover、Active、Disabled 三种状态必须可区分。
++- DropdownItem 显式 `multiline` 内容变体允许主标签与语义描述换行，行高随内容自然扩展，最小高度仍使用 `--fsus-select-option-height`；默认单行 `34px` 密度不变。保留平面行的选中、禁用与 inset focus 状态，不增加独立卡片、圆角或装饰。显式 `viewportBounded` 模式在视口内限制面板宽度和可滚动高度，CSS zoom 不得通过缩小文字规避溢出。
+ 
+ ### Dialog and Drawer
+ 
+diff --git a/scripts/motion-declaration-path.test.mjs b/scripts/motion-declaration-path.test.mjs
+new file mode 100644
+index 00000000..732a0b48
+--- /dev/null
++++ b/scripts/motion-declaration-path.test.mjs
+@@ -0,0 +1,31 @@
++import assert from 'node:assert/strict'
++import { createRequire } from 'node:module'
++import { test } from 'node:test'
++
++const require = createRequire(import.meta.url)
++const { pathRewriter } = require('../vue/internal/build/src/utils/pkg.ts')
++
++for (const [format, directory] of [
++  ['esm', 'es'],
++  ['cjs', 'lib'],
++]) {
++  test(`${format} motion facade declarations resolve the implementation index`, () => {
++    const rewrite = pathRewriter(format)
++    const declaration = `export { useScrollReveal } from '@element-plus/motion';\nexport type { ScrollRevealOptions } from "@element-plus/motion";`
++    const result = rewrite(declaration)
++    assert.equal(
++      result,
++      `export { useScrollReveal } from 'element-plus/${directory}/motion/index';\nexport type { ScrollRevealOptions } from "element-plus/${directory}/motion/index";`,
++    )
++    assert.doesNotMatch(result, /(['"])element-plus\/(?:es|lib)\/motion\1/)
++  })
++
++  test(`${format} preserves existing motion leaf and unrelated package mappings`, () => {
++    const declaration =
++      "export * from '@element-plus/motion/types';\nexport * from '@element-plus/motion-extra';\nexport * from '@element-plus/components/button';\nimport '@element-plus/theme-chalk/src/base.scss';"
++    assert.equal(
++      pathRewriter(format)(declaration),
++      `export * from 'element-plus/${directory}/motion/types';\nexport * from 'element-plus/${directory}/motion-extra';\nexport * from 'element-plus/${directory}/components/button';\nimport 'element-plus/theme-chalk/src/base.scss';`,
++    )
++  })
++}
+diff --git a/scripts/vite-manual-chunks.mjs b/scripts/vite-manual-chunks.mjs
+index 1d159850..8a8dc1a7 100644
+--- a/scripts/vite-manual-chunks.mjs
++++ b/scripts/vite-manual-chunks.mjs
+@@ -230,6 +230,14 @@ export const resolveFsusViteManualChunk = (
+     return 'fsus-wasm'
+   }
+ 
++  if (
++    /\/components\/markdown-renderer\/src\/markdown-renderer-heavy-projection\.(?:mjs|ts)$/u.test(
++      id,
++    )
++  ) {
++    return 'fsus-markdown-heavy-projection-cache'
++  }
++
+   if (
+     id.includes('/vue/packages/components/markdown-renderer/') ||
+     id.includes('/node_modules/@element-plus/components/markdown-renderer/') ||
+diff --git a/spec/baselines/vue-current.json b/spec/baselines/vue-current.json
+index a91df304..15575bf6 100644
+--- a/spec/baselines/vue-current.json
++++ b/spec/baselines/vue-current.json
+@@ -1,18 +1,18 @@
+ {
+   "schemaVersion": 1,
+   "source": {
+-    "commitSha": "5b0333a402cb848f6c612eb804c0f2fcfacd4d16",
++    "commitSha": "568841efc55eb374b16f5a03fce5cd28d08b4481",
+     "packageName": "element-plus",
+     "packageVersion": "1.5.1",
+     "tokenHash": "f40182721e8a812c248cb0bc43de556cd7568c5a9de1bc8b2c099df9b78e47b0",
+     "iconHash": "6ae868b15cefc99ebec9d8a78c7602da1fb07b46ec172c43f6a3662af54be167",
+     "toolVersion": "avalonia-vue-public-api-baseline@1.4.0+vue-semantic-baseline@1.4.0",
+-    "inputTreeHash": "8f3772cc51d36040782dd8da602bba89f96d4aee7ee55757e37cfdc521096198",
++    "inputTreeHash": "988253ed4a8f80f517856380e501e36c2cd269c398aecafb3dd9fdf2a03fc194",
+     "compilerOptionsHash": "919b1f4f85e411ccb762efdc5a2d646f412fd73928c05ad302bbfdda0ab731e4",
+     "dependencyVersionHash": "79ca1004d5204ee4ddc2de6b1d63f0946d36a42283d113ce8ad01ac4adaa7d27",
+     "structuredOutputSelectionHash": "b4b7c00db1f817b08a1e7bec8a6af03a505f605d2dcf16fb2e52febbf830388f",
+     "contractSchemaVersion": "2.0.0",
+-    "outputHash": "195e70c3b81a0fbd788cdef26f843619a47afc9b5a5b3c1d8f34687d6fa42393"
++    "outputHash": "d0b52bf6dc1fc3c4ad43268d58fc8942df38c3457cfeec691accfc042785c88f"
+   },
+   "summary": {
+     "componentModules": 93,
+@@ -21,7 +21,7 @@
+     "directives": 3,
+     "services": 4,
+     "plugins": 7,
+-    "cssVariables": 495,
++    "cssVariables": 496,
+     "deprecatedApis": 21,
+     "componentCountByClassification": {
+       "portable": 126,
+@@ -9491,6 +9491,7 @@
+       "props": [
+         "...componentMotionProps",
+         "buttonProps",
++        "checked",
+         "command",
+         "disabled",
+         "divided",
+@@ -9501,6 +9502,7 @@
+         "id",
+         "loop",
+         "maxHeight",
++        "multiline",
+         "onKeydown",
+         "placement",
+         "popperClass",
+@@ -9513,7 +9515,8 @@
+         "teleported",
+         "textValue",
+         "trigger",
+-        "type"
++        "type",
++        "viewportBounded"
+       ],
+       "emits": [],
+       "slots": [
+@@ -9573,7 +9576,15 @@
+       "module": "dropdown",
+       "classification": "native-adapter",
+       "source": "vue/packages/components/dropdown/src/dropdown-item.vue",
+-      "props": ["command", "disabled", "divided", "icon", "textValue"],
++      "props": [
++        "checked",
++        "command",
++        "disabled",
++        "divided",
++        "icon",
++        "multiline",
++        "textValue"
++      ],
+       "emits": [],
+       "slots": [
+         {
+@@ -9582,6 +9593,20 @@
+           "scoped": false,
+           "payload": [],
+           "payloadComplete": true
++        },
++        {
++          "name": "description",
++          "nameKnown": true,
++          "scoped": false,
++          "payload": [],
++          "payloadComplete": true
++        },
++        {
++          "name": "suffix",
++          "nameKnown": true,
++          "scoped": false,
++          "payload": [],
++          "payloadComplete": true
+         }
+       ],
+       "exposed": [],
+@@ -9609,6 +9634,20 @@
+             "scoped": false,
+             "payload": [],
+             "payloadComplete": true
++          },
++          {
++            "name": "description",
++            "nameKnown": true,
++            "scoped": false,
++            "payload": [],
++            "payloadComplete": true
++          },
++          {
++            "name": "suffix",
++            "nameKnown": true,
++            "scoped": false,
++            "payload": [],
++            "payloadComplete": true
+           }
+         ]
+       }
+@@ -42144,6 +42183,11 @@
+       ],
+       "classification": "portable"
+     },
++    {
++      "name": "--el-dropdown-viewport-width",
++      "files": ["vue/packages/theme-chalk/src/dropdown.scss"],
++      "classification": "portable"
++    },
+     {
+       "name": "--el-empty-state-action-gap",
+       "files": ["vue/packages/theme-chalk/src/empty-state.scss"],
+@@ -43797,6 +43841,7 @@
+       "files": [
+         "vue/packages/theme-chalk/src/collection-primitives.scss",
+         "vue/packages/theme-chalk/src/common/fsus-tokens.scss",
++        "vue/packages/theme-chalk/src/dropdown.scss",
+         "vue/packages/theme-chalk/src/fsus-theme.scss",
+         "vue/packages/theme-chalk/src/generated/tokens.css",
+         "vue/packages/theme-chalk/src/generated/tokens.scss",
+@@ -44992,6 +45037,7 @@
+         "vue/packages/theme-chalk/src/date-picker/date-table.scss",
+         "vue/packages/theme-chalk/src/date-picker/picker-panel.scss",
+         "vue/packages/theme-chalk/src/date-picker/time-picker.scss",
++        "vue/packages/theme-chalk/src/dropdown.scss",
+         "vue/packages/theme-chalk/src/fsus-theme.scss",
+         "vue/packages/theme-chalk/src/generated/tokens.css",
+         "vue/packages/theme-chalk/src/generated/tokens.scss",
+@@ -45048,6 +45094,7 @@
+         "vue/packages/theme-chalk/src/cascader.scss",
+         "vue/packages/theme-chalk/src/common/fsus-tokens.scss",
+         "vue/packages/theme-chalk/src/common/var.scss",
++        "vue/packages/theme-chalk/src/dropdown.scss",
+         "vue/packages/theme-chalk/src/generated/tokens.css",
+         "vue/packages/theme-chalk/src/generated/tokens.scss",
+         "vue/packages/theme-chalk/src/mixins/overlay-option-row-primitive.scss"
+diff --git a/spec/components/contracts/v2/contract-v2.json b/spec/components/contracts/v2/contract-v2.json
+index 595c6f20..03ac64a0 100644
+--- a/spec/components/contracts/v2/contract-v2.json
++++ b/spec/components/contracts/v2/contract-v2.json
+@@ -10,7 +10,7 @@
+   "baselines": {
+     "web": {
+       "path": "spec/baselines/vue-current.json",
+-      "hash": "712e38de6bb677474cfdd0cf2f2b8a1f960577f39b4d305cee2a8f43d652e9f2",
++      "hash": "03e14b0a24850ea768cfe75739080d7be9787dc8e8f57dfb38d2eeabffc33369",
+       "packageVersion": "1.5.1"
+     },
+     "avalonia": {
+@@ -42748,6 +42748,82 @@
+             "testPolicy": "contract",
+             "reviewPolicy": "pr-review"
+           }
++        },
++        {
++          "name": "description",
++          "kind": "contentRegion",
++          "scoped": false,
++          "web": {
++            "member": "description",
++            "baseline": "spec/baselines/vue-current.json",
++            "nameKnown": true,
++            "nameExpression": null,
++            "scoped": false,
++            "payload": [],
++            "payloadComplete": true,
++            "contentType": null
++          },
++          "avalonia": null,
++          "status": "missing",
++          "drift": {
++            "type": null,
++            "default": null,
++            "required": null,
++            "readWrite": null,
++            "nullability": null,
++            "eventPayload": null,
++            "operationSignature": null,
++            "contentRegion": null,
++            "enumValues": null,
++            "deprecated": null
++          },
++          "scenarioIds": [
++            "scenario.v2.el-dropdown-item.content-region.description"
++          ],
++          "governance": {
++            "reason": "No explicit semantic binding selects a real Avalonia content region.",
++            "owner": "FsusUI Core",
++            "testPolicy": "contract",
++            "reviewPolicy": "pr-review"
++          }
++        },
++        {
++          "name": "suffix",
++          "kind": "contentRegion",
++          "scoped": false,
++          "web": {
++            "member": "suffix",
++            "baseline": "spec/baselines/vue-current.json",
++            "nameKnown": true,
++            "nameExpression": null,
++            "scoped": false,
++            "payload": [],
++            "payloadComplete": true,
++            "contentType": null
++          },
++          "avalonia": null,
++          "status": "missing",
++          "drift": {
++            "type": null,
++            "default": null,
++            "required": null,
++            "readWrite": null,
++            "nullability": null,
++            "eventPayload": null,
++            "operationSignature": null,
++            "contentRegion": null,
++            "enumValues": null,
++            "deprecated": null
++          },
++          "scenarioIds": [
++            "scenario.v2.el-dropdown-item.content-region.suffix"
++          ],
++          "governance": {
++            "reason": "No explicit semantic binding selects a real Avalonia content region.",
++            "owner": "FsusUI Core",
++            "testPolicy": "contract",
++            "reviewPolicy": "pr-review"
++          }
+         }
+       ],
+       "states": {
+@@ -42830,6 +42906,28 @@
+             "testPolicy": "contract",
+             "reviewPolicy": "pr-review"
+           }
++        },
++        {
++          "member": "description",
++          "kind": "contentRegion",
++          "status": "missing",
++          "governance": {
++            "reason": "No explicit semantic binding selects a real Avalonia content region.",
++            "owner": "FsusUI Core",
++            "testPolicy": "contract",
++            "reviewPolicy": "pr-review"
++          }
++        },
++        {
++          "member": "suffix",
++          "kind": "contentRegion",
++          "status": "missing",
++          "governance": {
++            "reason": "No explicit semantic binding selects a real Avalonia content region.",
++            "owner": "FsusUI Core",
++            "testPolicy": "contract",
++            "reviewPolicy": "pr-review"
++          }
+         }
+       ],
+       "avaloniaExtras": [
+@@ -42899,6 +42997,8 @@
+         "scenario.v2.el-dropdown-item.output.pointerleave",
+         "scenario.v2.el-dropdown-item.output.pointermove",
+         "scenario.v2.el-dropdown-item.content-region.default",
++        "scenario.v2.el-dropdown-item.content-region.description",
++        "scenario.v2.el-dropdown-item.content-region.suffix",
+         "scenario.v2.el-dropdown-item.state.default",
+         "scenario.v2.el-dropdown-item.keyboard",
+         "scenario.v2.el-dropdown-item.pointer",
+@@ -42909,10 +43009,10 @@
+         "scenario.v2.el-dropdown-item.perf"
+       ],
+       "coverage": {
+-        "total": 4,
++        "total": 6,
+         "alignedCandidate": 0,
+         "partial": 0,
+-        "missing": 4,
++        "missing": 6,
+         "webOnly": 0,
+         "mappedPercent": 0
+       }
+@@ -189253,9 +189353,9 @@
+   "coverage": {
+     "aligned-candidate": 17,
+     "partial": 191,
+-    "missing": 2185,
++    "missing": 2187,
+     "web-only": 62,
+-    "total": 2455,
++    "total": 2457,
+     "mappedPercent": 8.5
+   }
+ }
+diff --git a/vue/internal/build/src/utils/pkg.ts b/vue/internal/build/src/utils/pkg.ts
+index bbf40bf9..78ee656d 100644
+--- a/vue/internal/build/src/utils/pkg.ts
++++ b/vue/internal/build/src/utils/pkg.ts
+@@ -8,6 +8,11 @@ export const pathRewriter = (module: Module) => {
+   const config = buildConfig[module]
+ 
+   return (id: string) => {
++    // The motion facade is motion.d.ts; its declarations must use the index owner.
++    id = id.replaceAll(
++      new RegExp(`(['"])${PKG_PREFIX}/motion\\1`, 'g'),
++      (_, quote) => `${quote}${config.bundle.path}/motion/index${quote}`,
++    )
+     id = id.replaceAll(`${PKG_PREFIX}/theme-chalk`, `${PKG_NAME}/theme-chalk`)
+     id = id.replaceAll(`${PKG_PREFIX}/`, `${config.bundle.path}/`)
+     return id
+diff --git a/vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts b/vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts
+new file mode 100644
+index 00000000..4d2345cf
+--- /dev/null
++++ b/vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts
+@@ -0,0 +1,79 @@
++import { defineComponent } from 'vue'
++import { flushPromises, mount } from '@vue/test-utils'
++import { describe, expect, test } from 'vitest'
++import {
++  ElButton,
++  ElDropdown,
++  ElDropdownItem,
++  ElDropdownMenu,
++} from '@element-plus/components'
++
++const host = defineComponent({
++  components: { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu },
++  props: {
++    multiline: Boolean,
++    checked: Boolean,
++    disabled: Boolean,
++    viewportBounded: Boolean,
++  },
++  template: `<el-dropdown trigger="click" :teleported="false" :viewport-bounded="viewportBounded">
++    <el-button>Language</el-button>
++    <template #dropdown><el-dropdown-menu>
++      <el-dropdown-item command="ja" :multiline="multiline" :checked="checked" :disabled="disabled" text-value="日本語">
++        日本語<template #description>Japanese</template><template #suffix><span aria-hidden="true">Pending</span></template>
++      </el-dropdown-item>
++    </el-dropdown-menu></template>
++  </el-dropdown>`,
++})
++
++async function open(props: Record<string, boolean>) {
++  const wrapper = mount(host, { props, attachTo: document.body })
++  wrapper.getComponent(ElDropdown).vm.handleOpen()
++  await flushPromises()
++  return wrapper
++}
++
++describe('Dropdown explicit rich content', () => {
++  test('requires opt-in for description and preserves ordinary row structure', async () => {
++    const wrapper = await open({})
++    expect(wrapper.find('.el-dropdown-menu__item-description').exists()).toBe(
++      false,
++    )
++    expect(wrapper.get('[role="menuitemradio"]').classes()).not.toContain(
++      'is-multiline',
++    )
++    expect(wrapper.get('.el-dropdown-menu__item-suffix').text()).toBe('Pending')
++    wrapper.unmount()
++  })
++
++  test('keeps description/status in one checked item and uses the existing selected state', async () => {
++    const wrapper = await open({
++      multiline: true,
++      checked: true,
++      viewportBounded: true,
++    })
++    const item = wrapper.get('[role="menuitemradio"]')
++    expect(item.classes()).toContain('is-multiline')
++    expect(item.classes()).toContain('selected')
++    expect(item.attributes('aria-checked')).toBe('true')
++    expect(wrapper.get('.el-dropdown-menu__item-description').text()).toBe(
++      'Japanese',
++    )
++    expect(item.findAll('button, a, input')).toHaveLength(0)
++    await item.trigger('keydown', { key: 'Enter', code: 'Enter' })
++    expect(wrapper.getComponent(ElDropdown).emitted('command')?.[0]?.[0]).toBe(
++      'ja',
++    )
++    wrapper.unmount()
++  })
++
++  test('disabled multiline content retains semantics and rejects command activation', async () => {
++    const wrapper = await open({ multiline: true, disabled: true })
++    const item = wrapper.get('[role="menuitemradio"]')
++    expect(item.attributes('aria-disabled')).toBe('true')
++    await item.trigger('keydown', { key: ' ', code: 'Space' })
++    await item.trigger('click')
++    expect(wrapper.getComponent(ElDropdown).emitted('command')).toBeUndefined()
++    wrapper.unmount()
++  })
++})
+diff --git a/vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts b/vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts
+new file mode 100644
+index 00000000..84e895b4
+--- /dev/null
++++ b/vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts
+@@ -0,0 +1,313 @@
++import { defineComponent, nextTick } from 'vue'
++import { flushPromises, mount } from '@vue/test-utils'
++import { afterEach, describe, expect, test, vi } from 'vitest'
++import {
++  ElButton,
++  ElDropdown,
++  ElDropdownItem,
++  ElDropdownMenu,
++} from '@element-plus/components'
++
++const host = defineComponent({
++  components: { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu },
++  props: {
++    committed: { type: String, default: 'en' },
++    disabled: Boolean,
++    role: { type: String, default: 'menu' },
++  },
++  template: `
++    <el-dropdown trigger="click" :role="role" :hide-on-click="false" :teleported="false">
++      <el-button>Language</el-button>
++      <template #dropdown>
++        <el-dropdown-menu>
++          <el-dropdown-item command="en" :checked="committed === 'en'" data-item="en">English</el-dropdown-item>
++          <el-dropdown-item command="ja" :checked="committed === 'ja'" :disabled="disabled" data-item="ja">日本語</el-dropdown-item>
++          <el-dropdown-item command="retry" data-item="retry">Retry</el-dropdown-item>
++          <el-dropdown-item role="menuitemradio" aria-checked="true" data-item="uncontrolled">Ordinary</el-dropdown-item>
++        </el-dropdown-menu>
++      </template>
++    </el-dropdown>
++  `,
++})
++
++async function mountMenu(props: Record<string, unknown> = {}) {
++  const wrapper = mount(host, { props, attachTo: document.body })
++  wrapper.getComponent(ElDropdown).vm.handleOpen()
++  await flushPromises()
++  await nextTick()
++  return wrapper
++}
++
++afterEach(() => {
++  document.body.innerHTML = ''
++})
++
++describe('Dropdown public checked state', () => {
++  test('renders one consumer-committed radio and updates through props only', async () => {
++    const wrapper = await mountMenu()
++    expect(wrapper.findAll('[role="menuitemradio"]')).toHaveLength(2)
++    expect(
++      wrapper.findAll('[role="menuitemradio"][aria-checked="true"]'),
++    ).toHaveLength(1)
++    expect(wrapper.get('[data-item="en"]').attributes('aria-checked')).toBe(
++      'true',
++    )
++    await wrapper.setProps({ committed: 'ja' })
++    expect(wrapper.get('[data-item="en"]').attributes('aria-checked')).toBe(
++      'false',
++    )
++    expect(wrapper.get('[data-item="ja"]').attributes('aria-checked')).toBe(
++      'true',
++    )
++    wrapper.unmount()
++  })
++
++  test('keeps ordinary command items and removes unsupported checked attrs', async () => {
++    const wrapper = await mountMenu()
++    for (const item of ['retry', 'uncontrolled']) {
++      expect(wrapper.get(`[data-item="${item}"]`).attributes('role')).toBe(
++        'menuitem',
++      )
++      expect(
++        wrapper.get(`[data-item="${item}"]`).attributes('aria-checked'),
++      ).toBeUndefined()
++    }
++    wrapper.unmount()
++  })
++
++  test('activation never half-commits controlled selection or hides pending content', async () => {
++    const wrapper = await mountMenu()
++    const dropdown = wrapper.getComponent(ElDropdown)
++    await wrapper
++      .get('[data-item="ja"]')
++      .trigger('keydown', { key: 'Enter', code: 'Enter' })
++    expect(dropdown.emitted('command')?.[0]?.[0]).toBe('ja')
++    expect(wrapper.get('[data-item="en"]').attributes('aria-checked')).toBe(
++      'true',
++    )
++    expect(wrapper.get('[data-item="ja"]').attributes('aria-checked')).toBe(
++      'false',
++    )
++    expect(dropdown.emitted('visible-change')?.at(-1)).toEqual([true])
++    await wrapper
++      .get('[data-item="retry"]')
++      .trigger('keydown', { key: ' ', code: 'Space' })
++    expect(dropdown.emitted('command')?.at(-1)?.[0]).toBe('retry')
++    expect(wrapper.get('[data-item="en"]').attributes('aria-checked')).toBe(
++      'true',
++    )
++    wrapper.unmount()
++  })
++
++  test('disabled radio rejects click, Enter and Space without changing the value', async () => {
++    const wrapper = await mountMenu({ disabled: true })
++    const item = wrapper.get('[data-item="ja"]')
++    expect(item.attributes('aria-disabled')).toBe('true')
++    await item.trigger('click')
++    await item.trigger('keydown', { key: 'Enter', code: 'Enter' })
++    await item.trigger('keydown', { key: ' ', code: 'Space' })
++    expect(wrapper.getComponent(ElDropdown).emitted('command')).toBeUndefined()
++    expect(wrapper.get('[data-item="en"]').attributes('aria-checked')).toBe(
++      'true',
++    )
++    wrapper.unmount()
++  })
++
++  test('ArrowUp keyboard entry focuses the committed checked item', async () => {
++    const wrapper = mount(host, {
++      props: { committed: 'ja' },
++      attachTo: document.body,
++    })
++    ;(wrapper.get('button').element as HTMLButtonElement).focus()
++    await wrapper
++      .get('button')
++      .trigger('keydown', { key: 'ArrowUp', code: 'ArrowUp' })
++    await flushPromises()
++    await vi.waitFor(() => {
++      expect(document.activeElement).toBe(
++        wrapper.get('[data-item="ja"]').element,
++      )
++    })
++    wrapper.unmount()
++  })
++
++  test('Escape restores the trigger after checked-item keyboard entry', async () => {
++    const wrapper = mount(host, { attachTo: document.body })
++    const trigger = wrapper.get('button')
++    ;(trigger.element as HTMLButtonElement).focus()
++    await trigger.trigger('keydown', { key: 'Enter', code: 'Enter' })
++    await vi.waitFor(() => {
++      expect(document.activeElement).toBe(
++        wrapper.get('[data-item="en"]').element,
++      )
++    })
++    await wrapper
++      .get('[data-item="en"]')
++      .trigger('keydown', { key: 'Escape', code: 'Escape' })
++    await vi.waitFor(() => {
++      expect(document.activeElement).toBe(trigger.element)
++      expect(
++        wrapper.getComponent(ElDropdown).emitted('visible-change')?.at(-1),
++      ).toEqual([false])
++    })
++    wrapper.unmount()
++  })
++
++  test('cancelled item Escape does not restore the trigger on later outside dismissal', async () => {
++    const wrapper = mount(
++      defineComponent({
++        components: { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu },
++        template: `
++          <div>
++            <el-dropdown trigger="click" :hide-on-click="false" :teleported="false">
++              <el-button>Language</el-button>
++              <template #dropdown>
++                <el-dropdown-menu>
++                  <el-dropdown-item :checked="true" @keydown.esc.stop.prevent>English</el-dropdown-item>
++                </el-dropdown-menu>
++              </template>
++            </el-dropdown>
++            <button data-outside>Outside</button>
++          </div>
++        `,
++      }),
++      { attachTo: document.body },
++    )
++    const trigger = wrapper.get('button')
++    const dropdown = wrapper.getComponent(ElDropdown)
++    ;(trigger.element as HTMLButtonElement).focus()
++    await trigger.trigger('keydown', { key: 'Enter', code: 'Enter' })
++    await vi.waitFor(() => {
++      expect(document.activeElement).toBe(
++        wrapper.get('[role="menuitemradio"]').element,
++      )
++    })
++    await wrapper
++      .get('[role="menuitemradio"]')
++      .trigger('keydown', { key: 'Escape', code: 'Escape' })
++    await flushPromises()
++    expect(dropdown.emitted('visible-change')?.at(-1)).toEqual([true])
++    expect(document.activeElement).toBe(
++      wrapper.get('[role="menuitemradio"]').element,
++    )
++    const outside = wrapper.get('[data-outside]')
++    await outside.trigger('pointerdown')
++    await outside.trigger('mousedown')
++    ;(outside.element as HTMLButtonElement).focus()
++    await outside.trigger('click')
++    await vi.waitFor(() => {
++      expect(dropdown.emitted('visible-change')?.at(-1)).toEqual([false])
++      expect(document.activeElement).toBe(outside.element)
++    })
++    wrapper.unmount()
++  })
++
++  test.each([false, true])(
++    'nested Escape (cancelled=%s) preserves parent state and subsequent outside focus',
++    async (cancelled) => {
++      const wrapper = mount(
++        defineComponent({
++          components: { ElButton, ElDropdown, ElDropdownItem, ElDropdownMenu },
++          template: `
++            <div>
++              <el-dropdown trigger="click" :hide-on-click="false" :teleported="false">
++                <el-button data-parent-trigger>Parent</el-button>
++                <template #dropdown>
++                  <el-dropdown-menu>
++                    <el-dropdown-item :checked="true">
++                      <el-dropdown trigger="click" :hide-on-click="false" :teleported="false">
++                        <el-button data-child-trigger>Child</el-button>
++                        <template #dropdown>
++                          <el-dropdown-menu>
++                            <el-dropdown-item :checked="true" data-child-item ${cancelled ? '@keydown.esc.stop.prevent' : ''}>English</el-dropdown-item>
++                          </el-dropdown-menu>
++                        </template>
++                      </el-dropdown>
++                    </el-dropdown-item>
++                  </el-dropdown-menu>
++                </template>
++              </el-dropdown>
++              <button data-outside>Outside</button>
++            </div>
++          `,
++        }),
++        { attachTo: document.body },
++      )
++      const [parent, child] = wrapper.findAllComponents(ElDropdown)
++      const parentTrigger = wrapper.get('[data-parent-trigger]')
++      ;(parentTrigger.element as HTMLButtonElement).focus()
++      await parentTrigger.trigger('keydown', { key: 'Enter', code: 'Enter' })
++      await vi.waitFor(() =>
++        expect(parent.emitted('visible-change')?.at(-1)).toEqual([true]),
++      )
++      const childTrigger = wrapper.get('[data-child-trigger]')
++      ;(childTrigger.element as HTMLButtonElement).focus()
++      await childTrigger.trigger('keydown', { key: 'Enter', code: 'Enter' })
++      await vi.waitFor(() =>
++        expect(document.activeElement).toBe(
++          wrapper.get('[data-child-item]').element,
++        ),
++      )
++      await wrapper
++        .get('[data-child-item]')
++        .trigger('keydown', { key: 'Escape', code: 'Escape' })
++      await flushPromises()
++      if (cancelled) {
++        expect(child.emitted('visible-change')?.at(-1)).toEqual([true])
++        expect(document.activeElement).toBe(
++          wrapper.get('[data-child-item]').element,
++        )
++      } else {
++        await vi.waitFor(() => {
++          expect(child.emitted('visible-change')?.at(-1)).toEqual([false])
++          expect(document.activeElement).toBe(childTrigger.element)
++        })
++      }
++      expect(parent.emitted('visible-change')?.at(-1)).toEqual([true])
++      expect(wrapper.get('[data-child-item]').attributes('aria-checked')).toBe(
++        'true',
++      )
++      const outside = wrapper.get('[data-outside]')
++      await outside.trigger('pointerdown')
++      await outside.trigger('mousedown')
++      ;(outside.element as HTMLButtonElement).focus()
++      await outside.trigger('click')
++      await vi.waitFor(() => {
++        expect(parent.emitted('visible-change')?.at(-1)).toEqual([false])
++        expect(child.emitted('visible-change')?.at(-1)).toEqual([false])
++        expect(document.activeElement).toBe(outside.element)
++      })
++      wrapper.unmount()
++    },
++  )
++
++  test.each(['navigation', 'group'])(
++    'keeps checked state out of the %s role',
++    async (role) => {
++      const wrapper = await mountMenu({ role })
++      const item = wrapper.get('[data-item="en"]')
++      expect(item.attributes('role')).toBe(
++        role === 'navigation' ? 'link' : 'button',
++      )
++      expect(item.attributes('aria-checked')).toBeUndefined()
++      wrapper.unmount()
++    },
++  )
++
++  test('Escape closes a pointer-opened popup while focus remains on its trigger', async () => {
++    const wrapper = mount(host, { attachTo: document.body })
++    const trigger = wrapper.get('button')
++    ;(trigger.element as HTMLButtonElement).focus()
++    await trigger.trigger('click')
++    const dropdown = wrapper.getComponent(ElDropdown)
++    await vi.waitFor(() =>
++      expect(dropdown.emitted('visible-change')?.at(-1)).toEqual([true]),
++    )
++    await trigger.trigger('keydown', { key: 'Escape', code: 'Escape' })
++    await vi.waitFor(() =>
++      expect(dropdown.emitted('visible-change')?.at(-1)).toEqual([false]),
++    )
++    expect(document.activeElement).toBe(trigger.element)
++    wrapper.unmount()
++  })
++})
+diff --git a/vue/packages/components/dropdown/src/dropdown-item-impl.vue b/vue/packages/components/dropdown/src/dropdown-item-impl.vue
+index d6655d9b..8df76007 100644
+--- a/vue/packages/components/dropdown/src/dropdown-item-impl.vue
++++ b/vue/packages/components/dropdown/src/dropdown-item-impl.vue
+@@ -9,7 +9,13 @@
+     :ref="itemRef"
+     v-bind="{ ...dataset, ...$attrs }"
+     :aria-disabled="disabled"
+-    :class="[ns.be('menu', 'item'), ns.is('disabled', disabled)]"
++    :aria-checked="checkedState"
++    :class="[
++      ns.be('menu', 'item'),
++      ns.is('disabled', disabled),
++      ns.is('multiline', multiline),
++      { selected: checkedState === true },
++    ]"
+     :tabindex="tabIndex"
+     :role="role"
+     @click="(e) => $emit('clickimpl', e)"
+@@ -22,7 +28,21 @@
+     <el-icon v-if="icon">
+       <component :is="icon" />
+     </el-icon>
+-    <slot />
++    <template v-if="multiline">
++      <span :class="ns.be('menu', 'item-content')">
++        <span :class="ns.be('menu', 'item-label')"><slot /></span>
++        <span
++          v-if="$slots.description"
++          :class="ns.be('menu', 'item-description')"
++        >
++          <slot name="description" />
++        </span>
++      </span>
++    </template>
++    <slot v-else />
++    <span v-if="$slots.suffix" :class="ns.be('menu', 'item-suffix')">
++      <slot name="suffix" />
++    </span>
+   </li>
+ </template>
+ 
+@@ -52,19 +72,19 @@ export default defineComponent({
+   },
+   props: dropdownItemProps,
+   emits: ['pointermove', 'pointerleave', 'click', 'clickimpl'],
+-  setup(_, { emit }) {
++  setup(props, { emit }) {
+     const ns = useNamespace('dropdown')
+ 
+     const { role: menuRole } = inject(DROPDOWN_INJECTION_KEY, undefined)!
+ 
+     const { collectionItemRef: dropdownCollectionItemRef } = inject(
+       DROPDOWN_COLLECTION_ITEM_INJECTION_KEY,
+-      undefined
++      undefined,
+     )!
+ 
+     const { collectionItemRef: rovingFocusCollectionItemRef } = inject(
+       ROVING_FOCUS_ITEM_COLLECTION_INJECTION_KEY,
+-      undefined
++      undefined,
+     )!
+ 
+     const {
+@@ -75,26 +95,30 @@ export default defineComponent({
+       handleMousedown,
+     } = inject(ROVING_FOCUS_GROUP_ITEM_INJECTION_KEY, undefined)!
+ 
+-    const assignElementRef = (element: Element | ComponentPublicInstance | undefined) => {
+-      const resolvedElement = element instanceof HTMLElement ? element : undefined
++    const assignElementRef = (
++      element: Element | ComponentPublicInstance | undefined,
++    ) => {
++      const resolvedElement =
++        element instanceof HTMLElement ? element : undefined
+ 
+       dropdownCollectionItemRef.value = resolvedElement ?? null
+       rovingFocusCollectionItemRef.value = resolvedElement ?? null
+       rovingFocusGroupItemRef.value = resolvedElement ?? null
+     }
+ 
+-    const itemRef = composeRefs(
+-      assignElementRef
+-    )
++    const itemRef = composeRefs(assignElementRef)
+ 
+     const role = computed<string>(() => {
+       if (menuRole.value === 'menu') {
+-        return 'menuitem'
++        return props.checked === undefined ? 'menuitem' : 'menuitemradio'
+       } else if (menuRole.value === 'navigation') {
+         return 'link'
+       }
+       return 'button'
+     })
++    const checkedState = computed(() =>
++      menuRole.value === 'menu' ? props.checked : undefined,
++    )
+ 
+     const handleKeydown = composeEventHandlers((e: KeyboardEvent) => {
+       const { code } = e
+@@ -113,6 +137,7 @@ export default defineComponent({
+         [COLLECTION_ITEM_SIGN]: '',
+       },
+       role,
++      checkedState,
+       tabIndex,
+       handleFocus,
+       handleKeydown,
+diff --git a/vue/packages/components/dropdown/src/dropdown-item.vue b/vue/packages/components/dropdown/src/dropdown-item.vue
+index c0d77451..0cf31943 100644
+--- a/vue/packages/components/dropdown/src/dropdown-item.vue
++++ b/vue/packages/components/dropdown/src/dropdown-item.vue
+@@ -3,7 +3,7 @@
+     :disabled="disabled"
+     :text-value="textValue ?? textContent"
+   >
+-    <el-roving-focus-item :focusable="!disabled">
++    <el-roving-focus-item :focusable="!disabled" :active="isActiveRadio">
+       <el-dropdown-item-impl
+         v-bind="propsAndAttrs"
+         @pointerleave="handlePointerLeave"
+@@ -11,6 +11,12 @@
+         @clickimpl="handleClick"
+       >
+         <slot />
++        <template v-if="$slots.description" #description>
++          <slot name="description" />
++        </template>
++        <template v-if="$slots.suffix" #suffix>
++          <slot name="suffix" />
++        </template>
+       </el-dropdown-item-impl>
+     </el-roving-focus-item>
+   </el-dropdown-collection-item>
+@@ -57,10 +63,13 @@ export default defineComponent({
+     const _instance = getCurrentInstance()
+     const itemRef = ref<HTMLElement | null>(null)
+     const textContent = computed(() => unref(itemRef)?.textContent ?? '')
+-    const { onItemEnter, onItemLeave } = inject(
++    const { role, onItemEnter, onItemLeave } = inject(
+       DROPDOWN_INJECTION_KEY,
+       undefined,
+     )!
++    const isActiveRadio = computed(
++      () => role.value === 'menu' && props.checked === true,
++    )
+ 
+     const handlePointerMove = composeEventHandlers(
+       (e: PointerEvent) => {
+@@ -132,6 +141,7 @@ export default defineComponent({
+ 
+     return {
+       handleClick,
++      isActiveRadio,
+       handlePointerMove,
+       handlePointerLeave,
+       textContent,
+diff --git a/vue/packages/components/dropdown/src/dropdown-menu.vue b/vue/packages/components/dropdown/src/dropdown-menu.vue
+index 6ade038f..546ea517 100644
+--- a/vue/packages/components/dropdown/src/dropdown-menu.vue
++++ b/vue/packages/components/dropdown/src/dropdown-menu.vue
+@@ -39,22 +39,21 @@ import type { ComponentPublicInstance } from 'vue'
+ const TYPEAHEAD_TIMEOUT = 1000
+ 
+ const isTypeaheadEvent = (event: KeyboardEvent) =>
+-  event.key.length === 1
+-  && !event.ctrlKey
+-  && !event.metaKey
+-  && !event.altKey
++  event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
+ 
+ const isEditableElement = (target: EventTarget | null) =>
+-  target instanceof HTMLElement
+-  && (target.isContentEditable
+-    || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
++  target instanceof HTMLElement &&
++  (target.isContentEditable ||
++    ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+ 
+ const getItemTextValue = (item: Record<string, any>) => {
+   const textValue = item.textValue ?? item['text-value']
+ 
+-  return `${typeof textValue === 'string' && textValue.trim().length > 0
+-    ? textValue
+-    : item.ref?.textContent ?? ''}`
++  return `${
++    typeof textValue === 'string' && textValue.trim().length > 0
++      ? textValue
++      : (item.ref?.textContent ?? '')
++  }`
+     .trim()
+     .toLowerCase()
+ }
+@@ -77,17 +76,17 @@ export default defineComponent({
+ 
+     const { focusTrapRef, onKeydown } = inject(
+       FOCUS_TRAP_INJECTION_KEY,
+-      undefined
++      undefined,
+     )!
+ 
+-    const { contentRef, role, triggerId } = inject(
++    const { contentRef, role, triggerId, onMenuKeydown } = inject(
+       DROPDOWN_INJECTION_KEY,
+-      undefined
++      undefined,
+     )!
+ 
+     const { collectionRef: dropdownCollectionRef, getItems } = inject(
+       DROPDOWN_COLLECTION_INJECTION_KEY,
+-      undefined
++      undefined,
+     )!
+ 
+     const {
+@@ -103,19 +102,17 @@ export default defineComponent({
+     const {
+       collectionRef: rovingFocusGroupCollectionRef,
+       getItems: getRovingFocusItems,
+-    } = inject(
+-      ROVING_FOCUS_COLLECTION_INJECTION_KEY,
+-      undefined
+-    )!
++    } = inject(ROVING_FOCUS_COLLECTION_INJECTION_KEY, undefined)!
+ 
+     const dropdownKls = computed(() => {
+       return [ns.b('menu'), ns.bm('menu', size?.value)]
+     })
+ 
+     const assignWrapperRef = (
+-      element: Element | ComponentPublicInstance | undefined
++      element: Element | ComponentPublicInstance | undefined,
+     ) => {
+-      const resolvedElement = element instanceof HTMLElement ? element : undefined
++      const resolvedElement =
++        element instanceof HTMLElement ? element : undefined
+ 
+       contentRef.value = resolvedElement ?? null
+       dropdownCollectionRef.value = resolvedElement ?? null
+@@ -124,9 +121,7 @@ export default defineComponent({
+       rovingFocusGroupCollectionRef.value = resolvedElement ?? null
+     }
+ 
+-    const dropdownListWrapperRef = composeRefs(
+-      assignWrapperRef
+-    )
++    const dropdownListWrapperRef = composeRefs(assignWrapperRef)
+ 
+     let typeaheadSearch = ''
+     let typeaheadTimer: ReturnType<typeof setTimeout> | undefined
+@@ -139,27 +134,35 @@ export default defineComponent({
+       }
+     }
+ 
+-    const focusMatchingItem = (search: string, currentTarget?: EventTarget | null) => {
+-      const items = getItems<{ disabled: boolean }>().filter((item) => !item.disabled)
++    const focusMatchingItem = (
++      search: string,
++      currentTarget?: EventTarget | null,
++    ) => {
++      const items = getItems<{ disabled: boolean }>().filter(
++        (item) => !item.disabled,
++      )
+       if (!items.length) return
+ 
+       const activeElement = document.activeElement
+       const activeIndex = items.findIndex(
+-        (item) => item.ref === activeElement || item.ref === currentTarget
++        (item) => item.ref === activeElement || item.ref === currentTarget,
+       )
+       const orderedItems =
+         activeIndex === -1
+           ? items
+-          : [...items.slice(activeIndex + 1), ...items.slice(0, activeIndex + 1)]
++          : [
++              ...items.slice(activeIndex + 1),
++              ...items.slice(0, activeIndex + 1),
++            ]
+       const normalizedSearch = normalizeTypeaheadSearch(search)
+       const matchedItem = orderedItems.find((item) =>
+-        getItemTextValue(item).startsWith(normalizedSearch)
++        getItemTextValue(item).startsWith(normalizedSearch),
+       )
+ 
+       if (!matchedItem?.ref) return
+ 
+       const rovingItem = getRovingFocusItems<{ id: string }>().find(
+-        (item) => item.ref === matchedItem.ref
++        (item) => item.ref === matchedItem.ref,
+       )
+ 
+       if (rovingItem?.id) {
+@@ -202,9 +205,9 @@ export default defineComponent({
+         const content = unref(contentRef)
+ 
+         if (
+-          target
+-          && (currentTarget as Node).contains(target as Node)
+-          && handleTypeaheadSearch(e)
++          target &&
++          (currentTarget as Node).contains(target as Node) &&
++          handleTypeaheadSearch(e)
+         ) {
+           e.preventDefault()
+           return
+@@ -219,19 +222,20 @@ export default defineComponent({
+         if (!FIRST_LAST_KEYS.includes(code)) return
+         e.preventDefault()
+         const items = getItems<{ disabled: boolean }>().filter(
+-          (item) => !item.disabled
++          (item) => !item.disabled,
+         )
+         const targets = items.map((item) => item.ref!)
+         if (LAST_KEYS.includes(code)) {
+           targets.reverse()
+         }
+         focusFirst(targets)
+-      }
++      },
+     )
+ 
+     const handleKeydown = (e: KeyboardEvent) => {
+       composedKeydown(e)
+       onKeydown(e)
++      if (!e.cancelBubble) onMenuKeydown(e)
+     }
+ 
+     return {
+@@ -243,6 +247,7 @@ export default defineComponent({
+       triggerId,
+       dropdownListWrapperRef,
+       handleKeydown,
++      onMenuKeydown,
+       onBlur,
+       onFocus,
+       onMousedown,
+diff --git a/vue/packages/components/dropdown/src/dropdown.ts b/vue/packages/components/dropdown/src/dropdown.ts
+index 970acbd0..dbd56ba7 100644
+--- a/vue/packages/components/dropdown/src/dropdown.ts
++++ b/vue/packages/components/dropdown/src/dropdown.ts
+@@ -91,6 +91,7 @@ export const dropdownProps = buildProps({
+     type: definePropType<ButtonProps>(Object),
+   },
+   teleported: useTooltipContentProps.teleported,
++  viewportBounded: Boolean,
+ } as const)
+ 
+ export const dropdownItemProps = buildProps({
+@@ -99,6 +100,11 @@ export const dropdownItemProps = buildProps({
+     default: () => ({}),
+   },
+   disabled: Boolean,
++  multiline: Boolean,
++  checked: {
++    type: Boolean,
++    default: undefined,
++  },
+   divided: Boolean,
+   textValue: String,
+   icon: {
+diff --git a/vue/packages/components/dropdown/src/dropdown.vue b/vue/packages/components/dropdown/src/dropdown.vue
+index c3b8dde3..20929fcd 100644
+--- a/vue/packages/components/dropdown/src/dropdown.vue
++++ b/vue/packages/components/dropdown/src/dropdown.vue
+@@ -2,6 +2,7 @@
+   <div
+     v-bind="componentMotionAttrs"
+     :class="[ns.b(), ns.is('disabled', disabled)]"
++    @keydown="handleTriggerKeydown"
+   >
+     <el-tooltip ref="popperRef" v-bind="tooltipBindings" v-on="tooltipEvents">
+       <template #content>
+@@ -79,6 +80,7 @@ import {
+ } from '@element-plus/components/motion'
+ import { ElCollection as ElDropdownCollection, dropdownProps } from './dropdown'
+ import { DROPDOWN_INJECTION_KEY } from './tokens'
++import { dropdownViewportModifiers } from './viewport-modifiers'
+ 
+ import type { CSSProperties, ComponentPublicInstance } from 'vue'
+ import type { Measurable } from '@element-plus/components/popper'
+@@ -113,18 +115,26 @@ export default defineComponent({
+       (ComponentPublicInstance & { $el: HTMLElement }) | null
+     >(null)
+     const popperRef = ref<InstanceType<typeof ElTooltip> | null>(null)
++    let popupVisible = false
+     const contentRef = ref<HTMLElement | null>(null)
+     const scrollbar = ref(null)
+     const currentTabId = ref<string | null>(null)
+     const isUsingKeyboard = ref(false)
+-    const triggerKeys = [EVENT_CODE.enter, EVENT_CODE.space, EVENT_CODE.down]
++    const triggerKeys = [
++      EVENT_CODE.enter,
++      EVENT_CODE.space,
++      EVENT_CODE.down,
++      EVENT_CODE.up,
++    ]
+     const triggerTargetEl = computed(() => contentRef.value ?? undefined)
+     const virtualRef = computed<Measurable | undefined>(
+       () => triggeringElementRef.value?.$el ?? undefined,
+     )
+ 
+     const wrapStyle = computed<CSSProperties>(() => ({
+-      maxHeight: addUnit(props.maxHeight),
++      maxHeight: props.viewportBounded
++        ? `min(${addUnit(props.maxHeight) || '274px'}, calc(var(--el-dropdown-viewport-height, 100dvh) - 24px))`
++        : addUnit(props.maxHeight),
+     }))
+     const dropdownTriggerKls = computed(() => [ns.m(dropdownSize.value)])
+     const trigger = computed(() => ensureArray(props.trigger))
+@@ -152,10 +162,22 @@ export default defineComponent({
+       role: props.role,
+       effect: props.effect,
+       fallbackPlacements,
+-      popperOptions: props.popperOptions,
++      popperOptions: props.viewportBounded
++        ? {
++            ...props.popperOptions,
++            modifiers: [
++              ...dropdownViewportModifiers(),
++              ...(props.popperOptions.modifiers || []),
++            ],
++          }
++        : props.popperOptions,
+       hideAfter: trigger.value.includes('hover') ? props.hideTimeout : 0,
+       placement: props.placement,
+-      popperClass: [ns.e('popper'), props.popperClass],
++      popperClass: [
++        ns.e('popper'),
++        ns.is('viewport-bounded', props.viewportBounded),
++        props.popperClass,
++      ],
+       referenceElement: referenceElementRef.value?.$el,
+       trigger: trigger.value,
+       triggerKeys,
+@@ -174,6 +196,7 @@ export default defineComponent({
+       'before-show': handleBeforeShowTooltip,
+       show: handleShowTooltip,
+       'before-hide': handleBeforeHideTooltip,
++      hide: handleHideTooltip,
+     }
+     const rovingFocusGroupBindings = computed(() => ({
+       loop: props.loop,
+@@ -238,7 +261,9 @@ export default defineComponent({
+       }
+     }
+ 
+-    function handleBeforeShowTooltip() {
++    function handleBeforeShowTooltip(event?: Event) {
++      popupVisible = true
++      isUsingKeyboard.value = event?.type === 'keydown'
+       emit('visible-change', true)
+     }
+ 
+@@ -249,9 +274,35 @@ export default defineComponent({
+     }
+ 
+     function handleBeforeHideTooltip() {
++      popupVisible = false
+       emit('visible-change', false)
+     }
+ 
++    function handleContentKeydown(event: KeyboardEvent) {
++      handleTriggerKeydown(event)
++    }
++
++    function handleTriggerKeydown(event: KeyboardEvent) {
++      if (
++        popupVisible &&
++        !event.defaultPrevented &&
++        event.code === EVENT_CODE.esc
++      ) {
++        event.preventDefault()
++        event.stopPropagation()
++        popperRef.value?.onClose(event)
++      }
++    }
++
++    function handleHideTooltip(event?: Event) {
++      if (
++        event?.type === 'keydown' &&
++        (event as KeyboardEvent).code === EVENT_CODE.esc
++      ) {
++        triggeringElementRef.value?.$el?.focus({ preventScroll: true })
++      }
++    }
++
+     provide(DROPDOWN_INJECTION_KEY, {
+       contentRef,
+       role: computed(() => props.role),
+@@ -259,6 +310,7 @@ export default defineComponent({
+       isUsingKeyboard,
+       onItemEnter,
+       onItemLeave,
++      onMenuKeydown: handleContentKeydown,
+     })
+ 
+     provide('elDropdown', {
+@@ -309,6 +361,8 @@ export default defineComponent({
+       handleBeforeShowTooltip,
+       handleShowTooltip,
+       handleBeforeHideTooltip,
++      handleContentKeydown,
++      handleTriggerKeydown,
+       onFocusAfterTrapped,
+       popperRef,
+       contentRef,
+diff --git a/vue/packages/components/dropdown/src/tokens.ts b/vue/packages/components/dropdown/src/tokens.ts
+index e14e9adc..fb7cff55 100644
+--- a/vue/packages/components/dropdown/src/tokens.ts
++++ b/vue/packages/components/dropdown/src/tokens.ts
+@@ -7,6 +7,7 @@ export type ElDropdownInjectionContext = {
+   isUsingKeyboard: Ref<boolean>
+   onItemLeave: (e: PointerEvent) => void
+   onItemEnter: (e: PointerEvent) => void
++  onMenuKeydown: (e: KeyboardEvent) => void
+ }
+ 
+ export const DROPDOWN_INJECTION_KEY: InjectionKey<ElDropdownInjectionContext> =
+diff --git a/vue/packages/components/dropdown/src/viewport-modifiers.ts b/vue/packages/components/dropdown/src/viewport-modifiers.ts
+new file mode 100644
+index 00000000..1541f3b1
+--- /dev/null
++++ b/vue/packages/components/dropdown/src/viewport-modifiers.ts
+@@ -0,0 +1,127 @@
++import { arrow, computeStyles, offset, preventOverflow } from '@popperjs/core'
++
++import type { Modifier, State } from '@popperjs/core'
++
++const zoomKey = 'dropdownViewport'
++const getZoom = (state: State) => state.modifiersData[zoomKey]?.zoom ?? 1
++
++// Popper v2 uses client reference rectangles but CSS layout popper dimensions.
++// For a root-zoomed, body-teleported overlay, run its geometry in client pixels
++// and convert only arrow/style output back to CSS pixels. Popper still owns
++// placement, flip, tethering, overflow and event listener cleanup.
++export const dropdownViewportModifiers = (): Modifier<any, any>[] => [
++  {
++    ...preventOverflow,
++    options: { altAxis: true, tether: false },
++  },
++  {
++    name: zoomKey,
++    enabled: true,
++    phase: 'beforeRead',
++    fn: ({ state, name }) => {
++      const element = state.elements.popper
++      const root = element.ownerDocument.documentElement
++      const window = element.ownerDocument.defaultView!
++      const parent = element.offsetParent
++      const rootPositioned =
++        parent &&
++        ((parent !== root && parent !== root.ownerDocument.body) ||
++          window.getComputedStyle(parent).position !== 'static')
++      const rootZoom =
++        Number.parseFloat(window.getComputedStyle(root).zoom) || 1
++      const zoom = rootPositioned ? 1 : rootZoom
++      const viewport = window.visualViewport
++      const width = viewport?.width ?? root.clientWidth
++      const height = viewport?.height ?? root.clientHeight
++      element.style.setProperty(
++        '--el-dropdown-viewport-width',
++        `${width / rootZoom}px`,
++      )
++      element.style.setProperty(
++        '--el-dropdown-viewport-height',
++        `${height / rootZoom}px`,
++      )
++      if (!state.modifiersData[name]?.normalized) {
++        if (!rootPositioned) {
++          state.rects.popper.width = element.offsetWidth * zoom
++          state.rects.popper.height = element.offsetHeight * zoom
++        }
++        state.modifiersData[name] = { zoom, normalized: true }
++      }
++    },
++    effect:
++      ({ state }) =>
++      () => {
++        state.elements.popper.style.removeProperty(
++          '--el-dropdown-viewport-width',
++        )
++        state.elements.popper.style.removeProperty(
++          '--el-dropdown-viewport-height',
++        )
++      },
++  },
++  {
++    ...offset,
++    fn: (args) => {
++      offset.fn(args)
++      const zoom = getZoom(args.state)
++      const data = args.state.modifiersData.offset
++      const offsets = args.state.modifiersData.popperOffsets
++      if (!data || !offsets) return
++      const current = data[args.state.placement]
++      if (!current) return
++      offsets.x += current.x * (zoom - 1)
++      offsets.y += current.y * (zoom - 1)
++      for (const value of Object.values(data)) {
++        if (!value) continue
++        value.x *= zoom
++        value.y *= zoom
++      }
++    },
++  },
++  {
++    ...arrow,
++    fn: (args) => inCssCoordinates(args.state, () => arrow.fn(args)),
++  },
++  {
++    ...computeStyles,
++    fn: (args) =>
++      inCssCoordinates(args.state, () =>
++        computeStyles.fn({
++          ...args,
++          options: {
++            ...args.options,
++            adaptive: getZoom(args.state) === 1 ? args.options.adaptive : false,
++          },
++        }),
++      ),
++  },
++]
++
++function inCssCoordinates(state: State, fn: () => void) {
++  const zoom = getZoom(state)
++  if (zoom === 1) return fn()
++  const rects = state.rects
++  const offsets = state.modifiersData.popperOffsets
++  if (!offsets) return fn()
++  const scaleRect = (rect: State['rects']['popper']) => ({
++    x: rect.x / zoom,
++    y: rect.y / zoom,
++    width: rect.width / zoom,
++    height: rect.height / zoom,
++  })
++  state.rects = {
++    reference: scaleRect(rects.reference),
++    popper: scaleRect(rects.popper),
++  }
++  state.modifiersData.popperOffsets = {
++    x: offsets.x / zoom,
++    y: offsets.y / zoom,
++  }
++  try {
++    fn()
++  } finally {
++    state.rects = rects
++    state.modifiersData.popperOffsets = offsets
++  }
++}
+diff --git a/vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx b/vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx
+index cda148df..aab879e6 100644
+--- a/vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx
++++ b/vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx
+@@ -1,5 +1,5 @@
+ import { flushPromises, mount } from '@vue/test-utils'
+-import { createSSRApp, computed, h } from 'vue'
++import { createSSRApp, computed, h, ref } from 'vue'
+ import { renderToString } from '@vue/server-renderer'
+ import {
+   afterEach,
+@@ -22,6 +22,7 @@ import {
+   resolveMarkdownSourceIdentity,
+ } from '@element-plus/wasm'
+ import { activateMarkdownHeavyFeatures } from '../../../wasm/markdown-heavy-feature-activation'
++import { provideMarkdownHeavyFeatureDocumentContext } from '../../../hooks/use-markdown-heavy-feature-lifecycle'
+ import { createFsusError, fsusErr, fsusOk } from '@element-plus/utils'
+ import type {
+   MarkdownRuntimeHtmlResult,
+@@ -45,6 +46,26 @@ const markdownAuthorityMocks = vi.hoisted(() => ({
+   results: new WeakSet<object>(),
+ }))
+ 
++const heavyProjectionMocks = vi.hoisted(() => ({ project: vi.fn() }))
++
++vi.mock('../../../wasm/markdown-heavy-feature-identity', async () => {
++  const actual = await vi.importActual<
++    typeof import('../../../wasm/markdown-heavy-feature-identity')
++  >('../../../wasm/markdown-heavy-feature-identity')
++  return {
++    ...actual,
++    createMarkdownHeavyFeatureProjectionTracker: () => {
++      const tracker = actual.createMarkdownHeavyFeatureProjectionTracker()
++      return {
++        project: (input: Parameters<typeof tracker.project>[0]) => {
++          heavyProjectionMocks.project(input)
++          return tracker.project(input)
++        },
++      }
++    },
++  }
++})
++
+ vi.mock('@element-plus/wasm', async () => {
+   const actual =
+     await vi.importActual<typeof import('@element-plus/wasm')>(
+@@ -299,6 +320,7 @@ describe('MarkdownRenderer.vue', () => {
+ 
+   beforeEach(() => {
+     vi.useFakeTimers()
++    heavyProjectionMocks.project.mockClear()
+     MarkdownWorkerHarness.instances = []
+     renderMarkdownChunks.mockReset()
+     renderMarkdownHtml.mockReset()
+@@ -646,6 +668,115 @@ describe('MarkdownRenderer.vue', () => {
+     expect(renderMarkdownResult).toHaveBeenCalledTimes(initialCalls + 1)
+   })
+ 
++  test('invalidates pending heavy activation when the shared theme changes', async () => {
++    const source = '```mermaid\ngraph LR\nA-->B\n```'
++    const html =
++      '<figure class="markdown-renderer__mermaid" data-mermaid-placeholder="true"><code>graph LR\nA--&gt;B</code></figure>'
++    renderMarkdownResult.mockResolvedValue(fsusOk(makeResult(source, html)))
++    let settleActivation:
++      | ((
++          value: Awaited<ReturnType<typeof activateMarkdownHeavyFeatures>>,
++        ) => void)
++      | undefined
++    activateFeatures.mockImplementationOnce(
++      () =>
++        new Promise((resolve) => {
++          settleActivation = resolve
++        }),
++    )
++    const wrapper = mount(MarkdownRenderer, { props: { content: source } })
++    try {
++      await flushRenderer()
++      await vi.dynamicImportSettled()
++      await flushRenderer()
++      expect(settleActivation).toBeTypeOf('function')
++      const pendingSignal = activateFeatures.mock.calls[0][0].signal
++      expect(pendingSignal?.aborted).toBe(false)
++      const initialCalls = renderMarkdownResult.mock.calls.length
++
++      document.documentElement.dispatchEvent(
++        new CustomEvent('fsus:theme-change', {
++          detail: { mode: 'dark', resolved: 'dark' },
++        }),
++      )
++      expect(pendingSignal?.aborted).toBe(true)
++      await flushRenderer()
++      expect(renderMarkdownResult).toHaveBeenCalledTimes(initialCalls + 1)
++      expect(pendingSignal?.aborted).toBe(true)
++    } finally {
++      wrapper.unmount()
++      settleActivation?.({ activated: [], errors: [] })
++      await flushRenderer()
++    }
++  })
++
++  test('reuses only the current document projection across heavy activations', async () => {
++    const source = ref('```typescript\nconst current = 1\n```')
++    const documentKey = ref('projection-document-a')
++    const documentEpoch = ref(1)
++    const revision = ref(1)
++    renderMarkdownResult.mockImplementation(async (request) =>
++      fsusOk(
++        makeResult(
++          typeof request === 'string' ? request : request.source,
++          '<pre><code>current</code></pre>',
++        ),
++      ),
++    )
++    const host = mount({
++      setup() {
++        provideMarkdownHeavyFeatureDocumentContext({
++          documentKey: () => documentKey.value,
++          documentEpoch: () => documentEpoch.value,
++          revision: () => revision.value,
++        })
++        return () => h(MarkdownRenderer, { content: source.value })
++      },
++    })
++    const nodeIds = () =>
++      JSON.parse(
++        host
++          .find('[data-markdown-renderer="wasm"]')
++          .attributes('data-markdown-heavy-lifecycle'),
++      ).projectionNodeIds['code-highlight'] as string[]
++    try {
++      await flushRenderer()
++      await vi.dynamicImportSettled()
++      await flushRenderer()
++      expect(heavyProjectionMocks.project).toHaveBeenCalledTimes(1)
++      const firstIds = nodeIds()
++      expect(firstIds).toHaveLength(1)
++
++      document.documentElement.dispatchEvent(
++        new CustomEvent('fsus:theme-change'),
++      )
++      await flushRenderer()
++      expect(heavyProjectionMocks.project).toHaveBeenCalledTimes(1)
++      expect(nodeIds()).toEqual(firstIds)
++
++      source.value = `Introduction\n\n${source.value}`
++      revision.value += 1
++      await flushRenderer()
++      expect(heavyProjectionMocks.project).toHaveBeenCalledTimes(2)
++      expect(nodeIds()).toEqual(firstIds)
++
++      documentKey.value = 'projection-document-b'
++      await flushRenderer()
++      expect(heavyProjectionMocks.project).toHaveBeenCalledTimes(3)
++      const secondDocumentIds = nodeIds()
++      expect(secondDocumentIds).not.toEqual(firstIds)
++      expect(secondDocumentIds[0]).toContain('syn:projection-document-b:1:')
++
++      documentEpoch.value = 2
++      await flushRenderer()
++      expect(heavyProjectionMocks.project).toHaveBeenCalledTimes(4)
++      expect(nodeIds()).not.toEqual(secondDocumentIds)
++      expect(nodeIds()[0]).toContain('syn:projection-document-b:2:')
++    } finally {
++      host.unmount()
++    }
++  })
++
+   test('keeps the scroll anchor when the full result changes html', async () => {
+     let resolveFull:
+       | ((result: FsusResult<MarkdownRuntimeRenderResult>) => void)
+diff --git a/vue/packages/components/markdown-renderer/src/markdown-renderer-heavy-projection.ts b/vue/packages/components/markdown-renderer/src/markdown-renderer-heavy-projection.ts
+new file mode 100644
+index 00000000..305d5dec
+--- /dev/null
++++ b/vue/packages/components/markdown-renderer/src/markdown-renderer-heavy-projection.ts
+@@ -0,0 +1,33 @@
++import type {
++  MarkdownHeavyFeatureProjectionSnapshot,
++  MarkdownHeavyFeatureProjectionTracker,
++} from '../../../wasm/markdown-heavy-feature-identity'
++
++const createRendererHeavyProjectionTracker = async () => {
++  const { createMarkdownHeavyFeatureProjectionTracker } =
++    await import('../../../wasm/markdown-heavy-feature-identity')
++  const tracker = createMarkdownHeavyFeatureProjectionTracker()
++  let cached: Readonly<{
++    input: Parameters<MarkdownHeavyFeatureProjectionTracker['project']>[0]
++    projection: MarkdownHeavyFeatureProjectionSnapshot | null
++  }> | null = null
++
++  return Object.freeze({
++    project(
++      input: Parameters<MarkdownHeavyFeatureProjectionTracker['project']>[0],
++    ) {
++      if (
++        cached?.input.documentKey === input.documentKey &&
++        cached.input.documentEpoch === input.documentEpoch &&
++        cached.input.source === input.source
++      ) {
++        return cached.projection
++      }
++      const projection = tracker.project(input)
++      cached = Object.freeze({ input: Object.freeze({ ...input }), projection })
++      return projection
++    },
++  })
++}
++
++export default createRendererHeavyProjectionTracker
+diff --git a/vue/packages/components/markdown-renderer/src/markdown-renderer.vue b/vue/packages/components/markdown-renderer/src/markdown-renderer.vue
+index 2f923935..5f68c464 100644
+--- a/vue/packages/components/markdown-renderer/src/markdown-renderer.vue
++++ b/vue/packages/components/markdown-renderer/src/markdown-renderer.vue
+@@ -11,7 +11,7 @@
+     ]"
+     role="article"
+     aria-live="polite"
+-    :aria-busy="isRendering ? 'true' : 'false'"
++    :aria-busy="isRendering"
+     v-bind="rootRenderAttrs()"
+   >
+     <div
+@@ -136,6 +136,7 @@ const heavyLifecycle = createMarkdownHeavyFeatureLifecycle({
+ const heavyThemeRevision = ref(0)
+ let heavyThemeListenerInstalled = false
+ const handleHeavyFeatureThemeChange = () => {
++  activationController?.abort()
+   heavyThemeRevision.value += 1
+ }
+ const ensureHeavyFeatureThemeListener = () => {
+@@ -286,12 +287,10 @@ let heavyLifecycleProjectionNodeIds: Partial<
+ > = {}
+ let heavyProjectionTrackerPromise: Promise<MarkdownHeavyFeatureProjectionTracker> | null =
+   null
+-
+ const loadHeavyProjectionTracker = () =>
+   (heavyProjectionTrackerPromise ??=
+-    import('../../../wasm/markdown-heavy-feature-identity').then(
+-      ({ createMarkdownHeavyFeatureProjectionTracker }) =>
+-        createMarkdownHeavyFeatureProjectionTracker(),
++    import('./markdown-renderer-heavy-projection').then((module) =>
++      module.default(),
+     ))
+ 
+ function recordHeavyLifecycleMetrics() {
+@@ -882,12 +881,12 @@ const resolveMarkdownFeatureOptions = () => ({
+ })
+ 
+ const hasEnabledHeavyFeature = (
+-  result: MarkdownSafeRenderResult,
++  { features: renderedFeatures }: MarkdownSafeRenderResult,
+   features: ReturnType<typeof resolveMarkdownFeatureOptions>,
+ ) =>
+-  (features.codeHighlight && result.features.includes('code_block')) ||
+-  (features.latex && result.features.includes('latex')) ||
+-  (features.mermaid && result.features.includes('mermaid'))
++  (features.codeHighlight && renderedFeatures.includes('code_block')) ||
++  (features.latex && renderedFeatures.includes('latex')) ||
++  (features.mermaid && renderedFeatures.includes('mermaid'))
+ 
+ const resetFeatureActivation = () => {
+   removeHeavyFeatureThemeListener()
+@@ -1044,6 +1043,8 @@ const activateRenderedFeatures = async (
+   const activationStartedAt = readPerformanceNow()
+   const features = resolveMarkdownFeatureOptions()
+   const heavyFeaturesEnabled = hasEnabledHeavyFeature(result, features)
++  // Theme changes must invalidate pending imports and activation too.
++  if (heavyFeaturesEnabled) ensureHeavyFeatureThemeListener()
+   const resolveHeavyFeatureIdentity = heavyFeaturesEnabled
+     ? await createHeavyFeatureIdentityResolver(result)
+     : () => null
+@@ -1348,6 +1349,7 @@ onBeforeUnmount(() => {
+   currentTaskId += 1
+   isRendering.value = false
+   heavyLifecycle.dispose()
++  heavyProjectionTrackerPromise = null
+ })
+ 
+ defineExpose({
+diff --git a/vue/packages/icons-vue/src/components/index.ts b/vue/packages/icons-vue/src/components/index.ts
+index d11f17b8..a9b48d07 100644
+--- a/vue/packages/icons-vue/src/components/index.ts
++++ b/vue/packages/icons-vue/src/components/index.ts
+@@ -1,8 +1,10 @@
++export { default as AddDocument } from './document-add.vue'
+ export { default as AddLocation } from './add-location.vue'
+ export { default as Aim } from './aim.vue'
+ export { default as AlarmClock } from './alarm-clock.vue'
+ export { default as AlertTriangle } from './warning.vue'
+ export { default as Apple } from './apple.vue'
++export { default as ApplicationMenu } from './menu.vue'
+ export { default as ArrowDown } from './arrow-down.vue'
+ export { default as ArrowDownBold } from './arrow-down-bold.vue'
+ export { default as ArrowLeft } from './arrow-left.vue'
+@@ -231,16 +233,19 @@ export { default as Reading } from './reading.vue'
+ export { default as ReadingLamp } from './reading-lamp.vue'
+ export { default as Refresh } from './refresh.vue'
+ export { default as RefreshLeft } from './refresh-left.vue'
++export { default as RefreshReplace } from './refresh-right.vue'
+ export { default as RefreshRight } from './refresh-right.vue'
+ export { default as Refrigerator } from './refrigerator.vue'
+ export { default as Remove } from './remove.vue'
+ export { default as RemoveFilled } from './remove-filled.vue'
++export { default as Replace } from './refresh-right.vue'
+ export { default as Right } from './right.vue'
+ export { default as SaveAll } from './save-all.vue'
+ export { default as ScaleToOriginal } from './scale-to-original.vue'
+ export { default as School } from './school.vue'
+ export { default as Scissor } from './scissor.vue'
+ export { default as Search } from './search.vue'
++export { default as SearchFilter } from './filter.vue'
+ export { default as Select } from './select.vue'
+ export { default as Sell } from './sell.vue'
+ export { default as SemiSelect } from './semi-select.vue'
+diff --git a/vue/packages/theme-chalk/src/dropdown.scss b/vue/packages/theme-chalk/src/dropdown.scss
+index 6e296dd0..d1a4e5ab 100644
+--- a/vue/packages/theme-chalk/src/dropdown.scss
++++ b/vue/packages/theme-chalk/src/dropdown.scss
+@@ -58,6 +58,11 @@ $dropdown-divider-width: 1px !default;
+   @include e(popper) {
+     @include set-component-css-var('dropdown', $dropdown);
+ 
++    @include when(viewport-bounded) {
++      max-inline-size: calc(var(--el-dropdown-viewport-width, 100dvw) - 10px);
++      box-sizing: border-box;
++    }
++
+     // using attributes selector to override
+ 
+     @include picker-popper(
+@@ -191,7 +196,37 @@ $dropdown-menu-padding-vertical: map.merge(
+     }
+   }
+ 
+-  @include option-row.fsus-overlay-option-row-primitive('.el-dropdown-menu__item');
++  @include option-row.fsus-overlay-option-row-primitive(
++    '.el-dropdown-menu__item'
++  );
++
++  // Explicit rich content keeps the flat option-row states and default density.
++  .#{$namespace}-dropdown-menu__item.is-multiline {
++    block-size: auto;
++    min-block-size: var(--fsus-select-option-height);
++    line-height: map.get($dropdown-item-line-height, 'default');
++    white-space: normal;
++    overflow-wrap: anywhere;
++    text-overflow: clip;
++  }
++
++  @include e(item-content) {
++    display: flex;
++    flex-direction: column;
++    min-inline-size: 0;
++    flex: 1;
++  }
++
++  @include e(item-description) {
++    font-size: getCssVar('font-size', 'small');
++    color: getCssVar('text-color', 'secondary');
++  }
++
++  @include e(item-suffix) {
++    display: inline-flex;
++    flex-shrink: 0;
++    margin-inline-start: auto;
++  }
+ 
+   @each $size in (large, small) {
+     @include m($size) {
+@@ -209,3 +244,29 @@ $dropdown-menu-padding-vertical: map.merge(
+     }
+   }
+ }
++
++@media (forced-colors: active) {
++  // System color mapping preserves token alpha; the popup must hide its underlay.
++  .#{$namespace}-dropdown__popper.#{$namespace}-popper.is-pure {
++    background-color: Canvas;
++
++    .#{$namespace}-popper__arrow::before {
++      background-color: Canvas;
++    }
++  }
++
++  .#{$namespace}-dropdown [aria-haspopup='menu']:focus-visible,
++  .#{$namespace}-dropdown-menu__item:not(.is-disabled):focus-visible {
++    position: relative;
++
++    // Forced colors suppresses box-shadow; preserve the same inset ring.
++    &::after {
++      content: '';
++      position: absolute;
++      inset: 0;
++      border: var(--fsus-focus-ring-width, 2px) solid var(--fsus-scholarly-blue);
++      border-radius: inherit;
++      pointer-events: none;
++    }
++  }
++}
+diff --git a/vue/packages/wasm/markdown-projection.worker-node.mjs b/vue/packages/wasm/markdown-projection.worker-node.mjs
+index e4c10575..6cec4e94 100644
+--- a/vue/packages/wasm/markdown-projection.worker-node.mjs
++++ b/vue/packages/wasm/markdown-projection.worker-node.mjs
+@@ -1,25 +1,10 @@
+-import { registerHooks } from 'node:module'
+ import { isMainThread, parentPort } from 'node:worker_threads'
+-
+-registerHooks({
+-  resolve(specifier, context, nextResolve) {
+-    if (
+-      specifier.startsWith('.') &&
+-      !/\.(?:[cm]?[jt]s|json|wasm)$/.test(specifier)
+-    ) {
+-      try {
+-        return nextResolve(specifier, context)
+-      } catch {
+-        return nextResolve(`${specifier}.ts`, context)
+-      }
+-    }
+-    return nextResolve(specifier, context)
+-  },
+-})
++import { tsImport } from 'tsx/esm/api'
+ 
+ if (!isMainThread && parentPort) {
+-  const { bindMarkdownProjectionWorkerScope } = await import(
+-    './markdown-projection-worker.ts'
++  const { bindMarkdownProjectionWorkerScope } = await tsImport(
++    './markdown-projection-worker.ts',
++    import.meta.url,
+   )
+   const port = parentPort
+   bindMarkdownProjectionWorkerScope({
+diff --git a/vue/tests/consumer-install/template/src/main.ts b/vue/tests/consumer-install/template/src/main.ts
+index f964d64a..26cb66d0 100644
+--- a/vue/tests/consumer-install/template/src/main.ts
++++ b/vue/tests/consumer-install/template/src/main.ts
+@@ -9,7 +9,10 @@ import {
+   ElEmptyState,
+   type EmptyStateProps,
+ } from '__FSUS_PACKAGE_NAME__/es/components/empty-state/index.mjs'
+-import type { MotionPresetName } from '__FSUS_PACKAGE_NAME__/motion'
++import type {
++  MotionPresetName,
++  useScrollReveal,
++} from '__FSUS_PACKAGE_NAME__/motion'
+ import type {
+   CharacterChallengeProps,
+   PerceptionCharacterMedia,
+@@ -21,6 +24,22 @@ import '__FSUS_PACKAGE_NAME__/theme-chalk/el-empty-state.css'
+ import '__FSUS_PACKAGE_NAME__/theme-chalk/el-markdown-renderer.css'
+ import App from './App.vue'
+ 
++type AssertMotionDeclaration<T extends true> = T
++export type ConsumerScrollRevealControls = AssertMotionDeclaration<
++  'reveal' | 'kill' | 'refresh' | 'tweens' extends keyof ReturnType<
++    typeof useScrollReveal
++  >
++    ? true
++    : false
++>
++type RequireScrollRevealOptions<
++  T extends Parameters<typeof useScrollReveal>[0],
++> = T
++// @ts-expect-error compiled motion declarations must reject string disabled values
++export type ConsumerInvalidScrollRevealOptions = RequireScrollRevealOptions<{
++  disabled: 'true'
++}>
++
+ const loadPublicShellCriticalCss = () =>
+   import('__FSUS_PACKAGE_NAME__/dist/public-shell-critical.css')
+ void loadPublicShellCriticalCss

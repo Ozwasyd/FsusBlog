@@ -1,0 +1,12 @@
+✔ esm motion facade declarations resolve the implementation index (1.22ms)
+✔ esm preserves existing motion leaf and unrelated package mappings (0.136476ms)
+✔ cjs motion facade declarations resolve the implementation index (0.24487ms)
+✔ cjs preserves existing motion leaf and unrelated package mappings (0.078088ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 525.103582

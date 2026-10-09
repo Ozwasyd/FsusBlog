@@ -1,0 +1,35 @@
+
+> @ typecheck:no-cache /workspace/FsusUI-dropdown-current-main
+> node ./scripts/run-capacity-typecheck.mjs --no-cache
+
+CI capacity: 4 CPU, 16384 MiB
+Lanes: typecheck=3, unit=3, build=1, coverage=1, visual=3
+Unit: files=0, shards=1, workers/shard=3
+Node heap: profile=auto, cap=1536 MiB, safe/process=4736 MiB
+Overrides: none
+- cgroup v2 CPU quota 4 included in capacity
+- cgroup v2 memory limit included in effective capacity
+- CPU constrained the repository parallel lane budget
+- reserved 1408 MiB for OS, filesystem cache, package coordinators, and native processes
+- Unit workload 0 files selected 1 shard(s) with 3 worker(s) each
+[ci-capacity] typecheck batches=web+node+vite-config,vitest
+
+> @ typecheck:web:no-cache /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs web --no-cache
+
+
+> @ typecheck:vite-config:no-cache /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs vite-config --no-cache
+
+
+> @ typecheck:node:no-cache /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs node --no-cache
+
+[typecheck:vite-config] no-cache project=vue/tsconfig.vite-config.json
+[typecheck:node] no-cache project=vue/tsconfig.node.json
+[typecheck:web] no-cache project=vue/tsconfig.web.json
+
+> @ typecheck:vitest:no-cache /workspace/FsusUI-dropdown-current-main
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs vitest --no-cache
+
+[typecheck:vitest] no-cache project=vue/tsconfig.vitest.json

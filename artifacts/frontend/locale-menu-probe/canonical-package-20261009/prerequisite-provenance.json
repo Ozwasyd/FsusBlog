@@ -1,0 +1,129 @@
+{
+  "frozenDropdown": "f1e8a8cd6f22ded63f2fa2320381e82caa3076e3",
+  "currentMain": "b17077f3afd4a80ff3bdc0fe81d5dfc353ffddf2",
+  "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+  "selectedSource": [
+    {
+      "path": ".changeset/complete-canonical-icon-alias-exports.md",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "50552042028c371e83542d19c033e002a8611fbb",
+      "sha256": "a7fd018794460cb30c5c68d5b94ad6eb13ba0036774be91497cc45f20936402d"
+    },
+    {
+      "path": ".changeset/markdown-pending-theme-invalidation.md",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "8049f01c907d73838d6a3aafe1de8e7704f176dc",
+      "sha256": "52c9b3ea12f0c7a1286a8ef45066fa11cb96c3a1fc044a308a7dfa1b8c512f56"
+    },
+    {
+      "path": ".changeset/renderer-canonical-projection-reuse.md",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "ee15cfc7492a09fbdfa0cecc6c95924f6480a8f1",
+      "sha256": "689313b77ce364293f027df3e19e7dd032078725db39f6804812db9b410da988"
+    },
+    {
+      "path": ".changeset/renderer-equivalent-source-budget.md",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "6a3b7a38329a76efcc3e23dc5dac4003af240391",
+      "sha256": "3cb69e760b87645931df4fed05ea768a59bc83a01eff46cc7d5fb8687022afa1"
+    },
+    {
+      "path": ".changeset/renderer-heavy-projection-chunk.md",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "c9302c9a1d7e2a4fb31734eb7cf4054891eadfe9",
+      "sha256": "e144aa0a41bc733fd8b7c708268dad1e0598155c470c028a6fc3cf6b67d77e4f"
+    },
+    {
+      "path": ".changeset/renderer-lazy-projection-cache.md",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "4e16975d4737efca5aec6f27e5452f6178aaeb90",
+      "sha256": "d5c9b0207c1e1769ac744b36c3e70e04fc9050feb4efafaf5e799f38aef689d1"
+    },
+    {
+      "path": ".changeset/renderer-private-factory-dispatch.md",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "93fdf26f20659cfe6a05350799706f6d30a7c704",
+      "sha256": "e56fd1c532c6b1d6e87b832f50e09ceaf37bc755f6649fe6736c584f51e4733f"
+    },
+    {
+      "path": "docs/api/markdown-heavy-feature-lifecycle.md",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "6b3672f784e5fa069884a67c52df0204d0ac0915",
+      "sha256": "ced7c8c7abee9a4eb62af16998cc60d584b2d6861c64f26c3aba2c1cda290407"
+    },
+    {
+      "path": "docs/api/markdown-runtime-projection.md",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "cfb5653330811473391f5e5450fa812dae049e39",
+      "sha256": "89a8ffe8b9ae56c717e8a7645dcc1e2d231fc0e812358c9119ed05e8c942e4f0"
+    },
+    {
+      "path": "docs/components/markdown-renderer.md",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "65a28cb0a32cde683e8bdcd20aa2cd49ff9fd386",
+      "sha256": "778accfeab7ce7f1b6d80fb16f7a8f202561ccd258af890c73f63ffb1bfa06fc"
+    },
+    {
+      "path": "scripts/vite-manual-chunks.mjs",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "8a8dc1a797ab45982bcf721ee1833aefbd28dfce",
+      "sha256": "7878c7de186857ada2bda5a82321617458775e1c257728b40fa97e77b4682700"
+    },
+    {
+      "path": "vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "aab879e6844d3eb1059fc57a72f25ac079f6a85a",
+      "sha256": "03f356b9840dcac2c1bf3b0400fad5dbfd666633a0db77c07bd9041a5a74a6d9"
+    },
+    {
+      "path": "vue/packages/components/markdown-renderer/src/markdown-renderer-heavy-projection.ts",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "305d5dece185862d1982e334a2197a73f299e283",
+      "sha256": "492772877c7892867f4aef896ed65c905a164e98f0169cbdc8f37bdc10b7e87a"
+    },
+    {
+      "path": "vue/packages/components/markdown-renderer/src/markdown-renderer.vue",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "5f68c464a32bc7930cf5850d63e2dd309f73529f",
+      "sha256": "45f1b415cb1c3746f8fb91f7edaf8883ebf5a446870c8978fc3ec31256d219d3"
+    },
+    {
+      "path": "vue/packages/icons-vue/src/components/index.ts",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "a9b48d07bda97064ea2f24c59988e16af4b5e963",
+      "sha256": "a1d167e6c8a47fc01774cbc35d160afca7451fc674e1ab9041d0630a7f3a7b64"
+    },
+    {
+      "path": "vue/packages/wasm/markdown-projection.worker-node.mjs",
+      "owner": "2210a117e8632c796e2342d30c3958dfc16b2ac7",
+      "blob": "6cec4e94d836fb56bde4459a10e5484fe2122c4b",
+      "sha256": "95972945c1f34011dca4d41f68cae394e4ccfaa7fd4c6a98f54a6ff6b99a8fa1"
+    }
+  ],
+  "excluded": [
+    "Generated API/contract identity hashes",
+    "Unrelated parser/outline/syntax-collector artifact changes",
+    "InteractionTraceFixture already byte-identical to main"
+  ],
+  "motionSource": "f452107578815e7fe4534de18bcb074549e6b584",
+  "motionPaths": [
+    {
+      "path": ".changeset/motion-declaration-owner.md",
+      "blob": "6a7e96ef54dd00a9cef4ca30e4b46dd60f71333b"
+    },
+    {
+      "path": "scripts/motion-declaration-path.test.mjs",
+      "blob": "732a0b485b4b1c01c0f91cccaaf4d1bfc5c87459"
+    },
+    {
+      "path": "vue/internal/build/src/utils/pkg.ts",
+      "blob": "78ee656d7c3f47a693468f4877cdd83e66ef1274"
+    },
+    {
+      "path": "vue/tests/consumer-install/template/src/main.ts",
+      "blob": "26cb66d0cc8cefcd35b02aa3a4ebf821db798e32"
+    }
+  ],
+  "integrationSource": "568841efc55eb374b16f5a03fce5cd28d08b4481",
+  "exactSourceBytesVerified": true
+}

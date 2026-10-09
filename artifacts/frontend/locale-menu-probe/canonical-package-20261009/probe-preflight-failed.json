@@ -1,0 +1,8 @@
+{
+  "actualToolExitCode": 1,
+  "expected": 35,
+  "discovered": 36,
+  "error": "probe names/count invalid 36",
+  "testsStartedAfterFailure": false,
+  "diagnosis": "escapeActiveElement is an assignment in the failed Escape assertion catch block; it is diagnostic, not a positive test name"
+}

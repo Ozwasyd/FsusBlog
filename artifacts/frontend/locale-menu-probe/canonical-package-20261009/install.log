@@ -1,0 +1,48 @@
+Scope: all 20 workspace projects
+Lockfile is up to date, resolution step is skipped
+Packages: -199
+--------------------------------------------------------------------------------
+
+. postinstall$ pnpm stub
+. postinstall: > @ stub /workspace/FsusUI-dropdown-current-main
+. postinstall: > node ./scripts/with-node-heap.mjs pnpm run -r --parallel stub
+. postinstall: Scope: 19 of 20 workspace projects
+. postinstall: vue/internal/build stub$ unbuild --stub
+. postinstall: vue/internal/build-constants stub$ node ../../../scripts/with-node-heap.mjs unbuild --stub
+. postinstall: vue/internal/build-utils stub$ node ../../../scripts/with-node-heap.mjs unbuild --stub
+. postinstall: vue/packages/wasm stub$ node ../../../scripts/with-node-heap.mjs unbuild --stub
+. postinstall: vue/packages/wasm stub: Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+. postinstall: vue/packages/wasm stub:   npx update-browserslist-db@latest
+. postinstall: vue/packages/wasm stub:   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+. postinstall: vue/internal/build stub: Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+. postinstall: vue/internal/build stub:   npx update-browserslist-db@latest
+. postinstall: vue/internal/build stub:   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+. postinstall: vue/internal/build-utils stub: Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+. postinstall: vue/internal/build-utils stub:   npx update-browserslist-db@latest
+. postinstall: vue/internal/build-utils stub:   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+. postinstall: vue/internal/build-constants stub: Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+. postinstall: vue/internal/build-constants stub:   npx update-browserslist-db@latest
+. postinstall: vue/internal/build-constants stub:   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+. postinstall: vue/internal/build stub: ℹ Stubbing build
+. postinstall: vue/internal/build stub: ℹ Cleaning dist directory: ./dist
+. postinstall: vue/packages/wasm stub: ℹ Stubbing wasm
+. postinstall: vue/internal/build stub: Done
+. postinstall: vue/packages/wasm stub: Done
+. postinstall: vue/internal/build-utils stub: ℹ Stubbing build-utils
+. postinstall: vue/internal/build-utils stub: ℹ Cleaning dist directory: ./dist
+. postinstall: vue/internal/build-constants stub: ℹ Stubbing build-constants
+. postinstall: vue/internal/build-constants stub: ℹ Cleaning dist directory: ./dist
+. postinstall: vue/internal/build-constants stub: Done
+. postinstall: vue/internal/build-utils stub: Done
+. postinstall: Done
+. prepare$ husky
+. prepare: Done
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: @parcel/watcher@2.5.6, esbuild@0.18.20,             │
+│   esbuild@0.25.12, esbuild@0.27.7, esbuild@0.28.0.                           │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 4.5s using pnpm v10.33.0
