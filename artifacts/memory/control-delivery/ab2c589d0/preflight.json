@@ -1,0 +1,66 @@
+{
+  "sourceSha": "ab2c589d02fabfa6ed15967f0e58800d2555398a",
+  "expectedCases": 14,
+  "positiveFqnAllowlist": [
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.AdmittedScratchStreamsCanonicalMultilingualBytesWithoutChangingTemplate",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.CanceledOuterWaitCannotRefundScratchWhileRealPipeFlushIsBackpressured",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.CompletedReaderIsStillAnAbortedResponseAfterExactlyOneFlush",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.HoldBudgetRejectionDoesNotEncodeNonceOrWriteTheResponse",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.LogicalScratchBoundRejectsEvenWhenChargedPhysicalBucketWouldFit",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.PreCanceledRequestWritesNoBodyAndReleasesOnlyTheOperationHold",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.RepeatedValidAndInvalidNonceFlowsReuseClearedBackingAndRefundOnce",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.RequestCancellationTerminatesTheRealPendingFlushBeforeHoldRelease",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.SegmentCancellationPreservesOriginalSingleAdvanceAndNoFlush",
+    "FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_AwaitsRealPipeBackpressureAndCommitsOnce",
+    "FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_PropagatesCancellationBeforeCommit",
+    "FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_PropagatesCompletedReaderAsAbortedResponse",
+    "FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_StopsAtNextSegmentBoundaryWhenRequestIsCanceled"
+  ],
+  "filter": "(FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.AdmittedScratchStreamsCanonicalMultilingualBytesWithoutChangingTemplate|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.CanceledOuterWaitCannotRefundScratchWhileRealPipeFlushIsBackpressured|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.CompletedReaderIsStillAnAbortedResponseAfterExactlyOneFlush|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.HoldBudgetRejectionDoesNotEncodeNonceOrWriteTheResponse|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.LogicalScratchBoundRejectsEvenWhenChargedPhysicalBucketWouldFit|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.PreCanceledRequestWritesNoBodyAndReleasesOnlyTheOperationHold|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.RepeatedValidAndInvalidNonceFlowsReuseClearedBackingAndRefundOnce|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.RequestCancellationTerminatesTheRealPendingFlushBeforeHoldRelease|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.SegmentCancellationPreservesOriginalSingleAdvanceAndNoFlush|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_AwaitsRealPipeBackpressureAndCommitsOnce|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_PropagatesCancellationBeforeCommit|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_PropagatesCompletedReaderAsAbortedResponse|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_StopsAtNextSegmentBoundaryWhenRequestIsCanceled)&Category!=Integration&Fixture!=LocalRedis",
+  "actualImportsAndHooksVerified": true,
+  "dataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory/nonce-composition-20261009/data",
+  "commands": [
+    [
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--filter",
+      "(FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.AdmittedScratchStreamsCanonicalMultilingualBytesWithoutChangingTemplate|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.CanceledOuterWaitCannotRefundScratchWhileRealPipeFlushIsBackpressured|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.CompletedReaderIsStillAnAbortedResponseAfterExactlyOneFlush|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.HoldBudgetRejectionDoesNotEncodeNonceOrWriteTheResponse|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.LogicalScratchBoundRejectsEvenWhenChargedPhysicalBucketWouldFit|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.PreCanceledRequestWritesNoBodyAndReleasesOnlyTheOperationHold|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.RepeatedValidAndInvalidNonceFlowsReuseClearedBackingAndRefundOnce|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.RequestCancellationTerminatesTheRealPendingFlushBeforeHoldRelease|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.SegmentCancellationPreservesOriginalSingleAdvanceAndNoFlush|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_AwaitsRealPipeBackpressureAndCommitsOnce|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_PropagatesCancellationBeforeCommit|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_PropagatesCompletedReaderAsAbortedResponse|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_StopsAtNextSegmentBoundaryWhenRequestIsCanceled)&Category!=Integration&Fixture!=LocalRedis",
+      "--list-tests"
+    ],
+    [
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--filter",
+      "(FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.AdmittedScratchStreamsCanonicalMultilingualBytesWithoutChangingTemplate|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.CanceledOuterWaitCannotRefundScratchWhileRealPipeFlushIsBackpressured|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.CompletedReaderIsStillAnAbortedResponseAfterExactlyOneFlush|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.HoldBudgetRejectionDoesNotEncodeNonceOrWriteTheResponse|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.LogicalScratchBoundRejectsEvenWhenChargedPhysicalBucketWouldFit|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.PreCanceledRequestWritesNoBodyAndReleasesOnlyTheOperationHold|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.RepeatedValidAndInvalidNonceFlowsReuseClearedBackingAndRefundOnce|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.RequestCancellationTerminatesTheRealPendingFlushBeforeHoldRelease|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.SegmentCancellationPreservesOriginalSingleAdvanceAndNoFlush|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_AwaitsRealPipeBackpressureAndCommitsOnce|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_PropagatesCancellationBeforeCommit|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_PropagatesCompletedReaderAsAbortedResponse|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_StopsAtNextSegmentBoundaryWhenRequestIsCanceled)&Category!=Integration&Fixture!=LocalRedis",
+      "--no-build",
+      "--results-directory",
+      "/workspace/.tmp-mem-3444-compliant/.tmp/memory/nonce-composition-20261009",
+      "--logger",
+      "trx;LogFileName=selected.trx"
+    ]
+  ],
+  "list-tests.log.exit": 0,
+  "discoveredCases": [
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.AdmittedScratchStreamsCanonicalMultilingualBytesWithoutChangingTemplate(nonce: \"n\")",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.AdmittedScratchStreamsCanonicalMultilingualBytesWithoutChangingTemplate(nonce: \"longer_nonce_123\")",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.CanceledOuterWaitCannotRefundScratchWhileRealPipeFlushIsBackpressured",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.PreCanceledRequestWritesNoBodyAndReleasesOnlyTheOperationHold",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.SegmentCancellationPreservesOriginalSingleAdvanceAndNoFlush",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.CompletedReaderIsStillAnAbortedResponseAfterExactlyOneFlush",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.LogicalScratchBoundRejectsEvenWhenChargedPhysicalBucketWouldFit",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.RepeatedValidAndInvalidNonceFlowsReuseClearedBackingAndRefundOnce",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.HoldBudgetRejectionDoesNotEncodeNonceOrWriteTheResponse",
+    "FsusBlog.Server.Tests.Unit.CspNonceTransientResponseTests.RequestCancellationTerminatesTheRealPendingFlushBeforeHoldRelease",
+    "FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_PropagatesCancellationBeforeCommit",
+    "FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_AwaitsRealPipeBackpressureAndCommitsOnce",
+    "FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_StopsAtNextSegmentBoundaryWhenRequestIsCanceled",
+    "FsusBlog.Server.Tests.Unit.CspNonceUtf8TemplateTests.ResponseWriter_PropagatesCompletedReaderAsAbortedResponse"
+  ],
+  "listSelectionVerifiedBeforeExecution": true,
+  "selected.log.exit": 0,
+  "passedCases": 14
+}

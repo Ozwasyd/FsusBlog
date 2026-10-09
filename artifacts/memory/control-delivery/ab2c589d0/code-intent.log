@@ -1,0 +1,8 @@
+{
+  "paths": [
+    "src/backend/Infrastructure/PublicAot/CspNonceUtf8Template.cs",
+    "src/backend/Infrastructure/PublicAot/ReservedCspNonceScratchWriter.cs",
+    "tests/backend/Unit/CspNonceTransientResponseTests.cs"
+  ],
+  "errors": []
+}

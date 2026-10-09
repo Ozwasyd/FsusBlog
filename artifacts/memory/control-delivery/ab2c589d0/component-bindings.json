@@ -1,0 +1,14 @@
+[
+  {
+    "path": "src/backend/Infrastructure/PublicAot/ReservedCspNonceScratchWriter.cs",
+    "suppliedCommit": "c73ab1f4bc6947f9decc3cb488842ccef3412f69",
+    "sha256": "a1a9627a1d849911f71b39b01b66fbc3bc1ef422b1ab979bf8b2ce97ab5ad130",
+    "unchanged": true
+  },
+  {
+    "path": "tests/backend/Unit/ReservedCspNonceScratchWriterTests.cs",
+    "suppliedCommit": "c73ab1f4bc6947f9decc3cb488842ccef3412f69",
+    "sha256": "782d010cf834308a1ac7322292a08b29dab6ee7496656d146c093b7ea3fa2759",
+    "unchanged": true
+  }
+]
