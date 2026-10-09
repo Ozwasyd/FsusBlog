@@ -6,6 +6,7 @@ using Npgsql;
 
 using SqlSugar;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
