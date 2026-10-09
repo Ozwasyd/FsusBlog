@@ -1,0 +1,18 @@
+{
+  "key": "exact-candidate-identity-inspection",
+  "sourceCommit": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "cwd": "/workspace/FsusBlog-content-field-admission",
+  "command": [
+    "python",
+    "/workspace/chain-3521-evidence/content-field-admission-contract-gap-20261009/inspect-exact-candidate.py"
+  ],
+  "startedUtc": "2026-10-09T08:09:12.016331+00:00",
+  "completedUtc": "2026-10-09T08:09:12.433266+00:00",
+  "elapsedSeconds": 0.417,
+  "exitCode": 0,
+  "pid": 80519,
+  "logSha256": "187ae460533b46d8b8829112cb1f57ea159d6a159a3c649d73da52cc71595c74",
+  "logBytes": 7079,
+  "rawLogArchive": "exact-candidate-identity-inspection.log.gz",
+  "qualification": false
+}

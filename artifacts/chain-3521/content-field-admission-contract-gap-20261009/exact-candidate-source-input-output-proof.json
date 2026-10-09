@@ -1,0 +1,203 @@
+{
+  "currentMaster": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "candidate": "aa5b5bb4e07fd51446646b829b17266316b9a918",
+  "previousCandidate": "95558d6d831a895cd020c311507ac7f48e860824",
+  "candidateMergeBase": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "candidateOriginal16Paths": [
+    "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+    "artifacts/change-contract/issue-3590-current-source-external-naming.json",
+    "config/schemas/test-execution-envelope-applicability.schema.json",
+    "config/testing/content-field-contracts.generated.json",
+    "config/testing/correctness-attempt-producers.json",
+    "config/testing/fixture-profile-matrix.generated.json",
+    "config/testing/test-execution-envelope-applicability.json",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "tests/tools/correctness-attempt-migration.test.mjs",
+    "tests/tools/execution-envelope-policy.test.mjs",
+    "tests/tools/fixture-catalog.test.mjs",
+    "tests/tools/matrix-fixture-profile.test.mjs",
+    "tools/test-matrix/fixture-profile-contract.mjs",
+    "tools/test/correctness-attempt-migration.mjs",
+    "tools/test/run-matrix-governance-once.sh",
+    "tools/testing/fixture-catalog.mjs"
+  ],
+  "producer": {
+    "path": "tools/testing/content-shape-catalog.mjs",
+    "mode": "100644",
+    "gitBlob": "7169ce0780300e0cb1163d38a442376aeb05dd76",
+    "bytes": 32136,
+    "sha256": "c706173c39ad5f453cc98bd467c2334889be5f18e023d3d737b4fd6697d8430d"
+  },
+  "output": {
+    "path": "config/testing/content-field-contracts.generated.json",
+    "mode": "100644",
+    "gitBlob": "9a78417c65e54fdfea0b13931e0c2094b303b4b2",
+    "bytes": 2979,
+    "sha256": "1da6bef00ab75ab9acc7c413ec78ee7797d90969efe0324e097a3488610d4fb3"
+  },
+  "outputSchema": "fsusblog.content-field-contract-projection.v1",
+  "command": [
+    "node",
+    "tools/testing/content-shape-catalog.mjs",
+    "--write-field-projection"
+  ],
+  "fieldsExactlyPreserved": 4,
+  "changedSemanticBindingPaths": [
+    "src/backend/Services/Articles/ArticlePublicationValidator.cs"
+  ],
+  "otherThreeSemanticBindingsExactlyPreserved": true,
+  "minimumExplicitRepositoryInputs": [
+    {
+      "path": "tools/testing/content-shape-catalog.mjs",
+      "mode": "100644",
+      "gitBlob": "7169ce0780300e0cb1163d38a442376aeb05dd76",
+      "bytes": 32136,
+      "sha256": "c706173c39ad5f453cc98bd467c2334889be5f18e023d3d737b4fd6697d8430d",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticlePublicationValidator.cs",
+      "mode": "100644",
+      "gitBlob": "8eae55f217804158d5c63745c829351fd8739100",
+      "bytes": 19575,
+      "sha256": "5d3658a53998980e3dddb01a385328fe464cde73bd1803463bee585302808db0",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "src/backend/Models/Dtos/CommentDto.cs",
+      "mode": "100644",
+      "gitBlob": "1477e5751408e4a4da2dbb7603e2d71532b63384",
+      "bytes": 3144,
+      "sha256": "d6626536e687bfa3b1c22aab9012584826080ec721a692d9defbf05a049fe95f",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+      "mode": "100644",
+      "gitBlob": "314f34519b6229a41fa0865b96d7c17d4cf94e2a",
+      "bytes": 62382,
+      "sha256": "9d95bfe5111e4dc30ba2ca462fc704e502209ae2ffc38c38d68fdf0caacf8b40",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Files.cs",
+      "mode": "100644",
+      "gitBlob": "31754bca7563f5dc130d124c08375acd4c483a0b",
+      "bytes": 3138,
+      "sha256": "c742ab9fb36646e5154cf19bab48ef7cc50221a41c2da5736f3562ad0d4fa455",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "ops/docker/FsusBlog.Server.Dockerfile",
+      "mode": "100644",
+      "gitBlob": "fc914f8268a572fbff91039e0246f854b1cc0285",
+      "bytes": 26978,
+      "sha256": "9e83d5321fd50655bc51686872245740bf59f750d64496624eea341d342990f1",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "Directory.Build.props",
+      "mode": "100644",
+      "gitBlob": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715",
+      "bytes": 1110,
+      "sha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "Directory.Packages.props",
+      "mode": "100644",
+      "gitBlob": "0abc085c29fb28bcc5982c8f45e4085d2b739812",
+      "bytes": 3707,
+      "sha256": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "src/backend/FsusBlog.Server.csproj",
+      "mode": "100644",
+      "gitBlob": "c7e38c66b974862cddaef76897c957c9c28a5d81",
+      "bytes": 11273,
+      "sha256": "750dc43234f15be728a4eff93b1df2690d9efff880ecd8f9446aac726aa0bddc",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "src/backend/packages.lock.json",
+      "mode": "100644",
+      "gitBlob": "d0f3030e8e8aa91f3ea07371fdb52fe528504d21",
+      "bytes": 25374,
+      "sha256": "faf347073d76a55c4f48b4621a8591d33d7f2f45fd6330ed9eda3f07ec3ed51c",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj",
+      "mode": "100644",
+      "gitBlob": "2060e0490c5dcfe9dfda2a4a409c4bc6befbf171",
+      "bytes": 676,
+      "sha256": "34e27af729d33c02404e7223bc510381bf1f5149999086bd084268e778a82799",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets",
+      "mode": "100644",
+      "gitBlob": "fd53f985fb4e1c5a38134359703789eb0b8ad727",
+      "bytes": 1482,
+      "sha256": "b7170eacabd01580b2c53eb1b7db7f692a59fef512fc13d46c2eb7ee47fe773b",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/Program.cs",
+      "mode": "100644",
+      "gitBlob": "662de90a06e5f40f8c402b1a6a3d5d5a31dfe2dd",
+      "bytes": 49159,
+      "sha256": "52ad6b8eeba1e08ff5922eff08f46856641b46f2ae958073ff28ec1fad09c3e5",
+      "unchangedFromCurrentMaster": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/packages.lock.json",
+      "mode": "100644",
+      "gitBlob": "8b79dba10730ad9b2e04e413be07a2375968e969",
+      "bytes": 1053,
+      "sha256": "80b263bedef69aeff9dd39b0c5b2a1f0c1fabca5bed8172210d451d9d47c02f4",
+      "unchangedFromCurrentMaster": true
+    }
+  ],
+  "minimumExplicitInputCount": 14,
+  "completeCompilationInputClosureProven": false,
+  "compilationDependencyLimit": "Production backend compilation also reads its full source/project-reference/build configuration graph. These 14 explicit paths are a minimum, not a fabricated complete closure.",
+  "sourceBindingsAreSemanticContractHashes": true,
+  "semanticHashSourceLines": [
+    360,
+    365,
+    376,
+    426
+  ],
+  "originalBindingArtifact": {
+    "path": "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+    "mode": "100644",
+    "gitBlob": "51e77cda2cf36407a0b4dc677a2efb0a1f2bb220",
+    "bytes": 1317,
+    "sha256": "33420e9a25ebe4b9129603164faab7df77238de518f79bd13c0106b73d9ed128"
+  },
+  "fieldOutputMissingFromExistingBinding": true,
+  "currentArticleValidatorOwner": {
+    "commit": "a80834703b9b314bcd41c188c5c5d1a952b281e4",
+    "parents": [
+      "bb5fce97a0a2761e9aed55f36c125ca10c5adfb0"
+    ],
+    "changedPathCount": 86,
+    "singleParentSourceOnlyV1RequirementSatisfied": false
+  },
+  "declaredToolchain": {
+    "sdk": "10.0.302",
+    "runtime": "10.0.10",
+    "source": "ops/docker/FsusBlog.Server.Dockerfile",
+    "observedRuntimeInThisReview": false
+  },
+  "parentReportedAllowedControls": {
+    "pass": 5,
+    "rerunHere": false,
+    "portableEvidenceCommitNotSupplied": true
+  },
+  "originalProducerExecutedHere": false,
+  "checkerOrHistoricalCallbacksExecuted": false,
+  "qualification": false
+}

@@ -1,0 +1,19 @@
+{
+  "key": "original-producer-syntax",
+  "sourceCommit": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "cwd": "/workspace/FsusBlog-content-field-admission",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--check",
+    "tools/testing/content-shape-catalog.mjs"
+  ],
+  "startedUtc": "2026-10-09T08:10:28.348860+00:00",
+  "completedUtc": "2026-10-09T08:10:28.566692+00:00",
+  "elapsedSeconds": 0.218,
+  "exitCode": 0,
+  "pid": 81224,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "original-producer-syntax.log.gz",
+  "qualification": false
+}

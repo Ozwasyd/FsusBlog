@@ -1,0 +1,19 @@
+{
+  "key": "original-registry-syntax",
+  "sourceCommit": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "cwd": "/workspace/FsusBlog-content-field-admission",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--check",
+    "tools/governance/change-contract-registry.mjs"
+  ],
+  "startedUtc": "2026-10-09T08:10:28.618582+00:00",
+  "completedUtc": "2026-10-09T08:10:28.683892+00:00",
+  "elapsedSeconds": 0.065,
+  "exitCode": 0,
+  "pid": 81232,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "original-registry-syntax.log.gz",
+  "qualification": false
+}

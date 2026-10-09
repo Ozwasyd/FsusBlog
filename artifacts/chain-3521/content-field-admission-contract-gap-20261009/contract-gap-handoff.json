@@ -1,0 +1,74 @@
+{
+  "currentMaster": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "consumerCandidate": "aa5b5bb4e07fd51446646b829b17266316b9a918",
+  "status": "blocked-no-existing-truthful-generated-only-admission",
+  "supportedRegistrationCorrectionProduced": false,
+  "noOldRegistryRecordChanged": true,
+  "noSourceOrProductChanged": true,
+  "noOutputResealedOrProducerRerun": true,
+  "noSourceReclassification": true,
+  "noHistoricalTupleBorrowed": true,
+  "noCheckerRelaxation": true,
+  "existingContractFailures": [
+    {
+      "schema": "fsusblog.generated-output-binding.v1",
+      "paths": [
+        "tools/governance/change-contract.mjs:3952",
+        "tools/governance/change-contract.mjs:3210"
+      ],
+      "constraint": "All sources and outputs must be changed in this PR. All 14 minimum explicit actual inputs are unchanged in the 16-path consumer increment. Existing binding omits the field output; adding that output to unrelated correctness/fixture sources would not bind the real producer."
+    },
+    {
+      "schema": "fsusblog.post-merge-generated-output-repair.v1",
+      "paths": [
+        "config/schemas/post-merge-generated-output-repair.schema.json:9",
+        "tools/governance/change-contract.mjs:2809",
+        "tools/governance/change-contract.mjs:2872",
+        "tools/governance/change-contract.mjs:2907",
+        "tools/governance/change-contract.mjs:2955"
+      ],
+      "constraint": "One source path/digest and one generator path/digest only; extra inputs/closure/toolchain fields are not accepted. Single-parent sourceCommit must change only that one source; actual validator owner a80834703b9b314bcd41c188c5c5d1a952b281e4 changes 86 paths. Named mergeCommit must have two parents and prove actual original PR provenance. A registration cannot alter these predicates."
+    },
+    {
+      "schema": "fsusblog.post-merge-generated-output-repair.v2",
+      "paths": [
+        "tools/governance/generated-output-digest-repair-v2.mjs:87",
+        "tools/governance/generated-output-digest-repair-v2.mjs:92",
+        "tools/governance/generated-output-digest-repair-v2.mjs:102",
+        "tools/governance/generated-output-digest-repair-v2.mjs:313"
+      ],
+      "constraint": "Only correctness-attempt-producers, node --write and fsusblog.correctness-attempt-producers.v1 are supported; exact output shape requires sourceDigests and entries with raw Git-byte source hashes. Actual command uses --write-field-projection and output has countSemantics, sources semantic contract hashes and fields. It cannot reuse the unrelated fixed qualification tuple."
+    },
+    {
+      "schema": "fsusblog.post-merge-generated-output-repair-dag.v2",
+      "paths": [
+        "config/schemas/post-merge-generated-output-repair-dag.schema.json:93",
+        "tools/governance/change-contract-registry.mjs:233",
+        "tools/governance/change-contract.mjs:1917"
+      ],
+      "constraint": "Registered DAG is evidence-location-governance; sourceProjection.projectionId is schema-constant fsusblog.evidence-location-scan.v1. Renaming content-field extraction as that scanner or borrowing its synchronized/history tuple would be false. Actual content-field semantic projection/compiled producer epoch has no existing admitted form."
+    },
+    {
+      "schema": "fsusblog.post-merge-generated-output-repair.v3",
+      "paths": [
+        "tools/governance/generated-output-history-repair-v3.mjs:69",
+        "tools/governance/generated-output-history-repair-v3.mjs:71",
+        "tools/governance/generated-output-history-repair-v3.mjs:76"
+      ],
+      "constraint": "Exactly backend-evidence-path-authority, its six-file closure, command/output/schema and sealed history only; content-field is outside that supported contract."
+    }
+  ],
+  "missingContractDecisions": [
+    "A separately authorized producer-specific or versioned admission must bind the real multi-file Roslyn/MSBuild compilation inputs and dependency closure, canonical SDK/runtime/compiler/analyzer identity, command --write-field-projection and output fsusblog.content-field-contract-projection.v1.",
+    "It must distinguish semantic source-binding hashes from raw Git regular-blob/mode/object/SHA-256 identities, preserve the four fields and three unchanged bindings, and admit only the actual changed binding/content digest.",
+    "It must supply genuine current source/merge/PR provenance and synchronized producer/output epoch under independently reviewed authority; source reachability or passing five controls is not admission.",
+    "It must define isolated producer read/write and temporary native build outputs, replay/fixed-point evidence and exact candidate output roster without weakening existing repair forms."
+  ],
+  "portableGroup3EvidenceCommit": "requested from parent; not supplied at recording time",
+  "runtimeQualification": false,
+  "originalConsumerFiveControlsRerunHere": false,
+  "historicalReplayOrMutationProbes": "NOT_RUN",
+  "heldAudits": "NOT_RUN",
+  "fullStandardSOURCE": "NOT_RUN",
+  "qualification": false
+}
