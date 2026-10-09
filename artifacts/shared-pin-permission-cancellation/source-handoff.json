@@ -56,9 +56,27 @@
       "runtimeQualification": false,
       "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-cancellation/.tmp/pin-permission-cancellation/evidence/mandatory-preflight.log",
       "failureReason": "correctness attempt producer inventory differs from canonical authorities"
+    },
+    {
+      "sourceCommit": "a44e977f1eb430bc515686d3317c4006b68fc4ae",
+      "argv": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "cwd": "/workspace/FsusBlog-pin-permission-cancellation",
+      "startedAtUtc": "2026-10-09T14:59:17.274870+00:00",
+      "endedAtUtc": "2026-10-09T15:02:22.491794+00:00",
+      "exitCode": 1,
+      "seconds": 185.217,
+      "runtimeQualification": false,
+      "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-cancellation/.tmp/pin-permission-cancellation/evidence/current-candidate-preflight.log",
+      "failureReason": "correctness attempt producer inventory differs from canonical authorities",
+      "stdoutSha256": "99ac01318fb71e0e525aae3b1fd2cd0f34d391f9a1638cd23c433d6298bceaab",
+      "metadataArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-cancellation/.tmp/pin-permission-cancellation/evidence/current-candidate-preflight.json"
     }
   ],
-  "currentCandidateAdmission": "NOT GRANTED; current exact production/control source must pass original preflight before compilation/discovery/test bodies",
+  "currentCandidateAdmission": "REFUSED at exact current candidate; dependent SDK compilation/discovery/bodies remain UNRUN. Do not rerun unchanged failed gate; canonical owner must repair original authority/inventory first.",
   "coordinateSupplier": {
     "source": "348c6853d6bcec900734274440fe8f34c1dd7b55",
     "head": "4177d8ad91f6cbc29a29857f8ead8137e526c7a8",
@@ -72,5 +90,7 @@
   "independentReviewRequired": true,
   "qualification": false,
   "rawLogsPublished": false,
-  "createdAtUtc": "2026-10-09T14:53:22.446014+00:00"
+  "createdAtUtc": "2026-10-09T14:53:22.446014+00:00",
+  "updatedAtUtc": "2026-10-09T15:05:54.206708+00:00",
+  "remainingNextAction": "Canonical correctness/3657 owner repairs original inventory, enrolls new original cases and supplies exact portable preflight authority; then SAME reviewer and original SDK gates. No root authority rewrite."
 }
