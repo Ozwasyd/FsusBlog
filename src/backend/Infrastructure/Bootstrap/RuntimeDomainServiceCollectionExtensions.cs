@@ -157,6 +157,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringAssetQuery>(sp => sp.GetRequiredService<AuthoringAssetLibraryService>());
         services.AddScoped<IAuthoringAssetCommands>(sp => sp.GetRequiredService<AuthoringAssetLibraryService>());
         services.AddScoped<AuthoringDraftLifecycleService>();
+        services.AddScoped<ArticleRelationSourceCoordinateAuthority>();
         services.AddScoped<IAuthoringDraftLifecycle>(sp => sp.GetRequiredService<AuthoringDraftLifecycleService>());
         services.AddScoped<IAuthoringPrepublishPolicy>(sp => sp.GetRequiredService<AuthoringDraftLifecycleService>());
         services.AddScoped<IAuthoringRevisionCompareAuthority, AuthoringRevisionCompareAuthority>();
@@ -182,6 +183,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<AuthoringCanvasOperationEngine>();
         services.AddScoped<AuthoringCanvasOperationDatabaseVerifier>();
         services.AddScoped<IAuthorSavedViewDependencyProvider, PostgresAuthorSavedViewDependencyProvider>();
+        services.AddScoped<IAuthorSavedViewDependencyProvider, ArticlePropertySavedViewDependencyProvider>();
         services.AddScoped<IAuthorSavedViewDependencyCatalog, AuthorSavedViewDependencyCatalog>();
         services.AddScoped<IAuthorSavedViewQueryValidator, AuthorSavedViewQueryValidator>();
         services.AddScoped<IAuthorSavedViewPersistence, PostgresAuthorSavedViewPersistence>();

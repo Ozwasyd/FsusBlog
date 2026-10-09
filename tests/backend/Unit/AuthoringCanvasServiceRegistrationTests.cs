@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Services.Authoring;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
@@ -13,15 +14,30 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthoringCanvasServiceRegistrationTests
 {
     [Fact]
-    public void RuntimeDomainServices_ResolveOneProductionReferenceAuthority()
+    public async Task RuntimeDomainServices_ResolveOneProductionReferenceAuthority()
     {
         var services = new ServiceCollection();
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        services.AddHttpContextAccessor();
         services.AddScoped(_ => Substitute.For<ISqlSugarClient>());
         services.AddFsusRuntimeDomainServices();
         using ServiceProvider provider = services.BuildServiceProvider();
         using IServiceScope scope = provider.CreateScope();
 
+        Assert.IsType<ArticleRelationSourceCoordinateAuthority>(
+            Assert.Single(scope.ServiceProvider.GetServices<ArticleRelationSourceCoordinateAuthority>()));
+        Assert.IsType<ArticlePropertyDefinitionStore>(
+            scope.ServiceProvider.GetRequiredService<IArticlePropertyDefinitionStore>());
+        Assert.Single(scope.ServiceProvider.GetServices<IAuthorSavedViewDependencyProvider>()
+            .OfType<ArticlePropertySavedViewDependencyProvider>());
+        IAuthorSavedViewDependencyCatalog catalog = scope.ServiceProvider
+            .GetRequiredService<IAuthorSavedViewDependencyCatalog>();
+        AuthorSavedViewDependencyResolution property = await catalog.ResolveProjectionAsync(
+            new AuthorSavedViewOwner(42, "https://property-provider.test"),
+            new AuthorSavedViewFieldReference(AuthorSavedViewFieldKind.Property,
+                "property:dd90413e-7d50-4264-9910-d89294ac2f18"));
+        Assert.Equal(AuthorSavedViewDependencyStatus.PermissionRevoked, property.Status);
         Assert.IsType<AuthoringCanvasDocumentStore>(
             scope.ServiceProvider.GetRequiredService<IAuthoringCanvasDocumentStore>());
         Assert.IsType<PostgresAuthoringCanvasArticleReferenceReader>(
