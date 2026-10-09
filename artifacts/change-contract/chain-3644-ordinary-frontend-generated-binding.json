@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-matrix/fixture-profile-contract.mjs",
+        "tools/testing/fixture-catalog.mjs",
+        "tools/test/correctness-attempt-migration.mjs",
+        "tests/tools/matrix-fixture-profile.test.mjs",
+        "tests/tools/fixture-catalog.test.mjs",
+        "tests/tools/correctness-attempt-migration.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/fixture-profile-matrix.generated.json",
+            "sha256": "25894e315ea042b54da3536a87cab5c2c42aaac3ac4f1aa13e05fc277951fc5f"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "aa85e35c40c833349f8255462f7eb0f7de3078fcad6394a1c14feb859aec9fc4"
+        }
+    ]
+}
