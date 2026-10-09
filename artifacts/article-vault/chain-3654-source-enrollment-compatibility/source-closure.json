@@ -2,7 +2,7 @@
   "schema": "fsusblog.source-enrollment-compatibility-handoff.v1",
   "consumerSource": "08dbbac2bb522ca7f6b2433c02acbb60490149f0",
   "consumerBaseline": "abb28c41213f6ea506a6b4dcb64f30b7451384b7",
-  "compatibleSource": "aa193c2dbc27389e9684642a193de934ec62a9c6",
+  "compatibleSource": "4883b1985929e9aa1f2a63df8307fa5305c90849",
   "compatibleBranch": "task/3654-vault-enrollment-compatibility",
   "frozenSupplier": "b98e179b0c0ac6c1f85790fcce3bd918a3aa6cdc",
   "coordinateDefinitionsSource": "5a0c945d60e75adf5a23e33702718088ed6ac989",
@@ -163,8 +163,8 @@
     {
       "path": "tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs",
       "consumerPreimageBlob": "e105647589c8eefb5ec832ee326cc6f5d895e546",
-      "compatibleBlob": "218b60720c2f00da85691e43e4c91035cd97180d",
-      "origin": "original fixture provisioning repair",
+      "compatibleBlob": "853dc046c1656566ae6a11d29a49272a390c0c89",
+      "origin": "original fixture provisioning repair plus pre-rollback no-write observation correction",
       "frozenSourceBlob": null,
       "coordinateSupplierBlob": null
     },
@@ -201,8 +201,33 @@
   ],
   "qualification": false,
   "testsExecutedAtCompatibleSource": false,
-  "consume": "Apply exactly this one bounded commit against abb28. No inherited mother branch, no final-five-only subset. Any later preimage drift must be rechecked by canonical owners.",
-  "boundedVerification": {
+  "consume": "Apply aa193 directly against exact abb28 baseline, then the separately identifiable 4883b198 one-test correction after checking its unchanged aa193 preimage. Metadata handoff commits are optional. Do not apply final-five-only or import inherited mother history; any other consumer preimage drift returns to canonical owners.",
+  "pendingExactOrdinaryMethods": [
+    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.BlankCreateEnrollsOriginalEventAndReplayDoesNotAdvance",
+    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.OriginalCreateAutomaticallyEnrollsInsideCallerTransactionAndReconnectIsExact",
+    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.OriginalLifecycleAutomaticallyEnrollsEveryActualEventWithoutManualRecording",
+    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.OwnerRollbackRemovesOriginalEventAndEnrollmentAndRetryAllocatesFirstStep",
+    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.MissingFamilyLockRefusesBeforeOriginalArticleWrites",
+    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.CancellationDuringAutomaticJournalInsertRollsBackOriginalOwnerTransaction",
+    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.BlankCreate_ProducesExactOnceDraftGraphReceiptAndAudit",
+    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.TemplateCreate_ConsumesVerifiedPlanAndNeverFallsBack",
+    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.MissingAsset_AbortsTemplateCreateWithZeroWrites",
+    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.CancelledCreate_WritesNothing",
+    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.TemplateUpdateAfterCreate_DoesNotMutateExistingArticle",
+    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.Verifier_RejectsTamperedGraph",
+    "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_StaleExpectedRevision_FailsBeforeNewRevision"
+  ],
+  "originalCompatibleSource": "aa193c2dbc27389e9684642a193de934ec62a9c6",
+  "reviewCorrection": {
+    "source": "4883b1985929e9aa1f2a63df8307fa5305c90849",
+    "parent": "0e9dffa95be042e0dd05da4529aedd2380427ede",
+    "changedPath": "tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs",
+    "originalAssertionsAndRequestValuesPreserved": true,
+    "observations": "Original conflict and all three original row-count assertions run before finally rollback on the same original caller transaction.",
+    "runtimeExecuted": false
+  },
+  "previousBoundedVerification": {
+    "source": "aa193c2dbc27389e9684642a193de934ec62a9c6",
     "restoreExitCode": 0,
     "buildExitCode": 0,
     "buildWarnings": 1507,
@@ -233,18 +258,33 @@
       }
     ]
   },
-  "pendingExactOrdinaryMethods": [
-    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.BlankCreateEnrollsOriginalEventAndReplayDoesNotAdvance",
-    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.OriginalCreateAutomaticallyEnrollsInsideCallerTransactionAndReconnectIsExact",
-    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.OriginalLifecycleAutomaticallyEnrollsEveryActualEventWithoutManualRecording",
-    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.OwnerRollbackRemovesOriginalEventAndEnrollmentAndRetryAllocatesFirstStep",
-    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.MissingFamilyLockRefusesBeforeOriginalArticleWrites",
-    "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.CancellationDuringAutomaticJournalInsertRollsBackOriginalOwnerTransaction",
-    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.BlankCreate_ProducesExactOnceDraftGraphReceiptAndAudit",
-    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.TemplateCreate_ConsumesVerifiedPlanAndNeverFallsBack",
-    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.MissingAsset_AbortsTemplateCreateWithZeroWrites",
-    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.CancelledCreate_WritesNothing",
-    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.TemplateUpdateAfterCreate_DoesNotMutateExistingArticle",
-    "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.Verifier_RejectsTamperedGraph"
+  "boundedVerification": {
+    "source": "4883b1985929e9aa1f2a63df8307fa5305c90849",
+    "incrementalChangeContractExitCode": 0,
+    "incrementalDiffCheckExitCode": 0,
+    "originalCollectionCheckerExitCode": 1,
+    "originalPreflightAtNewSourceNotRun": true,
+    "previousOriginalPreflightBlockedAtSource": "aa193c2dbc27389e9684642a193de934ec62a9c6",
+    "testsExecuted": false,
+    "qualification": false,
+    "buildExitCode": 0,
+    "buildWarnings": 1507,
+    "buildErrors": 0,
+    "buildArgv": [
+      "/workspace/.setup/dotnet/dotnet",
+      "build",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--configuration",
+      "Release",
+      "--disable-build-servers",
+      "-p:UseSharedCompilation=false",
+      "-v",
+      "minimal"
+    ]
+  },
+  "completeSourceCommits": [
+    "aa193c2dbc27389e9684642a193de934ec62a9c6",
+    "4883b1985929e9aa1f2a63df8307fa5305c90849"
   ]
 }

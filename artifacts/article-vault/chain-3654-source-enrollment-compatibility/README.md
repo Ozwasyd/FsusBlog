@@ -1,6 +1,7 @@
 # Bounded source-generation closure for the original Vault consumer
 
-Source candidate: `aa193c2dbc27389e9684642a193de934ec62a9c6`.
+Current source candidate: `4883b1985929e9aa1f2a63df8307fa5305c90849`.
+Original frozen compatible source: `aa193c2dbc27389e9684642a193de934ec62a9c6`.
 Exact parent/consumer baseline: `abb28c41213f6ea506a6b4dcb64f30b7451384b7`.
 Original consumer implementation: `08dbbac2bb522ca7f6b2433c02acbb60490149f0`.
 Published branch: `task/3654-vault-enrollment-compatibility`.
@@ -8,9 +9,12 @@ Frozen independent-review supplier: `b98e179b0c0ac6c1f85790fcce3bd918a3aa6cdc` (
 
 ## Complete bounded consumption
 
-Consume the one 22-path source commit against its exact parent, rather than the
+Consume the complete 22-path source closure against its exact consumer baseline, rather than the
 last five callbacks or the inherited supplier branch. `source-closure.json` gives
 all exact preimage and resulting Git blobs, including explicit absent paths.
+The minimal source sequence is aa193 directly against abb28, followed by
+4883b198 for its one test correction. Intervening handoff-only commits need not
+be consumed; the correction's test preimage is unchanged from aa193.
 The original 17-path generation delta passed `git apply --check` on this actual
 consumer with zero conflicts; its final-five-only patch had lacked prerequisites.
 The five shared ArticleService preimages are byte-identical to the frozen
@@ -49,12 +53,15 @@ semantics change is introduced.
 - `CanonicalArticleLifecycleFixturePortIntegrationTests.cs`: same provisioning;
   direct stale-revision control now opens its caller native transaction, acquires
   the family lock first and rolls back in `finally`. All original assertions and
-  stale-request values remain. No automatic enrollment or negative gate is disabled.
+  stale-request values remain. The original conflict and three no-write row counts
+  are now observed inside that same transaction before rollback. No automatic
+  enrollment or negative gate is disabled.
 
 ## Verification and remaining admission
 
-Original locked restore and Release build were run on the exact source candidate.
-Restore exits 0; build exits 0 with 1,507 retained warnings and zero errors.
+Original locked restore exits 0 at aa193; dependency/project inputs are unchanged.
+A fresh original Release build exits 0 at current source 4883b198 with 1,507 retained
+warnings and zero errors.
 Incremental change-contract and `git diff --check` both exit 0. Compilation does
 not establish execution qualification. Raw logs remain task-local; they are not
 published here and no secrets or runtime credentials are included in this handoff.
@@ -70,8 +77,10 @@ node tools/run-test-matrix.mjs preflight
 node tools/check-postgres-test-collections.mjs
 ```
 
-Original candidate and exact consumer-baseline preflight each exit 1; their rejection
-messages are identical apart from the Node PID. Original preflight is an admission blocker. It rejects release-final static parser
+The aa193 candidate and exact consumer-baseline preflight each exit 1; their rejection
+messages are identical apart from the Node PID. That previous original preflight is
+an admission blocker; it was not rerun after the one test-hunk correction. The
+unchanged original collection checker was rerun at 4883b198 and still exits 1. It rejects release-final static parser
 identity, execution declaration/target-path indices, finite execution targets and
 owner/content/dependency closure. The exact consumer baseline also fails this
 preflight; inherited admission is not repaired by changing its authority snapshots
@@ -83,7 +92,9 @@ really passing original preflight at the resulting current candidate.
 
 No test has executed at this source. After admission, select the six exact methods
 in `CanonicalArticleSourceGenerationEnrollmentIntegrationTests` and all six exact
-methods in `ArticleCreateIntegrationTests` (12 ordinary methods total). Keep the
+methods in `ArticleCreateIntegrationTests`, plus the exact original
+`CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_StaleExpectedRevision_FailsBeforeNewRevision`
+negative control (13 ordinary methods total). Keep the
 original no-write, replay, template/asset, tamper, transaction, missing-lock and
 native-cancellation assertions. The remaining full canonical publication/lifecycle
 receipt, Vault/group, scheduler and public/HTTP/AOT gates remain withheld; no broad
@@ -126,3 +137,25 @@ aa193/2cbc. Release-final original preflight corrections remain independently
 necessary. No new tests, build, container, broad audit or admission bypass was run
 for this metadata inspection; earlier build remains bound to aa193 and earlier
 PostgreSQL results remain unqualified at frozen b98.
+
+## Same-review P2: preserve observations before rollback
+
+The same reviewer `01a120b7-c3a0` accepted the missing-table/query-dependency repair
+as a source fix but identified that aa193 observed original counts only after
+rollback, masking writes made before a stale-revision conflict. Separately
+identifiable source `4883b1985929e9aa1f2a63df8307fa5305c90849`, parent
+`0e9dffa95be042e0dd05da4529aedd2380427ede`, changes exactly one test file. It moves
+the original exception and three count assertions into the existing try block,
+after the expected conflict and before finally rollback on the same caller
+transaction. All expected values and original stale request fields remain.
+Unexpected exceptions or failed counts still execute unconditional cleanup.
+Frozen aa193 and b98 are unchanged; no production source or enrollment was disabled.
+
+The refreshed complete 22-path source/blob roster is in source-closure.json.
+At 4883b198, original Release build exits 0 (1,507 warnings, zero errors),
+incremental change-contract and diff checks exit 0, and original collection
+checking exits 1. No dynamic test, container or held runtime is executed. The
+previous failed original preflight remains bound to aa193 and the consumer
+baseline; current preflight must genuinely pass once canonical owners provide
+the exact current registration/admission fixes. The same-review return includes
+this correction and complete closure; source inspection/build is not qualification.
