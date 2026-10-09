@@ -66,7 +66,7 @@ const fixture = defineComponent({
             onView: (value: AdminArticleCompactCardRow) => events.push({ action: 'view', id: value.id, sameRow: value === row.value }),
             onMoveToTrash: (value: AdminArticleCompactCardRow) => events.push({ action: 'trash', id: value.id, sameRow: value === row.value })
         }), showSlotProbe.value ? h('div', { class: 'public-slot-probe', 'data-testid': 'public-slot-probe' }, [
-            h(ElTag, { size: 'small', type: 'warning', disableTransitions: true, class: 'owned-tag-width' }, () => h('span', { class: 'owned-slot-label' }, row.value.categoryName))
+            h(ElTag, { size: 'small', type: 'warning', multiline: true, disableTransitions: true, class: 'owned-tag-width' }, () => h('span', { class: 'owned-slot-label' }, row.value.categoryName))
         ]) : null]);
     }
 });
