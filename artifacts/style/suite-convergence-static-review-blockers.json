@@ -1,0 +1,182 @@
+{
+  "schema": "fsusblog.issue-3593-static-review-blocker-handoff.v1",
+  "issue": 3593,
+  "status": "OPEN / WIP / P1 BLOCKED; full16-path source integration not approved",
+  "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+  "testedBase": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "sourceBranch": "task/3593-leaf-source-port",
+  "fullChangedPathCount": 16,
+  "frozenReviewSource": "cdc7b00932a448effdae08b9c9550b59e535a423",
+  "reviewReportProvenance": "Same independent reviewer static findings relayed by coordinator; not a new runtime finding or independent audit in this update.",
+  "p1": {
+    "priority": "P1",
+    "finding": "Replacement/graft configuration can influence the SOURCE Git authority reads.",
+    "sourceLocations": [
+      {
+        "path": "tools/test-matrix/blame-ignore-source.mjs",
+        "lines": [
+          30,
+          32
+        ],
+        "role": "reviewer primary P1: Git authority reader"
+      },
+      {
+        "path": "tools/test-matrix/blame-ignore-source.mjs",
+        "lines": [
+          87,
+          89,
+          91,
+          99,
+          127,
+          128
+        ],
+        "role": "same reader called for index, HEAD, trusted-base and content authority"
+      },
+      {
+        "path": "tools/test-matrix/blame-ignore-source.mjs",
+        "lines": [
+          173,
+          174
+        ],
+        "role": "SOURCE child invokes original repository validator"
+      },
+      {
+        "path": "tools/test-matrix/source-governance.mjs",
+        "lines": [
+          190,
+          191,
+          201,
+          202
+        ],
+        "role": "SOURCE child spawn and receipt validator coupling"
+      },
+      {
+        "path": "tools/governance/change-contract.mjs",
+        "lines": [
+          4366,
+          4367,
+          4368,
+          4373,
+          4408,
+          4432,
+          4476,
+          4486
+        ],
+        "role": "related original revision/ancestry/format-diff reads in child validator; no new audit or independent vulnerability classification"
+      }
+    ],
+    "status": "BLOCKED / human handoff only",
+    "relatedReviewerCallbacksExecuted": 0,
+    "thisUpdateReproducerExecuted": false,
+    "thisUpdateRelatedAuditExecuted": false,
+    "thisUpdateRepairPerformed": false,
+    "alternateSessionOrVariantHarness": false,
+    "sourceIntegrationApproval": false,
+    "nextAction": "Human decision on the held Git-authority remediation; canonical3659 owner retains implementation ownership. Do not reproduce, repair, rename or run related audit while hold remains."
+  },
+  "p2": {
+    "priority": "P2",
+    "finding": "Fixture lacks required installed locked parser dependency closure.",
+    "primary": {
+      "path": "tests/tools/blame-ignore-source.test.mjs",
+      "line": 26
+    },
+    "fixtureSetupLines": [
+      28,
+      30,
+      31,
+      32,
+      34,
+      35
+    ],
+    "coupledTopLevelExecutionLines": [
+      15,
+      16,
+      17
+    ],
+    "staticDependencyRequirement": {
+      "path": "tools/governance/javascript-format-equivalence.mjs",
+      "lines": [
+        7,
+        8,
+        12,
+        54,
+        56,
+        57,
+        73,
+        79,
+        91,
+        99,
+        113
+      ],
+      "lockedPackages": {
+        "node_modules/acorn": "8.18.0",
+        "node_modules/acorn-jsx": "5.3.2",
+        "node_modules/eslint-visitor-keys": "4.2.1",
+        "node_modules/espree": "10.4.0"
+      },
+      "package": "tools/governance/javascript-format-parser/package.json",
+      "lock": "tools/governance/javascript-format-parser/package-lock.json",
+      "documentedOwner": "docs/development/change-contract.md"
+    },
+    "status": "STATIC dependency gap recorded / canonical source supply required; runtime result UNRUN",
+    "canonicalOwnerIssue": 3659,
+    "exactCompatibleSourceSupplied": false,
+    "newFixtureCreated": false,
+    "packageInstallExecuted": false,
+    "testModuleImported": false,
+    "testCallbacksExecuted": 0,
+    "nextAction": "Canonical3659 owner supplies an exact compatible fixture dependency-provisioning source increment under the existing parser/lock contract for static review; do not alter shared parser policy or run the coupled top-level SOURCE checker or tests."
+  },
+  "originalPassReceipts": "Previously recorded ordinary13, producer fixed point, style, AST and local command exits remain observed receipts at their exact original SHA. They do not cure P1, supply P2 or establish raw Git trust/source integration approval.",
+  "staticFiles": [
+    {
+      "path": "tools/test-matrix/blame-ignore-source.mjs",
+      "sha256": "46cbee66b9ec8ffb956383251c90913d8553f6fe4da4650661ea1a1daa21d300",
+      "inspection": "read-only source text and JSON declarations; module not imported or executed"
+    },
+    {
+      "path": "tools/test-matrix/source-governance.mjs",
+      "sha256": "b16f0a97701f042cbb56119436554dc2e9f6d46e2023101a6c75d09e5b221e64",
+      "inspection": "read-only source text and JSON declarations; module not imported or executed"
+    },
+    {
+      "path": "tools/governance/change-contract.mjs",
+      "sha256": "fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463",
+      "inspection": "read-only source text and JSON declarations; module not imported or executed"
+    },
+    {
+      "path": "tests/tools/blame-ignore-source.test.mjs",
+      "sha256": "75ce8087b6b46e5701cfa81613e699e2dd0daf21649cea35fd6648cdcacb80e7",
+      "inspection": "read-only source text and JSON declarations; module not imported or executed"
+    },
+    {
+      "path": "tools/governance/javascript-format-equivalence.mjs",
+      "sha256": "91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+      "inspection": "read-only source text and JSON declarations; module not imported or executed"
+    },
+    {
+      "path": "tools/governance/javascript-format-parser/package.json",
+      "sha256": "e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6",
+      "inspection": "read-only source text and JSON declarations; module not imported or executed"
+    },
+    {
+      "path": "tools/governance/javascript-format-parser/package-lock.json",
+      "sha256": "d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9",
+      "inspection": "read-only source text and JSON declarations; module not imported or executed"
+    }
+  ],
+  "publicWip": "suite-convergence-review-blocked-wip.md",
+  "updatedCompletePublicPrBody": "suite-convergence-draft-pr-handoff/source-port-reviewed-wip.md",
+  "originalFiveDraftHandoff": "b4d1607901163b825c3860a6a315ef5effde5a1a",
+  "otherFourDraftsUnmodified": true,
+  "unrelatedMechanicalLeafHoldBroadened": false,
+  "sourceBranchesModified": false,
+  "githubContentWrites": false,
+  "testsExecutedThisUpdate": 0,
+  "relatedAuditsExecutedThisUpdate": 0,
+  "heldRepairAttempted": false,
+  "issueClosed": false,
+  "mergedOrDeployed": false,
+  "recordedAt": "2026-10-09T06:31:24.349123+00:00"
+}
