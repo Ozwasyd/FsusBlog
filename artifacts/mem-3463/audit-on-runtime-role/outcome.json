@@ -1,0 +1,204 @@
+{
+  "kind": "current-source ordinary result and exact unresolved canonical gate",
+  "candidate": "6e699ddc305bdb21a720e1d3923c5af4d643b408",
+  "sourceBranch": "codex/mem-3463-audit-source",
+  "base": "5dcd62096f97ccb2297781f2fcebf04fa8dbedd6",
+  "frozenMinimalProvenance": "32162e03eaa881451d1823674662cfa51aed661c",
+  "fullSourceScope": {
+    "paths": 22,
+    "ownedCSharp": 10,
+    "originalCommonCSharp": 8,
+    "manifest": 1,
+    "soleRuntimeRoleLock": 1,
+    "buildApiAndOriginalTest": 2
+  },
+  "sourceBlobsPreserved": true,
+  "sdk": "10.0.401",
+  "node": "v24.19.0",
+  "CI": "true",
+  "GITHUB_ACTIONS": null,
+  "ContinuousIntegrationBuild": "true",
+  "RestoreLockedMode": "true",
+  "NuGetAudit": "true",
+  "configuration": "Release",
+  "actualResults": {
+    "newLockedRuntimeRoleRestore": "Passed with unsuppressed NU1903 warning",
+    "newOriginalApiRuntimeRoleBuild": "Passed,1066 warnings/0 errors",
+    "original18CSharpStyle": "Passed",
+    "commitRange": "Passed",
+    "diffWhitespace": "Passed"
+  },
+  "canonicalV3Admission": "NotRun / contract conflict: pinned validator command requires /p:NuGetAudit=false while this real output is /p:NuGetAudit=true. No canonical receipt claimed or fabricated.",
+  "own14Tests": "NotRun (including all3 notification controls); cannot cross fresh canonical admission gate with this ordinary audit-on result. Original testhost/initializer unchanged.",
+  "notRun": [
+    "canonical v3 admission and observations",
+    "backend testhost",
+    "supplier API argv tests (parent reports prior independent3 controls; not our execution)",
+    "Docker runtime tests",
+    "held audits",
+    "native/platform/performance/production qualification"
+  ],
+  "noSupplierReceiptTransferred": true,
+  "sameReviewer": "01a11b7a-358b-75f9-be4e-d783c7ec7030",
+  "noContentApiWrites": true,
+  "all3463AcceptanceCriteriaRemainOpen": true,
+  "remainingOwnerRequest": "Canonical admission/build contract owner must resolve audit-on versus canonical audit-off argv semantics through a reviewed supported interface; this partition makes no validator, receipt, harness or lock-generation workaround.",
+  "artifactBranch": "codex/mem-3463-audit-diagnostics",
+  "artifactBranchIsNotTestedSourceCandidate": true,
+  "bundle": {
+    "file": "ordinary-results.tar.gz",
+    "sha256": "b1dc88c727473a635f1526e65821aafd94ac4b473b25c02a027504e688bd3e23",
+    "files": [
+      {
+        "path": "NuGet.audit-isolated.config",
+        "bytes": 387,
+        "sha256": "3666202700edfe31f6fe60b5604dbc6c54114706dbb1ead06eb819d3ea2fb3a1"
+      },
+      {
+        "path": "actual-build-api-invocation.mjs",
+        "bytes": 2448,
+        "sha256": "914d4dd1e3eaff65a80347c8ebe2245755560f75a1c1aca4c0b5f25678f788ef"
+      },
+      {
+        "path": "build-api-call.log",
+        "bytes": 152,
+        "sha256": "5a6289fd7cc6a4f27c5dc5ca040ea7ac31cbddb09992b8d4172ed31ec65480e5"
+      },
+      {
+        "path": "build-summary.json",
+        "bytes": 491,
+        "sha256": "b8d378642e0a63d209b5aeab76e82c748f0507eff2f3cda78aa5491a6c86abcb"
+      },
+      {
+        "path": "canonical-v3-conflict.json",
+        "bytes": 2039,
+        "sha256": "691f2293a81c338fdb98549760fe675f55e9d586bceb3331d226e2b81b72ff5e"
+      },
+      {
+        "path": "commit-range.log",
+        "bytes": 81,
+        "sha256": "0e8426eb7e37a55c9d821b5178565cc03a248196865acec6e475a9ad50ed2250"
+      },
+      {
+        "path": "diff-check.log",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "direct-source-compatibility.json",
+        "bytes": 2724,
+        "sha256": "e32e44adbe862de3dc1805d2a462491e1f1ec15bc20d148cd8e2440eaa6f22a6"
+      },
+      {
+        "path": "full-candidate.patch",
+        "bytes": 119530,
+        "sha256": "b686867632e050980bd6189cc28ac20116dd53be60a1bf3f0aa0cc3e08f4b451"
+      },
+      {
+        "path": "inspected-source/Directory.Build.props",
+        "bytes": 1110,
+        "sha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4"
+      },
+      {
+        "path": "inspected-source/tests/backend/FsusBlog.Server.Tests.csproj",
+        "bytes": 2812,
+        "sha256": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c"
+      },
+      {
+        "path": "inspected-source/tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs",
+        "bytes": 8395,
+        "sha256": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b"
+      },
+      {
+        "path": "inspected-source/tools/build-with-data-env.sh",
+        "bytes": 2719,
+        "sha256": "9e6c6a4e3fd0df722adba1de69a7dafcca3faa11253223944cda243526bfaddf"
+      },
+      {
+        "path": "inspected-source/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+        "bytes": 565,
+        "sha256": "068819349834506bc8f4d501fb47a38d7548f6d5978ba0408c9a9042cb19f3c3"
+      },
+      {
+        "path": "inspected-source/tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+        "bytes": 15433,
+        "sha256": "2040f32153b8c7a6610d0334cca881384129b7be5207d11c1883dd9c0e70f24d"
+      },
+      {
+        "path": "inspected-source/tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "bytes": 27733,
+        "sha256": "d7d912bb65707b70fa0c0a7c4ab47abd62d0ae4c52fcec8c510f0a378186f76d"
+      },
+      {
+        "path": "inspected-source/tools/docs/behavior-doc-static-admission.mjs",
+        "bytes": 19959,
+        "sha256": "ad4cc038a5ee1e273c8941d64131da513c63ca855c921213d65f82b156a81990"
+      },
+      {
+        "path": "node-version.log",
+        "bytes": 9,
+        "sha256": "b7677d3ec37ee1897ba07dc2cfe8292fe421c9ac93396cca5bbece486d1a2a41"
+      },
+      {
+        "path": "ordinary-build-execution.json",
+        "bytes": 3763,
+        "sha256": "d1f69826391a4d9f59b97e849c22a1b30a0e1b902e9a2b4b1e1f70dc5fa3b9a2"
+      },
+      {
+        "path": "outcome.json",
+        "bytes": 2126,
+        "sha256": "a318e84f14ec7092d612c92187889798f8ce6bd71b115ca141bc55de3de7b1fa"
+      },
+      {
+        "path": "positive-inspection.json",
+        "bytes": 9259,
+        "sha256": "d6db6a22782f053d3ca967a4a2272f44735db70f55cb0ea68ecb7b832f2627e3"
+      },
+      {
+        "path": "post-restore-lock-identity.json",
+        "bytes": 416,
+        "sha256": "7b852e2206f568913eea3ab29babf8291a2170c0bef8e29ad6242401129cc585"
+      },
+      {
+        "path": "preparation.json",
+        "bytes": 671,
+        "sha256": "671b20bc48b881ca64b40c62e6a715bace9753881f4cd4a74a57d30f9f5cdd17"
+      },
+      {
+        "path": "restore-execution.json",
+        "bytes": 1444,
+        "sha256": "f4463889f60ad6548e6d274d705b4db9c856b874288830532392fb7ebd8a9afb"
+      },
+      {
+        "path": "restore.log",
+        "bytes": 1872,
+        "sha256": "6715f04c2e1dbc31661365dc3f37cf099d0960e44fd89be6f14672968fe9bfc2"
+      },
+      {
+        "path": "runtime-role-build.log",
+        "bytes": 647864,
+        "sha256": "d9459cfdc1bd219fe4b021540fa5f38bd43bd72baee033372415f80d34c5097a"
+      },
+      {
+        "path": "sdk-version.log",
+        "bytes": 9,
+        "sha256": "93c11b5221b72e0032ab2d9f93d28c2c9b7a0bb2557effffcdfef45ab739a0da"
+      },
+      {
+        "path": "source-closure.json",
+        "bytes": 6035,
+        "sha256": "cb431def92645cffc3558f7dc4b6b8011d83ac3f3f103dfcaf83a6015c1462a2"
+      },
+      {
+        "path": "source-csharp-command.json",
+        "bytes": 1674,
+        "sha256": "cd510117475eea226052c858d7782ff2e4463d330116cdac04a83a8632d7de10"
+      },
+      {
+        "path": "source-csharp.log",
+        "bytes": 46,
+        "sha256": "7cbcb04cccb38ad562b698f0f99fa6ac7a585a70fa41d74a40a0250a379931a7"
+      }
+    ]
+  }
+}
