@@ -146,7 +146,7 @@ public static class ArticleSourceGenerationAuthority
                     || envelope.Scope.After?.Visibility != "draft"))
             || (item.ArticlePublicationId.HasValue != item.PublicationNo.HasValue)
             || item.ArticlePublicationId is <= 0 || item.PublicationNo is <= 0
-            || (item.ResponsibilitySnapshotId.HasValue != item.ResponsibilityVersion.HasValue)
+            || (item.ResponsibilityVersion.HasValue && !item.ResponsibilitySnapshotId.HasValue)
             || item.ResponsibilitySnapshotId is <= 0 || item.ResponsibilityVersion is <= 0
             || envelope.Version.RevisionId != item.ArticleRevisionId
             || envelope.Version.RevisionNo != item.RevisionNo
