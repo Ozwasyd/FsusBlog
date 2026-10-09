@@ -1,0 +1,68 @@
+{
+  "source": "d28c744904729d9d167ebaf6fa04e202d73cf27f",
+  "supplier": "2de89a7656b4a9a1e0982629b44b45f5999d37a6",
+  "operationContractByteIdentical": true,
+  "protected": [
+    {
+      "path": "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+      "blob": "2779552c57f2f4361348f002d62cf3aa3d49c187",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Services/ArticleVault/ArticleVaultInstallationSiteIdentityCandidateReader.cs",
+      "blob": "9e593715f0b1fd3d0f76d4d40dfefb1bcf04bca6",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Services/ArticleVault/ArticleVaultConflictReviewReader.cs",
+      "blob": "56f0271d1a1a6f5ceb65430412475f06260ccf93",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryCheckpointReader.cs",
+      "blob": "9a8a459befb5c1d3b28a8bb6c39d7db1163b91df",
+      "unchanged": true
+    },
+    {
+      "path": "src/core/Algorithms/AedsFrameType.cs",
+      "blob": "fe7f0a0c8cf544e07c47d4f1827cd1e1d2670fa6",
+      "unchanged": true
+    },
+    {
+      "path": "src/shared/AedsFrameHeader.cs",
+      "blob": "a3b87b99f8abe49e8767b0a1b5c888736686176a",
+      "unchanged": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+      "blob": "52918b925bca9bb7e9cc9cf14ab1c22f4d6673ea",
+      "unchanged": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+      "blob": "3de0f05a0b0b162f1507c46d6ce12618a5310616",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/api/articleVault.ts",
+      "blob": "474e4c2e02565138f888c1a47adf9f28c5257135",
+      "unchanged": true
+    }
+  ],
+  "enrollment22PostimagesRetained": true,
+  "requestSignature": "ArticleVaultCurrentReviewRequest(int ArticleId, string ResolutionOperationIdentity, string ProposalSha256, ArticleVaultCurrentReviewCheckpointReference? Checkpoint)",
+  "checkpointSignature": "ArticleVaultCurrentReviewCheckpointReference(ArticleVaultOperationIdentity Operation, long Sequence, string ContentSha256)",
+  "supplierCodecSignatures": [
+    "EncodeArticleVaultCurrentReviewRequest(ArticleVaultCurrentReviewRequest) -> byte[]",
+    "WriteArticleVaultCurrentReviewRequest(ArticleVaultCurrentReviewRequest, IBufferWriter<byte>)",
+    "TryDecodeArticleVaultCurrentReviewRequest(ReadOnlyMemory<byte>, out ArticleVaultCurrentReviewRequest?) -> bool"
+  ],
+  "consumedCodecPaths": [],
+  "activeEndpoint": false,
+  "registeredWireIds": false,
+  "responseProjectionImplemented": false,
+  "currentFactsFromRequest": false,
+  "authorNode29Native35ResultsInherited": false,
+  "managedIsolatedHostExcluded": true,
+  "sourceQualified": false
+}

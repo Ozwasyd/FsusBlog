@@ -1,0 +1,18 @@
+{
+  "supplier": "2de89a7656b4a9a1e0982629b44b45f5999d37a6",
+  "supplierParent": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "consumerParent": "0f422e469c90c0ed6f5fbc94f2539cd6207a1ddd",
+  "consumedPaths": [
+    {
+      "path": "src/shared/Contracts/ArticleVault/ArticleVaultCurrentReviewWireContracts.cs",
+      "supplierBlob": "ff0d45e7ac8d7de86f4bade42c6a528cec06807d",
+      "postimage": "ff0d45e7ac8d7de86f4bade42c6a528cec06807d"
+    }
+  ],
+  "operationContractUnchanged": true,
+  "registryImported": false,
+  "codecImported": false,
+  "responseImplemented": false,
+  "activeEndpoint": false,
+  "qualified": false
+}

@@ -192,10 +192,16 @@ HTTP admin principal and `admin_sid` to the exact stored proposal's document sco
 using the host's separate opaque Vault site binding. It calls the original
 `ArticleVaultConflictReviewReader.ReadAsync` with trusted in-process current inputs;
 live permission, sealed-bundle actor and current admission checks remain owned by
-that reader. It supplies no HTTP contract or current-input acquisition authority.
-A current review route still requires the canonical wire contract and legitimate
-full `ArticleVaultResolutionPlanInput` acquisition, rather than request-body facts
-or a historical response converted into a current snapshot.
+that reader. The canonical Shared `ArticleVaultCurrentReviewRequest` now names
+the article, exact proposal and optional exact operation checkpoint. The adapter's
+unmounted typed entry checks that original contract and passes those references
+to the existing reader. It obtains no authenticated document or current authority
+from request fields; full `ArticleVaultResolutionPlanInput` remains a separate
+trusted in-process input. The supplied request codec exists, but its proposed
+request286/response287/error21 remain unregistered and the original response
+projection is unfinished. A current review route still requires that canonical
+registration/response and legitimate full current-input acquisition. Historical
+253/254 responses cannot be converted into a current snapshot.
 
 The System owner now supplies the actual typed `ISystemSiteIdentityReader` and
 `SystemSiteIdentityReadModel`. `ArticleVaultInstallationSiteIdentityCandidateReader`

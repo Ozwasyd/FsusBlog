@@ -1,0 +1,24 @@
+{
+  "sourceCommit": "d28c744904729d9d167ebaf6fa04e202d73cf27f",
+  "qualification": false,
+  "testsExecuted": false,
+  "files": {
+    "README.md": "e9ecc38bbddbacecce54f592d2f6b818fe670486d78bdd62e07ce12fcd4a9e11",
+    "check-commands.json": "156509eb54f21aa5193b8ddec4962df75cffaa4038d3bd07c398fe05f44a83c9",
+    "checks/adapter-style.log.gz": "3327b10a270e8ba8f1a5c5a119000f4fcdaded9ed8bcf8bf09e029df94003f87",
+    "checks/build.log.gz": "103fe1cefd0938fb1efea03ff7c762cc1c577f0804e89e129caf961084de9e17",
+    "checks/collections.log.gz": "e3a1976f2161ca6a05301940619f730682e46339b127f4c1e7045a82b16df15c",
+    "checks/contract.log.gz": "ae1d2d9feda293b9a8631b47b31068927e557657ae3275c309f3c5c1e538197d",
+    "checks/diff-check.log.gz": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+    "checks/doc-authority.log.gz": "4a0be25a3a4778c02cfb8800d05294a8016f1591292f20754b4748a891b84672",
+    "checks/doc-lifecycle.log.gz": "e7b7c634b66033c56d79847d570b50aeee35588e86c86582156321fa34267524",
+    "checks/preflight.log.gz": "e1afaaa8cf6748ce5795cabca4812d6ffb5f8d88743e6c53708b1416b5f1c859",
+    "commands.json": "80bc3550e5663ce0279eb103703d015952e92cfb44316f3480ff34a3045e8f73",
+    "compiled-source-binding.json": "f49db83117b7681cba11edc12e9ce68d6a13ddc46d7e359f60031861b796c45c",
+    "consumption.json": "1a91f52a3d6ca49a6eac083f55ecdecc306350abb14359e308b70e9e1b8d161a",
+    "issue-accounting.json": "a670116eb00d40c7e0efb6a12daba082b04461e94714624f940f68e5c6ce46ee",
+    "issue-accounting.md": "77e89c9df339986038b30d4b294ad7e4f42a1387d5451279012a36f96a0a4da4",
+    "source-inspection.json": "7b23462123f22d6d0bc86127a639ca8594f34bedc5d2e0e66b31f409676e15b6",
+    "summary.json": "f977a0af56bb833d2e9e4119930d7843c9cd37afc8346267c7fe075c18e6cba0"
+  }
+}

@@ -1,0 +1,68 @@
+[
+  {
+    "name": "preflight",
+    "source": "d28c744904729d9d167ebaf6fa04e202d73cf27f",
+    "argv": [
+      "node",
+      "tools/run-test-matrix.mjs",
+      "preflight"
+    ],
+    "exitCode": 1,
+    "testsExecuted": false
+  },
+  {
+    "name": "collections",
+    "source": "d28c744904729d9d167ebaf6fa04e202d73cf27f",
+    "argv": [
+      "node",
+      "tools/check-postgres-test-collections.mjs"
+    ],
+    "exitCode": 1,
+    "testsExecuted": false
+  },
+  {
+    "name": "contract",
+    "source": "d28c744904729d9d167ebaf6fa04e202d73cf27f",
+    "argv": [
+      "node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "0f422e469c90c0ed6f5fbc94f2539cd6207a1ddd..HEAD"
+    ],
+    "exitCode": 0,
+    "testsExecuted": false
+  },
+  {
+    "name": "diff-check",
+    "source": "d28c744904729d9d167ebaf6fa04e202d73cf27f",
+    "argv": [
+      "git",
+      "diff",
+      "--check",
+      "0f422e469c90c0ed6f5fbc94f2539cd6207a1ddd..HEAD"
+    ],
+    "exitCode": 0,
+    "testsExecuted": false
+  },
+  {
+    "name": "doc-lifecycle",
+    "source": "d28c744904729d9d167ebaf6fa04e202d73cf27f",
+    "argv": [
+      "node",
+      "tools/docs/generate-document-lifecycle.mjs",
+      "--check"
+    ],
+    "exitCode": 0,
+    "testsExecuted": false
+  },
+  {
+    "name": "doc-authority",
+    "source": "d28c744904729d9d167ebaf6fa04e202d73cf27f",
+    "argv": [
+      "node",
+      "tools/docs/check-authoritative-development-docs.mjs"
+    ],
+    "exitCode": 0,
+    "testsExecuted": false
+  }
+]

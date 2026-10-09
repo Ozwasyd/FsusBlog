@@ -1,0 +1,17 @@
+{
+  "source": "d28c744904729d9d167ebaf6fa04e202d73cf27f",
+  "sourceBlobs": {
+    "src/backend/Services/ArticleVault/ArticleVaultAuthenticatedConflictReviewAdapter.cs": "eb375d3b05dfeedf2ab4072b5003fba2e5b9d13f",
+    "src/shared/Contracts/ArticleVault/ArticleVaultCurrentReviewWireContracts.cs": "ff0d45e7ac8d7de86f4bade42c6a528cec06807d"
+  },
+  "assemblies": {
+    "FsusBlog.Server.dll": "d6c2282750b28088321e329f895d2594ced5bb8603a1f30950859413a098ea08",
+    "FsusBlog.Core.dll": "76f163551ff6e491cbfa19f073d7231ebc7a84fa9672abb2e7f7a4656031f5e3",
+    "FsusBlog.Server.Tests.dll": "66e7bfb32fb90711e0bd3efbc50b1dec2144bd005292789473c231752f5b32d7",
+    "FsusBlog.DiLifetimeAnalyzer.dll": "d23fb51726cd5c1629d1df79f0c1351abdd79ddafd7cee8fc6f38a58e785374e",
+    "FsusBlog.Shared.dll": "0c09e0aa96d746f1c153ec7a3d2ec9456ce760370a174153bc1bdc10e8a03494",
+    "FsusBlog.Migration.dll": "2d47f70d2a768ea33698e503ba2b9d3d8dbbcd4800df9cef261b0aaaa62e6d03"
+  },
+  "testsExecuted": false,
+  "qualified": false
+}
