@@ -1,0 +1,150 @@
+{
+  "source": "aa193c2dbc27389e9684642a193de934ec62a9c6",
+  "head": "2cbc044934d9fd12be4eb07fa6bc50a1d0f854ec",
+  "diagnosticOnly": true,
+  "qualification": false,
+  "method": "Read-only reuse of unchanged original extractClasses/countXunitCases and canonical mask; no manifest, source annotation or checker edit.",
+  "originalCheckerSHA256": "7678e9f87893107ff5f71b90eaec4753f60ffda09702f516da4f2f3fd3cdb5c2",
+  "sourceFixtureClassCount": 128,
+  "currentAnnotatedSourceEstimatedTotals": {
+    "SchemaMigrationPostgresCollectionB": 543,
+    "SchemaMigrationPostgresCollectionA": 451,
+    "Unassigned": 5
+  },
+  "unassigned": [
+    {
+      "path": "Unit/AdminFixtureSessionIssuanceTests.cs",
+      "class": "TypedAdminSessionWriterDatabaseTests",
+      "collection": null,
+      "sourceEstimatedCases": 5,
+      "alreadyRegistered": false
+    }
+  ],
+  "missingRegistrations": [
+    {
+      "path": "Integration/AdminAuditDurableReplayIssue2040IntegrationTests.cs",
+      "class": "AdminAuditDurableReplayIssue2040IntegrationTests",
+      "collection": "SchemaMigrationPostgresCollectionA",
+      "sourceEstimatedCases": 24,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Integration/AdminPasskeyJoinedEndpointPostgresTests.cs",
+      "class": "AdminPasskeyJoinedEndpointPostgresTests",
+      "collection": "SchemaMigrationPostgresCollectionB",
+      "sourceEstimatedCases": 15,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Integration/ArticleVaultOperationCheckpointPostgresTests.cs",
+      "class": "ArticleVaultOperationCheckpointPostgresTests",
+      "collection": "SchemaMigrationPostgresCollectionA",
+      "sourceEstimatedCases": 4,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Integration/ArticleVaultRecoveryCheckpointTransactionPostgresTests.cs",
+      "class": "ArticleVaultRecoveryCheckpointTransactionPostgresTests",
+      "collection": "SchemaMigrationPostgresCollectionA",
+      "sourceEstimatedCases": 12,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Integration/ArticleVaultRecoveryStoragePostgresTests.cs",
+      "class": "ArticleVaultRecoveryStoragePostgresTests",
+      "collection": "SchemaMigrationPostgresCollectionA",
+      "sourceEstimatedCases": 13,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Integration/ArticleVaultResolutionProposalPostgresTests.cs",
+      "class": "ArticleVaultResolutionProposalPostgresTests",
+      "collection": "SchemaMigrationPostgresCollectionA",
+      "sourceEstimatedCases": 6,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Integration/AuditDurableReplayIssue2040IntegrationTests.cs",
+      "class": "AuditDurableReplayIssue2040IntegrationTests",
+      "collection": "SchemaMigrationPostgresCollectionA",
+      "sourceEstimatedCases": 5,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs",
+      "class": "CanonicalArticleSourceGenerationEnrollmentIntegrationTests",
+      "collection": "SchemaMigrationPostgresCollectionA",
+      "sourceEstimatedCases": 6,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Integration/ChallengeV2DurableReplayIssue2040IntegrationTests.cs",
+      "class": "ChallengeV2DurableReplayIssue2040IntegrationTests",
+      "collection": "SchemaMigrationPostgresCollectionA",
+      "sourceEstimatedCases": 27,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Integration/OfflineMigrationOwnedWriterReadScopeIntegrationTests.cs",
+      "class": "OfflineMigrationOwnedWriterReadScopeIntegrationTests",
+      "collection": "SchemaMigrationPostgresCollectionB",
+      "sourceEstimatedCases": 7,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Unit/AdminFixtureSessionIssuanceTests.cs",
+      "class": "TypedAdminSessionWriterDatabaseTests",
+      "collection": null,
+      "sourceEstimatedCases": 5,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Unit/AdminSessionTouchPersistenceTests.cs",
+      "class": "AdminSessionTouchPersistenceTests",
+      "collection": "SchemaMigrationPostgresCollectionB",
+      "sourceEstimatedCases": 6,
+      "alreadyRegistered": false
+    },
+    {
+      "path": "Unit/BlacklistServiceMutationTests.cs",
+      "class": "BlacklistServiceMutationTests",
+      "collection": "SchemaMigrationPostgresCollectionB",
+      "sourceEstimatedCases": 2,
+      "alreadyRegistered": false
+    }
+  ],
+  "supplierRegistration": "bb2a1dc367391003b6404e4238cf4a27245d5157",
+  "supplierPathsApplied": [],
+  "supplierOnlyAbsentClasses": [
+    "Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs#ArticleRelationSourceCoordinateAuthorityIntegrationTests",
+    "Integration/ArticleRevisionSourceCoordinateHookIntegrationTests.cs#ArticleRevisionSourceCoordinateHookIntegrationTests"
+  ],
+  "consumerExtraVaultClasses": [
+    "ArticleVaultOperationCheckpointPostgresTests",
+    "ArticleVaultRecoveryCheckpointTransactionPostgresTests",
+    "ArticleVaultRecoveryStoragePostgresTests",
+    "ArticleVaultResolutionProposalPostgresTests"
+  ],
+  "originalCheckerResult": {
+    "argv": [
+      "node",
+      "tools/check-postgres-test-collections.mjs"
+    ],
+    "exitCode": 1,
+    "registeredClassCount": 115,
+    "registeredSourceEstimatedCases": {
+      "SchemaMigrationPostgresCollectionA": 354,
+      "SchemaMigrationPostgresCollectionB": 513
+    },
+    "missingRegistrationCount": 13,
+    "missingAnnotationCount": 1
+  },
+  "prospectiveAfterCanonicalSupplierTypedAnnotationOnly": {
+    "sourceFixtureClassCount": 128,
+    "sourceEstimatedCases": 999,
+    "SchemaMigrationPostgresCollectionA": 451,
+    "SchemaMigrationPostgresCollectionB": 548,
+    "notApplied": true,
+    "canonicalCheckerConfirmationPending": true
+  }
+}

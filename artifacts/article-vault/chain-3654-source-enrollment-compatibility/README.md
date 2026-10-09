@@ -99,3 +99,30 @@ preserved in the original handoff. All 15 issue acceptances remain OPEN.
 Return this complete closure and its admission blockers to the same independent
 reviewer `01a120b7-c3a0` through the coordinator. Independent qualification remains
 separate. No PR/body/comment/label/ready/merge/deploy writes or issue closure.
+
+## bb2a1dc registration is bound to another source graph
+
+Exact registration supplier `bb2a1dc367391003b6404e4238cf4a27245d5157` was fetched
+and its five-path delta inspected. None of those five paths is applied here.
+Its b98-bound roster includes two coordinate integration classes absent from this
+consumer, while this consumer has four additional original Vault PostgreSQL
+classes. `docs/testing.md` also has a different original preimage. Copying the
+supplier's 126/987 or A434/B553 would not describe this candidate.
+
+The unchanged original collection checker was rerun at `2cbc044934d9fd12be4eb07fa6bc50a1d0f854ec`
+(source still aa193) and exits 1. For the existing 115 registered classes it reports
+source-estimated A354/B513, 13 missing registrations and one missing annotation.
+The read-only diagnostic in `registration-discrepancy.json` reuses the original
+extractClasses/countXunitCases functions and canonical mask without changing
+checker, manifest, annotations or test code. It identifies 128 actual fixture
+classes, annotated A451/B543 and five unassigned source-estimated cases.
+
+If canonical3657 adapts its supplied TypedAdminSessionWriterDatabaseTests B
+annotation to this exact source, the prospective complete roster is 128 classes
+and 999 source-estimated cases, A451/B548. These are diagnostic source estimates,
+not applied registration, runtime test counts, or a checker pass. Canonical3657
+must independently recompute and publish its candidate-specific closure against
+aa193/2cbc. Release-final original preflight corrections remain independently
+necessary. No new tests, build, container, broad audit or admission bypass was run
+for this metadata inspection; earlier build remains bound to aa193 and earlier
+PostgreSQL results remain unqualified at frozen b98.
