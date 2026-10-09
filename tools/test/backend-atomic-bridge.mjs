@@ -8,7 +8,7 @@ import { backendAtomicDigest, validateBackendAtomicPlan, verifyBackendAtomicSour
 
 const { compileAtomicProducerDag, verifyCompiledAtomicProducerDag } = await import(new URL('../test-matrix/atomic-producers/compiler.mjs', import.meta.url));
 const { AtomicProducerExecutionError, executeCompiledAtomicProducerDag, verifyAtomicTerminalVector } = await import(new URL('../test-matrix/atomic-producers/execution.mjs', import.meta.url));
-const { resolveAtomicReference } = await import(new URL('../test-matrix/atomic-producers/contract.mjs', import.meta.url));
+const { isAtomicExecutable, resolveAtomicReference } = await import(new URL('../test-matrix/atomic-producers/contract.mjs', import.meta.url));
 
 function same(actual, expected, label)
 {
@@ -156,8 +156,8 @@ export class BackendAtomicExecutionError extends Error
     }
 }
 
-/** Run the exact compiled graph once through the original executor and retain every terminal. */
-export async function executeBackendAtomicBridge(binding, input, options)
+/** Validate the original pre-execution bindings without invoking private authority callbacks. */
+export function prepareBackendAtomicBridge(binding, input, options)
 {
     const selected = compileBackendAtomicBridge(input);
     backendAtomicDigest(options.expectedBindingDigest, 'selected compiler binding');
@@ -200,6 +200,21 @@ export async function executeBackendAtomicBridge(binding, input, options)
             }
         }
     }
+    const producerIds = binding.compiled.steps.filter(isAtomicExecutable).map((step) => step.id).sort();
+    return {
+        compiled: binding.compiled,
+        sourceBindingDigest: binding.contentDigest,
+        producerIds,
+        producerContexts: Object.fromEntries(producerIds.map((id) => [id, options.producerContexts[id]])),
+        context: options.context,
+        qualificationEligible: false
+    };
+}
+
+/** Run the exact compiled graph once through the original executor and retain every terminal. */
+export async function executeBackendAtomicBridge(binding, input, options)
+{
+    prepareBackendAtomicBridge(binding, input, options);
     let vector;
     let cause;
     try
