@@ -1,6 +1,6 @@
 {
   "schema": "chain3653.public-remote-source-inventory.v1",
-  "recordedAt": "2026-10-09T07:13:50.700055+00:00",
+  "recordedAt": "2026-10-09T08:04:35.242165+00:00",
   "intendedBaseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
   "branches": [
     {
@@ -2897,11 +2897,13 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [
         {
           "path": "tests/backend/Unit/DocumentExportDocxProviderTests.cs",
-          "branchBlob": "d644b96425ea1a08698c0df91c4b8bdca7248b72"
+          "branchBlob": "d644b96425ea1a08698c0df91c4b8bdca7248b72",
+          "masterBlob": null
         },
         {
           "path": "tests/backend/Unit/DocumentExportJobServiceTests.cs",
-          "branchBlob": "9862aea07591b1798cd111a8aa074bd0176bb06c"
+          "branchBlob": "9862aea07591b1798cd111a8aa074bd0176bb06c",
+          "masterBlob": null
         }
       ],
       "exactUnmergedSourceAbsorbedBy": [],
@@ -4404,23 +4406,28 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [
         {
           "path": "tests/backend/Unit/DocumentExportPdfProviderTests.cs",
-          "branchBlob": "cb7d667f2b1b1ec6930393da382a88de36f592cb"
+          "branchBlob": "cb7d667f2b1b1ec6930393da382a88de36f592cb",
+          "masterBlob": "78e93c4e14890fc590f909b74048212e34620c42"
         },
         {
           "path": "src/backend/Services/DocumentExport/Pdf/PdfDocumentExportJobProvider.cs",
-          "branchBlob": "9fc7d971cf8642a608b064adb4fafb94c895657c"
+          "branchBlob": "9fc7d971cf8642a608b064adb4fafb94c895657c",
+          "masterBlob": "884b900ef3882fbe8cc14e77ed9ddce6731a14e4"
         },
         {
           "path": "src/backend/Services/DocumentExport/Pdf/PdfDocumentExportProvider.cs",
-          "branchBlob": "b791704ac998515e49a98f94f12b3214eadecc01"
+          "branchBlob": "b791704ac998515e49a98f94f12b3214eadecc01",
+          "masterBlob": "93dc701a3b83d49829546617c90640bdb3224373"
         },
         {
           "path": "src/backend/Services/DocumentExport/Pdf/README.md",
-          "branchBlob": "dd441391fad5482be6d92c0760ea3f357c9ae4ce"
+          "branchBlob": "dd441391fad5482be6d92c0760ea3f357c9ae4ce",
+          "masterBlob": "72b3111b8318beefb7dd101e821323e673a8a1f7"
         },
         {
           "path": "src/backend/Services/DocumentExport/Pdf/PdfDocumentExportAttemptEvidence.cs",
-          "branchBlob": "bbaf8aa77e4d7a256896b10f1435f6137980b32c"
+          "branchBlob": "bbaf8aa77e4d7a256896b10f1435f6137980b32c",
+          "masterBlob": null
         }
       ],
       "exactUnmergedSourceAbsorbedBy": [],
@@ -11005,11 +11012,13 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [
         {
           "path": "src/backend/Services/DocumentExport/DocumentExportServiceCollectionExtensions.cs",
-          "branchBlob": "90bd38d9e49b5187d2d0cfc6b76f40fe33192f5c"
+          "branchBlob": "90bd38d9e49b5187d2d0cfc6b76f40fe33192f5c",
+          "masterBlob": null
         },
         {
           "path": "src/backend/Services/DocumentExport/README.Transport.md",
-          "branchBlob": "1cff88cf6a4718a4f538947e321ed2383f332b61"
+          "branchBlob": "1cff88cf6a4718a4f538947e321ed2383f332b61",
+          "masterBlob": null
         }
       ],
       "exactUnmergedSourceAbsorbedBy": [],
@@ -18960,11 +18969,13 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [
         {
           "path": "tests/backend/Unit/DocumentExportFrozenEmbedTests.cs",
-          "branchBlob": "b9ae8112e9e67893a864882425c7cd31477220b8"
+          "branchBlob": "b9ae8112e9e67893a864882425c7cd31477220b8",
+          "masterBlob": null
         },
         {
           "path": "src/backend/Services/DocumentExport/Jobs/README.md",
-          "branchBlob": "e5f576f68e108c9581b3f18ae96353650ee6dde0"
+          "branchBlob": "e5f576f68e108c9581b3f18ae96353650ee6dde0",
+          "masterBlob": null
         }
       ],
       "exactUnmergedSourceAbsorbedBy": [],
@@ -20243,11 +20254,13 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [
         {
           "path": "tests/backend/Unit/DocumentExportFrozenEmbedTests.cs",
-          "branchBlob": "3b78b42e1db2cb01f612b28add4fbf84465f3ce8"
+          "branchBlob": "3b78b42e1db2cb01f612b28add4fbf84465f3ce8",
+          "masterBlob": null
         },
         {
           "path": "src/backend/Services/DocumentExport/Jobs/README.md",
-          "branchBlob": "1a6e7cc6d07dcf7fea5ed6a03b497565940f8caa"
+          "branchBlob": "1a6e7cc6d07dcf7fea5ed6a03b497565940f8caa",
+          "masterBlob": null
         }
       ],
       "exactUnmergedSourceAbsorbedBy": [],
@@ -21571,11 +21584,13 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [
         {
           "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
-          "branchBlob": "256116abaf700a4a85d7039092162ea11219addd"
+          "branchBlob": "256116abaf700a4a85d7039092162ea11219addd",
+          "masterBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e"
         },
         {
           "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-          "branchBlob": "60665cc7dbe3b9c1f7659f64f4c8ec1f8d33e5e7"
+          "branchBlob": "60665cc7dbe3b9c1f7659f64f4c8ec1f8d33e5e7",
+          "masterBlob": "9027a72af7d84b9e38986aa0bf4488c3cf5d2999"
         }
       ],
       "exactUnmergedSourceAbsorbedBy": [],
@@ -35862,7 +35877,8 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [
         {
           "path": "tests/backend/Unit/DocumentExportContractTests.cs",
-          "branchBlob": "1f1deb7baea2f77db372b53babedc064a53c5a86"
+          "branchBlob": "1f1deb7baea2f77db372b53babedc064a53c5a86",
+          "masterBlob": "a96b45ae2fc84e83d0064f26a6d07f221f434244"
         }
       ],
       "exactUnmergedSourceAbsorbedBy": [],
@@ -37003,11 +37019,13 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [
         {
           "path": "src/backend/Services/DocumentExport/Jobs/README.md",
-          "branchBlob": "d450a9db3065c37a8018ec9e316256ad2095797f"
+          "branchBlob": "d450a9db3065c37a8018ec9e316256ad2095797f",
+          "masterBlob": null
         },
         {
           "path": "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
-          "branchBlob": "ff1bbfef815a0b270ab58108a7ccc07915818863"
+          "branchBlob": "ff1bbfef815a0b270ab58108a7ccc07915818863",
+          "masterBlob": "e3c252ae17ef09ccbf8243fe290c6c2b84c9f595"
         }
       ],
       "exactUnmergedSourceAbsorbedBy": [],
@@ -38330,11 +38348,13 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [
         {
           "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
-          "branchBlob": "9ac4fc86e5d6d1c9d255e59439216d6959b9cc94"
+          "branchBlob": "9ac4fc86e5d6d1c9d255e59439216d6959b9cc94",
+          "masterBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e"
         },
         {
           "path": "src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs",
-          "branchBlob": "7f9df53221c01e11e48c25830e1d54b571cd10f1"
+          "branchBlob": "7f9df53221c01e11e48c25830e1d54b571cd10f1",
+          "masterBlob": "26b1b154ae3bfe9593034120558e0451ead78999"
         }
       ],
       "exactUnmergedSourceAbsorbedBy": [],
@@ -41469,7 +41489,8 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [],
       "exactUnmergedSourceAbsorbedBy": [
         "codex/chain-3653-shared-registration-integration-20261009-r1",
-        "codex/chain-3653-ordinary-source-composition-20261009"
+        "codex/chain-3653-ordinary-source-composition-20261009",
+        "codex/chain-3653-session-authority-integration-20261009"
       ],
       "allChangedSourceAlreadyMatchesCurrentMaster": false,
       "sourceBlobVariants": {
@@ -43665,7 +43686,8 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [],
       "exactUnmergedSourceAbsorbedBy": [
         "codex/chain-3653-shared-registration-integration-20261009",
-        "codex/chain-3653-ordinary-source-composition-20261009"
+        "codex/chain-3653-ordinary-source-composition-20261009",
+        "codex/chain-3653-session-authority-integration-20261009"
       ],
       "allChangedSourceAlreadyMatchesCurrentMaster": false,
       "sourceBlobVariants": {
@@ -46510,11 +46532,3174 @@
       "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [],
       "allChangedSourceAlreadyMatchesCurrentMaster": false,
       "sourceDisposition": "unique source variants remain"
+    },
+    {
+      "branch": "codex/chain-3653-session-authority-integration-20261009",
+      "remoteHead": "b4c3b71e0bb5578ab9df44998eb599bde5ee0715",
+      "intendedBase": "master",
+      "intendedBaseSha": "a281fb6e9802471c3a44569c3ccab84f88c8d816",
+      "mergeBase": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+      "completePrDiff": [
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/change-contract/backend-unit-server-selection-external-naming.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/job-contract-compatibility.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/ordinary-source-composition.md"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/ordinary-source-preimages.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/ordinary-source-verification.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/private-delivery-handoff.md"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/selected-server29-preflight.md"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/session-authority-source-observation.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/session-authority-source-observation.md"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/shared-registration-consumer-handoff.md"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/shared-registration-consumer-verification.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/shared-registration-current/handoff.md"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/shared-registration-current/ordinary-managed/GlobalUsings.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/shared-registration-current/ordinary-managed/packages.lock.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/shared-registration-current/source-provenance.json"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/backend/GlobalUsings.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.DocumentExport.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/Authoring/AuthorRecentArticleHistoryPersistedPermissionReader.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportContracts.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportFrozenEmbedSourceBridge.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportHttpJobAuthorization.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportRequestFreezer.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportSandbox.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportServiceCollectionExtensions.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/DocumentExportSessionJobAuthorization.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/Jobs/DocumentExportJobPolicy.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/Jobs/DocumentExportJobRepository.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/Jobs/DocumentExportJobService.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/Jobs/README.md"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/backend/Services/DocumentExport/README.Transport.md"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/core/Algorithms/AEDS_V2_PROTOCOL.md"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/core/Algorithms/AedsFrameType.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/core/Cache/PodBinaryCodec.ArticleCanvasLink.Generated.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/core/Cache/PodBinaryCodec.AuthorArticleSelection.Generated.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/core/Cache/PodBinaryCodec.AuthoringWorkspaceSnapshot.Generated.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/core/Cache/PodBinaryCodec.DocumentExport.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/core/Cache/PodBinaryCodec.WritingAidPreference.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/core/Cache/PodBinaryCodec.WritingAidPreferenceReceipt.Generated.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/core/Mapping/Models/DocumentExportModels.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/api/documentExport.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/codecs/binary/articleCanvasLinkWire.generated.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/codecs/binary/authorArticleSelectionWire.generated.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/codecs/binary/authoringWorkspaceSnapshotWire.generated.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/codecs/binary/documentExportWire.generated.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/codecs/binary/writingAidPreferenceWire.generated.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/components/document-export/documentExportCall.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/components/document-export/documentExportUiPort.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/components/document-export/documentExportWireUiPort.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/composables/useDocumentExport.ts"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/frontend/src/composition/binaryDecoderRegistry.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/composition/documentExport.ts"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/src/services/documentExportPrivateDelivery.ts"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/frontend/wasm/aeds/include/aeds_decode.hpp"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/frontend/wasm/aeds/include/aeds_frame.hpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/wasm/aeds/include/author_article_selection_wire.generated.hpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/wasm/aeds/include/authoring_workspace_snapshot_wire.generated.hpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/wasm/aeds/include/document_export_wire.generated.hpp"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/frontend/wasm/aeds/include/pod_views.hpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/wasm/aeds/include/property_value_read.generated.hpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/frontend/wasm/aeds/include/writing_aid_preference_wire.generated.hpp"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/frontend/wasm/aeds/src/aeds_decode.cpp"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/frontend/wasm/web/protocol/frame.ts"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/shared/AedsFrameHeader.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Articles/ArticleCanvasLinkContracts.cs"
+          ]
+        },
+        {
+          "status": "R099",
+          "paths": [
+            "src/backend/Services/Authoring/AuthoringCanvasDocumentContracts.cs",
+            "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasDocumentContracts.cs"
+          ]
+        },
+        {
+          "status": "R099",
+          "paths": [
+            "src/backend/Services/Authoring/AuthoringCanvasOperationContracts.cs",
+            "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasOperationContracts.cs"
+          ]
+        },
+        {
+          "status": "R099",
+          "paths": [
+            "src/backend/Services/Authoring/AuthoringCanvasReferenceContracts.cs",
+            "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/AuthoringNavigation/AuthorArticleSelectionRevalidationContracts.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceContracts.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceValidator.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotContracts.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotTransportContracts.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Models/UploadAssetPreviewPod.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Models/WritingAidPreferencePods.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "src/shared/Contracts/Validation/aeds-protocol.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Validation/article-canvas-link-wire.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Validation/article-property-value-read-wire.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Validation/author-article-selection-wire.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Validation/authoring-canvas-wire.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Validation/authoring-workspace-snapshot-wire.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Validation/document-export-wire.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "src/shared/Contracts/Validation/writing-aid-preference-wire.json"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tests/backend/Fixtures/aeds-golden-catalog.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Fixtures/document-export-payload-goldens-v1.json"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tests/backend/GlobalUsings.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tests/backend/Helpers/DocumentExportTestToolFixture.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tests/backend/Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Integration/DocumentExportSessionJobAuthorizationPostgresTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/ArticleCanvasLinkWireCodecTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/AuthorArticleSelectionWireTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/DocumentExportAttemptResourcesTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/DocumentExportBinaryCodecTests.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tests/backend/Unit/DocumentExportContractTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/DocumentExportEndpointBindingTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/DocumentExportEndpointsTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/DocumentExportFrozenEmbedSourceBridgeTests.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tests/backend/Unit/DocumentExportHtmlProviderTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/DocumentExportHttpJobAuthorizationTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/DocumentExportJobServiceTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/DocumentExportPayloadBoundsTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/DocumentExportRequestFreezerTests.cs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tests/backend/Unit/DocumentExportSandboxTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/DocumentExportSessionJobAuthorizationTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/UploadAssetPreviewCodecTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/backend/Unit/WritingAidPreferenceWireTests.cs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/fixtures/protocol/article-canvas-link-wire-golden.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/fixtures/protocol/article-property-value-read-wire-golden.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/fixtures/protocol/article-property-value-read-wire-native.cpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/fixtures/protocol/article-property-value-read-wire-v1-retired.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/fixtures/protocol/author-article-selection-wire-golden.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/fixtures/protocol/authoring-canvas-wire-golden.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/fixtures/protocol/authoring-workspace-snapshot-wire-golden.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/fixtures/protocol/authoring-workspace-snapshot-wire-native.cpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/fixtures/protocol/writing-aid-preference-wire-golden.json"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/fixtures/protocol/writing-aid-preference-wire-native.cpp"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/frontend/unit/services/documentExportPrivateDelivery.test.ts"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tests/tools/aeds-protocol-generation.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/article-canvas-link-wire.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/article-property-value-read-native.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/article-property-value-read-wire.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/author-article-selection-wire.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/authoring-canvas-wire.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/authoring-workspace-snapshot-native.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/authoring-workspace-snapshot-wire.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/backend-unit-server-selection.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/document-export-registration.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/document-export-wire.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tests/tools/writing-aid-preference-wire.test.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/author-article-selection-wire-templates/wire.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/author-article-selection-wire-templates/wire.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/author-article-selection-wire-templates/wire.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/document-export-registration.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/document-export-wire-templates/wire.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/document-export-wire-templates/wire.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/format-generated-property-value-read-typescript.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-article-canvas-link-golden.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-article-canvas-link-wire.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-article-property-value-read-golden.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-article-property-value-read-wire.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-author-article-selection-wire.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-authoring-canvas-wire.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-authoring-workspace-snapshot-golden.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-authoring-workspace-snapshot-wire.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-document-export-wire.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-writing-aid-preference-golden.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/generate-writing-aid-preference-wire.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/primitives.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/primitives.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/workspace-snapshot-wire-templates/primitives.ts.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/writing-aid-preference-wire-templates/receipt.cs.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/writing-aid-preference-wire-templates/wire.hpp.inc"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/contracts/writing-aid-preference-wire-templates/wire.ts.inc"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tools/frontend/generate-aeds-protocol.mjs"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/test/backend-unit-server-selection.design.md"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "tools/test/backend-unit-server-selection.mjs"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tools/test/lanes/_backend-test-runtime-support.sh"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tools/test/lanes/_suite-support.sh"
+          ]
+        },
+        {
+          "status": "M",
+          "paths": [
+            "tools/test/run-migration-tests.mjs"
+          ]
+        }
+      ],
+      "completePrDiffPaths": [
+        "artifacts/change-contract/backend-unit-server-selection-external-naming.json",
+        "artifacts/document-export-integration/job-contract-compatibility.json",
+        "artifacts/document-export-integration/ordinary-source-composition.md",
+        "artifacts/document-export-integration/ordinary-source-preimages.json",
+        "artifacts/document-export-integration/ordinary-source-verification.json",
+        "artifacts/document-export-integration/private-delivery-handoff.md",
+        "artifacts/document-export-integration/selected-server29-preflight.md",
+        "artifacts/document-export-integration/session-authority-source-observation.json",
+        "artifacts/document-export-integration/session-authority-source-observation.md",
+        "artifacts/document-export-integration/shared-registration-consumer-handoff.md",
+        "artifacts/document-export-integration/shared-registration-consumer-verification.json",
+        "artifacts/shared-registration-current/handoff.md",
+        "artifacts/shared-registration-current/ordinary-managed/GlobalUsings.cs",
+        "artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj",
+        "artifacts/shared-registration-current/ordinary-managed/packages.lock.json",
+        "artifacts/shared-registration-current/source-provenance.json",
+        "src/backend/GlobalUsings.cs",
+        "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.DocumentExport.cs",
+        "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs",
+        "src/backend/Services/Authoring/AuthorRecentArticleHistoryPersistedPermissionReader.cs",
+        "src/backend/Services/Authoring/AuthoringCanvasDocumentContracts.cs",
+        "src/backend/Services/Authoring/AuthoringCanvasOperationContracts.cs",
+        "src/backend/Services/Authoring/AuthoringCanvasReferenceContracts.cs",
+        "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs",
+        "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+        "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs",
+        "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs",
+        "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs",
+        "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+        "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+        "src/backend/Services/DocumentExport/DocumentExportFrozenEmbedSourceBridge.cs",
+        "src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs",
+        "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs",
+        "src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs",
+        "src/backend/Services/DocumentExport/DocumentExportHttpJobAuthorization.cs",
+        "src/backend/Services/DocumentExport/DocumentExportRequestFreezer.cs",
+        "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+        "src/backend/Services/DocumentExport/DocumentExportServiceCollectionExtensions.cs",
+        "src/backend/Services/DocumentExport/DocumentExportSessionJobAuthorization.cs",
+        "src/backend/Services/DocumentExport/Jobs/DocumentExportJobPolicy.cs",
+        "src/backend/Services/DocumentExport/Jobs/DocumentExportJobRepository.cs",
+        "src/backend/Services/DocumentExport/Jobs/DocumentExportJobService.cs",
+        "src/backend/Services/DocumentExport/Jobs/README.md",
+        "src/backend/Services/DocumentExport/README.Transport.md",
+        "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs",
+        "src/core/Algorithms/AEDS_V2_PROTOCOL.md",
+        "src/core/Algorithms/AedsFrameType.cs",
+        "src/core/Cache/PodBinaryCodec.ArticleCanvasLink.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.AuthorArticleSelection.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.AuthoringWorkspaceSnapshot.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.DocumentExport.cs",
+        "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+        "src/core/Cache/PodBinaryCodec.WritingAidPreference.cs",
+        "src/core/Cache/PodBinaryCodec.WritingAidPreferenceReceipt.Generated.cs",
+        "src/core/Mapping/Models/DocumentExportModels.cs",
+        "src/frontend/src/api/documentExport.ts",
+        "src/frontend/src/codecs/binary/articleCanvasLinkWire.generated.ts",
+        "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
+        "src/frontend/src/codecs/binary/authorArticleSelectionWire.generated.ts",
+        "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
+        "src/frontend/src/codecs/binary/authoringWorkspaceSnapshotWire.generated.ts",
+        "src/frontend/src/codecs/binary/documentExportWire.generated.ts",
+        "src/frontend/src/codecs/binary/writingAidPreferenceWire.generated.ts",
+        "src/frontend/src/components/document-export/documentExportCall.ts",
+        "src/frontend/src/components/document-export/documentExportUiPort.ts",
+        "src/frontend/src/components/document-export/documentExportWireUiPort.ts",
+        "src/frontend/src/composables/useDocumentExport.ts",
+        "src/frontend/src/composition/binaryDecoderRegistry.ts",
+        "src/frontend/src/composition/documentExport.ts",
+        "src/frontend/src/services/documentExportPrivateDelivery.ts",
+        "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+        "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+        "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp",
+        "src/frontend/wasm/aeds/include/author_article_selection_wire.generated.hpp",
+        "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp",
+        "src/frontend/wasm/aeds/include/authoring_workspace_snapshot_wire.generated.hpp",
+        "src/frontend/wasm/aeds/include/document_export_wire.generated.hpp",
+        "src/frontend/wasm/aeds/include/pod_views.hpp",
+        "src/frontend/wasm/aeds/include/property_value_read.generated.hpp",
+        "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+        "src/frontend/wasm/aeds/include/writing_aid_preference_wire.generated.hpp",
+        "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+        "src/frontend/wasm/web/protocol/frame.ts",
+        "src/shared/AedsFrameHeader.cs",
+        "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs",
+        "src/shared/Contracts/Articles/ArticleCanvasLinkContracts.cs",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasDocumentContracts.cs",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasOperationContracts.cs",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs",
+        "src/shared/Contracts/AuthoringNavigation/AuthorArticleSelectionRevalidationContracts.cs",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceContracts.cs",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceValidator.cs",
+        "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotContracts.cs",
+        "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotTransportContracts.cs",
+        "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+        "src/shared/Contracts/Models/WritingAidPreferencePods.cs",
+        "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "src/shared/Contracts/Validation/article-canvas-link-wire.json",
+        "src/shared/Contracts/Validation/article-property-value-read-wire.json",
+        "src/shared/Contracts/Validation/author-article-selection-wire.json",
+        "src/shared/Contracts/Validation/authoring-canvas-wire.json",
+        "src/shared/Contracts/Validation/authoring-workspace-snapshot-wire.json",
+        "src/shared/Contracts/Validation/document-export-wire.json",
+        "src/shared/Contracts/Validation/writing-aid-preference-wire.json",
+        "tests/backend/Fixtures/aeds-golden-catalog.json",
+        "tests/backend/Fixtures/document-export-payload-goldens-v1.json",
+        "tests/backend/GlobalUsings.cs",
+        "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+        "tests/backend/Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs",
+        "tests/backend/Integration/DocumentExportSessionJobAuthorizationPostgresTests.cs",
+        "tests/backend/Unit/ArticleCanvasLinkWireCodecTests.cs",
+        "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
+        "tests/backend/Unit/AuthorArticleSelectionWireTests.cs",
+        "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
+        "tests/backend/Unit/DocumentExportAttemptResourcesTests.cs",
+        "tests/backend/Unit/DocumentExportBinaryCodecTests.cs",
+        "tests/backend/Unit/DocumentExportContractTests.cs",
+        "tests/backend/Unit/DocumentExportEndpointBindingTests.cs",
+        "tests/backend/Unit/DocumentExportEndpointsTests.cs",
+        "tests/backend/Unit/DocumentExportFrozenEmbedSourceBridgeTests.cs",
+        "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+        "tests/backend/Unit/DocumentExportHttpJobAuthorizationTests.cs",
+        "tests/backend/Unit/DocumentExportJobServiceTests.cs",
+        "tests/backend/Unit/DocumentExportPayloadBoundsTests.cs",
+        "tests/backend/Unit/DocumentExportRequestFreezerTests.cs",
+        "tests/backend/Unit/DocumentExportSandboxTests.cs",
+        "tests/backend/Unit/DocumentExportSessionJobAuthorizationTests.cs",
+        "tests/backend/Unit/UploadAssetPreviewCodecTests.cs",
+        "tests/backend/Unit/WritingAidPreferenceWireTests.cs",
+        "tests/fixtures/protocol/article-canvas-link-wire-golden.json",
+        "tests/fixtures/protocol/article-property-value-read-wire-golden.json",
+        "tests/fixtures/protocol/article-property-value-read-wire-native.cpp",
+        "tests/fixtures/protocol/article-property-value-read-wire-v1-retired.json",
+        "tests/fixtures/protocol/author-article-selection-wire-golden.json",
+        "tests/fixtures/protocol/authoring-canvas-wire-golden.json",
+        "tests/fixtures/protocol/authoring-workspace-snapshot-wire-golden.json",
+        "tests/fixtures/protocol/authoring-workspace-snapshot-wire-native.cpp",
+        "tests/fixtures/protocol/writing-aid-preference-wire-golden.json",
+        "tests/fixtures/protocol/writing-aid-preference-wire-native.cpp",
+        "tests/frontend/unit/services/documentExportPrivateDelivery.test.ts",
+        "tests/tools/aeds-protocol-generation.test.mjs",
+        "tests/tools/article-canvas-link-wire.test.mjs",
+        "tests/tools/article-property-value-read-native.test.mjs",
+        "tests/tools/article-property-value-read-wire.test.mjs",
+        "tests/tools/author-article-selection-wire.test.mjs",
+        "tests/tools/authoring-canvas-wire.test.mjs",
+        "tests/tools/authoring-workspace-snapshot-native.test.mjs",
+        "tests/tools/authoring-workspace-snapshot-wire.test.mjs",
+        "tests/tools/backend-unit-server-selection.test.mjs",
+        "tests/tools/document-export-registration.test.mjs",
+        "tests/tools/document-export-wire.test.mjs",
+        "tests/tools/writing-aid-preference-wire.test.mjs",
+        "tools/contracts/author-article-selection-wire-templates/wire.cs.inc",
+        "tools/contracts/author-article-selection-wire-templates/wire.hpp.inc",
+        "tools/contracts/author-article-selection-wire-templates/wire.ts.inc",
+        "tools/contracts/document-export-registration.mjs",
+        "tools/contracts/document-export-wire-templates/wire.hpp.inc",
+        "tools/contracts/document-export-wire-templates/wire.ts.inc",
+        "tools/contracts/format-generated-property-value-read-typescript.mjs",
+        "tools/contracts/generate-article-canvas-link-golden.mjs",
+        "tools/contracts/generate-article-canvas-link-wire.mjs",
+        "tools/contracts/generate-article-property-value-read-golden.mjs",
+        "tools/contracts/generate-article-property-value-read-wire.mjs",
+        "tools/contracts/generate-author-article-selection-wire.mjs",
+        "tools/contracts/generate-authoring-canvas-wire.mjs",
+        "tools/contracts/generate-authoring-workspace-snapshot-golden.mjs",
+        "tools/contracts/generate-authoring-workspace-snapshot-wire.mjs",
+        "tools/contracts/generate-document-export-wire.mjs",
+        "tools/contracts/generate-writing-aid-preference-golden.mjs",
+        "tools/contracts/generate-writing-aid-preference-wire.mjs",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/primitives.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/primitives.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/primitives.ts.inc",
+        "tools/contracts/writing-aid-preference-wire-templates/receipt.cs.inc",
+        "tools/contracts/writing-aid-preference-wire-templates/wire.hpp.inc",
+        "tools/contracts/writing-aid-preference-wire-templates/wire.ts.inc",
+        "tools/frontend/generate-aeds-protocol.mjs",
+        "tools/test/backend-unit-server-selection.design.md",
+        "tools/test/backend-unit-server-selection.mjs",
+        "tools/test/lanes/_backend-test-runtime-support.sh",
+        "tools/test/lanes/_suite-support.sh",
+        "tools/test/run-migration-tests.mjs"
+      ],
+      "tipToTipPaths": [
+        "artifacts/change-contract/article-graph-source-external-naming.json",
+        "artifacts/change-contract/backend-unit-server-selection-external-naming.json",
+        "artifacts/change-contract/query-producer-intake-external-naming.json",
+        "artifacts/document-export-integration/job-contract-compatibility.json",
+        "artifacts/document-export-integration/ordinary-source-composition.md",
+        "artifacts/document-export-integration/ordinary-source-preimages.json",
+        "artifacts/document-export-integration/ordinary-source-verification.json",
+        "artifacts/document-export-integration/private-delivery-handoff.md",
+        "artifacts/document-export-integration/selected-server29-preflight.md",
+        "artifacts/document-export-integration/session-authority-source-observation.json",
+        "artifacts/document-export-integration/session-authority-source-observation.md",
+        "artifacts/document-export-integration/shared-registration-consumer-handoff.md",
+        "artifacts/document-export-integration/shared-registration-consumer-verification.json",
+        "artifacts/shared-registration-current/handoff.md",
+        "artifacts/shared-registration-current/ordinary-managed/GlobalUsings.cs",
+        "artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj",
+        "artifacts/shared-registration-current/ordinary-managed/packages.lock.json",
+        "artifacts/shared-registration-current/source-provenance.json",
+        "artifacts/style/query-producer-role-intake-shfmt-idempotence.json",
+        "src/backend/GlobalUsings.cs",
+        "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.DocumentExport.cs",
+        "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs",
+        "src/backend/Services/Authoring/ArticleGraphQueryService.cs",
+        "src/backend/Services/Authoring/AuthorRecentArticleHistoryPersistedPermissionReader.cs",
+        "src/backend/Services/Authoring/AuthoringCanvasDocumentContracts.cs",
+        "src/backend/Services/Authoring/AuthoringCanvasOperationContracts.cs",
+        "src/backend/Services/Authoring/AuthoringCanvasReferenceContracts.cs",
+        "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs",
+        "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+        "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs",
+        "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs",
+        "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs",
+        "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+        "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+        "src/backend/Services/DocumentExport/DocumentExportFrozenEmbedSourceBridge.cs",
+        "src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs",
+        "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs",
+        "src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs",
+        "src/backend/Services/DocumentExport/DocumentExportHttpJobAuthorization.cs",
+        "src/backend/Services/DocumentExport/DocumentExportRequestFreezer.cs",
+        "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+        "src/backend/Services/DocumentExport/DocumentExportServiceCollectionExtensions.cs",
+        "src/backend/Services/DocumentExport/DocumentExportSessionJobAuthorization.cs",
+        "src/backend/Services/DocumentExport/Jobs/DocumentExportJobPolicy.cs",
+        "src/backend/Services/DocumentExport/Jobs/DocumentExportJobRepository.cs",
+        "src/backend/Services/DocumentExport/Jobs/DocumentExportJobService.cs",
+        "src/backend/Services/DocumentExport/Jobs/README.md",
+        "src/backend/Services/DocumentExport/README.Transport.md",
+        "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs",
+        "src/core/Algorithms/AEDS_V2_PROTOCOL.md",
+        "src/core/Algorithms/AedsFrameType.cs",
+        "src/core/Cache/PodBinaryCodec.ArticleCanvasLink.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.AuthorArticleSelection.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.AuthoringWorkspaceSnapshot.Generated.cs",
+        "src/core/Cache/PodBinaryCodec.DocumentExport.cs",
+        "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+        "src/core/Cache/PodBinaryCodec.WritingAidPreference.cs",
+        "src/core/Cache/PodBinaryCodec.WritingAidPreferenceReceipt.Generated.cs",
+        "src/core/Mapping/Models/DocumentExportModels.cs",
+        "src/frontend/src/App.vue",
+        "src/frontend/src/api/documentExport.ts",
+        "src/frontend/src/bootstrap/bootstrapImportRecovery.ts",
+        "src/frontend/src/bootstrap/entry.ts",
+        "src/frontend/src/bootstrap/publicActivationCoordinator.ts",
+        "src/frontend/src/bootstrap/publicActivationRuntime.ts",
+        "src/frontend/src/bootstrap/publicBootKernel.ts",
+        "src/frontend/src/bootstrap/publicHydrationBootstrap.ts",
+        "src/frontend/src/bootstrap/publicShell.ts",
+        "src/frontend/src/codecs/binary/articleCanvasLinkWire.generated.ts",
+        "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
+        "src/frontend/src/codecs/binary/authorArticleSelectionWire.generated.ts",
+        "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
+        "src/frontend/src/codecs/binary/authoringWorkspaceSnapshotWire.generated.ts",
+        "src/frontend/src/codecs/binary/documentExportWire.generated.ts",
+        "src/frontend/src/codecs/binary/writingAidPreferenceWire.generated.ts",
+        "src/frontend/src/components/admin/article/ArticleRelationGraph.vue",
+        "src/frontend/src/components/document-export/documentExportCall.ts",
+        "src/frontend/src/components/document-export/documentExportUiPort.ts",
+        "src/frontend/src/components/document-export/documentExportWireUiPort.ts",
+        "src/frontend/src/composables/useDocumentExport.ts",
+        "src/frontend/src/composition/binaryDecoderRegistry.ts",
+        "src/frontend/src/composition/documentExport.ts",
+        "src/frontend/src/fsusui/markdown.ts",
+        "src/frontend/src/services/authoring/articleGraphLayout.ts",
+        "src/frontend/src/services/authoring/articleGraphQuery.ts",
+        "src/frontend/src/services/authoring/articleGraphSession.ts",
+        "src/frontend/src/services/documentExportPrivateDelivery.ts",
+        "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+        "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+        "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp",
+        "src/frontend/wasm/aeds/include/author_article_selection_wire.generated.hpp",
+        "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp",
+        "src/frontend/wasm/aeds/include/authoring_workspace_snapshot_wire.generated.hpp",
+        "src/frontend/wasm/aeds/include/document_export_wire.generated.hpp",
+        "src/frontend/wasm/aeds/include/pod_views.hpp",
+        "src/frontend/wasm/aeds/include/property_value_read.generated.hpp",
+        "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+        "src/frontend/wasm/aeds/include/writing_aid_preference_wire.generated.hpp",
+        "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+        "src/frontend/wasm/web/protocol/frame.ts",
+        "src/shared/AedsFrameHeader.cs",
+        "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs",
+        "src/shared/Contracts/ArticleGraph/ArticleGraphContract.cs",
+        "src/shared/Contracts/ArticleGraph/ArticleGraphContracts.cs",
+        "src/shared/Contracts/ArticleGraph/README.md",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs",
+        "src/shared/Contracts/Articles/ArticleCanvasLinkContracts.cs",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasDocumentContracts.cs",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasOperationContracts.cs",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs",
+        "src/shared/Contracts/AuthoringNavigation/AuthorArticleSelectionRevalidationContracts.cs",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceContracts.cs",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceValidator.cs",
+        "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotContracts.cs",
+        "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotTransportContracts.cs",
+        "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+        "src/shared/Contracts/Models/WritingAidPreferencePods.cs",
+        "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "src/shared/Contracts/Validation/article-canvas-link-wire.json",
+        "src/shared/Contracts/Validation/article-property-value-read-wire.json",
+        "src/shared/Contracts/Validation/author-article-selection-wire.json",
+        "src/shared/Contracts/Validation/authoring-canvas-wire.json",
+        "src/shared/Contracts/Validation/authoring-workspace-snapshot-wire.json",
+        "src/shared/Contracts/Validation/document-export-wire.json",
+        "src/shared/Contracts/Validation/writing-aid-preference-wire.json",
+        "tests/backend/Fixtures/aeds-golden-catalog.json",
+        "tests/backend/Fixtures/document-export-payload-goldens-v1.json",
+        "tests/backend/GlobalUsings.cs",
+        "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+        "tests/backend/Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs",
+        "tests/backend/Integration/DocumentExportSessionJobAuthorizationPostgresTests.cs",
+        "tests/backend/Unit/ArticleCanvasLinkWireCodecTests.cs",
+        "tests/backend/Unit/ArticleGraphQueryTests.cs",
+        "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
+        "tests/backend/Unit/AuthorArticleSelectionWireTests.cs",
+        "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
+        "tests/backend/Unit/DocumentExportAttemptResourcesTests.cs",
+        "tests/backend/Unit/DocumentExportBinaryCodecTests.cs",
+        "tests/backend/Unit/DocumentExportContractTests.cs",
+        "tests/backend/Unit/DocumentExportEndpointBindingTests.cs",
+        "tests/backend/Unit/DocumentExportEndpointsTests.cs",
+        "tests/backend/Unit/DocumentExportFrozenEmbedSourceBridgeTests.cs",
+        "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+        "tests/backend/Unit/DocumentExportHttpJobAuthorizationTests.cs",
+        "tests/backend/Unit/DocumentExportJobServiceTests.cs",
+        "tests/backend/Unit/DocumentExportPayloadBoundsTests.cs",
+        "tests/backend/Unit/DocumentExportRequestFreezerTests.cs",
+        "tests/backend/Unit/DocumentExportSandboxTests.cs",
+        "tests/backend/Unit/DocumentExportSessionJobAuthorizationTests.cs",
+        "tests/backend/Unit/UploadAssetPreviewCodecTests.cs",
+        "tests/backend/Unit/WritingAidPreferenceWireTests.cs",
+        "tests/fixtures/protocol/article-canvas-link-wire-golden.json",
+        "tests/fixtures/protocol/article-property-value-read-wire-golden.json",
+        "tests/fixtures/protocol/article-property-value-read-wire-native.cpp",
+        "tests/fixtures/protocol/article-property-value-read-wire-v1-retired.json",
+        "tests/fixtures/protocol/author-article-selection-wire-golden.json",
+        "tests/fixtures/protocol/authoring-canvas-wire-golden.json",
+        "tests/fixtures/protocol/authoring-workspace-snapshot-wire-golden.json",
+        "tests/fixtures/protocol/authoring-workspace-snapshot-wire-native.cpp",
+        "tests/fixtures/protocol/writing-aid-preference-wire-golden.json",
+        "tests/fixtures/protocol/writing-aid-preference-wire-native.cpp",
+        "tests/frontend/checks/runtime/article-graph-layout-task.mjs",
+        "tests/frontend/unit/authoring/articleGraphFixtures.ts",
+        "tests/frontend/unit/authoring/articleGraphGovernance.test.ts",
+        "tests/frontend/unit/authoring/articleGraphLayoutTask.test.ts",
+        "tests/frontend/unit/authoring/articleGraphReviewFixes.test.ts",
+        "tests/frontend/unit/authoring/articleGraphSession.test.ts",
+        "tests/frontend/unit/authoring/articleRelationGraph.test.ts",
+        "tests/frontend/unit/bootstrap/bootstrapImportRecovery.test.ts",
+        "tests/frontend/unit/bootstrap/publicActivationCausalMatrix.test.ts",
+        "tests/frontend/unit/bootstrap/publicActivationCoordinator.test.ts",
+        "tests/frontend/unit/bootstrap/publicActivationRuntime.test.ts",
+        "tests/frontend/unit/bootstrap/publicSeedReaders.test.ts",
+        "tests/frontend/unit/services/documentExportPrivateDelivery.test.ts",
+        "tests/tools/aeds-protocol-generation.test.mjs",
+        "tests/tools/article-canvas-link-wire.test.mjs",
+        "tests/tools/article-property-value-read-native.test.mjs",
+        "tests/tools/article-property-value-read-wire.test.mjs",
+        "tests/tools/author-article-selection-wire.test.mjs",
+        "tests/tools/authoring-canvas-wire.test.mjs",
+        "tests/tools/authoring-workspace-snapshot-native.test.mjs",
+        "tests/tools/authoring-workspace-snapshot-wire.test.mjs",
+        "tests/tools/backend-unit-server-selection.test.mjs",
+        "tests/tools/document-export-registration.test.mjs",
+        "tests/tools/document-export-wire.test.mjs",
+        "tests/tools/writing-aid-preference-wire.test.mjs",
+        "tools/contracts/author-article-selection-wire-templates/wire.cs.inc",
+        "tools/contracts/author-article-selection-wire-templates/wire.hpp.inc",
+        "tools/contracts/author-article-selection-wire-templates/wire.ts.inc",
+        "tools/contracts/document-export-registration.mjs",
+        "tools/contracts/document-export-wire-templates/wire.hpp.inc",
+        "tools/contracts/document-export-wire-templates/wire.ts.inc",
+        "tools/contracts/format-generated-property-value-read-typescript.mjs",
+        "tools/contracts/generate-article-canvas-link-golden.mjs",
+        "tools/contracts/generate-article-canvas-link-wire.mjs",
+        "tools/contracts/generate-article-property-value-read-golden.mjs",
+        "tools/contracts/generate-article-property-value-read-wire.mjs",
+        "tools/contracts/generate-author-article-selection-wire.mjs",
+        "tools/contracts/generate-authoring-canvas-wire.mjs",
+        "tools/contracts/generate-authoring-workspace-snapshot-golden.mjs",
+        "tools/contracts/generate-authoring-workspace-snapshot-wire.mjs",
+        "tools/contracts/generate-document-export-wire.mjs",
+        "tools/contracts/generate-writing-aid-preference-golden.mjs",
+        "tools/contracts/generate-writing-aid-preference-wire.mjs",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.ts.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/primitives.cs.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/primitives.hpp.inc",
+        "tools/contracts/workspace-snapshot-wire-templates/primitives.ts.inc",
+        "tools/contracts/writing-aid-preference-wire-templates/receipt.cs.inc",
+        "tools/contracts/writing-aid-preference-wire-templates/wire.hpp.inc",
+        "tools/contracts/writing-aid-preference-wire-templates/wire.ts.inc",
+        "tools/data-scale/expected-query-case-catalog.md",
+        "tools/data-scale/query-producer-role-intake/QueryPostgresProducerIntake.cs",
+        "tools/data-scale/query-producer-role-intake/QueryProducerRoleIntake.cs",
+        "tools/data-scale/query-producer-role-intake/QueryProducerRoleIntakeControls.cs",
+        "tools/data-scale/query-producer-role-intake/check.sh",
+        "tools/frontend/generate-aeds-protocol.mjs",
+        "tools/test/backend-unit-server-selection.design.md",
+        "tools/test/backend-unit-server-selection.mjs",
+        "tools/test/lanes/_backend-test-runtime-support.sh",
+        "tools/test/lanes/_suite-support.sh",
+        "tools/test/run-migration-tests.mjs"
+      ],
+      "lastCommitChangedPaths": [
+        "artifacts/document-export-integration/session-authority-source-observation.json",
+        "artifacts/document-export-integration/session-authority-source-observation.md"
+      ],
+      "lastIncrementArtifactOnly": true,
+      "wholePrArtifactOnly": false,
+      "noDiff": false,
+      "existingPrs": [],
+      "compareUrl": "https://github.com/Ozwasyd/FsusBlog/compare/a281fb6e9802471c3a44569c3ccab84f88c8d816...b4c3b71e0bb5578ab9df44998eb599bde5ee0715",
+      "sourceBlobVariants": {
+        "src/backend/GlobalUsings.cs": "bbd4c956f156bf11cf67dd0217ae204123e37ae8",
+        "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs": "7431f1b1bdab93b5e2b01e517796ab713d5dab91",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.DocumentExport.cs": "179ea953a4929a25595ab909769bf8f98d9bfcdc",
+        "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs": "ba66ec4ab66ff40b639304cd50c5ff0442348b05",
+        "src/backend/Services/Authoring/AuthorRecentArticleHistoryPersistedPermissionReader.cs": "708a79a233dd4012128094957e54c5f11208b916",
+        "src/backend/Services/Authoring/AuthoringCanvasDocumentContracts.cs": null,
+        "src/backend/Services/Authoring/AuthoringCanvasOperationContracts.cs": null,
+        "src/backend/Services/Authoring/AuthoringCanvasReferenceContracts.cs": null,
+        "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs": "d3c9b20c9c2e0e87067c352d6ecd7f013c11ffd7",
+        "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs": "e3a2da0fde13fed17cb000e2dc160c7d8252480d",
+        "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs": "a64780abd313221f74819eca71ba215173fa4bcb",
+        "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs": "a397d4a7ffd5c2b22818dff5deba99b23b528818",
+        "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs": "66ccf42d575b552b367cf6e04efa06d016e3c211",
+        "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs": "79902cf5d225d600b24c0e6da6e584b9c646e059",
+        "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs": "adccd7c928e69468be700bc520082c68760bbaae",
+        "src/backend/Services/DocumentExport/DocumentExportContracts.cs": "cb06db591c0d92cff15bfd354b555d62dc7c2db0",
+        "src/backend/Services/DocumentExport/DocumentExportFrozenEmbedSourceBridge.cs": "b5f65fb976aa886c29786e19d0817a0c34f8419d",
+        "src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs": "2720bdac3a8a5eead591850e6f7b5d41c9a55f7b",
+        "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs": "e64223f1106c6b8bc01f68729a138e411d2a6733",
+        "src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs": "b5509e2bfe6bd8c02b728ae4ae26057e9a40a9c3",
+        "src/backend/Services/DocumentExport/DocumentExportHttpJobAuthorization.cs": "f24b9d0684dfbb6e5b511674a232718cd9de5fac",
+        "src/backend/Services/DocumentExport/DocumentExportRequestFreezer.cs": "63b406f3558de8662116ceda36fd0d0f4f40c725",
+        "src/backend/Services/DocumentExport/DocumentExportSandbox.cs": "5e0f85cc1f9f58563c4a308de1af51184c1e695f",
+        "src/backend/Services/DocumentExport/DocumentExportServiceCollectionExtensions.cs": "5b0af23dac7b22f3c1b329bccd527b76e4985156",
+        "src/backend/Services/DocumentExport/DocumentExportSessionJobAuthorization.cs": "d53c792b39bd8f22e123729a626a9d9408640428",
+        "src/backend/Services/DocumentExport/Jobs/DocumentExportJobPolicy.cs": "76c4650ccddff31158bd1a5acceda7f96d5eea1d",
+        "src/backend/Services/DocumentExport/Jobs/DocumentExportJobRepository.cs": "83695c2c7eeb9c79839975abbd4a232560e3e9d2",
+        "src/backend/Services/DocumentExport/Jobs/DocumentExportJobService.cs": "bc21be8af4691f24fd75ec2862c37efbef52398b",
+        "src/backend/Services/DocumentExport/Jobs/README.md": "30ce37ba4a3f092739d9ae5a38ece205fc79dfa1",
+        "src/backend/Services/DocumentExport/README.Transport.md": "f951e82b7f2228e7d12466de62914b2d23b4111a",
+        "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs": "9f7658ac80dbba66d615bcf6d8cabdfc1f3afa9e",
+        "src/core/Algorithms/AEDS_V2_PROTOCOL.md": "465738dfbba9a0a2df4a3313569e3f841f85fb20",
+        "src/core/Algorithms/AedsFrameType.cs": "d83f49a4668639f579b66cf019fee7d156a8db6f",
+        "src/core/Cache/PodBinaryCodec.ArticleCanvasLink.Generated.cs": "051295f76404048dc9a2d6a66e0e73e3b88b15c3",
+        "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs": "76c61560ed2b1e76303240af1ca5e16362af3852",
+        "src/core/Cache/PodBinaryCodec.AuthorArticleSelection.Generated.cs": "ed7dad1d1c961223f5757f4d89fbabc26f602c56",
+        "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs": "070f61d0d04e6d741efc291cff26bac82bee4a21",
+        "src/core/Cache/PodBinaryCodec.AuthoringWorkspaceSnapshot.Generated.cs": "a7b52d0afdc154943304d945281d417ee2e7950d",
+        "src/core/Cache/PodBinaryCodec.DocumentExport.cs": "44b4993004758c694665823a5bf59c4983e89d70",
+        "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs": "8c0c0e5b3b9f89afff706d9bb4c11c1aa5557c26",
+        "src/core/Cache/PodBinaryCodec.WritingAidPreference.cs": "e8e5b9649a4bc9410bd921addef7557cbcd77d2a",
+        "src/core/Cache/PodBinaryCodec.WritingAidPreferenceReceipt.Generated.cs": "8fb7afda8845ccae0a3b16f6989d22e7d9511758",
+        "src/core/Mapping/Models/DocumentExportModels.cs": "59a7ecffc71d052f40bffe8d8bcc7883fac8f807",
+        "src/frontend/src/api/documentExport.ts": "4210ef7cd5085f31b2ab4d7c3094ef8dd547532e",
+        "src/frontend/src/codecs/binary/articleCanvasLinkWire.generated.ts": "382250d5ac0705965a04a23369eb9f6f970de4e2",
+        "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts": "45b4d70d7e325e00fd7eb99fa1aabf781e016dff",
+        "src/frontend/src/codecs/binary/authorArticleSelectionWire.generated.ts": "055d5b129bab24e62d8dc9b5105fa46cbdb0e90d",
+        "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts": "4db4268d843bdfcf579cbd4ca8d08c64ab132aab",
+        "src/frontend/src/codecs/binary/authoringWorkspaceSnapshotWire.generated.ts": "663d39ffd640baf7e1bb4ecf787e7cf09e396086",
+        "src/frontend/src/codecs/binary/documentExportWire.generated.ts": "2b215d78764ae3c63267355f8954745a07d6e4e8",
+        "src/frontend/src/codecs/binary/writingAidPreferenceWire.generated.ts": "bdff82ca05c6242221eaf39a5bb42463da48e7fc",
+        "src/frontend/src/components/document-export/documentExportCall.ts": "5e82b53f5b8fea926c98965e486212d326cbb62d",
+        "src/frontend/src/components/document-export/documentExportUiPort.ts": "9c0a16bc07b795623276addd6c95402689e8a357",
+        "src/frontend/src/components/document-export/documentExportWireUiPort.ts": "8f679b61ec569ad78cf1ab5a7e65d07caa28cf8d",
+        "src/frontend/src/composables/useDocumentExport.ts": "e9b7c4bd60901e6634a2adffec320b4630cc5d34",
+        "src/frontend/src/composition/binaryDecoderRegistry.ts": "e0079dfbd3bf43301804706f1311e9094a5f557b",
+        "src/frontend/src/composition/documentExport.ts": "936323c141babc137aa6ca9bbb99aaf94c604afc",
+        "src/frontend/src/services/documentExportPrivateDelivery.ts": "ea12655437f2ec9c6f2d545063742135b608bb57",
+        "src/frontend/wasm/aeds/include/aeds_decode.hpp": "e279f19ebc3354f4ecd43a8453a12605ce9f998d",
+        "src/frontend/wasm/aeds/include/aeds_frame.hpp": "b6f8249d2c215768d1b019201ff737a4641f7a8e",
+        "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp": "8c92c56e4b2b1412fcbf66a6dc5e9ea25dc88e6b",
+        "src/frontend/wasm/aeds/include/author_article_selection_wire.generated.hpp": "143f2c3a76570a92884bf60635154ed3256fbe0f",
+        "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp": "c6ee52d2a44db02ee411c89bc7fa21e0d249c5a8",
+        "src/frontend/wasm/aeds/include/authoring_workspace_snapshot_wire.generated.hpp": "34db4453a6cd6a9676fb699920a132b2720670b5",
+        "src/frontend/wasm/aeds/include/document_export_wire.generated.hpp": "181704be7a509173bd5e7a3ce6c539d4cabd6b19",
+        "src/frontend/wasm/aeds/include/pod_views.hpp": "3ef2f5e0fa235cb56f50836086bbdc5cac866698",
+        "src/frontend/wasm/aeds/include/property_value_read.generated.hpp": "a38b159868fec1b47a9dc0ef8d73af184bc91611",
+        "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp": "6c68f7759cd8efabff25b5d2d685db3dc9507d55",
+        "src/frontend/wasm/aeds/include/writing_aid_preference_wire.generated.hpp": "c9deb1334dbb10d81e65c4e3b809ab0845e24715",
+        "src/frontend/wasm/aeds/src/aeds_decode.cpp": "f6cf006b10462e053b0b908249e8fbceaa2712d1",
+        "src/frontend/wasm/web/protocol/frame.ts": "f5b8f0055ea33bd0127505a93a8c4eb32739dd5f",
+        "src/shared/AedsFrameHeader.cs": "1e16a8e895c362692dbb6de96712d2d56337c50e",
+        "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs": "31c708b5fb98dc5b117fafa630d0d9559ef072d2",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs": "ccc417763c04e36b8414325e944e48035018ae15",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs": "6298d10439f5bde83fd4cceed344bb88f1495690",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs": "e40a8e0ee45b7f52e93483b4c06477bcfd77cb08",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs": "b1237f3b56edcaabf2313203b29a9ba6885b97bf",
+        "src/shared/Contracts/Articles/ArticleCanvasLinkContracts.cs": "cdfa21fe3f2aa556332c1698837f4a6b84336ce2",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasDocumentContracts.cs": "864e483af37774ff0c7e0c6b93dbb5fc68bea4b4",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasOperationContracts.cs": "761babf8385d5f75e7087c6008b1febcd71f8579",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs": "780e813dd36af3c6984234d11c0ea67027c978d8",
+        "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs": "b77b15f7c11f2fe6d802f202e623cf72bfed871b",
+        "src/shared/Contracts/AuthoringNavigation/AuthorArticleSelectionRevalidationContracts.cs": "95ce135e28cc25081d51ce6a0e97fcc154455b55",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceContracts.cs": "45d511be96f6151dbdfd92c02cbd29f87182e51b",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs": "184ea0dcaa1f2bd005d8e6c866a292283131884e",
+        "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceValidator.cs": "dc6182d426fdf31a416151e90681ae312e6b3cdf",
+        "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotContracts.cs": "4f2c7856fc43b2485cdb14d8a112d6d99aa19836",
+        "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotTransportContracts.cs": "f88a1dcc67cb2f76f301458cd2f3b773943261d0",
+        "src/shared/Contracts/Models/UploadAssetPreviewPod.cs": "50f1b80af5aa6c9ed2fdd7c106257fc50217911d",
+        "src/shared/Contracts/Models/WritingAidPreferencePods.cs": "5fb84e94f45d02bd30807eeffee839cf24eca694",
+        "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs": "000bc0b3b7fbcc84575d580b5fb18c514d091ac8",
+        "src/shared/Contracts/Validation/aeds-protocol.json": "f5772971ac4180bf73ec420c7b159cfba7a7887c",
+        "src/shared/Contracts/Validation/article-canvas-link-wire.json": "c26756bafe199493478a8d8bbab7129c9d5bed0d",
+        "src/shared/Contracts/Validation/article-property-value-read-wire.json": "efda50aa9d333bd3f3be3d9778bf981328c5d45c",
+        "src/shared/Contracts/Validation/author-article-selection-wire.json": "c9689a02064547bcf615fe5f4a380e5269991211",
+        "src/shared/Contracts/Validation/authoring-canvas-wire.json": "abfe03357cefaed122831ad6f461b242cb85c9c4",
+        "src/shared/Contracts/Validation/authoring-workspace-snapshot-wire.json": "5dda47bc3590c917f999355552bb0abb27300508",
+        "src/shared/Contracts/Validation/document-export-wire.json": "7887d2910efb5f1828c1fc1b720e1cefe10d2719",
+        "src/shared/Contracts/Validation/writing-aid-preference-wire.json": "24615de766fce838ca9226d2ac194e49f7805baa",
+        "tests/backend/Fixtures/aeds-golden-catalog.json": "57a06532f4b115c17e640b06a67dd9fae03f313c",
+        "tests/backend/Fixtures/document-export-payload-goldens-v1.json": "589e57e4a61be20d36d66bf42d627786a2cf6f38",
+        "tests/backend/GlobalUsings.cs": "391f1d0126dff28ad1e575efc7951dfc5e97fd5e",
+        "tests/backend/Helpers/DocumentExportTestToolFixture.cs": "1973df38dd1d3b40be7f95f063d686854d81cfcc",
+        "tests/backend/Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs": "560115e31b0bee51bc300c782ec2d4a57ea7cb11",
+        "tests/backend/Integration/DocumentExportSessionJobAuthorizationPostgresTests.cs": "cffb767cbe3caa9303a0471cab187a0fa0b15fee",
+        "tests/backend/Unit/ArticleCanvasLinkWireCodecTests.cs": "4f86bcd46f0826012ef3145c64e67016f95eb736",
+        "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs": "ed9e7e0a033fdbf54385ce3b961280e4269b6026",
+        "tests/backend/Unit/AuthorArticleSelectionWireTests.cs": "2d5af27f90660ea43da21d90116b8067f59c37ef",
+        "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs": "5fe0050160cc01dcb520b40f1ec847fc2c71ca67",
+        "tests/backend/Unit/DocumentExportAttemptResourcesTests.cs": "110f2bee2d18993a5fef2b990486b4fda8fa8cc5",
+        "tests/backend/Unit/DocumentExportBinaryCodecTests.cs": "70f01483456f8f9623d30494f9174747b77d78c6",
+        "tests/backend/Unit/DocumentExportContractTests.cs": "b72fd96b67cbf6f58cebe74455c7b02095696b0f",
+        "tests/backend/Unit/DocumentExportEndpointBindingTests.cs": "10c4f31a7c61a019df447f64228d1be849564a7c",
+        "tests/backend/Unit/DocumentExportEndpointsTests.cs": "e568655f37810d586ead1a0a2f92fc53bf1229e3",
+        "tests/backend/Unit/DocumentExportFrozenEmbedSourceBridgeTests.cs": "3fe8681f445a3e0f98906ace8fae5951a78430a2",
+        "tests/backend/Unit/DocumentExportHtmlProviderTests.cs": "a35538c6cd13b7f5f6f39e9e9805a8360abf4f69",
+        "tests/backend/Unit/DocumentExportHttpJobAuthorizationTests.cs": "840afdb0e2916467887a7c1116891690a476f0ff",
+        "tests/backend/Unit/DocumentExportJobServiceTests.cs": "6613c5adebc10b5c5658c520c1f9b34c8de42820",
+        "tests/backend/Unit/DocumentExportPayloadBoundsTests.cs": "9dc30142b2bb1b566b9a62ddccefa723fe6c078b",
+        "tests/backend/Unit/DocumentExportRequestFreezerTests.cs": "6b5b74b5f0d7fc359bbb1eb7fda21d3e65bd9ebb",
+        "tests/backend/Unit/DocumentExportSandboxTests.cs": "5c27da9e14a3db7e041f78c0a42a03f0b5b0f575",
+        "tests/backend/Unit/DocumentExportSessionJobAuthorizationTests.cs": "2c5da27fe4e6af5b13e95648a976117f1f751694",
+        "tests/backend/Unit/UploadAssetPreviewCodecTests.cs": "0fbc1c03f36233096fd2418c58ea8e4975852212",
+        "tests/backend/Unit/WritingAidPreferenceWireTests.cs": "1d2ec62e5ffbd00a8ab479fc42a44f7f8a11b732",
+        "tests/fixtures/protocol/article-canvas-link-wire-golden.json": "85638b177f79bce089fc6e7ea10d4e129acf5a89",
+        "tests/fixtures/protocol/article-property-value-read-wire-golden.json": "2903186e867aae78b2752b3cac57b36e0ab2eabc",
+        "tests/fixtures/protocol/article-property-value-read-wire-native.cpp": "086c2bbb64e34d1f3a9b862a176fabdc746997b8",
+        "tests/fixtures/protocol/article-property-value-read-wire-v1-retired.json": "4bb976051b3a5d018a0e644261948f675ba0f6c4",
+        "tests/fixtures/protocol/author-article-selection-wire-golden.json": "72d667ca07540b10af47a9fe5e16d0882af869fb",
+        "tests/fixtures/protocol/authoring-canvas-wire-golden.json": "a338f1a0570ec8cbe0ac19d682dbcf16828563bb",
+        "tests/fixtures/protocol/authoring-workspace-snapshot-wire-golden.json": "c7f1b7558a2a4afa2c5d684490f575497a8af5ba",
+        "tests/fixtures/protocol/authoring-workspace-snapshot-wire-native.cpp": "15578b2364c076c8c47cf2a6cf65a30772e7922e",
+        "tests/fixtures/protocol/writing-aid-preference-wire-golden.json": "4a9aa3e57d1e70a596e66c9096da5b9deaf4e53b",
+        "tests/fixtures/protocol/writing-aid-preference-wire-native.cpp": "6cca1c78c93b0d7c4c9d63378de7d3263c36535f",
+        "tests/frontend/unit/services/documentExportPrivateDelivery.test.ts": "1066b0c684ed8bae241bbc0471c471b154d074d2",
+        "tests/tools/aeds-protocol-generation.test.mjs": "6939e49636f6a87df0854dc6f363e8f5f23cac90",
+        "tests/tools/article-canvas-link-wire.test.mjs": "035e244ae7fedcaf2316b4eacfdf790f5d9214fe",
+        "tests/tools/article-property-value-read-native.test.mjs": "1d1a472e3ca711d93a1f4cf723b3e6d586fbe732",
+        "tests/tools/article-property-value-read-wire.test.mjs": "701ee44e44cabc206499ac4af07e9ed8b8b6bab9",
+        "tests/tools/author-article-selection-wire.test.mjs": "de28905010c4a1b0205b8910237f72e838cb5ed2",
+        "tests/tools/authoring-canvas-wire.test.mjs": "9893fd9948340a1cf16609d64424684a4e699adf",
+        "tests/tools/authoring-workspace-snapshot-native.test.mjs": "862a94fad00a989223a147090c6b4ec16c743b4d",
+        "tests/tools/authoring-workspace-snapshot-wire.test.mjs": "c390f16f47cf1afeca966a81d3f68915fed2e4bf",
+        "tests/tools/backend-unit-server-selection.test.mjs": "1caa618fdecba57ca51d3bccac00c39b5d220f11",
+        "tests/tools/document-export-registration.test.mjs": "c8e4ef686d96e7a1b8063af6c0e3469d646ab270",
+        "tests/tools/document-export-wire.test.mjs": "dc03b62a05b09004680d584ab72b03569aa9f38e",
+        "tests/tools/writing-aid-preference-wire.test.mjs": "c991b2df553f96a06f304e9414f28a18aae4c566",
+        "tools/contracts/author-article-selection-wire-templates/wire.cs.inc": "a4e9d0d4b6637cc68c719a2ae847de45392c0376",
+        "tools/contracts/author-article-selection-wire-templates/wire.hpp.inc": "cac1bd4ae8257c9474e3069e13a3fb4e71463dc3",
+        "tools/contracts/author-article-selection-wire-templates/wire.ts.inc": "b5d89b02c34a217e2dddb8a2781642aa7e96a78a",
+        "tools/contracts/document-export-registration.mjs": "5b6fb003d17e1cb741a5ced2afcd559bf0f8e834",
+        "tools/contracts/document-export-wire-templates/wire.hpp.inc": "925a1b61403596124968eed5e3ab0847336410df",
+        "tools/contracts/document-export-wire-templates/wire.ts.inc": "1181acdb0c6c916f39eb02ba4e3a98a3992316df",
+        "tools/contracts/format-generated-property-value-read-typescript.mjs": "810002d2382b7e22374d344b93e10c495882e1e2",
+        "tools/contracts/generate-article-canvas-link-golden.mjs": "632e1e4ef3738f6b687b1b79148c058d63a49312",
+        "tools/contracts/generate-article-canvas-link-wire.mjs": "07d589242a1c2e56189563af0ce277e0545fab3a",
+        "tools/contracts/generate-article-property-value-read-golden.mjs": "6980b84a5701e27a7ee31bc173bf11bcdb0b25b5",
+        "tools/contracts/generate-article-property-value-read-wire.mjs": "836fcd891dc6853f28dc42f149a4a0cc5a18bac9",
+        "tools/contracts/generate-author-article-selection-wire.mjs": "251f155b2210deef8bd7dab12522dc674e044d27",
+        "tools/contracts/generate-authoring-canvas-wire.mjs": "d0641f856080981072cbe8d83fc7eb2ebba204bd",
+        "tools/contracts/generate-authoring-workspace-snapshot-golden.mjs": "1ba6ecfb2424175cbf496b89d1fc2c9d661d0a0f",
+        "tools/contracts/generate-authoring-workspace-snapshot-wire.mjs": "e41f14dda4688174fa4baaa886a7afe52503ccdb",
+        "tools/contracts/generate-document-export-wire.mjs": "f0c6e1844fa591bf47d6e46245a7dd7a9d398432",
+        "tools/contracts/generate-writing-aid-preference-golden.mjs": "86e2f1e88e5c2a2d60655e1187428b9b4dfee1cf",
+        "tools/contracts/generate-writing-aid-preference-wire.mjs": "fe638dd6012b23697bdc4fef64b972315c2a2428",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.cs.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.hpp.inc": "5acac407ebf9dd009adde5606e2d95853418c131",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.ts.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.cs.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.hpp.inc": "5acac407ebf9dd009adde5606e2d95853418c131",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.ts.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.cs.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.hpp.inc": "5acac407ebf9dd009adde5606e2d95853418c131",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.ts.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.cs.inc": "4dd366cc21e0832502120994bdf3cf584c5be238",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.hpp.inc": "9da4ccc88abd15b06ff45ba16d2b60c24ae76aca",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.ts.inc": "51f987623a48ed040a968eda65c257b1ce385534",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.cs.inc": "235551e7df00385c05ef0cd742cafce492744366",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.hpp.inc": "3463f8c99820e9df1972335988c871b54d49ba28",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.ts.inc": "53a8cb3ab4ee126ddd6a76c1028f46b2a079e9d4",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.cs.inc": "6c5bd116b4b3ffcbf5ca9ba867d92f5a49471a0b",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.hpp.inc": "120419b59f99ed8eee38f3cada019573acc75ea6",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.ts.inc": "9c35e530ae48d14465aa77da31b9f883fed55c20",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.cs.inc": "486081bd0733d08b6b084670ab01b99630b42c5f",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.hpp.inc": "c1c6922d1dfea3f2e582e55796f6fdf98eaeaad3",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.ts.inc": "8b137891791fe96927ad78e64b0aad7bded08bdc",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.cs.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.hpp.inc": "5acac407ebf9dd009adde5606e2d95853418c131",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.ts.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.cs.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.hpp.inc": "5acac407ebf9dd009adde5606e2d95853418c131",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.ts.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.cs.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.hpp.inc": "5acac407ebf9dd009adde5606e2d95853418c131",
+        "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.ts.inc": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        "tools/contracts/workspace-snapshot-wire-templates/primitives.cs.inc": "6cd540bc2c2ea47718fdf2afbf1acbd6078a65d5",
+        "tools/contracts/workspace-snapshot-wire-templates/primitives.hpp.inc": "60c621e70ae7b1b23e90274839b88b89cf9479b2",
+        "tools/contracts/workspace-snapshot-wire-templates/primitives.ts.inc": "20e3f11b7a6cf2a52aac5b167518c8d497a43f70",
+        "tools/contracts/writing-aid-preference-wire-templates/receipt.cs.inc": "350bdf5acd9df1603e2ac20776870bcc9b73da9b",
+        "tools/contracts/writing-aid-preference-wire-templates/wire.hpp.inc": "1d318d894dfd4c1ea3a3d4875919af0b279c46b2",
+        "tools/contracts/writing-aid-preference-wire-templates/wire.ts.inc": "6363da15cfb651bfd2c2ee51e11a396cf49420ce",
+        "tools/frontend/generate-aeds-protocol.mjs": "bc17ea2e95a8699c3c32ffd9f9ea4496b8bb052b",
+        "tools/test/backend-unit-server-selection.design.md": "456f0917cba705a433cbb1974123caa626093fa5",
+        "tools/test/backend-unit-server-selection.mjs": "60c018f246728615f891acb13b68f8ec4087ec29",
+        "tools/test/lanes/_backend-test-runtime-support.sh": "8a0bcc34058f09709a9fec2635552d339ca316a4",
+        "tools/test/lanes/_suite-support.sh": "808784c494b07d42d4e7fc944fc7c353ce941434",
+        "tools/test/run-migration-tests.mjs": "e1b653b2431b854e247e073328ff54670fda738e"
+      },
+      "latestIncrementClassification": "artifact-only exact source/runtime handoff accounting",
+      "unmergedSourceVariantsVsCurrentMaster": [
+        {
+          "path": "src/backend/GlobalUsings.cs",
+          "branchBlob": "bbd4c956f156bf11cf67dd0217ae204123e37ae8",
+          "masterBlob": "a96a69eec410634d1568e235e09089ad2c36404d"
+        },
+        {
+          "path": "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+          "branchBlob": "7431f1b1bdab93b5e2b01e517796ab713d5dab91",
+          "masterBlob": "6138f3b208d98d1392d6511abfff1985630a5f88"
+        },
+        {
+          "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.DocumentExport.cs",
+          "branchBlob": "179ea953a4929a25595ab909769bf8f98d9bfcdc",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs",
+          "branchBlob": "ba66ec4ab66ff40b639304cd50c5ff0442348b05",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/Authoring/AuthorRecentArticleHistoryPersistedPermissionReader.cs",
+          "branchBlob": "708a79a233dd4012128094957e54c5f11208b916",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/Authoring/AuthoringCanvasDocumentContracts.cs",
+          "branchBlob": null,
+          "masterBlob": "9c593b01d3496227147bdaed67d21a73a120b045"
+        },
+        {
+          "path": "src/backend/Services/Authoring/AuthoringCanvasOperationContracts.cs",
+          "branchBlob": null,
+          "masterBlob": "6fbe214e1d02b8d60efc85d36194056cd3f2695f"
+        },
+        {
+          "path": "src/backend/Services/Authoring/AuthoringCanvasReferenceContracts.cs",
+          "branchBlob": null,
+          "masterBlob": "ce696a8fc8afc1f55ffbb0e8c01f7486be8c3e23"
+        },
+        {
+          "path": "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs",
+          "branchBlob": "d3c9b20c9c2e0e87067c352d6ecd7f013c11ffd7",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+          "branchBlob": "e3a2da0fde13fed17cb000e2dc160c7d8252480d",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs",
+          "branchBlob": "a64780abd313221f74819eca71ba215173fa4bcb",
+          "masterBlob": "e67a4e0823b1d9a6cf6c72e4cf72c4720a1167b4"
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+          "branchBlob": "a397d4a7ffd5c2b22818dff5deba99b23b528818",
+          "masterBlob": "709a0b40c84ef6e2a4562aa06dda1e807b63a916"
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs",
+          "branchBlob": "66ccf42d575b552b367cf6e04efa06d016e3c211",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs",
+          "branchBlob": "79902cf5d225d600b24c0e6da6e584b9c646e059",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+          "branchBlob": "adccd7c928e69468be700bc520082c68760bbaae",
+          "masterBlob": "029cb3a94196c6cc4a5cb2e0a5609382c98a3615"
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+          "branchBlob": "cb06db591c0d92cff15bfd354b555d62dc7c2db0",
+          "masterBlob": "3709ddc4b8d74dbfed5569bb9fa02779eb2ea8d6"
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportFrozenEmbedSourceBridge.cs",
+          "branchBlob": "b5f65fb976aa886c29786e19d0817a0c34f8419d",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs",
+          "branchBlob": "2720bdac3a8a5eead591850e6f7b5d41c9a55f7b",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs",
+          "branchBlob": "e64223f1106c6b8bc01f68729a138e411d2a6733",
+          "masterBlob": "e7723a106646ddc8585907573fc40b462096798e"
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs",
+          "branchBlob": "b5509e2bfe6bd8c02b728ae4ae26057e9a40a9c3",
+          "masterBlob": "26b1b154ae3bfe9593034120558e0451ead78999"
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportHttpJobAuthorization.cs",
+          "branchBlob": "f24b9d0684dfbb6e5b511674a232718cd9de5fac",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportRequestFreezer.cs",
+          "branchBlob": "63b406f3558de8662116ceda36fd0d0f4f40c725",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+          "branchBlob": "5e0f85cc1f9f58563c4a308de1af51184c1e695f",
+          "masterBlob": "e3c252ae17ef09ccbf8243fe290c6c2b84c9f595"
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportServiceCollectionExtensions.cs",
+          "branchBlob": "5b0af23dac7b22f3c1b329bccd527b76e4985156",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSessionJobAuthorization.cs",
+          "branchBlob": "d53c792b39bd8f22e123729a626a9d9408640428",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/Jobs/DocumentExportJobPolicy.cs",
+          "branchBlob": "76c4650ccddff31158bd1a5acceda7f96d5eea1d",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/Jobs/DocumentExportJobRepository.cs",
+          "branchBlob": "83695c2c7eeb9c79839975abbd4a232560e3e9d2",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/Jobs/DocumentExportJobService.cs",
+          "branchBlob": "bc21be8af4691f24fd75ec2862c37efbef52398b",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/Jobs/README.md",
+          "branchBlob": "30ce37ba4a3f092739d9ae5a38ece205fc79dfa1",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/README.Transport.md",
+          "branchBlob": "f951e82b7f2228e7d12466de62914b2d23b4111a",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs",
+          "branchBlob": "9f7658ac80dbba66d615bcf6d8cabdfc1f3afa9e",
+          "masterBlob": "b8a50988c3abd16f8318bf4947fef3912af5a25c"
+        },
+        {
+          "path": "src/core/Algorithms/AEDS_V2_PROTOCOL.md",
+          "branchBlob": "465738dfbba9a0a2df4a3313569e3f841f85fb20",
+          "masterBlob": "38d25efe01cb5649d0d3bedd364ce6c87066408d"
+        },
+        {
+          "path": "src/core/Algorithms/AedsFrameType.cs",
+          "branchBlob": "d83f49a4668639f579b66cf019fee7d156a8db6f",
+          "masterBlob": "80230509d38979c2e03a8a3d36c92bc10a016359"
+        },
+        {
+          "path": "src/core/Cache/PodBinaryCodec.ArticleCanvasLink.Generated.cs",
+          "branchBlob": "051295f76404048dc9a2d6a66e0e73e3b88b15c3",
+          "masterBlob": null
+        },
+        {
+          "path": "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+          "branchBlob": "76c61560ed2b1e76303240af1ca5e16362af3852",
+          "masterBlob": null
+        },
+        {
+          "path": "src/core/Cache/PodBinaryCodec.AuthorArticleSelection.Generated.cs",
+          "branchBlob": "ed7dad1d1c961223f5757f4d89fbabc26f602c56",
+          "masterBlob": null
+        },
+        {
+          "path": "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
+          "branchBlob": "070f61d0d04e6d741efc291cff26bac82bee4a21",
+          "masterBlob": null
+        },
+        {
+          "path": "src/core/Cache/PodBinaryCodec.AuthoringWorkspaceSnapshot.Generated.cs",
+          "branchBlob": "a7b52d0afdc154943304d945281d417ee2e7950d",
+          "masterBlob": null
+        },
+        {
+          "path": "src/core/Cache/PodBinaryCodec.DocumentExport.cs",
+          "branchBlob": "44b4993004758c694665823a5bf59c4983e89d70",
+          "masterBlob": null
+        },
+        {
+          "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+          "branchBlob": "8c0c0e5b3b9f89afff706d9bb4c11c1aa5557c26",
+          "masterBlob": null
+        },
+        {
+          "path": "src/core/Cache/PodBinaryCodec.WritingAidPreference.cs",
+          "branchBlob": "e8e5b9649a4bc9410bd921addef7557cbcd77d2a",
+          "masterBlob": null
+        },
+        {
+          "path": "src/core/Cache/PodBinaryCodec.WritingAidPreferenceReceipt.Generated.cs",
+          "branchBlob": "8fb7afda8845ccae0a3b16f6989d22e7d9511758",
+          "masterBlob": null
+        },
+        {
+          "path": "src/core/Mapping/Models/DocumentExportModels.cs",
+          "branchBlob": "59a7ecffc71d052f40bffe8d8bcc7883fac8f807",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/api/documentExport.ts",
+          "branchBlob": "4210ef7cd5085f31b2ab4d7c3094ef8dd547532e",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/codecs/binary/articleCanvasLinkWire.generated.ts",
+          "branchBlob": "382250d5ac0705965a04a23369eb9f6f970de4e2",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
+          "branchBlob": "45b4d70d7e325e00fd7eb99fa1aabf781e016dff",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/codecs/binary/authorArticleSelectionWire.generated.ts",
+          "branchBlob": "055d5b129bab24e62d8dc9b5105fa46cbdb0e90d",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
+          "branchBlob": "4db4268d843bdfcf579cbd4ca8d08c64ab132aab",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/codecs/binary/authoringWorkspaceSnapshotWire.generated.ts",
+          "branchBlob": "663d39ffd640baf7e1bb4ecf787e7cf09e396086",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/codecs/binary/documentExportWire.generated.ts",
+          "branchBlob": "2b215d78764ae3c63267355f8954745a07d6e4e8",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/codecs/binary/writingAidPreferenceWire.generated.ts",
+          "branchBlob": "bdff82ca05c6242221eaf39a5bb42463da48e7fc",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/components/document-export/documentExportCall.ts",
+          "branchBlob": "5e82b53f5b8fea926c98965e486212d326cbb62d",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/components/document-export/documentExportUiPort.ts",
+          "branchBlob": "9c0a16bc07b795623276addd6c95402689e8a357",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/components/document-export/documentExportWireUiPort.ts",
+          "branchBlob": "8f679b61ec569ad78cf1ab5a7e65d07caa28cf8d",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/composables/useDocumentExport.ts",
+          "branchBlob": "e9b7c4bd60901e6634a2adffec320b4630cc5d34",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+          "branchBlob": "e0079dfbd3bf43301804706f1311e9094a5f557b",
+          "masterBlob": "e780acfb55a79b41e9321b73bacef8425044dfde"
+        },
+        {
+          "path": "src/frontend/src/composition/documentExport.ts",
+          "branchBlob": "936323c141babc137aa6ca9bbb99aaf94c604afc",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/src/services/documentExportPrivateDelivery.ts",
+          "branchBlob": "ea12655437f2ec9c6f2d545063742135b608bb57",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+          "branchBlob": "e279f19ebc3354f4ecd43a8453a12605ce9f998d",
+          "masterBlob": "cb08cf6bc20b742afb90ad6d4f4d3a454b8fc834"
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+          "branchBlob": "b6f8249d2c215768d1b019201ff737a4641f7a8e",
+          "masterBlob": "881e1852f846a65bb0ba7e6c6306ec94367c972f"
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp",
+          "branchBlob": "8c92c56e4b2b1412fcbf66a6dc5e9ea25dc88e6b",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/author_article_selection_wire.generated.hpp",
+          "branchBlob": "143f2c3a76570a92884bf60635154ed3256fbe0f",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp",
+          "branchBlob": "c6ee52d2a44db02ee411c89bc7fa21e0d249c5a8",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/authoring_workspace_snapshot_wire.generated.hpp",
+          "branchBlob": "34db4453a6cd6a9676fb699920a132b2720670b5",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/document_export_wire.generated.hpp",
+          "branchBlob": "181704be7a509173bd5e7a3ce6c539d4cabd6b19",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/pod_views.hpp",
+          "branchBlob": "3ef2f5e0fa235cb56f50836086bbdc5cac866698",
+          "masterBlob": "2607d73796e66402784da46e13a38900542acbb6"
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/property_value_read.generated.hpp",
+          "branchBlob": "a38b159868fec1b47a9dc0ef8d73af184bc91611",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+          "branchBlob": "6c68f7759cd8efabff25b5d2d685db3dc9507d55",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/wasm/aeds/include/writing_aid_preference_wire.generated.hpp",
+          "branchBlob": "c9deb1334dbb10d81e65c4e3b809ab0845e24715",
+          "masterBlob": null
+        },
+        {
+          "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+          "branchBlob": "f6cf006b10462e053b0b908249e8fbceaa2712d1",
+          "masterBlob": "2fcbee4cf5dd83fdf8c9b9e16127756cb942e1ae"
+        },
+        {
+          "path": "src/frontend/wasm/web/protocol/frame.ts",
+          "branchBlob": "f5b8f0055ea33bd0127505a93a8c4eb32739dd5f",
+          "masterBlob": "f4d3d037304b66acc0a9f4aaaf431646125d15b5"
+        },
+        {
+          "path": "src/shared/AedsFrameHeader.cs",
+          "branchBlob": "1e16a8e895c362692dbb6de96712d2d56337c50e",
+          "masterBlob": "c6fc479e0c3ccef1949266c7f6a5dbe28fc6eadf"
+        },
+        {
+          "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs",
+          "branchBlob": "31c708b5fb98dc5b117fafa630d0d9559ef072d2",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+          "branchBlob": "ccc417763c04e36b8414325e944e48035018ae15",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+          "branchBlob": "6298d10439f5bde83fd4cceed344bb88f1495690",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+          "branchBlob": "e40a8e0ee45b7f52e93483b4c06477bcfd77cb08",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs",
+          "branchBlob": "b1237f3b56edcaabf2313203b29a9ba6885b97bf",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Articles/ArticleCanvasLinkContracts.cs",
+          "branchBlob": "cdfa21fe3f2aa556332c1698837f4a6b84336ce2",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasDocumentContracts.cs",
+          "branchBlob": "864e483af37774ff0c7e0c6b93dbb5fc68bea4b4",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasOperationContracts.cs",
+          "branchBlob": "761babf8385d5f75e7087c6008b1febcd71f8579",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs",
+          "branchBlob": "780e813dd36af3c6984234d11c0ea67027c978d8",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs",
+          "branchBlob": "b77b15f7c11f2fe6d802f202e623cf72bfed871b",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/AuthoringNavigation/AuthorArticleSelectionRevalidationContracts.cs",
+          "branchBlob": "95ce135e28cc25081d51ce6a0e97fcc154455b55",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceContracts.cs",
+          "branchBlob": "45d511be96f6151dbdfd92c02cbd29f87182e51b",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs",
+          "branchBlob": "184ea0dcaa1f2bd005d8e6c866a292283131884e",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceValidator.cs",
+          "branchBlob": "dc6182d426fdf31a416151e90681ae312e6b3cdf",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotContracts.cs",
+          "branchBlob": "4f2c7856fc43b2485cdb14d8a112d6d99aa19836",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/AuthoringWorkspace/AuthoringWorkspaceSnapshotTransportContracts.cs",
+          "branchBlob": "f88a1dcc67cb2f76f301458cd2f3b773943261d0",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+          "branchBlob": "50f1b80af5aa6c9ed2fdd7c106257fc50217911d",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Models/WritingAidPreferencePods.cs",
+          "branchBlob": "5fb84e94f45d02bd30807eeffee839cf24eca694",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+          "branchBlob": "000bc0b3b7fbcc84575d580b5fb18c514d091ac8",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+          "branchBlob": "f5772971ac4180bf73ec420c7b159cfba7a7887c",
+          "masterBlob": "983a35bd57ff8da6a0718bc2282ea9b764432402"
+        },
+        {
+          "path": "src/shared/Contracts/Validation/article-canvas-link-wire.json",
+          "branchBlob": "c26756bafe199493478a8d8bbab7129c9d5bed0d",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Validation/article-property-value-read-wire.json",
+          "branchBlob": "efda50aa9d333bd3f3be3d9778bf981328c5d45c",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Validation/author-article-selection-wire.json",
+          "branchBlob": "c9689a02064547bcf615fe5f4a380e5269991211",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Validation/authoring-canvas-wire.json",
+          "branchBlob": "abfe03357cefaed122831ad6f461b242cb85c9c4",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Validation/authoring-workspace-snapshot-wire.json",
+          "branchBlob": "5dda47bc3590c917f999355552bb0abb27300508",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Validation/document-export-wire.json",
+          "branchBlob": "7887d2910efb5f1828c1fc1b720e1cefe10d2719",
+          "masterBlob": null
+        },
+        {
+          "path": "src/shared/Contracts/Validation/writing-aid-preference-wire.json",
+          "branchBlob": "24615de766fce838ca9226d2ac194e49f7805baa",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+          "branchBlob": "57a06532f4b115c17e640b06a67dd9fae03f313c",
+          "masterBlob": "c0150a779dcf7a362eea125e2bc78ed67dbb16aa"
+        },
+        {
+          "path": "tests/backend/Fixtures/document-export-payload-goldens-v1.json",
+          "branchBlob": "589e57e4a61be20d36d66bf42d627786a2cf6f38",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/GlobalUsings.cs",
+          "branchBlob": "391f1d0126dff28ad1e575efc7951dfc5e97fd5e",
+          "masterBlob": "3e394db9d3ffec0ec591dde277ea41d1dd670014"
+        },
+        {
+          "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+          "branchBlob": "1973df38dd1d3b40be7f95f063d686854d81cfcc",
+          "masterBlob": "57e6a3cd5f279a3156f8b5ca093b23d1e4f132af"
+        },
+        {
+          "path": "tests/backend/Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs",
+          "branchBlob": "560115e31b0bee51bc300c782ec2d4a57ea7cb11",
+          "masterBlob": "bf9efea41bd539758624bb6fad24a56f3b249586"
+        },
+        {
+          "path": "tests/backend/Integration/DocumentExportSessionJobAuthorizationPostgresTests.cs",
+          "branchBlob": "cffb767cbe3caa9303a0471cab187a0fa0b15fee",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/ArticleCanvasLinkWireCodecTests.cs",
+          "branchBlob": "4f86bcd46f0826012ef3145c64e67016f95eb736",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
+          "branchBlob": "ed9e7e0a033fdbf54385ce3b961280e4269b6026",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/AuthorArticleSelectionWireTests.cs",
+          "branchBlob": "2d5af27f90660ea43da21d90116b8067f59c37ef",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
+          "branchBlob": "5fe0050160cc01dcb520b40f1ec847fc2c71ca67",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportAttemptResourcesTests.cs",
+          "branchBlob": "110f2bee2d18993a5fef2b990486b4fda8fa8cc5",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportBinaryCodecTests.cs",
+          "branchBlob": "70f01483456f8f9623d30494f9174747b77d78c6",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportContractTests.cs",
+          "branchBlob": "b72fd96b67cbf6f58cebe74455c7b02095696b0f",
+          "masterBlob": "a96b45ae2fc84e83d0064f26a6d07f221f434244"
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportEndpointBindingTests.cs",
+          "branchBlob": "10c4f31a7c61a019df447f64228d1be849564a7c",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportEndpointsTests.cs",
+          "branchBlob": "e568655f37810d586ead1a0a2f92fc53bf1229e3",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportFrozenEmbedSourceBridgeTests.cs",
+          "branchBlob": "3fe8681f445a3e0f98906ace8fae5951a78430a2",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+          "branchBlob": "a35538c6cd13b7f5f6f39e9e9805a8360abf4f69",
+          "masterBlob": "111a68ed457fbcf4493e90e775f7f2eec49a198e"
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportHttpJobAuthorizationTests.cs",
+          "branchBlob": "840afdb0e2916467887a7c1116891690a476f0ff",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportJobServiceTests.cs",
+          "branchBlob": "6613c5adebc10b5c5658c520c1f9b34c8de42820",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportPayloadBoundsTests.cs",
+          "branchBlob": "9dc30142b2bb1b566b9a62ddccefa723fe6c078b",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportRequestFreezerTests.cs",
+          "branchBlob": "6b5b74b5f0d7fc359bbb1eb7fda21d3e65bd9ebb",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+          "branchBlob": "5c27da9e14a3db7e041f78c0a42a03f0b5b0f575",
+          "masterBlob": "ffd48526b38f22ce3b9d92bc150ffbc0dc77297c"
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSessionJobAuthorizationTests.cs",
+          "branchBlob": "2c5da27fe4e6af5b13e95648a976117f1f751694",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/UploadAssetPreviewCodecTests.cs",
+          "branchBlob": "0fbc1c03f36233096fd2418c58ea8e4975852212",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/WritingAidPreferenceWireTests.cs",
+          "branchBlob": "1d2ec62e5ffbd00a8ab479fc42a44f7f8a11b732",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/fixtures/protocol/article-canvas-link-wire-golden.json",
+          "branchBlob": "85638b177f79bce089fc6e7ea10d4e129acf5a89",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/fixtures/protocol/article-property-value-read-wire-golden.json",
+          "branchBlob": "2903186e867aae78b2752b3cac57b36e0ab2eabc",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/fixtures/protocol/article-property-value-read-wire-native.cpp",
+          "branchBlob": "086c2bbb64e34d1f3a9b862a176fabdc746997b8",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/fixtures/protocol/article-property-value-read-wire-v1-retired.json",
+          "branchBlob": "4bb976051b3a5d018a0e644261948f675ba0f6c4",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/fixtures/protocol/author-article-selection-wire-golden.json",
+          "branchBlob": "72d667ca07540b10af47a9fe5e16d0882af869fb",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/fixtures/protocol/authoring-canvas-wire-golden.json",
+          "branchBlob": "a338f1a0570ec8cbe0ac19d682dbcf16828563bb",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/fixtures/protocol/authoring-workspace-snapshot-wire-golden.json",
+          "branchBlob": "c7f1b7558a2a4afa2c5d684490f575497a8af5ba",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/fixtures/protocol/authoring-workspace-snapshot-wire-native.cpp",
+          "branchBlob": "15578b2364c076c8c47cf2a6cf65a30772e7922e",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/fixtures/protocol/writing-aid-preference-wire-golden.json",
+          "branchBlob": "4a9aa3e57d1e70a596e66c9096da5b9deaf4e53b",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/fixtures/protocol/writing-aid-preference-wire-native.cpp",
+          "branchBlob": "6cca1c78c93b0d7c4c9d63378de7d3263c36535f",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/frontend/unit/services/documentExportPrivateDelivery.test.ts",
+          "branchBlob": "1066b0c684ed8bae241bbc0471c471b154d074d2",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/aeds-protocol-generation.test.mjs",
+          "branchBlob": "6939e49636f6a87df0854dc6f363e8f5f23cac90",
+          "masterBlob": "cd0177ea8f828bfad445e831fc55b86f735bef01"
+        },
+        {
+          "path": "tests/tools/article-canvas-link-wire.test.mjs",
+          "branchBlob": "035e244ae7fedcaf2316b4eacfdf790f5d9214fe",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/article-property-value-read-native.test.mjs",
+          "branchBlob": "1d1a472e3ca711d93a1f4cf723b3e6d586fbe732",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/article-property-value-read-wire.test.mjs",
+          "branchBlob": "701ee44e44cabc206499ac4af07e9ed8b8b6bab9",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/author-article-selection-wire.test.mjs",
+          "branchBlob": "de28905010c4a1b0205b8910237f72e838cb5ed2",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/authoring-canvas-wire.test.mjs",
+          "branchBlob": "9893fd9948340a1cf16609d64424684a4e699adf",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/authoring-workspace-snapshot-native.test.mjs",
+          "branchBlob": "862a94fad00a989223a147090c6b4ec16c743b4d",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/authoring-workspace-snapshot-wire.test.mjs",
+          "branchBlob": "c390f16f47cf1afeca966a81d3f68915fed2e4bf",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/backend-unit-server-selection.test.mjs",
+          "branchBlob": "1caa618fdecba57ca51d3bccac00c39b5d220f11",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/document-export-registration.test.mjs",
+          "branchBlob": "c8e4ef686d96e7a1b8063af6c0e3469d646ab270",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/document-export-wire.test.mjs",
+          "branchBlob": "dc03b62a05b09004680d584ab72b03569aa9f38e",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/writing-aid-preference-wire.test.mjs",
+          "branchBlob": "c991b2df553f96a06f304e9414f28a18aae4c566",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/author-article-selection-wire-templates/wire.cs.inc",
+          "branchBlob": "a4e9d0d4b6637cc68c719a2ae847de45392c0376",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/author-article-selection-wire-templates/wire.hpp.inc",
+          "branchBlob": "cac1bd4ae8257c9474e3069e13a3fb4e71463dc3",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/author-article-selection-wire-templates/wire.ts.inc",
+          "branchBlob": "b5d89b02c34a217e2dddb8a2781642aa7e96a78a",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/document-export-registration.mjs",
+          "branchBlob": "5b6fb003d17e1cb741a5ced2afcd559bf0f8e834",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/document-export-wire-templates/wire.hpp.inc",
+          "branchBlob": "925a1b61403596124968eed5e3ab0847336410df",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/document-export-wire-templates/wire.ts.inc",
+          "branchBlob": "1181acdb0c6c916f39eb02ba4e3a98a3992316df",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/format-generated-property-value-read-typescript.mjs",
+          "branchBlob": "810002d2382b7e22374d344b93e10c495882e1e2",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-article-canvas-link-golden.mjs",
+          "branchBlob": "632e1e4ef3738f6b687b1b79148c058d63a49312",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-article-canvas-link-wire.mjs",
+          "branchBlob": "07d589242a1c2e56189563af0ce277e0545fab3a",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-article-property-value-read-golden.mjs",
+          "branchBlob": "6980b84a5701e27a7ee31bc173bf11bcdb0b25b5",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-article-property-value-read-wire.mjs",
+          "branchBlob": "836fcd891dc6853f28dc42f149a4a0cc5a18bac9",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-author-article-selection-wire.mjs",
+          "branchBlob": "251f155b2210deef8bd7dab12522dc674e044d27",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-authoring-canvas-wire.mjs",
+          "branchBlob": "d0641f856080981072cbe8d83fc7eb2ebba204bd",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-authoring-workspace-snapshot-golden.mjs",
+          "branchBlob": "1ba6ecfb2424175cbf496b89d1fc2c9d661d0a0f",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-authoring-workspace-snapshot-wire.mjs",
+          "branchBlob": "e41f14dda4688174fa4baaa886a7afe52503ccdb",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-document-export-wire.mjs",
+          "branchBlob": "f0c6e1844fa591bf47d6e46245a7dd7a9d398432",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-writing-aid-preference-golden.mjs",
+          "branchBlob": "86e2f1e88e5c2a2d60655e1187428b9b4dfee1cf",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/generate-writing-aid-preference-wire.mjs",
+          "branchBlob": "fe638dd6012b23697bdc4fef64b972315c2a2428",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.cs.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.hpp.inc",
+          "branchBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshot.ts.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.cs.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.hpp.inc",
+          "branchBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotGroup.ts.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.cs.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.hpp.inc",
+          "branchBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotIdentity.ts.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.cs.inc",
+          "branchBlob": "4dd366cc21e0832502120994bdf3cf584c5be238",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.hpp.inc",
+          "branchBlob": "9da4ccc88abd15b06ff45ba16d2b60c24ae76aca",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotLayout.ts.inc",
+          "branchBlob": "51f987623a48ed040a968eda65c257b1ce385534",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.cs.inc",
+          "branchBlob": "235551e7df00385c05ef0cd742cafce492744366",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.hpp.inc",
+          "branchBlob": "3463f8c99820e9df1972335988c871b54d49ba28",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotRequest.ts.inc",
+          "branchBlob": "53a8cb3ab4ee126ddd6a76c1028f46b2a079e9d4",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.cs.inc",
+          "branchBlob": "6c5bd116b4b3ffcbf5ca9ba867d92f5a49471a0b",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.hpp.inc",
+          "branchBlob": "120419b59f99ed8eee38f3cada019573acc75ea6",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotResponse.ts.inc",
+          "branchBlob": "9c35e530ae48d14465aa77da31b9f883fed55c20",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.cs.inc",
+          "branchBlob": "486081bd0733d08b6b084670ab01b99630b42c5f",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.hpp.inc",
+          "branchBlob": "c1c6922d1dfea3f2e582e55796f6fdf98eaeaad3",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotScope.ts.inc",
+          "branchBlob": "8b137891791fe96927ad78e64b0aad7bded08bdc",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.cs.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.hpp.inc",
+          "branchBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotShell.ts.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.cs.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.hpp.inc",
+          "branchBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTab.ts.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.cs.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.hpp.inc",
+          "branchBlob": "5acac407ebf9dd009adde5606e2d95853418c131",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/AuthoringWorkspaceSnapshotTransportReceipt.ts.inc",
+          "branchBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/primitives.cs.inc",
+          "branchBlob": "6cd540bc2c2ea47718fdf2afbf1acbd6078a65d5",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/primitives.hpp.inc",
+          "branchBlob": "60c621e70ae7b1b23e90274839b88b89cf9479b2",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/workspace-snapshot-wire-templates/primitives.ts.inc",
+          "branchBlob": "20e3f11b7a6cf2a52aac5b167518c8d497a43f70",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/writing-aid-preference-wire-templates/receipt.cs.inc",
+          "branchBlob": "350bdf5acd9df1603e2ac20776870bcc9b73da9b",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/writing-aid-preference-wire-templates/wire.hpp.inc",
+          "branchBlob": "1d318d894dfd4c1ea3a3d4875919af0b279c46b2",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/contracts/writing-aid-preference-wire-templates/wire.ts.inc",
+          "branchBlob": "6363da15cfb651bfd2c2ee51e11a396cf49420ce",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/frontend/generate-aeds-protocol.mjs",
+          "branchBlob": "bc17ea2e95a8699c3c32ffd9f9ea4496b8bb052b",
+          "masterBlob": "f3338c3d363c61d9c89be216b693cc3f1a2802e8"
+        },
+        {
+          "path": "tools/test/backend-unit-server-selection.design.md",
+          "branchBlob": "456f0917cba705a433cbb1974123caa626093fa5",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/test/backend-unit-server-selection.mjs",
+          "branchBlob": "60c018f246728615f891acb13b68f8ec4087ec29",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/test/lanes/_backend-test-runtime-support.sh",
+          "branchBlob": "8a0bcc34058f09709a9fec2635552d339ca316a4",
+          "masterBlob": "742c6a661e72a5920761fd52d12a4fcbc6dd32e8"
+        },
+        {
+          "path": "tools/test/lanes/_suite-support.sh",
+          "branchBlob": "808784c494b07d42d4e7fc944fc7c353ce941434",
+          "masterBlob": "f633cbc38571df9cf17fa42653517276fcf6c80b"
+        },
+        {
+          "path": "tools/test/run-migration-tests.mjs",
+          "branchBlob": "e1b653b2431b854e247e073328ff54670fda738e",
+          "masterBlob": "0896641eefacaf09cac68ab86cd3f5e6ded8f694"
+        }
+      ],
+      "completePrDiffRecordCount": 220,
+      "completePrDiffCountingNote": "Rename records include both endpoints in completePrDiffPaths",
+      "sourceDisposition": "persisted session delegation and exact approved bounded lane source integrated; sole Jobs contract handoff and root current acceptance pending",
+      "frozenSchemaChanged": true,
+      "exactUnmergedSourceAbsorbedBy": [],
+      "uniqueUnmergedSourceVariantsVsEveryOtherExportBranch": [
+        {
+          "path": "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+          "branchBlob": "7431f1b1bdab93b5e2b01e517796ab713d5dab91",
+          "masterBlob": "6138f3b208d98d1392d6511abfff1985630a5f88"
+        },
+        {
+          "path": "src/backend/Services/Authoring/AuthorRecentArticleHistoryPersistedPermissionReader.cs",
+          "branchBlob": "708a79a233dd4012128094957e54c5f11208b916",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs",
+          "branchBlob": "a64780abd313221f74819eca71ba215173fa4bcb",
+          "masterBlob": "e67a4e0823b1d9a6cf6c72e4cf72c4720a1167b4"
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportServiceCollectionExtensions.cs",
+          "branchBlob": "5b0af23dac7b22f3c1b329bccd527b76e4985156",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/DocumentExportSessionJobAuthorization.cs",
+          "branchBlob": "d53c792b39bd8f22e123729a626a9d9408640428",
+          "masterBlob": null
+        },
+        {
+          "path": "src/backend/Services/DocumentExport/README.Transport.md",
+          "branchBlob": "f951e82b7f2228e7d12466de62914b2d23b4111a",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs",
+          "branchBlob": "560115e31b0bee51bc300c782ec2d4a57ea7cb11",
+          "masterBlob": "bf9efea41bd539758624bb6fad24a56f3b249586"
+        },
+        {
+          "path": "tests/backend/Integration/DocumentExportSessionJobAuthorizationPostgresTests.cs",
+          "branchBlob": "cffb767cbe3caa9303a0471cab187a0fa0b15fee",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportRequestFreezerTests.cs",
+          "branchBlob": "6b5b74b5f0d7fc359bbb1eb7fda21d3e65bd9ebb",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/backend/Unit/DocumentExportSessionJobAuthorizationTests.cs",
+          "branchBlob": "2c5da27fe4e6af5b13e95648a976117f1f751694",
+          "masterBlob": null
+        },
+        {
+          "path": "tests/tools/backend-unit-server-selection.test.mjs",
+          "branchBlob": "1caa618fdecba57ca51d3bccac00c39b5d220f11",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/test/backend-unit-server-selection.design.md",
+          "branchBlob": "456f0917cba705a433cbb1974123caa626093fa5",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/test/backend-unit-server-selection.mjs",
+          "branchBlob": "60c018f246728615f891acb13b68f8ec4087ec29",
+          "masterBlob": null
+        },
+        {
+          "path": "tools/test/lanes/_backend-test-runtime-support.sh",
+          "branchBlob": "8a0bcc34058f09709a9fec2635552d339ca316a4",
+          "masterBlob": "742c6a661e72a5920761fd52d12a4fcbc6dd32e8"
+        },
+        {
+          "path": "tools/test/lanes/_suite-support.sh",
+          "branchBlob": "808784c494b07d42d4e7fc944fc7c353ce941434",
+          "masterBlob": "f633cbc38571df9cf17fa42653517276fcf6c80b"
+        },
+        {
+          "path": "tools/test/run-migration-tests.mjs",
+          "branchBlob": "e1b653b2431b854e247e073328ff54670fda738e",
+          "masterBlob": "0896641eefacaf09cac68ab86cd3f5e6ded8f694"
+        }
+      ]
     }
   ],
   "noGitHubContentWrites": true,
   "noTestsExecutedForInventory": true,
-  "comparisonNote": "Complete PR diff is immutable master...head, including inherited paths. Unmerged and absorbed checks compare full path/blob states against current master and every complete peer tree (including deletions). These facts do not grant owner review/acceptance. Last artifact-only increment may still inherit a broad source branch.",
+  "comparisonNote": "Existing records retain their exact historical comparison base; the new session integration record uses latest fetched master. Source byte equality never proves acceptance/ancestry/merge qualification.",
   "materialBranchClassification": "This inventory branch contains only public handoff artifacts; it is not an additional source implementation branch.",
   "materialBranches": [
     {
@@ -46523,5 +49708,6 @@
       "classification": "artifact-only public inventory; no source implementation"
     }
   ],
-  "sourceVariantPredicate": "Changed paths under src/, tests/, tools/, including both rename endpoints/deletions; byte equality only, never acceptance/ancestry/merge approval"
+  "sourceVariantPredicate": "Changed paths under src/, tests/, tools/, including both rename endpoints/deletions; byte equality only, never acceptance/ancestry/merge approval",
+  "latestFetchedMasterSha": "a281fb6e9802471c3a44569c3ccab84f88c8d816"
 }
