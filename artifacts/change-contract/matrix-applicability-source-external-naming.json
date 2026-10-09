@@ -13,6 +13,13 @@
                 "config/schemas/test-execution-envelope-applicability.schema.json"
             ],
             "reason": "Preserve the original matrix declarations and canonical generated JSON wire fields while refreshing actual required SDK environment, mysql services, fixture classification and source/output bindings."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/bundles/run-bundle.mjs"
+            ],
+            "reason": "Preserve the original bundle caller environment and resource/grant spellings while sequencing the actual nonqualifying declaration CLI in the registered matrix producer."
         }
     ]
 }

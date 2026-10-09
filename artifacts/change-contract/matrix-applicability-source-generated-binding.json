@@ -5,7 +5,9 @@
         "tools/test-matrix/fixture-profile-contract.mjs",
         "tests/tools/matrix-fixture-profile.test.mjs",
         "config/schemas/test-execution-envelope-applicability.schema.json",
-        "tests/tools/execution-envelope-policy.test.mjs"
+        "tests/tools/execution-envelope-policy.test.mjs",
+        "tools/test/bundles/run-bundle.mjs",
+        "tests/tools/local-production-profile-resources.test.mjs"
     ],
     "outputs": [
         {
@@ -26,7 +28,7 @@
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "7f8e1c1da3e136a5208dbd4c3ac8e2fe84e9094ccb8acfaa0a4ef9052e363f60"
+            "sha256": "09f08ffae695abc5ed2b861a7a76ab09c7c82c15330138544d96ddeff5212bd9"
         }
     ]
 }
