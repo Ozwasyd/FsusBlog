@@ -1,0 +1,27 @@
+{
+  "kind": "observed original local metadata gate; not independent acceptance",
+  "testedMetadataHead": "a280602d2c1b8df2a91f9b00308c4a92400ab9ed",
+  "testedProductionSource": "89b1a14c238e919069f9377b4310d86d64dae414",
+  "prBase": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "preparedPrGate": {
+    "argv": [
+      "node",
+      "tools/governance/check-change-contract.mjs",
+      "--github-event",
+      ".tmp/chain-3582-expanded/source-projection-composition/final-prepared-pr-event.json"
+    ],
+    "exitCode": 0,
+    "files": 974
+  },
+  "incrementalCommitRange": {
+    "argv": [
+      "node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "c3430ccffbd6e0d6d7e3782597b3218667a7d4c5..a280602d2c1b8df2a91f9b00308c4a92400ab9ed"
+    ],
+    "exitCode": 0
+  },
+  "corrections": "Allowed scopes/Refs footers; original PR changedFilesBetween producer replaces two-dot diff for exact external naming metadata; default frontend failures remain unwaived",
+  "externalContentWritten": false
+}
