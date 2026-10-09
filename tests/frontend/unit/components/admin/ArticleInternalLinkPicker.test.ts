@@ -247,8 +247,9 @@ describe('ArticleInternalLinkPicker #1807', () =>
         await results(wrapper, [article('one', { title }), article('two', { title }), article('missing', {
             title: '缺少事实', statusText: null, updatedText: null, selectAction: null, headingsAction: null
         })]);
-        expect(targets()[0].textContent).toBe(title);
-        expect(targets()[1].textContent).toBe(title);
+        expect(targets()[0].getAttribute('aria-label')).toBe(`查看章节：${title}`);
+        expect(targets()[1].getAttribute('aria-label')).toBe(`查看章节：${title}`);
+        expect(Array.from(document.querySelectorAll('.internal-link-picker__row-content > bdi')).map((element) => element.textContent)).toEqual([title, title, '缺少事实']);
         expect(targets()[2].disabled).toBe(true);
         targets()[1].click();
         await flushPromises();
