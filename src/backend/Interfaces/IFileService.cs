@@ -2,6 +2,8 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Shared.Contracts.Outputs;
 
+using AttachmentCleanupObservation = FsusBlog.Server.Services.FileService.AttachmentCleanupObservation;
+
 namespace FsusBlog.Server.Interfaces
 {
     public interface IFileService
@@ -15,6 +17,9 @@ namespace FsusBlog.Server.Interfaces
         // Server-only original session read; this grants no Vault operation or private export right.
         Task<Result<UploadAssetPreview>> ReadCommittedUploadInputAsync(UploadSessionAccess access, string sha256, CancellationToken cancellationToken = default);
         Task<Result<UploadAssetPreview>> ReadCommittedUploadPreviewAsync(UploadSessionAccess access, string sha256, CancellationToken cancellationToken = default);
+        // Original durable queue observation; successful reads may still require scheduling.
+        Task<Result<AttachmentCleanupObservation>> ObserveAttachmentCleanupAsync(UploadSessionAccess access, string sha256, string? expectedAssetVersionSha256 = null, string? expectedReferenceObservationSha256 = null, CancellationToken cancellationToken = default);
+        Task<Result<AttachmentCleanupObservation>> RecordAttachmentCleanupAsync(UploadSessionAccess access, string sha256, string expectedAssetVersionSha256, string expectedReferenceObservationSha256, CancellationToken cancellationToken = default);
         Task<Result<bool>> AbortUploadAsync(UploadSessionAccess access, CancellationToken cancellationToken = default);
     }
 }
