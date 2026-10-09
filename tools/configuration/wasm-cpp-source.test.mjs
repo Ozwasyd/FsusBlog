@@ -39,7 +39,7 @@ function fixture(action)
     {
         const files = execFileSync('git', ['ls-files', 'src/frontend/wasm', 'config/development/native-tooling-style-policy.json',
             'CMakeLists.txt', 'cmake/FsusWarnings.cmake', 'tests/native'],
-            { cwd: repository, encoding: 'utf8' }).trim().split('\n');
+        { cwd: repository, encoding: 'utf8' }).trim().split('\n');
         for (const file of files)
         {
             const target = path.join(root, file);
