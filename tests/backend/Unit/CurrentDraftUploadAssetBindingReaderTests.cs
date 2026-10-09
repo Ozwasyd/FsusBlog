@@ -102,6 +102,44 @@ public sealed class CurrentDraftUploadAssetBindingReaderTests
     }
 
     [Theory]
+    [InlineData("context")]
+    [InlineData("revision-coordinate")]
+    [InlineData("owner")]
+    [InlineData("draft-key")]
+    public async Task InvalidOrStaleRequest_RefusesBeforeEitherAuthorityRead(string scenario)
+    {
+        var fixture = new Fixture();
+        if (scenario == "context")
+        {
+            fixture.Context = fixture.Context with { RequestId = Guid.NewGuid() };
+        }
+        else if (scenario == "revision-coordinate")
+        {
+            fixture.Reference = fixture.Reference with { ServerRevision = fixture.Context.SourceRevision };
+        }
+        else if (scenario == "owner")
+        {
+            ((ClaimsIdentity)fixture.Principal.Identity!).RemoveClaim(fixture.Principal.FindFirst("admin_id")!);
+        }
+        else
+        {
+            fixture.Reference = fixture.Reference with { DraftKey = " real-draft-key " };
+        }
+        CurrentDraftUploadAssetReadResult result = await fixture.ReadAsync();
+        Assert.Equal(scenario is "owner" or "draft-key" ? CurrentDraftUploadAssetReadStatus.Unavailable
+            : CurrentDraftUploadAssetReadStatus.Unconfirmed, result.Status);
+        Assert.Equal(scenario switch
+        {
+            "context" => "current_context_changed",
+            "revision-coordinate" => "saved_draft_revision_changed",
+            _ => "input_or_owner_invalid"
+        }, result.ReasonCode);
+        Assert.Null(result.Observation);
+        Assert.Empty(fixture.Drafts.ReceivedCalls());
+        Assert.Empty(fixture.Files.ReceivedCalls());
+    }
+
+    [Theory]
     [InlineData("source")]
     [InlineData("server-revision")]
     [InlineData("article")]
