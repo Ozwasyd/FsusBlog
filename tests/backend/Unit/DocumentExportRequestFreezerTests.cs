@@ -6,11 +6,15 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
+using FsusBlog.Server.Services.DocumentExport.Sources;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 
 using NSubstitute;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -144,6 +148,19 @@ public sealed class DocumentExportRequestFreezerTests
         Assert.Throws<InvalidOperationException>(() => missingSessionReader.AddDocumentExportSessionTransport());
         Assert.Equal(before, missingSessionReader.ToArray());
 
+        var missingCatalogAuthority = new ServiceCollection();
+        Assert.Throws<InvalidOperationException>(() => missingCatalogAuthority.AddDocumentExportSourceCatalog());
+        Assert.Empty(missingCatalogAuthority);
+
+        var keyedCatalogAuthority = CatalogServices();
+        keyedCatalogAuthority.Remove(keyedCatalogAuthority.Single(descriptor =>
+            descriptor.ServiceType == typeof(IAuthoringDraftLifecycle)));
+        keyedCatalogAuthority.AddKeyedScoped<IAuthoringDraftLifecycle>("other",
+            (_, _) => Substitute.For<IAuthoringDraftLifecycle>());
+        before = keyedCatalogAuthority.ToArray();
+        Assert.Throws<InvalidOperationException>(() => keyedCatalogAuthority.AddDocumentExportSourceCatalog());
+        Assert.Equal(before, keyedCatalogAuthority.ToArray());
+
         missingSessionReader.AddKeyedScoped<IAuthorRecentArticleHistoryPersistedPermissionReader>("other",
             (_, _) => Substitute.For<IAuthorRecentArticleHistoryPersistedPermissionReader>());
         before = missingSessionReader.ToArray();
@@ -218,6 +235,18 @@ public sealed class DocumentExportRequestFreezerTests
         Assert.Throws<InvalidOperationException>(() => session.AddDocumentExportSessionTransport());
         Assert.Throws<InvalidOperationException>(() => session.AddDocumentExportHttpTransport());
         Assert.Equal(sessionBefore, session.ToArray());
+
+        var catalog = CatalogServices();
+        catalog.AddDocumentExportSourceCatalog();
+        Assert.Equal(typeof(DocumentExportSourceCatalog), Assert.Single(catalog,
+            descriptor => descriptor.ServiceType == typeof(IDocumentExportSourceCatalog)).ImplementationType);
+        Assert.Equal(ServiceLifetime.Scoped, Assert.Single(catalog,
+            descriptor => descriptor.ServiceType == typeof(DocumentExportSourceCatalogStore)).Lifetime);
+        ServiceDescriptor[] catalogBefore = catalog.ToArray();
+        Assert.Throws<InvalidOperationException>(() => catalog.AddDocumentExportSourceCatalog());
+        Assert.Equal(catalogBefore, catalog.ToArray());
+        Assert.DoesNotContain(catalog, descriptor => descriptor.ServiceType == typeof(IDocumentExportJobs)
+            || descriptor.ServiceType == typeof(IDocumentExportEndpointBinding));
     }
 
     [Fact]
@@ -300,6 +329,20 @@ public sealed class DocumentExportRequestFreezerTests
 
         internal Task<(DocumentExportTask Task, DocumentExportFrozenInput Input)> FreezeAsync()
             => Freezer.FreezeAsync(new DefaultHttpContext(), Actor, Request, default);
+    }
+
+    private static ServiceCollection CatalogServices()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped(_ => Substitute.For<ISqlSugarClient>());
+        services.AddScoped(_ => Substitute.For<IAuthoringDraftLifecycle>());
+        services.AddScoped(_ => Substitute.For<IAuthorRecentArticleHistoryPersistedPermissionReader>());
+        services.AddScoped(provider => new SqlAuthorRecentArticleHistoryPermissionAuthority(
+            provider.GetRequiredService<IAuthorRecentArticleHistoryPersistedPermissionReader>(),
+            provider.GetRequiredService<IHttpContextAccessor>(), provider.GetRequiredService<IConfiguration>()));
+        services.AddHttpContextAccessor();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        return services;
     }
 
     private sealed class ControlledRoutes(IServiceProvider provider) : IEndpointRouteBuilder

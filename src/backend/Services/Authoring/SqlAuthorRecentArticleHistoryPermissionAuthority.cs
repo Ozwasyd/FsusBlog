@@ -3,6 +3,8 @@ using System.Security.Claims;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 
+using SqlSugar;
+
 namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>
@@ -17,6 +19,20 @@ public sealed class SqlAuthorRecentArticleHistoryPermissionAuthority(
     IAuthorRecentArticleHistoryMutationAuthorizer,
     IAuthorRecentArticleHistoryPermissionProjectionProvider
 {
+    /// <summary>
+    /// Preserve the original direct SQL construction boundary using the sole persisted reader implementation.
+    /// Production composition explicitly injects the registered scoped reader through the primary constructor.
+    /// </summary>
+    public SqlAuthorRecentArticleHistoryPermissionAuthority(
+        ISqlSugarClient db,
+        IHttpContextAccessor httpContextAccessor,
+        IConfiguration configuration,
+        TimeProvider timeProvider)
+        : this(new AuthorRecentArticleHistoryPersistedPermissionReader(db, configuration, timeProvider),
+            httpContextAccessor, configuration)
+    {
+    }
+
     public async Task AuthorizeAsync(
         AuthorRecentArticleHistoryOwner owner,
         int articleId,

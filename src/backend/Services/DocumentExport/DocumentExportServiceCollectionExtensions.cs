@@ -1,14 +1,41 @@
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
+using FsusBlog.Server.Services.DocumentExport.Sources;
 
 using Microsoft.Extensions.DependencyInjection.Extensions;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Services.DocumentExport;
 
 /// <summary>Explicit composition of the canonical transport and sole jobs; no default authorities or worker launch.</summary>
 public static class DocumentExportServiceCollectionExtensions
 {
+    /// <summary>
+    /// Compose the original persisted source catalog after its database/schema authorities are supplied.
+    /// Registration performs no query, migration, transport activation or worker launch.
+    /// </summary>
+    public static IServiceCollection AddDocumentExportSourceCatalog(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        RequireSingleScopedAuthority<ISqlSugarClient>(services);
+        RequireSingleScopedAuthority<IAuthoringDraftLifecycle>(services);
+        RequireSingleScopedAuthority<IAuthorRecentArticleHistoryPersistedPermissionReader>(services);
+        RequireSingleScopedAuthority<SqlAuthorRecentArticleHistoryPermissionAuthority>(services);
+        RequireSingleSingletonAuthority<IHttpContextAccessor>(services);
+        RequireSingleSingletonAuthority<IConfiguration>(services);
+        if (services.Any(descriptor => descriptor.ServiceType == typeof(IDocumentExportSourceCatalog)
+            || descriptor.ServiceType == typeof(DocumentExportSourceCatalog)
+            || descriptor.ServiceType == typeof(DocumentExportSourceCatalogStore)))
+        {
+            throw new InvalidOperationException("document_export_source_catalog_already_registered");
+        }
+        services.AddScoped<DocumentExportSourceCatalogStore>();
+        services.AddScoped<IDocumentExportSourceCatalog, DocumentExportSourceCatalog>();
+        return services;
+    }
+
     /// <summary>
     /// Bind HTTP transport to the original scoped permission projection and
     /// authenticated context accessor. All authorities must already be present;
@@ -44,13 +71,7 @@ public static class DocumentExportServiceCollectionExtensions
     {
         RequireSingleScopedAuthority<IDocumentExportFrozenSourceReader>(services);
         RequireSingleScopedAuthority<IAuthorRecentArticleHistoryPermissionProjectionProvider>(services);
-        ServiceDescriptor[] contexts = services.Where(descriptor =>
-            descriptor.ServiceType == typeof(IHttpContextAccessor)).ToArray();
-        if (contexts.Length != 1 || contexts[0].IsKeyedService
-            || contexts[0].Lifetime != ServiceLifetime.Singleton)
-        {
-            throw new InvalidOperationException("document_export_required_authority_unregistered");
-        }
+        RequireSingleSingletonAuthority<IHttpContextAccessor>(services);
     }
 
     private static void RequireAuthorizationUnregistered(IServiceCollection services)
@@ -104,6 +125,16 @@ public static class DocumentExportServiceCollectionExtensions
         ServiceDescriptor[] descriptors = services.Where(descriptor => descriptor.ServiceType == typeof(T)).ToArray();
         if (descriptors.Length != 1 || descriptors[0].IsKeyedService
             || descriptors[0].Lifetime != ServiceLifetime.Scoped)
+        {
+            throw new InvalidOperationException("document_export_required_authority_unregistered");
+        }
+    }
+
+    private static void RequireSingleSingletonAuthority<T>(IServiceCollection services)
+    {
+        ServiceDescriptor[] descriptors = services.Where(descriptor => descriptor.ServiceType == typeof(T)).ToArray();
+        if (descriptors.Length != 1 || descriptors[0].IsKeyedService
+            || descriptors[0].Lifetime != ServiceLifetime.Singleton)
         {
             throw new InvalidOperationException("document_export_required_authority_unregistered");
         }
