@@ -33,6 +33,7 @@ public sealed class ArticleVaultInstallationSiteIdentityCandidateReaderTests
     [InlineData(SystemSiteIdentityState.Ambiguous)]
     [InlineData(SystemSiteIdentityState.Malformed)]
     [InlineData(SystemSiteIdentityState.UnsupportedVersion)]
+    [InlineData(SystemSiteIdentityState.InitializationRequired)]
     [InlineData((SystemSiteIdentityState)99)]
     public async Task NonCurrentState_RefusesEvenWhenIdentityAndApprovedScopeArePresent(SystemSiteIdentityState state)
     {

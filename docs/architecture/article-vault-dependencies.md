@@ -184,12 +184,12 @@ The System owner now supplies the actual typed `ISystemSiteIdentityReader` and
 `SystemSiteIdentityReadModel`. `ArticleVaultInstallationSiteIdentityCandidateReader`
 prepares an uncached read through that interface, requiring `Current`, exact
 lifecycle/generation/mapping coordinates and an exact approved scope/revision.
-Noncurrent, malformed, stale and unapproved inputs refuse; storage/cancellation
+Noncurrent (including `InitializationRequired`), malformed, stale and unapproved inputs refuse; storage/cancellation
 errors propagate without URL or legacy Vault-site fallback. Explicit candidate DI
 requires the original reader and installs no SystemService alias or trusted-site
 authority. This preparation remains unwired to execution and trusted reader site
-selection: the supplied System lifecycle implementation has unresolved import/
-fresh-bootstrap defects and its final scoped alias belongs to the System owner.
+selection: the corrected System lifecycle implementation still awaits independent
+review and applicable runtime qualification; its final scoped alias belongs to the System owner.
 The typed API exists; corrected source qualification and actual approved mapping
 facts, rather than another interface, are the remaining authority prerequisites.
 
