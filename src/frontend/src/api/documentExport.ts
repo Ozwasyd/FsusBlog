@@ -189,6 +189,13 @@ export function classifyDocumentExportFailure(error: unknown): DocumentExportCal
         {
             return 'permission-revoked';
         }
+        if (error.status !== undefined && error.status >= 400)
+        {
+            // Transport kind can describe HTTP 503 as artifact-not-ready, or a
+            // definite 4xx refusal as network. Keep the actual write outcome.
+            return [401, 403, 404].includes(error.status) ? 'permission-revoked'
+                : error.status >= 500 ? 'uncertain' : 'rejected';
+        }
         return ['network', 'decode_failed'].includes(error.kind) ? 'uncertain' : 'rejected';
     }
     if (error instanceof BinaryRequestError)
