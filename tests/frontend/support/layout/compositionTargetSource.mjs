@@ -63,15 +63,22 @@ export function resolveCompositionTargetOrigin(source, file, expression, { scope
     };
     const record = source.resolver.parse(file);
     let selector = unwrap(expression);
+    let ownedSelector = expression;
     if (ts.isIdentifier(selector))
     {
+        source.resolver.assertImmutableBinding(file, selector.text);
         const value = record.variables.get(selector.text);
-        if (value && !ts.isCallExpression(unwrap(value)))
+        if (!value || !ts.isCallExpression(unwrap(value)))
         {
             fail('target alias requires the canonical immutable branch interface');
         }
-        selector = unwrap(value) ?? selector;
+        ownedSelector = value;
+        selector = unwrap(value);
     }
+    // Synthetic template expressions identify a selector; only its original
+    // script initializer can supply a source step. No synthetic/foreign node
+    // borrows the file's byte identity.
+    const selectorStep = source.resolver.sourceStep(file, ownedSelector);
     // The original resolver first proves the complete computed binding and its
     // effects. Reuse its actual expression-bodied arrow AST to retain repeated
     // branches that its identity-set return intentionally deduplicates. Block
@@ -106,16 +113,11 @@ export function resolveCompositionTargetOrigin(source, file, expression, { scope
     const selectorExpression = expression.getText();
     const selectorDigest = controlDigest(selectorExpression);
     const branchDigest = controlDigest(branchExpression.getText());
-    const steps = [expression, branchExpression].map((node) =>
-    {
-        const script = record.scripts.find(({ ast }) => ast === node.getSourceFile());
-        return { file, offset: script ? script.offset + node.getStart() : null,
-            kind: script ? 'script-source' : 'selector-expression', digest: controlDigest(node.getText()) };
-    });
-    const proof = { file, selectorDigest, branchDigest, steps, alternatives, resolverInputs };
-    return { kind: 'target-variants', variants, alternatives,
+    const steps = [selectorStep, source.resolver.sourceStep(file, branchExpression)];
+    const origin = { file, kind: 'target-variants', variants, alternatives,
         variantDefinitions: [...new Set(alternatives.map(({ definition }) => definition).filter(Boolean))],
-        selectorExpression, selectorDigest, branchDigest, steps, resolverInputs, proofDigest: controlDigest(proof) };
+        selectorExpression, selectorDigest, branchDigest, steps, resolverInputs };
+    return { ...origin, proofDigest: controlDigest(origin) };
 }
 
 /**
@@ -162,13 +164,14 @@ export function bindCompositionTargetInputs(source, node, inputs, graphNodes)
         const alternative = targetDefinition(source, target);
         const inputDigests = calls.map((call) => controlDigest({ attributes: call.attributes,
             directives: call.directives, slots: call.slotInputs }));
-        const steps = [node, ...calls].map((entry) => ({ file: entry.file, offset: entry.offset,
+        const callSteps = [node, ...calls].map((entry) => ({ file: entry.file, offset: entry.offset,
             sourceDigest: entry.sourceDigest }));
+        const steps = [source.resolver.sourceStep(declaration.file, declaration.node)];
         // Existing member/selector steps remain part of the proof identity.
         steps.push(...target?.memberSource?.steps ?? [], ...target?.selectorSource?.steps ?? []);
         const binding = { sourceNode: node.id, declarationDigest: declaration.declarationDigest,
             callNode: calls[0].id, callPath: [...callPath], inputDigests, inputDigest: inputDigests[0],
-            target, ...alternative, steps };
+            target, ...alternative, steps, callSteps };
         return binding;
     });
     // componentFile may add canonical parsed inputs. Seal after every branch.

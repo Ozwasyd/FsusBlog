@@ -4,6 +4,8 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
+import { controlDigest } from '@fsusblog/control-legality/source';
+
 import { createCompositionSource } from '../frontend/support/layout/compositionSource.mjs';
 import { bindCompositionTargetInputs, resolveCompositionTargetOrigin } from '../frontend/support/layout/compositionTargetSource.mjs';
 
@@ -116,9 +118,11 @@ test('actual Button RouterLink import and native literal retain separate call pr
     assert.deepEqual(bindings[0].target, s.resolver.resolveTag(calls[0].file, 'RouterLink'));
     assert.equal(bindings[1].target.name, 'a');
     assert.deepEqual(bindings.map(({ callPath }) => callPath), calls.map(({ id }) => [id]));
-    assert.ok(bindings.every(({ inputDigest, inputDigests, proofDigest, declarationDigest, steps }) =>
+    assert.ok(bindings.every(({ inputDigest, inputDigests, proofDigest, declarationDigest, steps, callSteps }) =>
         inputDigest === inputDigests[0] && proofDigest.length === 64 && declarationDigest.length === 64
-        && steps.length >= 2));
+        && steps.length >= 1 && steps.every(({ kind }) => kind === 'script-source') && callSteps.length >= 2));
+    const declaration = s.resolver.componentPropDeclaration(node.file, node.origin.property);
+    assert.deepEqual(bindings[0].steps[0], s.resolver.sourceStep(declaration.file, declaration.node));
     assert.ok(graph.errors.some(({ callNode, reason }) => callNode === calls[0].id && reason === 'unbound-native-prop-source'),
         'central integration remains owned by original1894');
 });
@@ -220,4 +224,36 @@ test('target source proof rejects source bytes changed after canonical parsing',
     selector(s, file, 'host');
     writeFileSync(file, readFileSync(file, 'utf8') + '\n<!-- changed -->\n');
     assert.throws(() => selector(s, file, 'host'), /canonical source inputs changed/);
+});
+
+test('actual ArticleDetailHeader target steps use the canonical original computed script AST', () =>
+{
+    const s = source();
+    const file = resolve(repositoryRoot, 'src/frontend/src/components/article/ArticleDetailHeader.vue');
+    const record = s.resolver.parse(file);
+    const value = record.variables.get('categoryComponent');
+    const origin = selector(s, file, 'categoryComponent');
+    assert.deepEqual(origin.steps, [s.resolver.sourceStep(file, value), s.resolver.sourceStep(file, value.arguments[0].body)]);
+    assert.ok(origin.steps.every(({ offset, kind }) => Number.isInteger(offset) && kind === 'script-source'));
+    const { proofDigest, ...facts } = origin;
+    assert.equal(proofDigest, controlDigest(facts), 'every actual returned source fact is bound');
+});
+
+test('target selector proof rejects a synthetic computed AST despite identical target alternatives', () =>
+{
+    const s = source();
+    const file = fixture(`<script setup>import {computed} from 'vue';const host=computed(()=>state?'a':'aside');</script><template><component :is="host"/></template>`);
+    const actual = s.resolver.parse(file).variables.get('host');
+    const synthetic = s.expression(actual.getText(), file);
+    assert.throws(() => resolveCompositionTargetOrigin(s, file, synthetic), /unowned source proof node/);
+});
+
+test('target selector proof rejects a foreign original AST despite identical source text', () =>
+{
+    const s = source();
+    const content = `<script setup>import {computed} from 'vue';const host=computed(()=>state?'a':'aside');</script><template><component :is="host"/></template>`;
+    const file = fixture(content);
+    const foreign = fixture(content, 'Foreign.vue');
+    const value = s.resolver.parse(foreign).variables.get('host');
+    assert.throws(() => resolveCompositionTargetOrigin(s, file, value), /unowned source proof node/);
 });
