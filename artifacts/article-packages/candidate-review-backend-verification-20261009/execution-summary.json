@@ -1,0 +1,123 @@
+{
+  "verificationSource": "1ec04f0fef46b4c66337c2c95295e4b6c090d99c",
+  "status": "PASS",
+  "exitCode": 0,
+  "originalProject": "tests/backend/FsusBlog.Server.Tests.csproj",
+  "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --no-build --filter 'FullyQualifiedName~ArticlePackageImportCandidateReviewProjectionTests&Category=Unit&Fixture!=LocalRedis' --logger 'trx;LogFileName=article-package-review-projection.trx' --results-directory /tmp/article-package-review-projection-results --logger 'console;verbosity=normal'",
+  "counters": {
+    "total": "18",
+    "executed": "18",
+    "passed": "18",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "exactDiscoveredAndExecutedSetsMatch": true,
+  "cases": [
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.Create_ProjectsOriginalSummaryDigestsAndIdentityRequirementsWithoutAuthority",
+      "outcome": "Passed",
+      "duration": "00:00:00.0026541"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.MalformedAndOverbudgetRequests_CannotAcquireAReviewOrExecutionAuthority",
+      "outcome": "Passed",
+      "duration": "00:00:00.0022080"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 0, pageSize: 2147483647)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0003381"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.CallerInterval_UsesExactBoundariesAndNeverChangesAuthority(boundary: 1, expected: \"caller_interval_expired\")",
+      "outcome": "Passed",
+      "duration": "00:00:00.0007293"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.CallerInterval_UsesExactBoundariesAndNeverChangesAuthority(boundary: 0, expected: \"caller_interval_current\")",
+      "outcome": "Passed",
+      "duration": "00:00:00.0008881"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.ThousandTargets_ArePagedInOriginalOrderWithNoFullTargetPayload",
+      "outcome": "Passed",
+      "duration": "00:00:00.2424103"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 0, pageSize: 0)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0018256"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.Update_CompleteHintsRemainUnresolvedAndExactInt64SurvivesJson",
+      "outcome": "Passed",
+      "duration": "00:00:00.0165961"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.Projection_PreservesUtcTicksInStringsWithoutClientNumericCoordinates",
+      "outcome": "Passed",
+      "duration": "00:00:00.0022080"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.EmptyAndOverbudgetCandidates_StayOriginalCodecRefusals",
+      "outcome": "Passed",
+      "duration": "00:00:00.0008050"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 0, pageSize: -1)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0004180"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 0, pageSize: 51)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0008275"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 2147483647, pageSize: 1)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0003184"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.FinalPage_IsBoundedAndOriginalPlanRemainsImmutable",
+      "outcome": "Passed",
+      "duration": "00:00:00.0102382"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.MissingPlanAndNonUtcClock_RefuseWithoutReview",
+      "outcome": "Passed",
+      "duration": "00:00:00.0005905"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.CallerInterval_UsesExactBoundariesAndNeverChangesAuthority(boundary: -1, expected: \"caller_interval_not_started\")",
+      "outcome": "Passed",
+      "duration": "00:00:00.0004454"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: -1, pageSize: 25)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0004897"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 1, pageSize: 25)",
+      "outcome": "Passed",
+      "duration": "00:00:00.0004107"
+    }
+  ],
+  "supplierBuildUsedAsAcceptance": false,
+  "selectedOtherClasses": [],
+  "alternateHarnessUsed": false,
+  "ordinaryResultsArchive": "projection-results.xml",
+  "resultsFormat": "Original VSTest TRX XML, copied byte-for-byte under a trackable extension; test entrypoint/logger unchanged."
+}

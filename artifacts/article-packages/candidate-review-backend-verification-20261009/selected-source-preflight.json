@@ -7,8 +7,11 @@
   "originalProject": "tests/backend/FsusBlog.Server.Tests.csproj",
   "testEntryPointModified": false,
   "listTestsMustPassBeforeExecution": true,
-  "liveDiscoveredCount": 0,
+  "liveDiscoveredCount": 18,
   "fixtures": "No IClassFixture, ICollectionFixture or external-resource dependency in selected class.",
-  "liveDiscoveryStatus": "FAIL compilation",
-  "executedCount": 0
+  "liveDiscoveryStatus": "PASS exact unique case/argument set",
+  "executedCount": 18,
+  "executionStatus": "PASS",
+  "passedCount": 18,
+  "verificationSource": "1ec04f0fef46b4c66337c2c95295e4b6c090d99c"
 }

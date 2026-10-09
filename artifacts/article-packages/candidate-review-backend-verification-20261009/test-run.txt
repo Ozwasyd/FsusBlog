@@ -1,0 +1,31 @@
+Test run for /workspace/article-package-review-backend-verification/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.59]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:02.88]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:02.94]   Starting:    FsusBlog.Server.Tests
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.ThousandTargets_ArePagedInOriginalOrderWithNoFullTargetPayload [242 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 0, pageSize: 0) [1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 0, pageSize: 51) [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: -1, pageSize: 25) [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 1, pageSize: 25) [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 0, pageSize: -1) [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 0, pageSize: 2147483647) [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow(pageIndex: 2147483647, pageSize: 1) [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.Create_ProjectsOriginalSummaryDigestsAndIdentityRequirementsWithoutAuthority [2 ms]
+[xUnit.net 00:00:03.27]   Finished:    FsusBlog.Server.Tests
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.Projection_PreservesUtcTicksInStringsWithoutClientNumericCoordinates [2 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.Update_CompleteHintsRemainUnresolvedAndExactInt64SurvivesJson [16 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.CallerInterval_UsesExactBoundariesAndNeverChangesAuthority(boundary: 1, expected: "caller_interval_expired") [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.CallerInterval_UsesExactBoundariesAndNeverChangesAuthority(boundary: 0, expected: "caller_interval_current") [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.CallerInterval_UsesExactBoundariesAndNeverChangesAuthority(boundary: -1, expected: "caller_interval_not_started") [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.MalformedAndOverbudgetRequests_CannotAcquireAReviewOrExecutionAuthority [2 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.EmptyAndOverbudgetCandidates_StayOriginalCodecRefusals [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.MissingPlanAndNonUtcClock_RefuseWithoutReview [< 1 ms]
+  Passed FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.FinalPage_IsBoundedAndOriginalPlanRemainsImmutable [10 ms]
+Results File: /tmp/article-package-review-projection-results/article-package-review-projection.trx
+
+Test Run Successful.
+Total tests: 18
+     Passed: 18
+ Total time: 3.7973 Seconds

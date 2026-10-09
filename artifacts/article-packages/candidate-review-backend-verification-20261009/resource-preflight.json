@@ -1,0 +1,10 @@
+{
+  "originalModuleInitializer": "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs:55",
+  "redisDiagnosticOptIn": "absent/empty; original initializer returns immediately",
+  "startupObject": "FsusBlog.Server.Tests.TestInfrastructure.PublicAotCrashWorkerProgram",
+  "startupWorkerArguments": "none; ordinary VSTest host entry",
+  "selectedClassExternalFixtures": "none",
+  "selectedClassResources": "in-memory byte fixtures, sole original codecs/planner and projection only",
+  "testIncludeOrConfigurationChanged": false,
+  "unrelatedExportOrHeldTestsSelected": false
+}

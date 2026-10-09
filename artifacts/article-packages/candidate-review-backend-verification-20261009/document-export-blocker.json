@@ -1,7 +1,6 @@
 {
   "path": "tests/backend/Unit/DocumentExportContractTests.cs",
   "originalIntegratedPreimage": "a96b45ae2fc84e83d0064f26a6d07f221f434244",
-  "currentPreimage": "a3b5b7d503409b830c96f9710ba06801a80d1c57",
   "constructorLines": [
     284,
     991
@@ -11,13 +10,17 @@
   "currentSignature": "DocumentExportFrozenInput(string Schema, string InputId, long UserId, string SiteScope, DocumentExportArticleCoordinate Coordinate, ImmutableArray<byte> MarkdownUtf8, string SourceDigest, string MetadataDigest, string PropertyDigest, string AssetManifestDigest, string FontManifestDigest, string RendererId, string RendererVersion, string RendererDigest, string LayoutProfile, string ThemeProfile, string Locale, ImmutableArray<DocumentExportAsset> Assets, string ReadingStyleAuthorityDigest, DocumentExportFrozenEmbeds? FrozenEmbeds, string ContentDigest)",
   "masterSignatureDifference": "Master 57886f75213bd22c0dd3a8e2586073bdbdd97778 has no FrozenEmbeds parameter; its tests supply only AuthorityDigest, string.Empty.",
   "consumedExistingHunks": "Both SiteScope literals and input.SiteScope member from master. No new assertions or schema changes.",
-  "missingInput": "Published original-owner minimal hunk for these two call sites, or explicit narrow authorization to adapt their FrozenEmbeds arguments to the current actual signature.",
   "currentAdjacentOriginalOwnerCall": "tests/backend/Unit/ArticlePackageFrozenExportCandidateWriterTests.cs:617 supplies AuthorityDigest, null, string.Empty, but is a different original-owner test and not an exact hunk for these call sites.",
   "noReplacementHarness": true,
-  "actualDiscoveryErrors": [
+  "projectionTestExecution": "PASS 18/18 on 1ec04f0fef46b4c66337c2c95295e4b6c090d99c",
+  "status": "RESOLVED by exact original-owner source",
+  "resolvedBy": "1ec04f0fef46b4c66337c2c95295e4b6c090d99c",
+  "historicalErrors": [
     "tests/backend/Unit/DocumentExportContractTests.cs(284,28): error CS7036: There is no argument given that corresponds to the required parameter 'ContentDigest' of 'DocumentExportFrozenInput.DocumentExportFrozenInput(string, string, long, string, DocumentExportArticleCoordinate, ImmutableArray<byte>, string, string, string, string, string, string, string, string, string, string, string, ImmutableArray<DocumentExportAsset>, string, DocumentExportFrozenEmbeds?, string)' [tests/backend/FsusBlog.Server.Tests.csproj]",
     "tests/backend/Unit/DocumentExportContractTests.cs(991,25): error CS7036: There is no argument given that corresponds to the required parameter 'ContentDigest' of 'DocumentExportFrozenInput.DocumentExportFrozenInput(string, string, long, string, DocumentExportArticleCoordinate, ImmutableArray<byte>, string, string, string, string, string, string, string, string, string, string, string, ImmutableArray<DocumentExportAsset>, string, DocumentExportFrozenEmbeds?, string)' [tests/backend/FsusBlog.Server.Tests.csproj]"
   ],
-  "originalDiscoveryExitCode": 1,
-  "projectionTestExecution": "UNRUN"
+  "historicalDiscoveryExitCode": 1,
+  "historicalMissingInput": "Published original-owner minimal hunk for these two call sites, or explicit narrow authorization to adapt their FrozenEmbeds arguments to the current actual signature.",
+  "originalPreResolutionPreimage": "a3b5b7d503409b830c96f9710ba06801a80d1c57",
+  "resolution": "Only FrozenEmbeds: null at the two controlled no-embed-plan fixture call sites; every other byte/assertion preserved."
 }

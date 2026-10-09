@@ -1,0 +1,21 @@
+{
+  "publishedModuleSource": "7d23fc30865a206de0b31df527a6b6e59cd7c932",
+  "verificationSource": "1ec04f0fef46b4c66337c2c95295e4b6c090d99c",
+  "canonicalConstructorSource": "1ec04f0fef46b4c66337c2c95295e4b6c090d99c",
+  "sourceBranch": "codex/chain-3653-package-export-constructor-compat-20261009",
+  "canonicalParent": "6baf73bbe6f3a05b198dad4d25c882fec7ece79d",
+  "consumption": "Exact fast-forward of original-owner commit; no reimplementation or wide branch merge.",
+  "path": "tests/backend/Unit/DocumentExportContractTests.cs",
+  "preimage": "a3b5b7d503409b830c96f9710ba06801a80d1c57",
+  "resultBlob": "b014ed0e3db10fc6f705c17df2855fe78e174c71",
+  "addedLines": 2,
+  "deletedLines": 0,
+  "onlyAddedText": "            FrozenEmbeds: null,",
+  "everyOtherBytePreserved": true,
+  "controlledFixturesHaveNoEmbedPlan": "Original-owner controlled fixture contract, not inferred absence of real article embeds.",
+  "exportPrerequisiteTestsSelected": false,
+  "supplierBuildUsedAsTestAcceptance": false,
+  "moduleSourceChanged": false,
+  "actualOrdinaryDiscovery": "PASS exactly 18 unique expected cases",
+  "actualProjectionExecution": "PASS 18/18"
+}
