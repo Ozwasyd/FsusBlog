@@ -154,6 +154,8 @@ export function runBackendUnitServerSelectionAction(args, { root, env })
     requireCondition(keys.length > 0 && values.size === keys.length && keys.every((key) => values.has(key)), 'invalid selection action or its exact option set');
     requireCondition(env.CURRENT_TIER === 'backend-unit' && env.FSUSBLOG_TEST_SELECTION === 'bounded-server'
         && !String(env.FSUSBLOG_PHYSICAL_BUNDLE_ID ?? '').trim(), 'requires the original matrix backend-unit producer and explicit bounded-server mode');
+    requireCondition(typeof env.FSUSBLOG_TEST_RUN_ID === 'string' && env.FSUSBLOG_TEST_RUN_ID.trim()
+        && typeof env.FSUSBLOG_TEST_NAMESPACE === 'string' && env.FSUSBLOG_TEST_NAMESPACE.trim(), 'requires the original run and namespace before discovery');
     const file = ownedFile(root, values.get('--server-selection'));
     requireCondition(file === path.resolve(root, String(env.FSUSBLOG_BACKEND_UNIT_SELECTION_FILE ?? '')), 'selection argument differs from the explicit environment declaration');
     const sourceState = { commit: env.FSUSBLOG_TEST_SOURCE_COMMIT, worktreeFingerprint: env.FSUSBLOG_TEST_SOURCE_FINGERPRINT };

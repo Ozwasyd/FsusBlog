@@ -205,7 +205,8 @@ test('ordinary explicit CLI action validates exact options and source before ret
         assert.throws(() => runBackendUnitServerSelectionAction(invalid, { root, env }), /bounded backend-unit selection/u);
     }
     for (const changed of [{ ...env, FSUSBLOG_TEST_SELECTION: 'affected' }, { ...env, CURRENT_TIER: 'backend-fast' },
-        { ...env, FSUSBLOG_BACKEND_UNIT_SELECTION_FILE: '' }, { ...env, FSUSBLOG_PHYSICAL_BUNDLE_ID: 'physical-owner' }])
+        { ...env, FSUSBLOG_BACKEND_UNIT_SELECTION_FILE: '' }, { ...env, FSUSBLOG_PHYSICAL_BUNDLE_ID: 'physical-owner' },
+        { ...env, FSUSBLOG_TEST_RUN_ID: '' }, { ...env, FSUSBLOG_TEST_NAMESPACE: '' }])
     {
         assert.throws(() => runBackendUnitServerSelectionAction(args, { root, env: changed }), /bounded backend-unit selection/u);
     }
@@ -270,7 +271,8 @@ test('ordinary original CLI accepts the explicit positive filter plan without an
         '--backend-unit', '--server-selection', file, '--selection-action', 'filter'], {
         env: { ...process.env, FSUSBLOG_TEST_SELECTION: 'bounded-server', FSUSBLOG_BACKEND_UNIT_SELECTION_FILE: file,
             CURRENT_TIER: 'backend-unit', FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit,
-            FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint, FSUSBLOG_PHYSICAL_BUNDLE_ID: '' }, encoding: 'utf8'
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint, FSUSBLOG_PHYSICAL_BUNDLE_ID: '',
+            FSUSBLOG_TEST_RUN_ID: 'ordinary-positive-cli', FSUSBLOG_TEST_NAMESPACE: 'ordinary-positive-cli' }, encoding: 'utf8'
     });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), resolveBackendUnitServerSelection(fixture().selection, sourceState).filter);
