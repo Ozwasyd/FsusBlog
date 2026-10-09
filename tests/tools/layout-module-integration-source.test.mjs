@@ -231,6 +231,90 @@ test('central fresh array push retains its authored guard and original element s
     assert.equal(effect.conditions[0].expression, 'productState');
 });
 
+function targetSupplier(supplied = '<ElButton :tag="RouterLink"/><ElButton tag="a"/>')
+{
+    const file = fixture(`<script setup>import {ElButton} from '@ozwasyd/element-plus';import {RouterLink} from 'vue-router';</script><template>${supplied}</template>`);
+    const s = source();
+    const graph = s.graph([file]);
+    const node = graph.nodes.find((entry) => entry.origin.kind === 'native-prop' && entry.file.endsWith('/button/src/button.vue'));
+    return { s, graph, node, file };
+}
+
+test('canonical target supplier API returns every actual original call in order for graph and original nodes', () =>
+{
+    const { s, graph, node } = targetSupplier();
+    const inputs = s.resolveTargetInputs(node, graph);
+    assert.deepEqual(inputs, s.resolveTargetInputs(node, graph.nodes));
+    const calls = graph.nodes.filter((entry) => entry.definition === node.file);
+    assert.deepEqual(inputs.map((input) => input.callPath), calls.map((entry) => [entry.id]));
+    assert.deepEqual(inputs.map((input) => input.target.kind), ['external', 'native']);
+    assert.equal(inputs[0].target.publicName, 'RouterLink');
+    assert.equal(inputs[1].target.name, 'a');
+});
+
+test('canonical target supplier API isolates returned identities from the original resolver graph', () =>
+{
+    const { s, graph, node } = targetSupplier();
+    const inputs = s.resolveTargetInputs(node, graph);
+    inputs[0].target.publicName = 'Forged';
+    inputs[0].callPath.reverse();
+    assert.equal(s.resolveTargetInputs(node, graph)[0].target.publicName, 'RouterLink');
+});
+
+test('canonical target supplier API rejects omitted cloned reordered and foreign graph inputs', () =>
+{
+    const { s, graph, node } = targetSupplier();
+    for (const replacement of [graph.nodes.slice(), graph.nodes.slice(1), [...graph.nodes].reverse(), structuredClone(graph)])
+    {
+        assert.throws(() => s.resolveTargetInputs(node, replacement), /actual canonical graph/);
+    }
+    assert.throws(() => s.resolveTargetInputs({ ...node }, graph), /actual canonical graph/);
+});
+
+test('canonical target supplier API rejects changes to actual call attributes rather than rebinding them', () =>
+{
+    const { s, graph, node } = targetSupplier();
+    graph.nodes.find((entry) => entry.definition === node.file).attributes.tag = 'aside';
+    assert.throws(() => s.resolveTargetInputs(node, graph), /graph changed/);
+});
+
+test('canonical target supplier API rejects raw source drift with an unchanged in memory graph', () =>
+{
+    const { s, graph, node, file } = targetSupplier();
+    writeFileSync(file, '<template><button/></template>');
+    assert.throws(() => s.resolveTargetInputs(node, graph), /source changed/);
+});
+
+test('canonical target supplier API refuses the whole set when one actual supplying call is unresolved', () =>
+{
+    const { s, graph, node } = targetSupplier('<ElButton tag="a"/><ElButton :tag="unknown"/>');
+    assert.ok(graph.errors.some((error) => error.reason === 'unbound-native-prop-source'));
+    assert.throws(() => s.resolveTargetInputs(node, graph), /unknown|unbound|unresolved/);
+});
+
+test('canonical target supplier API preserves complete nested forwarding paths and both real outer suppliers', () =>
+{
+    const inner = fixture('<script setup>import {ElButton} from "@ozwasyd/element-plus";const props=defineProps({tag:[String,Object]});</script><template><ElButton :tag="tag"/></template>');
+    const file = fixture(`<script setup>import Forward from './${inner.split('/').at(-1)}';import {RouterLink} from 'vue-router';</script><template><Forward :tag="RouterLink"/><Forward tag="a"/></template>`);
+    const s = source();
+    const graph = s.graph([file]);
+    const node = graph.nodes.find((entry) => entry.origin.kind === 'native-prop' && entry.file.endsWith('/button/src/button.vue'));
+    const inputs = s.resolveTargetInputs(node, graph);
+    assert.equal(inputs.length, 2);
+    assert.ok(inputs.every((input) => input.callPath.length === 2));
+    assert.equal(inputs[0].callPath[0], inputs[1].callPath[0]);
+    assert.notEqual(inputs[0].callPath[1], inputs[1].callPath[1]);
+    assert.deepEqual(inputs.map((input) => input.target.kind), ['external', 'native']);
+});
+
+test('canonical target supplier API rejects a non target owner and another source instance', () =>
+{
+    const { s, graph, node } = targetSupplier();
+    const call = graph.nodes.find((entry) => entry.definition === node.file);
+    assert.throws(() => s.resolveTargetInputs(call, graph), /actual canonical graph and source node/);
+    assert.throws(() => source().resolveTargetInputs(node, graph), /actual canonical graph/);
+});
+
 for (const [label, text] of [
     ['functional unknown helper', 'export default()=>foreign();'],
     ['functional injected prop VNode', 'export default(props)=>props.child;'],

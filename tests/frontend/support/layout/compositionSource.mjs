@@ -28,6 +28,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     const nodes = new Map();
     const errors = [];
     const scriptRenders = new Map();
+    const targetSuppliers = new WeakMap();
     const functional = createCompositionFunctionalSource({ resolver });
     const collections = createCompositionCollectionSource({ resolver, nodes });
     const unwrap = (node) =>
@@ -1592,7 +1593,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
         }
         entryFiles.forEach(visit);
-        const graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+        let graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
         const nativePropBindings = [];
         const targetBindings = [];
         const nativePropErrors = [];
@@ -2001,12 +2002,36 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             return results.map((result) => ({ ...result, callPath: [call.id, ...result.callPath] }));
         }
+        function targetInputs(node)
+        {
+            const calls = graphNodes.filter((call) => call.definition === node.file);
+            if (!calls.length)
+            {
+                fail(`missing actual target supplier ${node.file}#${node.origin.property}`);
+            }
+            return calls.flatMap((call) =>
+            {
+                const value = staticPropValue(resolver.parse(node.file), call, node.origin.property);
+                const inputs = typeof value === 'string' && dom.parserOptions.isNativeTag(value)
+                    ? [{ target: { kind: 'native', name: value }, callPath: [call.id] }]
+                    : componentInput(call, node.origin.property);
+                if (!inputs.length)
+                {
+                    fail(`missing actual target input ${node.file}#${node.origin.property}`);
+                }
+                return inputs;
+            });
+        }
+        const supplierContext = { graph: null, digest: null, resolve: targetInputs, nodes: () => graphNodes };
+        const initialNodes = graphNodes;
+        targetSuppliers.set(initialNodes, supplierContext);
         for (const node of graphNodes.filter((node) => node.origin.kind === 'native-prop'))
         {
             const calls = graphNodes.filter((call) => call.definition === node.file);
             if (!calls.length)
             {
                 nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property });
+                continue;
             }
             for (const call of calls)
             {
@@ -2016,26 +2041,9 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     const inputs = typeof value === 'string' && dom.parserOptions.isNativeTag(value)
                         ? [{ target: { kind: 'native', name: value }, callPath: [call.id] }]
                         : componentInput(call, node.origin.property);
-                    const requiresTargetProof = Boolean(resolver.componentPropDeclaration(node.file, node.origin.property))
-                        || inputs.some(({ target }) => target?.kind !== 'native');
-                    const bound = requiresTargetProof
-                        ? bindCompositionTargetInputs({ resolver, componentFile, nodes }, node, inputs, graphNodes) : [];
-                    if (!inputs.length || requiresTargetProof && (bound.length !== inputs.length || bound.some((binding, index) =>
-                        binding.sourceNode !== node.id || binding.callNode !== call.id
-                        || controlDigest(binding.callPath) !== controlDigest(inputs[index].callPath)
-                        || controlDigest(binding.target) !== controlDigest(inputs[index].target))))
-                    {
-                        fail(`incomplete actual target supplier set ${node.file}#${node.origin.property}`);
-                    }
-                    targetBindings.push(...bound);
-                    for (const binding of bound.filter(({ definition }) => definition))
-                    {
-                        parse(binding.definition);
-                        visit(binding.definition);
-                    }
                     // Imported targets are source facts. A missing rendered
                     // framework/component supplier remains an acceptance gap.
-                    for (const input of inputs)
+                    for (const input of inputs.filter(({ target }) => target?.kind === 'native'))
                     {
                         if (input.target?.kind !== 'native' || !dom.parserOptions.isNativeTag(input.target.name))
                         {
@@ -2048,11 +2056,42 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                                 return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
                             }), inputDigest: controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }) });
                     }
+                    if (inputs.some(({ target }) => target?.kind !== 'native'))
+                    {
+                        fail(`unbound rendered target supplier ${node.file}#${node.origin.property}`);
+                    }
                 }
                 catch (error)
                 {
                     nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property, callNode: call.id, message: error.message });
                 }
+            }
+            try
+            {
+                const inputs = targetInputs(node);
+                const requiresTargetProof = Boolean(resolver.componentPropDeclaration(node.file, node.origin.property))
+                    || inputs.some(({ target }) => target?.kind !== 'native');
+                if (requiresTargetProof)
+                {
+                    const bound = bindCompositionTargetInputs(api, node, inputs, graphNodes);
+                    if (bound.length !== inputs.length || bound.some((binding, index) => binding.sourceNode !== node.id
+                        || controlDigest(binding.callPath) !== controlDigest(inputs[index].callPath)
+                        || controlDigest(binding.target) !== controlDigest(inputs[index].target)))
+                    {
+                        fail(`incomplete actual target supplier set ${node.file}#${node.origin.property}`);
+                    }
+                    targetBindings.push(...bound);
+                    for (const binding of bound.filter(({ definition }) => definition))
+                    {
+                        parse(binding.definition);
+                        visit(binding.definition);
+                    }
+                }
+            }
+            catch (error)
+            {
+                nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-target-supplier-source',
+                    property: node.origin.property, message: error.message });
             }
         }
         // Bind every deferred prop to its actual calls. Names and declared types
@@ -2264,7 +2303,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         const finalBindings = resolver.sourceBindings();
         errors.push(...finalBindings.errors);
-        return { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
+        graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+        const graphResult = { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
             files: [...records.values()].filter((record) => reachable.has(record.file)),
             nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings, targetBindings, slotBindings,
             objectKeyAbsenceProofs: [...new Map(objectKeyAbsenceProofs.map((proof) => [proof.proofDigest, proof])).values()], resolverInputs: finalBindings.files,
@@ -2276,6 +2316,29 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     .map((record) => ({ file: record.file, source: record.renderSource.functional })),
                 collectionSources: [...records.values()].filter((record) => reachable.has(record.file) && record.collectionSources?.length)
                     .map((record) => ({ file: record.file, sources: record.collectionSources })) }) };
+        targetSuppliers.delete(initialNodes);
+        supplierContext.graph = graphResult;
+        supplierContext.digest = controlDigest(graphResult);
+        targetSuppliers.set(graphResult, supplierContext);
+        targetSuppliers.set(graphResult.nodes, supplierContext);
+        return graphResult;
+    }
+    function resolveTargetInputs(node, graph)
+    {
+        const context = targetSuppliers.get(graph);
+        if (!context || !context.nodes().includes(node) || nodes.get(node?.id) !== node || node.origin.kind !== 'native-prop')
+        {
+            fail('target supplier requires its actual canonical graph and source node');
+        }
+        if (context.graph && context.digest !== controlDigest(context.graph))
+        {
+            fail('canonical target supplier graph changed');
+        }
+        if (resolver.sourceBindings().errors.length)
+        {
+            fail('canonical target supplier source changed');
+        }
+        return structuredClone(context.resolve(node));
     }
     function instrument(file, code)
     {
@@ -2300,7 +2363,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         return code;
     }
-    return { resolver, parse, graph, instrument, importFile, componentFile, expression, nodes, records, errors };
+    const api = { resolver, parse, graph, instrument, importFile, componentFile, expression, nodes, records, errors, resolveTargetInputs };
+    return api;
 }
 
 /** Test-only transform. It never writes product source or replaces the actual compiler. */

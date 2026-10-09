@@ -386,6 +386,14 @@ Scalar truthiness/comparison reads retain no object identity. Owning declaration
 remain lexical source context; none of these checks proves ref/provider effects
 or replaces an actual callback supplier contract.
 
+`source.resolveTargetInputs(node, graphOrOriginalNodes)` exposes the original
+`staticPropValue`/`componentInput` calculation for every actual supplying call.
+It returns the complete ordered `{target, callPath}` set with forwarding intact.
+Only this source instance's actual node and unchanged graph or original node
+array are accepted. Unknown suppliers, omitted/substituted graph arrays and
+source drift are rejected; returned identities are isolated from resolver state.
+This is source provenance, not a rendered supplier or runtime permission proof.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;
