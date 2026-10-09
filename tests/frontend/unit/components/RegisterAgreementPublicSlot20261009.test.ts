@@ -43,9 +43,13 @@ function createOnboardingFixture() {
     };
 }
 
+function createCopyFixture(agreementPrefix: string = auth.register.agreementPrefix) {
+    return ref({ auth: { ...auth, register: { ...auth.register, agreementPrefix } } });
+}
+
 const fixture = vi.hoisted(() => ({
     onboarding: null as ReturnType<typeof createOnboardingFixture> | null,
-    messages: null as ReturnType<typeof ref<{ auth: typeof auth }>> | null
+    messages: null as ReturnType<typeof createCopyFixture> | null
 }));
 
 vi.mock('@/composables/useAnonymousOnboarding', () => ({
@@ -67,7 +71,7 @@ describe('Register agreement public slot presentation', () => {
 
     beforeEach(() => {
         fixture.onboarding = createOnboardingFixture();
-        fixture.messages = ref({ auth: structuredClone(auth) });
+        fixture.messages = createCopyFixture();
         wrapper = mount(Register, mountOptions);
     });
 
