@@ -572,7 +572,8 @@ public sealed class ArticleVaultRecoveryCheckpointTransactionPostgresTests(Postg
             cancellationToken.ThrowIfCancellationRequested();
             Assert.Equal(ArticleVaultRecoveryBackupEnvelope.KeyDomain, keyDomain);
             Assert.Equal("controlled-existing-key", epochId);
-            BeforeRead?.Invoke(++Reads);
+            Reads++;
+            BeforeRead?.Invoke(Reads);
             return ValueTask.FromResult(Missing ? null : key.ToArray());
         }
 
