@@ -1,0 +1,13 @@
+{
+    "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-comment-naming-trusted-master-20261009/tools/test-matrix/schema-validator/validate.mjs",
+        "/workspace/FsusBlog-comment-naming-trusted-master-20261009/config/schemas/external-naming-exceptions.schema.json"
+    ],
+    "exitCode": 0,
+    "validationErrors": [],
+    "sourceCommit": "86b02bc431251901d3ebba0306a371903b1d0bf7",
+    "trustedMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "schemaSha256": "7c839561e4daeac7ca0fe40fd010a26d1088d97eded686c19cb4ca2338b02df6",
+    "manifestSha256": "efb6f794b8b9f5d60a2c96ea487585b693bb96195c0a41edc8371ea64d932f87"
+}

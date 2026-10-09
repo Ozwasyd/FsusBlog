@@ -1,0 +1,9 @@
+{
+    "command": [
+        "bash",
+        "-n"
+    ],
+    "input": "backend command code block in pr-body.md",
+    "exitCode": 0,
+    "testCommandExecuted": false
+}

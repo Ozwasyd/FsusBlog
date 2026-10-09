@@ -1,0 +1,65 @@
+{
+    "sourceCommit": "86b02bc431251901d3ebba0306a371903b1d0bf7",
+    "trustedMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "completeCumulativeChangedFiles": [
+        "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json",
+        "docs/architecture/comment-command-boundary.md",
+        "docs/testing.md",
+        "src/backend/Services/CommentAuthorManagementService.cs",
+        "src/backend/Services/CommentService.cs",
+        "src/backend/Services/Fixtures/CommentFixtureQueuePageReader.cs",
+        "src/backend/Services/Fixtures/CommentFixtureReplyMessagePageReader.cs",
+        "src/backend/Services/Fixtures/CommentFixtureTimelineVerifier.cs",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+        "tests/backend/Unit/CommentAuthorManagementServiceTests.cs",
+        "tests/backend/Unit/CommentFixtureMutationRoutingTests.cs",
+        "tests/backend/Unit/CommentFixtureQueuePageReaderTests.cs",
+        "tests/backend/Unit/CommentFixtureReplyMessagePageReaderTests.cs",
+        "tests/backend/Unit/CommentFixtureTimelineVerifierTests.cs",
+        "tests/backend/Unit/CommentInitialOutboxContractTests.cs",
+        "tests/backend/Unit/CommentRevisionContractTests.cs"
+    ],
+    "registeredNamingSurfaces": [
+        {
+            "exceptionId": "environment-variable",
+            "path": "src/backend/Services/CommentAuthorManagementService.cs"
+        },
+        {
+            "exceptionId": "environment-variable",
+            "path": "src/backend/Services/CommentService.cs"
+        },
+        {
+            "exceptionId": "environment-variable",
+            "path": "src/backend/Services/Fixtures/CommentFixtureQueuePageReader.cs"
+        },
+        {
+            "exceptionId": "environment-variable",
+            "path": "src/backend/Services/Fixtures/CommentFixtureReplyMessagePageReader.cs"
+        },
+        {
+            "exceptionId": "environment-variable",
+            "path": "src/backend/Services/Fixtures/CommentFixtureTimelineVerifier.cs"
+        },
+        {
+            "exceptionId": "environment-variable",
+            "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs"
+        },
+        {
+            "exceptionId": "environment-variable",
+            "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs"
+        },
+        {
+            "exceptionId": "environment-variable",
+            "path": "src/backend/Services/Fixtures/CommentThreadFixturePort.cs"
+        },
+        {
+            "exceptionId": "css-like-contract",
+            "path": "docs/architecture/comment-command-boundary.md"
+        }
+    ],
+    "existingEntriesAndReasonsPreserved": true,
+    "actualTrustedOfflineCheckerPassed": true,
+    "originalMissingPathsNegativeControlRefused": true
+}

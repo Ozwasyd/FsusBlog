@@ -1,0 +1,16 @@
+{
+    "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-comment-naming-trusted-master-20261009/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-2179-queue-caller-integration",
+        "--github-event",
+        "/workspace/FsusBlog-2179-queue-caller-integration/.tmp/comment-naming-completion-20261009/negative-original-roster-event.json"
+    ],
+    "observedExitCode": 1,
+    "expectedExitCode": 1,
+    "originalHead": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+    "expectedRefusalObserved": true,
+    "schemaOrPolicyChanged": false,
+    "reason": "original six-path manifest omits three registered helper surfaces"
+}

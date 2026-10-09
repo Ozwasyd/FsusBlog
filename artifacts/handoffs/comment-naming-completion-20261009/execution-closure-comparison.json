@@ -1,0 +1,17 @@
+{
+    "testedCommit": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+    "metadataOnlySuccessor": "86b02bc431251901d3ebba0306a371903b1d0bf7",
+    "originalReceiptRebound": false,
+    "testsRerun": false,
+    "trackedDelta": [
+        "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json"
+    ],
+    "allOtherTrackedBlobsUnchanged": true,
+    "originalRecordedProjectLockAndAssemblyInputsStillMatch": true,
+    "generatedOutputRestoredPackageAndSDKFilesCompared": 9213,
+    "mismatchedFiles": [],
+    "allComparedFilesUnchanged": true,
+    "retainedCompiledArtifactsNotRebuiltForNewGitRevision": true,
+    "scope": "unchanged actual original execution inputs/outputs; not a fresh execution at the metadata successor",
+    "checkedAtUtc": "2026-10-09T07:40:10.450203+00:00"
+}

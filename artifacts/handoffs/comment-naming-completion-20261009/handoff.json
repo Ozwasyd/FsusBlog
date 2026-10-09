@@ -1,0 +1,54 @@
+{
+    "purpose": "metadata-only naming-source completion and prospective offline PR draft; not runtime acceptance",
+    "sourceHead": "86b02bc431251901d3ebba0306a371903b1d0bf7",
+    "branch": "codex/issue-2179-queue-caller-integration-20261009",
+    "parentHead": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+    "sourceDelta": [
+        "artifacts/change-contract/issue-2177-initial-outbox-source-external-naming.json"
+    ],
+    "addedPaths": [
+        "src/backend/Services/Fixtures/CommentFixtureQueuePageReader.cs",
+        "src/backend/Services/Fixtures/CommentFixtureReplyMessagePageReader.cs",
+        "src/backend/Services/Fixtures/CommentFixtureTimelineVerifier.cs"
+    ],
+    "existingEntriesAndReasonsUnchanged": true,
+    "trustedMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "completeCumulativePRFiles": 18,
+    "completeCumulativePRInsertions": 2202,
+    "completeCumulativePRDeletions": 62,
+    "registeredNamingPaths": 9,
+    "checks": {
+        "schemaExitCode": 0,
+        "schemaErrors": 0,
+        "offlinePRContractExitCode": 0,
+        "originalManifestExpectedRefusalExitCode": 1,
+        "cumulativeRangeExitCode": 0,
+        "diffCheckExitCode": 0,
+        "draftCommandSyntaxExitCode": 0
+    },
+    "unchangedExecutionFilesCompared": 9213,
+    "backendTestsRerun": false,
+    "backendTestReceiptSha": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+    "backendTestCases": 16,
+    "receiptRebound": false,
+    "compiledArtifactsRetainedWithoutNewRevisionBuild": true,
+    "originalPublicEvidenceCommit": "7598b65bde01d3a47b70f8a0c3842604bdd80424",
+    "draftBody": "pr-body.md",
+    "draftBodySha256": "e0583dc8e7f58c6ccbecab4fcfce39ff185651016e3823890277a15bd297a819",
+    "plannedOfflineLabels": [
+        "release-note:internal"
+    ],
+    "labelsActuallyWritten": false,
+    "GitHubContentApiWrites": false,
+    "livePRContractVerified": false,
+    "wholeChainAccepted": false,
+    "heldWork": [
+        "2046 positive authority reader path; receipt locator, sealed capability eligibility, semantic-role map and private entitlement contracts remain absent",
+        "granted-appeal production semantics unchanged; gap remains refused",
+        "native fixture and terminal delivery qualification remain unaccepted"
+    ],
+    "incorporatedCommitCorrections": {
+        "reply": "315953c40d1297a9fe79cf3b602e3007c48bc4da",
+        "timeline": "1e790bd9f15d4b0a84ccdc6d18cc94abcadf5ee7"
+    }
+}

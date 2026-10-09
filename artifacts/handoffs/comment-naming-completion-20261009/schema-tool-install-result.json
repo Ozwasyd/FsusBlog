@@ -1,0 +1,13 @@
+{
+    "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+        "ci",
+        "--ignore-scripts",
+        "--prefix",
+        "/workspace/FsusBlog-comment-naming-trusted-master-20261009/tools/test-matrix/schema-validator",
+        "--cache",
+        "/workspace/FsusBlog-2179-queue-caller-integration/.tmp/comment-naming-completion-20261009/npm-cache"
+    ],
+    "exitCode": 0
+}

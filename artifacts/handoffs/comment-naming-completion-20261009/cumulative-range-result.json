@@ -1,0 +1,14 @@
+{
+    "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-comment-naming-trusted-master-20261009/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-2179-queue-caller-integration",
+        "--range",
+        "1cd4e060acedfd7838a477842685e0052d8e4107..HEAD"
+    ],
+    "exitCode": 0,
+    "sourceCommit": "86b02bc431251901d3ebba0306a371903b1d0bf7",
+    "trustedPolicySha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "offlineOnly": true
+}

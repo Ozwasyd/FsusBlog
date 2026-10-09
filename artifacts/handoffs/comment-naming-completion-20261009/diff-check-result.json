@@ -1,0 +1,13 @@
+{
+    "command": [
+        "git",
+        "diff",
+        "--check",
+        "1cd4e060acedfd7838a477842685e0052d8e4107",
+        "HEAD"
+    ],
+    "exitCode": 0,
+    "sourceCommit": "86b02bc431251901d3ebba0306a371903b1d0bf7",
+    "trustedPolicySha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "offlineOnly": true
+}
