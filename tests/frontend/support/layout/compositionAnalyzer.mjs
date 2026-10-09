@@ -9,6 +9,7 @@ import { createCompositionSource } from './compositionSource.mjs';
 export const compositionAnalyzerSources = [
     'tests/frontend/support/layout/compositionAnalyzer.mjs',
     'tests/frontend/support/layout/compositionSource.mjs',
+    'tests/frontend/support/layout/compositionTargetSource.mjs',
     'tests/frontend/support/layout/compositionRoutes.mjs',
     'tests/frontend/support/layout/compositionDom.mjs',
     'tests/frontend/support/layout/compositionGeometry.mjs',

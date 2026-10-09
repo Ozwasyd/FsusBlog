@@ -346,6 +346,13 @@ These helper facts confer no component admission, caller binding or qualificatio
 their source steps and complete outputs must remain in the original digest and
 source-drift closure.
 
+The public `composition-target-source` module retains authored mixed target
+alternatives and actual component-call input provenance. Its implementation is
+part of the original analyzer source closure. A framework target carries no
+inferred rendered element or slot payload. Central graph and DOM binding remain
+required, and RouterView's exposed Component remains unbound without its actual
+supplier contract. These source facts do not establish runtime qualification.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

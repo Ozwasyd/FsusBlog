@@ -8,6 +8,7 @@
         "./composition-contracts": "./tests/frontend/support/layout/compositionContracts.mjs",
         "./composition-analyzer": "./tests/frontend/support/layout/compositionAnalyzer.mjs",
         "./composition-source": "./tests/frontend/support/layout/compositionSource.mjs",
+        "./composition-target-source": "./tests/frontend/support/layout/compositionTargetSource.mjs",
         "./composition-dom": "./tests/frontend/support/layout/compositionDom.mjs",
         "./composition-geometry": "./tests/frontend/support/layout/compositionGeometry.mjs",
         "./composition-order-geometry": "./tests/frontend/support/layout/compositionOrderGeometry.mjs",
