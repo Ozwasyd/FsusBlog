@@ -40,4 +40,3 @@ public sealed record ArticlePackageCandidateReview(
     IReadOnlyList<string> RequiredAuthorities,
     bool ExecuteDisabled,
     string ExecutionReasonCode);
-

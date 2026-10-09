@@ -3,7 +3,7 @@
         ref="rootRef"
         class="package-review"
         :aria-labelledby="`${id}-title`"
-        :aria-busy="state === 'loading'"
+        :aria-busy="state === 'loading' || pagePending"
     >
         <h2
             :id="`${id}-title`"
@@ -180,6 +180,12 @@ function requestPage(pageIndex: number): void
         return;
     }
     requestedPage.value = { planDigest: review.planDigest, pageIndex, pageSize: review.pageSize };
+    // Keep focus in a persistent region before the triggering button becomes disabled.
+    // This also avoids losing it when the host shows a loading state for the requested page.
+    if (rootRef.value?.contains(document.activeElement))
+    {
+        targetsRef.value?.focus();
+    }
     emit('request-page', requestedPage.value);
 }
 

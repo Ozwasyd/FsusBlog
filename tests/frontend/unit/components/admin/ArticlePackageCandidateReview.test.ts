@@ -159,6 +159,8 @@ describe('ArticlePackageCandidateReview ordinary component controls', () =>
         // Native buttons supply Enter/Space activation; no custom keyboard or permission inference.
         (next.element as HTMLButtonElement).click();
         await nextTick();
+        expect(document.activeElement).toBe(wrapper.get('h3').element);
+        expect(wrapper.attributes('aria-busy')).toBe('true');
         expect(wrapper.emitted('request-page')).toEqual([[{ planDigest: 'e'.repeat(64), pageIndex: 1, pageSize: 50 }]]);
         await next.trigger('click');
         expect(wrapper.emitted('request-page')).toHaveLength(1);
