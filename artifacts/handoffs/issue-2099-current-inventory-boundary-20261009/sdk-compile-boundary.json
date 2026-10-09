@@ -1,0 +1,42 @@
+{
+  "sourceCommit": "4efa87ebb5d085afd54a19a22d3fc97293c5c775",
+  "originalCompileQueryCommand": [
+    "dotnet",
+    "msbuild",
+    "/workspace/FsusBlog-2099-geometry-integration/tests/backend/FsusBlog.Server.Tests.csproj",
+    "--nologo",
+    "-verbosity:quiet",
+    "-property:Configuration=Debug",
+    "-property:BuildProjectReferences=false",
+    "-getProperty:Configuration,TargetPath,IntermediateOutputPath",
+    "-getItem:Compile",
+    "-target:Compile",
+    "-property:SkipCompilerExecution=true",
+    "-property:UseSharedCompilation=false"
+  ],
+  "exitCode": 0,
+  "actualCompileItems": 694,
+  "externalCompileSources": [
+    {
+      "path": "/workspace/.setup/nuget/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs",
+      "relativePath": ".setup/nuget/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs",
+      "sha256": "d66f12f9433816a8c7dc1b2acb9e1010f5418f5eeb51e80f1df57aa1dcab8d8a",
+      "regularFile": true,
+      "symlink": false,
+      "linkCount": 1
+    }
+  ],
+  "targetAndIntermediateAssembliesBefore": {
+    "/workspace/FsusBlog-2099-geometry-integration/.tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "b92299a1a204a984158f3f3d1828363446b5971e32b4974d8beb69e92a8dfee1",
+    "/workspace/FsusBlog-2099-geometry-integration/.tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Server.Tests/obj/Debug/net10.0/FsusBlog.Server.Tests.dll": "b92299a1a204a984158f3f3d1828363446b5971e32b4974d8beb69e92a8dfee1"
+  },
+  "targetAndIntermediateAssembliesAfter": {
+    "/workspace/FsusBlog-2099-geometry-integration/.tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "b92299a1a204a984158f3f3d1828363446b5971e32b4974d8beb69e92a8dfee1",
+    "/workspace/FsusBlog-2099-geometry-integration/.tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Server.Tests/obj/Debug/net10.0/FsusBlog.Server.Tests.dll": "b92299a1a204a984158f3f3d1828363446b5971e32b4974d8beb69e92a8dfee1"
+  },
+  "assemblyBytesUnchanged": true,
+  "SdkInjectedSourceNotRemoved": true,
+  "SdkSourceNotCopiedIntoRepository": true,
+  "consumerGateNotRelaxed": true,
+  "testExecution": false
+}

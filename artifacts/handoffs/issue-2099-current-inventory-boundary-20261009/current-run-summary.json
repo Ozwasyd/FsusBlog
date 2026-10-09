@@ -1,0 +1,36 @@
+{
+  "sourceCommit": "4efa87ebb5d085afd54a19a22d3fc97293c5c775",
+  "bothOriginalProjectBuildsPassed": true,
+  "originalProducerReachedCompileContext": true,
+  "actualAssemblyArtifacts": {
+    ".tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": {
+      "exists": true,
+      "sha256": "b92299a1a204a984158f3f3d1828363446b5971e32b4974d8beb69e92a8dfee1",
+      "bytes": 14468096
+    },
+    ".tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Server.Tests/obj/Debug/net10.0/FsusBlog.Server.Tests.dll": {
+      "exists": true,
+      "sha256": "b92299a1a204a984158f3f3d1828363446b5971e32b4974d8beb69e92a8dfee1",
+      "bytes": 14468096
+    },
+    ".tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Migration.Tests/bin/Debug/net10.0/FsusBlog.Migration.Tests.dll": {
+      "exists": true,
+      "sha256": "73828d62e0454d737a8f85d81c8b47ac98b22a5f8b2e1b0e844f276535610d06",
+      "bytes": 1329152
+    },
+    ".tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Migration.Tests/obj/Debug/net10.0/FsusBlog.Migration.Tests.dll": {
+      "exists": true,
+      "sha256": "73828d62e0454d737a8f85d81c8b47ac98b22a5f8b2e1b0e844f276535610d06",
+      "bytes": 1329152
+    }
+  },
+  "originalDefaultLayoutFailure": "[test-inventory] xunit project Debug build output or intermediate context is missing for tests/backend/FsusBlog.Server.Tests.csproj",
+  "originalOwnedLayoutFailure": "[test-inventory] xunit Compile source is outside its canonical repository boundary: ../.setup/nuget/microsoft.net.test.sdk/18.5.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs",
+  "producerExit": 1,
+  "inventoryWritten": false,
+  "inventoryCases": null,
+  "originalPreflightExit": 1,
+  "testsExecuted": 0,
+  "emptyOrUnresolvedTestSelectionNotExecuted": true,
+  "runtimeQualification": false
+}

@@ -1,0 +1,9 @@
+file:///workspace/FsusBlog-2099-geometry-integration/tools/test-inventory/api.mjs:183
+        throw new Error(
+              ^
+
+Error: test inventory artifact missing at .tmp/release-evidence/test-inventory.json; run node tools/test-inventory/produce.mjs before this consumer
+    at loadCanonicalInventory (file:///workspace/FsusBlog-2099-geometry-integration/tools/test-inventory/api.mjs:183:15)
+    at file:///workspace/FsusBlog-2099-geometry-integration/[eval1]:1:72
+
+Node.js v24.16.0

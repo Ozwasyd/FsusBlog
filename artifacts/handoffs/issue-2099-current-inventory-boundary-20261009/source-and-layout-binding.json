@@ -1,0 +1,22 @@
+{
+  "sourceCandidate": "4efa87ebb5d085afd54a19a22d3fc97293c5c775",
+  "suppliedCommit": "71e1601f3792777406421ffcf1c47931136b7b31",
+  "onlyOneCorrectionConsumed": true,
+  "duplicate2eedNotConsumed": true,
+  "path": "tests/migration/OfflineMigrationExpandSafetyTests.cs",
+  "preimage": "a3488d045e47a976015c9b5c0675b74f779bb614",
+  "postimage": "7171628721d7a7dcb0fcd010875514bd193b34b2",
+  "dslUnchangedBlob": "bc5bc3b0ec03c2b1b2461fe86e220e34d044591a",
+  "originalDefaultLayoutProducerExit": 1,
+  "originalDefaultLayoutFailure": "MSBuild IntermediateOutputPath obj\\Debug/net10.0/ is not a Linux Node path; actual files exist, no alias/output copy introduced",
+  "allowedOwnedLayout": "FSUSBLOG_PRODUCTION_BUILD_ROOT=/workspace/FsusBlog-2099-geometry-integration/.tmp/build/issue-2099-inventory-20261009",
+  "authorityFiles": [
+    "Directory.Build.props",
+    "tools/test-inventory/adapters.mjs#xunitGeneratedCompilePathIsOwned",
+    "tools/test/run-with-dotnet-release-build-lock.sh"
+  ],
+  "sdk": "10.0.302",
+  "node": "24.16.0",
+  "producerOrReaderEdited": false,
+  "qualificationClaimed": false
+}

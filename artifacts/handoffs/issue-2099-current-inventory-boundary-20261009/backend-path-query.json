@@ -1,0 +1,7 @@
+{
+  "Properties": {
+    "Configuration": "Debug",
+    "TargetPath": "/workspace/FsusBlog-2099-geometry-integration/.tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+    "IntermediateOutputPath": "/workspace/FsusBlog-2099-geometry-integration/.tmp/build/issue-2099-inventory-20261009/dotnet/FsusBlog.Server.Tests/obj/Debug/net10.0/"
+  }
+}

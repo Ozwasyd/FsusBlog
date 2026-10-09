@@ -1,0 +1,42 @@
+{
+  "sourceCommit": "4efa87ebb5d085afd54a19a22d3fc97293c5c775",
+  "sdk": "10.0.302",
+  "node": "24.16.0",
+  "RestoreLockedMode": true,
+  "runs": [
+    {
+      "label": "default",
+      "testedCommit": "4efa87ebb5d085afd54a19a22d3fc97293c5c775",
+      "command": "node tools/test-inventory/produce.mjs",
+      "startedAtUtc": "2026-10-09T10:48:28Z",
+      "endedAtUtc": "2026-10-09T10:51:06Z",
+      "exitCode": 1,
+      "logSha256": "ae53b617273181435a1097b68a7b3b2d84f4fd5bb2958ceab88be235298df9c4"
+    },
+    {
+      "label": "repository-owned-layout",
+      "testedCommit": "4efa87ebb5d085afd54a19a22d3fc97293c5c775",
+      "command": "node tools/test-inventory/produce.mjs",
+      "startedAtUtc": "2026-10-09T10:55:31Z",
+      "endedAtUtc": "2026-10-09T10:57:40Z",
+      "exitCode": 1,
+      "logSha256": "dcec9237e1e416dfd19d84ff28cacd7491eca80f901437124916d6d6ea889cdb"
+    }
+  ],
+  "exactSuppliedFix": "71e1601f3792777406421ffcf1c47931136b7b31",
+  "noDuplicate2eedConsumption": true,
+  "sharedProducerSourceEdited": false,
+  "SDKSourceRemovedOrCopied": false,
+  "SDKCacheMovedToPassGuard": false,
+  "originalInventoryConsumerExitCode": 1,
+  "noUsableInventoryOrTestSelection": true,
+  "testCasesExecuted": 0,
+  "receiptRefusalTestsExecuted": 0,
+  "concurrencyTestsExecuted": 0,
+  "securityTestsExecuted": 0,
+  "browserTestsExecuted": 0,
+  "nativeTestsExecuted": 0,
+  "qualification": false,
+  "prior166DiagnosticsRemainBoundTo": "175248a681a590e4f05fe7d57878147776810c68",
+  "prior166PublicationCommit": "218db5725bd7becc44fe7cb31429e64352a29cfb"
+}
