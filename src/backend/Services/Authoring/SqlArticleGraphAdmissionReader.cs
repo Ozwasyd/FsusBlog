@@ -1,7 +1,12 @@
-using SqlSugar;
+using System.Data.Common;
+using System.Transactions;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Shared.Contracts.ArticleEmbeds;
+
+using Npgsql;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
 
@@ -21,6 +26,8 @@ internal sealed record ArticleGraphCurrentArticleAdmission(
 /// Zero-write admission of one persisted current root. The authenticated host supplies Owner;
 /// editor/actor/site binding and graph expansion remain integration responsibilities (#2474).
 /// SourceEpoch identifies the durable source incarnation and never supplies a runtime DocumentEpoch.
+/// Admission requires PostgreSQL READ COMMITTED statement snapshots, in autocommit or a caller-owned transaction.
+/// Active ambient and fixed-snapshot contexts are unavailable; the caller's transaction is never changed.
 /// </summary>
 public sealed class SqlArticleGraphAdmissionReader(
     ISqlSugarClient db,
@@ -38,7 +45,8 @@ public sealed class SqlArticleGraphAdmissionReader(
             AuthorArticlePinContract.ValidateOwner(request.Owner);
             AuthorArticlePinContract.ValidateRequestId(request.RequestId);
             if (!ArticleEmbedTargetCodec.IsPortableArticleIdentity(request.ArticleIdentity)
-                || !IsRevisionIdentity(request.RevisionIdentity))
+                || !IsRevisionIdentity(request.RevisionIdentity)
+                || Transaction.Current is not null)
             {
                 return null;
             }
@@ -76,7 +84,8 @@ public sealed class SqlArticleGraphAdmissionReader(
             if (source is null || source.ArticleId != article.ArticleId
                 || source.RevisionId != article.CurrentRevisionId || source.RevisionNo != article.RevisionNo
                 || source.ArticleIdentity != request.ArticleIdentity || source.RevisionIdentity != request.RevisionIdentity
-                || source.SourceEpoch == Guid.Empty)
+                || source.SourceEpoch == Guid.Empty
+                || !await HasFreshStatementSnapshotsAsync(cancellationToken).ConfigureAwait(false))
             {
                 return null;
             }
@@ -84,7 +93,8 @@ public sealed class SqlArticleGraphAdmissionReader(
             // Fresh source reads detect drift; the old permission snapshot is never a validation provider.
             ArticleRelationRevisionCoordinate? currentSource = await coordinates.ReadRevisionAsync(
                 db, article.ArticleId, article.CurrentRevisionId, cancellationToken).ConfigureAwait(false);
-            if (currentSource != source)
+            if (currentSource != source
+                || !await HasFreshStatementSnapshotsAsync(cancellationToken).ConfigureAwait(false))
             {
                 return null;
             }
@@ -166,7 +176,7 @@ public sealed class SqlArticleGraphAdmissionReader(
                 return null;
             }
         }
-        return snapshot;
+        return await HasFreshStatementSnapshotsAsync(cancellationToken).ConfigureAwait(false) ? snapshot : null;
     }
 
     private async Task<AuthorArticlePinArticleFact?> ReadArticleAsync(
@@ -174,10 +184,15 @@ public sealed class SqlArticleGraphAdmissionReader(
         IReadOnlyList<int> articleIds,
         CancellationToken cancellationToken)
     {
+        if (!await HasFreshStatementSnapshotsAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
         IReadOnlyList<AuthorArticlePinArticleFact> facts = await articles.ReadCurrentBatchAsync(articleIds, cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        if (facts.Count != 1)
+        if (facts.Count != 1
+            || !await HasFreshStatementSnapshotsAsync(cancellationToken).ConfigureAwait(false))
         {
             return null;
         }
@@ -190,6 +205,44 @@ public sealed class SqlArticleGraphAdmissionReader(
             && fact.ContentDigest == AuthorArticlePinProjectionContract.ComputeArticleFactDigest(fact)
             ? fact
             : null;
+    }
+
+    private async Task<bool> HasFreshStatementSnapshotsAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!HasFreshTransactionContext())
+        {
+            return false;
+        }
+
+        // Ado.Transaction alone cannot see an already-enlisted ambient connector or a native
+        // transaction started directly on the borrowed connection. Observe the actual server
+        // isolation as well; repeated SELECTs in a fixed snapshot are never fresh validation.
+        string isolation;
+        using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            "SELECT current_setting('transaction_isolation');").ConfigureAwait(false))
+        {
+            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                return false;
+            }
+            isolation = reader.GetString(0);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return isolation == "read committed" && HasFreshTransactionContext();
+    }
+
+    private bool HasFreshTransactionContext()
+    {
+        if (Transaction.Current is not null
+            || db.CurrentConnectionConfig.DbType != SqlSugar.DbType.PostgreSQL)
+        {
+            return false;
+        }
+        return db.Ado.Transaction is null
+            || (db.Ado.Transaction is NpgsqlTransaction transaction
+                && ReferenceEquals(transaction.Connection, db.Ado.Connection)
+                && transaction.IsolationLevel == System.Data.IsolationLevel.ReadCommitted);
     }
 
     private static bool IsRevisionIdentity(string identity)
