@@ -47,3 +47,15 @@ for (const token of [
 }
 
 console.log('[fsusui-boundary-fixture] ok');
+
+const mutations = spawnSync(process.execPath, ['--test', path.join(repoRoot, 'tests/tools/control-legality.test.mjs')], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: process.env
+});
+console.log(mutations.stdout ?? '');
+if (mutations.status !== 0)
+{
+    console.error(mutations.stderr ?? '');
+    process.exit(mutations.status ?? 1);
+}

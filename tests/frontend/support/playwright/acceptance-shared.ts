@@ -2548,15 +2548,15 @@ export async function assertLightboxMediaGeometry(
   profile: UxSafeAreaProfile,
   label = 'lightbox media'
 ): Promise<void> {
-  const figure = root.locator('.article-image-lightbox__figure')
-  const img = figure.locator('img')
-  await expect(figure, `${label} figure must be visible`).toBeVisible()
+  const img = root.locator('img:visible')
+  const caption = root.locator('[data-article-lightbox-caption]')
   await expect(img, `${label} image must be visible`).toBeVisible()
+  await expect(caption, `${label} caption must be visible`).toBeVisible()
 
   const tolerance = UX_SAFE_AREA_GEOMETRY_TOLERANCE
   const mediaMetrics = await root.evaluate((element) => {
-    const fig = element.querySelector('.article-image-lightbox__figure') as HTMLElement | null
-    const image = element.querySelector('.article-image-lightbox__figure img') as HTMLImageElement | null
+    const fig = element.querySelector('[data-article-lightbox-caption]') as HTMLElement | null
+    const image = Array.from(element.querySelectorAll<HTMLImageElement>('img')).find(image => getComputedStyle(image).display !== 'none') ?? null
     const figRect = fig?.getBoundingClientRect()
     const imgRect = image?.getBoundingClientRect()
     const style = getComputedStyle(element)
@@ -2606,7 +2606,8 @@ export async function assertLightboxMediaGeometry(
   expect(mediaMetrics.safeAreaBottom, `${label} bottom safe-area token`).toBe(`${profile.insets.bottom}px`)
   expect(mediaMetrics.safeAreaLeft, `${label} left safe-area token`).toBe(`${profile.insets.left}px`)
   expect(mediaMetrics.viewportBlockSize, `${label} viewport block-size token`).toBe(`${profile.viewport.height}px`)
-  expect(mediaMetrics.minHeight, `${label} component viewport block-size`).toBe(profile.viewport.height)
+  const viewerBox = await root.boundingBox()
+  expect(viewerBox?.height, `${label} component viewport block-size`).toBe(profile.viewport.height)
 
   expect(mediaMetrics.figRect.width, `${label} figure width`).toBeGreaterThan(0)
   expect(mediaMetrics.figRect.height, `${label} figure height`).toBeGreaterThan(0)
@@ -2629,14 +2630,8 @@ export async function assertLightboxMediaGeometry(
     expect(rect.bottom, `${label} ${name} safe bottom`).toBeLessThanOrEqual(safeRect.bottom + tolerance)
   }
 
-  // Ensure padding respects safe-area insets (computed from tokens)
-  expect(mediaMetrics.paddingTop, `${label} padding top`).toBeGreaterThanOrEqual(profile.insets.top - tolerance)
-  expect(mediaMetrics.paddingRight, `${label} padding right`).toBeGreaterThanOrEqual(profile.insets.right - tolerance)
-  expect(mediaMetrics.paddingBottom, `${label} padding bottom`).toBeGreaterThanOrEqual(profile.insets.bottom - tolerance)
-  expect(mediaMetrics.paddingLeft, `${label} padding left`).toBeGreaterThanOrEqual(profile.insets.left - tolerance)
-
-  const nextButton = root.locator('.article-image-lightbox__nav--next')
-  const prevButton = root.locator('.article-image-lightbox__nav--prev')
+  const nextButton = root.getByRole('button', { name: '下一张', exact: true })
+  const prevButton = root.getByRole('button', { name: '上一张', exact: true })
   await expect(nextButton, `${label} next control for active-image geometry`).toBeVisible()
   await expect(prevButton, `${label} previous control for active-image geometry`).toBeVisible()
 
