@@ -61,3 +61,30 @@ existing seven admin-protected routes with their original PoW requirements and
 Binary-POD route metadata. The general bootstrap does not call either entry while
 the real source/permission ports are unavailable. No HTTP/private download or
 provider/native acceptance is inferred from these registrations or controlled tests.
+
+For HTTP composition, `AddDocumentExportHttpTransport` consumes an already
+registered scoped full source reader, the original scoped recent-article permission
+projection and the original singleton HTTP context accessor. It registers the
+existing `DocumentExportHttpJobAuthorization` and then the same transport/Jobs
+composition. Missing or duplicate authorities refuse before registrations change.
+Neither entry supplies a background worker permission context or activates routes.
+
+The frontend typed consumer is imported exactly from its sole owner at
+`4a55619a574e58ab17659ca9b2eb855d0b27e330`. The original Blob/anchor browser delivery
+is bound by `createDocumentExportBrowserUiPort` to `deliverDocumentExportPrivate`;
+it checks cancellation immediately
+before dispatch and removes its link and private object URL on every exit. A
+resolved delivery means browser dispatch only, not an operating-system file-save
+receipt or a successful provider output. It does not fetch or expose grant URLs.
+The original consumer performs response, private-generation and signal checks.
+
+Catalog and source choices are still mandatory authenticated host projections.
+The backend catalog's `ImplementationAvailable` flag declares source capability;
+it cannot be promoted to admitted native availability in a browser registry.
+Existing `ServerDraftResponse` has `serverRevision` but no persisted document epoch
+or export source-version authority; revision/detail/release responses likewise
+lack the full export closure. Neither `serverRevision`, `revisionNo` nor a release
+ID is silently substituted for the generated export `sourceVersion`. There is no
+current authenticated export catalog/source projection wire route. Request
+preparation, article navigation and route/bootstrap activation therefore remain
+unbound until those original inputs are supplied.
