@@ -662,10 +662,9 @@ public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSche
             })
             .Build();
         return new SqlAuthorRecentArticleHistoryPermissionAuthority(
-            db,
+            new AuthorRecentArticleHistoryPersistedPermissionReader(db, configuration, TimeProvider.System),
             accessor,
-            configuration,
-            TimeProvider.System);
+            configuration);
     }
 
     private sealed class LocalMutationAuthorizer : IAuthorRecentArticleHistoryMutationAuthorizer

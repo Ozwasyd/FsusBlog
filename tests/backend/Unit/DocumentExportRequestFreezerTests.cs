@@ -135,6 +135,20 @@ public sealed class DocumentExportRequestFreezerTests
         before = keyedContext.ToArray();
         Assert.Throws<InvalidOperationException>(() => keyedContext.AddDocumentExportHttpTransport());
         Assert.Equal(before, keyedContext.ToArray());
+
+        var missingSessionReader = new ServiceCollection();
+        missingSessionReader.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
+        missingSessionReader.AddScoped(_ => Substitute.For<IAuthorRecentArticleHistoryPermissionProjectionProvider>());
+        missingSessionReader.AddHttpContextAccessor();
+        before = missingSessionReader.ToArray();
+        Assert.Throws<InvalidOperationException>(() => missingSessionReader.AddDocumentExportSessionTransport());
+        Assert.Equal(before, missingSessionReader.ToArray());
+
+        missingSessionReader.AddKeyedScoped<IAuthorRecentArticleHistoryPersistedPermissionReader>("other",
+            (_, _) => Substitute.For<IAuthorRecentArticleHistoryPersistedPermissionReader>());
+        before = missingSessionReader.ToArray();
+        Assert.Throws<InvalidOperationException>(() => missingSessionReader.AddDocumentExportSessionTransport());
+        Assert.Equal(before, missingSessionReader.ToArray());
     }
 
     [Fact]
@@ -189,6 +203,21 @@ public sealed class DocumentExportRequestFreezerTests
             Assert.Throws<InvalidOperationException>(() => refused.AddDocumentExportTransport());
             Assert.Equal(before, refused.ToArray());
         }
+
+        var session = new ServiceCollection();
+        session.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
+        session.AddScoped(_ => Substitute.For<IAuthorRecentArticleHistoryPermissionProjectionProvider>());
+        session.AddScoped(_ => Substitute.For<IAuthorRecentArticleHistoryPersistedPermissionReader>());
+        session.AddHttpContextAccessor();
+        session.AddDocumentExportSessionTransport();
+        ServiceDescriptor authorization = Assert.Single(session,
+            descriptor => descriptor.ServiceType == typeof(IDocumentExportJobAuthorization));
+        Assert.Equal(typeof(DocumentExportSessionJobAuthorization), authorization.ImplementationType);
+        Assert.Equal(ServiceLifetime.Scoped, authorization.Lifetime);
+        ServiceDescriptor[] sessionBefore = session.ToArray();
+        Assert.Throws<InvalidOperationException>(() => session.AddDocumentExportSessionTransport());
+        Assert.Throws<InvalidOperationException>(() => session.AddDocumentExportHttpTransport());
+        Assert.Equal(sessionBefore, session.ToArray());
     }
 
     [Fact]

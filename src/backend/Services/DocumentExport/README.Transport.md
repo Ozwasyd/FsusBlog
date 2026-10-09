@@ -40,9 +40,18 @@ persisted facts for the exact principal, formal SiteScope and source coordinate:
 It binds the actor to the actual admin principal/session and verifies the returned
 owner, current status, single exact article decision and original permission seal.
 It performs no second SQL query or digest-domain conversion. Without an original
-authenticated HTTP context it denies worker access; a real worker permission path
-remains a separate missing prerequisite. This adapter has not been qualified
-against a real database/session merely by controlled source tests.
+authenticated HTTP context it denies worker access. This adapter has not been
+qualified against a real database/session merely by controlled source tests.
+
+`AuthorRecentArticleHistoryPersistedPermissionReader` is the shared scoped reader
+for the original principal/session/article SQL facts and permission digest. The
+existing `SqlAuthorRecentArticleHistoryPermissionAuthority` preserves its HTTP
+principal/session/site admission and delegates those facts to this reader.
+`DocumentExportSessionJobAuthorization` uses the same reader for each HTTP or
+worker operation. HTTP still requires the actual admitted admin context; worker
+operations use the stored actor/session and recheck live persisted expiry,
+revocation, principal status, permissions and article lifecycle. This source path
+does not itself qualify real PostgreSQL/session behavior or a worker execution.
 
 The available `IRevisionComparePackageReader` exposes Markdown and comparison
 metadata/snapshots, but does not supply the complete export property/asset/font
@@ -67,7 +76,13 @@ registered scoped full source reader, the original scoped recent-article permiss
 projection and the original singleton HTTP context accessor. It registers the
 existing `DocumentExportHttpJobAuthorization` and then the same transport/Jobs
 composition. Missing or duplicate authorities refuse before registrations change.
-Neither entry supplies a background worker permission context or activates routes.
+`AddDocumentExportSessionTransport` additionally requires the single scoped
+persisted permission reader and binds `DocumentExportSessionJobAuthorization`
+before composing the same transport and sole Jobs implementation. The original
+runtime-domain bootstrap registers the shared reader for the existing recent
+article authority; it does not activate either export entry or launch a worker.
+The three explicit transport entries do not supply full source facts or activate
+routes. Repeated HTTP/session composition refuses before registrations change.
 Authorities must be ordinary unkeyed registrations because the original transport
 resolves them without a service key. A pre-existing concrete sole Jobs descriptor
 may be reused only when it is unique, unkeyed and scoped; keyed, duplicate,

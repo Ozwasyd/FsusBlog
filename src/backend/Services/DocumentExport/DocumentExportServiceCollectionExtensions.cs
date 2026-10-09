@@ -17,6 +17,31 @@ public static class DocumentExportServiceCollectionExtensions
     public static IServiceCollection AddDocumentExportHttpTransport(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        RequireHttpAuthorities(services);
+        RequireTransportUnregistered(services);
+        RequireAuthorizationUnregistered(services);
+        services.AddScoped<IDocumentExportJobAuthorization, DocumentExportHttpJobAuthorization>();
+        return services.AddDocumentExportTransport();
+    }
+
+    /// <summary>
+    /// Explicitly compose transport with the canonical persisted session reader.
+    /// HTTP token admission remains in the original host; workers recheck the
+    /// stored actor's live session through the same scoped permission reader.
+    /// </summary>
+    public static IServiceCollection AddDocumentExportSessionTransport(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        RequireHttpAuthorities(services);
+        RequireSingleScopedAuthority<IAuthorRecentArticleHistoryPersistedPermissionReader>(services);
+        RequireTransportUnregistered(services);
+        RequireAuthorizationUnregistered(services);
+        services.AddScoped<IDocumentExportJobAuthorization, DocumentExportSessionJobAuthorization>();
+        return services.AddDocumentExportTransport();
+    }
+
+    private static void RequireHttpAuthorities(IServiceCollection services)
+    {
         RequireSingleScopedAuthority<IDocumentExportFrozenSourceReader>(services);
         RequireSingleScopedAuthority<IAuthorRecentArticleHistoryPermissionProjectionProvider>(services);
         ServiceDescriptor[] contexts = services.Where(descriptor =>
@@ -26,14 +51,16 @@ public static class DocumentExportServiceCollectionExtensions
         {
             throw new InvalidOperationException("document_export_required_authority_unregistered");
         }
-        RequireTransportUnregistered(services);
+    }
+
+    private static void RequireAuthorizationUnregistered(IServiceCollection services)
+    {
         if (services.Any(descriptor => descriptor.ServiceType == typeof(IDocumentExportJobAuthorization)
-            || descriptor.ServiceType == typeof(DocumentExportHttpJobAuthorization)))
+            || descriptor.ServiceType == typeof(DocumentExportHttpJobAuthorization)
+            || descriptor.ServiceType == typeof(DocumentExportSessionJobAuthorization)))
         {
             throw new InvalidOperationException("document_export_transport_already_registered");
         }
-        services.AddScoped<IDocumentExportJobAuthorization, DocumentExportHttpJobAuthorization>();
-        return services.AddDocumentExportTransport();
     }
 
     /// <summary>
