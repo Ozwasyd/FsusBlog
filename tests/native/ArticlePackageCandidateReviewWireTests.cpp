@@ -125,6 +125,30 @@ int main()
     updateResponse = Replace(updateResponse, "\"requestedTargetArticleId\":null", "\"requestedTargetArticleId\":73");
     updateResponse = Replace(updateResponse, "\"expectedTargetRevision\":null", "\"expectedTargetRevision\":\"9223372036854775807\"");
     passed = Check(RequestValid(update) && ResponseValid(updateResponse), ++control) && passed;
+    const std::string context = R"json({"identity":"fsus-site:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","lifecycleVersion":1,"generation":2,"mappingRevision":7,"scopeRevision":3})json";
+    std::string replay = Replace(update, "\"expectedPlanDigest\":null", "\"expectedPlanDigest\":\"" + std::string(64, 'f') + "\"");
+    replay = Replace(replay, "\"expectedContext\":null", "\"expectedContext\":" + context);
+    passed = Check(RequestValid(replay), ++control) && passed;
+    passed = Check(!RequestValid(Replace(replay, "\"generation\":2", "\"generation\":2,\"generation\":2")), ++control) && passed;
+    passed = Check(!RequestValid(Replace(replay, "\"generation\":2", "\"generation\":null")), ++control) && passed;
+    passed = Check(!RequestValid(Replace(replay, "\"generation\":2", "\"generation\":2,\"privateScope\":\"private-canary\"")), ++control) && passed;
+    passed = Check(!RequestValid(Replace(update, "\"expectedTargetRevision\":\"9223372036854775807\"", "\"expectedTargetRevision\":73")), ++control) && passed;
+    std::string targets = "[";
+    for (unsigned index = 1; index <= 1000; ++index)
+    {
+        const std::string token = std::to_string(index);
+        if (index != 1)
+        {
+            targets += ',';
+        }
+        targets += "{\"portableArticle\":\"article:" + std::string(8 - token.size(), '0') + token
+            + "-1111-1111-1111-111111111111\",\"requestedTargetArticleId\":" + token + ",\"expectedTargetRevision\":\"1\"}";
+    }
+    targets += ']';
+    passed = Check(RequestValid(Replace(update, target, targets)), ++control) && passed;
+    targets.pop_back();
+    targets += ",{\"portableArticle\":\"article:00001001-1111-1111-1111-111111111111\",\"requestedTargetArticleId\":1001,\"expectedTargetRevision\":\"1\"}]";
+    passed = Check(!RequestValid(Replace(update, target, targets)), ++control) && passed;
     for (std::string_view revision : { "0", "01", "+1", "-1", "1.0", "9223372036854775808" })
     {
         passed = Check(!RequestValid(Replace(update, "9223372036854775807", revision))

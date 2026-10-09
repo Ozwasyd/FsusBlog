@@ -104,6 +104,12 @@ test('nested targets preserve exact Int64 strings and reject numeric or noncanon
     delete request.requestedTargets[0].privateScope;
     request.requestedTargets.push({ ...request.requestedTargets[0] });
     assert.throws(() => parseRequest(request), invalid);
+    const closedRequest = JSON.stringify(updateRequest('1'));
+    assert.throws(() => parseRequest(closedRequest.replace('"generation":2', '"generation":2,"generation":2')), invalid);
+    assert.throws(() => parseRequest(closedRequest.replace('"expectedTargetRevision":"1"', '"expectedTargetRevision":1')), invalid);
+    const scoped = updateRequest('1');
+    scoped.expectedContext.scope = 'private-canary';
+    assert.throws(() => parseRequest(scoped), invalid);
 });
 
 test('archive requestId and complete frame budgets use original byte and UTF16 units', () =>

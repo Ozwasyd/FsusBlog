@@ -134,6 +134,35 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
         nested = UpdateRequest("1");
         nested["expectedContext"]!["scopeRevision"] = 8;
         Assert.False(ReadRequest(nested.ToJsonString(), out _));
+        nested = UpdateRequest("1");
+        nested["expectedContext"]!["scope"] = "private-canary";
+        Assert.False(ReadRequest(nested.ToJsonString(), out _));
+        string closedRequest = UpdateRequest("1").ToJsonString();
+        Assert.False(ReadRequest(closedRequest.Replace("\"generation\":2", "\"generation\":2,\"generation\":2", StringComparison.Ordinal), out _));
+        Assert.False(ReadRequest(closedRequest.Replace("\"expectedTargetRevision\":\"1\"", "\"expectedTargetRevision\":1", StringComparison.Ordinal), out _));
+    }
+
+    [Fact]
+    public void RequestedTargetCountAndBijection_UseOriginalThousandTargetLimit()
+    {
+        JsonNode root = UpdateRequest("1");
+        var targets = new JsonArray();
+        for (int index = 1; index <= 1000; index++)
+        {
+            targets.Add(new JsonObject
+            {
+                ["portableArticle"] = $"article:{index:x8}-1111-1111-1111-111111111111",
+                ["requestedTargetArticleId"] = index,
+                ["expectedTargetRevision"] = "1"
+            });
+        }
+        root["requestedTargets"] = targets;
+        Assert.True(ReadRequest(root.ToJsonString(), out _));
+        targets.Add(targets[0]!.DeepClone());
+        Assert.False(ReadRequest(root.ToJsonString(), out _));
+        targets.RemoveAt(1000);
+        targets[1]!["requestedTargetArticleId"] = 1;
+        Assert.False(ReadRequest(root.ToJsonString(), out _));
     }
 
     [Fact]
