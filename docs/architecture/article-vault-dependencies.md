@@ -164,8 +164,31 @@ registers that composition and shares its storage across both read/storage inter
 within one scope. It requires the original writer, proposal owner and existing key
 facility and refuses duplicate or competing encrypted-storage registration. The
 supplied writer remains unchanged by the consumer. This fills a trusted composition
-path, without enabling transport, decision/native admission or full-package execution.
+path, without enabling decision/native admission or full-package execution.
+The ordinary configured domain now invokes that canonical stage composition when
+the original application key owner is already registered. A missing key owner
+leaves only the read services enabled; it does not install replacement protection.
 Historical browser reads do not qualify current execution or product acceptance.
+
+`ArticleVaultAuthenticatedConflictReviewAdapter` maps the original authenticated
+HTTP admin principal and `admin_sid` to the exact stored proposal's document scope,
+using the host's separate opaque Vault site binding. It calls the original
+`ArticleVaultConflictReviewReader.ReadAsync` with trusted in-process current inputs;
+live permission, sealed-bundle actor and current admission checks remain owned by
+that reader. It supplies no HTTP contract or current-input acquisition authority.
+A current review route still requires the canonical wire contract and legitimate
+full `ArticleVaultResolutionPlanInput` acquisition, rather than request-body facts
+or a historical response converted into a current snapshot.
+
+`useArticleVaultRecoveryHistory` associates the existing authenticated historical
+AEDS read with a host-selected exact operation/checkpoint reference and display
+context. It clears and aborts synchronously on context changes, repeated reads,
+scope disposal and the original private-surface logout/account-switch transitions.
+Stale continuations and stale return-focus intents cannot restore an old display.
+It exposes only scope-compatible historical responses with both grants false,
+and never creates a current conflict-review snapshot. An actual editor mount must
+obtain its references and opaque Vault/device identities from their canonical
+owners; editor title, URL and local display state cannot manufacture them.
 
 The actual server observer already produces a metadata projection digest over title,
 summary, cover, category and tags. That digest is not the canonical V1 metadata

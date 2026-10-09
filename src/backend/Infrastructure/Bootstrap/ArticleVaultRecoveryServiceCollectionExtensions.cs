@@ -203,7 +203,8 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
         if (services.Any(static descriptor => descriptor.ServiceType == typeof(ArticleVaultAcceptedSourceAdapter)
             || descriptor.ServiceType == typeof(ArticleVaultCurrentSourceReader)
             || descriptor.ServiceType == typeof(ArticleVaultRecoveryCheckpointReader)
-            || descriptor.ServiceType == typeof(ArticleVaultConflictReviewReader)))
+            || descriptor.ServiceType == typeof(ArticleVaultConflictReviewReader)
+            || descriptor.ServiceType == typeof(ArticleVaultAuthenticatedConflictReviewAdapter)))
         {
             throw new InvalidOperationException("article_vault_recovery_site_binding_already_registered");
         }
@@ -233,6 +234,9 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
             provider.GetRequiredService<ArticleVaultRecoveryCheckpointReader>(),
             provider.GetRequiredService<IAuthorRecentArticleHistoryPermissionProjectionProvider>(),
             provider.GetRequiredService<IConfiguration>(), trustedVaultSiteIdentity));
+        services.AddScoped(provider => new ArticleVaultAuthenticatedConflictReviewAdapter(
+            provider.GetRequiredService<IArticleVaultResolutionProposalStore>(),
+            provider.GetRequiredService<ArticleVaultConflictReviewReader>(), trustedVaultSiteIdentity));
         return services;
     }
 }

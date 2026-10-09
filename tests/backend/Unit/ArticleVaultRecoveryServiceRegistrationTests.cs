@@ -12,10 +12,70 @@ using Npgsql;
 
 using NSubstitute;
 
+using SqlSugar;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleVaultRecoveryServiceRegistrationTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RuntimeVaultSiteComposition_BindsProtectedStageOnlyWhenOriginalKeyOwnerExists(bool keysAvailable)
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ArticleVault:TrustedSiteIdentity"] = "vault-site-primary",
+            ["SITE_BASEURL"] = "https://permission-site.example/"
+        }).Build();
+        services.AddSingleton<IConfiguration>(configuration);
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddHttpContextAccessor();
+        var keys = Substitute.For<IAuditRetentionEpochKeyStore>();
+        if (keysAvailable)
+        {
+            services.AddSingleton(keys);
+        }
+        services.AddFsusRuntimeDomainServices(configuration);
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(ArticleVaultRecoveryHistoryReader));
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(ArticleVaultConflictReviewReader));
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(ArticleVaultAuthenticatedConflictReviewAdapter));
+        if (keysAvailable)
+        {
+            using NpgsqlDataSource dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Database=vault-di-only;Username=vault-di-only");
+            services.AddSingleton(dataSource);
+            services.AddSingleton(Substitute.For<ISqlSugarClient>());
+            using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
+            using IServiceScope scope = provider.CreateScope();
+            Assert.Same(scope.ServiceProvider.GetRequiredService<ArticleVaultAuthenticatedConflictReviewAdapter>(),
+                scope.ServiceProvider.GetRequiredService<ArticleVaultAuthenticatedConflictReviewAdapter>());
+            var stage = scope.ServiceProvider.GetRequiredService<ArticleVaultRecoveryStageComposition>();
+            Assert.Same(stage.Storage, scope.ServiceProvider.GetRequiredService<PostgresArticleVaultRecoveryStorage>());
+            Assert.Same(stage.Storage, scope.ServiceProvider.GetRequiredService<IArticleVaultTransactionalRecoveryJournalStore>());
+            Assert.Same(scope.ServiceProvider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>(),
+                scope.ServiceProvider.GetRequiredService<IArticleVaultRecoveryOperationCheckpointWriter>());
+            Assert.Empty(keys.ReceivedCalls());
+        }
+        else
+        {
+            Assert.DoesNotContain(services, static descriptor => descriptor.ServiceType == typeof(ArticleVaultRecoveryStageComposition)
+                || descriptor.ServiceType == typeof(PostgresArticleVaultRecoveryStorage)
+                || descriptor.ServiceType == typeof(IArticleVaultTransactionalRecoveryJournalStore)
+                || descriptor.ServiceType == typeof(IAuditRetentionEpochKeyStore));
+        }
+    }
+
+    [Fact]
+    public void RuntimeWithoutExplicitVaultSite_DoesNotEnableProtectedStageEvenWithExistingKeys()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(Substitute.For<IAuditRetentionEpochKeyStore>());
+        services.AddFsusRuntimeDomainServices();
+        Assert.DoesNotContain(services, static descriptor => descriptor.ServiceType == typeof(ArticleVaultRecoveryStageComposition)
+            || descriptor.ServiceType == typeof(ArticleVaultRecoveryHistoryReader));
+    }
+
     [Fact]
     public void ProtectedStageComposition_SharesSoleWriterStorageAndExistingKeysWithoutIo()
     {

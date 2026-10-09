@@ -1,4 +1,5 @@
 using FsusBlog.Core.Services.Articles;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 using FsusBlog.Server.Infrastructure.CoreBridge.Caching;
 using FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
@@ -41,6 +42,12 @@ internal static class RuntimeDomainServiceCollectionExtensions
         {
             services.AddFsusArticleVaultPostgresRecoveryStores();
             services.AddFsusArticleVaultRecoveryReaders(trustedVaultSiteIdentity);
+            // The infrastructure owner has already installed the real application key facility.
+            // Read-only routes remain available without it; protected staging has no fallback key owner.
+            if (services.Any(static descriptor => descriptor.ServiceType == typeof(IAuditRetentionEpochKeyStore)))
+            {
+                services.AddFsusArticleVaultProtectedRecoveryStage();
+            }
         }
 
         return services;
