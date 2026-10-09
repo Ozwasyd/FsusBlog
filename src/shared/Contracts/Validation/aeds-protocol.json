@@ -1566,9 +1566,7 @@
         "defaultEvidence": [
             "tests/backend/Unit/BackendGoldenCatalogTests.cs",
             "tests/backend/Unit/PodBinaryCodecTests.cs",
-            "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs",
-            "tests/backend/Unit/DocumentExportBinaryCodecTests.cs",
-            "tests/backend/Unit/DocumentExportSourceOptionsWireTests.cs"
+            "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
         ]
     }
 }

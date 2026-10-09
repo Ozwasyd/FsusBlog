@@ -34,7 +34,8 @@ public sealed class DocumentExportSourceOptionsWireTests
         {
             Assert.False(Decode(name, expected.AsMemory(0, count)));
         }
-        Assert.False(Decode(name, [.. expected, 0]));
+        byte[] trailing = [.. expected, 0];
+        Assert.False(Decode(name, trailing));
     }
 
     [Theory]

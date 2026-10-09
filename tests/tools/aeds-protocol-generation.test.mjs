@@ -5,7 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { renderAedsProtocolOutputs } from '../../tools/frontend/generate-aeds-protocol.mjs';
+import { renderAedsProtocolOutputs } from '@fsusblog/governance-tools/frontend/aeds-protocol';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const manifest = JSON.parse(readFileSync(path.join(root, 'src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'));
@@ -54,7 +54,7 @@ test('the original producer owns five products with manifest-derived identities 
     assert.deepEqual(golden.frames, [...manifest.frameTypes]
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
-    assert.equal(golden.frames.length, 244);
+    assert.equal(golden.frames.length, 251);
 });
 
 test('the original 236 golden records, evidence and retirement remain unchanged', () =>
@@ -135,7 +135,7 @@ for (const [label, mutate, expected] of [
 test('every frame, including future registrations, must explicitly provide complete golden metadata', () =>
 {
     const source = structuredClone(manifest);
-    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 244 });
+    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 251 });
     const golden = goldenFrom(source);
     assert.deepEqual(golden.frames.at(-1), { name: 'FutureFrame', value: 65535, family: 'test-response' });
 });
