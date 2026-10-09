@@ -321,6 +321,7 @@ public sealed class ArticlePropertyValueFoundationTests
         IArticlePropertyDefinitionStore store = Substitute.For<IArticlePropertyDefinitionStore>();
         store.GetAsync(s_actor, s_owner, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => byId[call.Arg<Guid>()]);
+        ConfigureBatchFixture(store);
         var validator = new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(),
             new UnavailableArticlePropertyReferenceValueAuthority());
 
@@ -438,6 +439,13 @@ public sealed class ArticlePropertyValueFoundationTests
         IArticlePropertyDefinitionStore store = Substitute.For<IArticlePropertyDefinitionStore>();
         store.GetAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
             Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(definition);
+        ConfigureBatchFixture(store);
+        IArticlePropertyReferenceValueAuthority references = Substitute.For<IArticlePropertyReferenceValueAuthority>();
+        return (new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(), references), store, references);
+    }
+
+    private static void ConfigureBatchFixture(IArticlePropertyDefinitionStore store)
+    {
         // Keep per-case GetAsync overrides effective through the canonical batch port.
         store.GetManyAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
             Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns<Task<IReadOnlyList<ArticlePropertyDefinition>>>(async call =>
@@ -456,8 +464,6 @@ public sealed class ArticlePropertyValueFoundationTests
             }
             return result.AsReadOnly();
         });
-        IArticlePropertyReferenceValueAuthority references = Substitute.For<IArticlePropertyReferenceValueAuthority>();
-        return (new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(), references), store, references);
     }
 
     private static ArticlePropertyValueInput Input(ArticlePropertyDefinition definition, ArticlePropertyTypedValue value)
