@@ -108,8 +108,8 @@ export type ArticleInternalLinkPreviewPresentation = Readonly<{
 const props = defineProps<{
     targetKey: string | null;
     request: ArticleInternalLinkPreviewRequest | null;
-    /** Null withdraws admission for this token. Retry with a fresh request object;
-     * provide its loading/ready presentation together with the new request.
+    /** Null clears content and withdraws an already presented token. Retry with
+     * a fresh object; provide loading/ready together with the new request.
      */
     presentation: ArticleInternalLinkPreviewPresentation | null;
 }>();
@@ -129,6 +129,7 @@ const titleId = `article-internal-link-preview-${useId()}`;
 const display = shallowRef<ArticleInternalLinkPreviewPresentation | null>(null);
 const aborted = shallowRef(false);
 const dismissedRequest = shallowRef<ArticleInternalLinkPreviewRequest | null>(null);
+const presentedRequest = shallowRef<ArticleInternalLinkPreviewRequest | null>(null);
 const withdrawnRequest = shallowRef<ArticleInternalLinkPreviewRequest | null>(null);
 let removeAbortListener: (() => void) | undefined;
 
@@ -184,7 +185,12 @@ watch([() => props.presentation, () => props.request, () => props.targetKey], ()
 {
     if (!props.presentation)
     {
-        withdrawnRequest.value = props.request;
+        // Props arrive individually. An initially absent presentation cannot
+        // revoke a new token that has never supplied a matching presentation.
+        if (props.request && presentedRequest.value === props.request)
+        {
+            withdrawnRequest.value = props.request;
+        }
         display.value = null;
         return;
     }
@@ -197,6 +203,7 @@ watch([() => props.presentation, () => props.request, () => props.targetKey], ()
     if (props.presentation.request === props.request && withdrawnRequest.value !== props.request)
     {
         display.value = props.presentation;
+        presentedRequest.value = props.request;
     }
 }, { immediate: true, flush: 'sync' });
 

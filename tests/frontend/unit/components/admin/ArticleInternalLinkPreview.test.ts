@@ -84,6 +84,15 @@ describe('ArticleInternalLinkPreview real public primitives', () =>
             [{ targetKey: 'opaque-a', trigger: 'action' }]
         ]);
         expect(panel()).toBeNull();
+        await wrapper.setProps({ presentation: null });
+        const action = vi.fn();
+        await wrapper.setProps({
+            request,
+            presentation: admittedDisplay(request, '首次共同更新', { openInNewTab: action })
+        });
+        expect(control('open').disabled).toBe(false);
+        control('open').click();
+        expect(action).toHaveBeenCalledOnce();
     });
 
     it('preview-test: ready title excerpt status and section use accessible plain text', async () =>
@@ -146,6 +155,15 @@ describe('ArticleInternalLinkPreview real public primitives', () =>
         expect(document.body.textContent).not.toContain('已撤销的标题');
         control('open').click();
         expect(action).not.toHaveBeenCalled();
+        const retry = requestToken('opaque-a');
+        const retryReady = admittedDisplay(retry.request, '再次撤销的标题', { openInNewTab: action });
+        await wrapper.setProps({ request: retry.request, presentation: retryReady });
+        expect(panel()!.textContent).toContain('再次撤销的标题');
+        await wrapper.setProps({ targetKey: null });
+        await wrapper.setProps({ presentation: null });
+        await wrapper.setProps({ targetKey: 'opaque-a', presentation: retryReady });
+        expect(panel()!.textContent).not.toContain('再次撤销的标题');
+        expect(control('open').disabled).toBe(true);
     });
 
     it('preview-test: abort clears data and late completion stays unavailable', async () =>
