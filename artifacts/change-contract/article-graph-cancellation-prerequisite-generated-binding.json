@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/generate-backend-evidence-path-authority.mjs",
+        "tools/test/backend-evidence-path-authority.mjs",
+        "tools/test-matrix/parse-matrix.mjs",
+        "tools/yaml/parse-document.mjs",
+        "tests/matrix.yml",
+        "tests/backend/Fixtures/backend-test-requirements.json"
+    ],
+    "outputs": [
+        {
+            "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+            "sha256": "33f8b05eaaddda53c9a6806a6b2a6ec4eabf8b1cf10ad1c2fe6630ca902ba246"
+        }
+    ]
+}
