@@ -1,5 +1,7 @@
 using System.Text;
 
+using Npgsql;
+
 using SqlSugar;
 
 using FsusBlog.Core.Services.Articles;
@@ -83,13 +85,20 @@ public sealed class CurrentArticleEmbedTargetReaderTests(PostgresSchemaMigration
     public async Task UnprovisionedSourceBindingIsNotLazilyWritten()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        (ArticleRelationRevisionCoordinate saved, RevisionCompareReadContext context) = await SeedAsync(db);
-        await db.Deleteable<ArticleRelationSourceCoordinate>().Where(row => row.RevisionId == saved.RevisionId).ExecuteCommandAsync();
+        (int article, long revision, RevisionCompareReadContext context) = await SeedRowsAsync(db);
+        await db.Ado.BeginTranAsync();
+        ArticleRelationArticleCoordinate binding = await _coordinates.ProvisionImportedArticleAsync(
+            db, article, "article:44bc896e-4d27-4900-a814-c7a7d5de45bc");
+        await db.Ado.CommitTranAsync();
         await db.Ado.BeginTranAsync();
         await db.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;");
         try
         {
-            Assert.Null(await Reader(db).ReadAsync(context, Target(saved)));
+            Assert.Equal(revision, await db.Queryable<Article>().Where(row => row.Id == article)
+                .Select(row => row.CurrentRevisionId).FirstAsync());
+            Assert.Null(await Reader(db).ReadAsync(context,
+                new ArticleEmbedTargetIdentity(binding.ArticleIdentity, ArticleEmbedTargetKind.Article, null, null)));
+            Assert.Equal(1, await db.Queryable<ArticleRelationArticleBinding>().CountAsync());
             Assert.Equal(0, await db.Queryable<ArticleRelationSourceCoordinate>().CountAsync());
         }
         finally
@@ -163,7 +172,16 @@ public sealed class CurrentArticleEmbedTargetReaderTests(PostgresSchemaMigration
                 .SetColumns(row => new ArticleRelationSourceCoordinate { SourceEpoch = replacementEpoch })
                 .Where(row => row.RevisionId == saved.RevisionId).ExecuteCommandAsync();
         });
-        Assert.Null(await reader.ReadAsync(context, Target(saved)));
+        CurrentArticleEmbedTargetSource? returned = null;
+        PostgresException refused = await Assert.ThrowsAsync<PostgresException>(async () =>
+        {
+            returned = await reader.ReadAsync(context, Target(saved));
+        });
+        Assert.Equal("23514", refused.SqlState);
+        Assert.Equal("article_relation_coordinate_immutable", refused.MessageText);
+        Assert.Null(returned);
+        Assert.Equal(saved, await _coordinates.ReadRevisionAsync(db, saved.ArticleId, saved.RevisionId));
+        Assert.Equal(1, await db.Queryable<ArticleRelationSourceCoordinate>().CountAsync());
     }
 
     [Fact]
@@ -233,6 +251,16 @@ public sealed class CurrentArticleEmbedTargetReaderTests(PostgresSchemaMigration
     private async Task<(ArticleRelationRevisionCoordinate Coordinate, RevisionCompareReadContext Context)> SeedAsync(
         SqlSugarClient db, string handle = "embed-reader")
     {
+        (int article, long revision, RevisionCompareReadContext context) = await SeedRowsAsync(db, handle);
+        await db.Ado.BeginTranAsync();
+        ArticleRelationRevisionCoordinate coordinate = await _coordinates.ProvisionRevisionAsync(db, article, revision);
+        await db.Ado.CommitTranAsync();
+        return (coordinate, context);
+    }
+
+    private static async Task<(int Article, long Revision, RevisionCompareReadContext Context)> SeedRowsAsync(
+        SqlSugarClient db, string handle = "embed-reader")
+    {
         long principal = await db.Insertable(new AdminPrincipal
         {
             Handle = handle,
@@ -259,10 +287,7 @@ public sealed class CurrentArticleEmbedTargetReaderTests(PostgresSchemaMigration
         }).ExecuteReturnBigIdentityAsync();
         await db.Updateable<Article>().SetColumns(row => new Article { CurrentRevisionId = revision })
             .Where(row => row.Id == article).ExecuteCommandAsync();
-        await db.Ado.BeginTranAsync();
-        ArticleRelationRevisionCoordinate coordinate = await _coordinates.ProvisionRevisionAsync(db, article, revision);
-        await db.Ado.CommitTranAsync();
-        return (coordinate, new(principal, AuthoringRevisionCompareDraftContextProvider.PrimarySiteScope, Guid.NewGuid()));
+        return (article, revision, new(principal, AuthoringRevisionCompareDraftContextProvider.PrimarySiteScope, Guid.NewGuid()));
     }
 
     private static ArticleEmbedTargetIdentity Target(ArticleRelationRevisionCoordinate coordinate)
