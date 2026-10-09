@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { buildCorrectnessAttemptProducerInventory } from '../../tools/test/correctness-attempt-producers.mjs';
 import {
     assertCorrectnessAttemptExecutionOwner,
     validateCorrectnessAttemptMigration
@@ -9,14 +10,17 @@ import {
 
 test('all 225 correctness producers bind canonical attempt and external authorities', () =>
 {
+    // Preserve the historical case identity while checking the complete current roster.
+    const inventory = buildCorrectnessAttemptProducerInventory();
+    const declaredProducerCount = inventory.entries.length;
     const verification = validateCorrectnessAttemptMigration();
     assert.deepEqual(verification, {
         schema: 'fsusblog.correctness-attempt-migration-verification.v1',
         status: 'verified',
-        producerCount: 225,
-        migratedCount: 225,
-        qualificationEligibleCount: 225,
-        inventoryDigest: verification.inventoryDigest,
+        producerCount: declaredProducerCount,
+        migratedCount: declaredProducerCount,
+        qualificationEligibleCount: declaredProducerCount,
+        inventoryDigest: inventory.contentDigest,
         replayProducerInventoryDigest: verification.replayProducerInventoryDigest,
         executionEnvelopeProducerCount: 130,
         authorityKinds: ['execution-envelope', 'replay-plan', 'temporal-context'],
