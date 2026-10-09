@@ -4570,8 +4570,8 @@
         },
         {
             "path": "tools/test-matrix/runtime-state-domain-catalog.mjs",
-            "contentDigest": "sha256:bf0fd477d0e813c106648450247eeef4315ee67f9f3b51d03db3b990b52a3f1d",
-            "indexDigest": "sha256:bf0fd477d0e813c106648450247eeef4315ee67f9f3b51d03db3b990b52a3f1d"
+            "contentDigest": "sha256:79b08e989deb82d6e60241ee02945ba8b05e8acb3992625a1320a037a6d99f48",
+            "indexDigest": "sha256:79b08e989deb82d6e60241ee02945ba8b05e8acb3992625a1320a037a6d99f48"
         },
         {
             "path": "tools/test-matrix/scheduler-admission-support.mjs",

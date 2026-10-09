@@ -8,12 +8,13 @@
         "tools/testing/fixture-catalog.mjs",
         "tools/test-matrix/fixture-profile-contract.mjs",
         "tests/tools/fixture-catalog.test.mjs",
-        "tests/tools/matrix-fixture-profile.test.mjs"
+        "tests/tools/matrix-fixture-profile.test.mjs",
+        "tools/test-matrix/runtime-state-domain-catalog.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "108070510936b8a9d96702ad725d5e9ef7af6eb39ff56c42bdfc69e7d421d671"
+            "sha256": "af0ed65405e2bbd67766e86c6d36eaa965886bb56b1bae1070f2488e57c4a746"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
