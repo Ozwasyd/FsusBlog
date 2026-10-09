@@ -18,7 +18,8 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(trustedPropertySiteScope);
         if (services.Any(static descriptor => descriptor.ServiceType == typeof(ArticlePackageCurrentPropertyReader)
-            || descriptor.ServiceType == typeof(ArticleVaultCurrentPropertyInputReader)))
+            || descriptor.ServiceType == typeof(ArticleVaultCurrentPropertyInputReader)
+            || descriptor.ServiceType == typeof(ArticleVaultCurrentPropertyMetadataReader)))
         {
             throw new InvalidOperationException("article_vault_current_property_input_already_registered");
         }
@@ -31,6 +32,7 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
         services.AddScoped(provider => new ArticleVaultCurrentPropertyInputReader(
             provider.GetRequiredService<ArticleVaultCurrentSourceReader>(),
             provider.GetRequiredService<ArticlePackageCurrentPropertyReader>(), trustedPropertySiteScope));
+        services.AddScoped<ArticleVaultCurrentPropertyMetadataReader>();
         return services;
     }
 

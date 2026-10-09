@@ -14,7 +14,7 @@ namespace FsusBlog.Server.Tests.Unit;
 
 /// <summary>Real canonical APIs with contract fixtures, not persisted-reader or permission evidence.</summary>
 [Trait("Category", "Unit")]
-public sealed class ArticleVaultPropertyMetadataMergeTests
+public sealed partial class ArticleVaultPropertyMetadataMergeTests
 {
     private static readonly string s_digest = new('a', 64);
     private static readonly Guid s_first = Guid.Parse("21180000-0000-4000-8000-000000000001");

@@ -195,6 +195,16 @@ operation permission/revision facts remain refused by the canonical property rea
 Component self-consistency, audit-shaped provenance and repeat reads are not DB/HTTP
 provider acceptance, an atomic export fence or the three complete V1 manifests.
 The full current-manifest bridge and executable decision integration remain blocked.
+`ArticleVaultCurrentPropertyMetadataReader.ReadAndBuildAsync` now holds the supplied
+original inputs before awaiting, replaces only asserted server rows and source bytes
+with the authorized current reads, then calls the sole typed property merger and its
+independent verifier. It rereads the current source/property authorities after proposal
+computation and refuses observed provenance, definition, permission or source movement.
+The explicit current-property DI composition shares the original readers with this
+scoped adapter. Base/local rows, three complete V1 metadata bytes and distinct site
+namespaces retain their original validation; none is reconstructed from a component
+digest or historical/current substitution. Its process-owned proposal retains SOURCE
+HOLD and cannot execute or commit Base.
 The package owner supplies portable slug/taxonomy/property mappings under its
 original unresolved-definition policy; the value owner supplies actual persisted
 revision/property coordinates and current definition/permission binding. Source

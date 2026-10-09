@@ -72,6 +72,7 @@
                 "src/backend/Services/ArticleVault/ArticleVaultAgentCanonicalOperationAdapter.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultConflictReviewReader.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultCurrentPropertyInputReader.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultCurrentPropertyMetadataReader.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultCurrentSourceReader.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultExecutionIntegrity.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultMaterializationPreflightVerifier.cs",
