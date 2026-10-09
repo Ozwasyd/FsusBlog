@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/fsusui-typecheck-modes.md"
+            ],
+            "reason": "Preserve existing caller-visible local-source command, package alias and declaration-host spellings while documenting physical Vue provider isolation; no CSS selector or token is changed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the canonical lifecycle registry JSON field names and the existing isolated fixture owner identity while removing the erroneous duplicate record and runtime classification; no execution count or check identity is renamed."
+        }
+    ]
+}
