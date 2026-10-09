@@ -126,8 +126,8 @@ Consumer integration retains the instructions published at
 `tools/test-matrix/atomic-failure/README.md`: compare every original fragment step
 with the canonical whole graph, retain original global context, capacity and
 finalizers, and consume the original scoped contexts as private capabilities.
-Integrate the actual framework dependency
-`2eda290cc6098971b685b3fb1465d7193bd3dde2` unchanged before loading the bridge.
+Integrate one exact supported framework source combination described below
+unchanged before loading the bridge.
 No selected/job-scoped dispatch port, second runner or qualification is added.
 Final source integration, consumer wiring, draft PRs and GitHub content remain
 with the original integration owner.
@@ -152,14 +152,43 @@ execution is not native host admission or qualification.
 
 ## Exact capability composition and remaining integration
 
-Bridge verification composes only the owned modules/tests with canonical capability
+Original bridge verification composed only the owned modules/tests with canonical capability
 `2eda290cc6098971b685b3fb1465d7193bd3dde2`. Its atomic framework contains the published
 cancellation correction `653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0` and import correction
 `ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c`. Canonical source files are unchanged in the
-composed test checkout. This branch requires that capability to be integrated before its
-bridge test can run directly. Fixture commands, external verifier and state-conflict
+original composed test checkout. Preparation checks require an exact supported
+framework combination to be integrated before they can run directly. Fixture commands, external verifier and state-conflict
 policy are explicit test doubles; the compiler, executor, scheduler, first-attempt runner
 and immutable receipt producers are the original implementations.
+
+The prepare-only static identity control additionally supports the exact published
+framework `39466f9a3a4714b5b58cd4c75a8baa69588e9c9e`, inspected against consumer
+`67d78c8dda9865ee4fc38a8297f79c4b4cf4caa8`. It selects one of these two complete
+five-file source combinations by exact execution bytes, then retains exact equality
+assertions for every file against that same full commit. No arbitrary execution
+bytes, per-file version mixture or removed identity assertion is admitted.
+
+The four shared Git blob identities in both supported combinations are:
+
+- `compiler.mjs`: `f9f0ba7630adc30273ec20a03b8704f1e0640496`.
+- `contract.mjs`: `0a6d61bc2a2cdee8138605e06f6275b163f22e1d`.
+- `contract.schema.json`: `20ec4abb69ea4f3f9c23fd06e86c25f300406849`.
+- `tools/test/bundles/bundle-steps.mjs`: `505655b3dc0b258074af42784b4ce449c1b53de9`.
+
+`execution.mjs` is `a8f14145c0412a2adb0645fe9005e22c1f0e9fa8` at `2eda290c`,
+and `457df007357b7900c271d402936394abf17555c2` at `39466f9a`. The consumer retains
+all five exact `39466f9a` blobs. Inspected compiler/contract signatures, executable
+kinds, schema, compiled projection and verifier are unchanged; preparation's
+provenance, replay, schema-validator and retry-registry sources also match `2eda290c`.
+The later executor adds optional compiled-closure-bound `requiredInputAdmission`
+validation before attempts and preserves publication errors as secondary diagnostics.
+Preparation retains the entire original producer context, including any such private
+hook, without calling it. The executor entry point, error class/terminal-vector
+property and terminal verifier remain available to the unchanged bridge wrapper.
+This is source compatibility for the preparation interface; execution, admission
+refusal and publication-error acceptance have not been exercised by this repair.
+The genuine-input call `prepareBackendAtomicBridge(binding, input, options)` remains
+UNRUN. No shared framework source, provider API, fixture or consumer is changed.
 
 The remaining shared work belongs to its assigned owners:
 
