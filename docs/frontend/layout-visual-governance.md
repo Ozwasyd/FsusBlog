@@ -336,6 +336,16 @@ rejection. TableV2's conjunction syntax now exposes its actual guarded renderer
 locations; unsupported renderer definitions and scoped slot objects still fail.
 Logical disjunctions and nullish render fallbacks receive no inferred source.
 
+Source submodules use the original canonical resolver records and parsers.
+`resolveSourceFunction` follows the existing actual function/import binding;
+`assertImmutableBinding` checks unique immutable binding and writes, without
+claiming callback purity or proving argument escape. `sourceStep` accepts only
+nodes in the resolver's actual script AST with matching original source bytes.
+Synthetic expressions and foreign AST nodes cannot borrow a source identity.
+These helper facts confer no component admission, caller binding or qualification;
+their source steps and complete outputs must remain in the original digest and
+source-drift closure.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

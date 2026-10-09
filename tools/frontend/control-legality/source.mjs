@@ -1098,6 +1098,32 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         return { file, offset: script ? script.offset + node.getStart() : null,
             kind: script ? 'script-source' : 'selector-expression', digest: controlDigest(node.getText()) };
     };
+    const sourceStep = (file, node) =>
+    {
+        const record = parse(file);
+        const script = record.scripts.find(({ ast }) => ast === node?.getSourceFile?.());
+        let owned = false;
+        function visit(candidate)
+        {
+            if (candidate === node)
+            {
+                owned = true;
+            }
+            if (!owned)
+            {
+                ts.forEachChild(candidate, visit);
+            }
+        }
+        if (script)
+        {
+            visit(script.ast);
+        }
+        if (!owned || record.content.slice(script.offset + node.getStart(), script.offset + node.end) !== node.getText())
+        {
+            fail(`unowned source proof node ${file}`);
+        }
+        return componentSourceStep(file, node);
+    };
     const returnedPropSelector = (file, identifier) =>
     {
         const record = parse(file);
@@ -2058,6 +2084,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
     };
     return { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations,
         modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent, resolveObjectKeyAbsence,
+        sourceStep, resolveSourceFunction: componentFunction, assertImmutableBinding: finiteComponentBinding,
         isInteractive,
         identity: { mode, package: packageId, publicRoot, packageDigest: controlDigest(metadata),
             upstream: initialUpstreamIdentity, resolutionInputs, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,
