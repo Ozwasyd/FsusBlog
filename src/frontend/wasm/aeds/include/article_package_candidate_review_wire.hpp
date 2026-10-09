@@ -515,7 +515,8 @@ inline bool Targets(const Node& targets, bool create, bool response)
             return false;
         }
         const Node& portable = Member(target, "portableArticle");
-        if (!Portable(portable) || std::find(identities.begin(), identities.end(), portable.text) != identities.end())
+        if (!Portable(portable) || std::find(identities.begin(), identities.end(), portable.text) != identities.end()
+            || (response && !identities.empty() && identities.back() >= portable.text))
         {
             return false;
         }

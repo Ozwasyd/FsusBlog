@@ -127,6 +127,14 @@ int main()
     updateResponse = Replace(updateResponse, "\"requestedTargetArticleId\":null", "\"requestedTargetArticleId\":73");
     updateResponse = Replace(updateResponse, "\"expectedTargetRevision\":null", "\"expectedTargetRevision\":\"9223372036854775807\"");
     passed = Check(RequestValid(update) && ResponseValid(updateResponse), ++control) && passed;
+    const std::string targetA = R"json({"portableArticle":"article:11111111-1111-1111-1111-111111111111","requiresNewIdentity":false,"requestedTargetArticleId":73,"expectedTargetRevision":"9223372036854775807"})json";
+    const std::string targetB = Replace(Replace(targetA, "article:11111111-1111-1111-1111-111111111111",
+        "article:22222222-2222-2222-2222-222222222222"), "\"requestedTargetArticleId\":73", "\"requestedTargetArticleId\":74");
+    std::string twoTargets = Replace(Replace(Replace(updateResponse, "\"articleCount\":1", "\"articleCount\":2"),
+        "\"fileCount\":3", "\"fileCount\":4"), "\"totalTargets\":1", "\"totalTargets\":2");
+    passed = Check(ResponseValid(Replace(twoTargets, targetA, targetA + ',' + targetB)), ++control) && passed;
+    passed = Check(!ResponseValid(Replace(twoTargets, targetA, targetB + ',' + targetA)), ++control) && passed;
+    passed = Check(!ResponseValid(Replace(twoTargets, targetA, targetA + ',' + targetA)), ++control) && passed;
     passed = Check(!RequestValid(Replace(update, "article:11111111-1111-1111-1111-111111111111",
         "article:11111111-1111-1111-1111-111111111111\\n")), ++control) && passed;
     const std::string context = R"json({"identity":"fsus-site:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","lifecycleVersion":1,"generation":2,"mappingRevision":7,"scopeRevision":3})json";

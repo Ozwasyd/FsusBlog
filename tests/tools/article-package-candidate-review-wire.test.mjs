@@ -179,3 +179,56 @@ test('private material and malformed UTF8 never enter accepted projection or err
     assert.throws(() => parseResponse('private-canary'), invalid);
     assert.throws(() => parseResponse(responseLiteral.replace('"identity":"fsus-site:', '"identity":"https://private-canary/')), invalid);
 });
+
+test('update pages match the exact canonical slice and order without changing requested hints', () =>
+{
+    const ordered = [1, 2, 3].map(index => ({
+        portableArticle: 'article:' + String(index).repeat(8) + '-' + String(index).repeat(4) + '-'
+            + String(index).repeat(4) + '-' + String(index).repeat(4) + '-' + String(index).repeat(12),
+        requestedTargetArticleId: 70 + index,
+        expectedTargetRevision: '9007199254740993'
+    }));
+    const target = hint => ({ ...hint, requiresNewIdentity: false });
+    const signal = new AbortController().signal;
+    for (const size of [1, 2, 3, 50])
+    {
+        for (let page = 0; page < Math.ceil(ordered.length / size); page++)
+        {
+            const request = updateRequest();
+            request.requestedTargets = [ordered[2], ordered[0], ordered[1]];
+            request.pageIndex = page;
+            request.pageSize = size;
+            const unchanged = JSON.stringify(request.requestedTargets);
+            const response = updateResponse();
+            response.review.summary.articleCount = 3;
+            response.review.summary.fileCount = 5;
+            response.review.totalTargets = 3;
+            response.review.pageIndex = page;
+            response.review.pageSize = size;
+            response.review.targets = ordered.slice(page * size, (page + 1) * size).map(target);
+            const result = decodeCorrelatedArticlePackageCandidateReviewResponse(bytes(response), request, signal);
+            assert.deepEqual(result.review.targets, response.review.targets);
+            assert.equal(JSON.stringify(request.requestedTargets), unchanged);
+            const outside = ordered.find(hint => !response.review.targets.some(row => row.portableArticle === hint.portableArticle));
+            if (outside)
+            {
+                const wrong = structuredClone(response);
+                wrong.review.targets[0] = target(outside);
+                wrong.review.targets.sort((left, right) => left.portableArticle < right.portableArticle ? -1 : 1);
+                assert.equal(parseResponse(wrong).review.totalTargets, 3);
+                assert.throws(() => decodeCorrelatedArticlePackageCandidateReviewResponse(bytes(wrong), request, signal), invalid);
+            }
+            if (response.review.targets.length > 1)
+            {
+                const reversed = structuredClone(response);
+                reversed.review.targets.reverse();
+                assert.throws(() => parseResponse(reversed), invalid);
+                assert.throws(() => decodeCorrelatedArticlePackageCandidateReviewResponse(bytes(reversed), request, signal), invalid);
+                const duplicate = structuredClone(response);
+                duplicate.review.targets[1] = { ...duplicate.review.targets[0] };
+                assert.throws(() => parseResponse(duplicate), invalid);
+                assert.throws(() => decodeCorrelatedArticlePackageCandidateReviewResponse(bytes(duplicate), request, signal), invalid);
+            }
+        }
+    }
+});

@@ -341,14 +341,17 @@ function reviewShape(value: unknown): value is ArticlePackageCandidateReview
     const create = value.requestedMode === 'CreateNew';
     const identities = new Set<string>();
     const ids = new Set<number>();
+    let previous: string | null = null;
     for (const target of value.targets as unknown[])
     {
         if (!closed(target, ['portableArticle', 'requiresNewIdentity', 'requestedTargetArticleId', 'expectedTargetRevision'])
-            || !portable(target.portableArticle) || identities.has(target.portableArticle) || target.requiresNewIdentity !== create)
+            || !portable(target.portableArticle) || identities.has(target.portableArticle) || target.requiresNewIdentity !== create
+            || previous !== null && previous >= target.portableArticle)
         {
             return false;
         }
         identities.add(target.portableArticle);
+        previous = target.portableArticle;
         if (create ? target.requestedTargetArticleId !== null || target.expectedTargetRevision !== null
             : !integer(target.requestedTargetArticleId, 1, 2147483647) || !revision(target.expectedTargetRevision) || ids.has(target.requestedTargetArticleId))
         {
@@ -395,6 +398,30 @@ export function decodeArticlePackageCandidateReviewResponse(payload: Uint8Array)
     return value as unknown as ArticlePackageCandidateReviewReadResponse;
 }
 
+function matchesUpdatePage(request: ArticlePackageCandidateReviewReadRequest, review: ArticlePackageCandidateReview): boolean
+{
+    const hints = request.requestedTargets;
+    if (!hints || hints.length !== review.totalTargets)
+    {
+        return false;
+    }
+    const start = request.pageIndex * request.pageSize;
+    if (start >= hints.length || review.targets.length !== Math.min(request.pageSize, hints.length - start))
+    {
+        return false;
+    }
+    // Match the original manifest's ordinal identity order and projection's exact slice.
+    // Sort a private hint copy; the caller's requestedTargets stay unchanged.
+    const ordered = [...hints].sort((left, right) => left.portableArticle < right.portableArticle ? -1
+        : left.portableArticle > right.portableArticle ? 1 : 0);
+    return review.targets.every((target, index) =>
+    {
+        const hint = ordered[start + index];
+        return hint !== undefined && !target.requiresNewIdentity && target.portableArticle === hint.portableArticle
+            && target.requestedTargetArticleId === hint.requestedTargetArticleId && target.expectedTargetRevision === hint.expectedTargetRevision;
+    });
+}
+
 /** The existing controller retains its active completion identity and owns late-response rejection. */
 export function decodeCorrelatedArticlePackageCandidateReviewResponse(
     payload: Uint8Array,
@@ -417,9 +444,7 @@ export function decodeCorrelatedArticlePackageCandidateReviewResponse(
         || expected !== null && (response.context.identity !== expected.identity || response.context.lifecycleVersion !== expected.lifecycleVersion
             || response.context.generation !== expected.generation || response.context.mappingRevision !== expected.mappingRevision
             || response.context.scopeRevision !== expected.scopeRevision)
-        || checked.requestedMode === 'UpdateRequested' && (checked.requestedTargets?.length !== review.totalTargets
-            || !review.targets.every(target => checked.requestedTargets?.some(hint => hint.portableArticle === target.portableArticle
-                && hint.requestedTargetArticleId === target.requestedTargetArticleId && hint.expectedTargetRevision === target.expectedTargetRevision))))
+        || checked.requestedMode === 'UpdateRequested' && !matchesUpdatePage(checked, review))
     {
         return refuse();
     }

@@ -248,12 +248,114 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
         byte[] frame = ((MemoryStream)owned.Context.Response.Body).ToArray();
         Assert.Equal(200, owned.Context.Response.StatusCode);
         Assert.Equal(289, BinaryPrimitives.ReadUInt16LittleEndian(frame.AsSpan(8)));
+        Assert.Equal("application/octet-stream", owned.Context.Response.ContentType);
+        Assert.Equal("2", owned.Context.Response.Headers["X-Fsus-Frame-Version"].ToString());
         Assert.True(ReadRequest(request.ToJsonString(), out var input));
         Assert.True(ArticlePackageCandidateReviewWireValidation.TryReadResponse(frame.AsMemory(16), out var response));
         Assert.True(ArticlePackageCandidateReviewWireValidation.IsCorrelated(input!, response!));
         Assert.Equal(2, owned.Reader.Calls);
         Assert.DoesNotContain("controlled-session", Encoding.UTF8.GetString(frame), StringComparison.Ordinal);
         Assert.DoesNotContain("controlled.example", Encoding.UTF8.GetString(frame), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(50)]
+    public async Task UpdatePages_MatchOriginalProjectionSliceAndOrderWithoutMutatingHints(int pageSize)
+    {
+        JsonNode request = JsonNode.Parse(RequestJson)!;
+        request["archiveBytes"] = Convert.ToBase64String(Archive(3));
+        request["requestedMode"] = "UpdateRequested";
+        request["pageSize"] = pageSize;
+        var hints = new JsonArray();
+        foreach (int index in new[] { 3, 1, 2 })
+        {
+            hints.Add(new JsonObject
+            {
+                ["portableArticle"] = $"article:{index:x8}-0000-4000-8000-000000000001",
+                ["requestedTargetArticleId"] = 100 + index,
+                ["expectedTargetRevision"] = "9007199254740993"
+            });
+        }
+        request["requestedTargets"] = hints;
+        string unchangedHints = hints.ToJsonString();
+        for (int page = 0; page < (3 + pageSize - 1) / pageSize; page++)
+        {
+            request["requestId"] = $"wire-page-{page}";
+            request["pageIndex"] = page;
+            await using EndpointCase owned = Endpoint(new AedsEncoder().Encode((AedsFrameType)288,
+                Encoding.UTF8.GetBytes(request.ToJsonString())), false);
+            await owned.Execute();
+            Assert.Equal(200, owned.Context.Response.StatusCode);
+            byte[] frame = ((MemoryStream)owned.Context.Response.Body).ToArray();
+            Assert.True(ReadRequest(request.ToJsonString(), out var input));
+            Assert.True(ArticlePackageCandidateReviewWireValidation.TryReadResponse(frame.AsMemory(16), out var output));
+            ArticlePackageCandidateReviewReadRequest original = input!;
+            ArticlePackageCandidateReviewReadResponse response = output!;
+            Assert.True(ArticlePackageCandidateReviewWireValidation.IsCorrelated(original, response));
+            Assert.Equal(unchangedHints, hints.ToJsonString());
+            ArticlePackageCandidateReviewRequestedTarget[] ordered = original.RequestedTargets!
+                .OrderBy(hint => hint.PortableArticle, StringComparer.Ordinal).ToArray();
+            Assert.Equal(ordered.Skip(page * pageSize).Take(pageSize).Select(hint => hint.PortableArticle),
+                response.Review.Targets.Select(target => target.PortableArticle));
+            ArticlePackageCandidateReviewRequestedTarget? outside = ordered.FirstOrDefault(hint =>
+                !response.Review.Targets.Any(target => target.PortableArticle == hint.PortableArticle));
+            if (outside is not null)
+            {
+                ArticlePackageCandidateReviewTarget[] wrong = response.Review.Targets.ToArray();
+                wrong[0] = new(outside.PortableArticle, false, outside.RequestedTargetArticleId, outside.ExpectedTargetRevision);
+                wrong = wrong.OrderBy(target => target.PortableArticle, StringComparer.Ordinal).ToArray();
+                var wrongPage = response with { Review = response.Review with { Targets = Array.AsReadOnly(wrong) } };
+                byte[] encoded = JsonSerializer.SerializeToUtf8Bytes(wrongPage, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                Assert.True(ArticlePackageCandidateReviewWireValidation.TryReadResponse(encoded, out _));
+                Assert.False(ArticlePackageCandidateReviewWireValidation.IsCorrelated(original, wrongPage));
+            }
+            if (response.Review.Targets.Count > 1)
+            {
+                foreach (ArticlePackageCandidateReviewTarget[] wrong in new[]
+                {
+                    response.Review.Targets.Reverse().ToArray(),
+                    Enumerable.Repeat(response.Review.Targets[0], response.Review.Targets.Count).ToArray()
+                })
+                {
+                    var wrongOrder = response with { Review = response.Review with { Targets = Array.AsReadOnly(wrong) } };
+                    Assert.False(ArticlePackageCandidateReviewWireValidation.IsCorrelated(original, wrongOrder));
+                    Assert.False(ArticlePackageCandidateReviewWireValidation.TryReadResponse(
+                        JsonSerializer.SerializeToUtf8Bytes(wrongOrder, new JsonSerializerOptions(JsonSerializerDefaults.Web)), out _));
+                }
+            }
+            JsonNode projected = JsonNode.Parse(frame.AsSpan(16))!;
+            request["expectedPlanDigest"] = response.Review.PlanDigest;
+            request["expectedContext"] = projected["context"]!.DeepClone();
+        }
+    }
+
+    [Theory]
+    [InlineData("success")]
+    [InlineData("denial")]
+    [InlineData("storage-failure")]
+    public async Task ReturnedResult_RequestAbortBeforeExecutionPreservesEmptyHeadersAndBody(string outcome)
+    {
+        JsonNode request = JsonNode.Parse(RequestJson)!;
+        request["archiveBytes"] = Convert.ToBase64String(Archive());
+        await using EndpointCase owned = Endpoint(new AedsEncoder().Encode((AedsFrameType)288,
+            Encoding.UTF8.GetBytes(request.ToJsonString())), false);
+        if (outcome == "denial")
+        {
+            owned.Context.User = new ClaimsPrincipal();
+        }
+        owned.Reader.Fail = outcome == "storage-failure";
+        using var cancellation = new CancellationTokenSource();
+        owned.Context.RequestAborted = cancellation.Token;
+        IResult result = await AuthoringEndpoints.ReadArticlePackageCandidateReviewAsync(
+            owned.Context, new AedsEncoder(), owned.Service, owned.Context.RequestAborted);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => result.ExecuteAsync(owned.Context));
+        Assert.Empty(owned.Context.Response.Headers);
+        Assert.Null(owned.Context.Response.ContentType);
+        Assert.Equal(0, owned.Context.Response.Body.Length);
     }
 
     [Fact]
@@ -425,9 +527,9 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
         return root;
     }
 
-    private static byte[] Archive()
+    private static byte[] Archive(int count = 1)
     {
-        var package = ArticlePackageImportCandidateByteTests.CreatePackage();
+        var package = ArticlePackageImportCandidateByteTests.CreatePackage(count);
         using var memory = new MemoryStream();
         using (var zip = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))
         {

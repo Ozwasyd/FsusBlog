@@ -101,10 +101,31 @@ public static class ArticlePackageCandidateReviewWireValidation
             return review.Targets.All(target => target.RequiresNewIdentity && target.RequestedTargetArticleId is null
                 && target.ExpectedTargetRevision is null);
         }
-        return request.RequestedTargets is not null && request.RequestedTargets.Count == review.TotalTargets
-            && review.Targets.All(target => !target.RequiresNewIdentity && request.RequestedTargets.Any(hint =>
-                hint.PortableArticle == target.PortableArticle && hint.RequestedTargetArticleId == target.RequestedTargetArticleId
-                && hint.ExpectedTargetRevision == target.ExpectedTargetRevision));
+        IReadOnlyList<ArticlePackageCandidateReviewRequestedTarget>? hints = request.RequestedTargets;
+        if (hints is null || hints.Count is < 1 or > 1000 || hints.Count != review.TotalTargets
+            || request.PageIndex is < 0 or > 999 || request.PageSize is < 1 or > 50)
+        {
+            return false;
+        }
+        int start = request.PageIndex * request.PageSize;
+        if (start >= hints.Count || review.Targets.Count != Math.Min(request.PageSize, hints.Count - start))
+        {
+            return false;
+        }
+        // The original manifest sorts portable identities ordinally, and the original
+        // planner/projection retain that order. Compare its exact page without replanning.
+        ArticlePackageCandidateReviewRequestedTarget[] ordered = hints.OrderBy(hint => hint.PortableArticle, StringComparer.Ordinal).ToArray();
+        for (int index = 0; index < review.Targets.Count; index++)
+        {
+            ArticlePackageCandidateReviewRequestedTarget hint = ordered[start + index];
+            ArticlePackageCandidateReviewTarget target = review.Targets[index];
+            if (target.RequiresNewIdentity || hint.PortableArticle != target.PortableArticle
+                || hint.RequestedTargetArticleId != target.RequestedTargetArticleId || hint.ExpectedTargetRevision != target.ExpectedTargetRevision)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static bool TryDocument(ReadOnlyMemory<byte> payload, out JsonDocument? document)
@@ -193,6 +214,7 @@ public static class ArticlePackageCandidateReviewWireValidation
         bool create = root.GetProperty("requestedMode").GetString() == "CreateNew";
         var portable = new HashSet<string>(StringComparer.Ordinal);
         var ids = new HashSet<int>();
+        string? previous = null;
         foreach (JsonElement target in targets.EnumerateArray())
         {
             if (!Closed(target, "portableArticle", "requiresNewIdentity", "requestedTargetArticleId", "expectedTargetRevision")
@@ -201,6 +223,12 @@ public static class ArticlePackageCandidateReviewWireValidation
             {
                 return false;
             }
+            string identity = target.GetProperty("portableArticle").GetString()!;
+            if (previous is not null && string.CompareOrdinal(previous, identity) >= 0)
+            {
+                return false;
+            }
+            previous = identity;
             JsonElement id = target.GetProperty("requestedTargetArticleId");
             JsonElement revision = target.GetProperty("expectedTargetRevision");
             if (create ? id.ValueKind != JsonValueKind.Null || revision.ValueKind != JsonValueKind.Null

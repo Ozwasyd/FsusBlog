@@ -34,18 +34,18 @@ public static partial class AuthoringEndpoints
             token.ThrowIfCancellationRequested();
             if (context.User.Identity?.IsAuthenticated != true)
             {
-                return AedsJsonResults.Unauthorized(aeds);
+                return GuardArticlePackageCandidateReviewResponse(AedsJsonResults.Unauthorized(aeds));
             }
             if (!context.User.IsAdminPrincipal() || !context.User.TryGetAdminPrincipalId(out _)
                 || string.IsNullOrWhiteSpace(context.User.GetAdminSessionId())
                 || !context.User.HasAdminPermission(AdminPermissions.ArticleWrite))
             {
-                return AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default403Forbidden,
-                    "article_package_candidate_review_access_denied");
+                return GuardArticlePackageCandidateReviewResponse(AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default403Forbidden,
+                    "article_package_candidate_review_access_denied"));
             }
             if (context.Request.ContentLength > ArticlePackageCandidateReviewReadLimits.MaxRequestBytes)
             {
-                return AedsJsonResults.BadRequest(aeds, "authoring_binary_body_too_large");
+                return GuardArticlePackageCandidateReviewResponse(AedsJsonResults.BadRequest(aeds, "authoring_binary_body_too_large"));
             }
             var requestContext = context.RequestServices.GetRequiredService<IBinaryEndpointRequestContext>();
             using BinaryRequestPayload payload = await requestContext.ReadFrameAsync(context, aeds,
@@ -54,7 +54,7 @@ public static partial class AuthoringEndpoints
             token.ThrowIfCancellationRequested();
             if (!payload.IsSuccess)
             {
-                return BinaryResults.FromError(payload.Error, aeds);
+                return GuardArticlePackageCandidateReviewResponse(BinaryResults.FromError(payload.Error, aeds));
             }
             // The canonical helper bounds the declared frame. Unknown-length HTTP bodies must
             // also end here: even one trailing byte refuses before a typed service can observe it.
@@ -70,7 +70,7 @@ public static partial class AuthoringEndpoints
                 }
                 if (trailing)
                 {
-                    return AedsJsonResults.BadRequest(aeds, ArticlePackageCandidateReviewWireValidation.InvalidRequest);
+                    return GuardArticlePackageCandidateReviewResponse(AedsJsonResults.BadRequest(aeds, ArticlePackageCandidateReviewWireValidation.InvalidRequest));
                 }
                 if (remaining.IsCompleted)
                 {
@@ -79,7 +79,7 @@ public static partial class AuthoringEndpoints
             }
             if (!ArticlePackageCandidateReviewWireValidation.TryReadRequest(payload.Payload, out ArticlePackageCandidateReviewReadRequest? request))
             {
-                return AedsJsonResults.BadRequest(aeds, ArticlePackageCandidateReviewWireValidation.InvalidRequest);
+                return GuardArticlePackageCandidateReviewResponse(AedsJsonResults.BadRequest(aeds, ArticlePackageCandidateReviewWireValidation.InvalidRequest));
             }
             token.ThrowIfCancellationRequested();
             ArticlePackageCandidateReviewReadOutcome outcome = await service.ReadAsync(request, token).ConfigureAwait(false);
@@ -94,17 +94,18 @@ public static partial class AuthoringEndpoints
                     "article_package_candidate_review_access_denied" => ApiErrorTransportMappingId.Default403Forbidden,
                     _ => ApiErrorTransportMappingId.Default400Validation
                 };
-                return AedsJsonResults.Error(aeds, mapping, reason);
+                return GuardArticlePackageCandidateReviewResponse(AedsJsonResults.Error(aeds, mapping, reason));
             }
             // Validate serialized output too: Web deserialization alone cannot close nested shapes.
             byte[] responseBytes = JsonSerializer.SerializeToUtf8Bytes(outcome.Response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
             if (!ArticlePackageCandidateReviewWireValidation.TryReadResponse(responseBytes, out ArticlePackageCandidateReviewReadResponse? response)
                 || !ArticlePackageCandidateReviewWireValidation.IsCorrelated(request!, response!))
             {
-                return AedsJsonResults.BadRequest(aeds, ArticlePackageCandidateReviewWireValidation.InvalidResponse);
+                return GuardArticlePackageCandidateReviewResponse(AedsJsonResults.BadRequest(aeds, ArticlePackageCandidateReviewWireValidation.InvalidResponse));
             }
             token.ThrowIfCancellationRequested();
-            return BinaryResults.FrameRaw(aeds, (AedsFrameType)ArticlePackageCandidateReviewWireValidation.ReservedResponseFrame, responseBytes);
+            return GuardArticlePackageCandidateReviewResponse(BinaryResults.FrameRaw(aeds,
+                (AedsFrameType)ArticlePackageCandidateReviewWireValidation.ReservedResponseFrame, responseBytes));
         }
         catch (OperationCanceledException)
         {
@@ -114,7 +115,25 @@ public static partial class AuthoringEndpoints
         {
             token.ThrowIfCancellationRequested();
             // No exception text, archive bytes or private reader context enters the public error.
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "article_package_candidate_review_unavailable"), aeds);
+            return GuardArticlePackageCandidateReviewResponse(BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.InfraFailure, "article_package_candidate_review_unavailable"), aeds));
+        }
+    }
+
+    private static IResult GuardArticlePackageCandidateReviewResponse(IResult result)
+        => new ArticlePackageCandidateReviewResponseResult(result);
+
+    /// <summary>
+    /// Minimal API binds the handler token to RequestAborted. Independent direct-call tokens
+    /// are a read-task test seam; the returned response uses the actual HttpContext token.
+    /// The original result retains headers, frame/CRC/body/flush and resource ownership.
+    /// </summary>
+    private sealed class ArticlePackageCandidateReviewResponseResult(IResult result) : IResult
+    {
+        public Task ExecuteAsync(HttpContext context)
+        {
+            context.RequestAborted.ThrowIfCancellationRequested();
+            return result.ExecuteAsync(context);
         }
     }
 }
