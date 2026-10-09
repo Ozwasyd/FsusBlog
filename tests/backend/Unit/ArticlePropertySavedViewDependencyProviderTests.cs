@@ -158,7 +158,7 @@ public sealed class ArticlePropertySavedViewDependencyProviderTests
             ArticlePropertyDefinition definition = Definition();
             var persistence = Substitute.For<IArticlePropertyDefinitionPersistence>();
             persistence.GetAsync(Arg.Any<ArticlePropertyDefinitionOwner>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-                .Returns(async call =>
+                .Returns<Task<ArticlePropertyDefinition?>>(async call =>
                 {
                     await Task.Yield();
                     var identity = (ClaimsIdentity)accessor.HttpContext!.User.Identity!;
