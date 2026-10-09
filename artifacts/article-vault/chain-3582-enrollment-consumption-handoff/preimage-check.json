@@ -1,0 +1,182 @@
+{
+  "head": "48cf694dd9c3670c548d0b1620092a4fa4de8496",
+  "supplier": "aa193c2dbc27389e9684642a193de934ec62a9c6",
+  "parent": "abb28c41213f6ea506a6b4dcb64f30b7451384b7",
+  "paths": [
+    {
+      "path": "src/backend/Entities/ArticleRelationSourceCoordinate.cs",
+      "preimage": null,
+      "supplierPostimage": "f31fa4261621ceff25e590ea6a9af8fb0858a220",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Entities/ArticleSourceGeneration.cs",
+      "preimage": null,
+      "supplierPostimage": "c7e59252c52e495b8ee8123d0ea3396f4428580d",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Entities/ArticleSourceMutation.cs",
+      "preimage": null,
+      "supplierPostimage": "8cdda278b53bb74f46485a814cb0c50edee6d49c",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/ArticleService.ArticleVaultTransaction.cs",
+      "preimage": "2a80551abd5e543b36b64c7ccda699c6cb2c598a",
+      "supplierPostimage": "fdf5c851354fdb90226638200704a95c7d503b4d",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/ArticleService.ArticleVaultWriter.cs",
+      "preimage": "e27bdf5f70e63f365cd4b3e25acfef2b472d5828",
+      "supplierPostimage": "c0dcf6f4f3d30be6fb1a317610f31b7ec406fded",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs",
+      "preimage": "c5dc2e845692b6e9d26ba1205d03dfe4e0373645",
+      "supplierPostimage": "a89a554ff94aebd75b8e2d70cd792cb73e1ecdcf",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/ArticleService.Mutations.cs",
+      "preimage": "5232299781b763919c2665da2e479b6718259c6f",
+      "supplierPostimage": "97c5af99677cc2c83efb571149eba9c924cce283",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/ArticleService.cs",
+      "preimage": "3e1e4065789460f9a369ee5eca2d16e0e0ef919a",
+      "supplierPostimage": "fc39fde13f9d63045e4d62b6a6eb5a4635f68051",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleCreateMutationAuthority.cs",
+      "preimage": "0d5c2479e6d7316f2a8b3bcfaba4f33ff804aa67",
+      "supplierPostimage": "e8cc611804abfa66bdaaa201fffd5d66ab8efe91",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs",
+      "preimage": "d80af55aef8aaa6c9d61fd8f174c0e474a332ab5",
+      "supplierPostimage": "41ccfac09ac7f5b5d2470674850f8bfd9bc07033",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleSourceCursor.cs",
+      "preimage": null,
+      "supplierPostimage": "06795382e1d4010b97862fdfd83d16979d6949c7",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleSourceGenerationAuthority.cs",
+      "preimage": null,
+      "supplierPostimage": "7d5c9c17c526dc5b8b6fbfff7bc731022aa0f052",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleSourceGenerationPersistence.cs",
+      "preimage": null,
+      "supplierPostimage": "f9239c8e5687692a748587283fd52e7c9f7204fd",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs",
+      "preimage": "10cbddef8f6b4ce3b8928915bf3aa7ec20a7b202",
+      "supplierPostimage": "bcfba97427f6b9bdef8c8d894c0c7730fae9c05a",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/Background/ScheduledPublishWorker.cs",
+      "preimage": "69d95652de3613c8ecc9e4b5bc3a0c93773ec236",
+      "supplierPostimage": "1e43da5ca016332af2917f5e104d1134437b9da5",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
+      "preimage": "a1436c8f4ac965c8fb1685f448ef886b8389769f",
+      "supplierPostimage": "1efe3d1cb8ced1f2479bcf72f40044c95a0fdcaa",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs",
+      "preimage": "e52e3816ff294307b96a5601ca5d305f8433c755",
+      "supplierPostimage": "9bfa89081ebdfed3cbb7957912fbc8fbbfa0a241",
+      "preimageMatches": true
+    },
+    {
+      "path": "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs",
+      "preimage": null,
+      "supplierPostimage": "2f6ec8c879783747e2560beb1ae47186cad10f44",
+      "preimageMatches": true
+    },
+    {
+      "path": "tests/backend/Integration/ArticleCreateIntegrationTests.cs",
+      "preimage": "4258912346f03862ea93ba21e8aa04fa938c9930",
+      "supplierPostimage": "3acc87967db36cfc989ffbd326ff469755efe2a6",
+      "preimageMatches": true
+    },
+    {
+      "path": "tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs",
+      "preimage": "e105647589c8eefb5ec832ee326cc6f5d895e546",
+      "supplierPostimage": "218b60720c2f00da85691e43e4c91035cd97180d",
+      "preimageMatches": true
+    },
+    {
+      "path": "tests/backend/Integration/CanonicalArticlePublicationFixturePortIntegrationTests.cs",
+      "preimage": "efcce5991618da3a573472b1c1c1e54070cc0398",
+      "supplierPostimage": "fdd2bf7f8ae7aeabceb7d91052d794751cb86ac7",
+      "preimageMatches": true
+    },
+    {
+      "path": "tests/backend/Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs",
+      "preimage": null,
+      "supplierPostimage": "5bac645649fb8bb93fab5b5df2b3150a6a1ff7e6",
+      "preimageMatches": true
+    }
+  ],
+  "protected": [
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs",
+      "blob": "4afc44f3c67bc8242362467534ace84af116a683"
+    },
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+      "blob": "0576e8e4c1acb89a1772ed13e2047fd2e317c26d"
+    },
+    {
+      "path": "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+      "blob": "63e994b7d0ffaae47f7cfc4ed6b364bf8a3a863a"
+    },
+    {
+      "path": "src/backend/Models/Dtos/AuthoringDtos.cs",
+      "blob": "21cf281c077d6d53d5ec8074b9020bac078ac0bd"
+    },
+    {
+      "path": "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+      "blob": "2779552c57f2f4361348f002d62cf3aa3d49c187"
+    },
+    {
+      "path": "src/backend/Services/ArticleVault/ArticleVaultAuthenticatedConflictReviewAdapter.cs",
+      "blob": "a19472f89fb5ac26ca52048e3bccac5de2dfa8e8"
+    },
+    {
+      "path": "src/backend/Services/ArticleVault/ArticleVaultInstallationSiteIdentityCandidateReader.cs",
+      "blob": "9e593715f0b1fd3d0f76d4d40dfefb1bcf04bca6"
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
+      "blob": "a21abf8359512862dac05f620944edca56c0d709"
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+      "blob": "6f36ed2600b5170ac30a3e4f40468bf2c62b0ec3"
+    },
+    {
+      "path": "src/frontend/src/composables/useArticleVaultRecoveryHistory.ts",
+      "blob": "03afa2b1b39fd8e7287858f489ab33ffc3a044cd"
+    }
+  ],
+  "qualified": false
+}

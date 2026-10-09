@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "node",
+    "tools/dotnet/check-csharp-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "HEAD",
+    "--file",
+    "tests/backend/Integration/ArticleVaultExecutionPostgresIntegrationTests.cs"
+  ],
+  "exitCode": 1,
+  "testsExecuted": false
+}

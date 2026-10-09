@@ -1,0 +1,68 @@
+[
+  {
+    "name": "fixture-collections",
+    "source": "c5e49f66ecb3d17106733458788b5bc7cf2e540d",
+    "argv": [
+      "node",
+      "tools/check-postgres-test-collections.mjs"
+    ],
+    "exitCode": 1,
+    "testsExecuted": false
+  },
+  {
+    "name": "fixture-preflight",
+    "source": "c5e49f66ecb3d17106733458788b5bc7cf2e540d",
+    "argv": [
+      "node",
+      "tools/run-test-matrix.mjs",
+      "preflight"
+    ],
+    "exitCode": 1,
+    "testsExecuted": false
+  },
+  {
+    "name": "fixture-contract",
+    "source": "c5e49f66ecb3d17106733458788b5bc7cf2e540d",
+    "argv": [
+      "node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "48cf694dd9c3670c548d0b1620092a4fa4de8496..HEAD"
+    ],
+    "exitCode": 0,
+    "testsExecuted": false
+  },
+  {
+    "name": "fixture-diff-check",
+    "source": "c5e49f66ecb3d17106733458788b5bc7cf2e540d",
+    "argv": [
+      "git",
+      "diff",
+      "--check",
+      "48cf694dd9c3670c548d0b1620092a4fa4de8496..HEAD"
+    ],
+    "exitCode": 0,
+    "testsExecuted": false
+  },
+  {
+    "name": "doc-lifecycle",
+    "source": "c5e49f66ecb3d17106733458788b5bc7cf2e540d",
+    "argv": [
+      "node",
+      "tools/docs/generate-document-lifecycle.mjs",
+      "--check"
+    ],
+    "exitCode": 0,
+    "testsExecuted": false
+  },
+  {
+    "name": "doc-authority",
+    "source": "c5e49f66ecb3d17106733458788b5bc7cf2e540d",
+    "argv": [
+      "node",
+      "tools/docs/check-authoritative-development-docs.mjs"
+    ],
+    "exitCode": 0,
+    "testsExecuted": false
+  }
+]

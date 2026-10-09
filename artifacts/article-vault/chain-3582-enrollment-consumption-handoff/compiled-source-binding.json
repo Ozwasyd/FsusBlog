@@ -1,0 +1,37 @@
+{
+  "source": "c5e49f66ecb3d17106733458788b5bc7cf2e540d",
+  "sourceBlobs": {
+    "src/backend/Entities/ArticleRelationSourceCoordinate.cs": "f31fa4261621ceff25e590ea6a9af8fb0858a220",
+    "src/backend/Entities/ArticleSourceGeneration.cs": "c7e59252c52e495b8ee8123d0ea3396f4428580d",
+    "src/backend/Entities/ArticleSourceMutation.cs": "8cdda278b53bb74f46485a814cb0c50edee6d49c",
+    "src/backend/Services/ArticleService.ArticleVaultTransaction.cs": "fdf5c851354fdb90226638200704a95c7d503b4d",
+    "src/backend/Services/ArticleService.ArticleVaultWriter.cs": "c0dcf6f4f3d30be6fb1a317610f31b7ec406fded",
+    "src/backend/Services/ArticleService.LifecycleAndReadModels.cs": "a89a554ff94aebd75b8e2d70cd792cb73e1ecdcf",
+    "src/backend/Services/ArticleService.Mutations.cs": "97c5af99677cc2c83efb571149eba9c924cce283",
+    "src/backend/Services/ArticleService.cs": "fc39fde13f9d63045e4d62b6a6eb5a4635f68051",
+    "src/backend/Services/Articles/ArticleCreateMutationAuthority.cs": "e8cc611804abfa66bdaaa201fffd5d66ab8efe91",
+    "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs": "41ccfac09ac7f5b5d2470674850f8bfd9bc07033",
+    "src/backend/Services/Articles/ArticleSourceCursor.cs": "06795382e1d4010b97862fdfd83d16979d6949c7",
+    "src/backend/Services/Articles/ArticleSourceGenerationAuthority.cs": "7d5c9c17c526dc5b8b6fbfff7bc731022aa0f052",
+    "src/backend/Services/Articles/ArticleSourceGenerationPersistence.cs": "f9239c8e5687692a748587283fd52e7c9f7204fd",
+    "src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs": "bcfba97427f6b9bdef8c8d894c0c7730fae9c05a",
+    "src/backend/Services/Background/ScheduledPublishWorker.cs": "1e43da5ca016332af2917f5e104d1134437b9da5",
+    "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs": "1efe3d1cb8ced1f2479bcf72f40044c95a0fdcaa",
+    "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs": "9bfa89081ebdfed3cbb7957912fbc8fbbfa0a241",
+    "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs": "2f6ec8c879783747e2560beb1ae47186cad10f44",
+    "tests/backend/Integration/ArticleCreateIntegrationTests.cs": "3acc87967db36cfc989ffbd326ff469755efe2a6",
+    "tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs": "218b60720c2f00da85691e43e4c91035cd97180d",
+    "tests/backend/Integration/CanonicalArticlePublicationFixturePortIntegrationTests.cs": "fdd2bf7f8ae7aeabceb7d91052d794751cb86ac7",
+    "tests/backend/Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs": "5bac645649fb8bb93fab5b5df2b3150a6a1ff7e6",
+    "tests/backend/Integration/ArticleVaultExecutionPostgresIntegrationTests.cs": "9939bb7548647a45ae6335d3052226e9c2c43e7a"
+  },
+  "assemblies": {
+    "FsusBlog.Server.Tests.dll": "c05b7fbdc0b14ef24ba902513e4fe96795549cc7479e878a268c7ae0c461cd72",
+    "FsusBlog.Server.dll": "904fe1077466c8c839b24b79489768e118a8dda402d032464ae3923db7a1be6f",
+    "FsusBlog.Core.dll": "cef279c1fd3242ced92c35c1b07e5c905ef78fdb41e5b84a91dda65ec4f58d98",
+    "FsusBlog.Shared.dll": "d1570efc447545aa16cc0a3c9e3fd59ecf965034077001cde353df1b3b2a8b42",
+    "FsusBlog.Migration.dll": "a6221f3d990e74a64dba1082b185e89a1118d6ed717285ceaa90c5d68be58a23"
+  },
+  "testsExecuted": false,
+  "qualified": false
+}

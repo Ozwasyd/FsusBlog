@@ -1,0 +1,157 @@
+{
+  "paths": [
+    {
+      "path": "src/backend/Entities/ArticleRelationSourceCoordinate.cs",
+      "blob": "f31fa4261621ceff25e590ea6a9af8fb0858a220",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Entities/ArticleSourceGeneration.cs",
+      "blob": "c7e59252c52e495b8ee8123d0ea3396f4428580d",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Entities/ArticleSourceMutation.cs",
+      "blob": "8cdda278b53bb74f46485a814cb0c50edee6d49c",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/ArticleService.ArticleVaultTransaction.cs",
+      "blob": "fdf5c851354fdb90226638200704a95c7d503b4d",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/ArticleService.ArticleVaultWriter.cs",
+      "blob": "c0dcf6f4f3d30be6fb1a317610f31b7ec406fded",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs",
+      "blob": "a89a554ff94aebd75b8e2d70cd792cb73e1ecdcf",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/ArticleService.Mutations.cs",
+      "blob": "97c5af99677cc2c83efb571149eba9c924cce283",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/ArticleService.cs",
+      "blob": "fc39fde13f9d63045e4d62b6a6eb5a4635f68051",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleCreateMutationAuthority.cs",
+      "blob": "e8cc611804abfa66bdaaa201fffd5d66ab8efe91",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs",
+      "blob": "41ccfac09ac7f5b5d2470674850f8bfd9bc07033",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleSourceCursor.cs",
+      "blob": "06795382e1d4010b97862fdfd83d16979d6949c7",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleSourceGenerationAuthority.cs",
+      "blob": "7d5c9c17c526dc5b8b6fbfff7bc731022aa0f052",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleSourceGenerationPersistence.cs",
+      "blob": "f9239c8e5687692a748587283fd52e7c9f7204fd",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/PostgresArticleCreatePersistence.cs",
+      "blob": "bcfba97427f6b9bdef8c8d894c0c7730fae9c05a",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/Background/ScheduledPublishWorker.cs",
+      "blob": "1e43da5ca016332af2917f5e104d1134437b9da5",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
+      "blob": "1efe3d1cb8ced1f2479bcf72f40044c95a0fdcaa",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs",
+      "blob": "9bfa89081ebdfed3cbb7957912fbc8fbbfa0a241",
+      "exactSupplier": true
+    },
+    {
+      "path": "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs",
+      "blob": "2f6ec8c879783747e2560beb1ae47186cad10f44",
+      "exactSupplier": true
+    },
+    {
+      "path": "tests/backend/Integration/ArticleCreateIntegrationTests.cs",
+      "blob": "3acc87967db36cfc989ffbd326ff469755efe2a6",
+      "exactSupplier": true
+    },
+    {
+      "path": "tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs",
+      "blob": "218b60720c2f00da85691e43e4c91035cd97180d",
+      "exactSupplier": true
+    },
+    {
+      "path": "tests/backend/Integration/CanonicalArticlePublicationFixturePortIntegrationTests.cs",
+      "blob": "fdd2bf7f8ae7aeabceb7d91052d794751cb86ac7",
+      "exactSupplier": true
+    },
+    {
+      "path": "tests/backend/Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs",
+      "blob": "5bac645649fb8bb93fab5b5df2b3150a6a1ff7e6",
+      "exactSupplier": true
+    }
+  ],
+  "protected": [
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs",
+      "blob": "4afc44f3c67bc8242362467534ace84af116a683"
+    },
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+      "blob": "0576e8e4c1acb89a1772ed13e2047fd2e317c26d"
+    },
+    {
+      "path": "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+      "blob": "63e994b7d0ffaae47f7cfc4ed6b364bf8a3a863a"
+    },
+    {
+      "path": "src/backend/Models/Dtos/AuthoringDtos.cs",
+      "blob": "21cf281c077d6d53d5ec8074b9020bac078ac0bd"
+    },
+    {
+      "path": "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+      "blob": "2779552c57f2f4361348f002d62cf3aa3d49c187"
+    },
+    {
+      "path": "src/backend/Services/ArticleVault/ArticleVaultAuthenticatedConflictReviewAdapter.cs",
+      "blob": "a19472f89fb5ac26ca52048e3bccac5de2dfa8e8"
+    },
+    {
+      "path": "src/backend/Services/ArticleVault/ArticleVaultInstallationSiteIdentityCandidateReader.cs",
+      "blob": "9e593715f0b1fd3d0f76d4d40dfefb1bcf04bca6"
+    },
+    {
+      "path": "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
+      "blob": "a21abf8359512862dac05f620944edca56c0d709"
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+      "blob": "6f36ed2600b5170ac30a3e4f40468bf2c62b0ec3"
+    },
+    {
+      "path": "src/frontend/src/composables/useArticleVaultRecoveryHistory.ts",
+      "blob": "03afa2b1b39fd8e7287858f489ab33ffc3a044cd"
+    }
+  ],
+  "qualified": false
+}

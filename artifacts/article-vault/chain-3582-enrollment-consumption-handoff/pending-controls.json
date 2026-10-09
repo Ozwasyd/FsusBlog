@@ -1,0 +1,114 @@
+{
+  "source": "c5e49f66ecb3d17106733458788b5bc7cf2e540d",
+  "methods": [
+    {
+      "method": "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.BlankCreateEnrollsOriginalEventAndReplayDoesNotAdvance",
+      "path": "tests/backend/Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.OriginalCreateAutomaticallyEnrollsInsideCallerTransactionAndReconnectIsExact",
+      "path": "tests/backend/Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.OriginalLifecycleAutomaticallyEnrollsEveryActualEventWithoutManualRecording",
+      "path": "tests/backend/Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.OwnerRollbackRemovesOriginalEventAndEnrollmentAndRetryAllocatesFirstStep",
+      "path": "tests/backend/Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.MissingFamilyLockRefusesBeforeOriginalArticleWrites",
+      "path": "tests/backend/Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.CancellationDuringAutomaticJournalInsertRollsBackOriginalOwnerTransaction",
+      "path": "tests/backend/Integration/CanonicalArticleSourceGenerationEnrollmentIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.BlankCreate_ProducesExactOnceDraftGraphReceiptAndAudit",
+      "path": "tests/backend/Integration/ArticleCreateIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.TemplateCreate_ConsumesVerifiedPlanAndNeverFallsBack",
+      "path": "tests/backend/Integration/ArticleCreateIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.MissingAsset_AbortsTemplateCreateWithZeroWrites",
+      "path": "tests/backend/Integration/ArticleCreateIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.CancelledCreate_WritesNothing",
+      "path": "tests/backend/Integration/ArticleCreateIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.TemplateUpdateAfterCreate_DoesNotMutateExistingArticle",
+      "path": "tests/backend/Integration/ArticleCreateIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.Verifier_RejectsTamperedGraph",
+      "path": "tests/backend/Integration/ArticleCreateIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.TwoOperationGroup_WhenSecondWriteFails_RollsBackEveryBusinessSideEffectAndRetryAddsNone",
+      "path": "tests/backend/Integration/ArticleVaultExecutionPostgresIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    },
+    {
+      "method": "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.CommittedGroup_WhenTerminalWriteCrashes_RetryReplaysLedgerWithoutDuplicateFacts",
+      "path": "tests/backend/Integration/ArticleVaultExecutionPostgresIntegrationTests.cs",
+      "expectedCases": 1,
+      "status": "UNRUN",
+      "runtimeDiscoveryExecuted": false
+    }
+  ],
+  "totalExpectedCases": 14,
+  "reason": "Original preflight and collection admission failed. No test, runtime discovery, fixture startup, DB migration or runtime receipt is produced.",
+  "sourceInspectedHooks": [
+    "tests/backend/Fixtures/SchemaMigrationPostgresCollection.cs",
+    "tests/backend/Fixtures/PostgresSchemaMigrationFixture.cs",
+    "tests/backend/Helpers/TestInfrastructure/PostgresSqlSugarTestClient.cs",
+    "TestTemporalContext.FromEnvironment",
+    "source supplied DatabaseAsync and root CreateDatabaseAsync; original per-case client using/transaction rollback/CTS disposal"
+  ],
+  "scope": "source inspection only; not passing collection qualification",
+  "qualified": false
+}

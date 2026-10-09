@@ -1,0 +1,51 @@
+[
+  {
+    "name": "collections",
+    "argv": [
+      "node",
+      "tools/check-postgres-test-collections.mjs"
+    ],
+    "exitCode": 1,
+    "log": "collections.log",
+    "testsExecuted": false,
+    "source": "4d57bc097c6f6f77599bb56c0ead11d84818a728"
+  },
+  {
+    "name": "preflight",
+    "argv": [
+      "node",
+      "tools/run-test-matrix.mjs",
+      "preflight"
+    ],
+    "exitCode": 1,
+    "log": "preflight.log",
+    "testsExecuted": false,
+    "source": "4d57bc097c6f6f77599bb56c0ead11d84818a728"
+  },
+  {
+    "name": "contract",
+    "argv": [
+      "node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "48cf694dd9c3670c548d0b1620092a4fa4de8496..HEAD"
+    ],
+    "exitCode": 0,
+    "log": "contract.log",
+    "testsExecuted": false,
+    "source": "4d57bc097c6f6f77599bb56c0ead11d84818a728"
+  },
+  {
+    "name": "diff-check",
+    "argv": [
+      "git",
+      "diff",
+      "--check",
+      "48cf694dd9c3670c548d0b1620092a4fa4de8496..HEAD"
+    ],
+    "exitCode": 0,
+    "log": "diff-check.log",
+    "testsExecuted": false,
+    "source": "4d57bc097c6f6f77599bb56c0ead11d84818a728"
+  }
+]

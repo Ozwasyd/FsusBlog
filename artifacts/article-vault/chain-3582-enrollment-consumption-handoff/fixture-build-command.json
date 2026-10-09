@@ -1,0 +1,18 @@
+{
+  "source": "c5e49f66ecb3d17106733458788b5bc7cf2e540d",
+  "argv": [
+    "dotnet",
+    "build",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--configuration",
+    "Release",
+    "--disable-build-servers",
+    "-p:UseSharedCompilation=false",
+    "-v",
+    "minimal"
+  ],
+  "started": "2026-10-09T13:35:22.650137+00:00",
+  "exitCode": 0,
+  "testsExecuted": false
+}

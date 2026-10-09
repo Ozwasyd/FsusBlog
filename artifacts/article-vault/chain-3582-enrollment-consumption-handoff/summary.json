@@ -1,0 +1,40 @@
+{
+  "sourceCommit": "c5e49f66ecb3d17106733458788b5bc7cf2e540d",
+  "sourceParent": "4d57bc097c6f6f77599bb56c0ead11d84818a728",
+  "importCommit": "4d57bc097c6f6f77599bb56c0ead11d84818a728",
+  "supplierSource": "aa193c2dbc27389e9684642a193de934ec62a9c6",
+  "supplierEvidence": "2cbc044934d9fd12be4eb07fa6bc50a1d0f854ec",
+  "supplierParent": "abb28c41213f6ea506a6b4dcb64f30b7451384b7",
+  "branch": "codex/chain-3582-authenticated-review-transport-20261009",
+  "master": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "exactSupplierPaths": 22,
+  "protectedRootPaths": 10,
+  "rootFixturePaths": 1,
+  "sourceQualified": false,
+  "acceptedIssues": 0,
+  "testsExecutedAtCurrentSource": 0,
+  "restoreExitCode": 0,
+  "buildExitCode": 0,
+  "buildWarnings": 1507,
+  "buildErrors": 0,
+  "fixtureStyleExitCode": 0,
+  "preflightExitCode": 1,
+  "collectionExitCode": 1,
+  "pendingOrdinaryMethods": 14,
+  "historicalB98SixPG": "EXECUTED but UNQUALIFIED; not UNRUN and not inherited",
+  "historicalRootPasses": "Earlier original root/unit and PG results retain their exact earlier source identities; none is a current pass.",
+  "remainingInputs": [
+    "Canonical3657 complete collection registration via original producer and collection review; group4 handling is coordinated. No manual hash update.",
+    "Original authority owners correct parser/declaration/target/finite-owner/content/dependency closure; original current preflight must pass.",
+    "Independent canonical3654 source review/qualification and exact method/case discovery/fixture/cancellation/cleanup inspection before allowed tests.",
+    "Actual current-review inputs/wire/editor references, approved System mapping and final scoped alias, admitted native bindings and all full acceptance gates."
+  ],
+  "held": [
+    "Mother branch and PR3900",
+    "GitHub content/PR/body/comment/label/ready/merge writes",
+    "Production migration/deployment/credentials",
+    "Held graph/lease/occurrence/custody/receipt-substitution/native/replacement audits"
+  ],
+  "updatedAt": "2026-10-09T13:39:04.274025+00:00",
+  "consumptionBase": "48cf694dd9c3670c548d0b1620092a4fa4de8496"
+}

@@ -1,0 +1,36 @@
+[
+  {
+    "name": "restore",
+    "argv": [
+      "dotnet",
+      "restore",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--locked-mode",
+      "-p:NuGetAuditMode=all",
+      "-p:NuGetAuditLevel=low"
+    ],
+    "started": "2026-10-09T13:31:23.032226+00:00",
+    "exitCode": 0,
+    "log": "restore.log",
+    "source": "4d57bc097c6f6f77599bb56c0ead11d84818a728"
+  },
+  {
+    "name": "build",
+    "argv": [
+      "dotnet",
+      "build",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--configuration",
+      "Release",
+      "--disable-build-servers",
+      "-p:UseSharedCompilation=false",
+      "-v",
+      "minimal"
+    ],
+    "started": "2026-10-09T13:31:26.646161+00:00",
+    "exitCode": 0,
+    "log": "build.log",
+    "source": "4d57bc097c6f6f77599bb56c0ead11d84818a728"
+  }
+]

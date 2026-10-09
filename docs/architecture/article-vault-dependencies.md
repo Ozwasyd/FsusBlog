@@ -120,6 +120,23 @@ Rollback consists of removing the unused dependency extension and validation
 modules before wiring any consumer. Once integrated, coordinate/schema drift must
 block admission and require an explicit new plan rather than a fallback writer.
 
+## Mutation transaction source enrollment
+
+The canonical article writers acquire the `ArticleSourceGenerationAuthority`
+family lock inside their original native ReadCommitted transaction, before
+article and idempotency locks. Vault group writes share that transaction and
+enroll each original inserted outbox event before commit. Enrollment validates
+the stored event envelope and immutable article ownership; an exact replay
+retains its original cursor. Caller cancellation and transaction ownership remain
+with the original writer, whose rollback removes events and enrollment together.
+
+These generation/sequence cursors identify local mutation order. They grant no
+portable mapping, trusted Site identity, execution admission or base commit.
+Schema registration and deployment remain with their original migration owners;
+the coordinate Expand definition is unregistered. Original preflight, PostgreSQL
+collection admission and current runtime qualification remain required. Source
+composition and compilation cannot replace those gates.
+
 ## Shared host composition increment
 
 The sole canonical proposal and checkpoint stores are registered through
