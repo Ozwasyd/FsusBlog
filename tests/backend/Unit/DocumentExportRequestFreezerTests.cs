@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
 
@@ -118,6 +119,22 @@ public sealed class DocumentExportRequestFreezerTests
         var services = new ServiceCollection();
         Assert.Throws<InvalidOperationException>(() => services.AddDocumentExportTransport());
         Assert.Empty(services);
+
+        var keyedSource = new ServiceCollection();
+        keyedSource.AddKeyedScoped<IDocumentExportFrozenSourceReader>("other",
+            (_, _) => Substitute.For<IDocumentExportFrozenSourceReader>());
+        keyedSource.AddScoped(_ => Substitute.For<IDocumentExportJobAuthorization>());
+        ServiceDescriptor[] before = keyedSource.ToArray();
+        Assert.Throws<InvalidOperationException>(() => keyedSource.AddDocumentExportTransport());
+        Assert.Equal(before, keyedSource.ToArray());
+
+        var keyedContext = new ServiceCollection();
+        keyedContext.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
+        keyedContext.AddScoped(_ => Substitute.For<IAuthorRecentArticleHistoryPermissionProjectionProvider>());
+        keyedContext.AddKeyedSingleton<IHttpContextAccessor>("other", new HttpContextAccessor());
+        before = keyedContext.ToArray();
+        Assert.Throws<InvalidOperationException>(() => keyedContext.AddDocumentExportHttpTransport());
+        Assert.Equal(before, keyedContext.ToArray());
     }
 
     [Fact]
@@ -134,6 +151,44 @@ public sealed class DocumentExportRequestFreezerTests
         int count = services.Count;
         Assert.Throws<InvalidOperationException>(() => services.AddDocumentExportTransport());
         Assert.Equal(count, services.Count);
+
+        var reused = new ServiceCollection();
+        reused.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
+        reused.AddScoped(_ => Substitute.For<IDocumentExportJobAuthorization>());
+        reused.AddScoped<DocumentExportJobService>();
+        ServiceDescriptor original = Assert.Single(reused,
+            descriptor => descriptor.ServiceType == typeof(DocumentExportJobService));
+        reused.AddDocumentExportTransport();
+        Assert.Same(original, Assert.Single(reused,
+            descriptor => descriptor.ServiceType == typeof(DocumentExportJobService)));
+
+        foreach (string registration in new[] { "singleton", "transient", "duplicate", "keyed" })
+        {
+            var refused = new ServiceCollection();
+            refused.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
+            refused.AddScoped(_ => Substitute.For<IDocumentExportJobAuthorization>());
+            if (registration == "singleton")
+            {
+                refused.AddSingleton<DocumentExportJobService>();
+            }
+            else if (registration == "transient")
+            {
+                refused.AddTransient<DocumentExportJobService>();
+            }
+            else if (registration == "duplicate")
+            {
+                refused.AddScoped<DocumentExportJobService>();
+                refused.AddScoped<DocumentExportJobService>();
+            }
+            else
+            {
+                refused.AddKeyedScoped<DocumentExportJobService>("other", (_, _) =>
+                    throw new InvalidOperationException("must_not_resolve_during_registration"));
+            }
+            ServiceDescriptor[] before = refused.ToArray();
+            Assert.Throws<InvalidOperationException>(() => refused.AddDocumentExportTransport());
+            Assert.Equal(before, refused.ToArray());
+        }
     }
 
     [Fact]

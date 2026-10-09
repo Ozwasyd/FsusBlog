@@ -21,7 +21,8 @@ public static class DocumentExportServiceCollectionExtensions
         RequireSingleScopedAuthority<IAuthorRecentArticleHistoryPermissionProjectionProvider>(services);
         ServiceDescriptor[] contexts = services.Where(descriptor =>
             descriptor.ServiceType == typeof(IHttpContextAccessor)).ToArray();
-        if (contexts.Length != 1 || contexts[0].Lifetime != ServiceLifetime.Singleton)
+        if (contexts.Length != 1 || contexts[0].IsKeyedService
+            || contexts[0].Lifetime != ServiceLifetime.Singleton)
         {
             throw new InvalidOperationException("document_export_required_authority_unregistered");
         }
@@ -62,12 +63,20 @@ public static class DocumentExportServiceCollectionExtensions
         {
             throw new InvalidOperationException("document_export_transport_already_registered");
         }
+        ServiceDescriptor[] jobs = services.Where(descriptor =>
+            descriptor.ServiceType == typeof(DocumentExportJobService)).ToArray();
+        if (jobs.Length > 1 || jobs.Any(descriptor => descriptor.IsKeyedService
+            || descriptor.Lifetime != ServiceLifetime.Scoped))
+        {
+            throw new InvalidOperationException("document_export_required_authority_unregistered");
+        }
     }
 
     private static void RequireSingleScopedAuthority<T>(IServiceCollection services)
     {
         ServiceDescriptor[] descriptors = services.Where(descriptor => descriptor.ServiceType == typeof(T)).ToArray();
-        if (descriptors.Length != 1 || descriptors[0].Lifetime != ServiceLifetime.Scoped)
+        if (descriptors.Length != 1 || descriptors[0].IsKeyedService
+            || descriptors[0].Lifetime != ServiceLifetime.Scoped)
         {
             throw new InvalidOperationException("document_export_required_authority_unregistered");
         }

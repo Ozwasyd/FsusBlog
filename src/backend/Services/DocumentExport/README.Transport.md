@@ -68,6 +68,12 @@ projection and the original singleton HTTP context accessor. It registers the
 existing `DocumentExportHttpJobAuthorization` and then the same transport/Jobs
 composition. Missing or duplicate authorities refuse before registrations change.
 Neither entry supplies a background worker permission context or activates routes.
+Authorities must be ordinary unkeyed registrations because the original transport
+resolves them without a service key. A pre-existing concrete sole Jobs descriptor
+may be reused only when it is unique, unkeyed and scoped; keyed, duplicate,
+singleton or transient concrete registrations refuse before any transport alias
+or HTTP authorization is added. This prevents a scoped alias from silently
+capturing a longer-lived job service and its scoped live permission dependency.
 
 The frontend typed consumer is imported exactly from its sole owner at
 `4a55619a574e58ab17659ca9b2eb855d0b27e330`. The original Blob/anchor browser delivery
