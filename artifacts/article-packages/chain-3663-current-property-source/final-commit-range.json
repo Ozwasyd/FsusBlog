@@ -1,0 +1,18 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-manifest-authority-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-persisted-property-binding-3663",
+        "--range",
+        "7c3a95429f2379ea60a80942244193977e18c5b2..HEAD"
+    ],
+    "testedSha": "387ac31a4870f3061cb8727b6f5f4c1eb64ead8a",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T05:41:09.147136+00:00",
+    "endUtc": "2026-10-09T05:41:10.632800+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/persisted-property-binding/final-commit-range.log"
+}

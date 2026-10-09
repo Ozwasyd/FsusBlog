@@ -1,0 +1,13 @@
+Test run for /workspace/chain-3663-evidence/persisted-property-binding/harness/bin/Debug/net10.0/PropertyCodec.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:02.41]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_AcceptsOneThousandCurrentDefinitionsWithoutWritingToTheirOwner [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_AcceptsOneThousandCurrentDefinitionsWithoutWritingToTheirOwner [58 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_AcceptsOneThousandCurrentDefinitionsWithoutWritingToTheirOwner() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 327
+--- End of stack trace from previous location ---
+Results File: /workspace/chain-3663-evidence/persisted-property-binding/verified-trx/_bad473dbf38b_2026-10-09_05_54_25_net10.0.trx
+
+Failed!  - Failed:     1, Passed:   616, Skipped:     0, Total:   617, Duration: 7 s - PropertyCodec.Tests.dll (net10.0)

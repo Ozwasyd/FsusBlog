@@ -1,0 +1,22 @@
+{
+    "command": [
+        "dotnet",
+        "format",
+        "whitespace",
+        ".",
+        "--folder",
+        "--include",
+        "src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs",
+        "tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs",
+        "--verbosity",
+        "minimal"
+    ],
+    "testedSha": "387ac31a4870f3061cb8727b6f5f4c1eb64ead8a",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T05:43:20.397928+00:00",
+    "endUtc": "2026-10-09T05:43:21.932684+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/persisted-property-binding/diagnostic-history-format.log"
+}

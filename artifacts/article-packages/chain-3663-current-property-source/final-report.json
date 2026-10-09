@@ -1,0 +1,205 @@
+{
+    "schema": "fsusblog.article-package.current-property-source-evidence.v1",
+    "testedSha": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+    "branch": "codex/chain-3663-persisted-property-binding",
+    "base": "7c3a95429f2379ea60a80942244193977e18c5b2",
+    "verifiedMasterBeforeWork": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "capturedAtUtc": "2026-10-09T05:57:54.600897+00:00",
+    "sourceCount": 110,
+    "tests": {
+        "total": "617",
+        "executed": "617",
+        "passed": "617",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "testsByClass": {
+        "FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests": 69,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests": 87,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests": 54,
+        "FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests": 43,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests": 60,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests": 91,
+        "FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests": 64,
+        "FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests": 46,
+        "FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests": 38,
+        "FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests": 35,
+        "FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests": 30
+    },
+    "strictBuild": {
+        "warnings": 0,
+        "errors": 0
+    },
+    "checks": {
+        "accepted-strict-build": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "/workspace/chain-3663-evidence/persisted-property-binding/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--no-incremental",
+                "-warnaserror"
+            ],
+            "testedSha": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T05:55:41.240332+00:00",
+            "endUtc": "2026-10-09T05:55:44.311453+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/persisted-property-binding/accepted-strict-build.log"
+        },
+        "accepted-own-style": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+                "--root",
+                "/workspace/FsusBlog-persisted-property-binding-3663",
+                "--mode",
+                "strict-full",
+                "--file",
+                "src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs",
+                "--file",
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs",
+                "--file",
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs",
+                "--file",
+                "tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs",
+                "--file",
+                "tests/backend/Unit/ArticlePropertyValueFoundationTests.cs"
+            ],
+            "testedSha": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T05:55:42.605812+00:00",
+            "endUtc": "2026-10-09T05:55:49.004756+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/persisted-property-binding/accepted-own-style.log"
+        },
+        "verified-commit-range": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-manifest-authority-3663/tools/governance/check-change-contract.mjs",
+                "--root",
+                "/workspace/FsusBlog-persisted-property-binding-3663",
+                "--range",
+                "7c3a95429f2379ea60a80942244193977e18c5b2..HEAD"
+            ],
+            "testedSha": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T05:56:12.038606+00:00",
+            "endUtc": "2026-10-09T05:56:13.592593+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/persisted-property-binding/verified-commit-range.log"
+        },
+        "verified-locked-restore": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "restore",
+                "/workspace/chain-3663-evidence/persisted-property-binding/harness/PropertyCodec.Tests.csproj",
+                "--locked-mode",
+                "-warnaserror",
+                "-p:NuGetAudit=true",
+                "-p:NuGetAuditMode=all",
+                "-p:NuGetAuditLevel=low"
+            ],
+            "testedSha": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T05:56:46.328284+00:00",
+            "endUtc": "2026-10-09T05:56:47.207358+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/persisted-property-binding/verified-locked-restore.log"
+        },
+        "final-verified-tests": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "test",
+                "/workspace/chain-3663-evidence/persisted-property-binding/harness/PropertyCodec.Tests.csproj",
+                "--no-build",
+                "--no-restore",
+                "--filter",
+                "FullyQualifiedName~ArticlePackageManifestPropertyCodecTests|FullyQualifiedName~ArticlePackagePropertyMapperTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~ArticlePackageAssetMetadataMapperTests|FullyQualifiedName~ArticlePackageManifestTaxonomyCodecTests|FullyQualifiedName~ArticlePackageInventoryTests|FullyQualifiedName~ArticlePackageManifestMetadataCodecTests|FullyQualifiedName~ArticlePackageManifestCandidateCodecTests|FullyQualifiedName~ArticlePackageManifestCandidatePlannerTests|FullyQualifiedName~ArticlePackageFrozenExportCandidateWriterTests|FullyQualifiedName~ArticlePackageCurrentPropertyReaderTests",
+                "--logger",
+                "trx",
+                "--results-directory",
+                "/workspace/chain-3663-evidence/persisted-property-binding/final-verified-trx"
+            ],
+            "testedSha": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T05:56:10.794411+00:00",
+            "endUtc": "2026-10-09T05:56:18.540238+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/persisted-property-binding/final-verified-tests.log"
+        }
+    },
+    "testAssemblySha256": "13bdafdd38c557283ddd044069d9c19bd82bc8389698d52247e160e2859e5926",
+    "qualification": "Managed whole-file mapping/planner component and controlled source-port tests only; no actual DB/HTTP/production property provider/audit/export operation acceptance.",
+    "docs": {
+        "candidate": "c95d82ab961f2b5a2d3e259d5e409bdd79f798c0",
+        "exitCode": 1,
+        "diagnostics": 26,
+        "exactlyIdenticalTo0cBaseline": true,
+        "notWaived": true,
+        "sourceDocsUnchangedSinceThatRun": true
+    },
+    "failureProgression": [
+        {
+            "candidate": "c95d82ab961f2b5a2d3e259d5e409bdd79f798c0",
+            "executed": 617,
+            "passed": 582,
+            "failed": 35,
+            "classification": "All35 failures in original foundation fixtures configured only GetAsync after canonical validator moved to GetManyAsync."
+        },
+        {
+            "candidate": "cba8872c6e0a170f427d895eab53a086c6f61b5a",
+            "executed": 617,
+            "passed": 616,
+            "failed": 1,
+            "classification": "Independent1000-definition fixture also required canonical batch-port delegation."
+        },
+        {
+            "candidate": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "executed": 617,
+            "passed": 617,
+            "failed": 0,
+            "classification": "All43 original foundation assertions and1000-definition/zero-write controls preserved."
+        }
+    ],
+    "notRun": [
+        "Full canonical Backend/persistence graph at current candidate",
+        "Original held audit/full matrix",
+        "Actual PostgreSQL/HTTP/property provider and signed-audit roundtrip",
+        "Atomic operation/target rights/source admission or complete package acceptance"
+    ],
+    "peerEvidenceOnly": {
+        "kernelSource": [
+            "919421b73828e3d1a032f6da2048431fffbf6743",
+            "6f1f228d46687931b78c280121e8c07ea0961fbc",
+            "92859e5bc8fb900c5e472ccfceae6103e1333b0a"
+        ],
+        "reference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "suppliedParentControls": "7 select,61 adapter,3 refusals; not rerun or inherited as this component receipts"
+    },
+    "wholePersistenceHarnessDiagnostic": "Earlier attempt to include actual audit/template graph had19 incomplete-harness dependency diagnostics. No stub introduced. Current110-source proof excludes persistence SQL/audit graph and its storage test; preserved source blobs and parent original-project evidence are separate."
+}

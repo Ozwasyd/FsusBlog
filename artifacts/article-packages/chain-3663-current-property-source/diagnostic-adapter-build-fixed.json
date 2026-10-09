@@ -1,0 +1,19 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "/workspace/chain-3663-evidence/persisted-property-binding/harness/PropertyCodec.Tests.csproj",
+        "--no-restore",
+        "--no-incremental",
+        "-warnaserror"
+    ],
+    "testedSha": "89333a0217f604f34b464c891ccfbed387ce0344",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T05:36:56.368260+00:00",
+    "endUtc": "2026-10-09T05:37:05.923898+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/persisted-property-binding/diagnostic-adapter-build-fixed.log"
+}

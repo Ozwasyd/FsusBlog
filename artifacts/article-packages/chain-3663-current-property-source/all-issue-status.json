@@ -1,0 +1,183 @@
+{
+    "testedComponentCommit": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+    "assignment": "16 execution, 0 tracking; all OPEN, no chain completion",
+    "issues": [
+        {
+            "issue": 3663,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T04:09:20Z",
+            "readAtUtc": "2026-10-09T05:59:55.365504+00:00",
+            "bodySha256": "d56c09aae2993ba823742f02c63a99ca8182861f60cc0c8d3da49e85da7e9f12",
+            "currentDirectPrerequisites": null,
+            "status": "Source merged; acceptance HOLD",
+            "limits": "PR3664 merged 7ea66addb46439ae309669eb4b569aee32678948 verified current. No new trust-window coding. Original current qualification/full matrix/independent acceptance remain held by original source/native lock/audit/capacity gates; old receipts are not current. Current managed source closure cb01 is strict warning-zero/571 tests; no original trust/window full runtime receipt transfer.",
+            "accepted": false
+        },
+        {
+            "issue": 2398,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T06:30:20Z",
+            "readAtUtc": "2026-10-09T05:59:55.365533+00:00",
+            "bodySha256": "aa620dedcdf76449b4e67ac1a9d4b0473e1ef05e84938128b193dae160b4d9d0",
+            "currentDirectPrerequisites": "Depends on: #1779, #2322, #2323, #1808, Ozwasyd/FsusUI#289, Ozwasyd/FsusUI#290, Ozwasyd/FsusUI#314, #2440",
+            "status": "Partial ordinary components; execution acceptance HOLD",
+            "limits": "Metadata64, taxonomy35, property38, asset30 actual controls exist. Full accepted manifest/version migration/privacy/syntax-dependency integration remains owned and unfinished; exact persisted value/metadata and operation-bound asset/frozen/native facts are not yet consumed/bound with acceptance evidence. Current ordinary property source binding and planner integration implemented; full accepted root/registry/privacy/decode-bind remains owned and unfinished.",
+            "accepted": false
+        },
+        {
+            "issue": 2408,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T06:30:22Z",
+            "readAtUtc": "2026-10-09T05:59:55.365548+00:00",
+            "bodySha256": "3b36e6dd1638d488c0c861ddb6447a6f307ab81bd7484ea2615f3f1fb792d5f1",
+            "currentDirectPrerequisites": "Depends on: #1779, #2322, Ozwasyd/FsusUI#289, Ozwasyd/FsusUI#290, Ozwasyd/FsusUI#314, #2440",
+            "status": "Partial same sole schema; execution acceptance HOLD",
+            "limits": "Same #2398 implementation, both original criteria/test unions remain. No second schema, permissive old/future reader or provider receipt. Current ordinary property source binding and planner integration implemented; full accepted root/registry/privacy/decode-bind remains owned and unfinished.",
+            "accepted": false
+        },
+        {
+            "issue": 2400,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:20Z",
+            "readAtUtc": "2026-10-09T05:59:55.365581+00:00",
+            "bodySha256": "8b7eac65092f35153a6eef7334ae6e88444ca78fe3d9ebcfff83681ea72ecc37",
+            "currentDirectPrerequisites": "Depends on: #2398, #1779, #1724, #1808, #2443, Ozwasyd/FsusUI#314",
+            "status": "Partial finite archive writer; full export HOLD",
+            "limits": "Existing sole finite writer plus real current property read-port mapping and finite planner integration at d855. All typed rows/presence/default/history/current-definition observations preserved from canonical read source. Production article-owner registration/DB/audit, authorized draft/historical/ref target operation facts and all original complete package/metadata/asset/frozen/atomic runtime gates remain. No fabricated snapshot/permission or full export acceptance.",
+            "accepted": false
+        },
+        {
+            "issue": 2402,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:21Z",
+            "readAtUtc": "2026-10-09T05:59:55.365594+00:00",
+            "bodySha256": "7a686699429a5a5def5443d64e5221c4daf19c5b5135ec365358d03cffa16fda",
+            "currentDirectPrerequisites": "Depends on: #2398, #1779, #2322, #2323, #1808, #2443, Ozwasyd/FsusUI#314",
+            "status": "Partial finite byte/ZIP validator; full preflight HOLD",
+            "limits": "ZIP reader4068 had72 exact controls; old584 finite-component proof belongs to1ab. Complete full package, MIME/dependency/source/target current rights and zero-write formal plan not accepted.",
+            "accepted": false
+        },
+        {
+            "issue": 2404,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:23Z",
+            "readAtUtc": "2026-10-09T05:59:55.365603+00:00",
+            "bodySha256": "f4b26e4e4fbd88ce1d2aa629331b82b3a121c0af29656432670f4f98d1c72d26",
+            "currentDirectPrerequisites": "Depends on: #2402, #2322, #2323, #1779, #1808, #2443",
+            "status": "Waiting prerequisites; not implemented/accepted",
+            "limits": "Full accepted #2402 schema/plan plus current taxonomy/definition/option/asset/relation authority and explicit resolution/CAS input required. No auto-map/create/skip or alternate planner.",
+            "accepted": false
+        },
+        {
+            "issue": 2405,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T04:08:40Z",
+            "readAtUtc": "2026-10-09T05:59:55.365614+00:00",
+            "bodySha256": "0b3b16482a40a862fc8fa08a87c0f74232fa8415818096b7ce3c105f7c7962a7",
+            "currentDirectPrerequisites": "Depends on: #2404, #1724, #1779, #2323, #1808, #2443, #2317, #2324",
+            "status": "Waiting prerequisites; not implemented/accepted",
+            "limits": "Executable resolved plan and actual canonical article/asset/property/revision/outbox/audit transactions, #2443/#2317/#2324 rebuild/receipt gates missing. No writes/receipts invented.",
+            "accepted": false
+        },
+        {
+            "issue": 2406,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:25Z",
+            "readAtUtc": "2026-10-09T05:59:55.365622+00:00",
+            "bodySha256": "d7e79373f3e612a2409f545b86bd23bbcaf4df9d761cbea95d54d97fd6e17579",
+            "currentDirectPrerequisites": "Depends on: #2400, #2402, #2404, #2405",
+            "status": "Waiting prerequisites; not implemented/accepted",
+            "limits": "Accepted full #2400/#2402/#2404/#2405 and real APIs/permissions/receipts required; no independent UI/schema/writer.",
+            "accepted": false
+        },
+        {
+            "issue": 2407,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:26Z",
+            "readAtUtc": "2026-10-09T05:59:55.365631+00:00",
+            "bodySha256": "d2593bac7398b8eb673aeb60012f7d9e388a3cb5e10e1235b2144cfcfaaf7f3a",
+            "currentDirectPrerequisites": "Depends on: #2398, #2400, #2402, #2404, #2405, #2406",
+            "status": "Waiting replacement; retirement not performed",
+            "limits": "Accepted full schema/export/validate/resolve/execute/UI required before legacy YAML/frontmatter/Markdown/SQL/URL readers and UI retirement.",
+            "accepted": false
+        },
+        {
+            "issue": 2410,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:27Z",
+            "readAtUtc": "2026-10-09T05:59:55.365640+00:00",
+            "bodySha256": "a6f948e44621ef329df836cccc388d77537f1195a5035e7214d567691d8b0d93",
+            "currentDirectPrerequisites": "Depends on: #2408, #1779, #1724, #2323, #1808, #2443",
+            "status": "Partial same sole exporter; full export HOLD",
+            "limits": "Existing sole finite writer plus real current property read-port mapping and finite planner integration at d855. All typed rows/presence/default/history/current-definition observations preserved from canonical read source. Production article-owner registration/DB/audit, authorized draft/historical/ref target operation facts and all original complete package/metadata/asset/frozen/atomic runtime gates remain. No fabricated snapshot/permission or full export acceptance.",
+            "accepted": false
+        },
+        {
+            "issue": 2411,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:29Z",
+            "readAtUtc": "2026-10-09T05:59:55.365651+00:00",
+            "bodySha256": "b2e922ebb56ad849273dde6a4b5eec9b71aea9825b0c257251e5272f1183a977",
+            "currentDirectPrerequisites": "Depends on: #2408, #1779, #2322, #2323, #1808, Ozwasyd/FsusUI#289, Ozwasyd/FsusUI#290, Ozwasyd/FsusUI#314, #2443",
+            "status": "Partial same sole validator; full preflight HOLD",
+            "limits": "Same #2402 implementation; all original unions retained, no complete intake or provider acceptance.",
+            "accepted": false
+        },
+        {
+            "issue": 2413,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:30Z",
+            "readAtUtc": "2026-10-09T05:59:55.365662+00:00",
+            "bodySha256": "c599f27b209f330f46e4187891c73914d6e39c062c7732b17595f159cc57788a",
+            "currentDirectPrerequisites": "Depends on: #2411, #2322, #2323, #1808, #1779, #2443",
+            "status": "Waiting prerequisites; not implemented/accepted",
+            "limits": "Same #2404 sole resolution capability requires accepted #2411 and exact canonical creation/revalidation gates.",
+            "accepted": false
+        },
+        {
+            "issue": 2415,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T04:08:41Z",
+            "readAtUtc": "2026-10-09T05:59:55.365673+00:00",
+            "bodySha256": "c4135b815f6ca75bf975e2be66b454de93c54c4b220db34eaeb504bbcd2aca96",
+            "currentDirectPrerequisites": "Depends on: #2411, #2413, #1779, #1724, #2323, #1808, #2443, #2317, #2324",
+            "status": "Waiting prerequisites; not implemented/accepted",
+            "limits": "Same sole executor; accepted #2411/#2413 plus transaction/rollback/recovery and canonical facts required.",
+            "accepted": false
+        },
+        {
+            "issue": 2418,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:32Z",
+            "readAtUtc": "2026-10-09T05:59:55.365682+00:00",
+            "bodySha256": "6dc0e55ad2bc3a9531a7c77f0e4fd0e2a23e59e7e3a629a6f0b24d6ecebfad46",
+            "currentDirectPrerequisites": "Depends on: #2410, #2411, #2413, #2415, #1853",
+            "status": "Waiting prerequisites; not implemented/accepted",
+            "limits": "Accepted full #2410/#2411/#2413/#2415 plus #1853 product runtime needed; no product acceptance from jsdom or component fixtures.",
+            "accepted": false
+        },
+        {
+            "issue": 2409,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:33Z",
+            "readAtUtc": "2026-10-09T05:59:55.365697+00:00",
+            "bodySha256": "09385f6ccd68965249fb48b341649f9343773f113285bd39f9a96df4c58869fd",
+            "currentDirectPrerequisites": "Depends on: #2398, #2400, #2402, #2404, #2405, #2406, #2407, #2450, #2446, #1907",
+            "status": "Terminal acceptance HOLD; not completed",
+            "limits": "All preceding full capabilities, #2450/#2446/#1907 real adapters/caption product integration/roundtrip and original 1000/large asset/performance/mutation/runtime gates required.",
+            "accepted": false
+        },
+        {
+            "issue": 2420,
+            "issueState": "open",
+            "currentBodyUpdatedAt": "2026-10-08T03:30:34Z",
+            "readAtUtc": "2026-10-09T05:59:55.365709+00:00",
+            "bodySha256": "a9da5e61f06e6f4ce59f1fe0a665ae60c78f7289f406ae1fe87ec9601d2ed148",
+            "currentDirectPrerequisites": "Depends on: #2408, #2410, #2411, #2413, #2415, #2418, #2450, #2407, #2446, #1907",
+            "status": "Terminal acceptance HOLD; not completed",
+            "limits": "Same full terminal original union; no acceptance transfer from component1000 or tracking/closed boundaries.",
+            "accepted": false
+        }
+    ],
+    "currentSourceIncrement": "Canonical kernel exact final11blobs consumed; actual read-port/planner property mapping implemented; 110-file managed strict component617/617; no issue acceptance."
+}

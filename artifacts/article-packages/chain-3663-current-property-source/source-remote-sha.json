@@ -1,0 +1,17 @@
+{
+    "command": [
+        "git",
+        "ls-remote",
+        "--heads",
+        "origin",
+        "refs/heads/codex/chain-3663-persisted-property-binding"
+    ],
+    "testedSha": "c95d82ab961f2b5a2d3e259d5e409bdd79f798c0",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T05:50:22.966516+00:00",
+    "endUtc": "2026-10-09T05:50:23.459265+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/persisted-property-binding/source-remote-sha.log"
+}

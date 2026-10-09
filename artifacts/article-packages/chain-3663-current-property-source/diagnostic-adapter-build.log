@@ -1,0 +1,10 @@
+/workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs(124,13): error CS8602: Dereference of a possibly null reference. [/workspace/chain-3663-evidence/persisted-property-binding/harness/PropertyCodec.Tests.csproj]
+  PropertyCodec.Tests -> /workspace/chain-3663-evidence/persisted-property-binding/harness/bin/Debug/net10.0/PropertyCodec.Tests.dll
+
+Build FAILED.
+
+/workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs(124,13): error CS8602: Dereference of a possibly null reference. [/workspace/chain-3663-evidence/persisted-property-binding/harness/PropertyCodec.Tests.csproj]
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:08.17

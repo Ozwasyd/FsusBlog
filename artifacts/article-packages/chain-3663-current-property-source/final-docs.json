@@ -1,0 +1,21 @@
+{
+    "command": [
+        "node",
+        "tools/style/check-native-tooling-style.mjs",
+        "--domain",
+        "docs",
+        "--mode",
+        "changed",
+        "--file",
+        "docs/api/contracts.md",
+        "--require-tools"
+    ],
+    "testedSha": "387ac31a4870f3061cb8727b6f5f4c1eb64ead8a",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T05:41:09.155155+00:00",
+    "endUtc": "2026-10-09T05:41:09.975565+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/persisted-property-binding/final-docs.log"
+}

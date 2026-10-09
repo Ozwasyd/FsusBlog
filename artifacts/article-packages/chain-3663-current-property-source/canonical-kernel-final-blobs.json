@@ -1,0 +1,68 @@
+[
+    {
+        "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "dbae30fed8a929bff8e579af5f67b213dd0e14218df69a2e0da8ecfeaa507c51",
+        "exactMatch": true
+    },
+    {
+        "path": "src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "16bcbd50a56b74b6549cebbe7c29e4f6eff900b017ffa34efc8e90c1277ce0da",
+        "exactMatch": true
+    },
+    {
+        "path": "src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "aeec382ccb80f2a08dfe56bdb2a9b8c7843693b00d88a3e6346c7d294e784484",
+        "exactMatch": true
+    },
+    {
+        "path": "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Read.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "9d5db1241b5e34ac12fe5f176815171c80e4692bf63bb0e6dc52d148e2be1c24",
+        "exactMatch": true
+    },
+    {
+        "path": "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Storage.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "461d86a7c65abc322ecfc4e7b06da2fb95f1fd1faeecbded21cf170f0ea4c326",
+        "exactMatch": true
+    },
+    {
+        "path": "src/backend/Services/Authoring/ArticlePropertyValuePersistence.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "3b6813266081beff1238c048d1660609f74a312b0c363fd24e2581498921abf8",
+        "exactMatch": true
+    },
+    {
+        "path": "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "1447d5df03ed3062d8c54c8fbe9dbba9264436d1fbf78114904ef7410609e916",
+        "exactMatch": true
+    },
+    {
+        "path": "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "495e6b845a6495cd7c6054f4b50b305e507fde3918ac24de50b2c5389932d5d4",
+        "exactMatch": true
+    },
+    {
+        "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "c67134167da864a7d7830e0ae4be558cc518d2f539c2e5ef87903e3c2554316b",
+        "exactMatch": true
+    },
+    {
+        "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "0c06ed92f7ac4d11084c0709e9696dbad05652d12f0558378fb8280a0b6b6784",
+        "exactMatch": true
+    },
+    {
+        "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+        "canonicalReference": "4eeb8ab3611574a51633cee07e25a1d7a87920e8",
+        "sha256": "cc20fcc6e67d5f309c86827a16b09471cc7a73d3f657d46e70a2837389bf2dfa",
+        "exactMatch": true
+    }
+]

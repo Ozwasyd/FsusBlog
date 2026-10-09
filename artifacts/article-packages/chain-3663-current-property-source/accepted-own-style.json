@@ -1,0 +1,28 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+        "--root",
+        "/workspace/FsusBlog-persisted-property-binding-3663",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs",
+        "--file",
+        "tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs",
+        "--file",
+        "tests/backend/Unit/ArticlePropertyValueFoundationTests.cs"
+    ],
+    "testedSha": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T05:55:42.605812+00:00",
+    "endUtc": "2026-10-09T05:55:49.004756+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/persisted-property-binding/accepted-own-style.log"
+}

@@ -1,0 +1,9 @@
+/workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs(443,94): error CS1660: Cannot convert lambda expression to type 'Task<IReadOnlyList<ArticlePropertyDefinition>>' because it is not a delegate type [/workspace/chain-3663-evidence/persisted-property-binding/harness/PropertyCodec.Tests.csproj]
+
+Build FAILED.
+
+/workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs(443,94): error CS1660: Cannot convert lambda expression to type 'Task<IReadOnlyList<ArticlePropertyDefinition>>' because it is not a delegate type [/workspace/chain-3663-evidence/persisted-property-binding/harness/PropertyCodec.Tests.csproj]
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:02.44

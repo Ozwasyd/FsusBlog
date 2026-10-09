@@ -1,0 +1,7 @@
+remote: 
+remote: GitHub found 19 vulnerabilities on Ozwasyd/FsusBlog's default branch (9 high, 8 moderate, 2 low). To find out more, visit:        
+remote:      https://github.com/Ozwasyd/FsusBlog/security/dependabot        
+remote: 
+To https://github.com/Ozwasyd/FsusBlog.git
+   c95d82ab9..cba8872c6  codex/chain-3663-persisted-property-binding -> codex/chain-3663-persisted-property-binding
+branch 'codex/chain-3663-persisted-property-binding' set up to track 'origin/codex/chain-3663-persisted-property-binding'.

@@ -1,0 +1,315 @@
+Test run for /workspace/chain-3663-evidence/persisted-property-binding/harness/bin/Debug/net10.0/PropertyCodec.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.60]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: Url) [FAIL]
+[xUnit.net 00:00:00.60]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: Date) [FAIL]
+[xUnit.net 00:00:00.60]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: Text) [FAIL]
+[xUnit.net 00:00:00.60]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: Boolean) [FAIL]
+[xUnit.net 00:00:00.60]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: SingleSelect) [FAIL]
+[xUnit.net 00:00:00.60]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: MultiSelect) [FAIL]
+[xUnit.net 00:00:00.60]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: ArticleReference) [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: Url) [2 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+                            ↓ (pos 17)
+Expected: "article_property_value_type_mismatch"
+Actual:   "article_property_definition_unavailable"
+                            ↑ (pos 17)
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 68
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: Date) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+                            ↓ (pos 17)
+Expected: "article_property_value_type_mismatch"
+Actual:   "article_property_definition_unavailable"
+                            ↑ (pos 17)
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 68
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: Text) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+                            ↓ (pos 17)
+Expected: "article_property_value_type_mismatch"
+Actual:   "article_property_definition_unavailable"
+                            ↑ (pos 17)
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 68
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: Boolean) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+                            ↓ (pos 17)
+Expected: "article_property_value_type_mismatch"
+Actual:   "article_property_definition_unavailable"
+                            ↑ (pos 17)
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 68
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: SingleSelect) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+                            ↓ (pos 17)
+Expected: "article_property_value_type_mismatch"
+Actual:   "article_property_definition_unavailable"
+                            ↑ (pos 17)
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 68
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: MultiSelect) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+                            ↓ (pos 17)
+Expected: "article_property_value_type_mismatch"
+Actual:   "article_property_definition_unavailable"
+                            ↑ (pos 17)
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 68
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: ArticleReference) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+                            ↓ (pos 17)
+Expected: "article_property_value_type_mismatch"
+Actual:   "article_property_definition_unavailable"
+                            ↑ (pos 17)
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 68
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.60]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: Number) [FAIL]
+[xUnit.net 00:00:00.60]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_CanonicalizesUnicodeUrlAndUnorderedOptionSets [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: Text) [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(type: Number) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+                            ↓ (pos 17)
+Expected: "article_property_value_type_mismatch"
+Actual:   "article_property_definition_unavailable"
+                            ↑ (pos 17)
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 68
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_CanonicalizesUnicodeUrlAndUnorderedOptionSets [1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_CanonicalizesUnicodeUrlAndUnorderedOptionSets() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 241
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: Text) [1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 186
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: Url) [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: Boolean) [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: Date) [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: SingleSelect) [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: Url) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 186
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: Boolean) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 186
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: Date) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 186
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: SingleSelect) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 186
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: MultiSelect) [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: Number) [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: MultiSelect) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 186
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(type: Number) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 186
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_DefaultAppliesOnlyToMissingAndUsesDefinitionNormalization [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: Number) [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: Url) [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: ArticleReference) [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: SingleSelect) [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_DefaultAppliesOnlyToMissingAndUsesDefinitionNormalization [8 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_DefaultAppliesOnlyToMissingAndUsesDefinitionNormalization() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 152
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: Number) [1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 31
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: Url) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 31
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: ArticleReference) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 31
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: SingleSelect) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 31
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: Text) [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: Date) [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: Boolean) [FAIL]
+[xUnit.net 00:00:00.61]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: MultiSelect) [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: Text) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 31
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: Date) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 31
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: Boolean) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 31
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(type: MultiSelect) [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 31
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.62]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ExplicitEmptyReferencesRemainEmptyWithoutTargetValidation [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Snapshot_ImmutableAndBindsObservedCoordinatesDefinitionAndTypedValues [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_PreservesMissingNullZeroFalseAndExplicitEmpty [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.SnapshotCandidate_RejectsUnknownSchemaAndTamperedDigests(drift: "value-digest") [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.SnapshotCandidate_RejectsUnknownSchemaAndTamperedDigests(drift: "schema") [FAIL]
+[xUnit.net 00:00:00.62]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.SnapshotCandidate_RejectsUnknownSchemaAndTamperedDigests(drift: "snapshot-digest") [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ExplicitEmptyReferencesRemainEmptyWithoutTargetValidation [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ExplicitEmptyReferencesRemainEmptyWithoutTargetValidation() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 212
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Snapshot_ImmutableAndBindsObservedCoordinatesDefinitionAndTypedValues [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Snapshot_ImmutableAndBindsObservedCoordinatesDefinitionAndTypedValues() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 346
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_PreservesMissingNullZeroFalseAndExplicitEmpty [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_PreservesMissingNullZeroFalseAndExplicitEmpty() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 121
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.SnapshotCandidate_RejectsUnknownSchemaAndTamperedDigests(drift: "value-digest") [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.SnapshotCandidate_RejectsUnknownSchemaAndTamperedDigests(String drift) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 386
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.SnapshotCandidate_RejectsUnknownSchemaAndTamperedDigests(drift: "schema") [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.SnapshotCandidate_RejectsUnknownSchemaAndTamperedDigests(String drift) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 386
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.SnapshotCandidate_RejectsUnknownSchemaAndTamperedDigests(drift: "snapshot-digest") [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.SnapshotCandidate_RejectsUnknownSchemaAndTamperedDigests(String drift) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 386
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.62]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Snapshot_FreezesMutableCallerViewBeforeCheckingAndHashing [FAIL]
+[xUnit.net 00:00:00.63]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_ReferenceAuthorityUnavailableAndSelfReferenceFailClosed [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Snapshot_FreezesMutableCallerViewBeforeCheckingAndHashing [< 1 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Snapshot_FreezesMutableCallerViewBeforeCheckingAndHashing() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 402
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_ReferenceAuthorityUnavailableAndSelfReferenceFailClosed [1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+                            ↓ (pos 17)
+Expected: "article_property_reference_authority_unav"···
+Actual:   "article_property_definition_unavailable"
+                            ↑ (pos 17)
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_ReferenceAuthorityUnavailableAndSelfReferenceFailClosed() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 293
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.66]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_AcceptsOneThousandCurrentDefinitionsWithoutWritingToTheirOwner [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_AcceptsOneThousandCurrentDefinitionsWithoutWritingToTheirOwner [26 ms]
+  Error Message:
+   FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionValidationException : article_property_definition_unavailable
+  Stack Trace:
+     at FsusBlog.Server.Services.Authoring.ArticlePropertyValueValidator.ValidateCoreAsync(ArticlePropertyDefinitionActor actor, ArticlePropertyDefinitionOwner owner, Nullable`1 sourceArticleId, IReadOnlyList`1 inputs, CancellationToken cancellationToken) in /workspace/FsusBlog-persisted-property-binding-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs:line 83
+   at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_AcceptsOneThousandCurrentDefinitionsWithoutWritingToTheirOwner() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 327
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.66]     FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_NonemptyReferencesRefuseWithoutCanonicalSourceIdentity [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_NonemptyReferencesRefuseWithoutCanonicalSourceIdentity [1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+                            ↓ (pos 17)
+Expected: "article_property_reference_source_identit"···
+Actual:   "article_property_definition_unavailable"
+                            ↑ (pos 17)
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_NonemptyReferencesRefuseWithoutCanonicalSourceIdentity() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs:line 200
+--- End of stack trace from previous location ---
+Results File: /workspace/chain-3663-evidence/persisted-property-binding/final-trx/_bad473dbf38b_2026-10-09_05_49_29_net10.0.trx
+
+Failed!  - Failed:    35, Passed:   582, Skipped:     0, Total:   617, Duration: 5 s - PropertyCodec.Tests.dll (net10.0)

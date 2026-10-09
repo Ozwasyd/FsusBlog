@@ -1,0 +1,667 @@
+{
+    "sourceCount": 110,
+    "allWholeFilesFromOneCandidate": true,
+    "testedSha": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+    "files": [
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "90ae25aa5f712fb98a5b88f041dc609bbc8d54c847e097aae4f53f5a2779683e",
+            "blob": "5efd320607c42e54edf6183257b3b8be60d9014b"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "0fe36244e5fb47cbbdc67c022a3b881e16722980869d8e6743d00967076e2826",
+            "blob": "fffd88b4664604fadedf7897e98ee92bbdea18c3"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "f3e0fea81b2a4926202ed19fa236794fac2a511d729377ccb45c5988b63caecc",
+            "blob": "0349b601d66fed31483639b11f716e6fd8e9ee78"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "2280792b9e35d4e1e96be5afc8d7060473ec826fd04485c8bb496e152e3e1604",
+            "blob": "703501fe781def4f7818bff75fb7943b24ae2406"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "9a7359237cea0a63cba12f5c0d7c52dfeeb759087208cab4aa72b6716045e33a",
+            "blob": "e4545ed0c9ecebf2a103b94711ae10efa182bf0a"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipDirectory.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "60f873c8930fe5573d6b71257731a13457ef5f3f3e4c58e25c510d8aebf6c2fd",
+            "blob": "c0fa119c8256fbee5b68a2b1fbafd6833141f99d"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "d68ab160127912c8675ab211616bf113a0bd0bbf2e6aaa68ea552ac49aa623f3",
+            "blob": "33855d7e02f825aaab609530327cd586346162ea"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "413ad8542cf16e4a8dadda393e2c54327441e4fe62eaf809eec279c8733642cf",
+            "blob": "e9589ca95526756ddccf9e7e8992090ca6b54c18"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "fae3cbc8a96d92de6fee2764a0c9360633f52029bf202a61a57cc32e52277b7d",
+            "blob": "604345f72f4c642574ee7508d019aea593c4325d"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "bec4ec1bd472480f6cc8e3e130fac51488fc1b3e44d0d37b16eff220cc0ec9a5",
+            "blob": "d364b5e587bb7545ae7784258e2e3798a2c67aea"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "b15687dfc98d664ee267c9056fe7f3c008eddab1b8f6a3dc8081eab21f99697d",
+            "blob": "b983c751c710118d88642a3a69c0e1a54cabc6e7"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "18e5b691b6067a1760bb8bd9c26552d1aa9da6a9928588827e7bce264f3bea51",
+            "blob": "dbfdbb966493224fae21e1f4c192bcd9f5f48674"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractDigest.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "9cde417e07b3597b90b3181294c44ef884674b348cc2b79b7c7062a55ee52ad0",
+            "blob": "5acbc4138dd1d57830c0b6abd6f49c35049474d7"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractValidator.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "fb555dd8317a923f2d00306eefdfe5b4551f72aced4225d980c5d9518d63d25c",
+            "blob": "2a0dd516d4563c18f83ab44b04a092d6d7759378"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "8f6f1801a93a716e69e220fd35c5a4c2db4f93840229d325fbf62cd74ce2c926",
+            "blob": "ad0800ebcecb09f08ca5d62d2962c0b212b32edd"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/ArticleEmbedTargetCodec.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "03b61716baf607c4235090479106bea32bfcd9b6abc18d390bfb8974a2955664",
+            "blob": "c37fcaffa5e5d0e3b7bcd6ee3308078884543612"
+        },
+        {
+            "path": "src/shared/Contracts/BlockLinks/BlockAnchorCodec.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "92666a7159dc24560004b05719aba947a99a2c1582309241c751bfb5043fc3e0",
+            "blob": "0a5eca0fa5e0497d6abf97928731ad1f45e74fb8"
+        },
+        {
+            "path": "src/shared/Contracts/BlockLinks/BlockAnchorContractDigest.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "dce5143a8a55038586e3960e6647c3d8b48b069a59370d7c569ec97ed06d8b4c",
+            "blob": "7b2fed92d7ba9c389173aad6fc7d468d05723185"
+        },
+        {
+            "path": "src/shared/Contracts/BlockLinks/BlockAnchorContractValidator.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "e5fff1285287fbbfd229c4b118cacaecc77826d379b88d198fe82d36cac632c0",
+            "blob": "4b08a7cbce38683f4aa7938e4be789add0fa3935"
+        },
+        {
+            "path": "src/shared/Contracts/BlockLinks/BlockAnchorContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "e9346ce1117d52e5d4225395ed909b73926a8417fa691b460774a631dea25948",
+            "blob": "b6ac06653e6ca69128eaa8b0febaaa1907708222"
+        },
+        {
+            "path": "src/shared/Contracts/BlockLinks/BlockAnchorIndependentVerifier.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "1b1f999674b1b416b3e1082986da44d47f4f05f04f073956b709016ff6ecefa3",
+            "blob": "ac4bcc821042896c2dfa083268ee6b4f99a93a58"
+        },
+        {
+            "path": "src/shared/Contracts/BlockLinks/BlockAnchorMarkdown.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "b92311b8cae92e36b170bb461e61726fddcd02ccd7d869449bf848b1779427bd",
+            "blob": "0645e97f418d9e5da641e532731311b06377f449"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "c67134167da864a7d7830e0ae4be558cc518d2f539c2e5ef87903e3c2554316b",
+            "blob": "ccc417763c04e36b8414325e944e48035018ae15"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "0c06ed92f7ac4d11084c0709e9696dbad05652d12f0558378fb8280a0b6b6784",
+            "blob": "6298d10439f5bde83fd4cceed344bb88f1495690"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleRelations/ArticleRelationCatalog.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "aafe00d5e137822dfe039ed799656181a241ffbf2f874dfa1f45aa7f53cf90c6",
+            "blob": "772e3041b6078c707e33c7e1ad93311508b5e790"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "658d39efd5d43f1b88b9be7569a9816508e1b4303947ebbd8c90fcbd0c4ee6ab",
+            "blob": "837b11c183d886cb69d748301b4cdc63544955fd"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "8ecca740767586e1586de15ff47914da7503abe1b668e783ec25f74cfd26014b",
+            "blob": "e0c95cecbbbd061cfa98c770013cb668d32f4d88"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleRelations/ArticleRelationDigest.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "a117022d57a73965aa20d3dcb0758ce706b65dcb853257e869d135d386e69c65",
+            "blob": "6a5d688518891fc90b381e67c3e79b4ad597537b"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "8f113d8042f096d219496407b306033a55593b032d3b5fe97fb5b1e001cb4d9b",
+            "blob": "9ecc32ddfc6b80c8dba53d1e681759a28b9eaef1"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "1447d5df03ed3062d8c54c8fbe9dbba9264436d1fbf78114904ef7410609e916",
+            "blob": "937f655dc6883053d3bd7f05ca02d89a0220d266"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "aeec382ccb80f2a08dfe56bdb2a9b8c7843693b00d88a3e6346c7d294e784484",
+            "blob": "6eecd0b17da40d9e25792195552c6cd31bf32903"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "16bcbd50a56b74b6549cebbe7c29e4f6eff900b017ffa34efc8e90c1277ce0da",
+            "blob": "24b47dde0849d6f251aff330417d68845077d872"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "492da924a367aa674462b43cfc40279be1b9cdbbc0c45354955ffa37c55fe1e5",
+            "blob": "b795e794eec85fee18a7da6fce8f3eadff4ba605"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "98b7bbfa026fbd1ee7c46be914aa4eb05b057187924b7b629164e59bd35ac8ae",
+            "blob": "c295f17c4e1d69c4232532b658a13c36ac5ad21b"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionCommands.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "d7f19c7a23d7612b7cce34c39f0120d7176aec8d7911e7874661fc0400d96ccf",
+            "blob": "61aa5915e044ca500eecfde008607edc8084117f"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionCommandHistory.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "4f47bae53e9cb21d048fa5cde9e2b108ca42a9fff7453d05cfeea8a3f297633b",
+            "blob": "b918939c8ffa82bf1d90af2538d9db8983a0a7e6"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "dbae30fed8a929bff8e579af5f67b213dd0e14218df69a2e0da8ecfeaa507c51",
+            "blob": "aabea7e8754c8dc81e2b85a89380a64b05659ce2"
+        },
+        {
+            "path": "src/backend/Infrastructure/Auth/AdminPermissions.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "6f4a0e610597a2351c3c7faedd917026b931703e7a3a38d81e8e1c871ff738d5",
+            "blob": "7af02597d32ff704729b24dd06d139ea5c1003f6"
+        },
+        {
+            "path": "src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "e0d53016208e88aaa5d7a3c343ab340712d8093d240b59120f439589872edd75",
+            "blob": "e1b0157139779c1a8a58a4c702f8709cd5579e21"
+        },
+        {
+            "path": "src/backend/Infrastructure/Helpers/TextHelpers.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "4621d57baa9724fc271b21a07a3e0220518c2e48c99e91f935b827826fb68432",
+            "blob": "f07ab208498f42f1c5f80c012f487a72f73e58e4"
+        },
+        {
+            "path": "src/backend/Entities/User.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "aa50001c382d86622595dc5b1a55ba1c4aa053a02f44074d4cf47d8d64da1368",
+            "blob": "8785686f8ffb851c7e5fce0bf7b16f73baf65fa4"
+        },
+        {
+            "path": "src/core/Common/HexText.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "10d06e2aeca576267c741c0cca9dfa6e7ed0239c1ceaafbd6375e58a93681ede",
+            "blob": "ef8d51b47dc149530fd8b97e6bfb439cfd8daacb"
+        },
+        {
+            "path": "src/backend/Entities/AuditLog.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "04a4a889ed0ed8e8c19d5b027659c01b016e5a38b83168c5edb6353cd58051a2",
+            "blob": "38d8f6fd1e491cc6ae608f22ff040e6f520b0a3f"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackagePropertyMapperTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "4d546dd928f5c693c86a5bd81f1e53ae852651407b7e0b87262ed45f10f17055",
+            "blob": "9264402952b4e374aba247d6c70f5784cab6d32b"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePropertyValueFoundationTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "c69b1cdee021b2092648aad9e4b1ea43f8d6328df3346719899b5c87e9c8992c",
+            "blob": "8074c5bebce4ae416278a942ee5650b41443cf7c"
+        },
+        {
+            "path": "src/shared/Contracts/Articles/ArticleCanonicalHashV1.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "6625958f10e4997d80a8d1f5ba0783d35e9a6b6f5e05982513ae4b5d9bf9a7e7",
+            "blob": "f712aeadd521f2fe3e7d294ac68b3e97ce07a982"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "2f47f68f8d6318e8c9e500e6966e550a724a0f1d515a9d3910ed54e9b7129d3b",
+            "blob": "fe403fe4f142984d75308c74c85d5ce3ef67e825"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "3d4c03a1e5614422c68c35a2b60e534010fef57a3dfef7039016335dfb6541e3",
+            "blob": "ca2df69d76894e0b10554a57bd9c218c3de16195"
+        },
+        {
+            "path": "src/shared/Contracts/Articles/ArticleStatusTransitionPolicy.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "c61b34fd9d3b59ed9998492c9f9944c217b251def331f07cf02ab7c5c6e35abb",
+            "blob": "a9ba6072dfa74fad9812f391d0e1ad76184dd695"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "2e4e73d513cd21600c7fb473ca89eda5c60bfbbf88fcc99266370a4b212725c9",
+            "blob": "48891eb562e466ab880cbc1864137f0f786c1cff"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageSourceByteTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "8be69f493364133d9761e7760fc1564afef6e825adcee2bfe5d2073c04d3106c",
+            "blob": "39168747f08ceca441b12cd3fa56bbec51d1dbbe"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "277a4e95cc3dfeeb6ed3126f959f0a5866a10dac479129780bb010ced9837c6e",
+            "blob": "4be8fe49726f3521b7d6fc1672289950b48cd0de"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "7aec54442535433c2de8f48c24c91f8e06de45416ee2ff84bd38a5389f299a90",
+            "blob": "909a9bf5dc0c6aeaa930be1c62c19106a6ae2e91"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageInventoryTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "3eca12674ee2588eab4a9820bdc433a57ab4f96f088fcca662cfcda66f0e9dfc",
+            "blob": "fa4837fc1253d27ae8008aa14c501cb3cea6752d"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageChecksumTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "8f251cbfa454dc9ea1a04ac2f35ecc08aca36fa904ae6eb96305188fd595ab8f",
+            "blob": "d5d861e115d03afa0b8df283f46438c41c3c6737"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageImportCandidateByteTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "03e89232d2194118b650f9d991d44c7ec56ec4cff6cb8a1f8f2afa712e240b31",
+            "blob": "3c500e66b80e24ae9adb1f3e72918d23049f7b68"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageImportCandidatePlanTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "41aa29dae64fb8339b4a3e5feddd38e2743da9ac60a14dcdb0633a832f1591d6",
+            "blob": "3407f29514a1ee549ae2345ac5b815706e92402d"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageImportZipCandidateTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "8d8f824496d9acea640f6cc2f841fabbb9422de1678933572b4f4f90cc9f2925",
+            "blob": "34944e0b4417b1caaf289a232cb86dd4b2ddd815"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "56ff4b4fefbda4cb6735c3744ceffca2e1fa517453abd79418115b6b20224dc6",
+            "blob": "cb06db591c0d92cff15bfd354b555d62dc7c2db0"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "8c172701134838a6f95799499dd8cbb3f2567b69f3143e5e38c0cf0a47d832fa",
+            "blob": "226a8474e31c3e8bbb368d733c579d5eeb96cd27"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportDigest.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "28af4dd196bf26b8ef9ef8eaad08cb1fdbd2fd4bb8467491349e06e09ff292ca",
+            "blob": "65216fa69647ea5d1f2e6c054a31c9ce2a33c705"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "4e384356e940c93bd91435b697c73131bbdf779987a39d610b85dfce3a8b73c8",
+            "blob": "2720bdac3a8a5eead591850e6f7b5d41c9a55f7b"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportReadingStyleAuthority.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "ca676357c42e221183629559c78d8c34b31689674d1d8a64a37c3988ade6414a",
+            "blob": "1b5d3eb21493f39bf6b04a39f3f002f29a42d02c"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "69aa95fe6342a3662a12325e74bee12225105918dd08ed58f81a4f705d9d12f9",
+            "blob": "4b70a2d210f0eab4d00700bb398b088ad31feb26"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "8fc9092eae846d5104bfeedae31d2a1798f429e58ee87883208c2660085ec734",
+            "blob": "3e02b525543e3549efa8c7f67c7815a3bb0f52b9"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "7221e4e73a813fcbb508b777b0e2cb07e958afd1e903633a819e5cafa30ae2a8",
+            "blob": "c1405f729d867faa50e6fc2853f9fdaafc803568"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "54197f267fa4918ea2e465ecf98d6dfa24b79dc38d62edaa16bc937d8dcabf11",
+            "blob": "66ccf42d575b552b367cf6e04efa06d016e3c211"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "4fadb4e4baa59ea8ad1895eda3a9b783902c8f60afdcbb5abdf3964f7af10805",
+            "blob": "76e138b24e6683122428213b85369defd6b4954b"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "cce25d174cb57f583517b3244b0094c1f42fefa937cf7b77d871c208ddb93ffc",
+            "blob": "87717b19a47f13785db210fe6ad562975a83bd3a"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "8c10c2b3c0cb05d0b12b3acb73e9d0695d6bb28a757e5a058205535f5ea60229",
+            "blob": "cdda19bf6060b066bb37e2a57ab5860b10faeb08"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "f151c0c326d0d10d711334eb34f32385dd19850ab563a3d9976931e63d46196e",
+            "blob": "26b1b154ae3bfe9593034120558e0451ead78999"
+        },
+        {
+            "path": "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "90499592a4218416d4a9ae430268ef8106abc1abfe93a34df3dbd9e0a841ab6e",
+            "blob": "f170da71f9b77cf0ea6b6c61fbb0be470c2c7950"
+        },
+        {
+            "path": "src/backend/Services/Authoring/AuthorRecentArticleHistoryContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "08888f875489afba6bf7c05628ad6de5210b4ee1fbde38ce4ee457b6baa0cea1",
+            "blob": "bb30057f5064e87f457f4b4862f764268f2f2930"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "baab85c7f9203ad22f81758da0e4a9bc156773ae812ddb020b2f268d485b753b",
+            "blob": "079fec9acefe66d3907ef679426e965af5bd56a5"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "523d26cd4cca1d1c8762ed6aaddd1b57f6d7fb3ea70bfc73514a75ca917b11e0",
+            "blob": "4a7f73272fe8ef102b0eb1165c13db38e00060db"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationDigest.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "0ba180c8b11bf16dd012f27c4b650054a1d40b6f1fdb09ff80a7cbc0eb6b7af5",
+            "blob": "2cb45472972850c768a38a8245daba4afa1a0fa3"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContractValidator.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "9bd93c9585e4bb4614faeef31fd9bec10d1ad628c35611f4dc5c52fb0a83fec7",
+            "blob": "e5f87e8ef1e59ae3f1e7f57d48596cbc6f50d94a"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "d39a102feaf531a1254500fd960ceb21c5a1927bc8a60a157b359c89c9d8177c",
+            "blob": "a7c8ef21ce617e9a399d97c6c8f3c2fe50284f51"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "8b584aeee6656c856cd7aafc929ad55fc2d5401ad9a236dfb631329b7ea7a98e",
+            "blob": "475b9c958b035885b958fa0d171a618e8cb81fd8"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContractValidator.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "02351d3a2dfd3b411789c3bb5b6920e889b9645996febeb185f3948f28606723",
+            "blob": "57c46558d141c8b86636218433ca3078b8cac6fc"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "7b4021c8363cf1579ec98d0e080f3ea247150ccbb2b1a16e5b1dbee482fe147e",
+            "blob": "31c708b5fb98dc5b117fafa630d0d9559ef072d2"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "e85c0238809d297cf0cbfa3e1a48a88a5effe6aee9824a185ae0e7ff9a07db24",
+            "blob": "5adb62288181edd6bc5a4cfda5f2e39c44f78101"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageFrozenExportCandidateWriterTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "576077f76b903f00b4380c6f5ca1741e347c301fea8eda8909acd78ee5279819",
+            "blob": "cfc19ab1df6ddd510a935e3a629fd6eb64882016"
+        },
+        {
+            "path": "src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "607c43b71ad22a00d6c5888ca7d4a3887bbec60166ca4f687d3598d157e56b8b",
+            "blob": "d80f31564abd00c0bb286feb395cff9d871f3958"
+        },
+        {
+            "path": "src/shared/Contracts/Articles/ArticleRightsRequestCoreModel.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "79909b0abf52628b71473bb7fa8470866ef43113f02a47c28486874eb50a2a51",
+            "blob": "a82159600fb90018a37a77ddce2efb891966e213"
+        },
+        {
+            "path": "src/shared/Contracts/Articles/ArticleResponsibilityContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "48456e0565b6ca864dd47f1cddd83bfff80fee15c9552da2e2b09c4035d71b87",
+            "blob": "39aa72ecef069b62e29864194f9f536adfc42711"
+        },
+        {
+            "path": "src/shared/Contracts/Articles/ArticleResponsibilityGovernance.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "e03d86db136114ca2a98215e0ea6ecb3e07be1f94be8b184f80fa1f95ebf828a",
+            "blob": "ac8c95087e0b654512cfa70b92bcef5aaca39f1f"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "955ca10aff7740cca91082e0e212f4d70ab6f9c5c06fcd612b75caa442e94ae5",
+            "blob": "7d384124dd514c22c806cfc0320966b245fb7f4d"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "65fdf16486f7ec9f82f6199c018226fa5eec194533e49bfe879f5d8be0bec1f7",
+            "blob": "7dba85d0b156841d5fdff5e5208979021b7a6925"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageManifestMetadataCodecTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "a885b4d7cd315c1801014cd80f76e4b56a867f9774468d77a19b01b51bf30d05",
+            "blob": "e6adafac55ec41e5f2fc9eee579a590fa0f7ee0a"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "456156021007e5aeb8df3bab4c0969f92d032a0a56083f73ef484f6afbda5715",
+            "blob": "307aa308f29307f29130acd6e7a59c9951f1d485"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyCodec.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "a3b57ab48272f8eaa0cdcbba050f545a00c072fa3ea596ee523e226712c34b50",
+            "blob": "bf70731af298fa0dd654ce8e4f807e5e2020d975"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageManifestTaxonomyCodecTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "dacc2ee8269187300c515b34b46c7960635462d2da95d4cd58368892641ac52d",
+            "blob": "ee1e3fd42df499da94652d5cfb8e7570d34c0bcc"
+        },
+        {
+            "path": "src/backend/Contracts/Assets/AssetId.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "c84963fd579d67794c0ee43006f3b0e1e2402514a281be9d404b0a20d43f5590",
+            "blob": "49da90784bad083438e8d0806d3733bf8945dc6b"
+        },
+        {
+            "path": "src/backend/Contracts/Assets/AssetStorageKey.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "579b6ba8e435a28df4c0ed440a949abe0d02608064ea8058ca2e818e1eb5c567",
+            "blob": "9108041e050bc399b2b7d18b36dc5e6daa568f07"
+        },
+        {
+            "path": "src/backend/Contracts/Assets/ContentAssetContract.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "4019e82e23c3d4d2a014322e9dae218e46a26026317eee2a1c2660f4cd16ace0",
+            "blob": "91b12f48918ac78689841341470236ebda3c4685"
+        },
+        {
+            "path": "src/backend/Contracts/Assets/ContentAssetSchemaValidator.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "b0cb7949cf383aabca13f8beccea9a148f59359f73d1703cd28fc1cd004c9fea",
+            "blob": "a4a186227d017f1f0c95ad54843282f6f353345b"
+        },
+        {
+            "path": "src/backend/Contracts/Assets/ContentAssetMediaInspector.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "75269543102ba52cef2134c6ab944cb43f781030fe6a9c4313789e5cb85457aa",
+            "blob": "963f9b76d72d3a59053daa5db1da3d20622430f4"
+        },
+        {
+            "path": "src/backend/Entities/ContentAssetEntities.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "6b4f44d0455dcc087202a3ce0dfb669ad06367ea891b4aa5a5af56ac24a0dc64",
+            "blob": "438cdf93db1fd14df4a33845c0f22c8d30ce8183"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageAssetMetadataMapper.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "02dd41d5a1f47e4c7dfb264f6813815db1963e32b524de43d5d12c091ebafd11",
+            "blob": "b2137ab1314446a70e9066cd075078ae93edbebd"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetMetadata.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "958a73f07dc948e91e4bbe0b5c846935849251a36247f4db48c81d4fba9fd7d8",
+            "blob": "201da3565ab762d4967647404c4c6aebd1bb3039"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageAssetMetadataMapperTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "ebdcd8a09a6315ab2c7977768b84f770df77c2bf3c04657312d0762b03cb023f",
+            "blob": "9a41761a18a3ff891f5815679004fa8e97fb1b7f"
+        },
+        {
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "49958b5a81bb2b8c11200a9a5333ced401cfebc4193b761698f68361d1f32569",
+            "blob": "79be4d889519a3ff93d22a95427c407454e52d5c"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageManifestPropertyBinder.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "33c331cb08e868a75a4a3ab0d68ef971eb0cb5c6f5f30838900addbea2087e0b",
+            "blob": "22f263ad065ac9d7fad74250a689cd83c2852450"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageManifestPropertyCodecTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "5468fe7b9f215e2ac93ccb26469533a592ea8cdfc09f943593d0dfa532b76acf",
+            "blob": "de10ecbb699464919438e414f5c16fec0b173d10"
+        },
+        {
+            "path": "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "495e6b845a6495cd7c6054f4b50b305e507fde3918ac24de50b2c5389932d5d4",
+            "blob": "e3a2da0fde13fed17cb000e2dc160c7d8252480d"
+        },
+        {
+            "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "cc20fcc6e67d5f309c86827a16b09471cc7a73d3f657d46e70a2837389bf2dfa",
+            "blob": "e40a8e0ee45b7f52e93483b4c06477bcfd77cb08"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "423d0632bd42e511ccde844eea4ca21af44f7952adb094a231b5ac351775c814",
+            "blob": "977b1ff8e9d7a2f99f3a76c248e44de6325b0d70"
+        },
+        {
+            "path": "tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "4dd68852a68b783bb59ee8f1fd406553a643db8eb6c93b6ad720712202dcb910",
+            "blob": "243b66cac60966b7c229fb5a4a35bfbc477a81af"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs",
+            "revision": "d855433f2c4cbb675b2544c5d67ff8c101164847",
+            "sha256": "923842bffa8c56c9e622110ccc28c2804ea85582b586c0374e4c18367b7cfc30",
+            "blob": "87c7471a89a62f0823624151c0f8cae05d2193cd"
+        }
+    ]
+}

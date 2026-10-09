@@ -1,0 +1,439 @@
+Test run for /workspace/chain-3663-evidence/persisted-property-binding/harness/bin/Debug/net10.0/PropertyCodec.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.45]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.NonemptyReferenceRequiresRealOperationAuthority [FAIL]
+[xUnit.net 00:00:00.46]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(field: "audit-chain") [FAIL]
+[xUnit.net 00:00:00.46]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(field: "audit-hash") [FAIL]
+[xUnit.net 00:00:00.46]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(field: "reconciliation") [FAIL]
+[xUnit.net 00:00:00.46]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(field: "factset") [FAIL]
+[xUnit.net 00:00:00.46]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(field: "snapshot") [FAIL]
+[xUnit.net 00:00:00.46]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: SingleSelect) [FAIL]
+[xUnit.net 00:00:00.46]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: ArticleReference) [FAIL]
+[xUnit.net 00:00:00.46]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: Url) [FAIL]
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.NonemptyReferenceRequiresRealOperationAuthority [78 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.NonemptyReferenceRequiresRealOperationAuthority() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 221
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(field: "audit-chain") [4 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 186
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(field: "audit-hash") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 186
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(field: "reconciliation") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 186
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(field: "factset") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 186
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(field: "snapshot") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 186
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: SingleSelect) [2 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 32
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: ArticleReference) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 32
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: Url) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 32
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.48]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: Boolean) [FAIL]
+[xUnit.net 00:00:00.48]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: MultiSelect) [FAIL]
+[xUnit.net 00:00:00.48]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: Date) [FAIL]
+[xUnit.net 00:00:00.48]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: Text) [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: Number) [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "definition-owner") [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "definition-digest") [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "option") [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "missing-definition") [FAIL]
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: Boolean) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 32
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: MultiSelect) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 32
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: Date) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 32
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: Text) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 32
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(type: Number) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1(ArticlePropertyValueType type) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 32
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "definition-owner") [1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 164
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "definition-digest") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 164
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "option") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 164
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "missing-definition") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 164
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "definition-schema") [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "type") [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.HistoricalInactiveOptionAndReconciliationArePreservedWithoutNewValueAdmission [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "site") [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "owner") [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "publication") [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "property-revision") [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "article") [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "revision") [FAIL]
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "definition-schema") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 164
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(field: "type") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 164
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.HistoricalInactiveOptionAndReconciliationArePreservedWithoutNewValueAdmission [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.HistoricalInactiveOptionAndReconciliationArePreservedWithoutNewValueAdmission() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 63
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "site") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 113
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "owner") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 113
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "publication") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 113
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "property-revision") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 113
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "article") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 113
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(field: "revision") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 113
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(presence: Present, applied: False) [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(presence: Present, applied: True) [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(presence: Null, applied: False) [FAIL]
+[xUnit.net 00:00:00.49]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(presence: Missing, applied: False) [FAIL]
+[xUnit.net 00:00:00.50]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(field: "factset") [FAIL]
+[xUnit.net 00:00:00.50]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(field: "audit-chain") [FAIL]
+[xUnit.net 00:00:00.50]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(field: "snapshot") [FAIL]
+[xUnit.net 00:00:00.50]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(field: "audit-hash") [FAIL]
+[xUnit.net 00:00:00.50]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(field: "audit-reference") [FAIL]
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(presence: Present, applied: False) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(ArticlePropertyValuePresence presence, Boolean applied) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 79
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(presence: Present, applied: True) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(ArticlePropertyValuePresence presence, Boolean applied) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 79
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(presence: Null, applied: False) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(ArticlePropertyValuePresence presence, Boolean applied) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 79
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(presence: Missing, applied: False) [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized(ArticlePropertyValuePresence presence, Boolean applied) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 79
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(field: "factset") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 133
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(field: "audit-chain") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 133
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(field: "snapshot") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 133
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(field: "audit-hash") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 133
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(field: "audit-reference") [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete(String field) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 133
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:00.50]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.UnsupportedDraftIsRefusedBeforeCurrentRead [FAIL]
+[xUnit.net 00:00:00.50]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.CanonicalAccessDenialAndInterruptedReadsPropagateWithoutProjection [FAIL]
+[xUnit.net 00:00:00.51]     FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingPersistedHeadNeverBecomesEmptySnapshot [FAIL]
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.UnsupportedDraftIsRefusedBeforeCurrentRead [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.UnsupportedDraftIsRefusedBeforeCurrentRead() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 206
+--- End of stack trace from previous location ---
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.CanonicalAccessDenialAndInterruptedReadsPropagateWithoutProjection [4 ms]
+  Error Message:
+   Assert.Throws() Failure: Exception type was not an exact match
+Expected: typeof(FsusBlog.Server.Services.Authoring.ArticlePropertyDefinitionAccessDeniedException)
+Actual:   typeof(Xunit.Sdk.TrueException)
+---- Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.CanonicalAccessDenialAndInterruptedReadsPropagateWithoutProjection() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 232
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.<>c__DisplayClass15_0.<CanonicalAccessDenialAndInterruptedReadsPropagateWithoutProjection>b__1() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 233
+  Failed FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingPersistedHeadNeverBecomesEmptySnapshot [< 1 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Portable(ArticlePackageIdentityKind kind, Int32 number) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 321
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.Bindings(ArticlePropertyValueReadModel model) in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 290
+   at FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingPersistedHeadNeverBecomesEmptySnapshot() in /workspace/FsusBlog-persisted-property-binding-3663/tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs:line 193
+--- End of stack trace from previous location ---
+Results File: /workspace/chain-3663-evidence/persisted-property-binding/diagnostic-trx/_bad473dbf38b_2026-10-09_05_37_27_net10.0.trx
+
+Failed!  - Failed:    39, Passed:     0, Skipped:     0, Total:    39, Duration: 150 ms - PropertyCodec.Tests.dll (net10.0)
