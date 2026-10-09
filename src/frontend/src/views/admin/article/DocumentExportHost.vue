@@ -179,6 +179,7 @@ const loading = ref(false);
 const message = ref('');
 let lifecycle: ReturnType<typeof createDocumentExportPrivateUiLifecycle> | undefined;
 let pending: AbortController | undefined;
+let unsubscribePort: (() => void) | undefined;
 const selectedChoice = computed(() => choices.value?.choices.find(choice => choice.choiceId === choiceId.value));
 const availabilityMessage = computed(() => selectedChoice.value
     ? authorities
@@ -190,6 +191,8 @@ function clearPrivateView(): void
 {
     pending?.abort();
     pending = undefined;
+    unsubscribePort?.();
+    unsubscribePort = undefined;
     port.value?.dispose?.();
     port.value = undefined;
     choices.value = undefined;
@@ -201,7 +204,7 @@ function clearPrivateView(): void
     centerVisible.value = false;
 }
 
-function close(): void
+function retire(): void
 {
     const retired = lifecycle;
     lifecycle = undefined;
@@ -209,9 +212,35 @@ function close(): void
     clearPrivateView();
 }
 
+function close(): void
+{
+    selectorVisible.value = false;
+    centerVisible.value = false;
+    if (!port.value)
+    {
+        // Acquisition has no admitted write intent; retain its original abort behavior.
+        retire();
+    }
+    // Keep the mounted original center/call and exact bound port while hidden.
+    // Closing is neither a confirmed write result nor a permission/context change.
+}
+
 function open(): void
 {
-    close();
+    if (port.value && lifecycle)
+    {
+        try
+        {
+            lifecycle.assertCurrent();
+            centerVisible.value = true;
+            return;
+        }
+        catch
+        {
+            retire();
+        }
+    }
+    retire();
     lifecycle = createDocumentExportPrivateUiLifecycle(clearPrivateView);
     selectorVisible.value = true;
 }
@@ -295,7 +324,7 @@ function continueToExport(): void
         current.assertCurrent();
         const facts = requireDocumentExportHostFacts(choices.value, choiceId.value, authorities, current.assertCurrent);
         current.assertCurrent();
-        const prepare = createDocumentExportHostPrepareRequest(facts.choice, facts.catalog, () => activeLocale.value);
+        let prepare = createDocumentExportHostPrepareRequest(facts.choice, facts.catalog, () => activeLocale.value);
         created = createDocumentExportBrowserUiPort({
             catalog: facts.catalog, sources: facts.sources,
             prepareRequest: selection =>
@@ -306,7 +335,19 @@ function continueToExport(): void
                 return request;
             }
         });
+        const requestFromPort = created.request;
+        created.request = async request =>
+        {
+            const result = await requestFromPort(request);
+            current.assertCurrent();
+            // A real confirmed response resolves this intent. Only a later explicit
+            // submission may allocate a new identity, even with identical options.
+            // Rejection/uncertainty keeps the existing preparation and original call.
+            prepare = createDocumentExportHostPrepareRequest(facts.choice, facts.catalog, () => activeLocale.value);
+            return result;
+        };
         current.assertCurrent();
+        unsubscribePort = created.subscribePermissionRevoked?.(retire);
         port.value = created;
         selectorVisible.value = false;
         centerVisible.value = true;
@@ -323,7 +364,7 @@ function continueToExport(): void
     }
 }
 
-onBeforeUnmount(close);
+onBeforeUnmount(retire);
 </script>
 
 <style scoped>

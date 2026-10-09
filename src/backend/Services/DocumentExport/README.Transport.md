@@ -139,8 +139,13 @@ exact returned choice. The existing active locale runtime is a locale authority;
 the choices response is not. The article-list host now requires explicit article
 and persisted revision selections, uses the original active locale, and prepares
 the original immutable request/idempotency identity against that exact choice.
-It retains the original private-generation lifecycle, clears on close/unmount,
-and never automatically repeats an uncertain acquisition.
+It retains the original private-generation lifecycle and never automatically
+repeats an uncertain acquisition. Closing acquisition aborts it; closing an
+export center only hides the mounted original call and exact bound intent.
+Reopening resumes that same center without recapture or a fresh idempotency
+identity. A confirmed write response resolves the prepared intent; only a later
+explicit submission allocates a new identity. Unmount or permission/context
+revocation still disposes the port and clears private data.
 
 `ReadCatalogMetadataAsync` authenticates the original admin owner/session/site
 context and article-write permission before projecting the canonical registry
