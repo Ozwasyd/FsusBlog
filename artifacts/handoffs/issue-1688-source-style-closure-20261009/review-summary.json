@@ -56,9 +56,10 @@
     "errors": 0,
     "warnings": 0,
     "receipt": "artifacts/handoffs/issue-1688-source-style-closure-20261009/strict-release-result.json",
-    "log": "artifacts/handoffs/issue-1688-source-style-closure-20261009/strict-release-build.log",
+    "log": "artifacts/handoffs/issue-1688-source-style-closure-20261009/strict-release-build-log.json",
     "logSha256": "040c1713ce998502ab5cf6cec86a386103c93152f1ad66661ceaa4675468105f",
-    "applicability": "Later production changes are exactly16 valid XML summaries in two files; removing those additions restores the original strict-build source bytes. Build stamp/tested SHA is retained; no final-head rebuild receipt is claimed."
+    "applicability": "Later production changes are exactly16 valid XML summaries in two files; removing those additions restores the original strict-build source bytes. Build stamp/tested SHA is retained; no final-head rebuild receipt is claimed.",
+    "logPackaging": "Lossless UTF-8 JSON envelope; payload bytes reproduce the original command log SHA-256."
   },
   "remainingSourceRequirement": "Canonical SOURCE-selection owner must admit mandatory blame metadata through the existing reviewed source checker; no candidate selection-policy or checker changes made.",
   "runtimeAcceptance": "OPEN; original admitted containment and lifecycle qualification remain unrun for this source candidate.",

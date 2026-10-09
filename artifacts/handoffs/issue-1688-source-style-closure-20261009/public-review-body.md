@@ -83,7 +83,7 @@ Related source owners: [#3654](https://github.com/Ozwasyd/FsusBlog/issues/3654),
 
 - Audience: internal
 - Category: Internal/Tooling
-- Summary: restore canonical production source gates
+- Summary: restore production build and style gates
 
 ## Generated Output
 
