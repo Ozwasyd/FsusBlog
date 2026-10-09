@@ -3,7 +3,9 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 using FsusBlog.Server.Infrastructure.Memory.Accounting;
+using FsusBlog.Server.Infrastructure.Memory.Capabilities;
 using FsusBlog.Server.Infrastructure.Memory.Contracts;
+using FsusBlog.Server.Infrastructure.Memory.Platform;
 
 namespace FsusBlog.Server.Infrastructure.Memory.Pressure;
 
@@ -239,6 +241,43 @@ public sealed class PortableMemoryPressureSource
             Array.Clear(_trace);
             _count = 0;
             _next = 0;
+        }
+    }
+
+    /// <summary>
+    /// Captures raw platform rows in caller-admitted storage using this observation owner's clock.
+    /// The caller owns output lifetime and the finite Job query duration. These rows retain
+    /// their native scopes, failures and qualification; they are not domain-bound history,
+    /// admission headroom or comparable Job samples. No scheduler or probe budget is supplied.
+    /// </summary>
+    public (MacOsSysctlMemoryCapture MacOs, WindowsJobMemoryCapture WindowsJob) CapturePlatformObservations(
+        Span<MacOsSysctlMemoryObservation> admittedMacOsOutput,
+        Span<WindowsJobMemoryObservation> admittedWindowsJobOutput,
+        TimeSpan maximumJobCaptureDuration,
+        MemoryCapabilityMode mode = MemoryCapabilityMode.Auto)
+    {
+        Span<MacOsSysctlMemoryObservation> macOsOutput = admittedMacOsOutput[..Math.Min(admittedMacOsOutput.Length, MacOsSysctlMemoryReader.ObservationCount)];
+        Span<WindowsJobMemoryObservation> windowsJobOutput = admittedWindowsJobOutput[..Math.Min(admittedWindowsJobOutput.Length, WindowsCurrentJobMemoryReader.ObservationCount)];
+        try
+        {
+            MemoryCapabilityPolicy.Validate(mode);
+            if (macOsOutput.Length != MacOsSysctlMemoryReader.ObservationCount
+                || windowsJobOutput.Length != WindowsCurrentJobMemoryReader.ObservationCount
+                || maximumJobCaptureDuration <= TimeSpan.Zero)
+            {
+                throw new ArgumentException("Platform capture requires complete admitted output and a finite positive Job duration.");
+            }
+
+            MacOsSysctlMemoryCapture macOs = MacOsSysctlMemoryReader.Capture(_clock, macOsOutput, mode);
+            WindowsJobMemoryCapture windowsJob = WindowsCurrentJobMemoryReader.Capture(_clock, maximumJobCaptureDuration, windowsJobOutput, mode);
+            return (macOs, windowsJob);
+        }
+        catch
+        {
+            // A failed combined operation cannot leave one platform's old or partial facts usable.
+            macOsOutput.Clear();
+            windowsJobOutput.Clear();
+            throw;
         }
     }
 

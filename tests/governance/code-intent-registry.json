@@ -261,6 +261,55 @@
             "path": "src/backend/Infrastructure/Memory/Platform/LinuxCgroupDirectoryReader.cs",
             "symbol": "CaptureV1Stat",
             "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-macos-sysctl-observation",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Platform/MacOsSysctlMemoryReader.cs",
+            "symbol": "MacOsSysctlMemoryObservation",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-macos-sysctl-capture",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Platform/MacOsSysctlMemoryReader.cs",
+            "symbol": "MacOsSysctlMemoryCapture",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-macos-sysctl-reader",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Platform/MacOsSysctlMemoryReader.cs",
+            "symbol": "MacOsSysctlMemoryReader",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-macos-sysctl-capture-method",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Platform/MacOsSysctlMemoryReader.cs",
+            "symbol": "Capture",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-windows-immediate-job-observation",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Platform/WindowsCurrentJobMemoryReader.cs",
+            "symbol": "WindowsJobMemoryObservation",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-windows-immediate-job-reader",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Platform/WindowsCurrentJobMemoryReader.cs",
+            "symbol": "WindowsCurrentJobMemoryReader",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-platform-observation-caller",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs",
+            "symbol": "CapturePlatformObservations",
+            "documentationStyle": "xml-doc"
         }
     ],
     "intents": [

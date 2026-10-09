@@ -506,3 +506,19 @@ remain `NotVerified`; job/compression/pressure APIs, actual Windows rows, measur
 probe/metadata costs and canonical Auto/readiness integration remain required.
 Native ABI/meanings follow [PERFORMANCE_INFORMATION](https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-performance_information)
 and [PROCESS_MEMORY_COUNTERS_EX](https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters_ex).
+
+`PortableMemoryPressureSource.CapturePlatformObservations` is the existing
+observation owner's raw platform caller. It uses its clock and caller-admitted
+output spans to invoke `MacOsSysctlMemoryReader` and
+`WindowsCurrentJobMemoryReader`, with an explicit finite Job query duration.
+Invalid shape or policy clears both owned prefixes before any probe; exceptions
+clear partial rows and preserve caller-owned tails. Disabled makes no native or
+clock capture. The returned metadata and output rows retain each reader's states,
+native meanings and `NotVerified`; they are not inserted into portable comparable
+history. macOS `hw.memsize` is host physical total, while `vm.swapusage` is host
+swap occupancy. Immediate Windows Job limits retain class 9 flags, separate peaks
+and class 13 notification-time occupancy. Query time is not notification time;
+missing Job identity/epoch prohibits cross-frame comparison. No host metric,
+process attribution, headroom or qualification is inferred. Genuine Windows/macOS
+runtime rows, admitted metadata/probe costs, frozen policy, original background
+caller and canonical Auto activation/readiness remain required.
