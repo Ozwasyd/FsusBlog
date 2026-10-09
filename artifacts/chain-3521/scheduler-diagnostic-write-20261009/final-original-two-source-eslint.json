@@ -1,0 +1,20 @@
+{
+  "key": "final-original-two-source-eslint",
+  "sourceCommit": "8b24276f35c006a438d300eefe40c238d60dd54b",
+  "cwd": "/workspace/FsusBlog-scheduler-diagnostic-write",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js",
+    "tools/test-matrix/atomic-producers/execution.mjs",
+    "tests/tools/atomic-producer-compiler.test.mjs"
+  ],
+  "startedUtc": "2026-10-09T05:50:26.688856+00:00",
+  "completedUtc": "2026-10-09T05:50:29.736239+00:00",
+  "elapsedSeconds": 3.047,
+  "exitCode": 0,
+  "pid": 13183,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "final-original-two-source-eslint.log.gz",
+  "qualification": false
+}

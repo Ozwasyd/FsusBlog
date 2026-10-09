@@ -1,0 +1,14 @@
+{
+  "expectedSelectedCount": 1,
+  "registeredCount": 23,
+  "literalNames": [
+    "attempt runner Error remains primary when its diagnostic write also fails"
+  ],
+  "pattern": "^attempt\\ runner\\ Error\\ remains\\ primary\\ when\\ its\\ diagnostic\\ write\\ also\\ fails$",
+  "testPath": "tests/tools/atomic-producer-compiler.test.mjs",
+  "testSha256": "57dd2106445b9c023ec4fd1c93f8c4af9b86d6bee686823643aa53d9de990f44",
+  "hooks": "no global hooks; original withEvidence owns temp root and cleanup; real fixture/runner; t.mock writes only alpha-check.json; rebindAtomicFixture unused",
+  "soleWriterConfirmation": "root coordinator 2026-10-09 authorizes this specific repair after original owner terminal/no active writes",
+  "heldAudits": "NOT_RUN",
+  "qualification": false
+}

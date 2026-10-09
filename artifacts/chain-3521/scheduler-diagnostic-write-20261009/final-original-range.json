@@ -1,0 +1,20 @@
+{
+  "key": "final-original-range",
+  "sourceCommit": "8b24276f35c006a438d300eefe40c238d60dd54b",
+  "cwd": "/workspace/FsusBlog-scheduler-diagnostic-write",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "e6efbce8ec875f92053af4ece5c82cc3044d7ed8..HEAD"
+  ],
+  "startedUtc": "2026-10-09T05:50:26.740473+00:00",
+  "completedUtc": "2026-10-09T05:50:28.876988+00:00",
+  "elapsedSeconds": 2.137,
+  "exitCode": 0,
+  "pid": 13190,
+  "logSha256": "bb652db225db278b5e4447327b61c95b3b4ab0b3b6c0dd2835bf9a4fb0d2ffaf",
+  "logBytes": 81,
+  "rawLogArchive": "final-original-range.log.gz",
+  "qualification": false
+}

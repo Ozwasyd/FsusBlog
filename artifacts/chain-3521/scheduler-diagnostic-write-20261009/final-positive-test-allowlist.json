@@ -1,0 +1,18 @@
+{
+  "expectedSelectedCount": 4,
+  "registeredCount": 23,
+  "literalNames": [
+    "terminal publication failure retains the earlier producer failure as primary",
+    "terminal publication failure retains the original cancellation Error object",
+    "terminal publication failure without an earlier execution failure rejects with the write Error",
+    "attempt runner Error remains primary when its diagnostic write also fails"
+  ],
+  "pattern": "^(?:terminal\\ publication\\ failure\\ retains\\ the\\ earlier\\ producer\\ failure\\ as\\ primary|terminal\\ publication\\ failure\\ retains\\ the\\ original\\ cancellation\\ Error\\ object|terminal\\ publication\\ failure\\ without\\ an\\ earlier\\ execution\\ failure\\ rejects\\ with\\ the\\ write\\ Error|attempt\\ runner\\ Error\\ remains\\ primary\\ when\\ its\\ diagnostic\\ write\\ also\\ fails)$",
+  "testPath": "tests/tools/atomic-producer-compiler.test.mjs",
+  "testSha256": "57dd2106445b9c023ec4fd1c93f8c4af9b86d6bee686823643aa53d9de990f44",
+  "sourceSha256": "19c8aa08313ca5f076b75dab9e45a2c1430b55ce06065e31f8482f897728576c",
+  "hooks": "Original withEvidence and fixture/runner only; scoped fs write mocks; no rebind, substitutions or held callbacks",
+  "heldAudits": "NOT_RUN",
+  "qualification": false,
+  "candidate": "8b24276f35c006a438d300eefe40c238d60dd54b"
+}

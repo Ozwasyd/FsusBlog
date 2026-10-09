@@ -1,0 +1,27 @@
+                    attempts.set(step.id, attempt);
+                    result = attemptOutcome(attempt, signal);
+                }
+                catch (error)
+                {
+                    const evidence = sealContentDigest({
+                        producerId: step.id,
+                        compiledDagDigest: verified.contentDigest,
+                        receiptKind: 'adapter-failure-without-verified-attempt',
+                        terminalState: 'internal-error',
+                        reasonCode: 'attempt-runner-internal-error',
+                        reason: error instanceof Error ? error.message : String(error)
+                    });
+                    result = {
+                        ...evidence,
+                        reason: error,
+                        primaryFailureRefs: [step.id],
+                        evidenceRef: writeEvidence(step.id, evidence)
+                    };
+                }
+            }
+            else if (step.alwaysRunFinalizer === true)
+            {
+                // The installed owner performs cleanup/inventory only. No command
+                // or attempt runner is exposed through this operation contract.
+                await finalizerOperations[step.operationRef.id].execute(Object.freeze({
+                    operationRef: step.operationRef,

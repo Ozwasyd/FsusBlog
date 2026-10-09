@@ -1,0 +1,45 @@
+{
+  "candidate": "8b24276f35c006a438d300eefe40c238d60dd54b",
+  "branch": "codex/chain-3521-scheduler-diagnostic-write",
+  "base": "e6efbce8ec875f92053af4ece5c82cc3044d7ed8",
+  "changedPaths": [
+    "tests/tools/atomic-producer-compiler.test.mjs",
+    "tools/test-matrix/atomic-producers/execution.mjs"
+  ],
+  "ownerResolution": {
+    "coordinatorThread": "01a119be-e15d-7134-badb-2af41ed14004",
+    "soleWriter": "this original chain-3521 session",
+    "originalAtomicFrameworkSession": "01a119f8-07b7-73d2-b926-b76b9fb78008",
+    "resolution": "Parent confirmed terminal original owner and no active execution.mjs writer or group-2 reservation; explicitly assigned this bounded repair."
+  },
+  "reviewerThread": "01a11adf-0d01-76bb-83e1-8cfe3077401d",
+  "oldSourceBlob": "8de3589ece367f3f8a6029f0b0dce0d8a5e03bda",
+  "baselineNewControl": {
+    "source": "e6efbce8ec875f92053af4ece5c82cc3044d7ed8 plus additive test bytes identified by baseline allowlist",
+    "executed": 1,
+    "pass": 0,
+    "fail": 1,
+    "writeErrorReplacedRunnerError": true
+  },
+  "finalOrdinaryControls": {
+    "executed": 4,
+    "pass": 4,
+    "fail": 0,
+    "skip": 0,
+    "exit": 0
+  },
+  "runnerErrorIdentityPreserved": true,
+  "secondaryDiagnosticWriteErrorIdentityPreserved": true,
+  "failedDiagnosticReferencesAbsent": true,
+  "independentAndCleanupExecutionVerified": true,
+  "canonicalNode": "v24.16.0",
+  "nodeSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+  "eslintTwoFilesExit": 0,
+  "originalImportErrors": [],
+  "rangeExit": 0,
+  "fullStandardSOURCE": "NOT_RUN",
+  "heldAudits": "NOT_RUN",
+  "runtimeQualification": false,
+  "qualification": false,
+  "worktreeClean": true
+}

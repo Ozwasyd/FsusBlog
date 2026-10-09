@@ -1,0 +1,21 @@
+{
+  "key": "actual-old-source-diagnostic-failure",
+  "sourceCommit": "e6efbce8ec875f92053af4ece5c82cc3044d7ed8",
+  "cwd": "/workspace/FsusBlog-scheduler-diagnostic-write",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "--test-reporter=spec",
+    "--test-name-pattern=^attempt\\ runner\\ Error\\ remains\\ primary\\ when\\ its\\ diagnostic\\ write\\ also\\ fails$",
+    "tests/tools/atomic-producer-compiler.test.mjs"
+  ],
+  "startedUtc": "2026-10-09T05:48:45.416488+00:00",
+  "completedUtc": "2026-10-09T05:48:45.984411+00:00",
+  "elapsedSeconds": 0.568,
+  "exitCode": 1,
+  "pid": 12271,
+  "logSha256": "cf3f49b4d4ff510630c461ea452669821037aaf2170e4058f398300e311b4295",
+  "logBytes": 1239,
+  "rawLogArchive": "actual-old-source-diagnostic-failure.log.gz",
+  "qualification": false
+}

@@ -1,0 +1,20 @@
+{
+  "key": "final-original-import-inspection",
+  "sourceCommit": "8b24276f35c006a438d300eefe40c238d60dd54b",
+  "cwd": "/workspace/FsusBlog-scheduler-diagnostic-write",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {inspectReleaseFinalCommandTarget} from \"./tools/test-matrix/release-final-static-boundary.mjs\";import {writeFileSync} from \"node:fs\";const inspection=inspectReleaseFinalCommandTarget({repositoryRoot:process.cwd(),target:\"tests/tools/atomic-producer-compiler.test.mjs\"});writeFileSync(\"/workspace/chain-3521-evidence/scheduler-diagnostic-write-20261009/final-original-import-output.json\",JSON.stringify({qualification:false,testCallbacksExecuted:false,inspection},null,2)+\"\\n\");console.log(JSON.stringify({errors:inspection.errors,dependencyCount:inspection.dependencyClosure.length}));process.exitCode=inspection.errors.length?1:0;"
+  ],
+  "startedUtc": "2026-10-09T05:49:33.005143+00:00",
+  "completedUtc": "2026-10-09T05:49:33.531792+00:00",
+  "elapsedSeconds": 0.527,
+  "exitCode": 0,
+  "pid": 12745,
+  "logSha256": "e12ca863fae402d4f9b54f2aadae6a3bb3ba6411e3edd509444d0b909f82d2ce",
+  "logBytes": 35,
+  "rawLogArchive": "final-original-import-inspection.log.gz",
+  "qualification": false
+}
