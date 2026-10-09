@@ -1,0 +1,22 @@
+{
+  "key": "actual-original-v2-manifest-attempt",
+  "sourceCommit": "860d6cac80c8880e9dd2a97065f4e37227686a77",
+  "cwd": "/workspace/FsusBlog-catalog-carrier-3566",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/generate-generated-output-digest-repair-manifest.mjs",
+    "--base",
+    "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+    "--head",
+    "HEAD"
+  ],
+  "startedUtc": "2026-10-09T05:46:05.831961+00:00",
+  "completedUtc": "2026-10-09T05:46:07.506058+00:00",
+  "elapsedSeconds": 1.674,
+  "exitCode": 1,
+  "pid": 10708,
+  "logSha256": "6fec2a4ef8c27d135a06128dc63113751fc5206392e188bf0051b560e543cd77",
+  "logBytes": 627,
+  "rawLogArchive": "actual-original-v2-manifest-attempt.log.gz",
+  "qualification": false
+}

@@ -1,0 +1,9 @@
+{
+  "historicalTestedCommit": "0d296bd4d97ce791fe6dea28ed679785ddc7dfd5",
+  "correctedUnpublishedCommit": "92b8df85f6db8c50e6bb32b7f736b9740725d15b",
+  "treesIdentical": true,
+  "historicalCommitObject": "historical-footer-rejected-commit-object.txt",
+  "historicalCommitObjectSha256": "03e903a760873ea5ea20dd34c83d7eb61f396773fcf85912fa9da7ca6eb63935",
+  "reason": "Only the unpushed invalid Refs footer was amended; preserve original tested commit object and negative command receipts without claiming it passed.",
+  "qualification": false
+}

@@ -1,0 +1,19 @@
+{
+  "key": "canonical-node-identity",
+  "sourceCommit": "92b8df85f6db8c50e6bb32b7f736b9740725d15b",
+  "cwd": "/workspace/FsusBlog-catalog-carrier-3566",
+  "command": [
+    "python",
+    "-c",
+    "import hashlib,json,subprocess;from pathlib import Path;p=Path(\"/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node\");print(json.dumps({\"path\":str(p),\"version\":subprocess.check_output([str(p),\"--version\"],text=True).strip(),\"sha256\":hashlib.sha256(p.read_bytes()).hexdigest()}))"
+  ],
+  "startedUtc": "2026-10-09T06:00:19.723883+00:00",
+  "completedUtc": "2026-10-09T06:00:19.989636+00:00",
+  "elapsedSeconds": 0.266,
+  "exitCode": 0,
+  "pid": 19608,
+  "logSha256": "ec48c270807d08878d7ee1e6c7e4ebab620e3f31fb9fa4eeaaf04cb896e230b7",
+  "logBytes": 188,
+  "rawLogArchive": "canonical-node-identity.log.gz",
+  "qualification": false
+}

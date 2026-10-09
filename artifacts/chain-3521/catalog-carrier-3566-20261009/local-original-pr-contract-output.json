@@ -1,0 +1,28 @@
+{
+  "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+  "head": "860d6cac80c8880e9dd2a97065f4e37227686a77",
+  "changedFiles": [
+    "artifacts/change-contract/chain-3521-catalog-carrier-3566-generated-binding.json",
+    "config/testing/correctness-attempt-producers.json"
+  ],
+  "errors": [
+    "PR body requires checked checklist field: C# mother-style mapping checked",
+    "PR body requires checked checklist field: Formatter/linter run",
+    "PR body requires checked checklist field: No tool default overrides repository style",
+    "PR body requires checked checklist field: Mechanical formatting separated from logic",
+    "PR body requires checked checklist field: `.git-blame-ignore-revs` updated when applicable",
+    "PR body requires checked checklist field: Public API docs updated",
+    "PR body requires checked checklist field: Ownership/security/performance intent updated",
+    "PR body requires checked checklist field: Historical handoff archived or source-of-truth updated",
+    "PR body requires checked checklist field: TODO/FIXME references valid issues",
+    "PR body requires checked checklist field: [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed",
+    "PR body requires checked checklist field: External wire / ABI / database / third-party names preserved or explicitly adapted",
+    "Generator source must list repository-relative paths",
+    "Generated outputs must list repository-relative changed paths",
+    "Generated Digest/evidence must be one repository-relative .json path",
+    "changes to registered external naming surfaces require External naming exception classification: config/testing/correctness-attempt-producers.json"
+  ],
+  "localDraftOnly": true,
+  "githubEvent": false,
+  "qualification": false
+}

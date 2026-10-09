@@ -1,0 +1,79 @@
+{
+  "candidate": "92b8df85f6db8c50e6bb32b7f736b9740725d15b",
+  "branch": "codex/chain-3521-catalog-carrier-3566",
+  "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+  "changedPaths": [
+    "artifacts/change-contract/chain-3521-catalog-carrier-3566-external-naming.json",
+    "artifacts/change-contract/chain-3521-catalog-carrier-3566-generated-binding.json",
+    "config/testing/correctness-attempt-producers.json"
+  ],
+  "recordsExactlyPreserved": 226,
+  "actualDigestInputCount": 8,
+  "allInputsUnchangedFromBase": true,
+  "originalProducerBlobPreserved": "185fb1be07141c0e96a306b21c1eb4b2b1834abe",
+  "outputSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+  "onlyCatalogDigestFieldsChanged": true,
+  "originalCatalogWriteExit": 0,
+  "finalCatalogCheckExit": 0,
+  "finalFixedPointExit": 0,
+  "finalRangeExit": 0,
+  "ordinaryInventoryControls": {
+    "expected": 7,
+    "executed": 7,
+    "pass": 6,
+    "fail": 1,
+    "skip": 0,
+    "exit": 1,
+    "failure": "canonical master migration checker and its original test still require exactly 225 producers; actual catalog has 226"
+  },
+  "distinctAlreadyPublishedSourceCorrection": "40d9774b3bab7e21b845984eff7e963d5c832c52 not incorporated into this generated-only carrier",
+  "localPrContract": {
+    "exit": 1,
+    "errors": [
+      "generated binding path is not changed in this PR: config/testing/release-reliability-scenario-catalog.json",
+      "generated binding path is not changed in this PR: config/testing/replay-qualification-producers.json",
+      "generated binding path is not changed in this PR: config/testing/test-execution-envelope-applicability.json",
+      "generated binding path is not changed in this PR: tests/matrix.yml",
+      "generated binding path is not changed in this PR: tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+      "generated binding path is not changed in this PR: tools/test/attempt-runner.mjs",
+      "generated binding path is not changed in this PR: tools/test/temporal-context-contract.mjs",
+      "generated binding path is not changed in this PR: tools/test/temporal-context.mjs",
+      "Generated source and output paths must all be changed in this PR"
+    ],
+    "localDraftOnly": true,
+    "githubEvent": false
+  },
+  "actualV2ManifestAttempt": {
+    "testedSource": "860d6cac80c8880e9dd2a97065f4e37227686a77",
+    "actualCommandRecord": "actual-original-v2-manifest-full-revision.json",
+    "exit": 1,
+    "refusal": "runtime file is not system-owned and immutable to task: /usr/bin/bwrap",
+    "manifestWritten": false,
+    "isolatedReplayExecuted": false,
+    "sourceInputsAndOutputIdenticalToFinalCandidate": true
+  },
+  "trustedDigestInputs": 7,
+  "actualDigestInputs": 8,
+  "missingTrustedInput": [
+    "tools/test/temporal-context-contract.mjs"
+  ],
+  "trustedQualification": {
+    "sourceParent": "ba72ac65c7395b876c26aa040f500c677d55678c",
+    "sourceCommit": "b3f3e6f108ff3d021a83c1b3b2efb96e0b82ed20",
+    "mergedPullRequest": 3271,
+    "mergeCommit": "a0b44ab7f7096e631f11731b0ac26cd8dea66fc2",
+    "outerBaseCommit": "ba72ac65c7395b876c26aa040f500c677d55678c",
+    "outerHeadCommit": "d9f4a947f46c83278275f5bbf8fb0d651b3862e5"
+  },
+  "currentEpochPromotionRequired": true,
+  "policyOrGatesModified": false,
+  "heldAudits": "NOT_RUN",
+  "fullStandardSOURCE": "NOT_RUN",
+  "qualification": false,
+  "worktreeClean": true,
+  "nextSmallestInputs": [
+    "Original infrastructure with root-owned immutable /usr ancestry and bwrap/strace/ldd; rerun the canonical adapter without changing its qualification gate.",
+    "Independent owner-controlled current-epoch producer admission that covers all eight actual inputs and the actual source/merge tuple.",
+    "Parent supplies or routes the separately published canonical 225-to-226 migration assertion correction; do not mix that source into this generated-only repair."
+  ]
+}

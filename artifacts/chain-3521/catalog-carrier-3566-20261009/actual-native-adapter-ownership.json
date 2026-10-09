@@ -1,0 +1,19 @@
+{
+  "key": "actual-native-adapter-ownership",
+  "sourceCommit": "92b8df85f6db8c50e6bb32b7f736b9740725d15b",
+  "cwd": "/workspace/FsusBlog-catalog-carrier-3566",
+  "command": [
+    "python",
+    "-c",
+    "import os,json;paths=[\"/usr\",\"/usr/bin\",\"/usr/bin/bwrap\",\"/usr/bin/strace\",\"/usr/bin/ldd\"];print(json.dumps({\"uid\":os.getuid(),\"paths\":[{\"path\":p,\"uid\":os.stat(p).st_uid,\"mode\":oct(os.stat(p).st_mode & 0o777)} for p in paths]},indent=2))"
+  ],
+  "startedUtc": "2026-10-09T05:57:46.346121+00:00",
+  "completedUtc": "2026-10-09T05:57:46.378527+00:00",
+  "elapsedSeconds": 0.032,
+  "exitCode": 0,
+  "pid": 18165,
+  "logSha256": "1f8c085dba3b48e7bb01e1013656821d1b306f7bb0c3f81d245cc3eb7449be0f",
+  "logBytes": 453,
+  "rawLogArchive": "actual-native-adapter-ownership.log.gz",
+  "qualification": false
+}

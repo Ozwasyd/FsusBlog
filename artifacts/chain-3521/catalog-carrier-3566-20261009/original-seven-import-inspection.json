@@ -1,0 +1,20 @@
+{
+  "key": "original-seven-import-inspection",
+  "sourceCommit": "92b8df85f6db8c50e6bb32b7f736b9740725d15b",
+  "cwd": "/workspace/FsusBlog-catalog-carrier-3566",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {inspectReleaseFinalCommandTarget} from \"./tools/test-matrix/release-final-static-boundary.mjs\";import {writeFileSync} from \"node:fs\";const files=[\"tests/tools/correctness-attempt-migration.test.mjs\", \"tests/tools/correctness-attempt-test-producers.test.mjs\", \"tests/tools/correctness-attempt-build-release.test.mjs\"];const inspections=files.map(target=>({target,inspection:inspectReleaseFinalCommandTarget({repositoryRoot:process.cwd(),target})}));writeFileSync(\"/workspace/chain-3521-evidence/catalog-carrier-3566-20261009/original-seven-import-output.json\",JSON.stringify({qualification:false,testCallbacksExecuted:false,inspections},null,2)+\"\\n\");console.log(JSON.stringify(inspections.map(x=>({target:x.target,errors:x.inspection.errors,dependencyCount:x.inspection.dependencyClosure.length}))));process.exitCode=inspections.some(x=>x.inspection.errors.length)?1:0;"
+  ],
+  "startedUtc": "2026-10-09T05:57:46.427343+00:00",
+  "completedUtc": "2026-10-09T05:57:46.792855+00:00",
+  "elapsedSeconds": 0.366,
+  "exitCode": 0,
+  "pid": 18168,
+  "logSha256": "da814b3d0d810577707f9cf8a4b15eba28c97b2f85464396047282fa132141e5",
+  "logBytes": 299,
+  "rawLogArchive": "original-seven-import-inspection.log.gz",
+  "qualification": false
+}

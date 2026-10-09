@@ -1,0 +1,22 @@
+{
+  "key": "original-allowlisted-seven",
+  "sourceCommit": "92b8df85f6db8c50e6bb32b7f736b9740725d15b",
+  "cwd": "/workspace/FsusBlog-catalog-carrier-3566",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "--test-name-pattern=^(?:all\\ 225\\ correctness\\ producers\\ bind\\ canonical\\ attempt\\ and\\ external\\ authorities|matrix\\ and\\ physical\\ producers\\ fail\\ closed\\ on\\ a\\ crossed\\ execution\\ owner|test\\ producer\\ inventory\\ exactly\\ rebuilds\\ matrix\\ and\\ physical\\ authorities|unit,\\ integration,\\ property,\\ model,\\ fuzz\\ and\\ mutation\\ producers\\ are\\ first\\-attempt\\ only|diagnostic\\ matrix\\ producers\\ do\\ not\\ leak\\ into\\ correctness\\ inventory|build\\ and\\ release\\ inventory\\ covers\\ immutable\\ build,\\ reliability,\\ projection\\ and\\ finalizer\\ owners|all\\ build\\ and\\ release\\ producers\\ are\\ first\\-attempt\\ clean\\ only)$",
+    "tests/tools/correctness-attempt-migration.test.mjs",
+    "tests/tools/correctness-attempt-test-producers.test.mjs",
+    "tests/tools/correctness-attempt-build-release.test.mjs"
+  ],
+  "startedUtc": "2026-10-09T05:57:46.832454+00:00",
+  "completedUtc": "2026-10-09T05:57:47.098382+00:00",
+  "elapsedSeconds": 0.266,
+  "exitCode": 1,
+  "pid": 18191,
+  "logSha256": "b3859cf5e6413479fbe08c86a8b5dba694e9354b69871fc704444ade23066d3a",
+  "logBytes": 1574,
+  "rawLogArchive": "original-allowlisted-seven.log.gz",
+  "qualification": false
+}

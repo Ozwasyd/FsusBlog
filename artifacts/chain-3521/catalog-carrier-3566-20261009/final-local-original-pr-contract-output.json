@@ -1,0 +1,23 @@
+{
+  "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+  "head": "92b8df85f6db8c50e6bb32b7f736b9740725d15b",
+  "changedFiles": [
+    "artifacts/change-contract/chain-3521-catalog-carrier-3566-external-naming.json",
+    "artifacts/change-contract/chain-3521-catalog-carrier-3566-generated-binding.json",
+    "config/testing/correctness-attempt-producers.json"
+  ],
+  "errors": [
+    "generated binding path is not changed in this PR: config/testing/release-reliability-scenario-catalog.json",
+    "generated binding path is not changed in this PR: config/testing/replay-qualification-producers.json",
+    "generated binding path is not changed in this PR: config/testing/test-execution-envelope-applicability.json",
+    "generated binding path is not changed in this PR: tests/matrix.yml",
+    "generated binding path is not changed in this PR: tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+    "generated binding path is not changed in this PR: tools/test/attempt-runner.mjs",
+    "generated binding path is not changed in this PR: tools/test/temporal-context-contract.mjs",
+    "generated binding path is not changed in this PR: tools/test/temporal-context.mjs",
+    "Generated source and output paths must all be changed in this PR"
+  ],
+  "localDraftOnly": true,
+  "githubEvent": false,
+  "qualification": false
+}

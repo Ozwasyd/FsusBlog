@@ -1,0 +1,20 @@
+{
+  "key": "local-original-pr-contract",
+  "sourceCommit": "860d6cac80c8880e9dd2a97065f4e37227686a77",
+  "cwd": "/workspace/FsusBlog-catalog-carrier-3566",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {validatePrContract,changedFilesBetween} from \"./tools/governance/change-contract.mjs\";import {readFileSync,writeFileSync} from \"node:fs\";const base=\"720d9948087cf176eccf7bdd5cc0be85f8cab606\",head=\"860d6cac80c8880e9dd2a97065f4e37227686a77\";const changedFiles=changedFilesBetween(process.cwd(),base,head);const errors=validatePrContract({title:\"chore(test): regenerate the current digest-only correctness catalog carrier\",body:readFileSync(\"/workspace/chain-3521-evidence/catalog-carrier-3566-20261009/local-review-pr-body.md\",\"utf8\"),labels:[\"release-note:internal\"],root:process.cwd(),base,head,authorityRoot:process.cwd(),changedFiles});const result={base,head,changedFiles,errors,localDraftOnly:true,githubEvent:false,qualification:false};writeFileSync(\"/workspace/chain-3521-evidence/catalog-carrier-3566-20261009/local-original-pr-contract-output.json\",JSON.stringify(result,null,2)+\"\\n\");console.log(JSON.stringify(result));process.exitCode=errors.length?1:0;"
+  ],
+  "startedUtc": "2026-10-09T05:52:06.725484+00:00",
+  "completedUtc": "2026-10-09T05:52:06.940709+00:00",
+  "elapsedSeconds": 0.215,
+  "exitCode": 1,
+  "pid": 14400,
+  "logSha256": "dfffddec304ea3e7ae9ab9c63112f15bd3728439dcc0784a71148847a7205bff",
+  "logBytes": 1671,
+  "rawLogArchive": "local-original-pr-contract.log.gz",
+  "qualification": false
+}

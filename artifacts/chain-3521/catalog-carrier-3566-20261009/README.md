@@ -1,0 +1,15 @@
+# Current correctness catalog carrier evidence
+
+Related to #3521 and #3566. Source commit: `92b8df85f6db8c50e6bb32b7f736b9740725d15b`, branch `codex/chain-3521-catalog-carrier-3566`, base `720d9948087cf176eccf7bdd5cc0be85f8cab606`.
+
+The original producer generated a digest-only refresh. All 226 complete producer records are exactly preserved. All eight real source inputs and the producer are unchanged from base; the changed source digest is for the already changed matrix. The output SHA-256 is `cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42`. The two accompanying metadata artifacts record factual source/output binding and the existing registered JSON wire-name exception. Neither grants generated-only admission or changes policy.
+
+Original producer check, fixed-point write and final commit-range check passed under official Node 24.16.0. A literal-name allowlist and original import/hook inspection preceded seven ordinary original controls: six passed, one failed, zero skipped. The failure is the canonical master's exactly-225 migration assertion against the actual 226 records. The separately published source correction `40d9774b3bab7e21b845984eff7e963d5c832c52` was not mixed into this generated-only carrier.
+
+The original local PR-contract API refuses the ordinary binding: all eight source paths are unchanged, plus the aggregate source/output-change requirement. The local review draft is not a GitHub event and no remote PR acceptance is claimed. The initial metadata mistakes and missing-footer failure are preserved alongside their corrected final receipts.
+
+The actual original v2 manifest adapter attempt on `860d6cac80c8880e9dd2a97065f4e37227686a77` exited 1: `/usr/bin/bwrap` is not system-owned and immutable to the task. Native adapter and ancestor ownership is UID 65534, while the original gate requires UID 0. No manifest was written or isolated replay executed. That tested revision has exactly the same eight source inputs, producer and output as the final candidate; the later increment adds only naming metadata. No tool ownership or gate was altered.
+
+The trusted v2 registry still lists seven digest inputs and a historical fixed qualification tuple. It omits `tools/test/temporal-context-contract.mjs` from its inputs and closure. Independent owner-controlled admission for the actual eight inputs/current source tuple and a properly provisioned canonical runtime remain required. No fabricated v2 receipt, alternate harness, consumer mixed-PR acceptance, source qualification or historical replay acceptance is claimed. Full standard SOURCE and held audits were NOT_RUN. #3521 and #3520 remain blocked; the full ownership accounting is included.
+
+Each command JSON records exact tested commit, UTC run identity, PID, argv, exit status and raw-log bytes/SHA-256. Its deterministic `.log.gz` archive preserves the actual bytes. `file-index.json` binds all other bundle files by byte count, SHA-256 and Git blob. Qualification is false throughout.

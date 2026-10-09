@@ -1,0 +1,8 @@
+tree f5f5e6dab87191d6d1d25072da54753f7544d211
+parent 860d6cac80c8880e9dd2a97065f4e37227686a77
+author djsms <lyuaoss@gmail.com> 1791525415 +0000
+committer djsms <lyuaoss@gmail.com> 1791525415 +0000
+
+chore(test): declare the existing catalog JSON naming surface
+
+Related to #3566. Refs #3521. Preserve existing wire names without changing policy or granting repair admission.

@@ -1,0 +1,71 @@
+{
+  "candidate": "92b8df85f6db8c50e6bb32b7f736b9740725d15b",
+  "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+  "branch": "codex/chain-3521-catalog-carrier-3566",
+  "originalProducerBlob": "185fb1be07141c0e96a306b21c1eb4b2b1834abe",
+  "inputCount": 8,
+  "inputs": [
+    {
+      "path": "config/testing/release-reliability-scenario-catalog.json",
+      "blob": "fa013344a0d627568398f03b1bfa08e98b2ddfcd",
+      "sha256": "sha256:5b35b04eba2fd6aed179b24ea427dfc18d35b91b29e182af93dfc23dea914582",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "tests/matrix.yml",
+      "blob": "a166e3ddb89917ee988bc752982cf9764f1adadb",
+      "sha256": "sha256:db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+      "blob": "bc9619a35bb378ce2b254c9988127e6f9d6179f5",
+      "sha256": "sha256:d0fa3f6a5062739922c5121c38fc4026c7392d6817b4e3b7c1b6fbb53580dd82",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "config/testing/replay-qualification-producers.json",
+      "blob": "b0f326176988df53f5793a545e2c56150b40140f",
+      "sha256": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "config/testing/test-execution-envelope-applicability.json",
+      "blob": "fc10fc2e4d98939b046e4f5ceee900aaebad1151",
+      "sha256": "sha256:56187457f27a922333626fca45f50424d7a4c388ede1e176ed6515952387791c",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "tools/test/attempt-runner.mjs",
+      "blob": "e6d7de217ac788b7cb7f4ebf85d80f85a572c4c6",
+      "sha256": "sha256:a42fe86b68e31ac6357a660c33376b2c241933fee9992e5e0e23e90ca4daba6c",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "tools/test/temporal-context.mjs",
+      "blob": "9f814c306ccbd9483ba81b9829304d4a633b6da7",
+      "sha256": "sha256:492dba7f4c65b8aa716c33cc851f812d99718e088678f8c530e8488c38192f36",
+      "unchangedFromBase": true
+    },
+    {
+      "path": "tools/test/temporal-context-contract.mjs",
+      "blob": "0332df0ce8dafa9da4f798c46d1656ab7ea7967e",
+      "sha256": "sha256:7d12a5f5c1e123c2572ea829120d742b8517779f839a81dd7076bcea3197cc82",
+      "unchangedFromBase": true
+    }
+  ],
+  "recordsExactlyPreserved": 226,
+  "onlySourceDigestChanged": "tests/matrix.yml",
+  "outputPath": "config/testing/correctness-attempt-producers.json",
+  "outputBlob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+  "outputSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+  "bindingPath": "artifacts/change-contract/chain-3521-catalog-carrier-3566-generated-binding.json",
+  "generatedOnlyChangedFiles": [
+    "artifacts/change-contract/chain-3521-catalog-carrier-3566-external-naming.json",
+    "artifacts/change-contract/chain-3521-catalog-carrier-3566-generated-binding.json",
+    "config/testing/correctness-attempt-producers.json"
+  ],
+  "qualification": false,
+  "namingManifest": "artifacts/change-contract/chain-3521-catalog-carrier-3566-external-naming.json",
+  "namingIdAlreadyRegistered": "json-wire-key"
+}

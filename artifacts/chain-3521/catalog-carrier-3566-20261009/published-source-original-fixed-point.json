@@ -1,0 +1,19 @@
+{
+  "key": "published-source-original-fixed-point",
+  "sourceCommit": "0d296bd4d97ce791fe6dea28ed679785ddc7dfd5",
+  "cwd": "/workspace/FsusBlog-catalog-carrier-3566",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test/generate-correctness-attempt-producers.mjs",
+    "--write"
+  ],
+  "startedUtc": "2026-10-09T05:57:10.218795+00:00",
+  "completedUtc": "2026-10-09T05:57:10.383375+00:00",
+  "elapsedSeconds": 0.165,
+  "exitCode": 0,
+  "pid": 17213,
+  "logSha256": "d47550f01597eebc23c46efd64de516e88aa44edd7b52e95a673f104025f2074",
+  "logBytes": 50,
+  "rawLogArchive": "published-source-original-fixed-point.log.gz",
+  "qualification": false
+}

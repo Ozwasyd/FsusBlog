@@ -1,0 +1,20 @@
+{
+  "key": "original-trusted-policy-observation",
+  "sourceCommit": "92b8df85f6db8c50e6bb32b7f736b9740725d15b",
+  "cwd": "/workspace/FsusBlog-catalog-carrier-3566",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {generatedOutputDigestRepairProducers} from \"./tools/governance/change-contract-registry.mjs\";import {readFileSync,writeFileSync} from \"node:fs\";const trusted=generatedOutputDigestRepairProducers.find(p=>p.id===\"correctness-attempt-producers\");const actual=Object.keys(JSON.parse(readFileSync(\"config/testing/correctness-attempt-producers.json\",\"utf8\")).sourceDigests).sort();const result={trusted,actualDigestInputs:actual,missingTrustedInputs:actual.filter(p=>!trusted.digestInputs.includes(p)),missingTrustedClosure:actual.filter(p=>!trusted.closure.includes(p)),qualification:false};writeFileSync(\"/workspace/chain-3521-evidence/catalog-carrier-3566-20261009/trusted-versus-actual-input-policy.json\",JSON.stringify(result,null,2)+\"\\n\");console.log(JSON.stringify(result));"
+  ],
+  "startedUtc": "2026-10-09T05:59:34.328012+00:00",
+  "completedUtc": "2026-10-09T05:59:34.493087+00:00",
+  "elapsedSeconds": 0.165,
+  "exitCode": 0,
+  "pid": 19198,
+  "logSha256": "fb3687830867dea74d715922e9d2a08228d76b84933c71e4e79fb13fb720c04e",
+  "logBytes": 2982,
+  "rawLogArchive": "original-trusted-policy-observation.log.gz",
+  "qualification": false
+}

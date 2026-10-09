@@ -1,0 +1,82 @@
+{
+  "trusted": {
+    "id": "correctness-attempt-producers",
+    "repairClass": "digest-refresh",
+    "manifest": "artifacts/change-contract/correctness-producer-inventory-post-merge-repair.json",
+    "command": {
+      "executable": "node",
+      "arguments": [
+        "tools/test/generate-correctness-attempt-producers.mjs",
+        "--write"
+      ]
+    },
+    "closure": [
+      "config/testing/release-reliability-scenario-catalog.json",
+      "config/testing/replay-qualification-producers.json",
+      "config/testing/test-execution-envelope-applicability.json",
+      "tests/matrix.yml",
+      "tools/test-matrix/parse-matrix.mjs",
+      "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+      "tools/test/attempt-provenance.mjs",
+      "tools/test/attempt-runner.mjs",
+      "tools/test/correctness-attempt-producers.mjs",
+      "tools/test/generate-correctness-attempt-producers.mjs",
+      "tools/test/measurement-noise-envelope.mjs",
+      "tools/test/temporal-context.mjs",
+      "tools/yaml/parse-document.mjs"
+    ],
+    "digestInputs": [
+      "config/testing/release-reliability-scenario-catalog.json",
+      "config/testing/replay-qualification-producers.json",
+      "config/testing/test-execution-envelope-applicability.json",
+      "tests/matrix.yml",
+      "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+      "tools/test/attempt-runner.mjs",
+      "tools/test/temporal-context.mjs"
+    ],
+    "output": "config/testing/correctness-attempt-producers.json",
+    "outputSchema": "fsusblog.correctness-attempt-producers.v1",
+    "protectedPolicyPaths": [
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      ".github/release.yml",
+      ".github/workflows/change-contract.yml",
+      "commitlint.config.mjs",
+      "config/schemas/post-merge-generated-output-digest-repair.schema.json",
+      "config/schemas/post-merge-generated-output-repair-dag.schema.json",
+      "tools/governance/change-contract-registry.mjs",
+      "tools/governance/change-contract.mjs",
+      "tools/governance/check-change-contract.mjs",
+      "tools/governance/generate-generated-output-digest-repair-manifest.mjs",
+      "tools/governance/generated-output-digest-repair-repository.mjs",
+      "tools/governance/generated-output-digest-repair-v2.mjs",
+      "tools/governance/javascript-format-equivalence.mjs",
+      "tools/governance/javascript-format-parser/package.json",
+      "tools/governance/javascript-format-parser/package-lock.json"
+    ],
+    "qualification": {
+      "sourceParent": "ba72ac65c7395b876c26aa040f500c677d55678c",
+      "sourceCommit": "b3f3e6f108ff3d021a83c1b3b2efb96e0b82ed20",
+      "mergedPullRequest": 3271,
+      "mergeCommit": "a0b44ab7f7096e631f11731b0ac26cd8dea66fc2",
+      "outerBaseCommit": "ba72ac65c7395b876c26aa040f500c677d55678c",
+      "outerHeadCommit": "d9f4a947f46c83278275f5bbf8fb0d651b3862e5"
+    }
+  },
+  "actualDigestInputs": [
+    "config/testing/release-reliability-scenario-catalog.json",
+    "config/testing/replay-qualification-producers.json",
+    "config/testing/test-execution-envelope-applicability.json",
+    "tests/matrix.yml",
+    "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+    "tools/test/attempt-runner.mjs",
+    "tools/test/temporal-context-contract.mjs",
+    "tools/test/temporal-context.mjs"
+  ],
+  "missingTrustedInputs": [
+    "tools/test/temporal-context-contract.mjs"
+  ],
+  "missingTrustedClosure": [
+    "tools/test/temporal-context-contract.mjs"
+  ],
+  "qualification": false
+}

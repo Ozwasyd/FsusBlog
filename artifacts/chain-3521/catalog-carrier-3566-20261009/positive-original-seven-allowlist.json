@@ -1,0 +1,50 @@
+{
+  "candidate": "92b8df85f6db8c50e6bb32b7f736b9740725d15b",
+  "expectedSelectedCount": 7,
+  "registeredCount": 7,
+  "files": [
+    {
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "sha256": "d8a2bc6e0d66f24addb821b48c11b69229fc55a3bd929e6e9d550e5515a49980",
+      "literalNames": [
+        "all 225 correctness producers bind canonical attempt and external authorities",
+        "matrix and physical producers fail closed on a crossed execution owner"
+      ],
+      "globalHooks": false,
+      "scope": "original ordinary inventory and owner assertions only"
+    },
+    {
+      "path": "tests/tools/correctness-attempt-test-producers.test.mjs",
+      "sha256": "f25d7e910ffb7283d3d66cf6163b2004e66c1f72a21553ac90f467303130631c",
+      "literalNames": [
+        "test producer inventory exactly rebuilds matrix and physical authorities",
+        "unit, integration, property, model, fuzz and mutation producers are first-attempt only",
+        "diagnostic matrix producers do not leak into correctness inventory"
+      ],
+      "globalHooks": false,
+      "scope": "original ordinary inventory and owner assertions only"
+    },
+    {
+      "path": "tests/tools/correctness-attempt-build-release.test.mjs",
+      "sha256": "c3e7a816a68c82bb962ee7b0148da058e46831f44d92bc2c9c04559eb810ea44",
+      "literalNames": [
+        "build and release inventory covers immutable build, reliability, projection and finalizer owners",
+        "all build and release producers are first-attempt clean only"
+      ],
+      "globalHooks": false,
+      "scope": "original ordinary inventory and owner assertions only"
+    }
+  ],
+  "literalNames": [
+    "all 225 correctness producers bind canonical attempt and external authorities",
+    "matrix and physical producers fail closed on a crossed execution owner",
+    "test producer inventory exactly rebuilds matrix and physical authorities",
+    "unit, integration, property, model, fuzz and mutation producers are first-attempt only",
+    "diagnostic matrix producers do not leak into correctness inventory",
+    "build and release inventory covers immutable build, reliability, projection and finalizer owners",
+    "all build and release producers are first-attempt clean only"
+  ],
+  "pattern": "^(?:all\\ 225\\ correctness\\ producers\\ bind\\ canonical\\ attempt\\ and\\ external\\ authorities|matrix\\ and\\ physical\\ producers\\ fail\\ closed\\ on\\ a\\ crossed\\ execution\\ owner|test\\ producer\\ inventory\\ exactly\\ rebuilds\\ matrix\\ and\\ physical\\ authorities|unit,\\ integration,\\ property,\\ model,\\ fuzz\\ and\\ mutation\\ producers\\ are\\ first\\-attempt\\ only|diagnostic\\ matrix\\ producers\\ do\\ not\\ leak\\ into\\ correctness\\ inventory|build\\ and\\ release\\ inventory\\ covers\\ immutable\\ build,\\ reliability,\\ projection\\ and\\ finalizer\\ owners|all\\ build\\ and\\ release\\ producers\\ are\\ first\\-attempt\\ clean\\ only)$",
+  "heldAudits": "NOT_RUN",
+  "qualification": false
+}
