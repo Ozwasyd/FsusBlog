@@ -1,0 +1,8 @@
+Test run for /workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+The following Tests are available:
+    FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim(canonicalUrl: " https://historical.example/articles/Original%2fPa"···)
+    FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim(canonicalUrl: null)
+    FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl(canonicalUrl: " https://historical.example/articles/Original%2fPa"···)
+    FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl(canonicalUrl: null)
+    FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl
+    FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl

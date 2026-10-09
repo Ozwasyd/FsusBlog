@@ -1,0 +1,14 @@
+{
+    "command": [
+        "/workspace/.setup/dotnet/dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--list-tests",
+        "--filter",
+        "FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl"
+    ],
+    "exitCode": 0,
+    "startedFromFreshCompiledProject": true
+}

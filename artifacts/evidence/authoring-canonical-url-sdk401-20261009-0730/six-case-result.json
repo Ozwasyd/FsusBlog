@@ -1,0 +1,58 @@
+{
+    "sourceCandidate": "da5d862e575674595327b38388fb7417d256cfec",
+    "status": "PASS",
+    "executionExitCode": 0,
+    "expectedCaseCount": 6,
+    "executedCaseCount": 6,
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "exactMethodCounts": {
+        "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl": 1,
+        "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim": 2,
+        "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl": 1,
+        "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl": 2
+    },
+    "cases": [
+        {
+            "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl",
+            "testName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl",
+            "outcome": "Passed"
+        },
+        {
+            "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim",
+            "testName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim(canonicalUrl: null)",
+            "outcome": "Passed"
+        },
+        {
+            "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl",
+            "testName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl",
+            "outcome": "Passed"
+        },
+        {
+            "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl",
+            "testName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl(canonicalUrl: null)",
+            "outcome": "Passed"
+        },
+        {
+            "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim",
+            "testName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim(canonicalUrl: \" https://historical.example/articles/Original%2fPa\"\u00b7\u00b7\u00b7)",
+            "outcome": "Passed"
+        },
+        {
+            "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl",
+            "testName": "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl(canonicalUrl: \" https://historical.example/articles/Original%2fPa\"\u00b7\u00b7\u00b7)",
+            "outcome": "Passed"
+        }
+    ],
+    "trxSHA256": "5fe4aeca4d2410ebbda5528ca6a643923c34d34e429652afeac4d8e48961e711",
+    "all49PackageInputsUnchangedAfterTests": true,
+    "sourceChanged": false,
+    "fallbackUsed": false,
+    "recordedAtUTC": "2026-10-09T07:39:51.791169+00:00",
+    "limits": [
+        "Only six new ordinary value cases executed; no pass claim for existing reader tests.",
+        "No DB/HTTP/Vault/export, held audit, production, release, whole issue or source admission qualification.",
+        "No seal tampering, identity mutation, custody harness, lock regeneration or content API writes."
+    ]
+}

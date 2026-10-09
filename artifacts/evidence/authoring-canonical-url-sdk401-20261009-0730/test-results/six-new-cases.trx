@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="70e18f4d-04fa-4c25-bb18-d53435fc849c" name="@4305ed3f5d97 2026-10-09 07:39:32" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-09T07:39:32.7959182+00:00" queuing="2026-10-09T07:39:32.7959183+00:00" start="2026-10-09T07:39:30.6679147+00:00" finish="2026-10-09T07:39:32.8024263+00:00" />
+  <TestSettings name="default" id="de30cd20-c943-498b-a6cd-03f406d0fdff">
+    <Deployment runDeploymentRoot="_4305ed3f5d97_2026-10-09_07_39_32" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="22d4224d-d4f7-40bc-82bd-d680ae4b6511" testId="13ac2571-bffd-d224-b465-0fe8e6d1da40" testName="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl" computerName="4305ed3f5d97" duration="00:00:00.0038340" startTime="2026-10-09T07:39:32.7219003+00:00" endTime="2026-10-09T07:39:32.7219404+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="22d4224d-d4f7-40bc-82bd-d680ae4b6511" />
+    <UnitTestResult executionId="f8fc40db-3925-405f-a5f7-c49ba9564c98" testId="9db3f37d-2ed6-f9a7-7623-69cea444bae4" testName="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim(canonicalUrl: null)" computerName="4305ed3f5d97" duration="00:00:00.0001745" startTime="2026-10-09T07:39:32.7216016+00:00" endTime="2026-10-09T07:39:32.7217223+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f8fc40db-3925-405f-a5f7-c49ba9564c98" />
+    <UnitTestResult executionId="a4e47a3d-5451-49f3-9a08-bce2af9b7fcf" testId="ccb2bed4-83cd-fee6-f8f8-70ebd4ea7349" testName="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl" computerName="4305ed3f5d97" duration="00:00:00.0032560" startTime="2026-10-09T07:39:32.7221025+00:00" endTime="2026-10-09T07:39:32.7221678+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a4e47a3d-5451-49f3-9a08-bce2af9b7fcf" />
+    <UnitTestResult executionId="2affb38c-be0d-4fde-ace7-c80c33409c40" testId="cf4bc39a-f63b-cae0-9d85-41015d10e950" testName="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl(canonicalUrl: null)" computerName="4305ed3f5d97" duration="00:00:00.1290698" startTime="2026-10-09T07:39:32.5964889+00:00" endTime="2026-10-09T07:39:32.7103387+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2affb38c-be0d-4fde-ace7-c80c33409c40" />
+    <UnitTestResult executionId="e973ad32-b3b2-4e52-b471-7fe8e48e6b49" testId="7bbce1f6-a555-b3e9-4c8f-f387a9acef29" testName="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim(canonicalUrl: &quot; https://historical.example/articles/Original%2fPa&quot;···)" computerName="4305ed3f5d97" duration="00:00:00.0006985" startTime="2026-10-09T07:39:32.7213293+00:00" endTime="2026-10-09T07:39:32.7214106+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e973ad32-b3b2-4e52-b471-7fe8e48e6b49" />
+    <UnitTestResult executionId="986fb6da-b53f-45a1-9408-b1fdb88a269e" testId="94b0472d-4c7c-21c3-b65d-ce0c69af02c8" testName="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl(canonicalUrl: &quot; https://historical.example/articles/Original%2fPa&quot;···)" computerName="4305ed3f5d97" duration="00:00:00.0031262" startTime="2026-10-09T07:39:32.7197014+00:00" endTime="2026-10-09T07:39:32.7198096+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="986fb6da-b53f-45a1-9408-b1fdb88a269e" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl(canonicalUrl: null)" storage="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="cf4bc39a-f63b-cae0-9d85-41015d10e950">
+      <Execution id="2affb38c-be0d-4fde-ace7-c80c33409c40" />
+      <TestMethod codeBase="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests" name="ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl" storage="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="13ac2571-bffd-d224-b465-0fe8e6d1da40">
+      <Execution id="22d4224d-d4f7-40bc-82bd-d680ae4b6511" />
+      <TestMethod codeBase="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests" name="ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl(canonicalUrl: &quot; https://historical.example/articles/Original%2fPa&quot;···)" storage="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="94b0472d-4c7c-21c3-b65d-ce0c69af02c8">
+      <Execution id="986fb6da-b53f-45a1-9408-b1fdb88a269e" />
+      <TestMethod codeBase="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests" name="ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim(canonicalUrl: null)" storage="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="9db3f37d-2ed6-f9a7-7623-69cea444bae4">
+      <Execution id="f8fc40db-3925-405f-a5f7-c49ba9564c98" />
+      <TestMethod codeBase="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests" name="ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl" storage="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="ccb2bed4-83cd-fee6-f8f8-70ebd4ea7349">
+      <Execution id="a4e47a3d-5451-49f3-9a08-bce2af9b7fcf" />
+      <TestMethod codeBase="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests" name="ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim(canonicalUrl: &quot; https://historical.example/articles/Original%2fPa&quot;···)" storage="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="7bbce1f6-a555-b3e9-4c8f-f387a9acef29">
+      <Execution id="e973ad32-b3b2-4e52-b471-7fe8e48e6b49" />
+      <TestMethod codeBase="/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests" name="ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="13ac2571-bffd-d224-b465-0fe8e6d1da40" executionId="22d4224d-d4f7-40bc-82bd-d680ae4b6511" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9db3f37d-2ed6-f9a7-7623-69cea444bae4" executionId="f8fc40db-3925-405f-a5f7-c49ba9564c98" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ccb2bed4-83cd-fee6-f8f8-70ebd4ea7349" executionId="a4e47a3d-5451-49f3-9a08-bce2af9b7fcf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cf4bc39a-f63b-cae0-9d85-41015d10e950" executionId="2affb38c-be0d-4fde-ace7-c80c33409c40" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7bbce1f6-a555-b3e9-4c8f-f387a9acef29" executionId="e973ad32-b3b2-4e52-b471-7fe8e48e6b49" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="94b0472d-4c7c-21c3-b65d-ce0c69af02c8" executionId="986fb6da-b53f-45a1-9408-b1fdb88a269e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="6" executed="6" passed="6" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.31]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:01.48]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:01.52]   Starting:    FsusBlog.Server.Tests
+[xUnit.net 00:00:01.70]   Finished:    FsusBlog.Server.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

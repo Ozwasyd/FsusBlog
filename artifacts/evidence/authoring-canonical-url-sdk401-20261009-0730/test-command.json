@@ -1,0 +1,19 @@
+{
+    "command": [
+        "/workspace/.setup/dotnet/dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--filter",
+        "FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl",
+        "--logger",
+        "trx;LogFileName=six-new-cases.trx",
+        "--results-directory",
+        "/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/test-results"
+    ],
+    "exitCode": 0,
+    "startedAtUTC": "2026-10-09T07:39:30.043443+00:00",
+    "finishedAtUTC": "2026-10-09T07:39:32.834116+00:00",
+    "fallbackUsed": false
+}

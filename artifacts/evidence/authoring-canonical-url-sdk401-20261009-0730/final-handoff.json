@@ -1,0 +1,52 @@
+{
+    "recordedAtUTC": "2026-10-09T07:40:36.406136+00:00",
+    "productSourceCandidate": "da5d862e575674595327b38388fb7417d256cfec",
+    "productSourceBranch": "fix/authoring-historical-canonical-url",
+    "evidenceBranch": "task/authoring-canonical-url-sdk401-evidence-20261009-0730",
+    "supplierEvidenceReadOnly": "e66029f75f2997305194e1968a3936944bcb320c",
+    "actualSDK": "10.0.401",
+    "supplierSDK": "10.0.302",
+    "CI": null,
+    "GITHUB_ACTIONS": null,
+    "restore": "PASS: fresh locked-mode/force restore with NuGetAudit=true, exit0; no NU1004",
+    "build": {
+        "status": "PASS",
+        "warnings": 1510,
+        "errors": 0
+    },
+    "discovery": "PASS: four exact positive FQNs resolve to exactly six cases",
+    "tests": {
+        "status": "PASS",
+        "executed": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "methodCounts": {
+            "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl": 1,
+            "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim": 2,
+            "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl": 1,
+            "FsusBlog.Server.Tests.Unit.AuthoringRevisionComparePackageReaderTests.ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl": 2
+        }
+    },
+    "sourceCorrectionNeeded": false,
+    "all49PackageInputFilesUnchanged": true,
+    "backendTestLockBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+    "earlierReportingCorrection": "The private ApiDescription omission is normal and did not establish a lock defect. Both supplierSDK10.0.302 and independent workerSDK10.0.401 fresh restore pass. The prior NU1004 came from the earlier failed-assets/no-restore path; this run does not diagnose its original cause. The supplier49 graph refers to49 input files, distinct from47 central package-version entries. Prior six-case UNRUN is superseded only for these six new cases.",
+    "auditWarnings": "Original NU1903 SQLitePCLRaw.lib.e_sqlite3 2.1.11 warnings remain visible in restore/build logs; no audit settings or locks changed.",
+    "preexistingCodeIntent": "Earlier code-intent failure in untouched src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp:338 remains outside this task; not rerun or bypassed.",
+    "callerHandoff": "Existing AuthoringRevisionComparePackageReader consumers use unchanged productSourceCandidate. Present Rights payload includes verbatim CanonicalUrl, including stored null; missing rights remains Missing. No second reader.",
+    "absentHistoricalInputs": [
+        "PublicRouteKey",
+        "status",
+        "scheduled-publish-at"
+    ],
+    "releasePublishedAt": "Unchanged: selected revision release tied to highest PublicationNo; not first publication or revision creation time.",
+    "qualificationLimits": [
+        "Only six new ordinary value cases executed; no pass claim for existing reader tests.",
+        "No DB/HTTP/Vault/export, held audit, production, release, whole issue or source admission qualification.",
+        "No seal tampering, identity mutation, custody harness, lock regeneration or content API writes."
+    ],
+    "contentAPIWrites": false,
+    "newProductSourceChanges": [],
+    "fallbackUsed": false
+}

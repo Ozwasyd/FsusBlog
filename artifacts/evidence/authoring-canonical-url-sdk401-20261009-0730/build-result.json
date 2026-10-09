@@ -1,0 +1,13 @@
+{
+    "status": "PASS",
+    "exitCode": 0,
+    "command": [
+        "/workspace/.setup/dotnet/dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore"
+    ],
+    "warnings": 1510,
+    "errors": 0,
+    "logSHA256": "6cdd9db7f8e4dc9ede4e470b535457c3c88b177757fab4bdda6169f6efadae7c"
+}

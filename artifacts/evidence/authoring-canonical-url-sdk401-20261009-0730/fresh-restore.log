@@ -1,0 +1,9 @@
+  Determining projects to restore...
+/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/FsusBlog.Server.Tests.csproj]
+  Restored /workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/src/core/FsusBlog.Core.csproj (in 593 ms).
+  Restored /workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/src/backend/FsusBlog.Server.csproj (in 600 ms).
+  Restored /workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/src/shared/FsusBlog.Shared.csproj (in 1 ms).
+  Restored /workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/src/migration/FsusBlog.Migration.csproj (in 600 ms).
+  Restored /workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 56 ms).
+/workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  Restored /workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/FsusBlog.Server.Tests.csproj (in 1.14 sec).

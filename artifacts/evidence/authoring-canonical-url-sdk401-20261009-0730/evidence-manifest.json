@@ -1,0 +1,71 @@
+{
+    "productSourceCandidate": "da5d862e575674595327b38388fb7417d256cfec",
+    "evidenceKind": "Independent ordinary restore/build/six-case run logs; not an acceptance receipt",
+    "files": [
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/build-result.json",
+            "bytes": 329,
+            "sha256": "f9e4afa0b667eee4e7735c681796e11ef4c2963d09c28401cb4662bc42082d57"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/discovery-command.json",
+            "bytes": 912,
+            "sha256": "4b1d3ff79841178810906c009df48ab974e4117556339f880084457e32cbedba"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/discovery-result.json",
+            "bytes": 2451,
+            "sha256": "84d76e41a588ef9f4cc70a97462deec317767cbda7cd4ca55ca89894cf463a71"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/final-handoff.json",
+            "bytes": 3434,
+            "sha256": "7fb8668f90704818284634d0af810dbbca3cb84f855c0395509ef6f5746d8cf4"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/fresh-restore.log",
+            "bytes": 1526,
+            "sha256": "d88e238564937e9bca530181950ad4f4d08193dcdb8cd883f1d9268d4617d9e3"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/original-test-project-build.log",
+            "bytes": 1109018,
+            "sha256": "6cdd9db7f8e4dc9ede4e470b535457c3c88b177757fab4bdda6169f6efadae7c"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/preflight.json",
+            "bytes": 15626,
+            "sha256": "c22ed22b19cf9cfe2cd03c95c1f1a67641194f8f9b5917ced27d3e78aa26781d"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/restore-result.json",
+            "bytes": 14517,
+            "sha256": "1be89fbbb1c4f1107bc2fcba6f6ee2a9c2de455f70c94000e9fd5135afbcc200"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/six-case-discovery.log",
+            "bytes": 1206,
+            "sha256": "bb31d47dd3a53710f4589baff26d31c621264a1554d16542773022bc808fe2e0"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/six-case-result.json",
+            "bytes": 3953,
+            "sha256": "27a6389ffb896e91923241f5101eb9f7df8cc69abf5a4563c137a5fec89eab45"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/six-new-cases.log",
+            "bytes": 534,
+            "sha256": "b4e81bc2fb6d60c1a47011333e1e40663671080144425d914b436469467dfd57"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/test-command.json",
+            "bytes": 1239,
+            "sha256": "82f154a5377c0740dfb651bf7846908230e2ab18aeeaa81a4b5d5c68ffc28c50"
+        },
+        {
+            "path": "artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/test-results/six-new-cases.trx",
+            "bytes": 11173,
+            "sha256": "5fe4aeca4d2410ebbda5528ca6a643923c34d34e429652afeac4d8e48961e711"
+        }
+    ]
+}

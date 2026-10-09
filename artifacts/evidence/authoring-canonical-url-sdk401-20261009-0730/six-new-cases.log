@@ -1,0 +1,5 @@
+Test run for /workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/.task-worktrees/authoring-canonical-url-sdk401-20261009-0730/artifacts/evidence/authoring-canonical-url-sdk401-20261009-0730/test-results/six-new-cases.trx
+
+Passed!  - Failed:     0, Passed:     6, Skipped:     0, Total:     6, Duration: 140 ms - FsusBlog.Server.Tests.dll (net10.0)
