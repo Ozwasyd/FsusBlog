@@ -1,161 +1,114 @@
-# Bounded source-generation closure for the original Vault consumer
+# Complete repaired enrollment closure for the original Vault consumer
 
-Current source candidate: `4883b1985929e9aa1f2a63df8307fa5305c90849`.
-Original frozen compatible source: `aa193c2dbc27389e9684642a193de934ec62a9c6`.
-Exact parent/consumer baseline: `abb28c41213f6ea506a6b4dcb64f30b7451384b7`.
+Current reviewed-source return: `b4f0e8f5019253e5e937d4b07d6231f3a1b22d80`.
+Exact consumer baseline: `abb28c41213f6ea506a6b4dcb64f30b7451384b7`.
 Original consumer implementation: `08dbbac2bb522ca7f6b2433c02acbb60490149f0`.
 Published branch: `task/3654-vault-enrollment-compatibility`.
-Frozen independent-review supplier: `b98e179b0c0ac6c1f85790fcce3bd918a3aa6cdc` (unchanged).
+Same independent reviewer: `01a120b7-c3a0` through the coordinator.
+Runtime qualification: withheld. All 15 issue acceptances remain OPEN.
 
-## Complete bounded consumption
+## Minimal complete source sequence
 
-Consume the complete 22-path source closure against its exact consumer baseline, rather than the
-last five callbacks or the inherited supplier branch. `source-closure.json` gives
-all exact preimage and resulting Git blobs, including explicit absent paths.
-The minimal source sequence is aa193 directly against abb28, followed by
-4883b198 for its one test correction. Intervening handoff-only commits need not
-be consumed; the correction's test preimage is unchanged from aa193.
-The original 17-path generation delta passed `git apply --check` on this actual
-consumer with zero conflicts; its final-five-only patch had lacked prerequisites.
-The five shared ArticleService preimages are byte-identical to the frozen
-supplier delta's original preimages. No authenticated transport, typed SiteIdentity,
-HttpContext mapping, permission or registration code is replaced.
+Apply these three exact increments against their checked preimages; intervening
+handoff-only commits need not be imported:
 
-The bounded closure contains 16 production generation/writer files, the unchanged
-six-case enrollment control, two exact original coordinate definitions required
-by that control, and three repaired original fixture files. The two coordinate
-definitions are byte-identical to `5a0c945d60e75adf5a23e33702718088ed6ac989`:
-`src/backend/Entities/ArticleRelationSourceCoordinate.cs` and
-`src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs`.
-No coordinate authority implementation or revision-writer hook is imported.
-Consumer `ArticleRevisionPersistence.cs`, CanonicalUrl DTO and authoring projection
-remain byte-identical to the actual consumer. The consumer's existing Markdown
-normalizer/admission in `ArticleLifecycleTransitionWriter.cs` is preserved;
-only generation/transaction/outbox/cancellation hunks change there.
+1. `aa193c2dbc27389e9684642a193de934ec62a9c6`, directly based on abb28:
+   the original complete 22-path generation/writer/fixture compatibility closure.
+2. `4883b1985929e9aa1f2a63df8307fa5305c90849`: the one-file original stale-revision
+   no-write correction. Its test preimage is byte-identical to aa193, although its
+   actual parent is handoff commit `0e9dffa95be042e0dd05da4529aedd2380427ede`.
+3. `b4f0e8f5019253e5e937d4b07d6231f3a1b22d80`: exact consumption of canonical3657
+   supplier `59ecb523309b57ea674234832091aeccc14135c5`, itself directly based on aa193.
+   All five original metadata/control preimages matched, apply-check exited 0,
+   and every resulting file is byte-identical to the supplied candidate.
 
-Every canonical writer's outer native transaction acquires the source family lock
-before its existing identity/advisory/article locks. Inner create/lifecycle and
-Vault group flows require the original already-held native lock. Each original
-inserted outbox EventId is enrolled using the same original client and transaction,
-before commit. Caller ADO cancellation is restored by production scopes; caller
-CTS and transaction lifetimes are retained. No event is invented to count a write.
-No runtime DDL, new identity store, production migration or general coordinate
-semantics change is introduced.
+`source-closure.json` gives all 27 exact consumer-preimage and resulting Git blobs.
+Do not apply only the last five callbacks, transplant b98 counts or import inherited
+mother history. Any later consumer-preimage drift returns to the canonical owners.
+Frozen b98 and aa193 remain unchanged. The rejected b98-specific bb2a1dc registration
+was never applied; its actual-graph discrepancy and the correct resolution remain
+in `registration-discrepancy.json`.
 
-## Original fixture repair
+## Preserved boundaries and repaired original controls
 
-- `ArticleCreateIntegrationTests.cs`: provision all three original source-table
-  entity definitions and the rights/responsibility/publication relations parsed
-  by the mandatory native enrollment query. Existing CodeFirst test helper and
-  original coordinate migration definition run only against disposable fixtures.
-- `CanonicalArticlePublicationFixturePortIntegrationTests.cs`: provision the same
-  three source entities and original disposable coordinate schema.
-- `CanonicalArticleLifecycleFixturePortIntegrationTests.cs`: same provisioning;
-  direct stale-revision control now opens its caller native transaction, acquires
-  the family lock first and rolls back in `finally`. All original assertions and
-  stale-request values remain. The original conflict and three no-write row counts
-  are now observed inside that same transaction before rollback. No automatic
-  enrollment or negative gate is disabled.
+The generation closure keeps authenticated transport, typed SiteIdentity,
+HttpContext mapping, permission and unrelated registration work intact. The
+consumer Markdown admission/normalizer is preserved; only generation transaction,
+outbox and cancellation hunks change its lifecycle writer. Consumer
+ArticleRevisionPersistence, CanonicalUrl DTO and authoring projection stay
+byte-identical. Two exact original coordinate definitions required by the unchanged
+six-case control are carried; no coordinate authority implementation or revision
+writer hook is imported.
 
-## Verification and remaining admission
+Every original outer native transaction acquires the family lock before its existing
+identity/advisory/article locks. Inner create/lifecycle and Vault group flows require
+the already-held native lock. Each original inserted outbox EventId enrolls in the
+same original client and transaction before commit. Production scopes restore caller
+ADO cancellation without disposing caller CTS or changing transaction lifetime.
+No fabricated event, identity store, runtime DDL or production migration is added.
 
-Original locked restore exits 0 at aa193; dependency/project inputs are unchanged.
-A fresh original Release build exits 0 at current source 4883b198 with 1,507 retained
-warnings and zero errors.
-Incremental change-contract and `git diff --check` both exit 0. Compilation does
-not establish execution qualification. Raw logs remain task-local; they are not
-published here and no secrets or runtime credentials are included in this handoff.
+The three original fixture files use their existing disposable CodeFirst helper and
+original coordinate schema definition. ArticleCreate provisions all three source
+entities and rights/responsibility/publication tables parsed by native enrollment.
+Canonical publication and lifecycle fixtures provision the source entities and
+original disposable coordinate schema. Original methods, request fields and all
+assertion values are preserved; automatic enrollment remains mandatory.
+
+The same reviewer found that aa193's stale-revision counts after rollback could
+mask writes before a conflict. The separately identifiable 4883b198 correction moves
+the original conflict assertion and three original counts into the SAME caller
+transaction BEFORE finally rollback. Incorrect writes remain observable; assertion
+or unexpected-exception failures still execute unconditional cleanup. This source
+fix is not represented as dynamically reproduced or runtime verified.
+
+## Current bounded verification
+
+All results below bind to current source b4f0e8f50:
+
+- Original PostgreSQL collection checker exits 0: 128 classes, 999 source-estimated
+  cases, A451/B548. These are source estimates, not executed database case counts.
+- Eleven allowed original Node controls pass, zero failures and zero skips.
+- Original Release project build exits 0: 1,507 retained warnings, zero errors.
+- Incremental registration change-contract and diff checks exit 0.
+- Actual original matrix preflight exits 1. Rejection messages match the actual
+  abb28 baseline apart from the Node PID. It rejects release-final Node parser
+  identity, execution declaration/target-path indices, finite targets and
+  owner/content/dependency closure. Collection registration does not bypass it.
 
 Commands:
 
 ```sh
-/workspace/.setup/dotnet/dotnet restore tests/backend/FsusBlog.Server.Tests.csproj --locked-mode -p:NuGetAuditMode=all -p:NuGetAuditLevel=low
-/workspace/.setup/dotnet/dotnet build tests/backend/FsusBlog.Server.Tests.csproj --no-restore --configuration Release --disable-build-servers -p:UseSharedCompilation=false -v minimal
-node tools/governance/check-change-contract.mjs --range abb28c41213f6ea506a6b4dcb64f30b7451384b7..aa193c2dbc27389e9684642a193de934ec62a9c6
-git diff --check abb28c41213f6ea506a6b4dcb64f30b7451384b7..aa193c2dbc27389e9684642a193de934ec62a9c6
-node tools/run-test-matrix.mjs preflight
 node tools/check-postgres-test-collections.mjs
+node --test tests/tools/check-postgres-test-collections.test.mjs
+/workspace/.setup/dotnet/dotnet build tests/backend/FsusBlog.Server.Tests.csproj --no-restore --configuration Release --disable-build-servers -p:UseSharedCompilation=false -v minimal
+node tools/run-test-matrix.mjs preflight
+node tools/governance/check-change-contract.mjs --range 069b7f8b5ed9369add23b78ae7f507e424a40915..b4f0e8f5019253e5e937d4b07d6231f3a1b22d80
+git diff --check 069b7f8b5ed9369add23b78ae7f507e424a40915..b4f0e8f5019253e5e937d4b07d6231f3a1b22d80
 ```
 
-The aa193 candidate and exact consumer-baseline preflight each exit 1; their rejection
-messages are identical apart from the Node PID. That previous original preflight is
-an admission blocker; it was not rerun after the one test-hunk correction. The
-unchanged original collection checker was rerun at 4883b198 and still exits 1. It rejects release-final static parser
-identity, execution declaration/target-path indices, finite execution targets and
-owner/content/dependency closure. The exact consumer baseline also fails this
-preflight; inherited admission is not repaired by changing its authority snapshots
-here. PostgreSQL collection checking rejects the missing new enrollment class and
-other inherited registrations/estimated-fact totals. Canonical3657 owns registration;
-no manifest is edited in this source increment. Required smallest next input is
-its exact registration commit plus original authority-owner corrections and a
-really passing original preflight at the resulting current candidate.
+Locked restore previously exited 0 at aa193; project and lock inputs are unchanged.
+Earlier builds and preflight/collection failures remain bound to their respective
+sources and are preserved task-locally. Raw logs, sensitive metadata and credentials
+are not published to finish this handoff. No broad or held audit ran.
 
-No test has executed at this source. After admission, select the six exact methods
-in `CanonicalArticleSourceGenerationEnrollmentIntegrationTests` and all six exact
-methods in `ArticleCreateIntegrationTests`, plus the exact original
-`CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_StaleExpectedRevision_FailsBeforeNewRevision`
-negative control (13 ordinary methods total). Keep the
-original no-write, replay, template/asset, tamper, transaction, missing-lock and
-native-cancellation assertions. The remaining full canonical publication/lifecycle
-receipt, Vault/group, scheduler and public/HTTP/AOT gates remain withheld; no broad
-or held runtime has run. Source-predicted fixture regressions are repaired but are
-not represented as dynamically reproduced or runtime verified.
+## Remaining gate and exact next selection
 
-The frozen b98 six PostgreSQL controls were executed previously with 6 passed,
-0 failed and 0 skipped, including nine actual lifecycle events and confirmed
-container/volume cleanup. They remain executed-but-unqualified, and are not new
-passes at this consumer candidate. Earlier compile and cancellation failures remain
-preserved in the original handoff. All 15 issue acceptances remain OPEN.
+Current full original admission must genuinely pass after the canonical authority
+owner supplies its corrections. No authority snapshots, finite target scope,
+negative controls or qualification gates are weakened here. After admission, the
+pending list in source-closure.json contains thirteen precise ordinary methods:
+six enrollment controls, six original ArticleCreate controls and the original
+stale-revision no-write control. None has executed at this repaired consumer source.
+No container or database runtime has started for this current admission run.
 
-Return this complete closure and its admission blockers to the same independent
-reviewer `01a120b7-c3a0` through the coordinator. Independent qualification remains
-separate. No PR/body/comment/label/ready/merge/deploy writes or issue closure.
+Full Vault/group, scheduler batch, canonical publication/lifecycle receipts,
+public/HTTP/current-publication/persisted-command/AOT readback, current schema and
+whole native/style/frontend qualification remain withheld. Frozen b98's previous
+six PostgreSQL executions (6 passed, 0 failed, 0 skipped, nine lifecycle events and
+confirmed cleanup) remain executed-but-unqualified and are not current-source
+passes. Earlier compile/cancellation failures and subsequent real repairs remain
+preserved. No retroactive qualification, PR/body/comment/label/ready/merge/deploy
+write or issue closure is performed.
 
-## bb2a1dc registration is bound to another source graph
-
-Exact registration supplier `bb2a1dc367391003b6404e4238cf4a27245d5157` was fetched
-and its five-path delta inspected. None of those five paths is applied here.
-Its b98-bound roster includes two coordinate integration classes absent from this
-consumer, while this consumer has four additional original Vault PostgreSQL
-classes. `docs/testing.md` also has a different original preimage. Copying the
-supplier's 126/987 or A434/B553 would not describe this candidate.
-
-The unchanged original collection checker was rerun at `2cbc044934d9fd12be4eb07fa6bc50a1d0f854ec`
-(source still aa193) and exits 1. For the existing 115 registered classes it reports
-source-estimated A354/B513, 13 missing registrations and one missing annotation.
-The read-only diagnostic in `registration-discrepancy.json` reuses the original
-extractClasses/countXunitCases functions and canonical mask without changing
-checker, manifest, annotations or test code. It identifies 128 actual fixture
-classes, annotated A451/B543 and five unassigned source-estimated cases.
-
-If canonical3657 adapts its supplied TypedAdminSessionWriterDatabaseTests B
-annotation to this exact source, the prospective complete roster is 128 classes
-and 999 source-estimated cases, A451/B548. These are diagnostic source estimates,
-not applied registration, runtime test counts, or a checker pass. Canonical3657
-must independently recompute and publish its candidate-specific closure against
-aa193/2cbc. Release-final original preflight corrections remain independently
-necessary. No new tests, build, container, broad audit or admission bypass was run
-for this metadata inspection; earlier build remains bound to aa193 and earlier
-PostgreSQL results remain unqualified at frozen b98.
-
-## Same-review P2: preserve observations before rollback
-
-The same reviewer `01a120b7-c3a0` accepted the missing-table/query-dependency repair
-as a source fix but identified that aa193 observed original counts only after
-rollback, masking writes made before a stale-revision conflict. Separately
-identifiable source `4883b1985929e9aa1f2a63df8307fa5305c90849`, parent
-`0e9dffa95be042e0dd05da4529aedd2380427ede`, changes exactly one test file. It moves
-the original exception and three count assertions into the existing try block,
-after the expected conflict and before finally rollback on the same caller
-transaction. All expected values and original stale request fields remain.
-Unexpected exceptions or failed counts still execute unconditional cleanup.
-Frozen aa193 and b98 are unchanged; no production source or enrollment was disabled.
-
-The refreshed complete 22-path source/blob roster is in source-closure.json.
-At 4883b198, original Release build exits 0 (1,507 warnings, zero errors),
-incremental change-contract and diff checks exit 0, and original collection
-checking exits 1. No dynamic test, container or held runtime is executed. The
-previous failed original preflight remains bound to aa193 and the consumer
-baseline; current preflight must genuinely pass once canonical owners provide
-the exact current registration/admission fixes. The same-review return includes
-this correction and complete closure; source inspection/build is not qualification.
+Return this complete 27-path source, original before-rollback negative control,
+exact registration and actual current admission blocker to the SAME reviewer.

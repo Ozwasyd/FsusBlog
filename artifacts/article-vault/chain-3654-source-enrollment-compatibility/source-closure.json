@@ -2,11 +2,11 @@
   "schema": "fsusblog.source-enrollment-compatibility-handoff.v1",
   "consumerSource": "08dbbac2bb522ca7f6b2433c02acbb60490149f0",
   "consumerBaseline": "abb28c41213f6ea506a6b4dcb64f30b7451384b7",
-  "compatibleSource": "4883b1985929e9aa1f2a63df8307fa5305c90849",
+  "compatibleSource": "b4f0e8f5019253e5e937d4b07d6231f3a1b22d80",
   "compatibleBranch": "task/3654-vault-enrollment-compatibility",
   "frozenSupplier": "b98e179b0c0ac6c1f85790fcce3bd918a3aa6cdc",
   "coordinateDefinitionsSource": "5a0c945d60e75adf5a23e33702718088ed6ac989",
-  "changedPathCount": 22,
+  "changedPathCount": 27,
   "paths": [
     {
       "path": "src/backend/Entities/ArticleRelationSourceCoordinate.cs",
@@ -183,6 +183,41 @@
       "origin": "frozen b98 byte-identical",
       "frozenSourceBlob": "5bac645649fb8bb93fab5b5df2b3150a6a1ff7e6",
       "coordinateSupplierBlob": null
+    },
+    {
+      "path": "artifacts/change-contract/postgres-collection-manifest-naming-exceptions.json",
+      "consumerPreimageBlob": "ecacbc16e845bba64555173a4265db95c56f8b14",
+      "compatibleBlob": "09d4d43695c24b18df9b65ef270113680ddcc375",
+      "origin": "exact candidate-specific canonical3657 metadata/control increment",
+      "registrationSupplierBlob": "09d4d43695c24b18df9b65ef270113680ddcc375"
+    },
+    {
+      "path": "docs/testing.md",
+      "consumerPreimageBlob": "21b26b1d405d80a33a283bc0c4200786f09df829",
+      "compatibleBlob": "7e25557acb89ba9b98915d9e31415b8d46bb5ad2",
+      "origin": "exact candidate-specific canonical3657 metadata/control increment",
+      "registrationSupplierBlob": "7e25557acb89ba9b98915d9e31415b8d46bb5ad2"
+    },
+    {
+      "path": "tests/backend/Fixtures/postgres-test-collections.json",
+      "consumerPreimageBlob": "47593da2b918033f1a82d4adbf21dc0d28cb9053",
+      "compatibleBlob": "e42134c56146a29a0f2e09da233b381ae224a5ca",
+      "origin": "exact candidate-specific canonical3657 metadata/control increment",
+      "registrationSupplierBlob": "e42134c56146a29a0f2e09da233b381ae224a5ca"
+    },
+    {
+      "path": "tests/backend/Unit/AdminFixtureSessionIssuanceTests.cs",
+      "consumerPreimageBlob": "090e4f1af6a6531f764bec2e357f464bf54e566e",
+      "compatibleBlob": "cb62955e37f799dd7a985b9f54f40a0becd955c3",
+      "origin": "exact candidate-specific canonical3657 metadata/control increment",
+      "registrationSupplierBlob": "cb62955e37f799dd7a985b9f54f40a0becd955c3"
+    },
+    {
+      "path": "tests/tools/check-postgres-test-collections.test.mjs",
+      "consumerPreimageBlob": "56567883451ed48611cd4026be40dbcbafbd0fdd",
+      "compatibleBlob": "9af057ecc27d65ca622317b20d808b9a246190d3",
+      "origin": "exact candidate-specific canonical3657 metadata/control increment",
+      "registrationSupplierBlob": "9af057ecc27d65ca622317b20d808b9a246190d3"
     }
   ],
   "unchangedReservedPaths": [
@@ -200,8 +235,7 @@
     }
   ],
   "qualification": false,
-  "testsExecutedAtCompatibleSource": false,
-  "consume": "Apply aa193 directly against exact abb28 baseline, then the separately identifiable 4883b198 one-test correction after checking its unchanged aa193 preimage. Metadata handoff commits are optional. Do not apply final-five-only or import inherited mother history; any other consumer preimage drift returns to canonical owners.",
+  "consume": "Apply aa193 against exact abb28, apply the 4883b198 one-test correction, then the b4f0e8f50 exact canonical59ec registration increment. Metadata handoff-only commits are optional. All three increments require their exact checked preimages. No final-five-only subset or inherited mother history.",
   "pendingExactOrdinaryMethods": [
     "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.BlankCreateEnrollsOriginalEventAndReplayDoesNotAdvance",
     "FsusBlog.Server.Tests.Integration.CanonicalArticleSourceGenerationEnrollmentIntegrationTests.OriginalCreateAutomaticallyEnrollsInsideCallerTransactionAndReconnectIsExact",
@@ -259,6 +293,59 @@
     ]
   },
   "boundedVerification": {
+    "source": "b4f0e8f5019253e5e937d4b07d6231f3a1b22d80",
+    "originalCollectionCheckerExitCode": 0,
+    "allowedNodeControlsExitCode": 0,
+    "databaseTestsExecuted": false,
+    "qualification": false,
+    "buildExitCode": 0,
+    "buildWarnings": 1507,
+    "buildErrors": 0,
+    "buildArgv": [
+      "/workspace/.setup/dotnet/dotnet",
+      "build",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--configuration",
+      "Release",
+      "--disable-build-servers",
+      "-p:UseSharedCompilation=false",
+      "-v",
+      "minimal"
+    ],
+    "originalPreflightExitCode": 1,
+    "originalPreflightArgv": [
+      "node",
+      "tools/run-test-matrix.mjs",
+      "preflight"
+    ],
+    "preflightRejectionsIdenticalToActualConsumerBaselineIgnoringNodePid": true,
+    "incrementalChangeContractExitCode": 0,
+    "incrementalDiffCheckExitCode": 0
+  },
+  "completeSourceCommits": [
+    "aa193c2dbc27389e9684642a193de934ec62a9c6",
+    "4883b1985929e9aa1f2a63df8307fa5305c90849",
+    "b4f0e8f5019253e5e937d4b07d6231f3a1b22d80"
+  ],
+  "sourceBeforeCanonicalRegistration": "4883b1985929e9aa1f2a63df8307fa5305c90849",
+  "canonicalRegistration": {
+    "supplier": "59ecb523309b57ea674234832091aeccc14135c5",
+    "consumedSourceCommit": "b4f0e8f5019253e5e937d4b07d6231f3a1b22d80",
+    "allFivePreimagesExact": true,
+    "originalCheckerExitCode": 0,
+    "sourceFixtureClasses": 128,
+    "sourceEstimatedCases": 999,
+    "A": 451,
+    "B": 548,
+    "allowedNodeControls": {
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0
+    },
+    "qualification": false
+  },
+  "previousBeforeRollbackBoundedVerification": {
     "source": "4883b1985929e9aa1f2a63df8307fa5305c90849",
     "incrementalChangeContractExitCode": 0,
     "incrementalDiffCheckExitCode": 0,
@@ -283,8 +370,6 @@
       "minimal"
     ]
   },
-  "completeSourceCommits": [
-    "aa193c2dbc27389e9684642a193de934ec62a9c6",
-    "4883b1985929e9aa1f2a63df8307fa5305c90849"
-  ]
+  "databaseTestsExecutedAtCompatibleSource": false,
+  "allowedNodeControlsExecutedAtCompatibleSource": true
 }

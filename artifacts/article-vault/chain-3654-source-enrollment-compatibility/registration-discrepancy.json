@@ -146,5 +146,22 @@
     "SchemaMigrationPostgresCollectionB": 548,
     "notApplied": true,
     "canonicalCheckerConfirmationPending": true
+  },
+  "candidateSpecificResolution": {
+    "supplier": "59ecb523309b57ea674234832091aeccc14135c5",
+    "consumedSource": "b4f0e8f5019253e5e937d4b07d6231f3a1b22d80",
+    "allFiveOriginalPreimagesExact": true,
+    "allFiveResultingFilesByteIdentical": true,
+    "originalCheckerExitCode": 0,
+    "classes": 128,
+    "sourceEstimatedCases": 999,
+    "A": 451,
+    "B": 548,
+    "allowedNodeControlsPassed": 11,
+    "failed": 0,
+    "skipped": 0,
+    "originalFullPreflightExitCode": 1,
+    "databaseTestsExecuted": false,
+    "qualification": false
   }
 }
