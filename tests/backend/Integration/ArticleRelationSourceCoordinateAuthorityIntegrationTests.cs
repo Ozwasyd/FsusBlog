@@ -384,6 +384,221 @@ public sealed class ArticleRelationSourceCoordinateAuthorityIntegrationTests(Pos
         Assert.Equal(1, await db.Queryable<ArticleRelationArticleBinding>().CountAsync());
     }
 
+    [Fact]
+    public async Task BatchReadsSixtyFourExactHistoricalBindingsInInputOrderAcrossReconnect()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var saved = new List<ArticleRelationRevisionCoordinate>();
+        for (int index = 0; index < 32; index++)
+        {
+            (int article, long revision) = await CreateSourceAsync(db);
+            saved.Add(await ProvisionAndCommitAsync(db, article, revision));
+            long next = await CreateRevisionAsync(db, article, 2);
+            saved.Add(await ProvisionAndCommitAsync(db, article, next));
+        }
+        saved.Reverse();
+        (int ArticleId, long RevisionId)[] pairs = saved.Select(static source => (source.ArticleId, source.RevisionId)).ToArray();
+        Assert.Equal(64, pairs.Length);
+        Assert.Equal(saved, await _authority.ReadRevisionsAsync(db, pairs));
+        db.Close();
+        using SqlSugarClient restarted = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Assert.Equal(saved, await new ArticleRelationSourceCoordinateAuthority().ReadRevisionsAsync(restarted, pairs));
+        await AssertCountsAsync(restarted, 32, 64);
+    }
+
+    [Fact]
+    public async Task BatchReadsUncommittedCallerBindingsAndPreservesReadOnlyRepeatableReadTransaction()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (int article, long revision) = await CreateSourceAsync(db);
+        long next = await CreateRevisionAsync(db, article, 2);
+        await db.Ado.BeginTranAsync();
+        ArticleRelationRevisionCoordinate first = await _authority.ProvisionRevisionAsync(db, article, revision);
+        ArticleRelationRevisionCoordinate second = await _authority.ProvisionRevisionAsync(db, article, next);
+        var pairs = new (int, long)[] { (article, next), (article, revision) };
+        Assert.Equal(new[] { second, first }, await _authority.ReadRevisionsAsync(db, pairs));
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(() => _authority.ReadRevisionsAsync(observer, pairs));
+        await db.Ado.CommitTranAsync();
+
+        await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead);
+        await db.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;");
+        NpgsqlTransaction transaction = Assert.IsType<NpgsqlTransaction>(db.Ado.Transaction);
+        IDbConnection connection = db.Ado.Connection;
+        int pid = ((NpgsqlConnection)connection).ProcessID;
+        Assert.Equal(new[] { second, first }, await _authority.ReadRevisionsAsync(db, pairs));
+        Assert.Same(connection, db.Ado.Connection);
+        Assert.Same(transaction, db.Ado.Transaction);
+        Assert.Equal(IsolationLevel.RepeatableRead, transaction.IsolationLevel);
+        Assert.Equal(pid, ((NpgsqlConnection)connection).ProcessID);
+        Assert.Equal("on", await db.Ado.GetStringAsync("SHOW transaction_read_only;"));
+        await db.Ado.RollbackTranAsync();
+        Assert.Equal(new[] { second, first }, await _authority.ReadRevisionsAsync(db, pairs));
+        await AssertCountsAsync(db, 1, 2);
+    }
+
+    [Fact]
+    public async Task BatchMissingUnprovisionedOrWrongOwnerRefusesWholeReadWithoutWriting()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (int article, long revision) = await CreateSourceAsync(db);
+        (int other, long unprovisioned) = await CreateSourceAsync(db);
+        ArticleRelationRevisionCoordinate saved = await ProvisionAndCommitAsync(db, article, revision);
+        foreach ((int articleId, long revisionId) in new[] { (other, unprovisioned), (other, revision), (article, long.MaxValue), (int.MaxValue, revision) })
+        {
+            foreach (bool missingFirst in new[] { true, false })
+            {
+                var pairs = missingFirst
+                    ? new (int, long)[] { (articleId, revisionId), (article, revision) }
+                    : new (int, long)[] { (article, revision), (articleId, revisionId) };
+                await db.Ado.BeginTranAsync();
+                await db.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;");
+                ArticleRelationSourceCoordinateException exception = await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
+                    () => _authority.ReadRevisionsAsync(db, pairs));
+                Assert.Equal("article_relation_binding_unavailable", exception.Message);
+                Assert.Equal(saved, await _authority.ReadRevisionAsync(db, article, revision));
+                await AssertCountsAsync(db, 1, 1);
+                await db.Ado.RollbackTranAsync();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task BatchRefusesForeignAndCompletedCallerTransactions()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (int article, long revision) = await CreateSourceAsync(db);
+        await ProvisionAndCommitAsync(db, article, revision);
+        var pairs = new (int, long)[] { (article, revision) };
+        using SqlSugarClient other = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await other.Ado.BeginTranAsync();
+        db.Ado.Transaction = other.Ado.Transaction;
+        try
+        {
+            await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(() => _authority.ReadRevisionsAsync(db, pairs));
+        }
+        finally
+        {
+            db.Ado.Transaction = null;
+            await other.Ado.RollbackTranAsync();
+        }
+        await db.Ado.BeginTranAsync();
+        NpgsqlTransaction transaction = Assert.IsType<NpgsqlTransaction>(db.Ado.Transaction);
+        await transaction.RollbackAsync();
+        try
+        {
+            await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(() => _authority.ReadRevisionsAsync(db, pairs));
+        }
+        finally
+        {
+            db.Ado.Transaction = null;
+            await transaction.DisposeAsync();
+        }
+        await AssertCountsAsync(db, 1, 1);
+    }
+
+    [Fact]
+    public async Task BatchCancellationReachesBlockedSqlAndCompletesBeforeBorrowedClientReuse()
+    {
+        using SqlSugarClient blocker = await CreateDatabaseAsync();
+        (int article, long revision) = await CreateSourceAsync(blocker);
+        ArticleRelationRevisionCoordinate saved = await ProvisionAndCommitAsync(blocker, article, revision);
+        string connectionString = blocker.CurrentConnectionConfig.ConnectionString;
+        using SqlSugarClient waiter = PostgresSqlSugarTestClient.Create(connectionString);
+        waiter.Ado.Open();
+        NpgsqlConnection connection = Assert.IsType<NpgsqlConnection>(waiter.Ado.Connection);
+        int pid = connection.ProcessID;
+        await blocker.Ado.BeginTranAsync();
+        await blocker.Ado.ExecuteCommandAsync("LOCK TABLE article_relation_source_coordinate IN ACCESS EXCLUSIVE MODE;");
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        Task<IReadOnlyList<ArticleRelationRevisionCoordinate>> read = _authority.ReadRevisionsAsync(
+            waiter, new (int, long)[] { (article, revision) }, cancellation.Token);
+        try
+        {
+            await ObserveBlockedCommandAsync(connectionString, pid, read, cancellation.Token);
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => read);
+            Assert.True(read.IsCompleted);
+            Assert.Same(connection, waiter.Ado.Connection);
+            Assert.Equal(ConnectionState.Open, connection.State);
+            Assert.Equal(pid, connection.ProcessID);
+            await using var command = new NpgsqlCommand("SELECT 1;", connection);
+            Assert.Equal(1, await command.ExecuteScalarAsync());
+        }
+        finally
+        {
+            cancellation.Cancel();
+            try
+            {
+                await read;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            await blocker.Ado.RollbackTranAsync();
+        }
+        Assert.Equal(saved, Assert.Single(await _authority.ReadRevisionsAsync(waiter, new (int, long)[] { (article, revision) })));
+        await AssertCountsAsync(blocker, 1, 1);
+    }
+
+    [Fact]
+    public async Task BatchCopiesRequestedPairsBeforeAwaitingActualSql()
+    {
+        using SqlSugarClient blocker = await CreateDatabaseAsync();
+        (int article, long revision) = await CreateSourceAsync(blocker);
+        ArticleRelationRevisionCoordinate saved = await ProvisionAndCommitAsync(blocker, article, revision);
+        string connectionString = blocker.CurrentConnectionConfig.ConnectionString;
+        using SqlSugarClient waiter = PostgresSqlSugarTestClient.Create(connectionString);
+        waiter.Ado.Open();
+        int pid = ((NpgsqlConnection)waiter.Ado.Connection).ProcessID;
+        await blocker.Ado.BeginTranAsync();
+        await blocker.Ado.ExecuteCommandAsync("LOCK TABLE article_relation_source_coordinate IN ACCESS EXCLUSIVE MODE;");
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var pairs = new (int, long)[] { (article, revision) };
+        Task<IReadOnlyList<ArticleRelationRevisionCoordinate>> read = _authority.ReadRevisionsAsync(waiter, pairs, cancellation.Token);
+        try
+        {
+            await ObserveBlockedCommandAsync(connectionString, pid, read, cancellation.Token);
+            pairs[0] = (int.MaxValue, long.MaxValue);
+            await blocker.Ado.RollbackTranAsync();
+            Assert.Equal(saved, Assert.Single(await read));
+        }
+        finally
+        {
+            cancellation.Cancel();
+            try
+            {
+                await read;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            if (blocker.Ado.Transaction is not null)
+            {
+                await blocker.Ado.RollbackTranAsync();
+            }
+        }
+        await AssertCountsAsync(waiter, 1, 1);
+    }
+
+    private static async Task ObserveBlockedCommandAsync(string connectionString, int pid, Task operation, CancellationToken token)
+    {
+        await using var observer = new NpgsqlConnection(connectionString);
+        await observer.OpenAsync(token);
+        await using var command = new NpgsqlCommand("SELECT cardinality(pg_blocking_pids(@pid)) > 0;", observer);
+        command.Parameters.AddWithValue("pid", pid);
+        bool blocked = false;
+        while (!blocked && !operation.IsCompleted)
+        {
+            blocked = (bool)(await command.ExecuteScalarAsync(token))!;
+            if (!blocked)
+            {
+                await Task.Delay(10, token);
+            }
+        }
+        Assert.True(blocked, "The exact batch command must be observed blocked on the task-owned table lock.");
+    }
+
     private async Task<SqlSugarClient> CreateDatabaseAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
