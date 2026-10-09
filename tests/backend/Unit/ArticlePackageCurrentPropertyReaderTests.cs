@@ -360,13 +360,166 @@ public sealed class ArticlePackageCurrentPropertyReaderTests
         await authority.DidNotReceiveWithAnyArgs().ReadAsync(default, default, default);
     }
 
+    [Theory]
+    [InlineData("snapshot")]
+    [InlineData("factset")]
+    [InlineData("audit-chain")]
+    [InlineData("audit-hash")]
+    [InlineData("revision")]
+    [InlineData("definition")]
+    [InlineData("option")]
+    [InlineData("reconciliation")]
+    public async Task GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead(string field)
+    {
+        var first = Model(ArticlePropertyValueType.SingleSelect);
+        var second = SecondArticle(first);
+        var changed = ChangedGroupObservation(first, field);
+        bool laterArticleRead = false;
+        var authority = Substitute.For<IArticlePropertyValueAuthority>();
+        authority.ReadAsync(42, s_owner, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            if (call.ArgAt<int>(2) == second.ArticleId)
+            {
+                laterArticleRead = true;
+                return Task.FromResult(second);
+            }
+            return Task.FromResult(laterArticleRead ? changed : first);
+        });
+        var result = await ArticlePackageManifestCandidatePlanner.ReadCurrentPropertiesAndCreateCandidatePlanAsync(
+            42, [PlannerInput(first), PlannerInput(second)], new(authority));
+        Assert.True(laterArticleRead);
+        Assert.False(result.IsValid);
+        Assert.Null(result.Plan);
+        Assert.Null(result.Sources);
+    }
+
+    [Fact]
+    public async Task GroupPlannerReauthorizesEarlyArticleAfterLaterRead()
+    {
+        var first = Model(ArticlePropertyValueType.Text);
+        var second = SecondArticle(first);
+        bool laterArticleRead = false;
+        var authority = Substitute.For<IArticlePropertyValueAuthority>();
+        authority.ReadAsync(42, s_owner, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            if (call.ArgAt<int>(2) == second.ArticleId)
+            {
+                laterArticleRead = true;
+                return Task.FromResult(second);
+            }
+            return laterArticleRead ? throw new ArticlePropertyDefinitionAccessDeniedException() : Task.FromResult(first);
+        });
+        await Assert.ThrowsAsync<ArticlePropertyDefinitionAccessDeniedException>(() =>
+            ArticlePackageManifestCandidatePlanner.ReadCurrentPropertiesAndCreateCandidatePlanAsync(
+                42, [PlannerInput(first), PlannerInput(second)], new(authority)));
+        Assert.True(laterArticleRead);
+    }
+
+    [Fact]
+    public async Task GroupPlannerCancellationDuringFinalReadCannotReturnPlan()
+    {
+        var first = Model(ArticlePropertyValueType.Text);
+        var second = SecondArticle(first);
+        bool laterArticleRead = false;
+        using var cancellation = new CancellationTokenSource();
+        var authority = Substitute.For<IArticlePropertyValueAuthority>();
+        authority.ReadAsync(42, s_owner, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            if (call.ArgAt<int>(2) == second.ArticleId)
+            {
+                laterArticleRead = true;
+                return Task.FromResult(second);
+            }
+            if (laterArticleRead)
+            {
+                cancellation.Cancel();
+            }
+            return Task.FromResult(first);
+        });
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            ArticlePackageManifestCandidatePlanner.ReadCurrentPropertiesAndCreateCandidatePlanAsync(
+                42, [PlannerInput(first), PlannerInput(second)], new(authority), cancellation.Token));
+        Assert.True(cancellation.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task StableGroupRechecksEveryArticleWithoutGrantingAuthorityOrWriting()
+    {
+        var first = Model(ArticlePropertyValueType.Text);
+        var second = SecondArticle(first);
+        var authority = Substitute.For<IArticlePropertyValueAuthority>();
+        authority.ReadAsync(42, s_owner, Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(call.ArgAt<int>(2) == first.ArticleId ? first : second));
+        var reader = new ArticlePackageCurrentPropertyReader(authority);
+        var inputs = new[] { PlannerInput(first), PlannerInput(second) };
+        var result = await ArticlePackageManifestCandidatePlanner.ReadCurrentPropertiesAndCreateCandidatePlanAsync(42, inputs, reader);
+        Assert.True(result.IsValid, result.ReasonCode);
+        Assert.Equal(2, result.Plan!.Articles.Count);
+        Assert.Equal(2, result.Sources!.Count);
+        Assert.False(result.Plan.RequirePackageAuthority().IsValid);
+        Assert.All(result.Sources, source => Assert.False(source.Component.RequirePropertyAuthority().IsValid));
+        Assert.All(authority.ReceivedCalls(), call => Assert.Equal(nameof(IArticlePropertyValueAuthority.ReadAsync), call.GetMethodInfo().Name));
+        await authority.Received(3).ReadAsync(42, s_owner, first.ArticleId, Arg.Any<CancellationToken>());
+        await authority.Received(3).ReadAsync(42, s_owner, second.ArticleId, Arg.Any<CancellationToken>());
+        var repeated = await ArticlePackageManifestCandidatePlanner.ReadCurrentPropertiesAndCreateCandidatePlanAsync(42, inputs, reader);
+        Assert.True(repeated.IsValid, repeated.ReasonCode);
+        Assert.Equal(result.Plan.Manifest.SemanticDigest, repeated.Plan!.Manifest.SemanticDigest);
+        await authority.Received(6).ReadAsync(42, s_owner, first.ArticleId, Arg.Any<CancellationToken>());
+        await authority.Received(6).ReadAsync(42, s_owner, second.ArticleId, Arg.Any<CancellationToken>());
+    }
+
+    private static ArticlePropertyValueReadModel SecondArticle(ArticlePropertyValueReadModel first)
+        => first with
+        {
+            ArticleId = 8,
+            ArticleRevisionId = 200,
+            Current = first.Current! with
+            {
+                SnapshotId = Id(30),
+                AuditReference = Id(30),
+                FactsetId = Id(31),
+                Snapshot = ArticlePropertyValueValidator.BindSnapshot(s_coordinates with
+                {
+                    ArticleId = 8,
+                    ArticleRevisionId = 200
+                }, first.Current.Snapshot.Values)
+            }
+        };
+
+    private static ArticlePropertyValueReadModel ChangedGroupObservation(ArticlePropertyValueReadModel first, string field)
+        => field switch
+        {
+            "snapshot" => first with { Current = first.Current! with { SnapshotId = Id(20), AuditReference = Id(20) } },
+            "factset" => first with { Current = first.Current! with { FactsetId = Id(21) } },
+            "audit-chain" => first with { Current = first.Current! with { AuditChainId = "20261010" } },
+            "audit-hash" => first with { Current = first.Current! with { AuditRecordHash = new string('b', 64) } },
+            "revision" => first with
+            {
+                PropertyRevision = 4,
+                Current = first.Current! with
+                {
+                    Snapshot = ArticlePropertyValueValidator.BindSnapshot(s_coordinates with { PropertyRevision = 4 }, first.Current.Snapshot.Values)
+                }
+            },
+            "definition" => first with { Definitions = [Seal(first.Definitions[0] with { SchemaRevision = 2 })] },
+            "option" => first with
+            {
+                Definitions = [Seal(first.Definitions[0] with
+                {
+                    SchemaRevision = 2,
+                    Options = [first.Definitions[0].Options[0] with { Status = ArticlePropertyOptionStatus.Deprecated }]
+                })]
+            },
+            _ => first with { Reconciliation = [new(s_definitionId, ArticlePropertyValueReconciliationStatus.ValueRejected, "rejected")] }
+        };
+
     private static ArticlePackageManifestCandidateInput PlannerInput(ArticlePropertyValueReadModel model)
     {
-        var article = new ArticleCanonicalInput(7, 100, 1, "route", "Title", null, null, 1, [],
+        var article = new ArticleCanonicalInput(model.ArticleId, model.ArticleRevisionId, 1, "route", "Title", null, null, 1, [],
             ArticleStatusValues.Draft, null, null, "# Body\r\nexact  \r\n");
-        Assert.True(ArticlePackageIdentity.TryCreate(ArticlePackageIdentityKind.Article, "article:" + Id(7).ToString("D"),
+        Assert.True(ArticlePackageIdentity.TryCreate(ArticlePackageIdentityKind.Article, "article:" + Id(model.ArticleId).ToString("D"),
             out var portable).IsValid);
-        var title = new ArticlePackageTitleSummaryBinding(7, 100, 1, ArticleCanonicalHashV1.ComputeHashHex(article), portable);
+        var title = new ArticlePackageTitleSummaryBinding(model.ArticleId, model.ArticleRevisionId, 1, ArticleCanonicalHashV1.ComputeHashHex(article), portable);
         return new(article, title, model.Current!.Snapshot, Bindings(model), Encoding.UTF8.GetBytes(article.MarkdownContent));
     }
 
