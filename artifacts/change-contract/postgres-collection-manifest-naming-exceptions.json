@@ -6,7 +6,7 @@
             "paths": [
                 "tests/backend/Fixtures/postgres-test-collections.json"
             ],
-            "reason": "preserve the caller-visible PostgreSQL collection IDs and manifest JSON keys while registering the #3214 fixture-backed classes and source-derived case totals"
+            "reason": "preserve the caller-visible PostgreSQL collection IDs and manifest JSON keys while registering the seven annotated classes and the separately assigned #1851 admin-writer collection fixture for #3657 with source-derived case totals; also preserve the two actual Graph SQL class registrations on their exact consumer source"
         }
     ]
 }
