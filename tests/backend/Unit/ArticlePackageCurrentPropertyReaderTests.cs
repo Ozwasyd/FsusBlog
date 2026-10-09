@@ -498,7 +498,10 @@ public sealed class ArticlePackageCurrentPropertyReaderTests
                 PropertyRevision = 4,
                 Current = first.Current! with
                 {
-                    Snapshot = ArticlePropertyValueValidator.BindSnapshot(s_coordinates with { PropertyRevision = 4 }, first.Current.Snapshot.Values)
+                    Snapshot = ArticlePropertyValueValidator.BindSnapshot(s_coordinates with
+                    {
+                        PropertyRevision = 4
+                    }, first.Current.Snapshot.Values)
                 }
             },
             "definition" => first with { Definitions = [Seal(first.Definitions[0] with { SchemaRevision = 2 })] },
