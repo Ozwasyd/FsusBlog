@@ -1,0 +1,19 @@
+✔ canonical import observation mutation cannot turn an actual foreign callee into Vue provide (301.765017ms)
+✔ canonical import observation entry mutation cannot substitute a public framework export absent from the original AST (54.302883ms)
+✔ canonical import observations retain the actual Vue export after detached map and value writes (53.663642ms)
+✔ canonical framework dependency follows the actual nested helper instead of borrowing the module helper (42.330664ms)
+✔ canonical framework dependency leaves actual simple and destructured parameters unresolved (180.69183ms)
+✔ canonical framework dependency retains the nearest actual block function declaration (41.161334ms)
+✔ canonical framework dependency does not borrow a module function through a destructured local binding (39.981866ms)
+✔ canonical framework dependency preserves a genuine module helper and its original source step (39.353845ms)
+✔ canonical RouterView graph refuses an original Other call definition overwritten with an unrelated Outlet (91.870498ms)
+✔ canonical RouterView direct public binder refuses a rewritten actual component call path (69.927092ms)
+✔ canonical RouterView graph preserves its genuine original source calls across repeated observations (117.280737ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1159.022514

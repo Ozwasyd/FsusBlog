@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^(?:canonical\\ import\\ observation\\ mutation\\ cannot\\ turn\\ an\\ actual\\ foreign\\ callee\\ into\\ Vue\\ provide|canonical\\ import\\ observation\\ entry\\ mutation\\ cannot\\ substitute\\ a\\ public\\ framework\\ export\\ absent\\ from\\ the\\ original\\ AST|canonical\\ import\\ observations\\ retain\\ the\\ actual\\ Vue\\ export\\ after\\ detached\\ map\\ and\\ value\\ writes|canonical\\ framework\\ dependency\\ follows\\ the\\ actual\\ nested\\ helper\\ instead\\ of\\ borrowing\\ the\\ module\\ helper|canonical\\ framework\\ dependency\\ leaves\\ actual\\ simple\\ and\\ destructured\\ parameters\\ unresolved|canonical\\ framework\\ dependency\\ retains\\ the\\ nearest\\ actual\\ block\\ function\\ declaration|canonical\\ framework\\ dependency\\ does\\ not\\ borrow\\ a\\ module\\ function\\ through\\ a\\ destructured\\ local\\ binding|canonical\\ framework\\ dependency\\ preserves\\ a\\ genuine\\ module\\ helper\\ and\\ its\\ original\\ source\\ step|canonical\\ RouterView\\ graph\\ refuses\\ an\\ original\\ Other\\ call\\ definition\\ overwritten\\ with\\ an\\ unrelated\\ Outlet|canonical\\ RouterView\\ direct\\ public\\ binder\\ refuses\\ a\\ rewritten\\ actual\\ component\\ call\\ path|canonical\\ RouterView\\ graph\\ preserves\\ its\\ genuine\\ original\\ source\\ calls\\ across\\ repeated\\ observations)$",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-collection-successor/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791560326.0947292,
+  "durationSeconds": 1.324599266052246,
+  "source": {
+    "blog": {
+      "commit": "0f3bb8b8877009fd7e87b8b79ac85e18fc00ccec",
+      "tree": "d47f8c48efac526b50dc35f949796568e275691f",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionCollectionSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "d6f82f78b1a0bc1df706f3fc2b804fb7a0d4c34584b37ba27281201c11f0f75b"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "0f3bb8b8877009fd7e87b8b79ac85e18fc00ccec",
+      "tree": "d47f8c48efac526b50dc35f949796568e275691f",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionCollectionSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "d6f82f78b1a0bc1df706f3fc2b804fb7a0d4c34584b37ba27281201c11f0f75b"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-collection-successor/evidence/n123-focused-repaired.log",
+  "logSha256": "34932adcc59b5bb303315591fed1cbc3867525df23b9eab6173fb6a6587052f1"
+}

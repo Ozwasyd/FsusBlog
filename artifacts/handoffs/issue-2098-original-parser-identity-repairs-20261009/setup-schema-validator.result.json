@@ -1,0 +1,48 @@
+{
+  "command": [
+    "npm",
+    "ci",
+    "--offline",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    "--prefix",
+    "tools/test-matrix/schema-validator"
+  ],
+  "cwd": "/workspace/chain-1895-collection-successor/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791560235.0717947,
+  "durationSeconds": 0.5841653347015381,
+  "source": {
+    "blog": {
+      "commit": "0f3bb8b8877009fd7e87b8b79ac85e18fc00ccec",
+      "tree": "d47f8c48efac526b50dc35f949796568e275691f",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionCollectionSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "d6f82f78b1a0bc1df706f3fc2b804fb7a0d4c34584b37ba27281201c11f0f75b"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "0f3bb8b8877009fd7e87b8b79ac85e18fc00ccec",
+      "tree": "d47f8c48efac526b50dc35f949796568e275691f",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionCollectionSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "d6f82f78b1a0bc1df706f3fc2b804fb7a0d4c34584b37ba27281201c11f0f75b"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-collection-successor/evidence/setup-schema-validator.log",
+  "logSha256": "675633832d780adf5f9489bc0531f931f6072a21d24ddd82ccd376819c9800a9"
+}

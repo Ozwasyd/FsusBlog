@@ -1,0 +1,10 @@
+[
+  {
+    "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "sha256": "998435669e85fb6872e68f9830270ed176279537e9cc68a3d71e4dc04a673a9c"
+  },
+  {
+    "path": "tests/tools/layout-collection-source.test.mjs",
+    "sha256": "37659de9c9326a8534fbd8d8b2b423ec28575884820fa835550818f7d8e3b942"
+  }
+]

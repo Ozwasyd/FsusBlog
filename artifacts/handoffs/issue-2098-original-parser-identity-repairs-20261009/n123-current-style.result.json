@@ -1,0 +1,54 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tools/frontend/control-legality/source.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "--file",
+    "tests/tools/layout-collection-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-collection-successor/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791561149.6147692,
+  "durationSeconds": 8.793706178665161,
+  "source": {
+    "blog": {
+      "commit": "0f3bb8b8877009fd7e87b8b79ac85e18fc00ccec",
+      "tree": "d47f8c48efac526b50dc35f949796568e275691f",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionCollectionSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "39054dd7790dd024efeabbd89407cc14a1e56e984fadc017b4efe85f4b99b38b"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "0f3bb8b8877009fd7e87b8b79ac85e18fc00ccec",
+      "tree": "d47f8c48efac526b50dc35f949796568e275691f",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionCollectionSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "39054dd7790dd024efeabbd89407cc14a1e56e984fadc017b4efe85f4b99b38b"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-collection-successor/evidence/n123-current-style.log",
+  "logSha256": "c1f016053aa8accd4a72cf5906eeb94e29fc0ff1bebef618905a4b990778debe"
+}
