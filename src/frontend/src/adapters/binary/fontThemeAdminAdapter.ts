@@ -22,11 +22,13 @@ interface ParsedPayload {
 
 class WireReader
 {
+    private readonly bytes: Uint8Array;
     private readonly view: DataView;
     private offset = 0;
 
-    constructor(private readonly bytes: Uint8Array)
+    constructor(bytes: Uint8Array)
     {
+        this.bytes = bytes;
         this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     }
 
@@ -186,10 +188,13 @@ function parseDetailPayload(payload: Uint8Array, childSize: number, detailSize: 
 
 class BlobCursor
 {
+    private readonly blob: Uint8Array;
     private offset = 0;
 
-    constructor(private readonly blob: Uint8Array)
-    {}
+    constructor(blob: Uint8Array)
+    {
+        this.blob = blob;
+    }
 
     text(reference: SliceRef, maximum: number, allowEmpty = false): string
     {
