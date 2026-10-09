@@ -465,6 +465,285 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         return node;
     };
+    // A factory result is proved from its lexical construction, not its name.
+    // This bounded case describes a slot-only render source; it grants no
+    // public identity or exemption to a local wrapper or lifecycle behavior.
+    const resolveFactoryComponent = (file, name, seen = new Set()) =>
+    {
+        const identity = `${file}#${name}`;
+        if (seen.has(identity))
+        {
+            fail(`cyclic factory binding ${identity}`);
+        }
+        const next = new Set([...seen, identity]);
+        const record = parse(file);
+        function readonlyBinding(owner, symbol)
+        {
+            let written = false;
+            function rootName(node)
+            {
+                node = unwrap(node);
+                while (node && (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)))
+                {
+                    node = unwrap(node.expression);
+                }
+                return node && ts.isIdentifier(node) ? node.text : null;
+            }
+            function visit(node)
+            {
+                if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                    && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment && rootName(node.left) === symbol)
+                {
+                    written = true;
+                }
+                if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+                    && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) && rootName(node.operand) === symbol)
+                {
+                    written = true;
+                }
+                if (ts.isDeleteExpression(node) && rootName(node.expression) === symbol)
+                {
+                    written = true;
+                }
+                ts.forEachChild(node, visit);
+            }
+            parse(owner).scripts.forEach(({ ast }) => visit(ast));
+            if (written)
+            {
+                fail(`mutated factory binding ${owner}#${symbol}`);
+            }
+        }
+        const origin = exportsOf(file).get(name);
+        if (origin?.ambiguous || origin?.unresolved)
+        {
+            fail(`ambiguous factory binding ${identity}`);
+        }
+        if (origin && (origin.file !== file || origin.name !== name))
+        {
+            return resolveFactoryComponent(origin.file, origin.name, next);
+        }
+        const declarations = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isVariableStatement)
+            .flatMap((statement) => [...statement.declarationList.declarations]));
+        const bindings = declarations.filter((declaration) => ts.isObjectBindingPattern(declaration.name)
+            && declaration.name.elements.some((entry) => ts.isIdentifier(entry.name) && entry.name.text === name));
+        if (!bindings.length)
+        {
+            return null;
+        }
+        if (bindings.length !== 1)
+        {
+            fail(`ambiguous factory construction ${identity}`);
+        }
+        const binding = bindings[0];
+        if (!(binding.parent.flags & ts.NodeFlags.Const) || binding.name.elements.some((entry) => entry.dotDotDotToken
+            || entry.initializer || !ts.isIdentifier(entry.name) || (entry.propertyName && !ts.isIdentifier(entry.propertyName))))
+        {
+            fail(`dynamic factory destructuring ${identity}`);
+        }
+        const selected = binding.name.elements.find((entry) => entry.name.text === name);
+        readonlyBinding(file, name);
+        const property = (selected.propertyName ?? selected.name).text;
+        const call = unwrap(binding.initializer);
+        if (!call || !ts.isCallExpression(call) || !ts.isIdentifier(call.expression) || call.arguments.some(ts.isSpreadElement))
+        {
+            fail(`unknown factory call ${identity}`);
+        }
+        function functionSource(owner, symbol, visited = new Set())
+        {
+            const key = `${owner}#${symbol}`;
+            if (visited.has(key))
+            {
+                fail(`cyclic factory function ${key}`);
+            }
+            visited.add(key);
+            const current = parse(owner);
+            readonlyBinding(owner, symbol);
+            const exported = exportsOf(owner).get(symbol);
+            if (exported?.ambiguous || exported?.unresolved)
+            {
+                fail(`unknown factory function ${key}`);
+            }
+            if (exported && (exported.file !== owner || exported.name !== symbol))
+            {
+                return functionSource(exported.file, exported.name, visited);
+            }
+            const imported = current.imports.get(symbol);
+            if (imported)
+            {
+                const target = modulePath(imported.specifier, owner, mode === 'local' && owner.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
+                if (typeof target !== 'string')
+                {
+                    fail(`unknown external factory ${key}`);
+                }
+                return functionSource(target, imported.name, visited);
+            }
+            const matches = current.scripts.flatMap(({ ast }) => ast.statements.flatMap((statement) =>
+                ts.isFunctionDeclaration(statement) && statement.name?.text === symbol ? [statement]
+                    : ts.isVariableStatement(statement) && (statement.declarationList.flags & ts.NodeFlags.Const)
+                        ? statement.declarationList.declarations.filter((entry) => ts.isIdentifier(entry.name) && entry.name.text === symbol).map((entry) => unwrap(entry.initializer)) : []));
+            if (matches.length !== 1 || !matches[0] || !(ts.isArrowFunction(matches[0]) || ts.isFunctionExpression(matches[0]) || ts.isFunctionDeclaration(matches[0])))
+            {
+                fail(`unknown factory definition ${key}`);
+            }
+            return { file: owner, record: current, fn: matches[0] };
+        }
+        const factory = functionSource(file, call.expression.text);
+        const fn = factory.fn;
+        const values = new Map();
+        const unknown = Symbol('unknown-factory-value');
+        function literal(node, bindings)
+        {
+            node = unwrap(node);
+            if (!node)
+            {
+                return unknown;
+            }
+            if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+            {
+                return node.text;
+            }
+            if (ts.isNumericLiteral(node))
+            {
+                return Number(node.text);
+            }
+            if ([ts.SyntaxKind.TrueKeyword, ts.SyntaxKind.FalseKeyword, ts.SyntaxKind.NullKeyword].includes(node.kind))
+            {
+                return node.kind === ts.SyntaxKind.NullKeyword ? null : node.kind === ts.SyntaxKind.TrueKeyword;
+            }
+            if (ts.isIdentifier(node))
+            {
+                return bindings.has(node.text) ? bindings.get(node.text) : unknown;
+            }
+            if (ts.isTemplateExpression(node))
+            {
+                let result = node.head.text;
+                for (const span of node.templateSpans)
+                {
+                    const value = literal(span.expression, bindings);
+                    if (value === unknown)
+                    {
+                        return unknown;
+                    }
+                    result += String(value) + span.literal.text;
+                }
+                return result;
+            }
+            return unknown;
+        }
+        const args = call.arguments.map((argument) => literal(argument, new Map()));
+        if (args.some((value) => value === unknown) || fn.parameters.length !== args.length
+            || fn.parameters.some((parameter) => !ts.isIdentifier(parameter.name) || parameter.initializer || parameter.dotDotDotToken)
+            || !fn.body || !ts.isBlock(fn.body) || fn.asteriskToken
+            || fn.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword))
+        {
+            fail(`dynamic factory arguments or flow ${identity}`);
+        }
+        fn.parameters.forEach((parameter, index) => values.set(parameter.name.text, args[index]));
+        const locals = new Map();
+        const statements = [...fn.body.statements];
+        const returned = statements.pop();
+        if (!returned || !ts.isReturnStatement(returned) || !returned.expression
+            || statements.some((statement) => !ts.isVariableStatement(statement) || !(statement.declarationList.flags & ts.NodeFlags.Const)))
+        {
+            fail(`unknown factory return flow ${identity}`);
+        }
+        function vueCall(node, api)
+        {
+            return ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+                && factory.record.imports.get(node.expression.text)?.specifier === 'vue'
+                && factory.record.imports.get(node.expression.text)?.name === api && !factory.record.variables.has(node.expression.text)
+                && !locals.has(node.expression.text) && !values.has(node.expression.text);
+        }
+        for (const statement of statements)
+        {
+            for (const declaration of statement.declarationList.declarations)
+            {
+                if (!ts.isIdentifier(declaration.name) || !declaration.initializer || locals.has(declaration.name.text) || values.has(declaration.name.text))
+                {
+                    fail(`unknown factory local ${identity}`);
+                }
+                const node = unwrap(declaration.initializer);
+                const value = literal(node, values);
+                const symbol = ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'Symbol'
+                    && !factory.record.imports.has('Symbol') && !factory.record.variables.has('Symbol') && !values.has('Symbol')
+                    && node.arguments.length === 1 && literal(node.arguments[0], values) !== unknown;
+                if (value === unknown && !symbol && !vueCall(node, 'defineComponent'))
+                {
+                    fail(`unknown factory initializer ${identity}`);
+                }
+                locals.set(declaration.name.text, node);
+                if (value !== unknown)
+                {
+                    values.set(declaration.name.text, value);
+                }
+            }
+        }
+        const result = unwrap(returned.expression);
+        if (!ts.isObjectLiteralExpression(result) || result.properties.some((entry) => !(ts.isPropertyAssignment(entry) || ts.isShorthandPropertyAssignment(entry))
+            || !ts.isIdentifier(entry.name) || !ts.isIdentifier(ts.isShorthandPropertyAssignment(entry) ? entry.name : unwrap(entry.initializer))
+            || !locals.has((ts.isShorthandPropertyAssignment(entry) ? entry.name : unwrap(entry.initializer)).text)))
+        {
+            fail(`unknown factory result ${identity}`);
+        }
+        const fields = result.properties.filter((entry) => entry.name.text === property);
+        if (new Set(result.properties.map((entry) => entry.name.text)).size !== result.properties.length || fields.length !== 1)
+        {
+            fail(`ambiguous factory result field ${identity}`);
+        }
+        const value = ts.isShorthandPropertyAssignment(fields[0]) ? fields[0].name : unwrap(fields[0].initializer);
+        const component = ts.isIdentifier(value) ? locals.get(value.text) : null;
+        const options = component && vueCall(component, 'defineComponent') && component.arguments.length === 1 ? unwrap(component.arguments[0]) : null;
+        if (!options || !ts.isObjectLiteralExpression(options) || options.properties.some((entry) => !(ts.isPropertyAssignment(entry) || ts.isShorthandPropertyAssignment(entry) || ts.isMethodDeclaration(entry))
+            || !ts.isIdentifier(entry.name) || !['name', 'inheritAttrs', 'setup'].includes(entry.name.text))
+            || new Set(options.properties.map((entry) => entry.name.text)).size !== options.properties.length)
+        {
+            fail(`unknown factory component ${identity}`);
+        }
+        const setup = options.properties.find((entry) => entry.name.text === 'setup');
+        const inheritAttrs = options.properties.find((entry) => entry.name.text === 'inheritAttrs');
+        const componentName = options.properties.find((entry) => entry.name.text === 'name');
+        const nameValue = componentName && (ts.isShorthandPropertyAssignment(componentName) ? componentName.name : componentName.initializer);
+        if (!setup || !ts.isMethodDeclaration(setup) || !setup.body || setup.parameters.length !== 2
+            || !ts.isIdentifier(setup.parameters[0].name) || !ts.isObjectBindingPattern(setup.parameters[1].name)
+            || setup.asteriskToken || setup.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword)
+            || setup.parameters.some((parameter) => parameter.initializer || parameter.dotDotDotToken)
+            || inheritAttrs?.initializer?.kind !== ts.SyntaxKind.FalseKeyword
+            || !componentName || literal(nameValue, values) === unknown)
+        {
+            fail(`unknown factory setup ${identity}`);
+        }
+        const slots = setup.parameters[1].name.elements.filter((entry) => (entry.propertyName ?? entry.name).getText() === 'slots'
+            && ts.isIdentifier(entry.name) && !entry.initializer && !entry.dotDotDotToken);
+        const setupStatements = [...setup.body.statements];
+        const renderReturn = setupStatements.pop();
+        const render = renderReturn && ts.isReturnStatement(renderReturn) ? unwrap(renderReturn.expression) : null;
+        const output = render && ts.isArrowFunction(render) && !render.parameters.length
+            && !render.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword) ? unwrap(render.body) : null;
+        const target = output && ts.isCallExpression(output) && !output.arguments.length ? unwrap(output.expression) : null;
+        const slotName = slots[0]?.name.text;
+        let slotReferences = 0;
+        function inspect(node)
+        {
+            if (ts.isIdentifier(node) && node.text === slotName)
+            {
+                slotReferences++;
+            }
+            ts.forEachChild(node, inspect);
+        }
+        inspect(setup.body);
+        if (slots.length !== 1 || !target || !ts.isPropertyAccessExpression(target) || target.name.text !== 'default'
+            || !ts.isIdentifier(target.expression) || target.expression.text !== slotName || slotReferences !== 1 || setup.parameters[0].name.text === slotName
+            || setupStatements.some((statement) => !ts.isVariableStatement(statement) && !ts.isExpressionStatement(statement)))
+        {
+            fail(`unknown factory render source ${identity}`);
+        }
+        return { kind: 'factory-slot-source', callFile: file, callOffset: call.getStart(), callDigest: controlDigest(call.getText()),
+            bindingOffset: binding.getStart(), bindingDigest: controlDigest(binding.getText()), callFileDigest: controlDigest(record.content),
+            factoryFile: factory.file, factoryOffset: fn.getStart(), factoryDigest: controlDigest(fn.getText()), arguments: args, property,
+            factoryFileDigest: controlDigest(factory.record.content),
+            componentOffset: component.getStart(), componentDigest: controlDigest(component.getText()),
+            componentName: literal(nameValue, values), renderOffset: output.getStart(), renderDigest: controlDigest(output.getText()), slot: 'default' };
+    };
     const objectProperty = (node, name) =>
     {
         node = unwrap(node);
@@ -865,7 +1144,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         return inspect(source.definition, source.exportName);
     };
     return { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations,
-        modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput,
+        modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent,
         isInteractive,
         identity: { mode, package: packageId, publicRoot, packageDigest: controlDigest(metadata),
             upstream: initialUpstreamIdentity, resolutionInputs, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,

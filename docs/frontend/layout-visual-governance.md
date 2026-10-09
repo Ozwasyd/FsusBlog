@@ -214,6 +214,22 @@ runtime/product acceptance. Run them with the actual upstream source:
 FSUSBLOG_LOCAL_FSUSUI_ROOT=/path/to/FsusUI node --test tests/tools/layout-component-props-source.test.mjs
 ```
 
+An object-destructured factory component can establish a bounded slot render
+source only through its actual immutable function, literal arguments, straight
+constant construction and unique returned field. The selected actual Vue
+`defineComponent` must disable attrs fallthrough and return only its unchanged
+default slot. The proof records the construction, factory, selected component
+and render offsets/digests, evaluated arguments and complete source file digests.
+Unknown callees, dynamic arguments, return branches, spreads, computed or duplicate
+keys, mutations, async construction and altered slot render sources stay errors.
+This describes the render source only; it does not register a wrapper, authorize
+lifecycle behavior or grant public ownership to local components or slot children.
+Source changes during the scan remain graph errors. Ordinary factory controls:
+
+```bash
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/path/to/FsusUI node --test tests/tools/layout-factory-source.test.mjs
+```
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

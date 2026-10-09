@@ -54,15 +54,21 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     // Follow the actual public export factory, rather than guessing a component directory from its name.
     function componentFile(source, seen = new Set())
     {
-        if (source.kind === 'local')
+        let target = null;
+        if (source.kind === 'local' || source.kind === 'upstream-internal')
         {
-            return source.file.endsWith('.vue') ? source.file : exportComponent(source.file, source.name, seen);
+            target = source.file.endsWith('.vue') ? source.file : exportComponent(source.file, source.name, seen);
         }
         if (source.kind === 'fsusui-public')
         {
-            return exportComponent(source.definition, source.exportName, seen);
+            target = exportComponent(source.definition, source.exportName, seen);
         }
-        return null;
+        if (target?.kind === 'factory-slot-source')
+        {
+            source.factoryComponent = target;
+            return null;
+        }
+        return target;
     }
     function exportComponent(file, name, seen)
     {
@@ -141,6 +147,11 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         const expression = record.variables.get(name);
         if (!expression)
         {
+            const factory = resolver.resolveFactoryComponent(file, name);
+            if (factory)
+            {
+                return factory;
+            }
             const imported = record.imports.get(name);
             if (imported)
             {
@@ -776,7 +787,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 {
                     const imported = record.imports.get(node.tag);
                     origin = { kind: 'upstream-internal', file: importFile(file, imported.specifier), name: imported.name };
-                    definition = origin.file.endsWith('.vue') ? origin.file : exportComponent(origin.file, origin.name, new Set());
+                    definition = componentFile(origin);
                 }
                 else
                 {
@@ -823,7 +834,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             const current = { id, ...location(file, offset), tag: node.tag, parentId, attributes, directives, origin, definition, slotInputs,
                 sourceDigest: controlDigest(node.loc.source), ancestors, scopedBindings: [...localNames],
-                structural: origin.kind === 'framework-structure',
+                structural: origin.kind === 'framework-structure' || origin.factoryComponent?.kind === 'factory-slot-source',
                 conditional: directives.filter(({ name }) => ['if', 'else-if', 'else', 'show', 'for'].includes(name)),
                 slot: directives.find(({ name }) => name === 'slot') ?? (node.tag === 'slot' ? { name: attributes.name ?? 'default' } : null),
                 teleport: origin.publicName === 'Teleport' };
@@ -1201,7 +1212,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         return { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
             files: [...records.values()].filter((record) => reachable.has(record.file)),
             nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings, resolverInputs: bindings.files,
-            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors], sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
+            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors, ...bindings.errors], sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
     }
     function instrument(file, code)
     {
