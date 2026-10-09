@@ -1,0 +1,29 @@
+{
+  "providerSource": "99500e5ca0ceeafd9b3ef0791de54b6eb95c972e",
+  "removedOwnLinks": [
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/gsap",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/katex",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/lodash",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/shiki",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/lodash-unified",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/mermaid",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/dayjs",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/escape-html",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/motion-dom",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/memoize-one",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/normalize-wheel-es",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/lodash-es",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/async-validator",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/vue",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/@element-plus/icons-vue",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/@types/lodash",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/@types/lodash-es",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/@floating-ui/dom",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/@popperjs/core",
+    "/workspace/chain1975-provider-facts-fsusui/vue/packages/node_modules/@ctrl/tinycolor",
+    "/workspace/chain1975-provider-facts-only/src/frontend/node_modules"
+  ],
+  "workersRemaining": [],
+  "foreignCacheUnmodified": true,
+  "otherRuntimeWorktreeStillActive": true
+}

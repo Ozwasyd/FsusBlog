@@ -11,3 +11,5 @@ mandatory preflight 首先因真实 cgroup `/..` 拒绝；消费 sole1686 `c46e7
 工具：官方 Node24.16.0（校验官方SHASUMS）、锁定 Vitest4.1.11、actual FsusUI8db0ac8f49749e3e5f28be5051bb3d3ed71ada71；源alias helper实际7647a45344d4dec32d7b7007a6ab1fba13f26446，旧54 installer75e6标签错误由当前证据补正，旧包不改写。旧54证据仍绑定98dc；current61仅绑定此候选。type-only df6边界已供消费。remaining import guard5/fullapplication types失败271属于原范围；fullapplication类型delta仅绑定实际6d91执行，未重新标记此SHA。
 
 所有16 issue依然OPEN/部分或等待；旧issue-status表中的54仅为历史，本增量2258普通控制为61。1975仍缺真实terminal migration qualification，1976等待其接受。新的 runtime borrow source在另一独立分支进行，不能从本61推导Writer集成资格。无 PR/issue正文/评论/标签写入、合并、关闭、部署或生产数据库动作。
+
+发布限制：实际 range commit-contract exit1，99500e5/46d327的已发布消息缺独立 Refs footer。失败原文保留，不改写已发布历史，不将格式门标记通过；后续维护者须按既有政策在最终独立阶段处理。任务自己的20个UI链接和1个frontend cache链接已拆除，外国cache不改动；两个当前Vitest运行所有worker已经退出。

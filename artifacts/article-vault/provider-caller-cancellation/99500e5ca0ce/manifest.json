@@ -1,232 +1,174 @@
 [
   {
-    "path": "sole2899-current-preflight.json",
-    "sha256": "51d5adec797b0f7cd1ad8eb0374ab340e768a9fe30d156d706e0a2bc1ad24e3a",
-    "originalSha256": "51d5adec797b0f7cd1ad8eb0374ab340e768a9fe30d156d706e0a2bc1ad24e3a",
-    "encoding": "raw"
-  },
-  {
-    "path": "sole2899-current-preflight.log.gz",
-    "sha256": "2131f59b16faae74bf8992fd66166feeca004d205301e272a8d9c09ff0697af0",
-    "originalSha256": "f31611e2849125db8efcf5a1d1a76adf57e1128f59758ce09d7bd0b857970736",
-    "encoding": "gzip"
-  },
-  {
-    "path": "corrected-discovery-61.json",
-    "sha256": "133b78e94e134ae33fb49252205dab41edc34d8c1a9943f7d774e8c5a17f460e",
-    "originalSha256": "133b78e94e134ae33fb49252205dab41edc34d8c1a9943f7d774e8c5a17f460e",
-    "encoding": "raw"
-  },
-  {
-    "path": "corrected-discovery-check.json",
-    "sha256": "a99b6de52e83b383e85ca61de3266a2cab04e8a430709579e6ee86b434722836",
-    "originalSha256": "a99b6de52e83b383e85ca61de3266a2cab04e8a430709579e6ee86b434722836",
-    "encoding": "raw"
-  },
-  {
-    "path": "corrected-discovery.log.gz",
-    "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
-    "originalSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "encoding": "gzip"
-  },
-  {
-    "path": "incorrect-list-invocation.json",
-    "sha256": "7b54c65eaa9491d0c29d9e9fd6652132fa738feab9a9ea2b448865cb28bc8def",
-    "originalSha256": "7b54c65eaa9491d0c29d9e9fd6652132fa738feab9a9ea2b448865cb28bc8def",
-    "encoding": "raw"
-  },
-  {
-    "path": "incorrect-list-output.json",
-    "sha256": "f9abdb8da3cc370a8ba555ee4cfc8c44bf432758188d4feb50242c32c2075bc8",
-    "originalSha256": "f9abdb8da3cc370a8ba555ee4cfc8c44bf432758188d4feb50242c32c2075bc8",
-    "encoding": "raw"
-  },
-  {
-    "path": "current-runs.json",
-    "sha256": "5bd79babda2b8d430e36123c5b55095ee0f8bc258d824e6491ff5e773b13a159",
-    "originalSha256": "5bd79babda2b8d430e36123c5b55095ee0f8bc258d824e6491ff5e773b13a159",
-    "encoding": "raw"
-  },
-  {
-    "path": "current-positive.log.gz",
-    "sha256": "a6da1fb0a48fe3bf0e5fd4e1fc2d47a2c6cf9ff2a8644ed79eaa16998b2c686d",
-    "originalSha256": "c6ac80ebbb9d03915a84fcf5617ab1c3aad04325577b8cc45476cb931a696b70",
-    "encoding": "gzip"
-  },
-  {
-    "path": "current-focused.log.gz",
-    "sha256": "5e820d4c6d94bfe049d6d6cc788fb75b8e07f21fd0269efa370b2ae809fbc99a",
-    "originalSha256": "b42bfcea6bf041242b3a81428cc0c3adec2d87b1d30e2aab02d748b84b3a36b2",
-    "encoding": "gzip"
-  },
-  {
-    "path": "current-positive-topology.jsonl.gz",
-    "sha256": "1e775d3a2621a726b797753643bf0fff2235d938fe9105252da73c8dbe185fac",
-    "originalSha256": "1a12c4e320a785a462725a82291d735fc9559270b1419c0b46b89850caadeba9",
-    "encoding": "gzip"
-  },
-  {
-    "path": "current-focused-topology.jsonl.gz",
-    "sha256": "b1ae29265c5618e2ba08e76c3d000f6b156deeb7912be5717072e521e92d0d6d",
-    "originalSha256": "a63bf5df5465a9d52b41dc5d5128ce41bfccf038a49482844cd13e46659a7a9e",
-    "encoding": "gzip"
-  },
-  {
-    "path": "source-prerequisite-controls.json",
-    "sha256": "b9919e4f666c7ebcf4d69882116b95f7f7e63716a9a4648cc635c71deb704a25",
-    "originalSha256": "b9919e4f666c7ebcf4d69882116b95f7f7e63716a9a4648cc635c71deb704a25",
-    "encoding": "raw"
-  },
-  {
-    "path": "source-prerequisite-controls-collector-failure.json",
-    "sha256": "3b5af2804f584dbeda5344d0d2ea35a8d87d7de9d3c030ef788d7d65bdd49ab1",
-    "originalSha256": "3b5af2804f584dbeda5344d0d2ea35a8d87d7de9d3c030ef788d7d65bdd49ab1",
-    "encoding": "raw"
-  },
-  {
-    "path": "source-prerequisite-controls.log.gz",
-    "sha256": "86ef47523c0eab505b943e4f06ec3c78f8b5c0d46159a3d381c7a27105bb9497",
-    "originalSha256": "e229e0930659742f5b4dcfb5a94c501d75f0992b88eb41ac4dd353bfe1b47501",
-    "encoding": "gzip"
-  },
-  {
-    "path": "sole1686-preimages.json",
-    "sha256": "a294bb2876e2bc5c0d39bda6a6d360c0d0a66904ab5242fe643c30be8170a82c",
-    "originalSha256": "a294bb2876e2bc5c0d39bda6a6d360c0d0a66904ab5242fe643c30be8170a82c",
-    "encoding": "raw"
-  },
-  {
-    "path": "sole1686-source.patch.gz",
-    "sha256": "097d4a851f1ed3c7e2a982ad93afdab79db8c99204bc38a978c0f772535fe306",
-    "originalSha256": "a572d12f25a0a1c573e926264d6736629da410082e5148ca2b3a0460afdb11d2",
-    "encoding": "gzip"
-  },
-  {
-    "path": "sole2899-runtime-source.patch.gz",
-    "sha256": "2d7dc61b8a8fe799e07f8472fb7124880ef6b09aecc600fc1400119b0c0fc6fb",
-    "originalSha256": "90ab981e3d02c391789b6d9075826eb94886a4794c9c15f62139ba9eafcf5e68",
-    "encoding": "gzip"
-  },
-  {
-    "path": "sole2899-lane.patch.gz",
-    "sha256": "d893522e3ae4f1f26e2d9ee13174123b38fe55c9981a0544f824ceab30c97545",
-    "originalSha256": "ce26c37c4270bf900a9a74374da439c2f148eedf09174c0d3cf5fd09ae7ae0dc",
-    "encoding": "gzip"
-  },
-  {
-    "path": "sole2899-registry.patch.gz",
-    "sha256": "8dfad5f77ccdc2dff78511286bc7b3e5b82fdde8a9f814ab2b01386fa5f74584",
-    "originalSha256": "bcca181384b962e78a032d12a69bfee4e9651bb0c230c8ad190b35159b82aea5",
-    "encoding": "gzip"
-  },
-  {
-    "path": "sole2899-registry-reconciliation.patch.gz",
-    "sha256": "4007cceeb75745051c55b16fcad1c5ab3d283fd20db3d5511f65beb988293aca",
-    "originalSha256": "b9cb10ba1971320d2a66f0ff58a94135531081cda34261f4f317ab04be444a76",
-    "encoding": "gzip"
-  },
-  {
-    "path": "sole2899-registry-owner.patch.gz",
-    "sha256": "4487e0d879ce4163358967df71e9656fe52a63c415b66e2bcf48ed3ff1df0c0b",
-    "originalSha256": "c7ba03c55ecc24c25d02a98fe7a25a3b8e6ba083450b6ef7c9f7b7e3632b0f2d",
-    "encoding": "gzip"
-  },
-  {
-    "path": "c46-current-preflight.json",
-    "sha256": "51c8beb4e923f86c3c31bb58b7bf4f39e7fc10ffd2f370129237228946470ae9",
-    "originalSha256": "51c8beb4e923f86c3c31bb58b7bf4f39e7fc10ffd2f370129237228946470ae9",
-    "encoding": "raw"
-  },
-  {
-    "path": "c46-current-preflight.log.gz",
-    "sha256": "1756fc488b5669de7039fbd3f69aaa8e80ee4e36db341e99ad8d9eca285b4c94",
-    "originalSha256": "f3f377c857d541e3143bd6c7c514062197bc396c5ec0e1e6a61c27518d9706e6",
-    "encoding": "gzip"
-  },
-  {
-    "path": "c46-candidate.json",
-    "sha256": "10cc56ed73eb38d37a4f8f47746532df7204aafac1fc487228e591752c6d9b8e",
-    "originalSha256": "10cc56ed73eb38d37a4f8f47746532df7204aafac1fc487228e591752c6d9b8e",
-    "encoding": "raw"
-  },
-  {
-    "path": "c46-current-generation.json",
-    "sha256": "c7a838e2ec5ef13e49d3906141bee0120cb886e41c9be045fad1c0816d8a0c48",
-    "originalSha256": "c7a838e2ec5ef13e49d3906141bee0120cb886e41c9be045fad1c0816d8a0c48",
-    "encoding": "raw"
-  },
-  {
-    "path": "sole2899-authority-generation-1.log.gz",
-    "sha256": "0227aacf2e3cfe73ce61c0002b56c93f55b648e4d9f66cc9ee840ad0997f3361",
-    "originalSha256": "0afedea483b99b0ef0b316b0fc9f0b4b901c7b4c46609c461c073c321c3813c9",
-    "encoding": "gzip"
-  },
-  {
-    "path": "sole2899-authority-generation-2.log.gz",
-    "sha256": "eadc97c223cc9efd723eab87e945d23c509a64a9d5c629c17f2950c918d8c6a6",
-    "originalSha256": "3cda7869719200c2e1593d45f94d5ba88ac6383c30100d325a3cd68e025f2b3d",
-    "encoding": "gzip"
-  },
-  {
-    "path": "sole2899-lifecycle-generation.log.gz",
-    "sha256": "95e2147e138435a1013f882758fb932e98dbe8e58fff01fdfc6bdfbdf30de12a",
-    "originalSha256": "906c72fd09a27962ebe539a9cc75f3f1649f803a43a0c50e26ff718a65c1cd77",
-    "encoding": "gzip"
-  },
-  {
-    "path": "sole2899-lifecycle-generation-with-sdk.log.gz",
-    "sha256": "558c3f5a356a68659b9a8a026909898e89373b6c1b79c79b4d610aba18b12f6a",
-    "originalSha256": "d7e5cd5513429c874f91533ffbc661a02b5f3e0893c5eae138135f1c9f79c22e",
-    "encoding": "gzip"
-  },
-  {
-    "path": "source-alias-setup.json",
-    "sha256": "85e8002b96720e68ef0bb6694b1d053ede690d250ab943e2c23b1683efdf044d",
-    "originalSha256": "85e8002b96720e68ef0bb6694b1d053ede690d250ab943e2c23b1683efdf044d",
-    "encoding": "raw"
-  },
-  {
-    "path": "physical-vue.json",
-    "sha256": "77057b7059f6a8192c96af5ee55ac7595aeaf928dd3abae2c9dea300ba3e10cc",
-    "originalSha256": "77057b7059f6a8192c96af5ee55ac7595aeaf928dd3abae2c9dea300ba3e10cc",
-    "encoding": "raw"
-  },
-  {
-    "path": "official-node-install.json",
-    "sha256": "40ae6317a8a4e2a4e0ec8f214f9b85bff5a20496025d72af4e4068c461e9f760",
-    "originalSha256": "40ae6317a8a4e2a4e0ec8f214f9b85bff5a20496025d72af4e4068c461e9f760",
-    "encoding": "raw"
+    "path": "README.md",
+    "sha256": "bb11567e68170da4118feb9549b20c3b29ee284010d12c2b1bff06d846bc0e0b"
   },
   {
     "path": "application-type-delta.json",
-    "sha256": "df986a56a66e572aefbaf6163a434a6b9d5441f27380b276ce953120146973b4",
-    "originalSha256": "df986a56a66e572aefbaf6163a434a6b9d5441f27380b276ce953120146973b4",
-    "encoding": "raw"
+    "sha256": "df986a56a66e572aefbaf6163a434a6b9d5441f27380b276ce953120146973b4"
   },
   {
-    "path": "final-source-style.log.gz",
-    "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
-    "originalSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
-    "encoding": "gzip"
+    "path": "c46-candidate.json",
+    "sha256": "10cc56ed73eb38d37a4f8f47746532df7204aafac1fc487228e591752c6d9b8e"
   },
   {
-    "path": "final-typed-lint.json",
-    "sha256": "02cf4fea923a980c46932bf0f2013262f5356d453519d686f9359a367bc0a480",
-    "originalSha256": "02cf4fea923a980c46932bf0f2013262f5356d453519d686f9359a367bc0a480",
-    "encoding": "raw"
+    "path": "c46-current-generation.json",
+    "sha256": "c7a838e2ec5ef13e49d3906141bee0120cb886e41c9be045fad1c0816d8a0c48"
+  },
+  {
+    "path": "c46-current-preflight.json",
+    "sha256": "51c8beb4e923f86c3c31bb58b7bf4f39e7fc10ffd2f370129237228946470ae9"
+  },
+  {
+    "path": "c46-current-preflight.log.gz",
+    "sha256": "1756fc488b5669de7039fbd3f69aaa8e80ee4e36db341e99ad8d9eca285b4c94"
+  },
+  {
+    "path": "corrected-discovery-61.json",
+    "sha256": "133b78e94e134ae33fb49252205dab41edc34d8c1a9943f7d774e8c5a17f460e"
+  },
+  {
+    "path": "corrected-discovery-check.json",
+    "sha256": "a99b6de52e83b383e85ca61de3266a2cab04e8a430709579e6ee86b434722836"
+  },
+  {
+    "path": "corrected-discovery.log.gz",
+    "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+  },
+  {
+    "path": "current-commit-contract.log.gz",
+    "sha256": "ffc96089a09ae6cbfa5c5a66e8a0d14603c36e8f4da6c872d1d21b1f14a40c17"
+  },
+  {
+    "path": "current-focused-topology.jsonl.gz",
+    "sha256": "b1ae29265c5618e2ba08e76c3d000f6b156deeb7912be5717072e521e92d0d6d"
+  },
+  {
+    "path": "current-focused.log.gz",
+    "sha256": "5e820d4c6d94bfe049d6d6cc788fb75b8e07f21fd0269efa370b2ae809fbc99a"
+  },
+  {
+    "path": "current-positive-topology.jsonl.gz",
+    "sha256": "1e775d3a2621a726b797753643bf0fff2235d938fe9105252da73c8dbe185fac"
+  },
+  {
+    "path": "current-positive.log.gz",
+    "sha256": "a6da1fb0a48fe3bf0e5fd4e1fc2d47a2c6cf9ff2a8644ed79eaa16998b2c686d"
+  },
+  {
+    "path": "current-runs.json",
+    "sha256": "5bd79babda2b8d430e36123c5b55095ee0f8bc258d824e6491ff5e773b13a159"
   },
   {
     "path": "final-candidate-source.json",
-    "sha256": "0590eb6a10a2943094a89f0e00d30f23163864f561386d6769d96c78a71e8926",
-    "originalSha256": "0590eb6a10a2943094a89f0e00d30f23163864f561386d6769d96c78a71e8926",
-    "encoding": "raw"
+    "sha256": "0590eb6a10a2943094a89f0e00d30f23163864f561386d6769d96c78a71e8926"
+  },
+  {
+    "path": "final-source-style.log.gz",
+    "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8"
+  },
+  {
+    "path": "final-typed-lint.json",
+    "sha256": "02cf4fea923a980c46932bf0f2013262f5356d453519d686f9359a367bc0a480"
+  },
+  {
+    "path": "focused-report.json",
+    "sha256": "8dfd448764d52386b1b56646de324dfe3853bbc3ee7ed75fa3074a05f729d12f"
+  },
+  {
+    "path": "incorrect-list-invocation.json",
+    "sha256": "7b54c65eaa9491d0c29d9e9fd6652132fa738feab9a9ea2b448865cb28bc8def"
+  },
+  {
+    "path": "incorrect-list-output.json",
+    "sha256": "f9abdb8da3cc370a8ba555ee4cfc8c44bf432758188d4feb50242c32c2075bc8"
+  },
+  {
+    "path": "issue-status.md",
+    "sha256": "b0306a4a379132f1a54d38b5083f51a224d4a83dba4f6b19dc70d58fff3d0e8f"
+  },
+  {
+    "path": "official-node-install.json",
+    "sha256": "40ae6317a8a4e2a4e0ec8f214f9b85bff5a20496025d72af4e4068c461e9f760"
+  },
+  {
+    "path": "physical-vue.json",
+    "sha256": "77057b7059f6a8192c96af5ee55ac7595aeaf928dd3abae2c9dea300ba3e10cc"
   },
   {
     "path": "positive-report.json",
     "sha256": "78172e61428b53a20bf396dc84df7de6d6cbaa6f06161d87b9900ba2a47dbc3c"
   },
   {
-    "path": "focused-report.json",
-    "sha256": "8dfd448764d52386b1b56646de324dfe3853bbc3ee7ed75fa3074a05f729d12f"
+    "path": "provider-owned-link-teardown.json",
+    "sha256": "82ec05c494c39c6ee52484841b5c017a5651b59675bb8d3707957e17b8ca6542"
+  },
+  {
+    "path": "sole1686-preimages.json",
+    "sha256": "a294bb2876e2bc5c0d39bda6a6d360c0d0a66904ab5242fe643c30be8170a82c"
+  },
+  {
+    "path": "sole1686-source.patch.gz",
+    "sha256": "097d4a851f1ed3c7e2a982ad93afdab79db8c99204bc38a978c0f772535fe306"
+  },
+  {
+    "path": "sole2899-authority-generation-1.log.gz",
+    "sha256": "0227aacf2e3cfe73ce61c0002b56c93f55b648e4d9f66cc9ee840ad0997f3361"
+  },
+  {
+    "path": "sole2899-authority-generation-2.log.gz",
+    "sha256": "eadc97c223cc9efd723eab87e945d23c509a64a9d5c629c17f2950c918d8c6a6"
+  },
+  {
+    "path": "sole2899-current-preflight.json",
+    "sha256": "51d5adec797b0f7cd1ad8eb0374ab340e768a9fe30d156d706e0a2bc1ad24e3a"
+  },
+  {
+    "path": "sole2899-current-preflight.log.gz",
+    "sha256": "2131f59b16faae74bf8992fd66166feeca004d205301e272a8d9c09ff0697af0"
+  },
+  {
+    "path": "sole2899-lane.patch.gz",
+    "sha256": "d893522e3ae4f1f26e2d9ee13174123b38fe55c9981a0544f824ceab30c97545"
+  },
+  {
+    "path": "sole2899-lifecycle-generation-with-sdk.log.gz",
+    "sha256": "558c3f5a356a68659b9a8a026909898e89373b6c1b79c79b4d610aba18b12f6a"
+  },
+  {
+    "path": "sole2899-lifecycle-generation.log.gz",
+    "sha256": "95e2147e138435a1013f882758fb932e98dbe8e58fff01fdfc6bdfbdf30de12a"
+  },
+  {
+    "path": "sole2899-registry-owner.patch.gz",
+    "sha256": "4487e0d879ce4163358967df71e9656fe52a63c415b66e2bcf48ed3ff1df0c0b"
+  },
+  {
+    "path": "sole2899-registry-reconciliation.patch.gz",
+    "sha256": "4007cceeb75745051c55b16fcad1c5ab3d283fd20db3d5511f65beb988293aca"
+  },
+  {
+    "path": "sole2899-registry.patch.gz",
+    "sha256": "8dfad5f77ccdc2dff78511286bc7b3e5b82fdde8a9f814ab2b01386fa5f74584"
+  },
+  {
+    "path": "sole2899-runtime-source.patch.gz",
+    "sha256": "2d7dc61b8a8fe799e07f8472fb7124880ef6b09aecc600fc1400119b0c0fc6fb"
+  },
+  {
+    "path": "source-alias-setup.json",
+    "sha256": "85e8002b96720e68ef0bb6694b1d053ede690d250ab943e2c23b1683efdf044d"
+  },
+  {
+    "path": "source-prerequisite-controls-collector-failure.json",
+    "sha256": "3b5af2804f584dbeda5344d0d2ea35a8d87d7de9d3c030ef788d7d65bdd49ab1"
+  },
+  {
+    "path": "source-prerequisite-controls.json",
+    "sha256": "b9919e4f666c7ebcf4d69882116b95f7f7e63716a9a4648cc635c71deb704a25"
+  },
+  {
+    "path": "source-prerequisite-controls.log.gz",
+    "sha256": "86ef47523c0eab505b943e4f06ec3c78f8b5c0d46159a3d381c7a27105bb9497"
   }
 ]
