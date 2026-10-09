@@ -60,7 +60,12 @@ public sealed class LinuxCgroupTimedCounterReaderTests
             Assert.Null(actual.Value);
         }
         Assert.All(scratch, value => Assert.Equal((byte)0, value));
-        _output.WriteLine(JsonSerializer.Serialize(new { Path = path, NativeState = nativeState, Capture = actual }));
+        _output.WriteLine(JsonSerializer.Serialize(new
+        {
+            Path = path,
+            NativeState = nativeState,
+            Capture = actual
+        }));
     }
 
     [Theory]
@@ -124,7 +129,12 @@ public sealed class LinuxCgroupTimedCounterReaderTests
             Assert.Equal(reader.Identity, actual.Identity);
             Assert.Equal(MemoryQualification.NotVerified, actual.Qualification);
             Assert.All(scratch, value => Assert.Equal((byte)0, value));
-            _output.WriteLine(JsonSerializer.Serialize(new { Attempt = attempt, Path = path, Capture = actual }));
+            _output.WriteLine(JsonSerializer.Serialize(new
+            {
+                Attempt = attempt,
+                Path = path,
+                Capture = actual
+            }));
         }
         Assert.Equal(MemoryObservationState.Available, reader.CaptureCounter(LinuxCgroupCounter.AnonymousBytes, scratch).State);
     }
@@ -189,6 +199,28 @@ public sealed class LinuxCgroupTimedCounterReaderTests
         Assert.Throws<ObjectDisposedException>(() => LinuxCgroupTimedCounterReader.Capture(
             reader, LinuxCgroupCounter.AnonymousBytes, new WindowClock(), TimeSpan.FromSeconds(1), scratch));
         Assert.All(scratch, value => Assert.Equal((byte)0, value));
+    }
+
+    [Fact]
+    public void UnknownFieldsAndMissingInputsClearScratchBeforeAnyNativeRead()
+    {
+        using LinuxCgroupDirectoryReader reader = OpenReader(out _);
+        var clock = new WindowClock();
+        byte[] scratch = new byte[17];
+        Array.Fill(scratch, (byte)0xcc);
+        Assert.Throws<ArgumentOutOfRangeException>(() => LinuxCgroupTimedCounterReader.Capture(
+            reader, (LinuxCgroupCounter)999, clock, TimeSpan.FromSeconds(1), scratch));
+        Assert.All(scratch, value => Assert.Equal((byte)0, value));
+        Array.Fill(scratch, (byte)0xcc);
+        Assert.Throws<ArgumentNullException>(() => LinuxCgroupTimedCounterReader.Capture(
+            null!, LinuxCgroupCounter.AnonymousBytes, clock, TimeSpan.FromSeconds(1), scratch));
+        Assert.All(scratch, value => Assert.Equal((byte)0, value));
+        Array.Fill(scratch, (byte)0xcc);
+        Assert.Throws<ArgumentNullException>(() => LinuxCgroupTimedCounterReader.Capture(
+            reader, LinuxCgroupCounter.AnonymousBytes, null!, TimeSpan.FromSeconds(1), scratch));
+        Assert.All(scratch, value => Assert.Equal((byte)0, value));
+        Assert.Equal(0, clock.UtcReads);
+        Assert.Equal(0, clock.TickReads);
     }
 
     private static LinuxCgroupDirectoryReader OpenReader(out string path)
