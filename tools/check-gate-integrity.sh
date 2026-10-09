@@ -431,7 +431,7 @@ extraCommand('ANSI-C longer subcommand', 0, "node $'tools/run-test-matrix.mjs' v
 extraCommand('ANSI-C shell comment', 0, "echo ok # node $'tools/run-test-matrix.mjs' validate");
 extraCommand('ANSI-C empty argv word', 0, "node $'tools/run-test-matrix.mjs' $'' validate");
 extraCommand('ANSI-C shell separator', 0, "node $'tools/run-test-matrix.mjs'; echo validate");
-extraCommand('ANSI-C unknown path escape', 0, "node $'tools/run-test-\\matrix.mjs' validate");
+extraCommand('ANSI-C unknown path escape', 0, "node $'tools/run-test-matrix.mjs\\q' validate");
 extraCommand('ordinary literal dollar path', 0, "node '$tools/run-test-matrix.mjs' validate");
 extraCommand('double-quoted literal ANSI-C spelling', 0, "node \"$'tools/run-test-matrix.mjs'\" validate");
 extraCommand('ANSI-C NUL truncation', 1, "node $'tools/run-test-matrix.mjs\\0ignored' validate");
