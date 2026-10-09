@@ -1,0 +1,25 @@
+{
+  "sourceCommit": "acf4215a8c61f7bbccb2c98974accf691ec28118",
+  "baseCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "branch": "codex/shared-document-export-test-paths-20261009",
+  "changedSourcePaths": [
+    "tests/backend/Unit/DocumentExportBinaryCodecTests.cs"
+  ],
+  "oldBlob": "70f01483456f8f9623d30494f9174747b77d78c6",
+  "newBlob": "7807e4bd011f1a9f97dc0cbe08438127ba2bfeb4",
+  "helperPath": "tests/backend/Unit/TestInfrastructure/BackendTestPaths.cs",
+  "helperBlob": "493a3287343c0d75141c7a4951bb85674e7cac49",
+  "allOriginalAssertionLinesUnchanged": true,
+  "assertionLineCount": 38,
+  "fixturePath": "tests/backend/Fixtures/document-export-payload-goldens-v1.json",
+  "fixtureBlob": "589e57e4a61be20d36d66bf42d627786a2cf6f38",
+  "fixtureSha256": "bcc6ae78c019adb7837332ed87012db85031997a55fb6a64bbdb34ae6a906411",
+  "diffCheckExitCode": 0,
+  "managedBuildAndBodies": "NOT RUN: parent requested only bounded ordinary source repair",
+  "inventoryRegeneration": "original SiteIdentity owner; no generated inventory consumed or changed",
+  "propertySuppliedSource": "bdf724ba4f1f25e9f2f433266577b2221b2d1af2",
+  "propertyPreimage": "a5ad96032d2fab772d44c720ea0725d4cbefebec",
+  "propertyPostimage": "d808a6ab38df9b48f6d4e0749cadddd6a3dd1f15",
+  "intermediateSource0b8b6d461": "superseded; final source retains original Assert.NotNull(root)",
+  "createdAtUtc": "2026-10-09T13:19:05.566233+00:00"
+}

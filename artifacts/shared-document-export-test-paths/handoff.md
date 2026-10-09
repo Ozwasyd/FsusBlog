@@ -1,0 +1,3 @@
+Source-only path repair: `acf4215a8c61f7bbccb2c98974accf691ec28118` on `codex/shared-document-export-test-paths-20261009`, based exact master `9d72a1c93b297f719d8695a642cdfb1615cf1d51`. Consume the final one-file delta or postimage, not intermediate 0b8b6d461. It retains every assertion including `Assert.NotNull(root)` and the byte-identical original golden fixture. Ordinary bounded source comparisons and git diff --check passed; no build, executable discovery, test body, held audit or generated inventory ran.
+
+Existing property repair is `bdf724ba4f1f25e9f2f433266577b2221b2d1af2`; take only its property test-file delta from `a5ad96032d2fab772d44c720ea0725d4cbefebec` to `d808a6ab38df9b48f6d4e0749cadddd6a3dd1f15`. SiteIdentity owns its generator refresh.
