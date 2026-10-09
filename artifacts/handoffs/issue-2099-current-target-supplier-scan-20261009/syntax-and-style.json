@@ -1,0 +1,176 @@
+{
+  "sourceCommit": "4fbff7025c0c4e57158eea6c0d6cbebf3b02e756",
+  "syntax": [
+    {
+      "path": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionDom.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionSlotSource.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionSource.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionTargetSource.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/control-legality-ref-selectors.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-canonical-context-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-collection-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-component-member-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-composition-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-factory-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-finite-component-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-functional-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-module-integration-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-object-props-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-render-conjunction-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-returned-props-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-slot-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-target-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tools/frontend/control-legality/source-ref-selectors.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tools/frontend/control-legality/source.mjs",
+      "exitCode": 0,
+      "output": ""
+    }
+  ],
+  "styleCommand": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "db50dc835e5940935b58039585c834e1bc1344fb",
+    "--file",
+    "tests/frontend/support/layout/compositionAnalyzer.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionDom.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionSlotSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionTargetSource.mjs",
+    "--file",
+    "tests/tools/control-legality-ref-selectors.test.mjs",
+    "--file",
+    "tests/tools/layout-canonical-context-source.test.mjs",
+    "--file",
+    "tests/tools/layout-collection-source.test.mjs",
+    "--file",
+    "tests/tools/layout-component-member-source.test.mjs",
+    "--file",
+    "tests/tools/layout-composition-source.test.mjs",
+    "--file",
+    "tests/tools/layout-factory-source.test.mjs",
+    "--file",
+    "tests/tools/layout-finite-component-source.test.mjs",
+    "--file",
+    "tests/tools/layout-functional-source.test.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs",
+    "--file",
+    "tests/tools/layout-object-props-source.test.mjs",
+    "--file",
+    "tests/tools/layout-render-conjunction-source.test.mjs",
+    "--file",
+    "tests/tools/layout-returned-props-source.test.mjs",
+    "--file",
+    "tests/tools/layout-slot-source.test.mjs",
+    "--file",
+    "tests/tools/layout-target-source.test.mjs",
+    "--file",
+    "tools/frontend/control-legality/source-ref-selectors.mjs",
+    "--file",
+    "tools/frontend/control-legality/source.mjs"
+  ],
+  "styleExitCode": 0,
+  "fixOrBaselineWrites": false
+}
