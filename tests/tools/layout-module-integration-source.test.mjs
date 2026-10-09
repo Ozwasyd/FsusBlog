@@ -42,6 +42,22 @@ function functionPackage(exports = { '.': { import: './public.mjs', require: './
     const s = source();
     return { s, file, root, resolve: () => s.resolver.resolveSourceFunction(file, s.expression('alias', file)) };
 }
+function frameworkCallee(s, file, name, argument = undefined)
+{
+    const candidates = [];
+    function visit(node)
+    {
+        if (s.resolver.ts.isCallExpression(node) && s.resolver.ts.isIdentifier(node.expression) && node.expression.text === name
+            && (argument === undefined || node.arguments[0]?.getText() === argument))
+        {
+            candidates.push(node.expression);
+        }
+        s.resolver.ts.forEachChild(node, visit);
+    }
+    s.resolver.parse(file).scripts.forEach(({ ast }) => visit(ast));
+    assert.equal(candidates.length, 1);
+    return candidates[0];
+}
 function mixed(framework = false)
 {
     const child = fixture('<template><a>Actual child</a></template>');
@@ -523,6 +539,101 @@ test('canonical public function source leaves effectful and unavailable imports 
     assert.equal(result.qualificationEligible, undefined);
     const file = fixture(`import {predicate} from 'missing-actual-package-${randomUUID()}';`, 'ts');
     assert.throws(() => state.s.resolver.resolveSourceFunction(file, state.s.expression('predicate', file)), /unavailable public function package/);
+});
+
+test('canonical framework export binds actual Slider toRefs through public Vue exports and the original ObjectRefImpl setter', () =>
+{
+    const s = source();
+    const file = resolve(fsusUIRoot, 'vue/packages/components/slider/src/slider.vue');
+    const callee = frameworkCallee(s, file, 'toRefs', 'props');
+    const result = s.resolver.resolveFrameworkExport(file, callee);
+    assert.equal(s.resolver.sourceStep(file, callee).offset, 6981);
+    assert.equal(result.fn.name.text, 'toRefs');
+    assert.ok(result.file.endsWith('/@vue/reactivity/dist/reactivity.esm-bundler.js'));
+    assert.deepEqual(result.edges.slice(0, 4).map((edge) => edge.exportedName), ['toRefs', 'toRefs', 'toRefs', 'toRefs']);
+    assert.ok(result.edges[0].resolvedFile.endsWith('/vue/dist/vue.runtime.esm-bundler.js'));
+    assert.ok(result.edges[1].resolvedFile.endsWith('/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js'));
+    assert.ok(result.edges[2].resolvedFile.endsWith('/@vue/runtime-core/dist/runtime-core.esm-bundler.js'));
+    const object = result.dependencies.find((entry) => entry.classDeclaration?.name.text === 'ObjectRefImpl');
+    assert.ok(object);
+    const setter = object.classDeclaration.members.find((member) => s.resolver.ts.isSetAccessorDeclaration(member) && member.name.text === 'value');
+    assert.ok(setter.body.getText().includes('this._object[this._key] = newVal'));
+    result.edges.forEach((edge) => assert.doesNotThrow(() => s.resolver.sourceStep(edge.file, edge.originalImportOrExportAST)));
+    result.dependencies.forEach((entry) => assert.doesNotThrow(() => s.resolver.sourceStep(entry.file, entry.fn ?? entry.classDeclaration)));
+    assert.ok(result.inputs.some((entry) => entry.path.endsWith('/vue/package.json')));
+    assert.ok(result.inputs.some((entry) => entry.path.endsWith('/@vue/reactivity/package.json')));
+    assert.equal(result.qualificationEligible, false);
+    assert.equal(result.readonly, undefined);
+    assert.ok(result.unresolvedDependencies.some((entry) => entry.name === 'isArray'));
+});
+
+test('canonical framework export binds actual useFormItem toRef and preserves original propertyToRef class ownership', () =>
+{
+    const s = source();
+    const file = resolve(fsusUIRoot, 'vue/packages/components/form/src/hooks/use-form-item.ts');
+    const callee = frameworkCallee(s, file, 'toRef');
+    const result = s.resolver.resolveFrameworkExport(file, callee);
+    assert.equal(s.resolver.sourceStep(file, callee).offset, 1531);
+    assert.equal(result.fn.name.text, 'toRef');
+    assert.ok(result.dependencies.some((entry) => entry.fn?.name?.text === 'propertyToRef'));
+    assert.ok(result.dependencies.some((entry) => entry.classDeclaration?.name.text === 'ObjectRefImpl'));
+    assert.equal(result.exportIdentity.exportedName, 'toRef');
+    assert.equal(result.exportIdentity.sourceKind, 'declared-frontend-public-esm');
+    assert.equal(result.qualificationEligible, false);
+});
+
+test('canonical framework export rejects synthetic cloned and foreign callee ASTs', () =>
+{
+    const state = functionPackage();
+    const callee = frameworkCallee(state.s, state.file, 'alias');
+    const other = functionPackage();
+    for (const node of [state.s.expression('alias', state.file), { ...callee }, frameworkCallee(other.s, other.file, 'alias')])
+    {
+        assert.throws(() => state.s.resolver.resolveFrameworkExport(state.file, node), /unowned source proof node/);
+    }
+});
+
+test('canonical framework export refuses runtime values absent from real public exports and private entry paths', () =>
+{
+    const missing = functionPackage(undefined, 'export const unrelated=()=>true;');
+    assert.throws(() => missing.s.resolver.resolveFrameworkExport(missing.file, frameworkCallee(missing.s, missing.file, 'alias')), /no actual callable definition/);
+    const state = functionPackage();
+    const name = state.root.split('/').at(-1);
+    const file = fixture(`import {predicate} from '${name}/public.mjs';const x=predicate(1);`, 'ts');
+    assert.throws(() => state.s.resolver.resolveFrameworkExport(file, frameworkCallee(state.s, file, 'predicate')), /unavailable public function package/);
+});
+
+test('canonical framework export rejects stale original source inputs without inventing new class definitions', () =>
+{
+    const state = functionPackage();
+    const callee = frameworkCallee(state.s, state.file, 'alias');
+    state.s.resolver.resolveFrameworkExport(state.file, callee);
+    writeFileSync(resolve(state.root, 'public.mjs'), 'export const predicate=()=>true;');
+    assert.throws(() => state.s.resolver.resolveFrameworkExport(state.file, callee), /framework export source inputs changed/);
+});
+
+test('canonical framework export exposes effectful original bodies without classifying them as readonly', () =>
+{
+    const state = functionPackage(undefined, 'class Box{set value(input){external.value=input;}}export function predicate(){return new Box();}');
+    const result = state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias'));
+    assert.ok(result.dependencies.some((entry) => entry.classDeclaration?.name.text === 'Box'));
+    assert.equal(result.fn.body.getText(), '{return new Box();}');
+    assert.equal(result.readonly, undefined);
+    assert.equal(result.qualificationEligible, false);
+});
+
+test('canonical framework export rejects a real local callee that shadows its public import', () =>
+{
+    const state = functionPackage();
+    const name = state.root.split('/').at(-1);
+    const file = fixture(`import {predicate as alias} from '${name}';function owner(alias){return alias(1);}`, 'ts');
+    assert.throws(() => state.s.resolver.resolveFrameworkExport(file, frameworkCallee(state.s, file, 'alias')), /unbound finite component binding/);
+});
+
+test('canonical framework export rejects declared signatures without an actual runtime function body', () =>
+{
+    const state = functionPackage(undefined, 'export declare function predicate():void;');
+    assert.throws(() => state.s.resolver.resolveFrameworkExport(state.file, frameworkCallee(state.s, state.file, 'alias')), /no actual callable definition/);
 });
 
 for (const [label, text] of [

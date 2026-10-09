@@ -1226,7 +1226,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
     };
     // Read a declared public ESM entry; never execute a package or guess a
     // private distribution path. This exposes definitions, not function effects.
-    const publicFunctionEntry = (specifier, importer) =>
+    const publicFunctionEntry = (specifier, importer, frontend = false) =>
     {
         const parts = specifier.split('/');
         const name = specifier.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
@@ -1265,7 +1265,15 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         const exports = packageMetadata?.exports;
         const contract = subpath ? exports?.['.' + subpath]
             : typeof exports === 'string' ? exports : exports?.['.'] ?? exports;
-        const declared = typeof contract === 'string' ? contract : contract?.import;
+        let declared = typeof contract === 'string' ? contract : contract?.import;
+        if (frontend && typeof declared === 'object' && typeof declared?.default === 'string'
+            && typeof packageMetadata?.module === 'string'
+            && './' + packageMetadata.module.replace(/^\.\//, '') === declared.default)
+        {
+            // Bind the declared frontend ESM source. This does not select Node's
+            // conditional runtime entry or establish any ref/effect semantics.
+            declared = declared.default;
+        }
         if (!metadataFile || typeof declared !== 'string' || !declared.startsWith('./')
             || typeof contract === 'object' && contract.module !== undefined && contract.module !== declared)
         {
@@ -1345,6 +1353,245 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         const script = parse(file).scripts.find(({ ast }) => ast === node.getSourceFile());
         return { file, offset: script ? script.offset + node.getStart() : null,
             kind: script ? 'script-source' : 'selector-expression', digest: controlDigest(node.getText()) };
+    };
+    const resolveFrameworkExport = (file, callee) =>
+    {
+        sourceStep(file, callee);
+        if (!ts.isIdentifier(callee))
+        {
+            fail('framework export requires an actual named import AST');
+        }
+        finiteComponentBinding(file, callee.text);
+        const inputRecord = parse(file);
+        const imported = inputRecord.imports.get(callee.text);
+        if (!imported || imported.name === '*')
+        {
+            fail('framework export requires an actual named import');
+        }
+        const edges = [];
+        const unresolvedDependencies = [];
+        const declarations = (owner) =>
+        {
+            const result = new Map();
+            const add = (name, node) =>
+            {
+                if (result.has(name))
+                {
+                    fail(`ambiguous framework dependency ${owner}#${name}`);
+                }
+                result.set(name, node);
+            };
+            for (const { ast } of parse(owner).scripts)
+            {
+                for (const statement of ast.statements)
+                {
+                    if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) && statement.name)
+                    {
+                        add(statement.name.text, statement);
+                    }
+                    else if (ts.isVariableStatement(statement))
+                    {
+                        for (const declaration of statement.declarationList.declarations)
+                        {
+                            if (ts.isIdentifier(declaration.name) && declaration.initializer)
+                            {
+                                add(declaration.name.text, declaration.initializer);
+                            }
+                        }
+                    }
+                }
+            }
+            return result;
+        };
+        const moduleFile = (specifier, importer) =>
+        {
+            const target = modulePath(specifier, importer, mode === 'local' && importer.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
+            return typeof target === 'string' ? target : publicFunctionEntry(target.package, importer, true);
+        };
+        function importDeclaration(owner, localName)
+        {
+            const matches = parse(owner).scripts.flatMap(({ ast }) => ast.statements.filter(ts.isImportDeclaration))
+                .filter((statement) => statement.importClause?.name?.text === localName
+                    || statement.importClause?.namedBindings && ts.isNamedImports(statement.importClause.namedBindings)
+                    && statement.importClause.namedBindings.elements.some((element) => !element.isTypeOnly && element.name.text === localName));
+            if (matches.length !== 1)
+            {
+                fail(`ambiguous framework import ${owner}#${localName}`);
+            }
+            return matches[0];
+        }
+        function importedDefinition(owner, localName, seen)
+        {
+            const binding = parse(owner).imports.get(localName);
+            if (!binding || binding.name === '*')
+            {
+                return null;
+            }
+            const target = moduleFile(binding.specifier, owner);
+            edges.push({ file: owner, originalImportOrExportAST: importDeclaration(owner, localName),
+                resolvedFile: target, exportedName: binding.name });
+            return exportedDefinition(target, binding.name, seen);
+        }
+        function exportedDefinition(owner, name, seen = new Set())
+        {
+            const identity = `${owner}#${name}`;
+            if (seen.has(identity))
+            {
+                fail(`cyclic framework export ${identity}`);
+            }
+            const next = new Set([...seen, identity]);
+            const record = parse(owner);
+            const explicit = [];
+            const stars = [];
+            for (const { ast } of record.scripts)
+            {
+                for (const statement of ast.statements)
+                {
+                    if (ts.isExportDeclaration(statement) && !statement.isTypeOnly)
+                    {
+                        if (!statement.exportClause && statement.moduleSpecifier && name !== 'default')
+                        {
+                            stars.push(statement);
+                        }
+                        else if (statement.exportClause && ts.isNamedExports(statement.exportClause))
+                        {
+                            for (const element of statement.exportClause.elements.filter((element) => !element.isTypeOnly && element.name.text === name))
+                            {
+                                explicit.push({ statement, name: (element.propertyName ?? element.name).text });
+                            }
+                        }
+                    }
+                    else if (statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword))
+                    {
+                        const names = ts.isVariableStatement(statement) ? statement.declarationList.declarations
+                            .filter((declaration) => ts.isIdentifier(declaration.name)).map((declaration) => declaration.name.text)
+                            : statement.name ? [statement.name.text] : [];
+                        if (names.includes(name))
+                        {
+                            explicit.push({ statement, name });
+                        }
+                    }
+                }
+            }
+            const choices = explicit.length ? explicit : stars.map((statement) => ({ statement, name }));
+            const candidates = [];
+            for (const choice of choices)
+            {
+                let result;
+                if (choice.statement.moduleSpecifier)
+                {
+                    const target = moduleFile(choice.statement.moduleSpecifier.text, owner);
+                    const start = edges.length;
+                    result = exportedDefinition(target, choice.name, next);
+                    if (result)
+                    {
+                        edges.splice(start, 0, { file: owner, originalImportOrExportAST: choice.statement,
+                            resolvedFile: target, exportedName: choice.name });
+                    }
+                    else
+                    {
+                        edges.splice(start);
+                    }
+                }
+                else
+                {
+                    result = importedDefinition(owner, choice.name, next)
+                        ?? (declarations(owner).has(choice.name) ? { file: owner, node: declarations(owner).get(choice.name), name: choice.name } : null);
+                    if (result)
+                    {
+                        edges.push({ file: owner, originalImportOrExportAST: choice.statement, resolvedFile: result.file, exportedName: choice.name });
+                    }
+                }
+                if (result)
+                {
+                    candidates.push(result);
+                }
+            }
+            const unique = [...new Map(candidates.map((candidate) => [`${candidate.file}:${candidate.node.getStart()}`, candidate])).values()];
+            if (unique.length > 1 || explicit.length > 1)
+            {
+                fail(`ambiguous framework export ${identity}`);
+            }
+            return unique[0] ?? null;
+        }
+        const root = importedDefinition(file, callee.text, new Set());
+        if (!root || !(ts.isFunctionDeclaration(root.node) || ts.isArrowFunction(root.node) || ts.isFunctionExpression(root.node)) || !root.node.body)
+        {
+            fail('framework export has no actual callable definition');
+        }
+        const dependencies = [];
+        const visited = new Set();
+        const queue = [root];
+        while (queue.length)
+        {
+            const current = queue.shift();
+            const identity = `${current.file}:${current.node.getStart()}`;
+            if (visited.has(identity))
+            {
+                continue;
+            }
+            visited.add(identity);
+            sourceStep(current.file, current.node);
+            dependencies.push(ts.isClassDeclaration(current.node) ? { file: current.file, classDeclaration: current.node }
+                : { file: current.file, fn: current.node });
+            const locals = declarations(current.file);
+            function walk(node)
+            {
+                if ((ts.isCallExpression(node) || ts.isNewExpression(node)) && ts.isIdentifier(node.expression))
+                {
+                    const name = node.expression.text;
+                    let shadowed = false;
+                    for (let scope = node.parent; scope && scope !== current.node.getSourceFile(); scope = scope.parent)
+                    {
+                        if (ts.isFunctionLike(scope) && scope.parameters.some((parameter) => parameter.name.getText() === name)
+                            || ts.isBlock(scope) && scope.statements.some((statement) => ts.isVariableStatement(statement)
+                                && statement.declarationList.declarations.some((declaration) => declaration.name.getText() === name)))
+                        {
+                            shadowed = true;
+                        }
+                    }
+                    if (!shadowed)
+                    {
+                        const local = locals.get(name);
+                        if (local && (ts.isFunctionDeclaration(local) || ts.isArrowFunction(local)
+                            || ts.isFunctionExpression(local) || ts.isClassDeclaration(local)))
+                        {
+                            queue.push({ file: current.file, node: local, name });
+                        }
+                        else if (parse(current.file).imports.has(name))
+                        {
+                            try
+                            {
+                                const dependency = importedDefinition(current.file, name, new Set());
+                                if (!dependency || !(ts.isFunctionDeclaration(dependency.node) || ts.isArrowFunction(dependency.node)
+                                    || ts.isFunctionExpression(dependency.node) || ts.isClassDeclaration(dependency.node)))
+                                {
+                                    fail('dependency has no callable or class definition');
+                                }
+                                queue.push(dependency);
+                            }
+                            catch (error)
+                            {
+                                unresolvedDependencies.push({ file: current.file, name, source: sourceStep(current.file, node.expression), reason: error.message });
+                            }
+                        }
+                    }
+                }
+                ts.forEachChild(node, walk);
+            }
+            walk(current.node);
+        }
+        const inputs = api.sourceBindings();
+        if (inputs.errors.length)
+        {
+            fail('framework export source inputs changed');
+        }
+        edges.forEach((edge) => sourceStep(edge.file, edge.originalImportOrExportAST));
+        return { file: root.file, fn: root.node,
+            exportIdentity: { specifier: imported.specifier, exportedName: imported.name,
+                file: root.file, name: root.name, sourceKind: 'declared-frontend-public-esm' },
+            edges, dependencies, unresolvedDependencies, inputs: inputs.files,
+            dependencyScope: 'actual direct call/new definitions; indirect calls and effects remain unproved', qualificationEligible: false };
     };
     const sourceStep = (file, node) =>
     {
@@ -2340,7 +2587,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
     }
     const api = { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations, expression,
         modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent, resolveObjectKeyAbsence,
-        sourceStep, resolveSourceFunction: componentFunction, assertImmutableBinding: finiteComponentBinding,
+        sourceStep, resolveSourceFunction: componentFunction, resolveFrameworkExport, assertImmutableBinding: finiteComponentBinding,
         isInteractive,
         identity: { mode, package: packageId, publicRoot, packageDigest: controlDigest(metadata),
             upstream: initialUpstreamIdentity, resolutionInputs, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,

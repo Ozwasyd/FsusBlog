@@ -423,6 +423,15 @@ retains that default identity. Named callback captures and assignment aggregates
 cannot expose a component object to an unknown consumer. Supplier queries also
 require the original graph node array and every original node object; byte-equal
 replacement does not satisfy this identity contract.
+`resolver.resolveFrameworkExport(file, actualCalleeAST)` reads an actual named
+import through declared public frontend ESM exports. It returns the original
+function, import/export AST edges, direct call/new function or class dependencies
+and source inputs. Vue's frontend entry is bound to its matching declared module
+field and public import default; Node's different conditional entry is not chosen
+as a frontend source. Indirect calls and effects remain unproved, and native
+values without a function/class body remain explicit unresolved dependencies.
+The actual `ObjectRefImpl` setter writes the original object; this identity
+interface supplies neither a readonly verdict nor runtime qualification.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
