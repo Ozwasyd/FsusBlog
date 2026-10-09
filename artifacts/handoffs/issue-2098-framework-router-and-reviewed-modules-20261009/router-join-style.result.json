@@ -1,0 +1,50 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionAnalyzer.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791556680.0716581,
+  "durationSeconds": 5.008008718490601,
+  "source": {
+    "blog": {
+      "commit": "6f84ad28825f1df296f4da68c07719ce7725daed",
+      "tree": "e692863f2a75932fe34dab92e73caf96b387e37e",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionAnalyzer.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "ea829425c50ed4115a7c083bc3e6e5812f15aef4bb904925a0d23c8e2dc2dbf2"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "6f84ad28825f1df296f4da68c07719ce7725daed",
+      "tree": "e692863f2a75932fe34dab92e73caf96b387e37e",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionAnalyzer.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "ea829425c50ed4115a7c083bc3e6e5812f15aef4bb904925a0d23c8e2dc2dbf2"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/router-join-style.log",
+  "logSha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7"
+}

@@ -1,0 +1,14 @@
+✔ canonical Vue binding exposes the original actual provide inject and reactive imports (348.165973ms)
+✔ canonical Vue binding preserves actual aliases and rejects a mismatched export or unrelated import (79.391545ms)
+✔ canonical Vue binding rejects cloned and foreign records and synthetic or cloned callee ASTs (52.263028ms)
+✔ canonical Vue binding retains the original mutation and shadow rejection (84.042582ms)
+✔ canonical Vue binding refuses type only imports without manufacturing a runtime export (79.117135ms)
+✔ canonical Vue binding rejects stale source bytes while retaining the original callee (51.626826ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 820.98469

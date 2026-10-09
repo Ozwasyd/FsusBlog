@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^(?:canonical\\ Vue\\ binding\\ exposes\\ the\\ original\\ actual\\ provide\\ inject\\ and\\ reactive\\ imports|canonical\\ Vue\\ binding\\ preserves\\ actual\\ aliases\\ and\\ rejects\\ a\\ mismatched\\ export\\ or\\ unrelated\\ import|canonical\\ Vue\\ binding\\ rejects\\ cloned\\ and\\ foreign\\ records\\ and\\ synthetic\\ or\\ cloned\\ callee\\ ASTs|canonical\\ Vue\\ binding\\ retains\\ the\\ original\\ mutation\\ and\\ shadow\\ rejection|canonical\\ Vue\\ binding\\ refuses\\ type\\ only\\ imports\\ without\\ manufacturing\\ a\\ runtime\\ export|canonical\\ Vue\\ binding\\ rejects\\ stale\\ source\\ bytes\\ while\\ retaining\\ the\\ original\\ callee)$",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791557001.9555779,
+  "durationSeconds": 0.9799070358276367,
+  "source": {
+    "blog": {
+      "commit": "2a540a0b71e262c9435818a96f81dd286dc3a972",
+      "tree": "2309da9670abeec46e16dabdd869ce1ec3f5a65d",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "2a540a0b71e262c9435818a96f81dd286dc3a972",
+      "tree": "2309da9670abeec46e16dabdd869ce1ec3f5a65d",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/clean-vue-binding-6.log",
+  "logSha256": "3c311426eeb7800a086c18c96ce28f8a15c9fd942e083f9c1f1aa292418e8aeb"
+}

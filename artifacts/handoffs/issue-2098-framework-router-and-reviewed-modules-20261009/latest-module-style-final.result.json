@@ -1,0 +1,52 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionSlotSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "--file",
+    "tests/tools/layout-slot-source.test.mjs",
+    "--file",
+    "tests/tools/layout-collection-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791557214.919205,
+  "durationSeconds": 5.46234917640686,
+  "source": {
+    "blog": {
+      "commit": "2a540a0b71e262c9435818a96f81dd286dc3a972",
+      "tree": "2309da9670abeec46e16dabdd869ce1ec3f5a65d",
+      "status": "M tests/frontend/support/layout/compositionCollectionSource.mjs\n M tests/frontend/support/layout/compositionSlotSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-slot-source.test.mjs",
+      "diffDigest": "0f10b9060d6b316900e2e5ad714c194d79d62a492556b5d07be9eeda8d75866c"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "2a540a0b71e262c9435818a96f81dd286dc3a972",
+      "tree": "2309da9670abeec46e16dabdd869ce1ec3f5a65d",
+      "status": "M tests/frontend/support/layout/compositionCollectionSource.mjs\n M tests/frontend/support/layout/compositionSlotSource.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-slot-source.test.mjs",
+      "diffDigest": "0f10b9060d6b316900e2e5ad714c194d79d62a492556b5d07be9eeda8d75866c"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/latest-module-style-final.log",
+  "logSha256": "243d93aaa809368a217df715427e14a921736703774abc8c8d6031d729167a11"
+}

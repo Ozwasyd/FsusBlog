@@ -1,0 +1,48 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 1,
+  "startedAtEpoch": 1791556944.7120135,
+  "durationSeconds": 5.251435279846191,
+  "source": {
+    "blog": {
+      "commit": "2c61878cbd22b58ed77f54898e2180bdb1401b3b",
+      "tree": "a693f36734647c9d4ab1571d77b5e5c407f54137",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "374d6c6a42f388bf329a976a3c97543a967f25d9ec9889e94ed71454c3d5a2dc"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "2c61878cbd22b58ed77f54898e2180bdb1401b3b",
+      "tree": "a693f36734647c9d4ab1571d77b5e5c407f54137",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "374d6c6a42f388bf329a976a3c97543a967f25d9ec9889e94ed71454c3d5a2dc"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/vue-binding-style.log",
+  "logSha256": "22ea975c575d04a50f05dc5ea0d93e618b97d814422b609c94a474d8d9796357"
+}

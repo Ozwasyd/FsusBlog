@@ -1,0 +1,216 @@
+{
+  "sourceCommit": "7f4dbff14377b26e171cfc505482c9af94919ca2",
+  "sourceTree": "162043382e337284095749b65c6b01124c006349",
+  "branch": "codex/chain-1895-component-prop-source",
+  "fsusUICommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "fsusUITree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+  "controls": {
+    "passed": 832,
+    "failed": 0,
+    "skipped": 0,
+    "cleanSource": true,
+    "roster": "clean-latest-832-positive-preflight.json",
+    "result": "clean-latest-832-tests.result.json",
+    "collectionActualCount": 150,
+    "slotActualCount": 50,
+    "parentReportedCollectionCount": 102,
+    "countDiscrepancy": "Actual original AST contains150 unique literal names: prior103 plus18 probes plus29 repairs; preflight stopped at102 before any test, then actual roster was registered."
+  },
+  "moduleInputs": {
+    "target": "2c37518230c4a10d83edbec9ec73d3cc737b2c28",
+    "collection": "f95c8a329c6aa727176219228e69660a08a8a5ec",
+    "functional": "02121572e3c392f950dcfb3fb6b43ce182f86c93",
+    "slot": "1d49b3d38ec0dcc007190cab39487f0bd3af2138",
+    "finiteRefs": "8c9273b7fe122b064615ed69863df282a64c3324",
+    "routes": "fc21ca28d43314a3c49adf1ab75deeeb77a48c37",
+    "orderGeometry": "f59cc26892c68798298369badb82003e154b4ac4"
+  },
+  "latestModulePostimages": [
+    {
+      "module": "slot",
+      "commit": "1d49b3d38ec0dcc007190cab39487f0bd3af2138",
+      "path": "tests/frontend/support/layout/compositionSlotSource.mjs",
+      "rawGitBlob": "8a08155e9f0c62fd996792efdc4b4d0a03246263",
+      "rawSha256": "05ce3baa528237a59c9669f8ce692182e5f117676de8103e511ebbaeb40d8947",
+      "consumedGitBlob": "8a08155e9f0c62fd996792efdc4b4d0a03246263",
+      "consumedSha256": "05ce3baa528237a59c9669f8ce692182e5f117676de8103e511ebbaeb40d8947"
+    },
+    {
+      "module": "slot",
+      "commit": "1d49b3d38ec0dcc007190cab39487f0bd3af2138",
+      "path": "tests/tools/layout-slot-source.test.mjs",
+      "rawGitBlob": "1e62042f42de1f17aaf5dc9ed927a9eb97f675a8",
+      "rawSha256": "f6bd0df421ddbe5180d56ff368f7276da953aee8e5c53184ecfb3ff98b718586",
+      "consumedGitBlob": "e14b314fcc359ab462fa317f7aa98c2199ea142f",
+      "consumedSha256": "487797460a19e63c904fed2930c0cdaddb3137ffe96f40ce4738e818ccf9f19b",
+      "centralDifference": "canonical package-export imports only; original assertions unchanged"
+    },
+    {
+      "module": "collection",
+      "commit": "f95c8a329c6aa727176219228e69660a08a8a5ec",
+      "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+      "rawGitBlob": "72088ec44d1ca13eb23bc9656e5668f4e0c92963",
+      "rawSha256": "e10423d4aadb6a9c92f4ee7560d7585cf41a370fc345759be5b85769d9a21276",
+      "consumedGitBlob": "72088ec44d1ca13eb23bc9656e5668f4e0c92963",
+      "consumedSha256": "e10423d4aadb6a9c92f4ee7560d7585cf41a370fc345759be5b85769d9a21276"
+    },
+    {
+      "module": "collection",
+      "commit": "f95c8a329c6aa727176219228e69660a08a8a5ec",
+      "path": "tests/tools/layout-collection-source.test.mjs",
+      "rawGitBlob": "325c6e1b4bd42a27ccee872dfe0391ff4e3f9316",
+      "rawSha256": "c38e479f92530b54ec9e1b454098e8bf2ee9f5f00b077ac87ef1f1b0782ef253",
+      "consumedGitBlob": "2d74791e93cf7d77186d0e9c5990e71fe6a9eff5",
+      "consumedSha256": "19282512443d31645da9137cf0b4a847fb5a4614114be78039da4489a8ec8266",
+      "centralDifference": "canonical package-export imports only; original assertions unchanged"
+    }
+  ],
+  "sourceClosure": [
+    {
+      "path": "package.json",
+      "gitBlob": "2f5a557c2e46d0996e0ccc0d6d0382bc6771f3a1",
+      "sha256": "4d79b89ab9b88c01eb973acff15f7d8e24a5448e641d23cb2e19f1692df0071f"
+    },
+    {
+      "path": "tools/frontend/control-legality/package.json",
+      "gitBlob": "d8a692c7304e4cb47ebbfbb4ddebf02180073b98",
+      "sha256": "f5e01b121d4dd36d6f6a30b94673d021492998b6d1983a978be99236b6c9f5ac"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+      "gitBlob": "97a5cd80474f5b208ff0c8d81f870033e9bf3522",
+      "sha256": "0bced4b3f02c91e7012761b5d742ea9b344ef0019df97c486715def9db7791f0"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionSource.mjs",
+      "gitBlob": "e67612e84fdd1c48230d3ec3642563a2b58a1e4f",
+      "sha256": "3fa8ff6e401d140241102e6c4946a7dd5979dac4a397d3926ed8460267d2eb11"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionTargetSource.mjs",
+      "gitBlob": "9fc305fbeab708789d5982b08767a140a2ab1a2a",
+      "sha256": "f2a3c9a660e134b1f044d451d4912af43d421757dea94604eadb7bac67022655"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+      "gitBlob": "2357dfbc6753c8cd2f3f171ac1fcee99afb6bf8f",
+      "sha256": "37c4723c422fe437277c938b59ecdff189a12abd5ff2066cfed3b40de19bbc6b"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionSlotSource.mjs",
+      "gitBlob": "8a08155e9f0c62fd996792efdc4b4d0a03246263",
+      "sha256": "05ce3baa528237a59c9669f8ce692182e5f117676de8103e511ebbaeb40d8947"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+      "gitBlob": "72088ec44d1ca13eb23bc9656e5668f4e0c92963",
+      "sha256": "e10423d4aadb6a9c92f4ee7560d7585cf41a370fc345759be5b85769d9a21276"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionRoutes.mjs",
+      "gitBlob": "f9b62fbc1af8aa10b447dc162765ccdb9f954645",
+      "sha256": "f244d6aaacc23ebf7352efeeda0b27a5e19d5c533d7909c4eeab20a6edfcf066"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionDom.mjs",
+      "gitBlob": "b21593f64878ab31805c31c5cfd3cf10bc03a473",
+      "sha256": "31b2808fc5bd83cf327737bfdc4850f2f8f44be1c965dc38f5100323d5d7a871"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionGeometry.mjs",
+      "gitBlob": "50c2d022a456b04ab2780b245af31b89d065870f",
+      "sha256": "ea79af0e94df0f36201e2755b6fd79272fae15bb8c59f3de286cc5a8f572666f"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+      "gitBlob": "55083898e574ff99771f0935823fe516c7aafcce",
+      "sha256": "b0e6d43aaea70f272efcdf7a8f17dd52c9e3e1cc6381dbc56868330356d89b79"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionOverflowGeometry.mjs",
+      "gitBlob": "dd622765dee9eb731a8e930bee1e1680def0e1f0",
+      "sha256": "91d3dbb3578170c4e4fee60b0c1b40441b585763999b8ef8fdb5e4dde6d9e4aa"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionChromeGeometry.mjs",
+      "gitBlob": "2a63860caa19272e5359cf20b1e01335743c9048",
+      "sha256": "31e0de2dfcded482485dc75f23dd3f79b070ba10f0a0cf8d85e44c15e7d5f9b0"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionContracts.mjs",
+      "gitBlob": "1adb993bfa122172289e30005b64b3a88995c449",
+      "sha256": "bf5752f757afbf9e3e168469b972a230923166e76dff9c8b56595ae2f7a0ef5b"
+    },
+    {
+      "path": "tools/frontend/control-legality/source.mjs",
+      "gitBlob": "efcfa0d4f36ab98611fb61a44ada6a774544c7f1",
+      "sha256": "89a90a4acbb0fca4d6619615cd2eba236b9cc8d6479de70be4f8db2f53269c6a"
+    },
+    {
+      "path": "tools/frontend/control-legality/source-ref-selectors.mjs",
+      "gitBlob": "a7097b6e635ae43d50f357baadf26fa592503c32",
+      "sha256": "78a9d4b38cf6fa5cf99a56ed105f0427d53f2770b589cb297ca5a925d7a057bf"
+    }
+  ],
+  "interfaces": {
+    "completeSupplier": "Original source.resolveTargetInputs(node, graphOrOriginalNodes), complete ordered input set with original graph identity.",
+    "frameworkExport": "resolver.resolveFrameworkExport(file,actualCalleeAST): actual public frontend ESM function, original import/export AST edges and direct call/new function/class bodies; no readonly verdict. Published6f84ad28825f1df296f4da68c07719ce7725daed.",
+    "vueBinding": "source.vueBinding(originalResolverRecord,actualCalleeAST,exportedName): original Vue named-import and unchanged-binding calculation, guarded original record/AST and source bytes; no effect/state verdict. Published2a540a0b71e262c9435818a96f81dd286dc3a972; clean6PASS.",
+    "routerGraph": "source.graph(entries,{routes}) joins original same-source route observations through actual component call paths, binds frameworkTargetBindings and backing sources to the original digest, and preserves existing unbound rendered/runtime/permission errors. Published2c61878cbd22b58ed77f54898e2180bdb1401b3b."
+  },
+  "independentSourceReview": {
+    "slot": "Parent explicitly reports1d49 same-review50+13+10+4 allPASS0skip, old three findings closed, no new source finding; actual current50 also pass. This is source review only; unknown OnlyChild/Table/Auto remain unauthorized.",
+    "collection": "Parent suppliedf95c repair18+29PASS and reported101P1F due missingvueBinding. Current genuine interface closes that reported capability and actual150PASS; independent review of this combined tuple still pending, no blanket acceptance.",
+    "centralF1F4": "Repairs committedb7c26f and current ordinary controls pass; independent re-review still pending.",
+    "functional": "Parent reported0212 independent effects/digest controls passed; source capability only.",
+    "target": "2c actual58 controls pass; independent combined acceptance still pending."
+  },
+  "knownOpenSourceCapabilities": [
+    "collection callback/output/partition/pane APIs are not automatically joined by the central graph; no diagnostic was cleared with them",
+    "framework dependency closure is direct call/new only; actual isArray and extend native-value bodies remain unresolved",
+    "scoped/conditional slot forwarding, provider/ref effects, callback invocation and unknown rendered suppliers remain unproved",
+    "same-file named SFC render identities remain unsupported and fail closed"
+  ],
+  "parentDiagnosticContext": {
+    "evidenceCommit": "1370f6b5b07123cbc46c9bd2a43deaf427b1387a",
+    "testedSourceCommit": "4fbff7025c0c4e57158eea6c0d6cbebf3b02e756",
+    "reportedDiagnostics": 1130,
+    "usedAs": "read-only historical source-gap context only; no current candidate inventory or count claim",
+    "comparisonWithOld78": "scope equivalence not established"
+  },
+  "legacyArtifactContract": {
+    "commit": "2993f604b9b33e2e21c4992e5e82760635965a51",
+    "status": "failed",
+    "reason": "commit scope evidence is outside repository allowed scopes",
+    "exitCode": 1,
+    "result": "legacy-published-artifact-contract-failed.result.json",
+    "historyRewritten": false,
+    "sourceRepairRangeContract": "232f7c86cedd5fe30a4f266de18330d63f9a412b..b7c26f4062c7c510e8ab43ccf74488fe37461e7f passed; does not waive legacy range failure"
+  },
+  "currentIncrementContract": {
+    "range": "162b3bcab4537ea028e11e2472c070ce96f3f53b..7f4dbff14377b26e171cfc505482c9af94919ca2",
+    "exitCode": 0,
+    "waivesLegacy2993": false
+  },
+  "preservedFailures": {
+    "framework769": "768PASS1FAIL: own actualSlider test had two toRefs calls; exactprops callee now selected, clean771 and832 pass",
+    "routerCommitFooter": "unpublishedd1e272 commit lackedRefs footer; local unpublished message corrected to2c61878 before normal push, no remote rewrite",
+    "style": "own test trailing comma and raw slot public-import grouping fixed; assertions/module source unchanged",
+    "legacy2993": "published artifact scope remains invalid, no history rewrite or waiver"
+  },
+  "heldTestsExcluded": [
+    "all twelve fixtures bind to actual router AST/import graph without a second map",
+    "actual contract, design and FsusUI digests are bound to the current run",
+    "order geometry real Chromium fixtures observe responsive flow and explicit limits"
+  ],
+  "productionInventoryRun": false,
+  "browserOrNativeRun": false,
+  "qualificationEligible": false,
+  "runtimePermissionAndState": "unbound",
+  "metadataWrites": false,
+  "issueStatus": {
+    "1894": "Full acceptance open on frozen cab9382452ff0ebdd22e2751a519555cc6073c38 / FsusUI7e52be36eb8c359dbb0897ef738df2e2cfc2f54e pair; no new runtime claim.",
+    "1895": "Full gate open: same-task1894 acceptance and qualified exact external1889/1891/1892 evidence absent; closed1888/1890/1893/1896/1898 combined current runtime boundaries remain unconfirmed under hold.",
+    "2098": "Current source increments tested; combined independent review, broader original graph joins and runtime/product acceptance remain open."
+  }
+}

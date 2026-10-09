@@ -1,0 +1,30 @@
+[
+  {
+    "module": "slot",
+    "commit": "1d49b3d38ec0dcc007190cab39487f0bd3af2138",
+    "path": "tests/frontend/support/layout/compositionSlotSource.mjs",
+    "rawGitBlob": "8a08155e9f0c62fd996792efdc4b4d0a03246263",
+    "rawSha256": "05ce3baa528237a59c9669f8ce692182e5f117676de8103e511ebbaeb40d8947"
+  },
+  {
+    "module": "slot",
+    "commit": "1d49b3d38ec0dcc007190cab39487f0bd3af2138",
+    "path": "tests/tools/layout-slot-source.test.mjs",
+    "rawGitBlob": "1e62042f42de1f17aaf5dc9ed927a9eb97f675a8",
+    "rawSha256": "f6bd0df421ddbe5180d56ff368f7276da953aee8e5c53184ecfb3ff98b718586"
+  },
+  {
+    "module": "collection",
+    "commit": "f95c8a329c6aa727176219228e69660a08a8a5ec",
+    "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "rawGitBlob": "72088ec44d1ca13eb23bc9656e5668f4e0c92963",
+    "rawSha256": "e10423d4aadb6a9c92f4ee7560d7585cf41a370fc345759be5b85769d9a21276"
+  },
+  {
+    "module": "collection",
+    "commit": "f95c8a329c6aa727176219228e69660a08a8a5ec",
+    "path": "tests/tools/layout-collection-source.test.mjs",
+    "rawGitBlob": "325c6e1b4bd42a27ccee872dfe0391ff4e3f9316",
+    "rawSha256": "c38e479f92530b54ec9e1b454098e8bf2ee9f5f00b077ac87ef1f1b0782ef253"
+  }
+]

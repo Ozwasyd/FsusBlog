@@ -1,0 +1,50 @@
+{
+  "command": [
+    "node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--domain",
+    "docs",
+    "--operation",
+    "lint",
+    "--mode",
+    "full",
+    "--file",
+    "docs/frontend/layout-visual-governance.md"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791556681.5270162,
+  "durationSeconds": 0.4634065628051758,
+  "source": {
+    "blog": {
+      "commit": "6f84ad28825f1df296f4da68c07719ce7725daed",
+      "tree": "e692863f2a75932fe34dab92e73caf96b387e37e",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionAnalyzer.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "ea829425c50ed4115a7c083bc3e6e5812f15aef4bb904925a0d23c8e2dc2dbf2"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "6f84ad28825f1df296f4da68c07719ce7725daed",
+      "tree": "e692863f2a75932fe34dab92e73caf96b387e37e",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionAnalyzer.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "ea829425c50ed4115a7c083bc3e6e5812f15aef4bb904925a0d23c8e2dc2dbf2"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/router-join-docs.log",
+  "logSha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e"
+}
