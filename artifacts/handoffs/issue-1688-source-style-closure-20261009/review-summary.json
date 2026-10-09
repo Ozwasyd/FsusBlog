@@ -1,0 +1,69 @@
+{
+  "schema": "fsusblog.source-style-closure-review.v1",
+  "ownedIssue": 1688,
+  "wholeAssignmentComplete": false,
+  "reviewedSource": "58e7816b82049156d4d5738b655084feb85b72ba",
+  "reviewBase": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "productionSourcePaths": [
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs",
+    "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+    "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
+    "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+    "src/backend/Program.cs",
+    "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+    "src/backend/Services/SystemService.cs",
+    "src/shared/Algorithms/ExactDecimalLiteral.cs",
+    "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+    "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+    "src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs",
+    "src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs",
+    "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs",
+    "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+    "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+    "src/shared/Contracts/Schema/CurrentSchemaModel.cs",
+    "src/shared/Contracts/Schema/CurrentSchemaOwnedTargetArtifact.cs",
+    "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs",
+    "src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs"
+  ],
+  "changedSourceStyle": {
+    "exitCode": 0,
+    "files": 21,
+    "violations": 0
+  },
+  "completeCommitRangeExitCode": 0,
+  "sourceIntegration": {
+    "exitCode": 1,
+    "sourceState": {
+      "commit": "58e7816b82049156d4d5738b655084feb85b72ba",
+      "worktreeFingerprint": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    "failure": {
+      "checker": "unsupported-source-stage-language",
+      "paths": [
+        ".git-blame-ignore-revs"
+      ]
+    },
+    "receipt": "artifacts/handoffs/issue-1688-source-style-closure-20261009/source-governance-result.json",
+    "nodeVersion": "24.16.0",
+    "sourceRegressionTargets": [],
+    "qualificationEligible": false
+  },
+  "strictRelease": {
+    "testedSource": "be1b15d25c94fed7a53ccbb48ba09cac3e5b524d",
+    "exitCode": 0,
+    "errors": 0,
+    "warnings": 0,
+    "receipt": "artifacts/handoffs/issue-1688-source-style-closure-20261009/strict-release-result.json",
+    "log": "artifacts/handoffs/issue-1688-source-style-closure-20261009/strict-release-build.log",
+    "logSha256": "040c1713ce998502ab5cf6cec86a386103c93152f1ad66661ceaa4675468105f",
+    "applicability": "Later production changes are exactly16 valid XML summaries in two files; removing those additions restores the original strict-build source bytes. Build stamp/tested SHA is retained; no final-head rebuild receipt is claimed."
+  },
+  "remainingSourceRequirement": "Canonical SOURCE-selection owner must admit mandatory blame metadata through the existing reviewed source checker; no candidate selection-policy or checker changes made.",
+  "runtimeAcceptance": "OPEN; original admitted containment and lifecycle qualification remain unrun for this source candidate.",
+  "backendSchemaReceiptNativeOrHeldAuditsExecuted": 0,
+  "githubContentApiWrites": false,
+  "frozenLifecycleBranchesPreserved": true,
+  "recordedAtUtc": "2026-10-09T06:15:42.350662+00:00"
+}
