@@ -1,0 +1,209 @@
+{
+    "purpose": "Ordinary source composition provenance and exact outstanding SOURCE interface; no runtime or release receipt",
+    "verifiedSourceHead": "832a7999b0e172e842b8e71d34bdd9ca358c2081",
+    "actualFetchedMaster": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "frozenReviewedMemoryCandidate": "dcdbc7dd08ca675e5c85f9792bf311935f8e9b51",
+    "supplierRouteHead": "90157858f42f4c4fa2941107aa3354d25285fa74",
+    "fontDeliveryHead": "e032196eaf5e155b336618d867c221b662704981",
+    "fontFormatRevision": "4fa48cacb1def74e963dd2feb03beb6440e67472",
+    "sourceBindings": {
+        "reviewedMemory": [
+            {
+                "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                "blob": "e96a5080cde2d94e2d1a60aee25759e9a5719e52"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+                "blob": "7947a604ddfa427e95e991a35b7d4af919e81312"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                "blob": "bb78e6dd58df6a199d511b2e60e3786172c146a7"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                "blob": "63477bad24069ef0ae0e549af558d368e4e6aa6a"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                "blob": "b0af8166af5ea20a29a308a98e73e40ef760815c"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+                "blob": "a0c4d9c403400a2a9cb152e159752a1b50844add"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+                "blob": "cabde5a50c397d321824b95eb1e224ebdb73ab06"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+                "blob": "c4e2b28a61de23624c580c9bd0e6f233982fedf5"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
+                "blob": "693eac4a7fb88037b2e36555d145edfd100b6438"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaBuilder.cs",
+                "blob": "1a1614deaef1959ca54025d0019eefd44b74bb47"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaPolicy.cs",
+                "blob": "bba73e5860dc41d1e1c1f77272ef3dec232df411"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+                "blob": "cf882e508373cb9e9c790bfd9c78bb2d3f3b46bd"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+                "blob": "f566ba7bb272f529abe4c0137a17e54103e2d512"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs",
+                "blob": "182378d5b7f667d1db108fac668f1ce411f0c8bd"
+            },
+            {
+                "path": "tests/backend/Unit/NativeMemoryArenaTests.cs",
+                "blob": "34ecf61a6104844f48fa0848a6686318edf99bac"
+            }
+        ],
+        "reviewedMemoryCount": 15,
+        "commonRegistryBlob": "297e62d60f891440bf65d8dde9b561b33548275e",
+        "exactRouteSource": [
+            {
+                "path": "config/testing/release-final-execution-authority-index.json",
+                "blob": "b881ab993faf6cd5d44136277510bba669fa66ea"
+            },
+            {
+                "path": "docs/development/change-contract.md",
+                "blob": "0d3e5393c48c166624b9726f0a3b115692ca5af6"
+            },
+            {
+                "path": "tests/tools/blame-ignore-source.test.mjs",
+                "blob": "dc12d44ce1b61e2bdfc8bdbef7920f252a18851b"
+            },
+            {
+                "path": "tests/tools/pr-impact-plan.test.mjs",
+                "blob": "8506d43ec554110a9a62ba07c8a622d9156f34e9"
+            },
+            {
+                "path": "tests/tools/release-final-static-boundary.test.mjs",
+                "blob": "3a989ca888b4801ebfe0f1a8e199f6ba76d9d25a"
+            },
+            {
+                "path": "tools/configuration/check-cpp-source.mjs",
+                "blob": "0e5c39fd41ee69426347351b960ffd832baa1a72"
+            },
+            {
+                "path": "tools/configuration/cpp-source.test.mjs",
+                "blob": "d605fbb61410c6b8a4bc200aebc9d47fcb3dbe09"
+            },
+            {
+                "path": "tools/test-matrix/blame-ignore-source.mjs",
+                "blob": "0b167292a8b2fe123031a8af2cddfdbd0ad7aa89"
+            },
+            {
+                "path": "tools/test-matrix/pr-impact-plan.mjs",
+                "blob": "8ae0c93385d87d92eb8e44186ef384e2ccd006aa"
+            },
+            {
+                "path": "tools/test-matrix/source-governance.mjs",
+                "blob": "ba4602cb106e00fb5bf28e6562e4a9afa4089748"
+            }
+        ],
+        "exactRouteSourceCount": 10,
+        "font": {
+            "path": "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp",
+            "matchedPreimageBlob": "a46d9480b3639d546fa8e185b6f674a4e88d8049",
+            "postimageBlob": "dc3569a0c78a9a9e8660fdcf08b1687ed026dfdf"
+        },
+        "classifier": {
+            "path": "tools/style/check-native-tooling-style.mjs",
+            "actualMasterBlob": "60fc3b7d9020fd2cd6b87c6dd08fde71584c6757",
+            "candidateBlob": "60fc3b7d9020fd2cd6b87c6dd08fde71584c6757",
+            "pendingReviewedSourceNotConsumed": "6fe5eb07b93743ac32585eb69899356f96715482",
+            "failed17daSourceNotConsumed": true
+        }
+    },
+    "producerFixedPoint": {
+        "originalProducer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "nodeVersion": "v24.16.0",
+        "targets": 102,
+        "closureFiles": 1143,
+        "firstAndSecondSha256": "61874a90de506e4a8cf363392e3bb4beb349bab833c2b95637173583d9047f2d",
+        "fixedPoint": true
+    },
+    "ordinaryGateAllowlist": [
+        {
+            "originalGate": "tools/governance/check-change-contract.mjs",
+            "boundRange": "be7c53d99b64342925ca63d061bacde34d22ba4c..832a7999b0e172e842b8e71d34bdd9ca358c2081",
+            "result": "PASS"
+        },
+        {
+            "originalGate": "tools/governance/check-code-intent.mjs checkCodeIntent API",
+            "inputPaths": [
+                "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp"
+            ],
+            "inputCount": 1,
+            "result": "PASS; errors=0"
+        },
+        {
+            "originalGate": "tools/test-matrix/blame-ignore-source.mjs",
+            "inputPaths": [
+                ".git-blame-ignore-revs"
+            ],
+            "trustedAuthorityPathCount": 10,
+            "trustedBase": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+            "result": "PASS; qualificationEligible=false"
+        },
+        {
+            "originalGate": "tools/test-matrix/pr-impact-plan.mjs unsupportedSourceStageFiles API",
+            "inputPaths": [
+                ".git-blame-ignore-revs",
+                "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp"
+            ],
+            "inputCount": 2,
+            "result": "Validated branded blame receipt admits only exact metadata; C++ input remains unsupported",
+            "unbrandedCloneRefused": true,
+            "brandedBlameParameter": 4,
+            "actualValidatedCppPathsParameter": 5,
+            "validatedCppPaths": []
+        },
+        {
+            "originalGate": "tools/configuration/check-cpp-source.mjs inspectCppSource API",
+            "inputPaths": [
+                "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp"
+            ],
+            "inputCount": 1,
+            "result": "FAIL",
+            "error": "C++ compile context missing for actual changed inputs: src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp"
+        }
+    ],
+    "remainingSourceInterface": {
+        "owner": "sole1686 C++ route context using sole2575 actual translation-unit commands",
+        "requestedInterface": "A consumable actual context accepted by the original inspectCppSource for the unchanged formatted font header; do not invent or duplicate a context",
+        "originalPolicyCandidates": [
+            ".tmp/cmake/native-basic",
+            ".tmp/cmake/native-speed",
+            ".tmp/cmake/native-asan-ubsan",
+            ".tmp/cmake/native-fuzz",
+            "src/frontend/wasm/build"
+        ],
+        "currentCandidateDatabasesAndCaches": "All five absent",
+        "requiredCoverage": "Original real compiler -MM dependencies of a HEAD/index-bound tracked C++23 translation unit must include this actual changed header, with the original accepted CMake/database/compiler identity and arguments",
+        "fontFormattingWait": "Resolved by exact e032196e source and format metadata"
+    },
+    "notExecuted": [
+        "unchanged supplier 5 C++ fixture controls",
+        "unchanged supplier 9 blame fixture controls",
+        "unchanged supplier 1 planner fixture control",
+        "native arena tests already accepted at frozen source",
+        "full SOURCE regressions or broad suites",
+        "ProjectXML, semantic-adapter, cohort-pointer, native/fault/platform/release audits"
+    ],
+    "supplierControlsAreNotCandidateQualification": true,
+    "qualificationEligible": false,
+    "gitHubContentWrites": "Held for root; source push only"
+}
