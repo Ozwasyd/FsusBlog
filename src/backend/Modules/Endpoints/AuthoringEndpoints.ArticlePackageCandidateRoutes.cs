@@ -60,15 +60,18 @@ public static partial class AuthoringEndpoints
         token.ThrowIfCancellationRequested();
         if (!outcome.Result.IsValid)
         {
-            ApiErrorTransportMappingId mapping = outcome.Result.ReasonCode switch
+            string reason = outcome.Result.ReasonCode ?? "article_package_candidate_review_read_invalid";
+            ApiErrorTransportMappingId mapping = reason switch
             {
                 "article_package_candidate_review_context_drift" or "article_package_candidate_review_plan_stale"
                     => ApiErrorTransportMappingId.Default409Conflict,
                 "article_package_candidate_review_access_denied" => ApiErrorTransportMappingId.Default403Forbidden,
                 _ => ApiErrorTransportMappingId.Default400Validation
             };
-            return AedsJsonResults.Error(aeds, mapping, outcome.Result.ReasonCode);
+            return AedsJsonResults.Error(aeds, mapping, reason);
         }
-        return Ok(context, aeds, outcome.Response);
+        return outcome.Response is null
+            ? AedsJsonResults.BadRequest(aeds, "article_package_candidate_review_read_invalid")
+            : Ok(context, aeds, outcome.Response);
     }
 }
