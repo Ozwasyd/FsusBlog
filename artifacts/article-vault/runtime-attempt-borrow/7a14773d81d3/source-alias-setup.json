@@ -1,0 +1,91 @@
+{
+  "actualHelperSha256": "e0bb739a237aab404f6d7cec73faf53745fe6559800ff04575d11bf88755b112",
+  "uiSource": "0e5c56050e8dd3e9ca3735078489d35a0bb6e3d2",
+  "verifyExit": 0,
+  "ownHelperLinks": [
+    {
+      "path": "vue/packages/node_modules/gsap",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/gsap"
+    },
+    {
+      "path": "vue/packages/node_modules/katex",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/fsusui-local-katex"
+    },
+    {
+      "path": "vue/packages/node_modules/lodash",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/lodash"
+    },
+    {
+      "path": "vue/packages/node_modules/shiki",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/shiki"
+    },
+    {
+      "path": "vue/packages/node_modules/lodash-unified",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/lodash-unified"
+    },
+    {
+      "path": "vue/packages/node_modules/mermaid",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/mermaid"
+    },
+    {
+      "path": "vue/packages/node_modules/dayjs",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/dayjs"
+    },
+    {
+      "path": "vue/packages/node_modules/escape-html",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/escape-html"
+    },
+    {
+      "path": "vue/packages/node_modules/motion-dom",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/motion-dom"
+    },
+    {
+      "path": "vue/packages/node_modules/memoize-one",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/memoize-one"
+    },
+    {
+      "path": "vue/packages/node_modules/normalize-wheel-es",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/normalize-wheel-es"
+    },
+    {
+      "path": "vue/packages/node_modules/lodash-es",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/lodash-es"
+    },
+    {
+      "path": "vue/packages/node_modules/async-validator",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/async-validator"
+    },
+    {
+      "path": "vue/packages/node_modules/vue",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/vue"
+    },
+    {
+      "path": "vue/packages/node_modules/@element-plus/icons-vue",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@element-plus/icons-vue"
+    },
+    {
+      "path": "vue/packages/node_modules/@types/lodash",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@types/lodash"
+    },
+    {
+      "path": "vue/packages/node_modules/@types/lodash-es",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@types/lodash-es"
+    },
+    {
+      "path": "vue/packages/node_modules/@floating-ui/dom",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@floating-ui/dom"
+    },
+    {
+      "path": "vue/packages/node_modules/@popperjs/core",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@popperjs/core"
+    },
+    {
+      "path": "vue/packages/node_modules/@ctrl/tinycolor",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@ctrl/tinycolor"
+    }
+  ],
+  "frontendCacheInputPairExact": true,
+  "wasmOriginalBuildExit": 0,
+  "cachedThemeInputsIdentical": true,
+  "qualification": false
+}

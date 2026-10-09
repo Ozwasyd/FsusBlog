@@ -1,0 +1,18 @@
+{
+  "baseline": "04195f8a0d2ad16d14c8d66a2f876c428e606f3e",
+  "testedSource": "7a14773d81d3b588abe2866ab5c772389f17615f",
+  "command": [
+    "node",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "--application"
+  ],
+  "exitCodes": [
+    2,
+    2
+  ],
+  "baselineDiagnostics": 244,
+  "candidateDiagnostics": 244,
+  "new": [],
+  "removed": [],
+  "qualification": false
+}

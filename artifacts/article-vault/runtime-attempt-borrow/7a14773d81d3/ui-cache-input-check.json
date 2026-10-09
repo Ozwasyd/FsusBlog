@@ -1,0 +1,17 @@
+[
+  {
+    "subtree": "vue/packages/theme-chalk",
+    "changedInputs": []
+  },
+  {
+    "subtree": "vue/packages/wasm",
+    "changedInputs": [
+      "vue/packages/wasm/__tests__/markdown-opaque-document-id.public.test.ts",
+      "vue/packages/wasm/markdown-projection-worker.ts",
+      "vue/packages/wasm/markdown-syntax-identity.ts",
+      "vue/packages/wasm/markdown/src/markdown_contract.cpp",
+      "vue/packages/wasm/markdown/syntax-collect.generated.ts",
+      "vue/packages/wasm/markdown/syntax-collect.wasm"
+    ]
+  }
+]

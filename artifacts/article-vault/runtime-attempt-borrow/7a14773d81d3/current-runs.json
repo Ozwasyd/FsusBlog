@@ -1,0 +1,58 @@
+{
+  "testedSource": "7a14773d81d3b588abe2866ab5c772389f17615f",
+  "qualification": false,
+  "runs": [
+    {
+      "runId": "chain1975-runtime-borrow-7a14773d81d3-positive",
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "--testNamePattern",
+        "(runs compression and hashing before init, uploads every required part, then completes once|borrows actual compressed facts and retains a bound handle after public session and original lease clear)$"
+      ],
+      "exitCode": 0,
+      "startUtc": "2026-10-09T16:26:12.948047+00:00",
+      "stopUtc": "2026-10-09T16:26:20.660954+00:00",
+      "passed": 2,
+      "failed": 0,
+      "pendingOrOutsideSelector": 24,
+      "total": 26,
+      "starts": 2,
+      "finishes": 2,
+      "workerPids": [
+        331272
+      ],
+      "workersRemaining": [],
+      "report": "/workspace/chain-1975-evidence/runtime-attempt-borrow/positive/reports/vitest/unit/unsharded.json"
+    },
+    {
+      "runId": "chain1975-runtime-borrow-7a14773d81d3-focused",
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+      ],
+      "exitCode": 0,
+      "startUtc": "2026-10-09T16:26:20.661226+00:00",
+      "stopUtc": "2026-10-09T16:26:29.267772+00:00",
+      "passed": 26,
+      "failed": 0,
+      "pendingOrOutsideSelector": 0,
+      "total": 26,
+      "starts": 26,
+      "finishes": 26,
+      "workerPids": [
+        331346
+      ],
+      "workersRemaining": [],
+      "report": "/workspace/chain-1975-evidence/runtime-attempt-borrow/focused/reports/vitest/unit/unsharded.json"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "src/frontend/src/composables/useImageUploadRuntime.ts": {
+    "baseBlob": "2c0108fc7a2542ee7f029decbb4f577c86058b9c",
+    "candidateBlob": "d4a7d91851531b14f011252b269b7fa73929c347"
+  },
+  "src/frontend/src/composables/useImageUploadFlow.ts": {
+    "baseBlob": "829f0a98b74fa8515c0af6173748eea27fd2313c",
+    "candidateBlob": "6cc343fa7e9b2ada1a52b02d0f47b5e235e5ba48"
+  },
+  "tests/frontend/unit/composables/useImageUploadRuntime.test.ts": {
+    "baseBlob": "a8ae2b9af85c25e27fe95f4f1eb13b22e45885f1",
+    "candidateBlob": "379987f91edd98f045965473fa291dbb346ce0ab"
+  },
+  "readonlyWriter": {
+    "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+    "baseAndCandidateBlob": "e18a5c976d7bcee4a116bfe9505a725d5b251f9d"
+  }
+}

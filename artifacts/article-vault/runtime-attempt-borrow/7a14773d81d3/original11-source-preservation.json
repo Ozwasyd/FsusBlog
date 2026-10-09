@@ -1,0 +1,62 @@
+{
+  "testedSource": "7a14773d81d3b588abe2866ab5c772389f17615f",
+  "base": "04195f8a0d2ad16d14c8d66a2f876c428e606f3e",
+  "parser": "6.0.3",
+  "rows": [
+    {
+      "name": "runs compression and hashing before init, uploads every required part, then completes once",
+      "unchanged": true,
+      "sha256": "fe9aa190b99fa5e96b47c8227cbcd2d7814b73f64f0a9a976591db5abbc1a278"
+    },
+    {
+      "name": "pauses after part retry exhaustion while retaining the resumable attempt and snapshot",
+      "unchanged": true,
+      "sha256": "872dd29d77ad5847404b9c30f00cfba571eb2ad21fc392fad1183e337e4c61e9"
+    },
+    {
+      "name": "resumes the same file and options with the stored identity and uploads only missing parts",
+      "unchanged": true,
+      "sha256": "b20188a19926c4b0de69fd30a6319e2f5ed254b814cfe440c5bbc46cc2e1ee04"
+    },
+    {
+      "name": "initializes a new identity when a stored snapshot is tampered",
+      "unchanged": true,
+      "sha256": "7518fc20e182107a82cd6d34945d0709ba37fc9a18131fd86c5547853ecff414"
+    },
+    {
+      "name": "initializes a new identity when stored-session status lookup fails",
+      "unchanged": true,
+      "sha256": "f0177d54f92c1f97c3dd4b1de4adc5ef35a0f29efdf2d2b637fef9b6d403e655"
+    },
+    {
+      "name": "clears local state and calls abort once even when abort fails",
+      "unchanged": true,
+      "sha256": "a77f59de81590d1e44442aa81043e6f42a55678bc05bea89006608e6a99bd618"
+    },
+    {
+      "name": "shares an in-flight abort and blocks replacement until server cleanup is acknowledged",
+      "unchanged": true,
+      "sha256": "ec6fd1b221cf730bdf540ed27137fc2fae2fc31f0542900705bd079e0aceb28f"
+    },
+    {
+      "name": "a late part failure cannot resurrect a cancelled recovery snapshot",
+      "unchanged": true,
+      "sha256": "6ecac382704e8b57c3eff1a980ccbf59844fc4b658ca91a08dd3a279cf24bc2c"
+    },
+    {
+      "name": "does not call the API when abandoning without an active session",
+      "unchanged": true,
+      "sha256": "56394373c2e086c56bc3019f88859402139921169ef7e60723a9fbdce2ce02ec"
+    },
+    {
+      "name": "does not let a late part acknowledgement overwrite a new upload attempt",
+      "unchanged": true,
+      "sha256": "e4fe6a70a803597912d5843ad729886c05d34f52436d2fc34ad7dbf22b1621c1"
+    },
+    {
+      "name": "shows resume and abandon only for the corresponding runtime state and wires both actions",
+      "unchanged": true,
+      "sha256": "6edc147334b3698281bdfa1149af48971197b233cd662b3e6a899b8bfb4f15f5"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "node_modules/vitest/vitest.mjs",
+    "list",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "--json=/workspace/chain-1975-evidence/runtime-attempt-borrow/current-discovery-26.json"
+  ],
+  "testedSource": "7a14773d81d3b588abe2866ab5c772389f17615f",
+  "exitCode": 1,
+  "actualCount": 0,
+  "originalSourceLiteralNames": [
+    "runs compression and hashing before init, uploads every required part, then completes once",
+    "pauses after part retry exhaustion while retaining the resumable attempt and snapshot",
+    "resumes the same file and options with the stored identity and uploads only missing parts",
+    "initializes a new identity when a stored snapshot is tampered",
+    "initializes a new identity when stored-session status lookup fails",
+    "clears local state and calls abort once even when abort fails",
+    "shares an in-flight abort and blocks replacement until server cleanup is acknowledged",
+    "a late part failure cannot resurrect a cancelled recovery snapshot",
+    "does not call the API when abandoning without an active session",
+    "does not let a late part acknowledgement overwrite a new upload attempt",
+    "shows resume and abandon only for the corresponding runtime state and wires both actions"
+  ],
+  "missingOriginalNames": [
+    "runs compression and hashing before init, uploads every required part, then completes once",
+    "pauses after part retry exhaustion while retaining the resumable attempt and snapshot",
+    "resumes the same file and options with the stored identity and uploads only missing parts",
+    "initializes a new identity when a stored snapshot is tampered",
+    "initializes a new identity when stored-session status lookup fails",
+    "clears local state and calls abort once even when abort fails",
+    "shares an in-flight abort and blocks replacement until server cleanup is acknowledged",
+    "a late part failure cannot resurrect a cancelled recovery snapshot",
+    "does not call the API when abandoning without an active session",
+    "does not let a late part acknowledgement overwrite a new upload attempt",
+    "shows resume and abandon only for the corresponding runtime state and wires both actions"
+  ],
+  "originalSourceCount": 11,
+  "newCount": -11
+}

@@ -1,0 +1,40 @@
+{
+  "testedSource": "7a14773d81d3b588abe2866ab5c772389f17615f",
+  "base": "04195f8a0d2ad16d14c8d66a2f876c428e606f3e",
+  "branch": "codex/chain-1975-runtime-attempt-borrow",
+  "freezeUtc": "2026-10-09T16:29:08.920077+00:00",
+  "sourceHashes": {
+    "src/frontend/src/composables/useImageUploadRuntime.ts": "2227506442882701454c1a7afdae7df8c2d282c199eab5ba1aa7fbf051fd3c4c",
+    "src/frontend/src/composables/useImageUploadFlow.ts": "d4cf6ed37992a99b4a34d66e2ffafedc27d5d2880c22f00a6b818b6d2adc300c",
+    "tests/frontend/unit/composables/useImageUploadRuntime.test.ts": "071b7cb4713af0ccd5c7c82902dbb361d964a35bd3f9b570f1671372c0786363",
+    "src/frontend/src/composables/useAdminArticleWrite.ts": "f466e9c6dea9b104bd4832d591d248e0fe8525df8d87a7280569ba16730d0f38",
+    "src/frontend/vitest.config.ts": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+    "src/frontend/vitest.shared.mjs": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
+    "tests/frontend/support/unit/setup.ts": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a",
+    "src/frontend/package.json": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+    "src/frontend/package-lock.json": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+  },
+  "frontendTestControls": {
+    "original": 11,
+    "new": 15,
+    "positive": 2,
+    "focused": 26,
+    "unrun": []
+  },
+  "apiFields": [
+    "uploadId",
+    "uploadToken",
+    "sha256",
+    "totalBytes",
+    "commitMayHaveStarted"
+  ],
+  "actualLifetimeMs": 30000,
+  "originalApiMockAndCompressionHashMocks": true,
+  "actualFsusUiPublicEditorDispatch": true,
+  "uiSource": "0e5c56050e8dd3e9ca3735078489d35a0bb6e3d2",
+  "node": "24.16.0",
+  "vitest": "4.1.11",
+  "readonlyWriterBlob": "e18a5c976d7bcee4a116bfe9505a725d5b251f9d",
+  "ordinaryControlsOnly": true,
+  "qualification": false
+}

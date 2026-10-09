@@ -1,0 +1,19 @@
+{
+  "source": "0e5c56050e8dd3e9ca3735078489d35a0bb6e3d2",
+  "command": [
+    "bash",
+    "vue/packages/wasm/build.sh"
+  ],
+  "exitCode": 0,
+  "WASM_BUILD_JOBS": 1,
+  "EMCC_CORES": 1,
+  "assets": {
+    "ep_wasm.mjs": "6c1b79200b77ebb02a66b51780bb84df7a06fdc5400d0ed169604c99599ed295",
+    "ep_wasm.wasm": "28d96e86ab15e187a44a71f93e78f89670e137216b22cd5ce652211d1112b68a",
+    "markdown_basic.js": "3bdc57de918232d07af54451f31268d6233f934408de6d58a7102ae26069bdfd",
+    "markdown_basic.wasm": "086d869246f5c2dbed308cab7692e4981891c6787093d57133ab8681fa5308dc",
+    "markdown_simd.js": "b9b84d6402b9fb69461bb4281d746b49ac5e02fad398304a1f89deed44ce56c8",
+    "markdown_simd.wasm": "3ccd88c3d4f697d3046419328cbbc05761e76e84d79fb2ae9baef55e7b0d1401"
+  },
+  "qualification": false
+}

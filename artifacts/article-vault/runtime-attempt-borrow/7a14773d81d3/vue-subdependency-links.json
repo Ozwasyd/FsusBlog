@@ -1,0 +1,22 @@
+[
+  {
+    "path": "vue/packages/node_modules/@vue/runtime-dom",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/runtime-dom",
+    "lockedVersion": "3.5.33"
+  },
+  {
+    "path": "vue/packages/node_modules/@vue/runtime-core",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/runtime-core",
+    "lockedVersion": "3.5.33"
+  },
+  {
+    "path": "vue/packages/node_modules/@vue/reactivity",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/reactivity",
+    "lockedVersion": "3.5.33"
+  },
+  {
+    "path": "vue/packages/node_modules/@vue/shared",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/shared",
+    "lockedVersion": "3.5.33"
+  }
+]
