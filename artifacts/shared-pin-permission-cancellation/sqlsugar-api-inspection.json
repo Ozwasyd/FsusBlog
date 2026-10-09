@@ -61,5 +61,13 @@
   "officialSourceReference": "https://github.com/DotNetNext/SqlSugar/blob/master/Src/Asp.NetCore2/SqlSugar/Abstract/AdoProvider/AdoProvider.cs",
   "officialMasterIsNotPinnedPackageQualification": true,
   "managedExecution": 0,
-  "runtimeQualification": false
+  "runtimeQualification": false,
+  "subsequentOfficialPackageVerification": {
+    "artifact": "package-integrity.json",
+    "verifiedAtUtc": "2026-10-09T15:27:57.026160+00:00",
+    "packageSignatureAndLockedContentIdentityVerified": true,
+    "observedDllMatchesVerifiedOfficialArchive": true,
+    "initialFailedRawHashComparisonPreserved": true,
+    "managedOrRuntimeQualification": false
+  }
 }

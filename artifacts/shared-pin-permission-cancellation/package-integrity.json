@@ -1,0 +1,77 @@
+{
+  "schema": "fsusblog.official-locked-package-integrity.v1",
+  "checkedAtUtc": "2026-10-09T15:27:57.026160+00:00",
+  "sourceCommit": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
+  "package": "SqlSugarCoreNoDrive",
+  "version": "5.1.4.213",
+  "sdk": "10.0.401",
+  "sdkPath": "/tmp/chain-3735-tooling/dotnet/dotnet",
+  "originalCommand": {
+    "sourceCommit": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
+    "argv": [
+      "bash",
+      "tools/build-with-data-env.sh",
+      "/tmp/chain-3735-tooling/dotnet/dotnet",
+      "nuget",
+      "verify",
+      "/tmp/chain-3735-tooling/nuget/sqlsugarcorenodrive/5.1.4.213/sqlsugarcorenodrive.5.1.4.213.nupkg",
+      "--all",
+      "--verbosity",
+      "normal"
+    ],
+    "cwd": "/workspace/FsusBlog-pin-permission-cancellation",
+    "startedAtUtc": "2026-10-09T15:24:19.479862+00:00",
+    "endedAtUtc": "2026-10-09T15:24:20.905752+00:00",
+    "exitCode": 0,
+    "seconds": 1.426,
+    "runtimeQualification": false,
+    "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-cancellation/.tmp/pin-permission-cancellation/evidence/package-signature-verify.log",
+    "stdoutSha256": "0f8fd3a3d20f17067639dccf5ea76d1489182ef834c745313060588b0bd56be0"
+  },
+  "officialDownload": {
+    "url": "https://api.nuget.org/v3-flatcontainer/sqlsugarcorenodrive/5.1.4.213/sqlsugarcorenodrive.5.1.4.213.nupkg",
+    "startedAtUtc": "2026-10-09T15:24:44.130591+00:00",
+    "networkRetries": 0,
+    "alternateSources": 0,
+    "credentialsConfigured": false,
+    "status": 200,
+    "bytes": 948983,
+    "sha512": "haVNkkpTl9GrymH0QAVizlnNmA8XWCO0tY8Gvx2gCnFZ6Z5iYzt3AXamcT+YGPN2AQvZhxis3cRfQ+gwQT4Z0Q==",
+    "sha256": "2480376d5a8d9ace026132621301347abb82b4af6a79ef227f1d411f7f7489ef",
+    "matchesOriginalArchiveBytes": true,
+    "artifactLocalOnly": "/workspace/FsusBlog-pin-permission-cancellation/.tmp/pin-permission-cancellation/package-integrity/official-sqlsugarcorenodrive.5.1.4.213.nupkg",
+    "officialArchiveDllSha256": "ba53b69b965b6c40a0d394959c228fd1e09f635a890b1699bd3a9282110e02d9",
+    "matchesObservedDll": true,
+    "exitCode": 0,
+    "endedAtUtc": "2026-10-09T15:24:49.654196+00:00"
+  },
+  "committedLockFiles": [
+    "src/backend/packages.lock.json",
+    "tests/backend/packages.lock.json"
+  ],
+  "committedLockContentHash": "8cMUabSSOj6IxU8iq9HFzQmm3bjtKBG4iPJd9trepMPIXXCEACmTAkfe1LsJWVIoeACGwMTux4mwEIb7moI9oA==",
+  "officialNugetVerifiedContentHash": "8cMUabSSOj6IxU8iq9HFzQmm3bjtKBG4iPJd9trepMPIXXCEACmTAkfe1LsJWVIoeACGwMTux4mwEIb7moI9oA==",
+  "contentHashMatchesBothLocks": true,
+  "repositorySignatureServiceIndex": "https://api.nuget.org/v3/index.json",
+  "repositoryCertificateSha256": "1F4B311D9ACC115C8DC8018B5A49E00FCE6DA8E2855F9F014CA6F34570BC482D",
+  "officialArchiveDllSha256": "ba53b69b965b6c40a0d394959c228fd1e09f635a890b1699bd3a9282110e02d9",
+  "originalZipSha512ComparisonPreserved": "Raw archive SHA512 differs from lock contentHash; original observed archive bytes/hashes are unchanged. Official NuGet signature/content verification returns the lock contentHash, and official nuget.org bytes match the observed cache. The raw ZIP hash and verified contentHash are recorded separately.",
+  "packageSignatureAndLockedContentIdentityVerified": true,
+  "allDependencyGraphIntegrityVerified": false,
+  "currentLockedRestoreRun": false,
+  "managedCompilationDiscoveryBodies": "UNRUN",
+  "runtimeQualification": false,
+  "initialInvocationHelpFailure": {
+    "argv": [
+      "/tmp/chain-3735-tooling/dotnet/dotnet",
+      "nuget",
+      "verify",
+      "--help"
+    ],
+    "exitCode": 1,
+    "reason": "CLI default home attempted read-only /home/agent/.dotnet",
+    "nextActionTaken": "Used unchanged repository tools/build-with-data-env.sh with task data root and original writable cache; no escalation or credential configuration."
+  },
+  "documentation": "https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-nuget-verify",
+  "rawLogsPublished": false
+}

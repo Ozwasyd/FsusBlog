@@ -1,6 +1,6 @@
 {
   "schema": "fsusblog.permission-cancellation-source-handoff.v1",
-  "sourceCommit": "92afaf02417caf15c9b0b2c23669576ce2e6aa3b",
+  "sourceCommit": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
   "base": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
   "branch": "codex/shared-pin-permission-cancellation-20261009",
   "checkedSupplierPreimage": "823a99e7f2e791356429b7e44b600c8e78df704e",
@@ -13,7 +13,7 @@
     {
       "path": "tests/backend/Integration/AuthorArticlePinProjectionIntegrationTests.cs",
       "preimageBlob": "bbbda62502ca8d61b9b5503b3dc858336cceec43",
-      "sourceBlob": "2669ac5c17e889fa96db1c8dceff2e1fab315830"
+      "sourceBlob": "e3d475dd0b0c2f2fcdc1d004f462d428f155b043"
     }
   ],
   "guarantee": "Capture existing caller IAdo, link request and any prior cancellable ADO token, set actual ADO command cancellation before both original reader acquisitions, await command and asynchronous reader disposal, normalize requested cancellation only after completion, restore exact prior ADO state in finally. No client replacement, command abandonment, transaction commit/rollback or second permission authority.",
@@ -76,7 +76,7 @@
       "metadataArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-cancellation/.tmp/pin-permission-cancellation/evidence/current-candidate-preflight.json"
     }
   ],
-  "currentCandidateAdmission": "REFUSED at exact current candidate; dependent SDK compilation/discovery/bodies remain UNRUN. Do not rerun unchanged failed gate; canonical owner must repair original authority/inventory first.",
+  "currentCandidateAdmission": "New source5ea preflight UNRUN because unchanged canonical inventory already refused originala44 candidate. Separate exact-fae source integration proceeds on another branch; no managed dependent execution until full mandatory gate passes.",
   "coordinateSupplier": {
     "source": "348c6853d6bcec900734274440fe8f34c1dd7b55",
     "head": "4177d8ad91f6cbc29a29857f8ead8137e526c7a8",
@@ -91,6 +91,29 @@
   "qualification": false,
   "rawLogsPublished": false,
   "createdAtUtc": "2026-10-09T14:53:22.446014+00:00",
-  "updatedAtUtc": "2026-10-09T15:05:54.206708+00:00",
-  "remainingNextAction": "Canonical correctness/3657 owner repairs original inventory, enrolls new original cases and supplies exact portable preflight authority; then SAME reviewer and original SDK gates. No root authority rewrite."
+  "updatedAtUtc": "2026-10-09T15:27:57.026160+00:00",
+  "remainingNextAction": "Canonical correctness/3657 owner repairs original inventory, enrolls new original cases and supplies exact portable preflight authority; then SAME reviewer and original SDK gates. No root authority rewrite.",
+  "productionSourceCommit": "92afaf02417caf15c9b0b2c23669576ce2e6aa3b",
+  "sameReviewer": "01a12134-c63b",
+  "reviewedTestSourceRepairs": {
+    "sourceCommit": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
+    "p1": "Both extra test-owned connections use unchanged original client complete TEST configuration; no opened-native password-stripped string, PersistSecurityInfo or ambient extra credentials.",
+    "p2": "Separate cleanup captures each failure, still cancels both tokens, bounds test-owned lock rollback10s, closes only owned blocker as release fallback, awaits actual pending SQL completion, clears ADO token, attempts caller rollback and disposes test-owned observer/blocker independently. Primary exception preserved with ExceptionDispatchInfo; cleanup exception types retained without credential-bearing messages.",
+    "all58AssertionsUnchanged": true,
+    "allOriginalAndOtherNewMethodsUnchanged": true,
+    "productionAuthorityUnchanged": true,
+    "testWatchdogSeconds": 10,
+    "cleanupHardDeadlineGuarantee": false,
+    "noWaitAsyncOrTaskAbandonment": true,
+    "testCases": 14,
+    "discovery": "UNRUN",
+    "bodies": "UNRUN"
+  },
+  "packageIntegrity": "See package-integrity.json: officialNuGet signature verify exit0 + exact lock contentHash + fresh official archive/DLL bytes match. Original mismatched raw ZIP SHA512 evidence preserved; no all-graph/SDK/runtime proof.",
+  "inheritedProviderLimits": [
+    "Connection preparation may synchronously open a connection.",
+    "An inherited callback after reader acquisition may throw before returning reader ownership.",
+    "A disposal failure with a cancelled token may be reported as cancellation.",
+    "Cancellation never proves a healthy connection, successful cleanup or250ms cleanup."
+  ]
 }
