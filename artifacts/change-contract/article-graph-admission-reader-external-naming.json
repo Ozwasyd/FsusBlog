@@ -14,9 +14,10 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "tests/backend/Fixtures/postgres-test-collections.json"
+                "tests/backend/Fixtures/postgres-test-collections.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json"
             ],
-            "reason": "Preserve the existing canonical PostgreSQL collection IDs and manifest JSON fields in the imported collection-owner repair. Together with the C# entry, this selected manifest covers the complete registered naming-surface union of the branch against its master base."
+            "reason": "Preserve canonical PostgreSQL collection IDs, manifest fields and generated backend evidence JSON keys in the imported collection repair and the unchanged original producer output. Together with the C# entry, this selected manifest covers the complete registered naming-surface union against the master base."
         }
     ]
 }
