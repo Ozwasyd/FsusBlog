@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/dependencies/migrate-fsusui-public-npm.mjs"
+            ],
+            "reason": "Preserve the existing process environment and Git-owned GIT_INDEX_FILE spelling while keeping context-repair option and source identifiers internal."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/coding-conventions.md"
+            ],
+            "reason": "Preserve the documented caller-visible selector and token spellings in the existing coding conventions while documenting the fixed migration context input."
+        }
+    ]
+}
