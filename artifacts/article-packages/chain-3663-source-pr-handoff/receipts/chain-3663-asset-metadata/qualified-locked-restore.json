@@ -1,0 +1,21 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "restore",
+        "/workspace/chain-3663-evidence/asset-metadata/harness/AssetMetadata.Tests.csproj",
+        "--locked-mode",
+        "-warnaserror",
+        "-p:NuGetAudit=true",
+        "-p:NuGetAuditMode=all",
+        "-p:NuGetAuditLevel=low"
+    ],
+    "testedSha": "8280ea5a578fe39812f4ea029af31ca2fa8892b3",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T14:20:55.659736+00:00",
+    "endUtc": "2026-10-08T14:20:56.500556+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/asset-metadata/qualified-locked-restore.log"
+}

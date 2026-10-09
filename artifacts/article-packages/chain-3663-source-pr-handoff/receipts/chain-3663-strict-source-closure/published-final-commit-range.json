@@ -1,0 +1,18 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-manifest-authority-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-strict-source-closure-3663",
+        "--range",
+        "0c0f3583b21dabefcffc5717ad8665521a61b775..HEAD"
+    ],
+    "testedSha": "7c3a95429f2379ea60a80942244193977e18c5b2",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T15:17:34.230235+00:00",
+    "endUtc": "2026-10-08T15:17:35.581628+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/strict-source-closure/published-final-commit-range.log"
+}

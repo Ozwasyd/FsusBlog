@@ -1,0 +1,18 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-title-summary-authority-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-title-summary-3663",
+        "--github-event",
+        "/workspace/chain-3663-evidence/title-summary/local-pr-event.json"
+    ],
+    "testedSha": "0c778b16f664a91d19b42b9dd26cb1ffe8e76140",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T06:26:48.103969+00:00",
+    "endUtc": "2026-10-08T06:26:49.511380+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/title-summary/final-pr-contract.log"
+}

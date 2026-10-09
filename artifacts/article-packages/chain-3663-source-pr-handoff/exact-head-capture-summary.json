@@ -1,0 +1,875 @@
+{
+  "codex/chain-3663-asset-metadata": [
+    {
+      "testedSha": "8280ea5a578fe39812f4ea029af31ca2fa8892b3",
+      "capture": "receipts/chain-3663-asset-metadata/qualified-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "8280ea5a578fe39812f4ea029af31ca2fa8892b3",
+      "capture": "receipts/chain-3663-asset-metadata/qualified-strict-build.json",
+      "exitCode": 1,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 0,
+      "errors": 4
+    },
+    {
+      "testedSha": "8280ea5a578fe39812f4ea029af31ca2fa8892b3",
+      "capture": "receipts/chain-3663-asset-metadata/qualified-style.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "8280ea5a578fe39812f4ea029af31ca2fa8892b3",
+      "capture": "receipts/chain-3663-asset-metadata/qualified-ordinary-build.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 4,
+      "errors": 0
+    },
+    {
+      "testedSha": "8280ea5a578fe39812f4ea029af31ca2fa8892b3",
+      "capture": "receipts/chain-3663-asset-metadata/qualified-locked-restore.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "restore",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "8280ea5a578fe39812f4ea029af31ca2fa8892b3",
+      "capture": "receipts/chain-3663-asset-metadata/qualified-tests.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 421,
+        "skipped": 0,
+        "total": 421
+      },
+      "trx": "receipts/chain-3663-asset-metadata/qualified-tests-_1c6b98fee6cc_2026-10-08_14_21_03_net10.0.trx"
+    }
+  ],
+  "codex/chain-3663-current-source-handoff": [
+    {
+      "testedSha": "a3598378b951b5f6ca4c3cd38b0eb9bb1ebf9a59",
+      "capture": "receipts/chain-3663-current-source-handoff/completed-handoff-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    }
+  ],
+  "codex/chain-3663-frozen-export": [
+    {
+      "testedSha": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+      "capture": "receipts/chain-3663-frozen-export/final-style.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+      "capture": "receipts/chain-3663-frozen-export/final-locked-restore.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "restore",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+      "capture": "receipts/chain-3663-frozen-export/final-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+      "capture": "receipts/chain-3663-frozen-export/final-export-tests.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 60,
+        "skipped": 0,
+        "total": 60
+      },
+      "trx": "receipts/chain-3663-frozen-export/final-export-tests-final-export-tests.trx"
+    },
+    {
+      "testedSha": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+      "capture": "receipts/chain-3663-frozen-export/final-pr-contract.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+      "capture": "receipts/chain-3663-frozen-export/final-ordinary-build.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 4,
+      "errors": 0
+    },
+    {
+      "testedSha": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+      "capture": "receipts/chain-3663-frozen-export/final-strict-build.json",
+      "exitCode": 1,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 0,
+      "errors": 4
+    },
+    {
+      "testedSha": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+      "capture": "receipts/chain-3663-frozen-export/final-sdk-info.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    }
+  ],
+  "codex/chain-3663-import-candidate": [
+    {
+      "testedSha": "54b924cf414bce7235a701741601f4b6eeb2e934",
+      "capture": "receipts/chain-3663-import-candidate/corrected-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "54b924cf414bce7235a701741601f4b6eeb2e934",
+      "capture": "receipts/chain-3663-import-candidate/corrected-pr-contract.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    }
+  ],
+  "codex/chain-3663-import-zip": [
+    {
+      "testedSha": "4068caadabbc8e5e229a3a22cb00cd405d124314",
+      "capture": "receipts/chain-3663-import-zip/final-style.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "4068caadabbc8e5e229a3a22cb00cd405d124314",
+      "capture": "receipts/chain-3663-import-zip/final-locked-restore.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "restore",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "4068caadabbc8e5e229a3a22cb00cd405d124314",
+      "capture": "receipts/chain-3663-import-zip/final-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "4068caadabbc8e5e229a3a22cb00cd405d124314",
+      "capture": "receipts/chain-3663-import-zip/final-forced-build.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 0,
+      "errors": 0
+    },
+    {
+      "testedSha": "4068caadabbc8e5e229a3a22cb00cd405d124314",
+      "capture": "receipts/chain-3663-import-zip/final-pr-contract.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "4068caadabbc8e5e229a3a22cb00cd405d124314",
+      "capture": "receipts/chain-3663-import-zip/final-sdk-info.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "4068caadabbc8e5e229a3a22cb00cd405d124314",
+      "capture": "receipts/chain-3663-import-zip/final-zip-tests.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 72,
+        "skipped": 0,
+        "total": 72
+      },
+      "trx": "receipts/chain-3663-import-zip/final-zip-tests-final-zip-tests.trx"
+    }
+  ],
+  "codex/chain-3663-manifest-candidate": [
+    {
+      "testedSha": "f6334b35c5b420f7affb56efc20179bc38aed26e",
+      "capture": "receipts/chain-3663-manifest-candidate/naming-corrected-tests.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 336,
+        "skipped": 0,
+        "total": 336
+      },
+      "trx": "receipts/chain-3663-manifest-candidate/naming-corrected-tests-naming-corrected-tests.trx"
+    },
+    {
+      "testedSha": "f6334b35c5b420f7affb56efc20179bc38aed26e",
+      "capture": "receipts/chain-3663-manifest-candidate/naming-corrected-pr-contract.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "f6334b35c5b420f7affb56efc20179bc38aed26e",
+      "capture": "receipts/chain-3663-manifest-candidate/naming-corrected-strict-build.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 0,
+      "errors": 0
+    }
+  ],
+  "codex/chain-3663-mapper-canonical-locks": [
+    {
+      "testedSha": "7744c4def3a620df82928715e55dcde223e1eded",
+      "capture": "receipts/chain-3663-mapper-canonical-locks/current-master-strict-rebuild.json",
+      "exitCode": 1,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 0,
+      "errors": 1508
+    },
+    {
+      "testedSha": "7744c4def3a620df82928715e55dcde223e1eded",
+      "capture": "receipts/chain-3663-mapper-canonical-locks/current-master-focused.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 193,
+        "skipped": 0,
+        "total": 193
+      },
+      "trx": "receipts/chain-3663-mapper-canonical-locks/current-master-focused-current-master-focused.trx"
+    },
+    {
+      "testedSha": "7744c4def3a620df82928715e55dcde223e1eded",
+      "capture": "receipts/chain-3663-mapper-canonical-locks/current-master-compiler-regressions.json",
+      "exitCode": 1,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 4,
+        "passed": 244,
+        "skipped": 0,
+        "total": 248
+      },
+      "trx": "receipts/chain-3663-mapper-canonical-locks/current-master-compiler-regressions-current-master-compiler-regressions.trx"
+    }
+  ],
+  "codex/chain-3663-metadata-components": [
+    {
+      "testedSha": "b2584610dd155996d8f1b16b94bc1f301bedc9da",
+      "capture": "receipts/chain-3663-metadata-components/final-style.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "b2584610dd155996d8f1b16b94bc1f301bedc9da",
+      "capture": "receipts/chain-3663-metadata-components/final-locked-restore.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "restore",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "b2584610dd155996d8f1b16b94bc1f301bedc9da",
+      "capture": "receipts/chain-3663-metadata-components/final-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "b2584610dd155996d8f1b16b94bc1f301bedc9da",
+      "capture": "receipts/chain-3663-metadata-components/final-ordinary-build.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 4,
+      "errors": 0
+    },
+    {
+      "testedSha": "b2584610dd155996d8f1b16b94bc1f301bedc9da",
+      "capture": "receipts/chain-3663-metadata-components/final-strict-build.json",
+      "exitCode": 1,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 0,
+      "errors": 4
+    },
+    {
+      "testedSha": "b2584610dd155996d8f1b16b94bc1f301bedc9da",
+      "capture": "receipts/chain-3663-metadata-components/final-tests.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 269,
+        "skipped": 0,
+        "total": 269
+      },
+      "trx": "receipts/chain-3663-metadata-components/final-tests-_1c6b98fee6cc_2026-10-08_13_50_19_net10.0.trx"
+    }
+  ],
+  "codex/chain-3663-persisted-property-binding": [
+    {
+      "testedSha": "3d177f17fa34bdf322447f1ea917469d2c938869",
+      "capture": "receipts/chain-3663-persisted-property-binding/published-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "3d177f17fa34bdf322447f1ea917469d2c938869",
+      "capture": "receipts/chain-3663-persisted-property-binding/evidence-readme-lint.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    }
+  ],
+  "codex/chain-3663-portable-property-mapping": [
+    {
+      "testedSha": "fb4d18e9342716def4dca6a73d102f7246e42846",
+      "capture": "receipts/chain-3663-portable-property-mapping/style.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "fb4d18e9342716def4dca6a73d102f7246e42846",
+      "capture": "receipts/chain-3663-portable-property-mapping/original.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 317,
+        "skipped": 0,
+        "total": 317
+      },
+      "trx": "receipts/chain-3663-portable-property-mapping/original-original.trx"
+    },
+    {
+      "testedSha": "fb4d18e9342716def4dca6a73d102f7246e42846",
+      "capture": "receipts/chain-3663-portable-property-mapping/local-pr-contract.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "fb4d18e9342716def4dca6a73d102f7246e42846",
+      "capture": "receipts/chain-3663-portable-property-mapping/strict.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 223,
+        "skipped": 0,
+        "total": 223
+      },
+      "trx": "receipts/chain-3663-portable-property-mapping/strict-strict.trx"
+    },
+    {
+      "testedSha": "fb4d18e9342716def4dca6a73d102f7246e42846",
+      "capture": "receipts/chain-3663-portable-property-mapping/commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    }
+  ],
+  "codex/chain-3663-property-codec": [
+    {
+      "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+      "capture": "receipts/chain-3663-property-codec/final-style.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+      "capture": "receipts/chain-3663-property-codec/final-locked-restore.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "restore",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+      "capture": "receipts/chain-3663-property-codec/final-sdk.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+      "capture": "receipts/chain-3663-property-codec/final-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+      "capture": "receipts/chain-3663-property-codec/final-ordinary-build.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 4,
+      "errors": 0
+    },
+    {
+      "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+      "capture": "receipts/chain-3663-property-codec/final-strict-build.json",
+      "exitCode": 1,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 0,
+      "errors": 4
+    },
+    {
+      "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+      "capture": "receipts/chain-3663-property-codec/final-tests.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 571,
+        "skipped": 0,
+        "total": 571
+      },
+      "trx": "receipts/chain-3663-property-codec/final-tests-_1c6b98fee6cc_2026-10-08_14_36_00_net10.0.trx"
+    }
+  ],
+  "codex/chain-3663-property-mapping-review": [
+    {
+      "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+      "capture": "receipts/chain-3663-property-mapping-review/sdk.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+      "capture": "receipts/chain-3663-property-mapping-review/style.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+      "capture": "receipts/chain-3663-property-mapping-review/final-pr-contract.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+      "capture": "receipts/chain-3663-property-mapping-review/pr-contract.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+      "capture": "receipts/chain-3663-property-mapping-review/original-audit-restore.json",
+      "exitCode": 1,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "restore",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "advisory": "NU1903 GHSA-2m69-gcr7-jv3q",
+      "lockedGraphError": "NU1004"
+    },
+    {
+      "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+      "capture": "receipts/chain-3663-property-mapping-review/strict.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 112,
+        "skipped": 0,
+        "total": 112
+      },
+      "trx": "receipts/chain-3663-property-mapping-review/strict-strict.trx"
+    },
+    {
+      "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+      "capture": "receipts/chain-3663-property-mapping-review/harness-restore.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "restore",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+      "capture": "receipts/chain-3663-property-mapping-review/commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+      "capture": "receipts/chain-3663-property-mapping-review/original-focused.json",
+      "exitCode": 1,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "advisory": "NU1903 GHSA-2m69-gcr7-jv3q",
+      "lockedGraphError": "NU1004"
+    }
+  ],
+  "codex/chain-3663-strict-source-closure": [
+    {
+      "testedSha": "7c3a95429f2379ea60a80942244193977e18c5b2",
+      "capture": "receipts/chain-3663-strict-source-closure/published-final-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    }
+  ],
+  "codex/chain-3663-taxonomy-components": [
+    {
+      "testedSha": "47da00c0c42bb9458291f4637d5d36761313c8b3",
+      "capture": "receipts/chain-3663-taxonomy-components/final-style.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "47da00c0c42bb9458291f4637d5d36761313c8b3",
+      "capture": "receipts/chain-3663-taxonomy-components/final-locked-restore.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "restore",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "47da00c0c42bb9458291f4637d5d36761313c8b3",
+      "capture": "receipts/chain-3663-taxonomy-components/final-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "47da00c0c42bb9458291f4637d5d36761313c8b3",
+      "capture": "receipts/chain-3663-taxonomy-components/final-ordinary-build.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 4,
+      "errors": 0
+    },
+    {
+      "testedSha": "47da00c0c42bb9458291f4637d5d36761313c8b3",
+      "capture": "receipts/chain-3663-taxonomy-components/final-strict-build.json",
+      "exitCode": 1,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "build",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "warnings": 0,
+      "errors": 4
+    },
+    {
+      "testedSha": "47da00c0c42bb9458291f4637d5d36761313c8b3",
+      "capture": "receipts/chain-3663-taxonomy-components/final-tests.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 391,
+        "skipped": 0,
+        "total": 391
+      },
+      "trx": "receipts/chain-3663-taxonomy-components/final-tests-_1c6b98fee6cc_2026-10-08_14_05_06_net10.0.trx"
+    }
+  ],
+  "codex/chain-3663-title-summary-mapping": [
+    {
+      "testedSha": "0c778b16f664a91d19b42b9dd26cb1ffe8e76140",
+      "capture": "receipts/chain-3663-title-summary-mapping/final-style.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "0c778b16f664a91d19b42b9dd26cb1ffe8e76140",
+      "capture": "receipts/chain-3663-title-summary-mapping/final-commit-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "0c778b16f664a91d19b42b9dd26cb1ffe8e76140",
+      "capture": "receipts/chain-3663-title-summary-mapping/final-pr-contract.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "0c778b16f664a91d19b42b9dd26cb1ffe8e76140",
+      "capture": "receipts/chain-3663-title-summary-mapping/final-current-policy-range.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "source-check",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification"
+    },
+    {
+      "testedSha": "0c778b16f664a91d19b42b9dd26cb1ffe8e76140",
+      "capture": "receipts/chain-3663-title-summary-mapping/final-strict.json",
+      "exitCode": 0,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "test",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "testCounts": {
+        "failed": 0,
+        "passed": 179,
+        "skipped": 0,
+        "total": 179
+      },
+      "trx": "receipts/chain-3663-title-summary-mapping/final-strict-final-strict.trx"
+    },
+    {
+      "testedSha": "0c778b16f664a91d19b42b9dd26cb1ffe8e76140",
+      "capture": "receipts/chain-3663-title-summary-mapping/final-audit-restore.json",
+      "exitCode": 1,
+      "cleanBefore": true,
+      "cleanAfter": true,
+      "sourceUnchanged": true,
+      "category": "restore",
+      "qualifiedScope": "Recorded exact command scope only; not full branch/runtime qualification",
+      "advisory": "NU1903 GHSA-2m69-gcr7-jv3q",
+      "lockedGraphError": "NU1004"
+    }
+  ]
+}

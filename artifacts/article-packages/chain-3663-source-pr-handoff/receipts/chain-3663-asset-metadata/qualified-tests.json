@@ -1,0 +1,24 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "/workspace/chain-3663-evidence/asset-metadata/harness/AssetMetadata.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--filter",
+        "FullyQualifiedName~ArticlePackageAssetMetadataMapperTests|FullyQualifiedName~ArticlePackageManifestTaxonomyCodecTests|FullyQualifiedName~ArticlePackageInventoryTests|FullyQualifiedName~ArticlePackageManifestMetadataCodecTests|FullyQualifiedName~ArticlePackageManifestCandidateCodecTests|FullyQualifiedName~ArticlePackageManifestCandidatePlannerTests|FullyQualifiedName~ArticlePackageFrozenExportCandidateWriterTests",
+        "--logger",
+        "trx",
+        "--results-directory",
+        "/workspace/chain-3663-evidence/asset-metadata/qualified-trx"
+    ],
+    "testedSha": "8280ea5a578fe39812f4ea029af31ca2fa8892b3",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T14:21:02.243330+00:00",
+    "endUtc": "2026-10-08T14:21:09.207958+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/asset-metadata/qualified-tests.log"
+}

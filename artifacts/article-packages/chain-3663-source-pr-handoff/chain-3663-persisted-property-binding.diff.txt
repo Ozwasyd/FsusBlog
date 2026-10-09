@@ -1,0 +1,1139 @@
+Intended base: master be7c53d99b64342925ca63d061bacde34d22ba4c
+Remote head: 3d177f17fa34bdf322447f1ea917469d2c938869
+All merge bases: aaba7b8c84ecfb336c71443e30d9fd82d21fb16d
+Complete three-dot name/status:
+M	.git-blame-ignore-revs
+A	artifacts/article-packages/chain-3663-current-property-source/README.md
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.command
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.exit
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.json
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.log
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/all-issue-status.json
+A	artifacts/article-packages/chain-3663-current-property-source/artifact-sha256.json
+A	artifacts/article-packages/chain-3663-current-property-source/canonical-kernel-final-blobs.json
+A	artifacts/article-packages/chain-3663-current-property-source/capture.py
+A	artifacts/article-packages/chain-3663-current-property-source/compiled-source-closure.json
+A	artifacts/article-packages/chain-3663-current-property-source/current-owned-issues.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-fixed-trx/_bad473dbf38b_2026-10-09_05_39_42_net10.0.trx
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-trx/_bad473dbf38b_2026-10-09_05_37_27_net10.0.trx
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-docs.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-docs.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-docs.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-docs.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-own-style.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-own-style.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-own-style.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-own-style.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-report.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-source-push.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-source-push.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-source-push.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-source-push.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-tests.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-tests.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-tests.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-tests.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-trx/_bad473dbf38b_2026-10-09_05_49_29_net10.0.trx
+A	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-verified-trx/_bad473dbf38b_2026-10-09_05_56_12_net10.0.trx
+A	artifacts/article-packages/chain-3663-current-property-source/harness/.editorconfig
+A	artifacts/article-packages/chain-3663-current-property-source/harness/Directory.Build.props
+A	artifacts/article-packages/chain-3663-current-property-source/harness/PropertyCodec.Tests.csproj
+A	artifacts/article-packages/chain-3663-current-property-source/harness/packages.lock.json
+A	artifacts/article-packages/chain-3663-current-property-source/kernel-import.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.log
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.log
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.log
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.log
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.log
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.command
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.exit
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.json
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.log
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.command
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.exit
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.json
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.log
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.command
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.exit
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.json
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.log
+A	artifacts/article-packages/chain-3663-current-property-source/source-push.command
+A	artifacts/article-packages/chain-3663-current-property-source/source-push.exit
+A	artifacts/article-packages/chain-3663-current-property-source/source-push.json
+A	artifacts/article-packages/chain-3663-current-property-source/source-push.log
+A	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.command
+A	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.exit
+A	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.json
+A	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.log
+A	artifacts/article-packages/chain-3663-current-property-source/supplier-input-requirements.json
+A	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.command
+A	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.exit
+A	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.json
+A	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.log
+A	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.command
+A	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.exit
+A	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.json
+A	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.log
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.command
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.exit
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.json
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.log
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.command
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.exit
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.json
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.log
+A	artifacts/article-packages/chain-3663-current-property-source/verified-trx/_bad473dbf38b_2026-10-09_05_54_25_net10.0.trx
+A	artifacts/article-packages/chain-3663-strict-source-closure/README.md
+A	artifacts/article-packages/chain-3663-strict-source-closure/all-issue-status.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/artifact-sha256.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/capture.py
+A	artifacts/article-packages/chain-3663-strict-source-closure/compiled-source-closure.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/current-owned-issues.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-report.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-style.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-style.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-style.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-style.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first-digest.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second-digest.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/harness-file-hashes.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/harness/.editorconfig
+A	artifacts/article-packages/chain-3663-strict-source-closure/harness/Directory.Build.props
+A	artifacts/article-packages/chain-3663-strict-source-closure/harness/PropertyCodec.Tests.csproj
+A	artifacts/article-packages/chain-3663-strict-source-closure/harness/packages.lock.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/imported-source-provenance.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/preimages.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValueContracts.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValuePersistence.Read.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValuePersistence.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValueReadContracts.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticleService.ArticlePropertyValues.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/AuthoringArticleCurrentSourceReader.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/IArticlePropertyValueAuthority.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/identity.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/property-3665-minimal-handoff.md
+A	artifacts/article-packages/chain-3663-strict-source-closure/publication-verification.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/supplier-input-requirements.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/trx/_1c6b98fee6cc_2026-10-08_15_12_07_net10.0.trx
+A	artifacts/change-contract/article-package-frozen-export-candidate-external-naming.json
+A	artifacts/change-contract/article-package-import-candidate-external-naming.json
+A	artifacts/change-contract/article-package-import-zip-candidate-external-naming.json
+A	artifacts/change-contract/article-package-manifest-asset-metadata-external-naming.json
+A	artifacts/change-contract/article-package-manifest-candidate-external-naming.json
+A	artifacts/change-contract/article-package-manifest-metadata-external-naming.json
+A	artifacts/change-contract/article-package-manifest-property-external-naming.json
+A	artifacts/change-contract/article-package-manifest-taxonomy-external-naming.json
+A	artifacts/change-contract/article-package-property-mapping-review-external-naming.json
+A	artifacts/change-contract/article-package-title-summary-external-naming.json
+A	artifacts/style/document-export-canonical-adapter-idempotence.json
+M	docs/api/contracts.md
+A	src/backend/Services/Authoring/ArticlePackageAssetMetadataMapper.cs
+A	src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs
+A	src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs
+A	src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs
+A	src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
+A	src/backend/Services/Authoring/ArticlePackageManifestPropertyBinder.cs
+A	src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs
+A	src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs
+M	src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs
+A	src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs
+A	src/backend/Services/Authoring/ArticlePropertyValuePersistence.Read.cs
+A	src/backend/Services/Authoring/ArticlePropertyValuePersistence.Storage.cs
+A	src/backend/Services/Authoring/ArticlePropertyValuePersistence.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+A	src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs
+M	src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs
+A	src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs
+A	src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs
+M	src/backend/Services/DocumentExport/DocumentExportContractValidator.cs
+M	src/backend/Services/DocumentExport/DocumentExportContracts.cs
+A	src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs
+M	src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs
+M	src/backend/Services/DocumentExport/DocumentExportSandbox.cs
+A	src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs
+M	src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs
+A	src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageImportZipDirectory.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetMetadata.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyCodec.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs
+M	src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs
+A	tests/backend/Unit/ArticlePackageAssetMetadataMapperTests.cs
+A	tests/backend/Unit/ArticlePackageChecksumTests.cs
+A	tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs
+A	tests/backend/Unit/ArticlePackageFrozenExportCandidateWriterTests.cs
+A	tests/backend/Unit/ArticlePackageImportCandidateByteTests.cs
+A	tests/backend/Unit/ArticlePackageImportCandidatePlanTests.cs
+A	tests/backend/Unit/ArticlePackageImportZipCandidateTests.cs
+A	tests/backend/Unit/ArticlePackageInventoryTests.cs
+A	tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs
+A	tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs
+A	tests/backend/Unit/ArticlePackageManifestMetadataCodecTests.cs
+A	tests/backend/Unit/ArticlePackageManifestPropertyCodecTests.cs
+A	tests/backend/Unit/ArticlePackageManifestTaxonomyCodecTests.cs
+A	tests/backend/Unit/ArticlePackagePropertyMapperTests.cs
+A	tests/backend/Unit/ArticlePackageSourceByteTests.cs
+A	tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs
+A	tests/backend/Unit/ArticlePropertySingleSelectStorageTests.cs
+A	tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+
+Complete three-dot numstat:
+3	0	.git-blame-ignore-revs
+123	0	artifacts/article-packages/chain-3663-current-property-source/README.md
+1	0	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.exit
+28	0	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.exit
+19	0	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.json
+7	0	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.log
+183	0	artifacts/article-packages/chain-3663-current-property-source/all-issue-status.json
+184	0	artifacts/article-packages/chain-3663-current-property-source/artifact-sha256.json
+68	0	artifacts/article-packages/chain-3663-current-property-source/canonical-kernel-final-blobs.json
+36	0	artifacts/article-packages/chain-3663-current-property-source/capture.py
+667	0	artifacts/article-packages/chain-3663-current-property-source/compiled-source-closure.json
+226	0	artifacts/article-packages/chain-3663-current-property-source/current-owned-issues.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.exit
+19	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.json
+7	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.exit
+19	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.json
+10	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.exit
+18	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.json
+45	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.log
+274	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-fixed-trx/_bad473dbf38b_2026-10-09_05_39_42_net10.0.trx
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.exit
+22	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.json
+0	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.exit
+23	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.json
+0	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.exit
+21	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.json
+2	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.exit
+19	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.json
+7	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.exit
+24	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.json
+5	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.exit
+24	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.json
+439	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.exit
+22	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.json
+0	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.exit
+22	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.json
+0	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.exit
+22	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.exit
+22	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.json
+17	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.log
+1171	0	artifacts/article-packages/chain-3663-current-property-source/diagnostic-trx/_bad473dbf38b_2026-10-09_05_37_27_net10.0.trx
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.exit
+18	0	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.exit
+21	0	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.json
+2	0	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.exit
+18	0	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.json
+3	0	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-docs.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-docs.exit
+21	0	artifacts/article-packages/chain-3663-current-property-source/final-docs.json
+27	0	artifacts/article-packages/chain-3663-current-property-source/final-docs.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.exit
+21	0	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.json
+2	0	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-own-style.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-own-style.exit
+28	0	artifacts/article-packages/chain-3663-current-property-source/final-own-style.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-own-style.log
+205	0	artifacts/article-packages/chain-3663-current-property-source/final-report.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-source-push.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-source-push.exit
+17	0	artifacts/article-packages/chain-3663-current-property-source/final-source-push.json
+7	0	artifacts/article-packages/chain-3663-current-property-source/final-source-push.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.exit
+19	0	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.json
+7	0	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-tests.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-tests.exit
+24	0	artifacts/article-packages/chain-3663-current-property-source/final-tests.json
+13	0	artifacts/article-packages/chain-3663-current-property-source/final-tests.log
+4387	0	artifacts/article-packages/chain-3663-current-property-source/final-trx/_bad473dbf38b_2026-10-09_05_49_29_net10.0.trx
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.exit
+24	0	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.json
+5	0	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.log
+3730	0	artifacts/article-packages/chain-3663-current-property-source/final-verified-trx/_bad473dbf38b_2026-10-09_05_56_12_net10.0.trx
+180	0	artifacts/article-packages/chain-3663-current-property-source/harness/.editorconfig
+19	0	artifacts/article-packages/chain-3663-current-property-source/harness/Directory.Build.props
+150	0	artifacts/article-packages/chain-3663-current-property-source/harness/PropertyCodec.Tests.csproj
+112	0	artifacts/article-packages/chain-3663-current-property-source/harness/packages.lock.json
+79	0	artifacts/article-packages/chain-3663-current-property-source/kernel-import.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.exit
+18	0	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.exit
+21	0	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.json
+27	0	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.exit
+21	0	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.json
+2	0	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.exit
+26	0	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.exit
+19	0	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.json
+7	0	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.exit
+24	0	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.json
+315	0	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.exit
+18	0	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.exit
+28	0	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.exit
+19	0	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.json
+9	0	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.exit
+24	0	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.json
+2	0	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/source-push.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/source-push.exit
+17	0	artifacts/article-packages/chain-3663-current-property-source/source-push.json
+10	0	artifacts/article-packages/chain-3663-current-property-source/source-push.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.exit
+17	0	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.log
+130	0	artifacts/article-packages/chain-3663-current-property-source/supplier-input-requirements.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.exit
+18	0	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.exit
+21	0	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.json
+2	0	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.exit
+17	0	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.json
+7	0	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.log
+1	0	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.command
+1	0	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.exit
+17	0	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.json
+1	0	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.log
+3749	0	artifacts/article-packages/chain-3663-current-property-source/verified-trx/_bad473dbf38b_2026-10-09_05_54_25_net10.0.trx
+119	0	artifacts/article-packages/chain-3663-strict-source-closure/README.md
+183	0	artifacts/article-packages/chain-3663-strict-source-closure/all-issue-status.json
+93	0	artifacts/article-packages/chain-3663-strict-source-closure/artifact-sha256.json
+36	0	artifacts/article-packages/chain-3663-strict-source-closure/capture.py
+637	0	artifacts/article-packages/chain-3663-strict-source-closure/compiled-source-closure.json
+242	0	artifacts/article-packages/chain-3663-strict-source-closure/current-owned-issues.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.exit
+18	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.exit
+16	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.json
+745	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.exit
+17	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.json
+4	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.exit
+21	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.exit
+18	0	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.exit
+17	0	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.json
+7	0	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.exit
+17	0	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.exit
+21	0	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.json
+2	0	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.log
+211	0	artifacts/article-packages/chain-3663-strict-source-closure/final-report.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.exit
+15	0	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.json
+45	0	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.exit
+19	0	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.json
+7	0	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-style.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-style.exit
+22	0	artifacts/article-packages/chain-3663-strict-source-closure/final-style.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-style.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.exit
+24	0	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.json
+5	0	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.log
+6	0	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first-digest.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.exit
+21	0	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.json
+0	0	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.log
+7	0	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second-digest.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.exit
+21	0	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.json
+0	0	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.log
+6	0	artifacts/article-packages/chain-3663-strict-source-closure/harness-file-hashes.json
+180	0	artifacts/article-packages/chain-3663-strict-source-closure/harness/.editorconfig
+19	0	artifacts/article-packages/chain-3663-strict-source-closure/harness/Directory.Build.props
+132	0	artifacts/article-packages/chain-3663-strict-source-closure/harness/PropertyCodec.Tests.csproj
+112	0	artifacts/article-packages/chain-3663-strict-source-closure/harness/packages.lock.json
+163	0	artifacts/article-packages/chain-3663-strict-source-closure/imported-source-provenance.json
+72	0	artifacts/article-packages/chain-3663-strict-source-closure/preimages.json
+132	0	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValueContracts.cs
+348	0	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValuePersistence.Read.cs
+347	0	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValuePersistence.cs
+106	0	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValueReadContracts.cs
+388	0	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticleService.ArticlePropertyValues.cs
+180	0	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/AuthoringArticleCurrentSourceReader.cs
+43	0	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/IArticlePropertyValueAuthority.cs
+15	0	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/identity.json
+11	0	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/property-3665-minimal-handoff.md
+119	0	artifacts/article-packages/chain-3663-strict-source-closure/publication-verification.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.exit
+17	0	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.json
+10	0	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.log
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.command
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.exit
+17	0	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.json
+1	0	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.log
+103	0	artifacts/article-packages/chain-3663-strict-source-closure/supplier-input-requirements.json
+3454	0	artifacts/article-packages/chain-3663-strict-source-closure/trx/_1c6b98fee6cc_2026-10-08_15_12_07_net10.0.trx
+39	0	artifacts/change-contract/article-package-frozen-export-candidate-external-naming.json
+36	0	artifacts/change-contract/article-package-import-candidate-external-naming.json
+38	0	artifacts/change-contract/article-package-import-zip-candidate-external-naming.json
+45	0	artifacts/change-contract/article-package-manifest-asset-metadata-external-naming.json
+32	0	artifacts/change-contract/article-package-manifest-candidate-external-naming.json
+41	0	artifacts/change-contract/article-package-manifest-metadata-external-naming.json
+47	0	artifacts/change-contract/article-package-manifest-property-external-naming.json
+43	0	artifacts/change-contract/article-package-manifest-taxonomy-external-naming.json
+26	0	artifacts/change-contract/article-package-property-mapping-review-external-naming.json
+28	0	artifacts/change-contract/article-package-title-summary-external-naming.json
+15	0	artifacts/style/document-export-canonical-adapter-idempotence.json
+644	0	docs/api/contracts.md
+88	0	src/backend/Services/Authoring/ArticlePackageAssetMetadataMapper.cs
+264	0	src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs
+411	0	src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs
+77	0	src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs
+384	0	src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
+33	0	src/backend/Services/Authoring/ArticlePackageManifestPropertyBinder.cs
+465	0	src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs
+178	0	src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs
+64	0	src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs
+30	0	src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs
+26	0	src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs
+348	0	src/backend/Services/Authoring/ArticlePropertyValuePersistence.Read.cs
+284	0	src/backend/Services/Authoring/ArticlePropertyValuePersistence.Storage.cs
+347	0	src/backend/Services/Authoring/ArticlePropertyValuePersistence.cs
+304	0	src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+43	0	src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs
+87	6	src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs
+74	0	src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs
+260	0	src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs
+48	6	src/backend/Services/DocumentExport/DocumentExportContractValidator.cs
+10	9	src/backend/Services/DocumentExport/DocumentExportContracts.cs
+124	0	src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs
+118	6	src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs
+294	31	src/backend/Services/DocumentExport/DocumentExportSandbox.cs
+175	0	src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs
+25	4	src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs
+118	0	src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs
+341	0	src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs
+119	0	src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+235	0	src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs
+333	0	src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs
+197	0	src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs
+326	0	src/shared/Contracts/ArticlePackages/ArticlePackageImportZipDirectory.cs
+236	0	src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs
+174	0	src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetMetadata.cs
+719	0	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs
+63	0	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs
+428	0	src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs
+52	0	src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs
+453	0	src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs
+424	0	src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyCodec.cs
+60	0	src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyContracts.cs
+409	0	src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs
+155	0	src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs
+113	0	src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs
+132	0	src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs
+151	0	src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs
+149	0	src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs
+18	2	src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs
+255	0	tests/backend/Unit/ArticlePackageAssetMetadataMapperTests.cs
+617	0	tests/backend/Unit/ArticlePackageChecksumTests.cs
+458	0	tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs
+781	0	tests/backend/Unit/ArticlePackageFrozenExportCandidateWriterTests.cs
+435	0	tests/backend/Unit/ArticlePackageImportCandidateByteTests.cs
+514	0	tests/backend/Unit/ArticlePackageImportCandidatePlanTests.cs
+662	0	tests/backend/Unit/ArticlePackageImportZipCandidateTests.cs
+436	0	tests/backend/Unit/ArticlePackageInventoryTests.cs
+528	0	tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs
+720	0	tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs
+542	0	tests/backend/Unit/ArticlePackageManifestMetadataCodecTests.cs
+444	0	tests/backend/Unit/ArticlePackageManifestPropertyCodecTests.cs
+551	0	tests/backend/Unit/ArticlePackageManifestTaxonomyCodecTests.cs
+645	0	tests/backend/Unit/ArticlePackagePropertyMapperTests.cs
+105	0	tests/backend/Unit/ArticlePackageSourceByteTests.cs
+561	0	tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs
+65	0	tests/backend/Unit/ArticlePropertySingleSelectStorageTests.cs
+510	0	tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+
+Complete endpoint name/status (includes upstream differences):
+M	.git-blame-ignore-revs
+A	artifacts/article-packages/chain-3663-current-property-source/README.md
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.command
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.exit
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.json
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-own-style.log
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/accepted-strict-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/all-issue-status.json
+A	artifacts/article-packages/chain-3663-current-property-source/artifact-sha256.json
+A	artifacts/article-packages/chain-3663-current-property-source/canonical-kernel-final-blobs.json
+A	artifacts/article-packages/chain-3663-current-property-source/capture.py
+A	artifacts/article-packages/chain-3663-current-property-source/compiled-source-closure.json
+A	artifacts/article-packages/chain-3663-current-property-source/current-owned-issues.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build-fixed.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-adapter-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-fixed-trx/_bad473dbf38b_2026-10-09_05_39_42_net10.0.trx
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-history-format.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-integration-format.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-locked-restore.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-build-final.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls-fixed.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-new-controls.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format-final.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-own-format.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style-fixed.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.command
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.exit
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.json
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-style.log
+A	artifacts/article-packages/chain-3663-current-property-source/diagnostic-trx/_bad473dbf38b_2026-10-09_05_37_27_net10.0.trx
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-commit-range.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-candidate-locked-restore.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-commit-range.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-docs.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-docs.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-docs.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-docs.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-locked-restore.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-own-style.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-own-style.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-own-style.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-own-style.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-report.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-source-push.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-source-push.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-source-push.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-source-push.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-strict-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-tests.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-tests.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-tests.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-tests.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-trx/_bad473dbf38b_2026-10-09_05_49_29_net10.0.trx
+A	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.command
+A	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.exit
+A	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.json
+A	artifacts/article-packages/chain-3663-current-property-source/final-verified-tests.log
+A	artifacts/article-packages/chain-3663-current-property-source/final-verified-trx/_bad473dbf38b_2026-10-09_05_56_12_net10.0.trx
+A	artifacts/article-packages/chain-3663-current-property-source/harness/.editorconfig
+A	artifacts/article-packages/chain-3663-current-property-source/harness/Directory.Build.props
+A	artifacts/article-packages/chain-3663-current-property-source/harness/PropertyCodec.Tests.csproj
+A	artifacts/article-packages/chain-3663-current-property-source/harness/packages.lock.json
+A	artifacts/article-packages/chain-3663-current-property-source/kernel-import.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-commit-range.log
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-docs.log
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-locked-restore.log
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-own-style.log
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-strict-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.command
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.exit
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.json
+A	artifacts/article-packages/chain-3663-current-property-source/qualification-tests.log
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.command
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.exit
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.json
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-commit-range.log
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.command
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.exit
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.json
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-own-style.log
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.command
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.exit
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.json
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-strict-build.log
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.command
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.exit
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.json
+A	artifacts/article-packages/chain-3663-current-property-source/repaired-tests.log
+A	artifacts/article-packages/chain-3663-current-property-source/source-push.command
+A	artifacts/article-packages/chain-3663-current-property-source/source-push.exit
+A	artifacts/article-packages/chain-3663-current-property-source/source-push.json
+A	artifacts/article-packages/chain-3663-current-property-source/source-push.log
+A	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.command
+A	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.exit
+A	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.json
+A	artifacts/article-packages/chain-3663-current-property-source/source-remote-sha.log
+A	artifacts/article-packages/chain-3663-current-property-source/supplier-input-requirements.json
+A	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.command
+A	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.exit
+A	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.json
+A	artifacts/article-packages/chain-3663-current-property-source/verified-commit-range.log
+A	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.command
+A	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.exit
+A	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.json
+A	artifacts/article-packages/chain-3663-current-property-source/verified-locked-restore.log
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.command
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.exit
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.json
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-push.log
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.command
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.exit
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.json
+A	artifacts/article-packages/chain-3663-current-property-source/verified-source-remote-sha.log
+A	artifacts/article-packages/chain-3663-current-property-source/verified-trx/_bad473dbf38b_2026-10-09_05_54_25_net10.0.trx
+A	artifacts/article-packages/chain-3663-strict-source-closure/README.md
+A	artifacts/article-packages/chain-3663-strict-source-closure/all-issue-status.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/artifact-sha256.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/capture.py
+A	artifacts/article-packages/chain-3663-strict-source-closure/compiled-source-closure.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/current-owned-issues.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-commit-range.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-direct-lint.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-literal-lint.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/evidence-readme-style.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-commit-range.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-push.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-evidence-remote-sha.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-locked-restore.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-report.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-sdk.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-strict-build.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-style.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-style.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-style.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-style.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/final-tests.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first-digest.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-first.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second-digest.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/formatter-second.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/harness-file-hashes.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/harness/.editorconfig
+A	artifacts/article-packages/chain-3663-strict-source-closure/harness/Directory.Build.props
+A	artifacts/article-packages/chain-3663-strict-source-closure/harness/PropertyCodec.Tests.csproj
+A	artifacts/article-packages/chain-3663-strict-source-closure/harness/packages.lock.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/imported-source-provenance.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/preimages.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValueContracts.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValuePersistence.Read.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValuePersistence.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticlePropertyValueReadContracts.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/ArticleService.ArticlePropertyValues.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/AuthoringArticleCurrentSourceReader.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/IArticlePropertyValueAuthority.cs
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/identity.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/property-api-readonly/property-3665-minimal-handoff.md
+A	artifacts/article-packages/chain-3663-strict-source-closure/publication-verification.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-push.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.command
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.exit
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/published-source-remote-sha.log
+A	artifacts/article-packages/chain-3663-strict-source-closure/supplier-input-requirements.json
+A	artifacts/article-packages/chain-3663-strict-source-closure/trx/_1c6b98fee6cc_2026-10-08_15_12_07_net10.0.trx
+A	artifacts/change-contract/article-package-frozen-export-candidate-external-naming.json
+A	artifacts/change-contract/article-package-import-candidate-external-naming.json
+A	artifacts/change-contract/article-package-import-zip-candidate-external-naming.json
+A	artifacts/change-contract/article-package-manifest-asset-metadata-external-naming.json
+A	artifacts/change-contract/article-package-manifest-candidate-external-naming.json
+A	artifacts/change-contract/article-package-manifest-metadata-external-naming.json
+A	artifacts/change-contract/article-package-manifest-property-external-naming.json
+A	artifacts/change-contract/article-package-manifest-taxonomy-external-naming.json
+A	artifacts/change-contract/article-package-property-mapping-review-external-naming.json
+A	artifacts/change-contract/article-package-title-summary-external-naming.json
+D	artifacts/change-contract/backend-existing-reader-lock-external-naming.json
+D	artifacts/change-contract/ban-projection-docs-external-naming.json
+D	artifacts/change-contract/data-scale-distribution-writer-adapter-external-naming.json
+D	artifacts/change-contract/frontend-config-source-dispatch-external-naming.json
+D	artifacts/change-contract/frontend-config-source-dispatch-generated-binding.json
+D	artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json
+D	artifacts/change-contract/public-hot-risk-projection-docs-external-naming.json
+D	artifacts/change-contract/saved-view-request-identity-external-naming.json
+A	artifacts/style/document-export-canonical-adapter-idempotence.json
+M	config/development/frontend-style-policy.json
+M	docs/api/contracts.md
+M	docs/architecture/comment-command-boundary.md
+M	docs/development/change-contract.md
+M	docs/frontend/fsusui-typecheck-modes.md
+M	src/backend/Infrastructure/Security/BanStateProjection.cs
+M	src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs
+M	src/backend/Services/ArticleCommentPolicyService.cs
+A	src/backend/Services/Authoring/ArticlePackageAssetMetadataMapper.cs
+A	src/backend/Services/Authoring/ArticlePackageCurrentPropertyReader.cs
+A	src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs
+A	src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentProperties.cs
+A	src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
+A	src/backend/Services/Authoring/ArticlePackageManifestPropertyBinder.cs
+A	src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs
+A	src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs
+M	src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs
+A	src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs
+A	src/backend/Services/Authoring/ArticlePropertyValuePersistence.Read.cs
+A	src/backend/Services/Authoring/ArticlePropertyValuePersistence.Storage.cs
+A	src/backend/Services/Authoring/ArticlePropertyValuePersistence.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+D	src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs
+M	src/backend/Services/Authoring/AuthorSavedViewStore.cs
+A	src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs
+M	src/backend/Services/CommentModerationService.cs
+M	src/backend/Services/CommentService.cs
+M	src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs
+A	src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs
+A	src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs
+M	src/backend/Services/DocumentExport/DocumentExportContractValidator.cs
+M	src/backend/Services/DocumentExport/DocumentExportContracts.cs
+A	src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs
+M	src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs
+M	src/backend/Services/DocumentExport/DocumentExportSandbox.cs
+M	src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfDocumentExportJobProvider.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfDocumentExportProvider.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfPrintDocumentLayout.cs
+D	src/backend/Services/DocumentExport/Pdf/README.md
+D	src/backend/Services/DocumentExport/Pdf/Tests/test_pdf_renderer.py
+D	src/backend/Services/DocumentExport/Pdf/Tools/dependencies.lock.json
+D	src/backend/Services/DocumentExport/Pdf/Tools/pdf_renderer.py
+M	src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs
+M	src/backend/Services/Security/AnonymousCommentPolicyService.cs
+M	src/frontend/scripts/run-local-fsusui-typecheck.mjs
+D	src/frontend/src/components/admin/saved-views/SavedViewQueryBuilder.vue
+D	src/frontend/src/components/admin/saved-views/SavedViewSurface.vue
+D	src/frontend/src/components/admin/saved-views/savedViewBuilder.ts
+D	src/frontend/src/components/admin/saved-views/savedViewDeepLink.ts
+M	src/frontend/src/components/public/PublicBlogLayoutShell.vue
+D	src/frontend/src/services/authoring/articleEditorSurface.ts
+D	src/frontend/src/services/authoring/articleEditorSurfaceMigration.ts
+M	src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+A	src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageImportZipDirectory.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetMetadata.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyCodec.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs
+M	src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs
+M	tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs
+A	tests/backend/Unit/ArticlePackageAssetMetadataMapperTests.cs
+A	tests/backend/Unit/ArticlePackageChecksumTests.cs
+A	tests/backend/Unit/ArticlePackageCurrentPropertyReaderTests.cs
+A	tests/backend/Unit/ArticlePackageFrozenExportCandidateWriterTests.cs
+A	tests/backend/Unit/ArticlePackageImportCandidateByteTests.cs
+A	tests/backend/Unit/ArticlePackageImportCandidatePlanTests.cs
+A	tests/backend/Unit/ArticlePackageImportZipCandidateTests.cs
+A	tests/backend/Unit/ArticlePackageInventoryTests.cs
+A	tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs
+A	tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs
+A	tests/backend/Unit/ArticlePackageManifestMetadataCodecTests.cs
+A	tests/backend/Unit/ArticlePackageManifestPropertyCodecTests.cs
+A	tests/backend/Unit/ArticlePackageManifestTaxonomyCodecTests.cs
+A	tests/backend/Unit/ArticlePackagePropertyMapperTests.cs
+A	tests/backend/Unit/ArticlePackageSourceByteTests.cs
+A	tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs
+A	tests/backend/Unit/ArticlePropertySingleSelectStorageTests.cs
+A	tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+D	tests/backend/Unit/AuthorSavedViewApplicationFacadeTests.cs
+M	tests/backend/Unit/AuthorSavedViewStoreTests.cs
+M	tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
+M	tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs
+M	tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs
+M	tests/backend/Unit/CommentModerationInitialStateTests.cs
+D	tests/backend/Unit/CommentPurePolicyContractTests.cs
+M	tests/backend/Unit/CommentServiceValidationTests.cs
+D	tests/backend/Unit/DocumentExportPdfProviderTests.cs
+M	tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+M	tests/backend/Unit/RealConcurrencyHarnessTests.cs
+M	tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
+M	tests/backend/Unit/TaxonomyExactMetadataTests.cs
+M	tests/backend/packages.lock.json
+M	tests/fixtures/test-matrix/release-final-execution-target-authority.json
+D	tests/frontend/unit/authoring/articleEditorSurface.test.ts
+D	tests/frontend/unit/authoring/articleEditorSurfaceMigration.test.ts
+M	tests/frontend/unit/components/PublicBlogLayoutShellDelegation.test.ts
+D	tests/frontend/unit/components/admin/saved-views/savedViews.test.ts
+M	tests/test-retention-replacements.json
+M	tests/tools/authoritative-development-docs.test.mjs
+D	tests/tools/data-scale-distribution-writer-adapter.test.mjs
+M	tests/tools/frontend-style.test.mjs
+M	tests/tools/pr-impact-plan.test.mjs
+D	tools/data-scale/distribution-writer-adapter.mjs
+M	tools/frontend/check-frontend-style.mjs
+M	tools/frontend/style-toolchain/eslint.config.mjs
+M	tools/test-matrix/pr-impact-plan.mjs
+M	tools/test-matrix/source-governance.mjs

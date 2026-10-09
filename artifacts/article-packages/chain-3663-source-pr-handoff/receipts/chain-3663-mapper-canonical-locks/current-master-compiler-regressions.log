@@ -1,0 +1,69 @@
+Test run for /workspace/FsusBlog-mapper-locks-3663/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.90]     FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled [FAIL]
+  Failed FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled [253 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+            ↓ (pos 1)
+Expected: "compatibility_check"
+Actual:   "current_schema_verified"
+            ↑ (pos 1)
+  Stack Trace:
+     at FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_ClearsAotDiskCache_WhenOptionEnabled() in /workspace/FsusBlog-mapper-locks-3663/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs:line 165
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.99]     FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled [FAIL]
+  Failed FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled [1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+            ↓ (pos 1)
+Expected: "compatibility_check"
+Actual:   "current_schema_verified"
+            ↑ (pos 1)
+  Stack Trace:
+     at FsusBlog.Server.Tests.LifecycleHostedBootstrapServiceTests.StartAsync_DoesNotClearAotDiskCache_WhenOptionDisabled() in /workspace/FsusBlog-mapper-locks-3663/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs:line 116
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:03.31]     FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: "aot-cold-wait", expectedViolation: null) [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: "aot-cold-wait", expectedViolation: null) [115 ms]
+  Error Message:
+   NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:
+	TryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, "application/vnd.fsusblog.aeds", "79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f", any CancellationToken)
+Actually received 1 matching call:
+	TryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, "application/vnd.fsusblog.aeds", "79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f", System.Threading.CancellationToken)
+
+  Stack Trace:
+     at NSubstitute.Core.ReceivedCallsExceptionThrower.Throw(ICallSpecification callSpecification, IEnumerable`1 matchingCalls, IEnumerable`1 nonMatchingCalls, Quantity requiredQuantity)
+   at NSubstitute.Routing.Handlers.CheckReceivedCallsHandler.Handle(ICall call)
+   at NSubstitute.Routing.Route.Handle(ICall call)
+   at NSubstitute.Core.CallRouter.Route(ICall call)
+   at NSubstitute.Proxies.CastleDynamicProxy.CastleForwardingInterceptor.Intercept(IInvocation invocation)
+   at Castle.DynamicProxy.AbstractInvocation.Proceed()
+   at NSubstitute.Proxies.CastleDynamicProxy.ProxyIdInterceptor.Intercept(IInvocation invocation)
+   at Castle.DynamicProxy.AbstractInvocation.Proceed()
+   at Castle.Proxies.ObjectProxy_28.TryReadAsync(PublicArtifactKey key, String expectedMediaType, String expectedSha256Hex, CancellationToken cancellationToken)
+   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ReadBoundOutputsScenarioAsync(String scenario, String expectedViolation, Boolean verifyAggregate, Boolean awaitCurrentOutput) in /workspace/FsusBlog-mapper-locks-3663/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 626
+   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(String scenario, String expectedViolation) in /workspace/FsusBlog-mapper-locks-3663/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 153
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:03.49]     FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: "aot-shared-budget", expectedViolation: null) [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(scenario: "aot-shared-budget", expectedViolation: null) [117 ms]
+  Error Message:
+   NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:
+	TryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, "application/vnd.fsusblog.aeds", "79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f", any CancellationToken)
+Actually received 1 matching call:
+	TryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, "application/vnd.fsusblog.aeds", "79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f", System.Threading.CancellationToken)
+
+  Stack Trace:
+     at NSubstitute.Core.ReceivedCallsExceptionThrower.Throw(ICallSpecification callSpecification, IEnumerable`1 matchingCalls, IEnumerable`1 nonMatchingCalls, Quantity requiredQuantity)
+   at NSubstitute.Routing.Handlers.CheckReceivedCallsHandler.Handle(ICall call)
+   at NSubstitute.Routing.Route.Handle(ICall call)
+   at NSubstitute.Core.CallRouter.Route(ICall call)
+   at NSubstitute.Proxies.CastleDynamicProxy.CastleForwardingInterceptor.Intercept(IInvocation invocation)
+   at Castle.DynamicProxy.AbstractInvocation.Proceed()
+   at NSubstitute.Proxies.CastleDynamicProxy.ProxyIdInterceptor.Intercept(IInvocation invocation)
+   at Castle.DynamicProxy.AbstractInvocation.Proceed()
+   at Castle.Proxies.ObjectProxy_28.TryReadAsync(PublicArtifactKey key, String expectedMediaType, String expectedSha256Hex, CancellationToken cancellationToken)
+   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.ReadBoundOutputsScenarioAsync(String scenario, String expectedViolation, Boolean verifyAggregate, Boolean awaitCurrentOutput) in /workspace/FsusBlog-mapper-locks-3663/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 626
+   at FsusBlog.Server.Tests.Unit.CanonicalArticleProjectionVerifierTests.AwaitCurrentOutput_RereadsOnlyAbsentCurrentDocumentWithinCallerBudget(String scenario, String expectedViolation) in /workspace/FsusBlog-mapper-locks-3663/tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs:line 153
+--- End of stack trace from previous location ---
+Results File: /workspace/chain-3663-evidence/property-mapping/canonical-lock-bootstrap/current-master-regression-trx/current-master-compiler-regressions.trx
+
+Failed!  - Failed:     4, Passed:   244, Skipped:     0, Total:   248, Duration: 2 s - FsusBlog.Server.Tests.dll (net10.0)

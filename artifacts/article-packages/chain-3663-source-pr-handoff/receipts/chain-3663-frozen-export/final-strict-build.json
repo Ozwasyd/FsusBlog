@@ -1,0 +1,19 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "/workspace/chain-3663-evidence/frozen-export/harness/FrozenExport.Tests.csproj",
+        "--no-restore",
+        "--no-incremental",
+        "-warnaserror"
+    ],
+    "testedSha": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T13:11:46.088903+00:00",
+    "endUtc": "2026-10-08T13:11:49.033635+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/frozen-export/final-strict-build.log"
+}

@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  PropertyMapping.Tests -> /workspace/chain-3663-evidence/property-mapping/harness/bin/Debug/net10.0/PropertyMapping.Tests.dll
+Test run for /workspace/chain-3663-evidence/property-mapping/harness/bin/Debug/net10.0/PropertyMapping.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+WARNING: Overwriting results file: /workspace/chain-3663-evidence/property-mapping/strict-trx/strict.trx
+Results File: /workspace/chain-3663-evidence/property-mapping/strict-trx/strict.trx
+
+Passed!  - Failed:     0, Passed:   223, Skipped:     0, Total:   223, Duration: 937 ms - PropertyMapping.Tests.dll (net10.0)

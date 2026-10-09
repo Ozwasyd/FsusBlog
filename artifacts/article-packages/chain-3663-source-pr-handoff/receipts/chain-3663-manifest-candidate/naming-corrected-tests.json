@@ -1,0 +1,23 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "/workspace/chain-3663-evidence/manifest-candidate/harness/ManifestCandidate.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--logger",
+        "trx;LogFileName=naming-corrected-tests.trx",
+        "--results-directory",
+        "/workspace/chain-3663-evidence/manifest-candidate/naming-corrected-trx",
+        "--nologo"
+    ],
+    "testedSha": "f6334b35c5b420f7affb56efc20179bc38aed26e",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T09:29:32.359959+00:00",
+    "endUtc": "2026-10-08T09:29:34.594723+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/manifest-candidate/naming-corrected-tests.log"
+}

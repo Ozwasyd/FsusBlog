@@ -1,0 +1,19 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "/workspace/chain-3663-evidence/metadata-schema/harness/Metadata.Tests.csproj",
+        "--no-restore",
+        "--no-incremental",
+        "-warnaserror"
+    ],
+    "testedSha": "b2584610dd155996d8f1b16b94bc1f301bedc9da",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T13:50:11.995973+00:00",
+    "endUtc": "2026-10-08T13:50:14.656648+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/metadata-schema/final-strict-build.log"
+}

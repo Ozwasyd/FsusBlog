@@ -1,0 +1,24 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--filter",
+        "FullyQualifiedName~ArticlePackagePropertyMapperTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~AuthoringExtensionPackagePersistenceTests|FullyQualifiedName~AuthoringExtensionPackageTests",
+        "--logger",
+        "trx;LogFileName=current-master-focused.trx",
+        "--results-directory",
+        "/workspace/chain-3663-evidence/property-mapping/canonical-lock-bootstrap/current-master-trx",
+        "--nologo"
+    ],
+    "testedSha": "7744c4def3a620df82928715e55dcde223e1eded",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T07:13:06.513546+00:00",
+    "endUtc": "2026-10-08T07:15:57.170754+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/property-mapping/canonical-lock-bootstrap/current-master-focused.log"
+}

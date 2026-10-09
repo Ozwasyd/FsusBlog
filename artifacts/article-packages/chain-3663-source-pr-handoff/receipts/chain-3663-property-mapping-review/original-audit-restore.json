@@ -1,0 +1,18 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "-warnaserror",
+        "-p:RestoreLockedMode=true"
+    ],
+    "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T06:33:40.059409+00:00",
+    "endUtc": "2026-10-08T06:33:44.035220+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/property-mapping/master-b9-revalidation/original-audit-restore.log"
+}

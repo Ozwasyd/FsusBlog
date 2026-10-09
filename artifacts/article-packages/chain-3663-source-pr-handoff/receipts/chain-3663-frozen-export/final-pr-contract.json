@@ -1,0 +1,18 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-manifest-authority-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-frozen-export-3663",
+        "--github-event",
+        "/workspace/chain-3663-evidence/frozen-export/local-pr-event.json"
+    ],
+    "testedSha": "8472af99b53d9e63584c0d6cda0bd0bc69859f66",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T13:14:56.247651+00:00",
+    "endUtc": "2026-10-08T13:14:57.556113+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/frozen-export/final-pr-contract.log"
+}

@@ -1,0 +1,24 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "/workspace/chain-3663-evidence/property-mapping/harness/PropertyMapping.Tests.csproj",
+        "-warnaserror",
+        "-p:RestoreLockedMode=true",
+        "--logger",
+        "trx;LogFileName=strict.trx",
+        "--results-directory",
+        "/workspace/chain-3663-evidence/property-mapping/strict-trx",
+        "-v",
+        "minimal"
+    ],
+    "testedSha": "fb4d18e9342716def4dca6a73d102f7246e42846",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T05:49:20.970249+00:00",
+    "endUtc": "2026-10-08T05:49:27.540582+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/property-mapping/strict.log"
+}

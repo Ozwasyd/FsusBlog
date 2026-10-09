@@ -1,0 +1,1 @@
+feat(contracts): freeze bounded import byte and request candidates

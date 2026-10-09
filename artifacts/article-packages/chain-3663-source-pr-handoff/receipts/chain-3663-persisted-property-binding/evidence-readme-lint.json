@@ -1,0 +1,17 @@
+{
+    "command": [
+        "markdownlint-cli2",
+        "--config",
+        ".markdownlint-cli2.jsonc",
+        "--no-globs",
+        ":artifacts/article-packages/chain-3663-current-property-source/README.md"
+    ],
+    "testedSha": "3d177f17fa34bdf322447f1ea917469d2c938869",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T06:05:01.051622+00:00",
+    "endUtc": "2026-10-09T06:05:01.294825+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/persisted-property-binding/evidence-readme-lint.log"
+}

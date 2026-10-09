@@ -1,0 +1,5 @@
+Test run for /workspace/chain-3663-evidence/asset-metadata/harness/bin/Debug/net10.0/AssetMetadata.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/chain-3663-evidence/asset-metadata/qualified-trx/_1c6b98fee6cc_2026-10-08_14_21_03_net10.0.trx
+
+Passed!  - Failed:     0, Passed:   421, Skipped:     0, Total:   421, Duration: 5 s - AssetMetadata.Tests.dll (net10.0)

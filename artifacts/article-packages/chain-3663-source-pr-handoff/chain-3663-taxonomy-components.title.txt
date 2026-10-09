@@ -1,0 +1,1 @@
+feat(contracts): bind portable taxonomy components and frozen sets

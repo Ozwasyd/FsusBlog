@@ -1,0 +1,18 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-manifest-authority-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-taxonomy-components-3663",
+        "--range",
+        "6e287562b3f861d3eb81dcb23f93e6243205abd8..HEAD"
+    ],
+    "testedSha": "47da00c0c42bb9458291f4637d5d36761313c8b3",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T14:05:44.880395+00:00",
+    "endUtc": "2026-10-08T14:05:46.350652+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/taxonomy-schema/final-commit-range.log"
+}

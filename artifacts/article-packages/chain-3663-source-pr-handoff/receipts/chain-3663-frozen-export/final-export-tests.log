@@ -1,0 +1,5 @@
+Test run for /workspace/chain-3663-evidence/frozen-export/harness/bin/Debug/net10.0/FrozenExport.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/chain-3663-evidence/frozen-export/final-trx/final-export-tests.trx
+
+Passed!  - Failed:     0, Passed:    60, Skipped:     0, Total:    60, Duration: 5 s - FrozenExport.Tests.dll (net10.0)

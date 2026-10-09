@@ -1,0 +1,149 @@
+Intended base: master be7c53d99b64342925ca63d061bacde34d22ba4c
+Remote head: f6334b35c5b420f7affb56efc20179bc38aed26e
+All merge bases: aaba7b8c84ecfb336c71443e30d9fd82d21fb16d
+Complete three-dot name/status:
+A	artifacts/change-contract/article-package-manifest-candidate-external-naming.json
+A	artifacts/change-contract/article-package-property-mapping-review-external-naming.json
+A	artifacts/change-contract/article-package-title-summary-external-naming.json
+M	docs/api/contracts.md
+A	src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
+A	src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs
+A	src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs
+A	src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs
+A	tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs
+A	tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs
+A	tests/backend/Unit/ArticlePackagePropertyMapperTests.cs
+A	tests/backend/Unit/ArticlePackageSourceByteTests.cs
+A	tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs
+A	tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+
+Complete three-dot numstat:
+32	0	artifacts/change-contract/article-package-manifest-candidate-external-naming.json
+26	0	artifacts/change-contract/article-package-property-mapping-review-external-naming.json
+28	0	artifacts/change-contract/article-package-title-summary-external-naming.json
+210	0	docs/api/contracts.md
+384	0	src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
+465	0	src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs
+178	0	src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs
+30	0	src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs
+26	0	src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs
+288	0	src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+115	0	src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+711	0	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs
+63	0	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs
+409	0	src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs
+155	0	src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs
+113	0	src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs
+132	0	src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs
+151	0	src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs
+528	0	tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs
+720	0	tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs
+645	0	tests/backend/Unit/ArticlePackagePropertyMapperTests.cs
+105	0	tests/backend/Unit/ArticlePackageSourceByteTests.cs
+561	0	tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs
+486	0	tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+
+Complete endpoint name/status (includes upstream differences):
+A	artifacts/change-contract/article-package-manifest-candidate-external-naming.json
+A	artifacts/change-contract/article-package-property-mapping-review-external-naming.json
+A	artifacts/change-contract/article-package-title-summary-external-naming.json
+D	artifacts/change-contract/backend-existing-reader-lock-external-naming.json
+D	artifacts/change-contract/ban-projection-docs-external-naming.json
+D	artifacts/change-contract/data-scale-distribution-writer-adapter-external-naming.json
+D	artifacts/change-contract/frontend-config-source-dispatch-external-naming.json
+D	artifacts/change-contract/frontend-config-source-dispatch-generated-binding.json
+D	artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json
+D	artifacts/change-contract/public-hot-risk-projection-docs-external-naming.json
+D	artifacts/change-contract/saved-view-request-identity-external-naming.json
+M	config/development/frontend-style-policy.json
+M	docs/api/contracts.md
+M	docs/architecture/comment-command-boundary.md
+M	docs/development/change-contract.md
+M	docs/frontend/fsusui-typecheck-modes.md
+M	src/backend/Infrastructure/Security/BanStateProjection.cs
+M	src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs
+M	src/backend/Services/ArticleCommentPolicyService.cs
+A	src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
+A	src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs
+A	src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs
+A	src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+D	src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs
+M	src/backend/Services/Authoring/AuthorSavedViewStore.cs
+M	src/backend/Services/CommentModerationService.cs
+M	src/backend/Services/CommentService.cs
+M	src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs
+M	src/backend/Services/DocumentExport/DocumentExportSandbox.cs
+D	src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfDocumentExportJobProvider.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfDocumentExportProvider.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfPrintDocumentLayout.cs
+D	src/backend/Services/DocumentExport/Pdf/README.md
+D	src/backend/Services/DocumentExport/Pdf/Tests/test_pdf_renderer.py
+D	src/backend/Services/DocumentExport/Pdf/Tools/dependencies.lock.json
+D	src/backend/Services/DocumentExport/Pdf/Tools/pdf_renderer.py
+M	src/backend/Services/Security/AnonymousCommentPolicyService.cs
+M	src/frontend/scripts/run-local-fsusui-typecheck.mjs
+D	src/frontend/src/components/admin/saved-views/SavedViewQueryBuilder.vue
+D	src/frontend/src/components/admin/saved-views/SavedViewSurface.vue
+D	src/frontend/src/components/admin/saved-views/savedViewBuilder.ts
+D	src/frontend/src/components/admin/saved-views/savedViewDeepLink.ts
+M	src/frontend/src/components/public/PublicBlogLayoutShell.vue
+D	src/frontend/src/services/authoring/articleEditorSurface.ts
+D	src/frontend/src/services/authoring/articleEditorSurfaceMigration.ts
+M	src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+A	src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs
+M	tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs
+A	tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs
+A	tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs
+A	tests/backend/Unit/ArticlePackagePropertyMapperTests.cs
+A	tests/backend/Unit/ArticlePackageSourceByteTests.cs
+A	tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs
+A	tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+D	tests/backend/Unit/AuthorSavedViewApplicationFacadeTests.cs
+M	tests/backend/Unit/AuthorSavedViewStoreTests.cs
+M	tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
+M	tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs
+M	tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs
+M	tests/backend/Unit/CommentModerationInitialStateTests.cs
+D	tests/backend/Unit/CommentPurePolicyContractTests.cs
+M	tests/backend/Unit/CommentServiceValidationTests.cs
+D	tests/backend/Unit/DocumentExportPdfProviderTests.cs
+M	tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+M	tests/backend/Unit/RealConcurrencyHarnessTests.cs
+M	tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
+M	tests/backend/Unit/TaxonomyExactMetadataTests.cs
+M	tests/backend/packages.lock.json
+M	tests/fixtures/test-matrix/release-final-execution-target-authority.json
+D	tests/frontend/unit/authoring/articleEditorSurface.test.ts
+D	tests/frontend/unit/authoring/articleEditorSurfaceMigration.test.ts
+M	tests/frontend/unit/components/PublicBlogLayoutShellDelegation.test.ts
+D	tests/frontend/unit/components/admin/saved-views/savedViews.test.ts
+M	tests/test-retention-replacements.json
+M	tests/tools/authoritative-development-docs.test.mjs
+D	tests/tools/data-scale-distribution-writer-adapter.test.mjs
+M	tests/tools/frontend-style.test.mjs
+M	tests/tools/pr-impact-plan.test.mjs
+D	tools/data-scale/distribution-writer-adapter.mjs
+M	tools/frontend/check-frontend-style.mjs
+M	tools/frontend/style-toolchain/eslint.config.mjs
+M	tools/test-matrix/pr-impact-plan.mjs
+M	tools/test-matrix/source-governance.mjs

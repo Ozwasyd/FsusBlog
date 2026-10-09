@@ -1,0 +1,21 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "restore",
+        "/workspace/chain-3663-evidence/taxonomy-schema/harness/Taxonomy.Tests.csproj",
+        "--locked-mode",
+        "-warnaserror",
+        "-p:NuGetAudit=true",
+        "-p:NuGetAuditMode=all",
+        "-p:NuGetAuditLevel=low"
+    ],
+    "testedSha": "47da00c0c42bb9458291f4637d5d36761313c8b3",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T14:08:22.488107+00:00",
+    "endUtc": "2026-10-08T14:08:23.360603+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/taxonomy-schema/final-locked-restore.log"
+}

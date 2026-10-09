@@ -1,0 +1,95 @@
+diff --git a/src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs b/src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
+index b20c33e57..48891eb56 100644
+--- a/src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
++++ b/src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
+@@ -121,7 +121,7 @@ public sealed class ArticlePackageManifestCandidatePlan
+ /// Reuses the canonical text and eight-type mappers, verifies raw Markdown bytes, and freezes
+ /// a bounded candidate set. This component reads no stores or archives and performs no writes.
+ /// </summary>
+-public static class ArticlePackageManifestCandidatePlanner
++public static partial class ArticlePackageManifestCandidatePlanner
+ {
+     public const long MaxTotalSourceBytes = 64L * 1024 * 1024;
+     public const long MaxTotalTextCodeUnits = 16L * 1024 * 1024;
+diff --git a/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs b/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+index 84766e6a6..937f655dc 100644
+--- a/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
++++ b/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+@@ -59,13 +59,29 @@ public sealed class ArticlePropertyValueValidator(
+             throw new ArticlePropertyDefinitionValidationException("article_property_value_input_invalid");
+         }
+         cancellationToken.ThrowIfCancellationRequested();
++        IReadOnlyList<ArticlePropertyDefinition> current = heldInputs.Length == 0
++            ? Array.Empty<ArticlePropertyDefinition>()
++            : await definitions.GetManyAsync(actor, owner,
++                heldInputs.Select(static input => input.DefinitionId).Order().ToArray(), cancellationToken).ConfigureAwait(false);
++        cancellationToken.ThrowIfCancellationRequested();
++        var requested = heldInputs.Select(static input => input.DefinitionId).ToHashSet();
++        var byId = new Dictionary<Guid, ArticlePropertyDefinition>(heldInputs.Length);
++        foreach (ArticlePropertyDefinition definition in current)
++        {
++            if (definition is null || !requested.Contains(definition.DefinitionId)
++                || !byId.TryAdd(definition.DefinitionId, definition))
++            {
++                throw new ArticlePropertyDefinitionValidationException("article_property_definition_batch_invalid");
++            }
++        }
+         var result = new List<ArticlePropertyValueEntry>(heldInputs.Length);
+         foreach (ArticlePropertyValueInput input in heldInputs.OrderBy(static input => input.DefinitionId))
+         {
+             cancellationToken.ThrowIfCancellationRequested();
+-            ArticlePropertyDefinition definition = await definitions.GetAsync(actor, owner,
+-                input.DefinitionId, cancellationToken).ConfigureAwait(false)
+-                ?? throw new ArticlePropertyDefinitionValidationException("article_property_definition_unavailable");
++            if (!byId.TryGetValue(input.DefinitionId, out ArticlePropertyDefinition? definition))
++            {
++                throw new ArticlePropertyDefinitionValidationException("article_property_definition_unavailable");
++            }
+             cancellationToken.ThrowIfCancellationRequested();
+             ArticlePropertyDefinitionContract.ValidateDefinition(definition);
+             if (definition.Owner != owner || definition.DefinitionId != input.DefinitionId
+diff --git a/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs b/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+index 5637b0693..8074c5beb 100644
+--- a/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
++++ b/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+@@ -321,6 +321,7 @@ public sealed class ArticlePropertyValueFoundationTests
+         IArticlePropertyDefinitionStore store = Substitute.For<IArticlePropertyDefinitionStore>();
+         store.GetAsync(s_actor, s_owner, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+             .Returns(call => byId[call.Arg<Guid>()]);
++        ConfigureBatchFixture(store);
+         var validator = new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(),
+             new UnavailableArticlePropertyReferenceValueAuthority());
+ 
+@@ -438,10 +439,33 @@ public sealed class ArticlePropertyValueFoundationTests
+         IArticlePropertyDefinitionStore store = Substitute.For<IArticlePropertyDefinitionStore>();
+         store.GetAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
+             Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(definition);
++        ConfigureBatchFixture(store);
+         IArticlePropertyReferenceValueAuthority references = Substitute.For<IArticlePropertyReferenceValueAuthority>();
+         return (new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(), references), store, references);
+     }
+ 
++    private static void ConfigureBatchFixture(IArticlePropertyDefinitionStore store)
++    {
++        // Keep per-case GetAsync overrides effective through the canonical batch port.
++        store.GetManyAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
++            Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns<Task<IReadOnlyList<ArticlePropertyDefinition>>>(async call =>
++        {
++            var result = new List<ArticlePropertyDefinition>();
++            foreach (Guid id in ArticlePropertyDefinitionBatchRead.HoldIds(call.ArgAt<IReadOnlyList<Guid>>(2)))
++            {
++                CancellationToken cancellation = call.ArgAt<CancellationToken>(3);
++                cancellation.ThrowIfCancellationRequested();
++                ArticlePropertyDefinition? found = await store.GetAsync(call.ArgAt<ArticlePropertyDefinitionActor>(0),
++                    call.ArgAt<ArticlePropertyDefinitionOwner>(1), id, cancellation);
++                if (found is not null)
++                {
++                    result.Add(found);
++                }
++            }
++            return result.AsReadOnly();
++        });
++    }
++
+     private static ArticlePropertyValueInput Input(ArticlePropertyDefinition definition, ArticlePropertyTypedValue value)
+         => new(definition.DefinitionId, definition.SchemaRevision, definition.ContentDigest, ArticlePropertyValuePresence.Present, value);

@@ -1,0 +1,254 @@
+Intended base: master be7c53d99b64342925ca63d061bacde34d22ba4c
+Remote head: f4600360c7d2847f048ebc5465baae052aa7efe8
+All merge bases: 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8
+Complete three-dot name/status:
+A	artifacts/change-contract/article-package-continuation-external-naming.json
+A	artifacts/change-contract/article-package-foundation-external-naming.json
+A	artifacts/change-contract/current-correctness-inventory-generated-binding.json
+A	artifacts/change-contract/issue-3735-canvas-external-naming.json
+A	artifacts/change-contract/shared-governance-external-naming.json
+M	benchmarks/core/packages.lock.json
+M	config/testing/correctness-attempt-producers.json
+M	docs/api/contracts.md
+A	docs/architecture/article-property-value-boundary.md
+M	docs/testing.md
+A	src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+M	src/migration/FsusBlog.Migration.csproj
+M	src/migration/packages.lock.json
+A	src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs
+A	tests/backend/Unit/ArticlePackageChecksumTests.cs
+A	tests/backend/Unit/ArticlePackageInventoryTests.cs
+A	tests/backend/Unit/ArticlePackageSourceByteTests.cs
+A	tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+M	tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
+M	tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs
+M	tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs
+M	tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+M	tests/backend/Unit/RealConcurrencyHarnessTests.cs
+M	tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
+M	tests/backend/Unit/TaxonomyExactMetadataTests.cs
+M	tests/backend/packages.lock.json
+M	tests/fixtures/test-matrix/release-final-execution-target-authority.json
+M	tests/governance/test-lifecycle-registry.json
+M	tests/migration/packages.lock.json
+M	tests/test-retention-replacements.json
+M	tests/tools/canonical-article-lifecycle-authority.test.mjs
+M	tests/tools/correctness-attempt-migration.test.mjs
+M	tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json
+M	tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json
+M	tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json
+M	tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json
+M	tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json
+M	tools/governance/check-canonical-article-lifecycle-authority.mjs
+M	tools/test/correctness-attempt-migration.mjs
+
+Complete three-dot numstat:
+25	0	artifacts/change-contract/article-package-continuation-external-naming.json
+21	0	artifacts/change-contract/article-package-foundation-external-naming.json
+24	0	artifacts/change-contract/current-correctness-inventory-generated-binding.json
+108	0	artifacts/change-contract/issue-3735-canvas-external-naming.json
+22	0	artifacts/change-contract/shared-governance-external-naming.json
+7	0	benchmarks/core/packages.lock.json
+2	2	config/testing/correctness-attempt-producers.json
+64	0	docs/api/contracts.md
+15	0	docs/architecture/article-property-value-boundary.md
+7	0	docs/testing.md
+30	0	src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs
+26	0	src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs
+288	0	src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+1	0	src/migration/FsusBlog.Migration.csproj
+6	6	src/migration/packages.lock.json
+290	0	src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs
+115	0	src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+214	0	src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs
+155	0	src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs
+132	0	src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs
+151	0	src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs
+479	0	tests/backend/Unit/ArticlePackageChecksumTests.cs
+360	0	tests/backend/Unit/ArticlePackageInventoryTests.cs
+105	0	tests/backend/Unit/ArticlePackageSourceByteTests.cs
+486	0	tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+1	1	tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
+2	0	tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs
+2	2	tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs
+4	4	tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+4	4	tests/backend/Unit/RealConcurrencyHarnessTests.cs
+2	0	tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
+1	0	tests/backend/Unit/TaxonomyExactMetadataTests.cs
+4	2	tests/backend/packages.lock.json
+2	2	tests/fixtures/test-matrix/release-final-execution-target-authority.json
+0	15	tests/governance/test-lifecycle-registry.json
+3	2	tests/migration/packages.lock.json
+33	89	tests/test-retention-replacements.json
+27	0	tests/tools/canonical-article-lifecycle-authority.test.mjs
+46	4	tests/tools/correctness-attempt-migration.test.mjs
+7	0	tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json
+7	0	tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json
+7	0	tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json
+7	0	tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json
+75	0	tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json
+12	0	tools/governance/check-canonical-article-lifecycle-authority.mjs
+2	4	tools/test/correctness-attempt-migration.mjs
+
+Complete endpoint name/status (includes upstream differences):
+M	.github/actionlint.yaml
+A	artifacts/change-contract/article-package-continuation-external-naming.json
+A	artifacts/change-contract/article-package-foundation-external-naming.json
+D	artifacts/change-contract/backend-existing-reader-lock-external-naming.json
+D	artifacts/change-contract/ban-projection-docs-external-naming.json
+D	artifacts/change-contract/controlled-memory-external-naming.json
+D	artifacts/change-contract/controlled-memory-generated-binding.json
+A	artifacts/change-contract/current-correctness-inventory-generated-binding.json
+D	artifacts/change-contract/data-scale-distribution-external-naming.json
+D	artifacts/change-contract/data-scale-distribution-writer-adapter-external-naming.json
+D	artifacts/change-contract/data-scale-owner-deadline-external-naming.json
+D	artifacts/change-contract/disposed-document-context-external-naming.json
+D	artifacts/change-contract/frontend-config-source-dispatch-external-naming.json
+D	artifacts/change-contract/frontend-config-source-dispatch-generated-binding.json
+D	artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json
+D	artifacts/change-contract/issue-3650-csharp-policy-rebind.json
+D	artifacts/change-contract/issue-3650-external-naming.json
+A	artifacts/change-contract/issue-3735-canvas-external-naming.json
+D	artifacts/change-contract/issue-3739-fixture-permission-external-naming.json
+D	artifacts/change-contract/issue-3739-fixture-permission-generated-binding.json
+D	artifacts/change-contract/locale-catalog-generator-external-naming.json
+D	artifacts/change-contract/locale-catalog-source-generated-binding.json
+D	artifacts/change-contract/public-hot-risk-projection-docs-external-naming.json
+D	artifacts/change-contract/public-shell-domain-generated-binding.json
+D	artifacts/change-contract/reviewed-source-combined-external-naming.json
+D	artifacts/change-contract/reviewed-source-combined-generated-binding.json
+D	artifacts/change-contract/saved-view-request-identity-external-naming.json
+A	artifacts/change-contract/shared-governance-external-naming.json
+D	artifacts/change-contract/xunit-msbuild-separators-external-naming.json
+D	artifacts/style/issue-3242-source-only/external-naming.json
+M	benchmarks/core/packages.lock.json
+M	config/development/csharp-style-baseline.json
+M	config/development/csharp-style-policy.json
+M	config/development/frontend-style-policy.json
+M	config/testing/correctness-attempt-producers.json
+M	config/testing/release-reliability-lifecycle-action-registry.json
+M	docs/api/contracts.md
+A	docs/architecture/article-property-value-boundary.md
+M	docs/architecture/comment-command-boundary.md
+M	docs/architecture/overview.md
+M	docs/development/change-contract.md
+M	docs/development/csharp-style-enforcement.md
+M	docs/frontend/fsusui-typecheck-modes.md
+M	docs/i18n.md
+M	docs/testing.md
+M	src/backend/Infrastructure/Security/BanStateProjection.cs
+M	src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs
+M	src/backend/Services/ArticleCommentPolicyService.cs
+A	src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs
+A	src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+D	src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs
+M	src/backend/Services/Authoring/AuthorSavedViewStore.cs
+M	src/backend/Services/CommentModerationService.cs
+M	src/backend/Services/CommentService.cs
+M	src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs
+M	src/backend/Services/DocumentExport/DocumentExportSandbox.cs
+D	src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfDocumentExportJobProvider.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfDocumentExportProvider.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfPrintDocumentLayout.cs
+D	src/backend/Services/DocumentExport/Pdf/README.md
+D	src/backend/Services/DocumentExport/Pdf/Tests/test_pdf_renderer.py
+D	src/backend/Services/DocumentExport/Pdf/Tools/dependencies.lock.json
+D	src/backend/Services/DocumentExport/Pdf/Tools/pdf_renderer.py
+M	src/backend/Services/Security/AnonymousCommentPolicyService.cs
+M	src/frontend/scripts/run-local-fsusui-typecheck.mjs
+D	src/frontend/src/components/admin/article/ArticleMetadataPropertyList.vue
+D	src/frontend/src/components/admin/saved-views/SavedViewQueryBuilder.vue
+D	src/frontend/src/components/admin/saved-views/SavedViewSurface.vue
+D	src/frontend/src/components/admin/saved-views/savedViewBuilder.ts
+D	src/frontend/src/components/admin/saved-views/savedViewDeepLink.ts
+M	src/frontend/src/components/public/PublicBlogLayoutShell.vue
+M	src/frontend/src/locales/routeLocaleDomains.ts
+M	src/frontend/src/services/authoring/articleDocumentContext.ts
+D	src/frontend/src/services/authoring/articleEditorSurface.ts
+D	src/frontend/src/services/authoring/articleEditorSurfaceMigration.ts
+M	src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+M	src/migration/FsusBlog.Migration.csproj
+M	src/migration/packages.lock.json
+A	src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs
+A	src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs
+A	src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs
+M	tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs
+A	tests/backend/Unit/ArticlePackageChecksumTests.cs
+A	tests/backend/Unit/ArticlePackageInventoryTests.cs
+A	tests/backend/Unit/ArticlePackageSourceByteTests.cs
+A	tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+D	tests/backend/Unit/AuthorSavedViewApplicationFacadeTests.cs
+M	tests/backend/Unit/AuthorSavedViewStoreTests.cs
+M	tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
+M	tests/backend/Unit/CommentModerationInitialStateTests.cs
+D	tests/backend/Unit/CommentPurePolicyContractTests.cs
+M	tests/backend/Unit/CommentServiceValidationTests.cs
+D	tests/backend/Unit/DocumentExportPdfProviderTests.cs
+M	tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
+M	tests/backend/Unit/TaxonomyExactMetadataTests.cs
+M	tests/backend/packages.lock.json
+M	tests/browser-contract/fixture-lifecycle.test.mjs
+M	tests/fixtures/test-matrix/release-final-execution-target-authority.json
+D	tests/frontend/unit/authoring/articleDocumentContextDisposal.test.ts
+D	tests/frontend/unit/authoring/articleEditorSurface.test.ts
+D	tests/frontend/unit/authoring/articleEditorSurfaceMigration.test.ts
+M	tests/frontend/unit/components/PublicBlogLayoutShellDelegation.test.ts
+D	tests/frontend/unit/components/admin/ArticleMetadataPropertyList.test.ts
+D	tests/frontend/unit/components/admin/saved-views/savedViews.test.ts
+M	tests/frontend/unit/locales/localeDomainBundleStore.test.ts
+M	tests/governance/test-lifecycle-registry.json
+M	tests/migration/packages.lock.json
+M	tests/tools/authoritative-development-docs.test.mjs
+M	tests/tools/canonical-article-lifecycle-authority.test.mjs
+M	tests/tools/correctness-attempt-migration.test.mjs
+M	tests/tools/csharp-style.test.mjs
+D	tests/tools/data-scale-distribution-assignment.test.mjs
+D	tests/tools/data-scale-distribution-catalog.test.mjs
+D	tests/tools/data-scale-distribution-query-binding.test.mjs
+D	tests/tools/data-scale-distribution-statistics.test.mjs
+D	tests/tools/data-scale-distribution-writer-adapter.test.mjs
+M	tests/tools/data-scale-runtime-plan.test.mjs
+M	tests/tools/frontend-style.test.mjs
+M	tests/tools/locale-catalog.test.mjs
+M	tests/tools/locale-domain-static.test.mjs
+M	tests/tools/pr-impact-plan.test.mjs
+M	tests/tools/reliability-scheduler-conflicts.test.mjs
+M	tests/tools/reliability-timeout-projection.test.mjs
+M	tests/tools/system-memory.test.mjs
+M	tests/tools/ts-ast-adapter.test.mjs
+M	tests/tools/xunit-configuration-context.test.mjs
+M	tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json
+M	tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json
+M	tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json
+M	tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json
+M	tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json
+M	tools/contracts/check-locale-catalog.mjs
+M	tools/contracts/generate-locale-catalog.mjs
+D	tools/data-scale/distribution-assignment.mjs
+D	tools/data-scale/distribution-catalog.mjs
+D	tools/data-scale/distribution-contract.mjs
+D	tools/data-scale/distribution-query-binding.mjs
+D	tools/data-scale/distribution-statistics.mjs
+D	tools/data-scale/distribution-writer-adapter.mjs
+M	tools/dotnet/check-csharp-style.mjs
+M	tools/frontend/check-frontend-style.mjs
+M	tools/frontend/style-toolchain/eslint.config.mjs
+M	tools/governance/check-canonical-article-lifecycle-authority.mjs
+M	tools/test-inventory/discovery.mjs
+M	tools/test-inventory/ts-ast-adapter/index.mjs
+M	tools/test-matrix/pr-impact-plan.mjs
+M	tools/test-matrix/scheduler.mjs
+M	tools/test-matrix/source-governance.mjs
+M	tools/test/correctness-attempt-migration.mjs

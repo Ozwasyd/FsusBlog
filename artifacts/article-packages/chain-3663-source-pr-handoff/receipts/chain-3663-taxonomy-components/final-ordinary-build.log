@@ -1,0 +1,16 @@
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,62): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/taxonomy-schema/harness/Taxonomy.Tests.csproj]
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,64): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/taxonomy-schema/harness/Taxonomy.Tests.csproj]
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,75): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/taxonomy-schema/harness/Taxonomy.Tests.csproj]
+/workspace/FsusBlog-taxonomy-components-3663/src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs(512,47): warning IDE1006: Naming rule violation: These words must begin with upper case characters: allowedChanges (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide1006) [/workspace/chain-3663-evidence/taxonomy-schema/harness/Taxonomy.Tests.csproj]
+  Taxonomy.Tests -> /workspace/chain-3663-evidence/taxonomy-schema/harness/bin/Debug/net10.0/Taxonomy.Tests.dll
+
+Build succeeded.
+
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,62): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/taxonomy-schema/harness/Taxonomy.Tests.csproj]
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,64): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/taxonomy-schema/harness/Taxonomy.Tests.csproj]
+/workspace/FsusBlog-export-dependencies-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs(12,75): warning IDE0055: Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/chain-3663-evidence/taxonomy-schema/harness/Taxonomy.Tests.csproj]
+/workspace/FsusBlog-taxonomy-components-3663/src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs(512,47): warning IDE1006: Naming rule violation: These words must begin with upper case characters: allowedChanges (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide1006) [/workspace/chain-3663-evidence/taxonomy-schema/harness/Taxonomy.Tests.csproj]
+    4 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.47

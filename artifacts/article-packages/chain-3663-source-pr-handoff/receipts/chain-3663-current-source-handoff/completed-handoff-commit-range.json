@@ -1,0 +1,18 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-manifest-authority-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog-current-source-handoff-3663",
+        "--range",
+        "6e287562b3f861d3eb81dcb23f93e6243205abd8..HEAD"
+    ],
+    "testedSha": "a3598378b951b5f6ca4c3cd38b0eb9bb1ebf9a59",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T14:55:55.275855+00:00",
+    "endUtc": "2026-10-08T14:55:56.558270+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/property-codec/completed-handoff-commit-range.log"
+}

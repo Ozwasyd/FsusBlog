@@ -1,0 +1,5 @@
+  Determining projects to restore...
+/workspace/FsusBlog-property-mapping-review/src/migration/FsusBlog.Migration.csproj : error NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog-property-mapping-review/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/FsusBlog-property-mapping-review/tests/backend/FsusBlog.Server.Tests.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+  Failed to restore /workspace/FsusBlog-property-mapping-review/tests/backend/FsusBlog.Server.Tests.csproj (in 193 ms).
+  5 of 6 projects are up-to-date for restore.

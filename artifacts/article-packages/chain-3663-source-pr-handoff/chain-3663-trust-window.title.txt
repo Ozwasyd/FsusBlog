@@ -1,0 +1,1 @@
+feat(contracts): preserve package inventory source candidates

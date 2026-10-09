@@ -1,0 +1,5 @@
+Test run for /workspace/chain-3663-evidence/import-zip/harness/bin/Debug/net10.0/ImportZip.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/chain-3663-evidence/import-zip/final-trx/final-zip-tests.trx
+
+Passed!  - Failed:     0, Passed:    72, Skipped:     0, Total:    72, Duration: 465 ms - ImportZip.Tests.dll (net10.0)

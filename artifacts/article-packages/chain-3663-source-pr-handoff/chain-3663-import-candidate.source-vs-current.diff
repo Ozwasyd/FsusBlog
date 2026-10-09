@@ -1,0 +1,240 @@
+diff --git a/src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs b/src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
+index b20c33e57..48891eb56 100644
+--- a/src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
++++ b/src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs
+@@ -121,7 +121,7 @@ public sealed class ArticlePackageManifestCandidatePlan
+ /// Reuses the canonical text and eight-type mappers, verifies raw Markdown bytes, and freezes
+ /// a bounded candidate set. This component reads no stores or archives and performs no writes.
+ /// </summary>
+-public static class ArticlePackageManifestCandidatePlanner
++public static partial class ArticlePackageManifestCandidatePlanner
+ {
+     public const long MaxTotalSourceBytes = 64L * 1024 * 1024;
+     public const long MaxTotalTextCodeUnits = 16L * 1024 * 1024;
+diff --git a/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs b/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+index 84766e6a6..937f655dc 100644
+--- a/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
++++ b/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs
+@@ -59,13 +59,29 @@ public sealed class ArticlePropertyValueValidator(
+             throw new ArticlePropertyDefinitionValidationException("article_property_value_input_invalid");
+         }
+         cancellationToken.ThrowIfCancellationRequested();
++        IReadOnlyList<ArticlePropertyDefinition> current = heldInputs.Length == 0
++            ? Array.Empty<ArticlePropertyDefinition>()
++            : await definitions.GetManyAsync(actor, owner,
++                heldInputs.Select(static input => input.DefinitionId).Order().ToArray(), cancellationToken).ConfigureAwait(false);
++        cancellationToken.ThrowIfCancellationRequested();
++        var requested = heldInputs.Select(static input => input.DefinitionId).ToHashSet();
++        var byId = new Dictionary<Guid, ArticlePropertyDefinition>(heldInputs.Length);
++        foreach (ArticlePropertyDefinition definition in current)
++        {
++            if (definition is null || !requested.Contains(definition.DefinitionId)
++                || !byId.TryAdd(definition.DefinitionId, definition))
++            {
++                throw new ArticlePropertyDefinitionValidationException("article_property_definition_batch_invalid");
++            }
++        }
+         var result = new List<ArticlePropertyValueEntry>(heldInputs.Length);
+         foreach (ArticlePropertyValueInput input in heldInputs.OrderBy(static input => input.DefinitionId))
+         {
+             cancellationToken.ThrowIfCancellationRequested();
+-            ArticlePropertyDefinition definition = await definitions.GetAsync(actor, owner,
+-                input.DefinitionId, cancellationToken).ConfigureAwait(false)
+-                ?? throw new ArticlePropertyDefinitionValidationException("article_property_definition_unavailable");
++            if (!byId.TryGetValue(input.DefinitionId, out ArticlePropertyDefinition? definition))
++            {
++                throw new ArticlePropertyDefinitionValidationException("article_property_definition_unavailable");
++            }
+             cancellationToken.ThrowIfCancellationRequested();
+             ArticlePropertyDefinitionContract.ValidateDefinition(definition);
+             if (definition.Owner != owner || definition.DefinitionId != input.DefinitionId
+diff --git a/src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs b/src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+index abc66ff2e..fffd88b46 100644
+--- a/src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
++++ b/src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs
+@@ -8,7 +8,9 @@ public enum ArticlePackageIdentityKind : byte
+     Article = 1,
+     Asset = 2,
+     Definition = 3,
+-    Option = 4
++    Option = 4,
++    Category = 5,
++    Tag = 6
+ }
+ 
+ /// <summary>Closed failures shared by the package identity and inventory boundary.</summary>
+@@ -81,6 +83,8 @@ public readonly record struct ArticlePackageIdentity
+             ArticlePackageIdentityKind.Asset => "portable-asset:",
+             ArticlePackageIdentityKind.Definition => "portable-definition:",
+             ArticlePackageIdentityKind.Option => "portable-option:",
++            ArticlePackageIdentityKind.Category => "portable-category:",
++            ArticlePackageIdentityKind.Tag => "portable-tag:",
+             _ => null
+         };
+         if (prefix is null
+diff --git a/src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs b/src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs
+index 84c31144e..e9589ca95 100644
+--- a/src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs
++++ b/src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs
+@@ -13,7 +13,7 @@ namespace FsusBlog.Shared.Contracts.ArticlePackages;
+ /// Closed v1 candidate codec. It validates source shape and finite semantic self-consistency only;
+ /// actual source binding and all missing package authorities remain independent acceptance gates.
+ /// </summary>
+-public static class ArticlePackageManifestCandidateCodec
++public static partial class ArticlePackageManifestCandidateCodec
+ {
+     public const int MaxArticles = 1000;
+     public const int MaxJsonBytes = 16 * 1024 * 1024;
+@@ -337,6 +337,9 @@ public static class ArticlePackageManifestCandidateCodec
+     }
+ 
+     private static ArticlePackageManifestCandidateResult CheckKeys(JsonElement value, params string[] names)
++        => CheckClosedKeys(value, names, true);
++
++    private static ArticlePackageManifestCandidateResult CheckClosedKeys(JsonElement value, string[] names, bool denyUnavailableAuthorities)
+     {
+         if (value.ValueKind != JsonValueKind.Object)
+         {
+@@ -357,7 +360,7 @@ public static class ArticlePackageManifestCandidateCodec
+                 "sourceMetadata" => "article_package_manifest_source_metadata_authority_unavailable",
+                 _ => null
+             };
+-            if (unavailable is not null)
++            if (unavailable is not null && denyUnavailableAuthorities)
+             {
+                 return Invalid(unavailable);
+             }
+@@ -577,41 +580,7 @@ public static class ArticlePackageManifestCandidateCodec
+         writer.WriteStartArray("articles");
+         foreach (ArticlePackageManifestArticle article in articles)
+         {
+-            writer.WriteStartObject();
+-            writer.WriteString("portableArticle", article.PortableArticle.Value);
+-            writer.WriteStartObject("source");
+-            writer.WriteNumber("articleId", article.Source.ArticleId);
+-            writer.WriteNumber("articleRevisionId", article.Source.ArticleRevisionId);
+-            writer.WriteNumber("revisionNo", article.Source.RevisionNo);
+-            writer.WriteString("canonicalHash", article.Source.CanonicalHash);
+-            writer.WriteString("siteScope", article.Source.SiteScope);
+-            writer.WriteNumber("propertyRevision", article.Source.PropertyRevision);
+-            WriteNullableLong(writer, "draftId", article.Source.DraftId);
+-            WriteNullableLong(writer, "draftServerRevision", article.Source.DraftServerRevision);
+-            WriteNullableLong(writer, "publicationId", article.Source.PublicationId);
+-            writer.WriteEndObject();
+-            writer.WriteString("title", article.Title);
+-            writer.WriteString("summary", article.Summary);
+-            writer.WriteString("titleSummaryDigest", article.TitleSummaryDigest);
+-            writer.WriteString("propertySnapshotDigest", article.PropertySnapshotDigest);
+-            writer.WriteString("propertyMappingDigest", article.PropertyMappingDigest);
+-            writer.WriteStartObject("sourceBytes");
+-            writer.WriteNumber("byteLength", article.SourceBytes.ByteLength);
+-            writer.WriteString("sha256", article.SourceBytes.Sha256);
+-            writer.WriteBoolean("hasUtf8Bom", article.SourceBytes.HasUtf8Bom);
+-            writer.WriteNumber("lfCount", article.SourceBytes.LfCount);
+-            writer.WriteNumber("crLfCount", article.SourceBytes.CrLfCount);
+-            writer.WriteNumber("bareCrCount", article.SourceBytes.BareCrCount);
+-            writer.WriteNumber("finalNewline", (int)article.SourceBytes.FinalNewline);
+-            writer.WriteNumber("trailingSpaceCount", article.SourceBytes.TrailingSpaceCount);
+-            writer.WriteNumber("trailingTabCount", article.SourceBytes.TrailingTabCount);
+-            writer.WriteEndObject();
+-            writer.WriteStartObject("lifecycle");
+-            writer.WriteNumber("status", article.Lifecycle.Status);
+-            writer.WriteString("publishedAt", FormatDate(article.Lifecycle.PublishedAt));
+-            writer.WriteString("scheduledPublishAt", FormatDate(article.Lifecycle.ScheduledPublishAt));
+-            writer.WriteEndObject();
+-            writer.WriteEndObject();
++            WriteArticle(writer, article);
+             writer.Flush();
+         }
+         writer.WriteEndArray();
+@@ -619,6 +588,45 @@ public static class ArticlePackageManifestCandidateCodec
+         writer.WriteEndObject();
+     }
+ 
++    private static void WriteArticle(Utf8JsonWriter writer, ArticlePackageManifestArticle article)
++    {
++        writer.WriteStartObject();
++        writer.WriteString("portableArticle", article.PortableArticle.Value);
++        writer.WriteStartObject("source");
++        writer.WriteNumber("articleId", article.Source.ArticleId);
++        writer.WriteNumber("articleRevisionId", article.Source.ArticleRevisionId);
++        writer.WriteNumber("revisionNo", article.Source.RevisionNo);
++        writer.WriteString("canonicalHash", article.Source.CanonicalHash);
++        writer.WriteString("siteScope", article.Source.SiteScope);
++        writer.WriteNumber("propertyRevision", article.Source.PropertyRevision);
++        WriteNullableLong(writer, "draftId", article.Source.DraftId);
++        WriteNullableLong(writer, "draftServerRevision", article.Source.DraftServerRevision);
++        WriteNullableLong(writer, "publicationId", article.Source.PublicationId);
++        writer.WriteEndObject();
++        writer.WriteString("title", article.Title);
++        writer.WriteString("summary", article.Summary);
++        writer.WriteString("titleSummaryDigest", article.TitleSummaryDigest);
++        writer.WriteString("propertySnapshotDigest", article.PropertySnapshotDigest);
++        writer.WriteString("propertyMappingDigest", article.PropertyMappingDigest);
++        writer.WriteStartObject("sourceBytes");
++        writer.WriteNumber("byteLength", article.SourceBytes.ByteLength);
++        writer.WriteString("sha256", article.SourceBytes.Sha256);
++        writer.WriteBoolean("hasUtf8Bom", article.SourceBytes.HasUtf8Bom);
++        writer.WriteNumber("lfCount", article.SourceBytes.LfCount);
++        writer.WriteNumber("crLfCount", article.SourceBytes.CrLfCount);
++        writer.WriteNumber("bareCrCount", article.SourceBytes.BareCrCount);
++        writer.WriteNumber("finalNewline", (int)article.SourceBytes.FinalNewline);
++        writer.WriteNumber("trailingSpaceCount", article.SourceBytes.TrailingSpaceCount);
++        writer.WriteNumber("trailingTabCount", article.SourceBytes.TrailingTabCount);
++        writer.WriteEndObject();
++        writer.WriteStartObject("lifecycle");
++        writer.WriteNumber("status", article.Lifecycle.Status);
++        writer.WriteString("publishedAt", FormatDate(article.Lifecycle.PublishedAt));
++        writer.WriteString("scheduledPublishAt", FormatDate(article.Lifecycle.ScheduledPublishAt));
++        writer.WriteEndObject();
++        writer.WriteEndObject();
++    }
++
+     private static void WriteNullableLong(Utf8JsonWriter writer, string name, long? value)
+     {
+         if (value.HasValue)
+diff --git a/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs b/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+index 5637b0693..8074c5beb 100644
+--- a/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
++++ b/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs
+@@ -321,6 +321,7 @@ public sealed class ArticlePropertyValueFoundationTests
+         IArticlePropertyDefinitionStore store = Substitute.For<IArticlePropertyDefinitionStore>();
+         store.GetAsync(s_actor, s_owner, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+             .Returns(call => byId[call.Arg<Guid>()]);
++        ConfigureBatchFixture(store);
+         var validator = new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(),
+             new UnavailableArticlePropertyReferenceValueAuthority());
+ 
+@@ -438,10 +439,33 @@ public sealed class ArticlePropertyValueFoundationTests
+         IArticlePropertyDefinitionStore store = Substitute.For<IArticlePropertyDefinitionStore>();
+         store.GetAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
+             Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(definition);
++        ConfigureBatchFixture(store);
+         IArticlePropertyReferenceValueAuthority references = Substitute.For<IArticlePropertyReferenceValueAuthority>();
+         return (new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(), references), store, references);
+     }
+ 
++    private static void ConfigureBatchFixture(IArticlePropertyDefinitionStore store)
++    {
++        // Keep per-case GetAsync overrides effective through the canonical batch port.
++        store.GetManyAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
++            Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns<Task<IReadOnlyList<ArticlePropertyDefinition>>>(async call =>
++        {
++            var result = new List<ArticlePropertyDefinition>();
++            foreach (Guid id in ArticlePropertyDefinitionBatchRead.HoldIds(call.ArgAt<IReadOnlyList<Guid>>(2)))
++            {
++                CancellationToken cancellation = call.ArgAt<CancellationToken>(3);
++                cancellation.ThrowIfCancellationRequested();
++                ArticlePropertyDefinition? found = await store.GetAsync(call.ArgAt<ArticlePropertyDefinitionActor>(0),
++                    call.ArgAt<ArticlePropertyDefinitionOwner>(1), id, cancellation);
++                if (found is not null)
++                {
++                    result.Add(found);
++                }
++            }
++            return result.AsReadOnly();
++        });
++    }
++
+     private static ArticlePropertyValueInput Input(ArticlePropertyDefinition definition, ArticlePropertyTypedValue value)
+         => new(definition.DefinitionId, definition.SchemaRevision, definition.ContentDigest, ArticlePropertyValuePresence.Present, value);

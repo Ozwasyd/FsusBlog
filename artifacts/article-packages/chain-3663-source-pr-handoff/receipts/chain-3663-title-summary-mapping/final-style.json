@@ -1,0 +1,22 @@
+{
+    "command": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs",
+        "--file",
+        "tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs"
+    ],
+    "testedSha": "0c778b16f664a91d19b42b9dd26cb1ffe8e76140",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T06:25:54.852266+00:00",
+    "endUtc": "2026-10-08T06:26:01.200209+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/title-summary/final-style.log"
+}

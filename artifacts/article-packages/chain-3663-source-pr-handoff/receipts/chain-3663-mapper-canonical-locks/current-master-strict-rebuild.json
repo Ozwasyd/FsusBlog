@@ -1,0 +1,20 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-incremental",
+        "-warnaserror",
+        "--nologo"
+    ],
+    "testedSha": "7744c4def3a620df82928715e55dcde223e1eded",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T07:17:18.421548+00:00",
+    "endUtc": "2026-10-08T07:18:22.400297+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/property-mapping/canonical-lock-bootstrap/current-master-strict-rebuild.log"
+}

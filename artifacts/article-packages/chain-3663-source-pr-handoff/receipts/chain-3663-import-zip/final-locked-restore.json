@@ -1,0 +1,21 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "restore",
+        "/workspace/chain-3663-evidence/import-zip/harness/ImportZip.Tests.csproj",
+        "--locked-mode",
+        "-warnaserror",
+        "-p:NuGetAudit=true",
+        "-p:NuGetAuditMode=all",
+        "-p:NuGetAuditLevel=low"
+    ],
+    "testedSha": "4068caadabbc8e5e229a3a22cb00cd405d124314",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T10:35:07.545852+00:00",
+    "endUtc": "2026-10-08T10:35:09.177960+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/import-zip/final-locked-restore.log"
+}

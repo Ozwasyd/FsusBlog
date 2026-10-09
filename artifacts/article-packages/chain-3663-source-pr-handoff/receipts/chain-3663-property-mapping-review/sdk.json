@@ -1,0 +1,15 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "--info"
+    ],
+    "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T06:33:27.031731+00:00",
+    "endUtc": "2026-10-08T06:33:27.189336+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/property-mapping/master-b9-revalidation/sdk.log"
+}

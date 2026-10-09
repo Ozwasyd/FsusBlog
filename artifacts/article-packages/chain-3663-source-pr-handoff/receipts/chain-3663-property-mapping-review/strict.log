@@ -1,0 +1,8 @@
+  Determining projects to restore...
+  Restored /workspace/chain-3663-evidence/property-mapping/master-b9-revalidation/harness/PropertyMapping.Tests.csproj (in 230 ms).
+  PropertyMapping.Tests -> /workspace/chain-3663-evidence/property-mapping/master-b9-revalidation/harness/bin/Debug/net10.0/PropertyMapping.Tests.dll
+Test run for /workspace/chain-3663-evidence/property-mapping/master-b9-revalidation/harness/bin/Debug/net10.0/PropertyMapping.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/chain-3663-evidence/property-mapping/master-b9-revalidation/trx/strict.trx
+
+Passed!  - Failed:     0, Passed:   112, Skipped:     0, Total:   112, Duration: 423 ms - PropertyMapping.Tests.dll (net10.0)

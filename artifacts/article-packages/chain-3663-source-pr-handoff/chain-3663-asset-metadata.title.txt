@@ -1,0 +1,1 @@
+feat(contracts): bind finite asset metadata to actual bytes

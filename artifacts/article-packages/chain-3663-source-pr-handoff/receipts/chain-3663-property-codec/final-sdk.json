@@ -1,0 +1,15 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "--info"
+    ],
+    "testedSha": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T14:39:09.028023+00:00",
+    "endUtc": "2026-10-08T14:39:09.197430+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/property-codec/final-sdk.log"
+}

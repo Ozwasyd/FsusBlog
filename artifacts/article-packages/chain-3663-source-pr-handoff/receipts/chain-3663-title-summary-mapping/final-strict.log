@@ -1,0 +1,8 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  TitleSummary.Tests -> /workspace/chain-3663-evidence/title-summary/harness/bin/Debug/net10.0/TitleSummary.Tests.dll
+Test run for /workspace/chain-3663-evidence/title-summary/harness/bin/Debug/net10.0/TitleSummary.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/chain-3663-evidence/title-summary/final-trx/final-strict.trx
+
+Passed!  - Failed:     0, Passed:   179, Skipped:     0, Total:   179, Duration: 476 ms - TitleSummary.Tests.dll (net10.0)

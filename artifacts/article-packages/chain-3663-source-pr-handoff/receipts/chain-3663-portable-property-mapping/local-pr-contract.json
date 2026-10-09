@@ -1,0 +1,18 @@
+{
+    "command": [
+        "node",
+        "/workspace/FsusBlog-mapping-authority-3663/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--github-event",
+        "/workspace/chain-3663-evidence/property-mapping/local-review-event.json"
+    ],
+    "testedSha": "fb4d18e9342716def4dca6a73d102f7246e42846",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T05:51:19.463656+00:00",
+    "endUtc": "2026-10-08T05:51:20.846874+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/property-mapping/local-pr-contract.log"
+}

@@ -1,0 +1,23 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "/workspace/chain-3663-evidence/property-mapping/master-b9-revalidation/harness/PropertyMapping.Tests.csproj",
+        "-warnaserror",
+        "-p:RestoreLockedMode=true",
+        "--logger",
+        "trx;LogFileName=strict.trx",
+        "--results-directory",
+        "/workspace/chain-3663-evidence/property-mapping/master-b9-revalidation/trx",
+        "--nologo"
+    ],
+    "testedSha": "569518458ad4aa27cbc885417121a2e04cb74254",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T06:33:55.354123+00:00",
+    "endUtc": "2026-10-08T06:34:00.920519+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/property-mapping/master-b9-revalidation/strict.log"
+}

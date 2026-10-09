@@ -1,0 +1,25 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--filter",
+        "FullyQualifiedName~ArticlePackagePropertyMapperTests|FullyQualifiedName~ArticlePackageInventoryTests|FullyQualifiedName~ArticlePackageSourceByteTests|FullyQualifiedName~ArticlePackageChecksumTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~AuthoringExtensionPackagePersistenceTests",
+        "-p:RestoreLockedMode=true",
+        "--logger",
+        "trx;LogFileName=original.trx",
+        "--results-directory",
+        "/workspace/chain-3663-evidence/property-mapping/original-trx",
+        "-v",
+        "minimal"
+    ],
+    "testedSha": "fb4d18e9342716def4dca6a73d102f7246e42846",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T05:49:20.940013+00:00",
+    "endUtc": "2026-10-08T05:50:40.553364+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/property-mapping/original.log"
+}

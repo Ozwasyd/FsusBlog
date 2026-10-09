@@ -1,0 +1,165 @@
+Intended base: master be7c53d99b64342925ca63d061bacde34d22ba4c
+Remote head: 4f6ca6e63048302a545a2c21944da780594f4d6f
+All merge bases: 87209d571a93254dcacfe9093753002e8c98822a, 53075182a4cccf400e1a389d5dfc7dca5ab4d09d
+Complete three-dot name/status:
+M	.git-blame-ignore-revs
+A	artifacts/change-contract/issue-3568-consumer-lock-external-naming.json
+A	artifacts/style/migration-native-lock-idempotence.json
+M	benchmarks/core/packages.lock.json
+M	src/migration/FsusBlog.Migration.csproj
+M	src/migration/packages.lock.json
+M	tests/backend/packages.lock.json
+M	tests/migration/packages.lock.json
+M	tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json
+M	tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json
+M	tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json
+M	tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json
+M	tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json
+
+Complete three-dot numstat:
+3	0	.git-blame-ignore-revs
+13	0	artifacts/change-contract/issue-3568-consumer-lock-external-naming.json
+15	0	artifacts/style/migration-native-lock-idempotence.json
+7	0	benchmarks/core/packages.lock.json
+1	0	src/migration/FsusBlog.Migration.csproj
+290	290	src/migration/packages.lock.json
+4	2	tests/backend/packages.lock.json
+3	2	tests/migration/packages.lock.json
+7	0	tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json
+7	0	tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json
+7	0	tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json
+7	0	tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json
+75	0	tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json
+
+Complete endpoint name/status (includes upstream differences):
+M	.git-blame-ignore-revs
+D	artifacts/change-contract/backend-existing-reader-lock-external-naming.json
+D	artifacts/change-contract/ban-projection-docs-external-naming.json
+D	artifacts/change-contract/controlled-memory-external-naming.json
+D	artifacts/change-contract/controlled-memory-generated-binding.json
+D	artifacts/change-contract/data-scale-distribution-external-naming.json
+D	artifacts/change-contract/data-scale-distribution-writer-adapter-external-naming.json
+D	artifacts/change-contract/disposed-document-context-external-naming.json
+D	artifacts/change-contract/frontend-config-source-dispatch-external-naming.json
+D	artifacts/change-contract/frontend-config-source-dispatch-generated-binding.json
+D	artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json
+A	artifacts/change-contract/issue-3568-consumer-lock-external-naming.json
+D	artifacts/change-contract/issue-3650-csharp-policy-rebind.json
+D	artifacts/change-contract/issue-3650-external-naming.json
+D	artifacts/change-contract/issue-3739-fixture-permission-external-naming.json
+D	artifacts/change-contract/issue-3739-fixture-permission-generated-binding.json
+D	artifacts/change-contract/locale-catalog-generator-external-naming.json
+D	artifacts/change-contract/locale-catalog-source-generated-binding.json
+D	artifacts/change-contract/public-hot-risk-projection-docs-external-naming.json
+D	artifacts/change-contract/public-shell-domain-generated-binding.json
+D	artifacts/change-contract/reviewed-source-combined-external-naming.json
+D	artifacts/change-contract/reviewed-source-combined-generated-binding.json
+D	artifacts/change-contract/saved-view-request-identity-external-naming.json
+D	artifacts/change-contract/xunit-msbuild-separators-external-naming.json
+D	artifacts/style/issue-3242-source-only/external-naming.json
+A	artifacts/style/migration-native-lock-idempotence.json
+M	benchmarks/core/packages.lock.json
+M	config/development/csharp-style-baseline.json
+M	config/development/csharp-style-policy.json
+M	config/development/frontend-style-policy.json
+M	docs/architecture/comment-command-boundary.md
+M	docs/architecture/overview.md
+M	docs/development/change-contract.md
+M	docs/development/csharp-style-enforcement.md
+M	docs/frontend/fsusui-typecheck-modes.md
+M	docs/i18n.md
+M	docs/testing.md
+M	src/backend/Infrastructure/Security/BanStateProjection.cs
+M	src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs
+M	src/backend/Services/ArticleCommentPolicyService.cs
+D	src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs
+M	src/backend/Services/Authoring/AuthorSavedViewStore.cs
+M	src/backend/Services/CommentModerationService.cs
+M	src/backend/Services/CommentService.cs
+M	src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs
+M	src/backend/Services/DocumentExport/DocumentExportSandbox.cs
+D	src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfDocumentExportJobProvider.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfDocumentExportProvider.cs
+D	src/backend/Services/DocumentExport/Pdf/PdfPrintDocumentLayout.cs
+D	src/backend/Services/DocumentExport/Pdf/README.md
+D	src/backend/Services/DocumentExport/Pdf/Tests/test_pdf_renderer.py
+D	src/backend/Services/DocumentExport/Pdf/Tools/dependencies.lock.json
+D	src/backend/Services/DocumentExport/Pdf/Tools/pdf_renderer.py
+M	src/backend/Services/Security/AnonymousCommentPolicyService.cs
+M	src/frontend/scripts/run-local-fsusui-typecheck.mjs
+D	src/frontend/src/components/admin/article/ArticleMetadataPropertyList.vue
+D	src/frontend/src/components/admin/saved-views/SavedViewQueryBuilder.vue
+D	src/frontend/src/components/admin/saved-views/SavedViewSurface.vue
+D	src/frontend/src/components/admin/saved-views/savedViewBuilder.ts
+D	src/frontend/src/components/admin/saved-views/savedViewDeepLink.ts
+M	src/frontend/src/components/public/PublicBlogLayoutShell.vue
+M	src/frontend/src/locales/routeLocaleDomains.ts
+M	src/frontend/src/services/authoring/articleDocumentContext.ts
+D	src/frontend/src/services/authoring/articleEditorSurface.ts
+D	src/frontend/src/services/authoring/articleEditorSurfaceMigration.ts
+M	src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+M	src/migration/FsusBlog.Migration.csproj
+M	src/migration/packages.lock.json
+M	tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs
+D	tests/backend/Unit/AuthorSavedViewApplicationFacadeTests.cs
+M	tests/backend/Unit/AuthorSavedViewStoreTests.cs
+M	tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs
+M	tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs
+M	tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs
+M	tests/backend/Unit/CommentModerationInitialStateTests.cs
+D	tests/backend/Unit/CommentPurePolicyContractTests.cs
+M	tests/backend/Unit/CommentServiceValidationTests.cs
+D	tests/backend/Unit/DocumentExportPdfProviderTests.cs
+M	tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
+M	tests/backend/Unit/RealConcurrencyHarnessTests.cs
+M	tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs
+M	tests/backend/Unit/TaxonomyExactMetadataTests.cs
+M	tests/backend/packages.lock.json
+M	tests/browser-contract/fixture-lifecycle.test.mjs
+M	tests/fixtures/test-matrix/release-final-execution-target-authority.json
+D	tests/frontend/unit/authoring/articleDocumentContextDisposal.test.ts
+D	tests/frontend/unit/authoring/articleEditorSurface.test.ts
+D	tests/frontend/unit/authoring/articleEditorSurfaceMigration.test.ts
+M	tests/frontend/unit/components/PublicBlogLayoutShellDelegation.test.ts
+D	tests/frontend/unit/components/admin/ArticleMetadataPropertyList.test.ts
+D	tests/frontend/unit/components/admin/saved-views/savedViews.test.ts
+M	tests/frontend/unit/locales/localeDomainBundleStore.test.ts
+M	tests/migration/packages.lock.json
+M	tests/test-retention-replacements.json
+M	tests/tools/authoritative-development-docs.test.mjs
+M	tests/tools/csharp-style.test.mjs
+D	tests/tools/data-scale-distribution-assignment.test.mjs
+D	tests/tools/data-scale-distribution-catalog.test.mjs
+D	tests/tools/data-scale-distribution-query-binding.test.mjs
+D	tests/tools/data-scale-distribution-statistics.test.mjs
+D	tests/tools/data-scale-distribution-writer-adapter.test.mjs
+M	tests/tools/frontend-style.test.mjs
+M	tests/tools/locale-catalog.test.mjs
+M	tests/tools/locale-domain-static.test.mjs
+M	tests/tools/pr-impact-plan.test.mjs
+M	tests/tools/reliability-scheduler-conflicts.test.mjs
+M	tests/tools/system-memory.test.mjs
+M	tests/tools/ts-ast-adapter.test.mjs
+M	tests/tools/xunit-configuration-context.test.mjs
+M	tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json
+M	tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json
+M	tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json
+M	tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json
+M	tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json
+M	tools/contracts/check-locale-catalog.mjs
+M	tools/contracts/generate-locale-catalog.mjs
+D	tools/data-scale/distribution-assignment.mjs
+D	tools/data-scale/distribution-catalog.mjs
+D	tools/data-scale/distribution-contract.mjs
+D	tools/data-scale/distribution-query-binding.mjs
+D	tools/data-scale/distribution-statistics.mjs
+D	tools/data-scale/distribution-writer-adapter.mjs
+M	tools/dotnet/check-csharp-style.mjs
+M	tools/frontend/check-frontend-style.mjs
+M	tools/frontend/style-toolchain/eslint.config.mjs
+M	tools/test-inventory/discovery.mjs
+M	tools/test-inventory/ts-ast-adapter/index.mjs
+M	tools/test-matrix/pr-impact-plan.mjs
+M	tools/test-matrix/scheduler.mjs
+M	tools/test-matrix/source-governance.mjs
