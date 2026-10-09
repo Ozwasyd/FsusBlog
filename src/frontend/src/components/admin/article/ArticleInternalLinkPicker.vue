@@ -8,6 +8,7 @@
         align-center
         destroy-on-close
         @update:model-value="value => { if (!value) dismiss(); }"
+        @close="dismiss"
         @opened="searchInput?.focus()"
         @closed="emit('closed')"
     >
@@ -75,13 +76,18 @@
                             :key="heading.id"
                             class="internal-link-picker__row"
                         >
+                            <div class="internal-link-picker__row-content">
+                                <bdi class="internal-link-picker__title">{{ heading.title }}</bdi>
+                                <p v-if="heading.unavailableText !== null">{{ heading.unavailableText }}</p>
+                            </div>
                             <ElButton
                                 class="internal-link-picker__target"
                                 data-picker-target
+                                text
+                                :aria-label="`选择章节：${heading.title}`"
                                 :disabled="!selectionAvailable || heading.unavailableText !== null || !hasAction(heading.selectAction)"
                                 @click="selectTarget(activeArticle, heading)"
-                            ><bdi class="internal-link-picker__title">{{ heading.title }}</bdi></ElButton>
-                            <p v-if="heading.unavailableText !== null">{{ heading.unavailableText }}</p>
+                            >选择章节</ElButton>
                         </li>
                     </template>
                     <template v-else>
@@ -90,17 +96,22 @@
                             :key="article.id"
                             class="internal-link-picker__row"
                         >
+                            <div class="internal-link-picker__row-content">
+                                <bdi class="internal-link-picker__title">{{ article.title }}</bdi>
+                                <p class="internal-link-picker__metadata">
+                                    <bdi v-if="article.statusText !== null">{{ article.statusText }}</bdi>
+                                    <bdi v-if="article.updatedText !== null">{{ article.updatedText }}</bdi>
+                                    <bdi v-if="article.unavailableText !== null">{{ article.unavailableText }}</bdi>
+                                </p>
+                            </div>
                             <ElButton
                                 class="internal-link-picker__target"
                                 data-picker-target
+                                text
+                                :aria-label="`${hasAction(article.headingsAction) ? '查看章节' : '选择文章'}：${article.title}`"
                                 :disabled="!canEnter(article)"
                                 @click="enterArticle(article)"
-                            ><bdi class="internal-link-picker__title">{{ article.title }}</bdi></ElButton>
-                            <p class="internal-link-picker__metadata">
-                                <bdi v-if="article.statusText !== null">{{ article.statusText }}</bdi>
-                                <bdi v-if="article.updatedText !== null">{{ article.updatedText }}</bdi>
-                                <bdi v-if="article.unavailableText !== null">{{ article.unavailableText }}</bdi>
-                            </p>
+                            >{{ hasAction(article.headingsAction) ? '查看章节' : '选择文章' }}</ElButton>
                         </li>
                     </template>
                 </ul>
@@ -445,13 +456,23 @@ watch([activeArticle, selectionAvailable], ([article, available]) =>
 
 .internal-link-picker__row
  {
+    display: flex;
     min-width: 0;
+    align-items: flex-start;
+    gap: var(--fsus-space-2);
     padding-block: var(--fsus-space-2);
     border-block-end: 1px solid var(--el-border-color-lighter);
 }
 
+.internal-link-picker__row-content
+ {
+    flex: 1;
+    min-width: 0;
+}
+
 .internal-link-picker__title
  {
+    display: block;
     min-width: 0;
     overflow-wrap: anywhere;
     white-space: normal;
@@ -460,6 +481,7 @@ watch([activeArticle, selectionAvailable], ([article, available]) =>
 
 .internal-link-picker__target
  {
+    flex-shrink: 0;
     max-inline-size: 100%;
 }
 
