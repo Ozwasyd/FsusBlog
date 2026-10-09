@@ -146,3 +146,15 @@ The adapter cannot be injected back into the binding's freezer/full source reade
 the full reader directly consumes the catalog with the actor already admitted.
 This seam creates no public options response and does not activate a route or
 supply the missing complete properties/assets/fonts/renderer source authority.
+
+The request endpoint now resolves the scoped private source-selection adapter
+inside its existing authenticated, no-store error wrapper. The adapter alone reads
+the bounded original request frame and freshly checks the real catalog binding.
+The endpoint requires its returned actor to equal the actor already admitted, then
+passes the decoded request to `FreezeDecodedRequestAsync` before the sole job create
+and original snapshot writer. It never calls the old frame reader on this path or
+serializes the private bound source. Transport composition requires an explicit
+single scoped catalog and binary request-context before adding any registrations,
+and rejects existing adapter registrations. The full source reader remains a
+mandatory separate authority directly consuming catalog facts; it must not depend
+on the adapter. General bootstrap remains inactive without that complete reader.

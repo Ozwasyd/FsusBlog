@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
@@ -69,6 +70,7 @@ public static class DocumentExportServiceCollectionExtensions
 
     private static void RequireHttpAuthorities(IServiceCollection services)
     {
+        RequireSelectionAuthorities(services);
         RequireSingleScopedAuthority<IDocumentExportFrozenSourceReader>(services);
         RequireSingleScopedAuthority<IAuthorRecentArticleHistoryPermissionProjectionProvider>(services);
         RequireSingleSingletonAuthority<IHttpContextAccessor>(services);
@@ -95,19 +97,28 @@ public static class DocumentExportServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         RequireSingleScopedAuthority<IDocumentExportFrozenSourceReader>(services);
         RequireSingleScopedAuthority<IDocumentExportJobAuthorization>(services);
+        RequireSelectionAuthorities(services);
         RequireTransportUnregistered(services);
         services.TryAddScoped<DocumentExportJobService>();
         services.AddScoped<IDocumentExportJobs>(provider => provider.GetRequiredService<DocumentExportJobService>());
         services.AddScoped<IDocumentExportRequestFreezer, DocumentExportRequestFreezer>();
         services.AddScoped<IDocumentExportEndpointBinding, DocumentExportEndpointBinding>();
+        services.AddScoped<DocumentExportSourceSelectionAdapter>();
         return services;
+    }
+
+    private static void RequireSelectionAuthorities(IServiceCollection services)
+    {
+        RequireSingleScopedAuthority<IDocumentExportSourceCatalog>(services);
+        RequireSingleScopedAuthority<IBinaryEndpointRequestContext>(services);
     }
 
     private static void RequireTransportUnregistered(IServiceCollection services)
     {
         if (services.Any(descriptor => descriptor.ServiceType == typeof(IDocumentExportJobs)
             || descriptor.ServiceType == typeof(IDocumentExportRequestFreezer)
-            || descriptor.ServiceType == typeof(IDocumentExportEndpointBinding)))
+            || descriptor.ServiceType == typeof(IDocumentExportEndpointBinding)
+            || descriptor.ServiceType == typeof(DocumentExportSourceSelectionAdapter)))
         {
             throw new InvalidOperationException("document_export_transport_already_registered");
         }

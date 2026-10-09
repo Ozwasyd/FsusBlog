@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
+using FsusBlog.Server.Services.DocumentExport.Sources;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
@@ -54,6 +55,8 @@ public static partial class BinaryEndpoints
             typeof(IDocumentExportRequestFreezer),
             typeof(IDocumentExportJobs),
             typeof(IDocumentExportEndpointBinding),
+            typeof(IDocumentExportSourceCatalog),
+            typeof(DocumentExportSourceSelectionAdapter),
             typeof(FsusBlog.Server.Infrastructure.Binary.IBinaryEndpointRequestContext),
             typeof(IAedsEncoder)
         ];
@@ -99,8 +102,16 @@ public static partial class BinaryEndpoints
         CancellationToken cancellationToken)
         => ExecuteDocumentExportAsync(context, binding, encoder, async actor =>
         {
+            DocumentExportSourceSelectionAdapter selection = context.RequestServices
+                .GetService<DocumentExportSourceSelectionAdapter>() ?? throw new DocumentExportJobDeniedException();
+            DocumentExportSourceSelectionAdmission admission = await selection.ReadAsync(context, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (admission.Actor != actor)
+            {
+                throw new DocumentExportJobDeniedException();
+            }
             (DocumentExportTask task, DocumentExportFrozenInput input) =
-                await binding.FreezeRequestAsync(context, actor, cancellationToken);
+                await binding.FreezeDecodedRequestAsync(context, admission.Actor, admission.Request, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (task.UserId != actor.UserId || !string.Equals(task.SiteScope, actor.SiteScope, StringComparison.Ordinal)
                 || input.UserId != actor.UserId || !string.Equals(input.SiteScope, actor.SiteScope, StringComparison.Ordinal)

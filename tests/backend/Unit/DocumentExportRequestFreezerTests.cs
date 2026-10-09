@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 
 using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport;
@@ -134,6 +135,7 @@ public sealed class DocumentExportRequestFreezerTests
 
         var keyedContext = new ServiceCollection();
         keyedContext.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
+        AddSelectionPorts(keyedContext);
         keyedContext.AddScoped(_ => Substitute.For<IAuthorRecentArticleHistoryPermissionProjectionProvider>());
         keyedContext.AddKeyedSingleton<IHttpContextAccessor>("other", new HttpContextAccessor());
         before = keyedContext.ToArray();
@@ -144,6 +146,7 @@ public sealed class DocumentExportRequestFreezerTests
         missingSessionReader.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
         missingSessionReader.AddScoped(_ => Substitute.For<IAuthorRecentArticleHistoryPermissionProjectionProvider>());
         missingSessionReader.AddHttpContextAccessor();
+        AddSelectionPorts(missingSessionReader);
         before = missingSessionReader.ToArray();
         Assert.Throws<InvalidOperationException>(() => missingSessionReader.AddDocumentExportSessionTransport());
         Assert.Equal(before, missingSessionReader.ToArray());
@@ -173,6 +176,7 @@ public sealed class DocumentExportRequestFreezerTests
     {
         var services = new ServiceCollection();
         services.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
+        AddSelectionPorts(services);
         services.AddScoped(_ => Substitute.For<IDocumentExportJobAuthorization>());
         services.AddDocumentExportTransport();
         Assert.Equal(typeof(DocumentExportJobService), Assert.Single(services,
@@ -185,6 +189,7 @@ public sealed class DocumentExportRequestFreezerTests
 
         var reused = new ServiceCollection();
         reused.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
+        AddSelectionPorts(reused);
         reused.AddScoped(_ => Substitute.For<IDocumentExportJobAuthorization>());
         reused.AddScoped<DocumentExportJobService>();
         ServiceDescriptor original = Assert.Single(reused,
@@ -197,6 +202,7 @@ public sealed class DocumentExportRequestFreezerTests
         {
             var refused = new ServiceCollection();
             refused.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
+            AddSelectionPorts(refused);
             refused.AddScoped(_ => Substitute.For<IDocumentExportJobAuthorization>());
             if (registration == "singleton")
             {
@@ -223,6 +229,7 @@ public sealed class DocumentExportRequestFreezerTests
 
         var session = new ServiceCollection();
         session.AddScoped(_ => Substitute.For<IDocumentExportFrozenSourceReader>());
+        AddSelectionPorts(session);
         session.AddScoped(_ => Substitute.For<IAuthorRecentArticleHistoryPermissionProjectionProvider>());
         session.AddScoped(_ => Substitute.For<IAuthorRecentArticleHistoryPersistedPermissionReader>());
         session.AddHttpContextAccessor();
@@ -329,6 +336,12 @@ public sealed class DocumentExportRequestFreezerTests
 
         internal Task<(DocumentExportTask Task, DocumentExportFrozenInput Input)> FreezeAsync()
             => Freezer.FreezeAsync(new DefaultHttpContext(), Actor, Request, default);
+    }
+
+    private static void AddSelectionPorts(IServiceCollection services)
+    {
+        services.AddScoped(_ => Substitute.For<IDocumentExportSourceCatalog>());
+        services.AddScoped(_ => Substitute.For<IBinaryEndpointRequestContext>());
     }
 
     private static ServiceCollection CatalogServices()
