@@ -320,7 +320,7 @@
     "supplierBlobEvidence": "supplier-blobs-preserved.json",
     "preflight": "case-preflight.json",
     "testReceipt": "trx-summary.json",
-    "qualification": "finite managed component only; not original runtime/product acceptance",
+    "qualification": "isolated managed source-host component diagnostics only; not original full backend-project, final integration or runtime/product acceptance",
     "restoreBinding": "b3a2c6a71f35f7420136a2e0f0023e5864457140; identical dependency/configuration/lock surface to tested source; later commits change only source/docs",
     "docs": "FAIL: exactly26 prior diagnostics, same locations/messages; no suppression",
     "historicalProvider": "Exact da5 source consumed; provider originally built0errors/323warnings. Its six original tests remain UNRUN, excluded from this component selection. Lifecycle service is outside this131-file compile closure.",
@@ -424,5 +424,6 @@
     ],
     "noOriginalAcceptanceGateChanged": true,
     "noSharedLockRegeneration": true,
-    "noMergeClosureDeployOrDirectMasterPush": true
+    "noMergeClosureDeployOrDirectMasterPush": true,
+    "supplierDiagnosticLimits": "Supplier asset214/version134 were isolated source-host diagnostic tests, not full backend-project passes. They were not inherited as our795case result;795cases were freshly executed atf392856 after exact preflight. Original NU1004/full-project limitations remain separate."
 }

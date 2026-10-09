@@ -10,7 +10,7 @@ Related to [#2408](https://github.com/Ozwasyd/FsusBlog/issues/2408), [#2400](htt
 - Branch `codex/chain-3663-group-property-recheck`; actual tested/published source `f3928561aec01b728fc5eae09e568f97481f8ed1`. Evidence-only publication may advance HEAD; the sole PR writer must fill its verified remote SHA, without retargeting the compiled source receipt.
 - An early member could change or lose permission while later members were read. Final authorized reads now rebind and compare held observations before returning any group plan. Revocation/cancellation propagate; refusal returns no partial result. This is not an atomic group fence or export grant.
 - Earlier source delta to `3d177f17fa34bdf322447f1ea917469d2c938869`: current property reader, current-properties planner partial, existing source-port tests and maintained API docs. The supplied version registry, asset collection and historical DTO/provider commits are integrated; all10supplier blobs remain identical.
-- Intended base master inspected at `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`. Full PR inherits the entire earlier finite package/kernel/document-export source closure plus raw evidence; every prospective changed path is listed below. Narrow component checks do not approve this full inherited diff.
+- Intended base master inspected at `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`. Full PR inherits the entire earlier finite package/kernel/document-export source closure plus raw evidence; every prospective changed path is listed below. Narrow source-host diagnostics do not approve this full inherited diff.
 
 - Current delta to `08787f22f038569e893d6d1a4923aebc5b6bbe0f`: selected historical metadata mapper,27negative/preservation cases and API docs. This consumes the real DTO URL without inventing lifecycle, permission or canonical article facts.
 - Component selector/hook/count preflight passed before795case execution. Original held cases and provider6cases were excluded.
@@ -30,7 +30,7 @@ Related to [#2408](https://github.com/Ozwasyd/FsusBlog/issues/2408), [#2400](htt
 - [ ] `./tools/test.sh fast`: original held stage, UNRUN
 - [ ] Targeted backend tests: full original Server project/SQL/audit/native qualification UNRUN/HOLD
 - [ ] Targeted frontend checks: UNRUN; no UI/caption product claim
-- [x] Other: PASS at `f3928561aec01b728fc5eae09e568f97481f8ed1` — audited locked restore, strict131whole-file component compile0warnings/0errors,795/795tests0failed/skipped,2new-file style and new commit-range checks. See `artifacts/article-packages/chain-3663-group-metadata-integration/final-report.json` and raw TRXs.
+- [x] Other: PASS at `f3928561aec01b728fc5eae09e568f97481f8ed1` — isolated source-host diagnostics only: audited locked restore, strict131whole-file component compile0warnings/0errors,795/795tests0failed/skipped,2new-file style and new commit-range checks. See `artifacts/article-packages/chain-3663-group-metadata-integration/final-report.json` and raw TRXs.
 - [x] Other: FAIL retained at test-only `149fb214c28d6fe7a14cd18c7e707b921089b8dc` —11/11new group controls failed on unchanged product behavior. Earlier fixture format build failed3IDE0055 diagnostics. All assertions remain.
 - [x] Other: FAIL — maintained API docs still report26inherited diagnostics, unwaived.
 - [ ] Other: trusted-base full PR-body/naming/style gate, original trust31controls on this candidate, full matrix/native/provider/DB/HTTP/product/independent acceptance and performance/mutation/caption round-trip remain UNRUN/HOLD.

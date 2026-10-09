@@ -1,8 +1,8 @@
 # Article package component integration receipt
 
 Exact tested source: `f3928561aec01b728fc5eae09e568f97481f8ed1` on
-`codex/chain-3663-group-property-recheck`. This is bounded managed component
-verification, not original runtime or issue acceptance. All 16 issues remain open.
+`codex/chain-3663-group-property-recheck`. This is isolated managed source-host component
+diagnostics, not original backend-project, runtime or issue acceptance. All 16 issues remain open.
 
 The selected historical DTO now supplies nullable `CanonicalUrl`; its original
 policy/content hashes remain unchanged. The mapper checks exact coordinates,
@@ -29,3 +29,8 @@ DB/HTTP/native, product UI, mutation/performance/caption and independent gates a
 unrun on this source. No authority, deployment, merge or issue closure is claimed.
 The parent alone writes PR content. [draft-pr.md](draft-pr.md) is a full-scope WIP
 proposal; narrow component checks do not accept its inherited diff.
+
+The parent selected worker `01a11f99-25af-7470-9134-0b795317b03e` for the
+actual five review paths. See [ui-module-release.json](ui-module-release.json).
+Supplier asset214/version134diagnostic results are not full backend passes and
+were not inherited as the freshly executed795case result.

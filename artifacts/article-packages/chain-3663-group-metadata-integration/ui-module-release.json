@@ -4,13 +4,13 @@
     "originalPlanPath": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
     "existingFrontendPackageComponentsOrTsContracts": [],
     "releasedExclusivePaths": [
-        "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
         "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
         "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs",
         "src/frontend/src/api/types/articlePackageCandidateReview.ts",
-        "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue"
+        "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue",
+        "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
     ],
-    "release": "Parent chooses sole UI worker; no independent duplicate implementation here. Dedicated new frontend test files accompany the released module.",
+    "release": "Coordinating root selected the sole worker and actual five exclusive paths. No competing source implementation here. Planner, registry, DI, routes and integration remain with this owner.",
     "sourceFields": [
         "Candidate.Manifest version tuple, article count, SemanticDigest",
         "Candidate.PackageBytesDigest",
@@ -39,5 +39,11 @@
     "notAcceptedIssues": [
         2406,
         2418
-    ]
+    ],
+    "worker": "01a11f99-25af-7470-9134-0b795317b03e",
+    "workerBaseSourceSha": "08787f22f038569e893d6d1a4923aebc5b6bbe0f",
+    "previousSuggestedSharedContractPath": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
+    "sharedContractNotPartOfActualFivePathRelease": true,
+    "absenceAndOverlapCheckedAt": "b734d38e3cf11101079d61bc78764c99ee13322d",
+    "allFivePathsAbsentAndNoActiveOrUnpublishedOverlap": true
 }
