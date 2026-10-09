@@ -44,7 +44,10 @@ function targetReferences(ts, node, names)
         return true;
     }
     let found = false;
-    ts.forEachChild(node, (child) => { found ||= targetReferences(ts, child, names); });
+    ts.forEachChild(node, (child) =>
+    {
+        found ||= targetReferences(ts, child, names);
+    });
     return found;
 }
 

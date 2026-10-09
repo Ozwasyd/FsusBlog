@@ -415,6 +415,14 @@ and the parsed module join its original source-input closure; `sourceSteps`
 contains the actual function AST step. Conditional or conflicting entries,
 private subpaths, absent exports and changed inputs refuse. Reading a definition
 does not prove its effects or authorize a callback, provider or runtime value.
+Native tag shortcuts reject multiple named bindings and attribute/binding
+collisions before returning a supplied target. SFC named imports require an
+actual runtime export and render identity; missing and type-only names cannot
+borrow the default template. A real facade reexport of a default component
+retains that default identity. Named callback captures and assignment aggregates
+cannot expose a component object to an unknown consumer. Supplier queries also
+require the original graph node array and every original node object; byte-equal
+replacement does not satisfy this identity contract.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state

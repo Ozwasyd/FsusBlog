@@ -3,20 +3,16 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { pathToFileURL } from 'node:url';
 
 import { controlDigest } from '@fsusblog/control-legality/source';
-
-import { createCompositionSource } from '../frontend/support/layout/compositionSource.mjs';
-import { bindCompositionRouterViewTargets, bindCompositionTargetInputs, resolveCompositionTargetOrigin } from '../frontend/support/layout/compositionTargetSource.mjs';
+import { resolveCompositionRoutes, resolveCompositionRouterViewSlot } from '@fsusblog/layout-governance/composition-routes';
+import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
+import { bindCompositionRouterViewTargets, bindCompositionTargetInputs, resolveCompositionTargetOrigin } from '@fsusblog/layout-governance/composition-target-source';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;
 const parserRoot = process.env.FSUSBLOG_TARGET_PARSER_ROOT ?? repositoryRoot;
 assert.ok(fsusUIRoot, 'an actual public FsusUI checkout is required');
-const routeSourceRoot = process.env.FSUSBLOG_TARGET_ROUTE_SOURCE_ROOT ?? repositoryRoot;
-const { resolveCompositionRoutes, resolveCompositionRouterViewSlot } = await import(pathToFileURL(
-    resolve(routeSourceRoot, 'tests/frontend/support/layout/compositionRoutes.mjs')));
 assert.equal(typeof resolveCompositionRouterViewSlot, 'function', 'original3576 actual route source API is required');
 const directory = resolve(repositoryRoot, '.tmp', `target-source-${randomUUID()}`);
 mkdirSync(directory, { recursive: true });

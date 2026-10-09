@@ -211,7 +211,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         if (source.kind === 'local' || source.kind === 'upstream-internal')
         {
-            target = source.file.endsWith('.vue') ? source.file : exportComponent(source.file, source.name, seen);
+            target = source.file.endsWith('.vue') && source.name === 'default' ? source.file : exportComponent(source.file, source.name, seen);
         }
         if (source.kind === 'fsusui-public')
         {
@@ -233,8 +233,18 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         if (file.endsWith('.vue'))
         {
+            if (name === 'default')
+            {
+                return file;
+            }
             resolver.parse(file);
-            return file;
+            const exported = resolver.exportsOf(file).get(name);
+            if (!exported || exported.ambiguous || exported.unresolved || exported.file === file && exported.name === name)
+            {
+                fail(`unbound named SFC runtime component export ${identity}`);
+            }
+            seen.add(identity);
+            return exportComponent(exported.file, exported.name, seen);
         }
         seen.add(identity);
         const record = resolver.parse(file);
@@ -685,7 +695,15 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 spreadValues.push(closedLiteral(property.initializer));
             }
         }
-        const binding = call.directives.find((directive) => directive.name === 'bind' && directive.argument === name);
+        const propName = (value) => value.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+        const bindings = call.directives.filter((directive) => directive.name === 'bind' && directive.argument
+            && propName(directive.argument) === name);
+        const attributes = Object.keys(call.attributes).filter((attribute) => propName(attribute) === name);
+        if (bindings.length > 1 || attributes.length > 1 || bindings.length && attributes.length)
+        {
+            return unbound;
+        }
+        const binding = bindings[0];
         // Separate attribute/directive inventories do not establish their
         // interleaved precedence. Refuse collisions instead of guessing it.
         if (spreadValues.length > 1 || (spreadValues.length && (binding || Object.hasOwn(call.attributes, name))))
@@ -2022,7 +2040,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 return inputs;
             });
         }
-        const supplierContext = { graph: null, digest: null, resolve: targetInputs, nodes: () => graphNodes };
+        const supplierContext = { graph: null, digest: null, originalNodes: null, resolve: targetInputs, nodes: () => graphNodes };
         const initialNodes = graphNodes;
         targetSuppliers.set(initialNodes, supplierContext);
         for (const node of graphNodes.filter((node) => node.origin.kind === 'native-prop'))
@@ -2322,6 +2340,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     .map((record) => ({ file: record.file, sources: record.collectionSources })) }) };
         targetSuppliers.delete(initialNodes);
         supplierContext.graph = graphResult;
+        supplierContext.originalNodes = graphResult.nodes;
         supplierContext.digest = controlDigest(graphResult);
         targetSuppliers.set(graphResult, supplierContext);
         targetSuppliers.set(graphResult.nodes, supplierContext);
@@ -2337,6 +2356,11 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         if (context.graph && context.digest !== controlDigest(context.graph))
         {
             fail('canonical target supplier graph changed');
+        }
+        if (context.graph && (context.graph.nodes !== context.originalNodes || context.graph.nodes.length !== context.nodes().length
+            || context.graph.nodes.some((entry, index) => entry !== context.nodes()[index] || nodes.get(entry.id) !== entry)))
+        {
+            fail('canonical target supplier graph node identity changed');
         }
         if (resolver.sourceBindings().errors.length)
         {

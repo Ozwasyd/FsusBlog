@@ -403,6 +403,11 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         const next = new Set([...seen, key]);
         const record = parse(file);
         const exportedSource = exportsOf(file).get(name);
+        if (file.endsWith('.vue') && name !== 'default' && (!exportedSource?.file
+            || exportedSource.file === file && !record.variables.has(exportedSource.name)))
+        {
+            fail(`unbound named SFC runtime component export ${key}`);
+        }
         if (exportedSource?.ambiguous || exportedSource?.unresolved)
         {
             fail(`ambiguous/unresolved component export ${key}`);
@@ -980,6 +985,87 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         });
         return found;
     }
+    function containsCapturedComponentObject(record, node, name, seen = new Set())
+    {
+        if (containsComponentObject(node, name))
+        {
+            return true;
+        }
+        node = unwrap(node);
+        if (!node)
+        {
+            return false;
+        }
+        if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)
+            || ts.isBinaryExpression(node) && [ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken].includes(node.operatorToken.kind)
+            || ts.isTypeOfExpression(node) || ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken)
+        {
+            return false;
+        }
+        if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)
+        {
+            return containsCapturedComponentObject(record, node.right, name, seen);
+        }
+        if (ts.isConditionalExpression(node))
+        {
+            return containsCapturedComponentObject(record, node.whenTrue, name, seen)
+                || containsCapturedComponentObject(record, node.whenFalse, name, seen);
+        }
+        if (ts.isIdentifier(node))
+        {
+            if (seen.has(node.text))
+            {
+                return false;
+            }
+            const next = new Set([...seen, node.text]);
+            const functions = record.scripts.flatMap(({ ast }) => ast.statements.filter((statement) =>
+                ts.isFunctionDeclaration(statement) && statement.name?.text === node.text));
+            const value = functions.length === 1 ? functions[0] : unwrap(record.variables.get(node.text));
+            if (value && (ts.isFunctionDeclaration(value) || ts.isArrowFunction(value) || ts.isFunctionExpression(value)))
+            {
+                if (!value.body)
+                {
+                    fail(`unbound captured callback body ${record.file}#${node.text}`);
+                }
+                let captured = false;
+                function returned(candidate)
+                {
+                    const result = ts.isReturnStatement(candidate) ? unwrap(candidate.expression)
+                        : candidate === value.body && !ts.isBlock(candidate) ? unwrap(candidate) : null;
+                    if (result)
+                    {
+                        let root = result;
+                        while (ts.isPropertyAccessExpression(root) || ts.isElementAccessExpression(root))
+                        {
+                            root = unwrap(root.expression);
+                        }
+                        captured ||= ts.isIdentifier(root) && root.text === name
+                            || containsCapturedComponentObject(record, result, name, next);
+                    }
+                    ts.forEachChild(candidate, returned);
+                }
+                returned(value.body);
+                return captured;
+            }
+            return value && ts.isIdentifier(value) ? containsCapturedComponentObject(record, value, name, next) : false;
+        }
+        // A callee invocation is handled by its original helper/return proof.
+        // Here an identifier supplied as a value carries its callback closure.
+        if (ts.isCallExpression(node) || ts.isNewExpression(node))
+        {
+            return (node.arguments ?? []).some((argument) => containsCapturedComponentObject(record, argument, name, seen));
+        }
+        let captured = false;
+        ts.forEachChild(node, (child) =>
+        {
+            if (!(ts.isPropertyAccessExpression(node) && node.name === child
+                || ts.isPropertyAssignment(node) && node.name === child))
+            {
+                captured ||= containsCapturedComponentObject(record, child, name, seen);
+            }
+        });
+        return captured;
+    }
     const finiteComponentBinding = (file, name) =>
     {
         const record = parse(file);
@@ -1047,8 +1133,10 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             function escape(node)
             {
                 const supplied = ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments ?? []
-                    : ts.isVariableDeclaration(node) && node !== binding && node.initializer ? [node.initializer] : [];
-                if (supplied.some((argument) => !ownsDeclaration(argument) && containsComponentObject(argument, name)))
+                    : ts.isVariableDeclaration(node) && node !== binding && node.initializer ? [node.initializer]
+                        : ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                            && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment ? [node.right] : [];
+                if (supplied.some((argument) => !ownsDeclaration(argument) && containsCapturedComponentObject(record, argument, name)))
                 {
                     fail(`${file}: escaped finite component binding ${name}`);
                 }
@@ -1709,10 +1797,12 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                     return value && ts.isIdentifier(value) ? value.text : null;
                 }
                 const argumentsToCheck = ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments ?? []
-                    : ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer ? [node.initializer] : [];
+                    : ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer ? [node.initializer]
+                        : ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                            && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment ? [node.right] : [];
                 if (argumentsToCheck.some((argument) =>
                 {
-                    return containsComponentObject(argument, object.text);
+                    return containsCapturedComponentObject(record, argument, object.text);
                 }) || ((ts.isCallExpression(node) || ts.isNewExpression(node)) && root(node.expression) === object.text))
                 {
                     fail(`escaped component member object ${identity}`);

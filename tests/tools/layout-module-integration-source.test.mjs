@@ -327,6 +327,111 @@ test('canonical target supplier API rejects a non target owner and another sourc
     assert.throws(() => source().resolveTargetInputs(node, graph), /actual canonical graph/);
 });
 
+test('canonical target supplier rejects every conflicting literal and unknown named tag binding before its shortcut', () =>
+{
+    for (const markup of ['<ElButton :tag="\'a\'" v-bind:tag="unknown"/>',
+        '<ElButton tag="a" :tag="unknown"/>', '<ElButton :tag="unknown" v-bind:tag="\'a\'"/>'])
+    {
+        const { s, graph, node } = targetSupplier(markup);
+        assert.ok(graph.errors.some((error) => error.reason === 'unbound-native-prop-source' && /ambiguous component input/.test(error.message)));
+        assert.equal(graph.nativePropBindings.length, 0);
+        assert.throws(() => s.resolveTargetInputs(node, graph), /ambiguous component input/);
+    }
+    const owner = fixture('<script setup>const props=defineProps({tag:{type:[String,Object],default:"button"}});</script><template><component :is="tag"/></template>');
+    for (const markup of ['<Owner :tag="\'a\'" v-bind:tag="unknown"/>', '<Owner tag="button" :tag="\'a\'"/>'])
+    {
+        const file = fixture(`<script setup>import Owner from './${owner.split('/').at(-1)}';</script><template>${markup}</template>`);
+        const s = source();
+        const graph = s.graph([file]);
+        const node = graph.nodes.find((entry) => entry.origin.kind === 'native-prop');
+        assert.ok(graph.errors.length > 0);
+        assert.throws(() => s.resolveTargetInputs(node, graph), /ambiguous component input/);
+    }
+});
+
+test('canonical target supplier rejects old nodes after a same byte clone replaces actual graph membership', () =>
+{
+    const { s, graph, node } = targetSupplier();
+    const index = graph.nodes.indexOf(node);
+    graph.nodes[index] = structuredClone(node);
+    assert.throws(() => s.resolveTargetInputs(node, graph), /graph node identity changed/);
+    assert.throws(() => s.resolveTargetInputs(graph.nodes[index], graph), /actual canonical graph and source node/);
+    const call = targetSupplier();
+    const callIndex = call.graph.nodes.findIndex((entry) => entry.definition === call.node.file);
+    call.graph.nodes[callIndex] = structuredClone(call.graph.nodes[callIndex]);
+    assert.throws(() => call.s.resolveTargetInputs(call.node, call.graph), /graph node identity changed/);
+    const array = targetSupplier();
+    array.graph.nodes = [...array.graph.nodes];
+    assert.throws(() => array.s.resolveTargetInputs(array.node, array.graph), /graph node identity changed/);
+});
+
+test('canonical SFC source rejects missing named runtime exports instead of borrowing its default template', () =>
+{
+    const child = fixture('<template><button/></template>');
+    const file = fixture(`<script setup>import {Missing as Child} from './${child.split('/').at(-1)}';</script><template><Child/></template>`);
+    const graph = source().graph([file]);
+    assert.ok(graph.errors.some((error) => error.reason === 'unknown-component-source' && /named SFC runtime component export/.test(error.message)));
+    assert.equal(graph.nodes.find((node) => node.tag === 'Child').definition, null);
+});
+
+test('canonical SFC source rejects declared and type only named components while retaining actual default exports', () =>
+{
+    for (const declaration of ['export interface Named {}', 'export type Named={render:unknown};', 'export declare const Named:unknown;'])
+    {
+        const child = fixture(`<script lang="ts">${declaration}</script><template><button/></template>`);
+        const file = fixture(`<script setup>import {Named as Child} from './${child.split('/').at(-1)}';</script><template><Child/></template>`);
+        const graph = source().graph([file]);
+        assert.ok(graph.errors.some((error) => error.reason === 'unknown-component-source' && /named SFC runtime component export/.test(error.message)));
+        const actual = fixture(`<script setup>import Child from './${child.split('/').at(-1)}';</script><template><Child/></template>`);
+        assert.equal(source().graph([actual]).nodes.find((node) => node.tag === 'Child').definition, child);
+    }
+});
+
+test('canonical actual supplier rejects a type only SFC identity even alongside unrelated rendered gaps', () =>
+{
+    const child = fixture('<script lang="ts">export type Ghost={};</script><template><button/></template>');
+    const file = fixture(`<script setup>import {ElButton} from '@ozwasyd/element-plus';import {Ghost} from './${child.split('/').at(-1)}';</script><template><ElButton :tag="Ghost"/></template>`);
+    const s = source();
+    const graph = s.graph([file]);
+    const node = graph.nodes.find((entry) => entry.origin.kind === 'native-prop' && entry.file.endsWith('/button/src/button.vue'));
+    assert.throws(() => s.resolveTargetInputs(node, graph), /named SFC runtime component export/);
+});
+
+test('canonical SFC source retains a real named facade reexport of another actual default component', () =>
+{
+    const child = fixture('<template><button/></template>');
+    const facade = fixture(`<script lang="ts">export {default as Named} from './${child.split('/').at(-1)}';</script><template><aside/></template>`);
+    const file = fixture(`<script setup>import {Named as Child} from './${facade.split('/').at(-1)}';</script><template><Child/></template>`);
+    const graph = source().graph([file]);
+    assert.deepEqual(graph.errors, []);
+    assert.equal(graph.nodes.find((node) => node.tag === 'Child').definition, child);
+});
+
+test('canonical computed component source rejects a named callback capturing the ref container', () =>
+{
+    const child = fixture('<template><button/></template>');
+    const other = fixture('<template><aside/></template>');
+    const file = fixture(`<script setup>import {computed} from 'vue';import A from './${child.split('/').at(-1)}';import B from './${other.split('/').at(-1)}';
+        const host=computed(()=>state?A:B);function leak(){return host;}foreign(leak);</script><template><component :is="host"/></template>`);
+    assert.ok(source().graph([file]).errors.some((error) => /escaped finite component binding/.test(error.message)));
+});
+
+test('canonical component member rejects a named callback capturing the original provider object', () =>
+{
+    const file = fixture(`<script setup>import {Check as Glyph} from '@ozwasyd/element-plus/icons-vue';
+        const provider={editor:Glyph};function leak(){return provider;}foreign(leak);</script><template><component :is="provider.editor"/></template>`);
+    assert.ok(source().graph([file]).errors.some((error) => /escaped component member object/.test(error.message)));
+});
+
+test('canonical computed component source rejects assignment propagation through an aggregate', () =>
+{
+    const child = fixture('<template><button/></template>');
+    const other = fixture('<template><aside/></template>');
+    const file = fixture(`<script setup>import {computed} from 'vue';import A from './${child.split('/').at(-1)}';import B from './${other.split('/').at(-1)}';
+        const host=computed(()=>state?A:B);let holder;holder={host};foreign(holder);</script><template><component :is="host"/></template>`);
+    assert.ok(source().graph([file]).errors.some((error) => /escaped finite component binding/.test(error.message)));
+});
+
 test('central template outlet cannot consume a JSX callback supplier without its actual invocation', () =>
 {
     const owner = fixture('<template><slot/></template>');
