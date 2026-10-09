@@ -11,9 +11,10 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test-matrix/scheduler-run-owner.mjs"
+                "tools/test-matrix/scheduler-run-owner.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
             ],
-            "reason": "Retain the canonical scheduler module existing environment-variable spellings while enabling its existing immutable evidence-store observation mode."
+            "reason": "Retain existing environment-variable spellings in canonical scheduler and catalog modules while using the existing immutable store option and consuming the exact original current-roster validator correction."
         }
     ]
 }
