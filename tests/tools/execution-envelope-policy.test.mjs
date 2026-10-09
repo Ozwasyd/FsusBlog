@@ -36,6 +36,29 @@ test('canonical execution envelope covers every correctness producer exactly onc
         entry.producerId === 'cross-stack-openapi-sync'), false);
 });
 
+test('canonical mysql applicability binds the registered service and rejects unknown providers', () =>
+{
+    const tier = matrix.tiers.find((entry) => entry.id === 'backend-unit');
+    const producer = catalog.producers.find((entry) => entry.producerId === tier.id);
+    const serviceCatalog = JSON.parse(fs.readFileSync(new URL(
+        '../../config/testing/test-execution-service-catalog.json', import.meta.url
+    ), 'utf8'));
+    assert.deepEqual(tier.services, ['mysql']);
+    assert.deepEqual(producer.requiredServices, tier.services);
+    assert.equal(producer.fieldApplicability.services.status, 'required');
+    assert.equal(serviceCatalog.services.mysql.kind, 'container');
+    assert.equal(serviceCatalog.services.mysql.hostNativeAllowed, false);
+    assert.match(serviceCatalog.services.mysql.imageReference, /^mysql@sha256:[a-f0-9]{64}$/u);
+    assert.ok(serviceCatalog.services.mysql.requiredIdentityFields.includes('ownership'));
+    assert.deepEqual(validateExecutionEnvelopeContracts({ matrix, policy, catalog }), []);
+
+    const unknown = valid();
+    unknown.matrix.tiers.find((entry) => entry.id === tier.id).services.push('unknown-service');
+    unknown.catalog.producers.find((entry) => entry.producerId === tier.id).requiredServices.push('unknown-service');
+    assert.match(validateExecutionEnvelopeContracts(unknown).join('\n'),
+        /applicability schema .*requiredServices.*is not an allowed value/u);
+});
+
 test('only matrix governance and validation admit the pinned content-field host input', () =>
 {
     const admitted = catalog.producers.filter((entry) =>
@@ -136,9 +159,14 @@ test('missing, unknown, duplicate, ambiguous, and defaulted policy state fails c
         {
             candidate.producers[0].policyId = 'unknown-policy';
         },
-        ({ matrix: candidate }) =>
+        ({ matrix: candidate, catalog: applicability }) =>
         {
-            candidate.tiers[0].executionClass = 'acceptance';
+            const producer = applicability.producers.find((entry) =>
+                entry.sourceKind === 'matrix-tier' && entry.executionClass !== 'acceptance');
+            assert.ok(producer, 'negative control requires an admitted matrix producer');
+            const tier = candidate.tiers.find((entry) => entry.id === producer.producerId);
+            assert.ok(tier, 'negative control producer must bind a matrix tier');
+            tier.executionClass = 'acceptance';
         },
         ({ catalog: candidate }) =>
         {
@@ -174,7 +202,7 @@ test('missing, unknown, duplicate, ambiguous, and defaulted policy state fails c
     {
         const candidate = valid();
         mutate(candidate);
-        assert.notDeepEqual(validateExecutionEnvelopeContracts(candidate), []);
+        assert.notDeepEqual(validateExecutionEnvelopeContracts(candidate), [], mutate.toString());
     }
 });
 

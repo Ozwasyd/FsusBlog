@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -354,9 +354,19 @@ test('artifact substitutions use a parser-compatible flat contract and reject am
     }
 });
 
-test('repository production profile maps every logical tier exactly once', () =>
+test('repository production profile maps every logical tier exactly once', (context) =>
 {
     const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const declaration = matrix.tiers.find((tier) => tier.id === 'validate-declarations');
+    const governance = matrix.tiers.find((tier) => tier.id === 'validate-matrix');
+    const bundleSource = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8');
+    assert.ok(bundleSource.includes(`commandStep('${governance.id}', '${declaration.command} && ${governance.command}', ['${declaration.id}', '${governance.id}'])`));
+    const actual = spawnSync(process.execPath, ['tools/run-test-matrix.mjs', 'validate-declarations'], {
+        cwd: root, encoding: 'utf8'
+    });
+    assert.equal(actual.status, 0, actual.stderr);
+    assert.match(actual.stdout, /global declarations ok \(\d+ tiers\); no execution qualification/u);
+    context.diagnostic(`actual declaration CLI exit=${actual.status}: ${actual.stdout.trim()}`);
     const logicalTierIds = collectLogicalTierIds(matrix.tiers, 'production');
     const mappedTierIds = matrix.localProfiles.production.bundles.flatMap((bundle) => bundle.members);
 

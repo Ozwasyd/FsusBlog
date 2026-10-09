@@ -125,6 +125,7 @@
                             "enum": [
                                 "backend",
                                 "frontend",
+                                "mysql",
                                 "postgres",
                                 "preview",
                                 "redis"
