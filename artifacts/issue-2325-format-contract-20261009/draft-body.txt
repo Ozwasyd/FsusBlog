@@ -1,0 +1,121 @@
+## Linked Issue
+
+Refs #2325
+
+Canonical contracts/backend remain with [#3735](https://github.com/Ozwasyd/FsusBlog/issues/3735); Writer/host integration remains original2246.
+
+## Scope Summary
+
+- Deliver isolated metadata fields/read consumer, exact decimal/UTC editing helpers, public FsusUI exports and original tests, using actual server read models and canonical source. Seven value kinds can be staged; formal commands/definitions/reference/URL/validation/reconciliation remain incomplete and Save stays disabled.
+- Retain the original117 source/test paths and one necessary tools package export, total118 business source/test paths versus pinned master537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea. Include one later .git-blame-ignore-revs metadata registration and exact consumer evidence; enumerate all119 non-artifact paths in dependency-manifest.json.
+- The new branch codex/issue-2325-format-contract-followup-20261009 preserves independent format9f4af3a81e7f8acd8635345bf027ed780c78a898. Corrected semantic8d18e240eb402ae3b7c152629712284d1a3062b6 has exactly the prior373 source tree; corrected docs7b8d18aa9be6314570c0179f43838ac7108cf9c4 has exactly the prior1c tree. The previous1c branch and frozen7b remain intact. Business source does not change in this metadata successor.
+- Official locked parser setup, original equivalence and two real formatter runs now complete the previously missing mechanical evidence. Preserve initial ENOENT and old publication errors, then repair footer/scope and register actual idempotence/blame metadata through the original contract.
+- Original2246's4b already mounts ArticleMetadataRead in Write.vue. This candidate does not carry that host; final production admission is incomplete. Issue2325 remains OPEN/WIP.
+
+## Change Classification
+
+- [x] Behavior change
+- [ ] Format-only
+- [ ] Naming-only
+- [x] Generated output
+- [x] Public contract change
+- [ ] External naming exception
+- Contract impact: compatible
+
+The whole candidate contains reused canonical additions and metadata consumer behavior. Its independent9f format commit is separately validated by the trusted original format contract. No wire allocation or authority is invented here.
+
+## Tests Run
+
+- [ ] ./tools/test.sh fast
+- [ ] Targeted backend tests: UNRUN; dotnet unavailable.
+- [x] Targeted frontend checks: historical own b8 source419/419, zero skips; original UI source83036006069be5cfcd09724273d5705d8f848ad0. These results are not reissued for metadata commits.
+- [x] Other: own373 protocol36/36, zero skips, scoped TestOwner style0 and five original producer outputs --check; own0cf transport34/34 and scoped product style0. No protocol rerun during this parser-only closure.
+- [x] Other: trusted original validateFormatOnlyDiff on9f^..9f passes after official fixed parser installation. Original ESLint10.8 footer command runs twice on exact1c consumer, both exit0, files1, violations0, bytes unchanged; actual first/second algorithmic tree digests match. The original checker independently validates the committed idempotence evidence.
+- [x] Other: bounded original trusted commit-range/proposed-push contract at410..e5d5a2ca51ca6bb206edfad02d8c009fea84d4eb passes. Proposed-push is a local exact before/after check, not a claimed live GitHub event or CI receipt.
+
+Historical full application typecheck is202 diagnostics versus actual pinned baseline208, no new lines, six removed. Historical SOURCE remains failed (42 unsupported paths plus frontend/C# style). Historical original91-case/native aggregate86PASS/5FAIL is preserved; later original protocol-only36PASS resolves its stale TestOwner assertions without relabeling the broader aggregate. Full frontend/types/SOURCE/backend/native/runtime/device/independent qualification is not rerun here.
+
+## UI Evidence
+
+- [ ] Screenshots or video attached for UI changes
+- [ ] Mobile layout checked
+- [ ] Dark mode checked
+- [ ] Accessibility and reduced-motion impact considered
+
+Existing component controls/focus tests are historical exact-SHA evidence; no new rendered/product/device or independent UX receipt is claimed.
+
+## Coding Convention
+
+- [ ] C# mother-style mapping checked
+- [x] Formatter/linter run
+- [x] No tool default overrides repository style
+- [x] Mechanical formatting separated from logic
+- [x] .git-blame-ignore-revs updated when applicable
+- Formatter identity: none
+- Formatter version: none
+- Formatter command: none
+- Formatter idempotence evidence: none
+- Blame-ignore revision: none
+
+This combined PR is not format-only. The actual independent9f commit contract declares eslint10.8.0, its exact original command and artifacts/shared-protocol-format/idempotence.json. Its SHA is registered later. The trusted pinned parser is Espree10.4.0 with the original locked Acorn/acorn-jsx/visitor-keys dependencies; no parser/checker/lock policy source was changed.
+
+## External Naming Exception
+
+- Exceptions manifest: none
+
+No exception approval is claimed. Final external naming review remains incomplete.
+
+## Documentation / Intent
+
+- [ ] Public API docs updated
+- [x] Ownership/security/performance intent updated
+- [x] Historical handoff archived or source-of-truth updated
+- [x] TODO/FIXME references valid issues
+
+Source handoffs are issue-scoped WIP evidence, not replacement normative API authority. References remain to open2325 and canonical3735.
+
+## Compatibility And Risk
+
+- [ ] Cross-language coding conventions reviewed
+- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer
+- [x] External wire / ABI / database / third-party names preserved or explicitly adapted
+- [ ] Public API impact reviewed
+- [ ] AEDS frame / binary contract impact reviewed
+- [ ] Database migration impact reviewed
+- [ ] Security, auth, moderation, PoW, or privacy impact reviewed
+- [x] Docs updated or a reason is recorded below
+- [x] Known limitations updated if applicable
+
+Unchecked full review/acceptance items stay incomplete. Complete canonical263-frame roster, guards, original assertions and generated products are preserved. No gate/threshold/security protection is weakened; no held symlink/Git replacement/graft/receipt audit ran.
+
+## Performance Claim
+
+- Claim level: none
+- Evidence path: none
+- Non-goals: completed1000-definition performance/product-focus or release qualification.
+
+## Release Note
+
+- Audience: internal
+- Category: none
+- Summary: none
+
+## Generated Output
+
+- Generator source: original protocol and four canonical wire producers, Shared/schema/templates listed in dependency-manifest.json.
+- Generated outputs: complete canonical protocol and Canvas/link/property-read/workspace wire families.
+- Digest/evidence: dependency-manifest.json is exact source/blob/SHA256 provenance, not the required fsusblog.generated-output-binding.v1 manifest. Full generated-output PR binding remains unsupplied and incomplete.
+- Automation identity: none
+
+## Rollout / Rollback
+
+- Rollout: draft source review only; Save disabled, no package publication/deployment/readiness/merge action.
+- Rollback: revert eventual bounded integration; original1c/7b branch histories remain available and separate host is not changed.
+- Deferred work: full PR-body/CI/generated-binding review; full frontend/types/SOURCE/backend/native/runtime/device/independent stages; canonical mutation/definitions/reference/URL/validation/reconciliation; host/product admission.
+- Known limitations: historical broader failures retained; dotnet unavailable; backend persisted-read registration/store/migration closure absent from pinned base. PropertyList offer awaits actual host-dependency evidence.
+
+## Notes For Reviewers
+
+The regular parser setup is complete, not an unattempted environment blocker. Mechanical original AST/raw-token/comment comparison, actual two-pass idempotence and original bounded publication contract now pass. This does not make the full PR, issue or product accepted. Keep draft and Refs2325.
+
+No new independent review is requested. Reuse the existing review for unchanged business source and the new required metadata delta. Source/owner/provenance/commands/failures are in artifacts/issue-2325-format-contract-20261009/HANDOFF.txt and dependency-manifest.json; real footer-bound evidence is artifacts/shared-protocol-format/idempotence.json. Exact remote head and final local publication result are supplied in the accompanying delivery report. No GitHub content API mutation is performed.
