@@ -1,0 +1,38 @@
+{
+  "sourceSha": "4231fd4337817c62270336eb6b37964878ab27fc",
+  "beforeSource": "724505e7754a260b3bba63a6503677abb56cec90",
+  "beforeGovernorSha256": "47722e8df59c873105415623ca0ded7e059e22e468cae40d30bbd976817914dc",
+  "beforeDiagnosticsSameBlobAsTestedSource": "e55917ac097e33589766e8b20ab42fabbc51a5b5",
+  "beforeDiagnostics": 2,
+  "afterFreshOriginalBuildGovernorCs8602": 0,
+  "files": {
+    "src/backend/Infrastructure/Memory/Control/MemoryGovernor.cs": {
+      "size": 18749,
+      "sha256": "c42843acd853c55338664f89b6696f59a095989d5ce7c7c852fac1482c32d582"
+    },
+    "tests/backend/Unit/MemoryGovernorTests.cs": {
+      "size": 21004,
+      "sha256": "370e2476b9dda1f33f43945acc1edf27a0f43553743ca584b9d8b62b0f2a456a"
+    },
+    "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll": {
+      "size": 20197376,
+      "sha256": "537b0aded853c21b1cf720efc651db7404100f33ead19b4451057abbf836f6b3"
+    },
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": {
+      "size": 20197376,
+      "sha256": "537b0aded853c21b1cf720efc651db7404100f33ead19b4451057abbf836f6b3"
+    },
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": {
+      "size": 15166976,
+      "sha256": "b7c94b925a3f409b9a83a73f2f4f62c7fba855f2fb5988caa866bd1e27b8d947"
+    },
+    "tests/backend/obj/project.assets.json": {
+      "size": 291225,
+      "sha256": "0bd7f2a64098eec7cf243c7995bb24e258325579c63e564278436a494ddf7f06"
+    },
+    "src/backend/obj/project.assets.json": {
+      "size": 163660,
+      "sha256": "e52a3f5fb6131d17dc456eada9da119fe98b0bdb2f498982ada7e8b422389063"
+    }
+  }
+}

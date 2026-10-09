@@ -1,0 +1,2 @@
+/workspace/.tmp-mem-3444-compliant/src/backend/Infrastructure/Memory/Control/MemoryGovernor.cs(265,43): warning CS8602: Dereference of a possibly null reference. [/workspace/.tmp-mem-3444-compliant/src/backend/FsusBlog.Server.csproj]
+/workspace/.tmp-mem-3444-compliant/src/backend/Infrastructure/Memory/Control/MemoryGovernor.cs(267,61): warning CS8602: Dereference of a possibly null reference. [/workspace/.tmp-mem-3444-compliant/src/backend/FsusBlog.Server.csproj]
