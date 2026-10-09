@@ -7,9 +7,11 @@
                 "src/backend/Entities/ArticleRelationSourceCoordinate.cs",
                 "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs",
                 "src/backend/Services/Authoring/SqlArticleGraphAdmissionReader.cs",
-                "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs"
+                "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs",
+                "tools/check-backend-test-governance.mjs",
+                "tools/mutation/stryker-caller-governance-contract.mjs"
             ],
-            "reason": "Preserve registered C# adapter surfaces and the prerequisite's canonical database identifiers; internal admission names follow repository conventions. The complete branch includes the published coordinate prerequisite unchanged."
+            "reason": "Preserve registered C# adapter surfaces, canonical database identifiers and the original process-environment spellings in the independently qualified canonical mutation source. Internal admission names follow repository conventions."
         },
         {
             "id": "json-wire-key",
@@ -18,7 +20,7 @@
                 "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
                 "config/testing/correctness-attempt-producers.json"
             ],
-            "reason": "Preserve canonical PostgreSQL collection identifiers and generated backend/correctness inventory JSON keys while using the unchanged original producers. Together with the C# entry, these paths exactly cover the complete registered naming-surface union against the master base."
+            "reason": "Preserve canonical PostgreSQL collection identifiers and generated backend/correctness inventory JSON keys while using the unchanged original producers. Together with the C# and tooling entry, these paths exactly cover the complete registered naming-surface union against the master base."
         }
     ]
 }
