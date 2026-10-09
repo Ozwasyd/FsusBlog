@@ -82,9 +82,9 @@ export type PoSpaceChallengeExecutorFactory = () => PoSpaceChallengeExecutorLike
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
 
 const props = withDefaults(defineProps<{
-    assignment: SecurityChallengeAssignment | null;
-    providerPayload: SecurityChallengeProviderPayload | null;
-    context: SecurityChallengeContext;
+    assignment: ExecutorAssignment | null;
+    providerPayload: ExecutorProviderPayload | null;
+    context: ExecutorContext;
     policyVersion: string;
     refresh: () => Promise<void>;
     disabled?: boolean;
@@ -94,7 +94,7 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-    verified: [value: SecurityChallengeProof | SecurityChallengeVerifyResponse];
+    verified: [value: ExecutorProof | ExecutorVerifyResponse];
     continued: [value: import('@/security/challenge-client').SecurityChallengeIssueResult];
     unsupported: [value: PoSpaceUnsupportedResult];
     error: [value: string];
