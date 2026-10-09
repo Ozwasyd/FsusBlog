@@ -259,8 +259,7 @@ public static class MemoryGovernor
         MemoryGovernorState state = infeasible ? MemoryGovernorState.Infeasible
             : critical ? MemoryGovernorState.Critical : pressure ? MemoryGovernorState.Pressure : MemoryGovernorState.Normal;
         DateTimeOffset? recoverySince = null;
-        bool wasConstrained = previous is not null && previous.State != MemoryGovernorState.Normal;
-        if (state == MemoryGovernorState.Normal && wasConstrained)
+        if (state == MemoryGovernorState.Normal && previous is not null && previous.State != MemoryGovernorState.Normal)
         {
             recoverySince = exitStable && previous.DomainRevision == input.DomainRevision && previous.PolicyRevision == policy.Revision
                 ? previous.RecoverySince ?? input.Now : null;
