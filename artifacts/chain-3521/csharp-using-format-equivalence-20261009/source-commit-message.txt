@@ -1,8 +1,0 @@
-fix(governance): compare bounded csharp namespace using order
-
-Compare only ordinary compilation-unit namespace imports as a complete token multiset. Preserve duplicates, comments, remaining token order and directive line structure; unsupported forms retain the ordered comparison. Add focused ordinary acceptance and refusal controls.
-
-Related to #3521. Independent policy review and original consumer acceptance remain required.
-
-Refs: #3521
-

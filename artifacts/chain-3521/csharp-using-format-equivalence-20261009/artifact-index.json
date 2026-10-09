@@ -60,8 +60,8 @@
     },
     {
       "path": "handoff.json",
-      "sha256": "e984dfe559d671235e7fa52d85e4968c9ad49c287b88e4b1d3e26e6397ca4c45",
-      "bytes": 5157
+      "sha256": "bd83bd3bcc7e1aaeb6fcebb35007b72440935fe94f32e86744721f07564b157f",
+      "bytes": 5447
     },
     {
       "path": "install-format-parser-locked.json",
@@ -119,9 +119,9 @@
       "bytes": 674
     },
     {
-      "path": "source-commit-message.txt",
-      "sha256": "97bd55073508c1f91e2a9b9398499353aff684551bb09d99ec7aed93312fdf59",
-      "bytes": 445
+      "path": "source-commit-message.txt.gz",
+      "sha256": "cf4e58f1e653e3447c2c42bf92a92bc3476c3b09595e24dc32e5375e6609f5ca",
+      "bytes": 290
     },
     {
       "path": "source-input-identities.json",

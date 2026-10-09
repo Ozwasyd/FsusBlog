@@ -79,5 +79,6 @@
     "retained #3521 canonical Linux replay/promotion and #3520 prerequisite gates remain unresolved; no chain-completion claim"
   ],
   "acceptanceGranted": false,
-  "publication": "Independent source branch only, per latest root instruction; focused evidence added in a separate commit after the verified source commit. No PR/API writes."
+  "publication": "Independent source branch only, per latest root instruction; focused evidence added in a separate commit after the verified source commit. No PR/API writes.",
+  "evidencePackaging": "Original exact commit-message input is gzip archived to preserve its final newline bytes; initial plain-text evidence range flagged a new blank EOF line, and this packaging correction removes the whitespace violation without altering any original log/input bytes."
 }
