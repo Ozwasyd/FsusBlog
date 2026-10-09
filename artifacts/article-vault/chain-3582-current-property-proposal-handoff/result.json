@@ -1,0 +1,113 @@
+{
+  "source": "8eab176ae759612af5d18fa09ff009ecfaf4c8ae",
+  "baseline": "8cbc620d8ddf5cc11cc23cd8d15c01b9454f4c25",
+  "fetchedMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "startedUtc": "2026-10-09T07:46:08.110386+00:00",
+  "sourceFiles": {
+    "artifacts/change-contract/article-vault-conflict-contract-external-naming.json": "2826a76bf18e1844dc4d941bd1375367b2aee837b74a0ba2720a7bc4192d7f0b",
+    "docs/architecture/article-vault-dependencies.md": "3f760a02d799a08f1dadcd3d3b771d7fa9d11387e1d24aa71626b0725970bf48",
+    "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "f56618f561754db604c3914bcc97145488b541cbdf3ad494829f673b7c8b75d7",
+    "src/backend/Services/ArticleVault/ArticleVaultCurrentPropertyMetadataReader.cs": "c7800f94a7998e06b2202641ac2e4a69cff38a26948d919549be9c0b6514cd38",
+    "tests/backend/Unit/ArticleVaultPropertyMetadataMergeTests.CurrentInputs.cs": "869e96cdedc84c413004e0d457b1276da2586719da8f90f6e5df71526aa7d5af",
+    "tests/backend/Unit/ArticleVaultPropertyMetadataMergeTests.cs": "0e67976475990074bc4437afb1fc839616a3f32e787842e7ae19d95e6c015785"
+  },
+  "sourceHold": true,
+  "executionOrNativeOrProviderQualified": false,
+  "scope": "exact13 ordinary cases:12 new proposal composition plus1 changed DI control; original discovery parser and verified positive FQNs; no broad fallback",
+  "commands": [
+    {
+      "argv": [
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode"
+      ],
+      "exitCode": 0,
+      "log": "restore.log"
+    },
+    {
+      "argv": [
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "quiet"
+      ],
+      "exitCode": 0,
+      "log": "build.log"
+    },
+    {
+      "argv": [
+        "node",
+        "/workspace/FsusBlog/.tmp/chain-3582-expanded/current-property-proposal/preflight-and-run.mjs",
+        "frozen"
+      ],
+      "exitCode": 0,
+      "log": "selection-and-test.log"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--file",
+        "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs",
+        "--file",
+        "src/backend/Services/ArticleVault/ArticleVaultCurrentPropertyMetadataReader.cs",
+        "--file",
+        "tests/backend/Unit/ArticleVaultPropertyMetadataMergeTests.CurrentInputs.cs",
+        "--file",
+        "tests/backend/Unit/ArticleVaultPropertyMetadataMergeTests.cs"
+      ],
+      "exitCode": 0,
+      "log": "style.log"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "log": "docs.log"
+    },
+    {
+      "argv": [
+        "node",
+        "tools/docs/check-authoritative-development-docs.mjs"
+      ],
+      "exitCode": 0,
+      "log": "authoritative-docs.log"
+    }
+  ],
+  "counts": {
+    "total": "13",
+    "executed": "13",
+    "passed": "13",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "sdk": "10.0.302",
+  "endSource": "8eab176ae759612af5d18fa09ff009ecfaf4c8ae",
+  "endStatus": "",
+  "sourceUnchanged": true,
+  "endedUtc": "2026-10-09T07:47:51.349410+00:00",
+  "assemblyHashes": {
+    "tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "0b366473ce25c0aaab925a8940108834e1a2ffc3d5aad66b8e5c5801099049b0",
+    "tests/backend/bin/Release/net10.0/FsusBlog.Server.dll": "d775c5152b054c53b0371c855957996069d725f752ff9c26bf3f369f4540300a",
+    "tests/backend/bin/Release/net10.0/FsusBlog.Shared.dll": "9d6a35ba56f352949b2b36f670a901ea8b55ea00a6d580b0e8f457d5c0d7a107"
+  }
+}
