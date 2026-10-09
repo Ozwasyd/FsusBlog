@@ -292,6 +292,19 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
     }
 
     [Fact]
+    public async Task ProductionCancellationPropagatesBeforeUnavailableAdmission()
+    {
+        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        IAuthorArticlePinPermissionProjectionProvider permission = Substitute.For<IAuthorArticlePinPermissionProjectionProvider>();
+        var reader = new SqlArticleGraphPersistedMetadataReader(db, new(), permission);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => reader.ReadAsync(Request([1]), cancellation.Token));
+        Assert.Empty(db.ReceivedCalls());
+        Assert.Empty(permission.ReceivedCalls());
+    }
+
+    [Fact]
     public async Task CallerCancellationPropagatesAndDeadlineRefusesWithoutReleasingFacts()
     {
         var fixture = new Fixture();
@@ -300,7 +313,12 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Reader.ReadAsync(Request([1]), cancellation.Token));
         Assert.Equal(0, fixture.ProbeReads);
         using var duringRead = new CancellationTokenSource();
-        fixture.BeforeRows = token => { duringRead.Cancel(); token.ThrowIfCancellationRequested(); return Task.CompletedTask; };
+        fixture.BeforeRows = token =>
+        {
+            duringRead.Cancel();
+            token.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        };
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Reader.ReadAsync(Request([1]), duringRead.Token));
         fixture = new Fixture { BeforeRows = token => Task.Delay(Timeout.InfiniteTimeSpan, token) };
         Assert.Null(await fixture.Reader.ReadAsync(Request([1]) with { RemainingMilliseconds = 30 }));
