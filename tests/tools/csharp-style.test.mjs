@@ -1342,7 +1342,9 @@ test('policy-only rebind preserves the real original baseline and refuses substi
         const originalBytes = original.stdout;
         assert.equal(crypto.createHash('sha256').update(originalBytes).digest('hex'),
             '0ab4b1ebfecbba054015209fcb30f62dbd6395a1390da67a87b9e9fd057fd011');
-        const candidatePolicy = `${JSON.stringify(sourcePolicy, null, 4)}\n`;
+        const missPolicy = structuredClone(sourcePolicy);
+        missPolicy.enumNaming.acceptedSingularSuffixes = missPolicy.enumNaming.acceptedSingularSuffixes.filter((suffix) => suffix !== 'Access');
+        const candidatePolicy = `${JSON.stringify(missPolicy, null, 4)}\n`;
         writeFixture(fixtureRoot, policyPath, candidatePolicy);
         const run = (args = []) => spawnSync(process.execPath, [checker, '--root', fixtureRoot,
             '--mode', 'full', '--rebind-baseline-policy', ...args], { cwd: fixtureRoot, encoding: 'utf8' });
@@ -1421,7 +1423,7 @@ test('policy-only rebind preserves the real original baseline and refuses substi
             assert.equal(run(extra).status, 1);
             assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
         }
-        const expanded = structuredClone(sourcePolicy);
+        const expanded = structuredClone(missPolicy);
         expanded.excludedPaths.push('src/**');
         writeFixture(fixtureRoot, policyPath, `${JSON.stringify(expanded, null, 4)}\n`);
         assert.equal(run().status, 1);
@@ -1460,5 +1462,151 @@ public sealed record AttributedRecord(string Name)
 `);
         const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/AttributedRecord.cs']);
         assert.equal(result.status, 0, output(result));
+    });
+});
+
+
+test('singular Access retains the eight ordinary and flags controls', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        for (const [name, flags, rule] of [
+            ['GpuPeerAllocationAccess', false, null],
+            ['GpuPeerAllocationAccesses', false, 'enum-name'],
+            ['GpuPeerAllocationAccesses', true, null],
+            ['GpuPeerAllocationAccess', true, 'flags-enum-name'],
+            ['PublicHotReadServingMiss', false, null],
+            ['PublicHotReadServingMisses', false, 'enum-name'],
+            ['Permissions', true, null],
+            ['Permission', true, 'flags-enum-name']
+        ])
+        {
+            writeFixture(fixtureRoot, 'src/sample/Enum.cs', `using System;\n\nnamespace Fixture;\n\n${flags ? '[Flags]\n' : ''}public enum ${name}\n{\n    Read,\n    ExclusiveWrite\n}\n`);
+            const result = runChecker(fixtureRoot, ['--mode', 'full']);
+            assert.equal(result.status, rule ? 1 : 0, output(result));
+            if (rule)
+            {
+                assert.match(output(result), new RegExp(` ${rule}:`, 'u'));
+            }
+        }
+    });
+});
+
+
+test('Access-only rebind preserves the merged Miss baseline and refuses substituted inputs', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const policyPath = 'config/development/csharp-style-policy.json';
+        const baselinePath = 'config/development/csharp-style-baseline.json';
+        const original = spawnSync('git', ['show', 'b9c076e4b763130075218ff9d50f9a6c36784f59:' + baselinePath], {
+            cwd: root, encoding: 'utf8', env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+        });
+        assert.equal(original.status, 0, original.stderr);
+        const originalBytes = original.stdout;
+        assert.equal(crypto.createHash('sha256').update(originalBytes).digest('hex'),
+            '4351155657a6f448d27f2e7eb54dfd430d2a9246b8e0b4f463f5143ace6b204e');
+        const candidatePolicy = `${JSON.stringify(sourcePolicy, null, 4)}\n`;
+        writeFixture(fixtureRoot, policyPath, candidatePolicy);
+        const run = (args = []) => spawnSync(process.execPath, [checker, '--root', fixtureRoot,
+            '--mode', 'full', '--rebind-access-baseline-policy', ...args], { cwd: fixtureRoot, encoding: 'utf8' });
+        writeFixture(fixtureRoot, baselinePath, originalBytes);
+        const stale = spawnSync(process.execPath, [checker, '--root', fixtureRoot, '--mode', 'full'], {
+            cwd: fixtureRoot, encoding: 'utf8'
+        });
+        assert.equal(stale.status, 1, output(stale));
+        assert.match(output(stale), /policy digest is stale/u);
+        const accepted = run();
+        assert.equal(accepted.status, 0, output(accepted));
+        const rebound = readFileSync(path.join(fixtureRoot, baselinePath), 'utf8');
+        const expected = JSON.parse(originalBytes);
+        expected.policySha256 = crypto.createHash('sha256').update(candidatePolicy).digest('hex');
+        assert.deepEqual(JSON.parse(rebound), expected);
+        assert.equal(run().status, 0);
+        const ordinary = spawnSync(process.execPath, [checker, '--root', fixtureRoot, '--mode', 'full'], {
+            cwd: fixtureRoot, encoding: 'utf8'
+        });
+        assert.equal(ordinary.status, 0, output(ordinary));
+        for (const mutate of [
+            (value) =>
+            {
+                value.schema = 'wrong';
+            },
+            (value) =>
+            {
+                value.generatedFrom = 'wrong';
+            },
+            (value) =>
+            {
+                value.violationCount += 1;
+            },
+            (value) =>
+            {
+                value.fileCount += 1;
+            },
+            (value) =>
+            {
+                value.policySha256 = '0'.repeat(64);
+            },
+            (value) =>
+            {
+                value.files[0].sourceSha256 = '0'.repeat(64);
+            },
+            (value) =>
+            {
+                value.files[0].violationDigest = '0'.repeat(64);
+            },
+            (value) =>
+            {
+                value.files[0].rules['type-name'] += 1;
+            },
+            (value) =>
+            {
+                value.files[0].path = 'src/other.cs';
+            },
+            (value) =>
+            {
+                value.files.push(value.files[0]);
+            }
+        ])
+        {
+            const corrupted = JSON.parse(originalBytes);
+            mutate(corrupted);
+            const bytes = `${JSON.stringify(corrupted, null, 4)}\n`;
+            writeFixture(fixtureRoot, baselinePath, bytes);
+            const result = run();
+            assert.equal(result.status, 1, output(result));
+            assert.match(output(result), /intact original baseline/u);
+            assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), bytes);
+        }
+        writeFixture(fixtureRoot, baselinePath, originalBytes);
+        for (const extra of [['--rebind-baseline-policy'], ['--fix'], ['--update-baseline'], ['--file', 'src/Other.cs'], ['--mode', 'strict-full'], ['--base', 'HEAD'], ['--policy', path.join(fixtureRoot, 'config/csharp-style-policy.json')]])
+        {
+            assert.equal(run(extra).status, 1);
+            assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
+        }
+        const legacy = spawnSync(process.execPath, [checker, '--root', fixtureRoot,
+            '--mode', 'full', '--rebind-baseline-policy'], { cwd: fixtureRoot, encoding: 'utf8' });
+        assert.equal(legacy.status, 1, output(legacy));
+        assert.match(output(legacy), /canonical Miss suffix extension/u);
+        assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
+        const withoutAccess = structuredClone(sourcePolicy);
+        withoutAccess.enumNaming.acceptedSingularSuffixes.pop();
+        writeFixture(fixtureRoot, policyPath, `${JSON.stringify(withoutAccess, null, 4)}\n`);
+        assert.equal(run().status, 1);
+        assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
+        writeFixture(fixtureRoot, policyPath, candidatePolicy);
+        const expanded = structuredClone(sourcePolicy);
+        expanded.excludedPaths.push('src/**');
+        writeFixture(fixtureRoot, policyPath, `${JSON.stringify(expanded, null, 4)}\n`);
+        assert.equal(run().status, 1);
+        assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
+        writeFixture(fixtureRoot, policyPath, candidatePolicy);
+        rmSync(path.join(fixtureRoot, baselinePath));
+        assert.equal(run().status, 1);
+        writeFixture(fixtureRoot, 'original-baseline.json', originalBytes);
+        symlinkSync(path.join(fixtureRoot, 'original-baseline.json'), path.join(fixtureRoot, baselinePath));
+        assert.equal(run().status, 1);
+        assert.equal(readFileSync(path.join(fixtureRoot, 'original-baseline.json'), 'utf8'), originalBytes);
     });
 });
