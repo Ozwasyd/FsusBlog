@@ -1,0 +1,54 @@
+{
+  "purpose": "original static producer consumer binding observation; no acceptance grant",
+  "candidateCommit": "53bba36b436502c3dd3e4b4d48b229a1c348d28b",
+  "candidateBase": "73338cb1d727a2b36259b0dffffcfc1fbbbe80fb",
+  "latestFetchedMaster": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "originalReaderSession": "01a11faa-cdae-759f-97ce-d991ffa2701e",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "toolchain": {
+    "node": "v24.16.0",
+    "nodeExecutableSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+    "acorn": "8.16.0",
+    "amaro": "1.1.9"
+  },
+  "producerUnchanged": true,
+  "producerSupportedArguments": [],
+  "requestedToolsTestPathExists": false,
+  "actualProducerPath": "tools/test-matrix/generate-release-final-execution-authority.mjs",
+  "writesExactly": [
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "independentIndexReadOnly": "config/testing/release-final-execution-authority-index.json",
+  "ordinaryBindingGap": {
+    "path": "artifacts/change-contract/release-final-execution-target-authority-generated-binding.json",
+    "referencedOutputSha256": "4a37030eed8ea34b125a4ff0fcacc6bb3588ce9404cda31af1b2fcf3c4d0e951",
+    "candidateOriginalOutputSha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21",
+    "preExistingBindingMismatch": true,
+    "originalProducerWritesBinding": false,
+    "literalPathWriterFoundInTools": false,
+    "publicShellBindOutput": "artifacts/change-contract/public-shell-finite-input-generated-binding.json",
+    "publicShellBindIsDifferentOwnerAndManifest": true
+  },
+  "status": {
+    "staticGenerator": "passed",
+    "fixedPoint": "passed",
+    "generatedRangeCheck": "passed",
+    "completeTwoOutputRegeneration": "blocked: second requested output not identified by same producer; named ordinary metadata has no corresponding writer in tools",
+    "matrixPreflightAfterWrite": "not run",
+    "build": "not run",
+    "discovery": "not run",
+    "tests": "not run",
+    "executedTests": 0,
+    "runtimeQualification": "not granted"
+  },
+  "limits": [
+    "source-governance target legitimately adds dependency edges to two existing global-closure paths; original owner/declaration roster unchanged",
+    "two new reader files remain outside original 1128-file closure; static regeneration does not provide reader test evidence",
+    "only task-private detached probe writes the original fixture; published branch carries artifacts only",
+    "no index/schema/gate/source changes, manual digest rewriting or manual resealing",
+    "candidate output must be regenerated for any different commit or composition by the canonical shared-output owner"
+  ]
+}

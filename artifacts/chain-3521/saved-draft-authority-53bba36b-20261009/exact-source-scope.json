@@ -1,0 +1,21 @@
+{
+  "key": "exact-source-scope",
+  "sourceCommit": "53bba36b436502c3dd3e4b4d48b229a1c348d28b",
+  "cwd": "/workspace/FsusBlog-saved-draft-authority-probe-53bba36b",
+  "command": [
+    "git",
+    "diff",
+    "--name-status",
+    "73338cb1d727a2b36259b0dffffcfc1fbbbe80fb",
+    "53bba36b436502c3dd3e4b4d48b229a1c348d28b"
+  ],
+  "startedUtc": "2026-10-09T09:11:48.941152+00:00",
+  "completedUtc": "2026-10-09T09:11:48.945350+00:00",
+  "elapsedSeconds": 0.004,
+  "exitCode": 0,
+  "pid": 113903,
+  "logSha256": "2167dff60b9b67d42207cac56124755d5d4f89489252eb589198c3fab600f0ed",
+  "logBytes": 139,
+  "rawLogArchive": "exact-source-scope.log.gz",
+  "qualification": false
+}

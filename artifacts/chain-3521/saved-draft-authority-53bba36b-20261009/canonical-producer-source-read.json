@@ -1,0 +1,20 @@
+{
+  "key": "canonical-producer-source-read",
+  "sourceCommit": "53bba36b436502c3dd3e4b4d48b229a1c348d28b",
+  "cwd": "/workspace/FsusBlog-saved-draft-authority-probe-53bba36b",
+  "command": [
+    "sed",
+    "-n",
+    "2242,2265p",
+    "tools/test-matrix/release-final-static-boundary.mjs"
+  ],
+  "startedUtc": "2026-10-09T09:11:49.002493+00:00",
+  "completedUtc": "2026-10-09T09:11:49.007038+00:00",
+  "elapsedSeconds": 0.005,
+  "exitCode": 0,
+  "pid": 113905,
+  "logSha256": "e9881963e045a992b69f89c018fdb55b101c9652396119daf65a51054f44374a",
+  "logBytes": 1034,
+  "rawLogArchive": "canonical-producer-source-read.log.gz",
+  "qualification": false
+}

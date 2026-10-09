@@ -1,0 +1,56 @@
+{
+  "sourceCommit": "53bba36b436502c3dd3e4b4d48b229a1c348d28b",
+  "outputPath": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "outputSha256": "c01d2371d6d78473102f1022b3cb7f0fbe206b50411377fce6adf04ed23f053a",
+  "recordedAuthorityDigest": "sha256:204b765f0ea8110d8f623e122a7bf1984e7a864d6cc4d168e4eff98c3bb0760a",
+  "generatedAuthorityDigest": "sha256:f7ca239c80f231643a7f0b7320755ccff3141c4180d0d59f791bc5a9fab54f38",
+  "closureFiles": 1128,
+  "targets": 102,
+  "closurePathRosterUnchanged": true,
+  "targetPathRosterUnchanged": true,
+  "topLevelMetadataUnchanged": true,
+  "changedClosureCount": 23,
+  "changedClosurePaths": [
+    "config/development/frontend-style-policy.json",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "src/frontend/src/api/binaryFrame.ts",
+    "src/frontend/src/locales/de-DE/admin.ts",
+    "src/frontend/src/locales/en-US/admin.ts",
+    "src/frontend/src/locales/es-419/admin.ts",
+    "src/frontend/src/locales/fr-FR/admin.ts",
+    "src/frontend/src/locales/ja-JP/admin.ts",
+    "src/frontend/src/locales/ko-KR/admin.ts",
+    "src/frontend/src/locales/localeDomainBundleStore.ts",
+    "src/frontend/src/locales/pt-BR/admin.ts",
+    "src/frontend/src/locales/ru-RU/admin.ts",
+    "src/frontend/src/locales/zh-CN/admin.ts",
+    "src/frontend/src/locales/zh-Hant/admin.ts",
+    "src/frontend/wasm/web/protocol/frame.ts",
+    "tests/tools/aeds-protocol-generation.test.mjs",
+    "tests/tools/article-property-definition-authority.test.mjs",
+    "tests/tools/schema-allowed-extra-tables.test.mjs",
+    "tools/db/check-schema-allowed-extra-tables.mjs",
+    "tools/frontend/check-frontend-style.mjs",
+    "tools/frontend/generate-aeds-protocol.mjs",
+    "tools/frontend/style-toolchain/eslint.config.mjs",
+    "tools/governance/check-article-property-definition-authority.mjs"
+  ],
+  "allClosureContentMatchesIndex": true,
+  "changedWorktreePaths": [
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "qualificationEligible": false,
+  "targetMetadataOtherThanContentDigestsUnchanged": false,
+  "targetDeclarationsUnchanged": true,
+  "targetDependencyClosureChanges": [
+    {
+      "target": "tools/test-matrix/source-governance.mjs",
+      "addedPaths": [
+        "src/frontend/scripts/fsusui-root.mjs",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs"
+      ],
+      "removedPaths": []
+    }
+  ],
+  "fixedPointBytesUnchanged": true
+}

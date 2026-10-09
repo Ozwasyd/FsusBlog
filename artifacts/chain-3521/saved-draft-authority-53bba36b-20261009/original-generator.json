@@ -1,0 +1,18 @@
+{
+  "key": "original-generator",
+  "sourceCommit": "53bba36b436502c3dd3e4b4d48b229a1c348d28b",
+  "cwd": "/workspace/FsusBlog-saved-draft-authority-probe-53bba36b",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "startedUtc": "2026-10-09T09:07:17.322613+00:00",
+  "completedUtc": "2026-10-09T09:09:28.601844+00:00",
+  "elapsedSeconds": 131.279,
+  "exitCode": 0,
+  "pid": 108411,
+  "logSha256": "9e3b0df84f6151853dac3d0c173317c50aa1e1b2039b4c0ab8bad30944629196",
+  "logBytes": 258,
+  "rawLogArchive": "original-generator.log.gz",
+  "qualification": false
+}
