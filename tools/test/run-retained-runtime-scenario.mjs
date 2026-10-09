@@ -21,6 +21,28 @@ function atomicJson(target, document)
     fs.renameSync(temporary, target);
 }
 
+export function writeRetainedRuntimeResult(outputFile, document, rawResultFile = null)
+{
+    if (rawResultFile && path.resolve(rawResultFile) === path.resolve(outputFile))
+    {
+        throw new Error('raw result input must differ from the retained result output');
+    }
+    // Retain the original command outcome even if optional raw transport fails.
+    atomicJson(outputFile, document);
+    if (rawResultFile)
+    {
+        const bytes = fs.readFileSync(rawResultFile);
+        // Copy actual bytes without parsing vendor reports or claiming freshness,
+        // executed assertions, canonical IDs, artifact custody or admission.
+        document.result.diagnostics.rawResultFile = {
+            path: path.resolve(rawResultFile),
+            bytesBase64: bytes.toString('base64')
+        };
+        atomicJson(outputFile, document);
+    }
+    return document;
+}
+
 function parseArguments(argumentsList)
 {
     const separator = argumentsList.indexOf('--');
@@ -38,6 +60,14 @@ function parseArguments(argumentsList)
         else if (argumentsList[index] === '--cwd')
         {
             options.cwd = path.resolve(repositoryRoot, argumentsList[++index]);
+        }
+        else if (argumentsList[index] === '--raw-result-file')
+        {
+            if (index + 1 >= separator || !argumentsList[index + 1])
+            {
+                throw new Error('raw result input requires an explicit file path');
+            }
+            options.rawResultFile = argumentsList[++index];
         }
         else
         {
@@ -146,7 +176,8 @@ export async function runRetainedRuntimeScenario(argumentsList = process.argv.sl
                 : null
         }
     };
-    atomicJson(outputFile, document);
+    writeRetainedRuntimeResult(outputFile, document, options.rawResultFile
+        ? path.resolve(options.cwd ?? repositoryRoot, options.rawResultFile) : null);
     console.log(
         `[retained-runtime-scenario] id=${scenario.id} status=${status}`
         + ` evidence=${path.relative(repositoryRoot, outputFile)}`
