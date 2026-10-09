@@ -285,7 +285,7 @@ public sealed class DocumentExportContractTests
             DocumentExportContractCatalog.InputSchema,
             "input-owned",
             7,
-            11,
+            "https://example.test",
             new DocumentExportArticleCoordinate(DocumentExportCoordinateKind.Revision, 42, null, 101, null, 3),
             ImmutableCollectionsMarshal.AsImmutableArray(source),
             DocumentExportDigest.ComputeBytes(source),
@@ -301,6 +301,7 @@ public sealed class DocumentExportContractTests
             "zh-CN",
             ImmutableCollectionsMarshal.AsImmutableArray(assets),
             DocumentExportReadingStyleAuthority.AuthorityDigest,
+            null,
             string.Empty);
 
         DocumentExportFrozenInput frozen = DocumentExportContractValidator.Seal(unsealed);
@@ -992,7 +993,7 @@ public sealed class DocumentExportContractTests
             DocumentExportContractCatalog.InputSchema,
             "input-0001",
             7,
-            11,
+            "https://example.test",
             new DocumentExportArticleCoordinate(
                 DocumentExportCoordinateKind.Publication,
                 42,
@@ -1014,6 +1015,7 @@ public sealed class DocumentExportContractTests
             "zh-Hant",
             assets.ToImmutableArray(),
             DocumentExportReadingStyleAuthority.AuthorityDigest,
+            null,
             string.Empty);
         return DocumentExportContractValidator.Seal(input);
     }
@@ -1056,7 +1058,7 @@ public sealed class DocumentExportContractTests
             "request-0001",
             "idempotency-0001",
             input.UserId,
-            input.SiteId,
+            input.SiteScope,
             input.Coordinate,
             input.InputId,
             input.ContentDigest,
