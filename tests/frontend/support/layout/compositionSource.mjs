@@ -1263,6 +1263,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     if (!origin)
                     {
                         const targets = resolver.resolveComponentInput(file, exp, { templateRefs: true });
+                        if (targets.some((target) => target.selectorSource && localNames.has(target.selectorSource.name)))
+                        {
+                            fail(`template-shadowed returned component selector ${file}:${offset}`);
+                        }
                         if (targets.some((target) => target.kind === 'component-prop' && localNames.has(target.property)))
                         {
                             fail(`unbound template component prop ${file}:${offset}`);
@@ -1866,7 +1870,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                             exp = unwrapInput(exp);
                             if (exp && ts.isIdentifier(exp))
                             {
-                                return exp.text === node.origin.property;
+                                return exp.text === node.origin.property || node.origin.selectorSource?.bindingFile === node.file
+                                    && node.origin.selectorSource.property === node.origin.property && exp.text === node.origin.selectorSource.name;
                             }
                             return exp && ts.isBinaryExpression(exp) && exp.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
                                 && (requiresInput(exp.left) || requiresInput(exp.right));

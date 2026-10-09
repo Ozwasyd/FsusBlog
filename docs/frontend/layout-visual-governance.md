@@ -304,6 +304,16 @@ unknown supplied objects remain errors. The Dropdown Button bindings now follow
 the actual `buttonProps ?? {}` paths rather than guessing Button inputs or
 discarding its split-button branch.
 
+A returned computed prop selector binds the actual helper's props argument,
+closed final return object and immutable selected member. The caller must expose
+that same member through the actual Vue setup return or script-setup binding.
+Every selector branch must be a declared prop edge or an empty render value;
+no branch is chosen as product state. Unknown returns, changed or escaped props
+and members, hidden setup members and template shadowing remain errors. An
+absence guard may use only the selector alias carrying that complete source
+proof. This binds Select's actual suffix-icon path and does not grant runtime
+state, legality registration or qualification.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;
