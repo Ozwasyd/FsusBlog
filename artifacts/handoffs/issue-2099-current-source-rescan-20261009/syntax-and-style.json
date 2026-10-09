@@ -1,0 +1,85 @@
+{
+  "sourceCommit": "c3538c5ee3133ff71bf0b34b5c93055e7eccdbc8",
+  "syntax": [
+    {
+      "path": "tests/frontend/support/layout/compositionDom.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionSource.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-component-alternatives-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-object-key-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-object-props-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-render-conjunction-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-render-declarations-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-returned-props-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tests/tools/layout-standalone-props-source.test.mjs",
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "path": "tools/frontend/control-legality/source.mjs",
+      "exitCode": 0,
+      "output": ""
+    }
+  ],
+  "styleCommand": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "6dba4306df6c798c28141a5f88fb6255b68c5290",
+    "--file",
+    "tests/frontend/support/layout/compositionDom.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/tools/layout-component-alternatives-source.test.mjs",
+    "--file",
+    "tests/tools/layout-object-key-source.test.mjs",
+    "--file",
+    "tests/tools/layout-object-props-source.test.mjs",
+    "--file",
+    "tests/tools/layout-render-conjunction-source.test.mjs",
+    "--file",
+    "tests/tools/layout-render-declarations-source.test.mjs",
+    "--file",
+    "tests/tools/layout-returned-props-source.test.mjs",
+    "--file",
+    "tests/tools/layout-standalone-props-source.test.mjs",
+    "--file",
+    "tools/frontend/control-legality/source.mjs"
+  ],
+  "styleExitCode": 0,
+  "styleFixesOrBaselineWrites": false
+}

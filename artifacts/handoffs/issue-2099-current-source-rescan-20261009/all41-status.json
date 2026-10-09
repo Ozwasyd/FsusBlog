@@ -1,0 +1,418 @@
+{
+  "purpose": "entire41 assignment accounting with bounded2099 ordinary source integration; not an acceptance receipt",
+  "historicalStatusSource": "artifacts/handoffs/comment-construction-formal-components-20261008/assignment-status-current.json",
+  "historicalSourceSha256": "ae96ad8f106f5f5ec19bfb4432b4e5816d0a64c541cc116c0d4ae4b8e6477044",
+  "currentOrdinaryCandidate": "c3538c5ee3133ff71bf0b34b5c93055e7eccdbc8",
+  "historicalEntriesNotRebound": true,
+  "issues": [
+    {
+      "id": 2162,
+      "role": "tracking-only",
+      "historicalStatus": "tracking-only, acceptance blocked",
+      "historicalReason": "Bounded clock repair now published independently as 962801852, reviewed head b62c6f487 / PR #3923. Original comment governance 42/42 passes; full boundary 216/219, three catalog/profile failures remain. Independently observed non-model terminal evidence still missing. Tracking parent has no separate implementation or closure.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 1715,
+      "role": "tracking-only",
+      "historicalStatus": "tracking-only, compiled foundations passed",
+      "historicalReason": "Existing compiled thread/moderation contracts 22/22 and command/anonymous-provider contracts 14/14 pass at frozen f481. Actual live comment verify API exists. Separate current clock capability clears 23 model failures (42/42 governance) at b62c6f487, but does not provide production terminal acceptance or satisfy remaining catalog/profile gates. No aggregate closure.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2046,
+      "role": "execution",
+      "historicalStatus": "partial refusing entry API source verified locally; full acceptance blocked",
+      "historicalReason": "Bounded parent-authorized source increment bf59cf9c9a19650af940fc4c18da45a310143168 declares all four APIs/types/fixed refusal codes, 4/4 API controls and SOURCE/style/docs/range passed. Formal locator, sealed-metadata capability eligibility, semantic-role and private-entitlement contracts remain missing; #1715/full admission prerequisites and original acceptance are not satisfied. No consumer migration. Git push failed exit128: invalid configured credential. Existing Git access subsequently recovered for authorized2177 composition fetch/push; this2046 source branch remains local and its prior held push was not retried. Formal reader contracts remain the substantive acceptance blocker.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2047,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2046 verified reader. Its public/SEO/AOT/hydration consumer migration cannot start without that actual API and per-test sealed role/capability bindings.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2049,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2046 verified reader; current comment terminal evidence is also unmet. No moderation/private credential consumer migration performed.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2050,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2046 verified reader and exact messaging/notification roles. Existing messaging contract controls are models; no new consumer acceptance.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2051,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2046. The full private projection entitlement/lifecycle contract must be delivered before auth projections; no secret schema or carrier compatibility authority invented.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2048,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2046 and #2051. No auth/security consumer migration; production serializers/verified private entitlement remain mandatory.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2151,
+      "role": "execution",
+      "historicalStatus": "source foundations passed; waiting on #2051",
+      "historicalReason": "Current original auth private projection 27/27 and composition root 11/11 C# tests pass; original auth/private Node controls pass in the combined 28/28 run. Source/current-production-issuer and cross-run/catalog/expiry refusal foundations are executable. #2051 private policy/entitlement/lifecycle is undelivered; the full user/admin/device DB-cache-token-cookie-storage matrix and actual browser import have not run. No projection production or consumer migration accepted.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2170,
+      "role": "execution",
+      "historicalStatus": "codec foundations passed; waiting on #2051",
+      "historicalReason": "Correct direct prerequisites are #2169/#1704/#1705/#1706/#2051, not a direct #2046 dependency. Current original account-profile fixture service, locale cookie and locale codec tests 25/25 pass, plus preference Node controls in the combined 28/28 run. Existing complete preference PostgreSQL matrix with production commands, independent readers and owned cleanup passes 1/1; task containers absent after completion. #2051 private lifecycle remains undelivered; actual per-device browser first request/Public AOT source/locale/ACL/expiry/cleanup acceptance has not run. Narrow consumer handoff confirmed internal AccountLocaleDeviceProjection/PrepareAsync/VerifyAsync/CleanupAsync in source a4a8f9e40; actual Cookie/private browser projection and first-request AOT receipt API remains missing. Supplied account composer d722d67e was not consumed. Latest supplied composer 138c1254918d365d35b6019e1bd6d4a418bcafa3 already verifies exact immutable DTO then calls cleanup, explicitly cleanupCompletionVerified=false; not consumed or duplicated. Current #2170 prohibits account preference port implementation. Missing post-restoration preference cleanup readback belongs to closed #2169 existing canonical owner; owned #2170 gaps remain real Cookie/device-private storage and first-request AOT.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2177,
+      "role": "execution",
+      "historicalStatus": "bounded policy merged centrally; outbox and shared revision source published with original formal19/92; full authority acceptance OPEN",
+      "historicalReason": "Actual master1cd includes policy and lock. Pure outbox source3b1b42e2639d63805b4efd4371232fc0f74df144 has4-path scope and original formal19/19 covering exactly all old isolated case names; no old receipt reuse. Public eight-parameter BuildRevision sourcee816562e42be2afbce0136e1c3fd0515659da215 has7-path scope, original formal92/92 including8 hash/identity value controls and1 native PostgreSQL edit normalization/identity case. Create/edit/delete share the existing lowercase UTF8 SHA constructor; native writer still allocates revision row IDs. Premoderated Pending/article_policy_premoderated branch unchanged. SOURCE/range/complete proposed metadata pass. Actual qualified actor/security/role/nullifier/capability inputs, native atomic/audit transaction and independent fixture receipts are still missing/held; no whole issue acceptance.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2660,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2046/#2047/#2048/#2049/#2050/#2051. No deletion of old readers/inventory cutover before verified replacement consumers.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2661,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2660 exact inventory and #2046 reader. No admission sentinel implementation or zero-request acceptance without prerequisite bindings.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2662,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2661 current admission implementation and #2660 cleanup evidence. Verification-only; no fabricated scanner/mutation/terminal receipt.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2052,
+      "role": "tracking-only",
+      "historicalStatus": "tracking-only",
+      "historicalReason": "Aggregate #2660/#2661/#2662 and all migrated reader consumers. Each owned prerequisite is still waiting; no independent parent implementation or closure.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 1719,
+      "role": "tracking-only",
+      "historicalStatus": "tracking-only",
+      "historicalReason": "Tracking-only: #2046 narrow refusing entry source is locally verified, but full eligibility/role/entitlement contracts and child consumer cutover/cleanup evidence are absent. No tracking parent implementation or closure.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2054,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #1719 reader/consumer contract. Existing matrix/catalog controls fail exact fixture-profile/inventory checks; no capability-union implementation before actual reader eligibility.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2055,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2054. Fixture lifecycle DAG cannot start before the per-step capability union is verified. Existing orchestrator contract checks do not qualify current scheduled product fixtures.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2056,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2054/#2055 plus current closed scheduling/identity boundaries. No receipt admission or scheduler identity acceptance; current matrix reports explicit envelope/applicability drift.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2057,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2054/#2055/#2056. No profile/class boundaries accepted merely from existing catalogs; original exact admission negatives retained.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2663,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #1719/#2054/#2055/#2056/#2057. No deletion of default profile/tier inference before verified replacement DAG.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2664,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2663 and the actual matrix/reader contracts. Existing matrix fixture-profile test fails for validate-declarations/source-governance and stale generated matrix; no independent repair of sibling policy/fixture source.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2058,
+      "role": "tracking-only",
+      "historicalStatus": "tracking-only",
+      "historicalReason": "Aggregate #2663/#2664 and external #2665 (owner root #3521). Need exact #2665 terminal governance evidence and owned child acceptance; no parent implementation.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 1720,
+      "role": "tracking-only",
+      "historicalStatus": "tracking-only",
+      "historicalReason": "Aggregate #1719 and #2054–#2058. Current matrix fails its original validation; no full fixture scheduling/admission acceptance. This is an issue-specific matrix condition, not a blanket runtime gate.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 1721,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Final verification only; requires #1715/#1719/#1720 and closed boundaries including current-body #1711. No producer/startup/source repairs are allowed here; missing child/current runtime/zero-legacy proof prevents final qualification.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 1723,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #1719/#1720. No validity-class consumer/matrix/release cutover before sealed reader and scheduler admission; no legacy/demo widening.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2181,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Contract-only leaf requires #1723 plus #1713/#1722. Current required producer/consumer validity admission is not delivered; no new independent truth registry or session implementation.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2183,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2151/#2181. No bypass/legacy isolation before entitled private projection and truth classes; no canonical-positive bypass.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2680,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2151 plus closed auth/security boundaries. Actual auth cleanup test/ownership inventory requested by this issue is not present; deletion cannot start before the verified replacement projection. Narrow handoff confirmed CleanupPrivateAsync only for private admin carrier/session; no verified aggregate auth cleanup API. Required ownership/truth consumer inventories remain absent.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2178,
+      "role": "execution",
+      "historicalStatus": "existing ordinary source integrated and original formal controls verified; full native authority/edge acceptance OPEN",
+      "historicalReason": "Exact previously published own6656a73e andb570346e source integrated on current policy/lock/revision inputs. Four fixture adapter/test file blobs are identical to canonical ownb570; no new reader surface implementation. Actual original formal107 passed atf88bafd70bafae90ae573d8c430b97732dde488a, including10 ordinary command/delivery routing mocks; these do not qualify native admission. Published metadata-only successor9d50f803f0eced061e7a0b2d369f7dbdd711000e fixes one extra unregistered naming path and preserves6 project/2018 git source inputs,49 package inputs,57 compiled/restore hashes and explicitSDK binary/version. Actual107 receipt remains atf88, not relabeled. Current9d SOURCE/range/completeproposed metadata0. No sealed role/private reader expansion or held audit. Missing qualified initial comment/actor/security/admin permission/clock refs, atomic audit/outbox rollback and granted-appeal continuity observation.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "ordinary composition implemented and executable caller controls passed at 1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+      "currentBlockers": [
+        "qualified initial actor/security/admin/business-clock refs and permission inputs missing or held",
+        "atomic audit/outbox/capability observation and rollback not qualified",
+        "production granted-appeal Hidden to Approved event continuity remains defective; source observer refuses it"
+      ],
+      "currentOrdinaryEvidence": "https://github.com/Ozwasyd/FsusBlog/blob/7598b65bde01d3a47b70f8a0c3842604bdd80424/artifacts/handoffs/comment-ordinary-composition-20261009/handoff.json"
+    },
+    {
+      "id": 2179,
+      "role": "execution",
+      "historicalStatus": "existing ordinary source integrated and original formal controls verified; full native authority/edge acceptance OPEN",
+      "historicalReason": "Exact previously published own6656a73e andb570346e source integrated on current policy/lock/revision inputs. Four fixture adapter/test file blobs are identical to canonical ownb570; no new reader surface implementation. Actual original formal107 passed atf88bafd70bafae90ae573d8c430b97732dde488a, including10 ordinary command/delivery routing mocks; these do not qualify native admission. Published metadata-only successor9d50f803f0eced061e7a0b2d369f7dbdd711000e fixes one extra unregistered naming path and preserves6 project/2018 git source inputs,49 package inputs,57 compiled/restore hashes and explicitSDK binary/version. Actual107 receipt remains atf88, not relabeled. Current9d SOURCE/range/completeproposed metadata0. No sealed role/private reader expansion or held audit. Missing event/revision sealed payload/API coordinates, complete moderation queue, exact native Redis/stream/recipient observations and owner1653 current-run terminal evidence; first-page/ordinary mocks cannot qualify them.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "ordinary composition implemented and executable caller controls passed at 1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+      "currentBlockers": [
+        "current-run sealed event/revision coordinates and owner1653 queue/cache/stream/reply terminal evidence absent",
+        "ordinary read-port models do not establish native Redis/message delivery or terminal success"
+      ],
+      "currentOrdinaryEvidence": "https://github.com/Ozwasyd/FsusBlog/blob/7598b65bde01d3a47b70f8a0c3842604bdd80424/artifacts/handoffs/comment-ordinary-composition-20261009/handoff.json"
+    },
+    {
+      "id": 2692,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #1715/#2177/#2178/#2179. No legacy rerun cleanup before canonical operation-owned restoration is proven.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2693,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Verification-only; requires #2692 cleanup. No genuine isolation/parallel/rerun terminal input exists for the owned later flow; no production repair.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2180,
+      "role": "tracking-only",
+      "historicalStatus": "tracking-only",
+      "historicalReason": "Aggregate #2179/#2692/#2693. All current prerequisites unresolved; no parent implementation or terminal acceptance.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 1725,
+      "role": "tracking-only",
+      "historicalStatus": "tracking-only; source progress aggregated, acceptance OPEN",
+      "historicalReason": "Aggregates #2177 pure source ea870fe5a / PR #3982 and #2178/#2179 formal mutation/readonly observation source 6656a73e/b570346e with current compiled ordinary evidence. These APIs are not verified producer receipts or native/transaction/queue acceptance. All required child and independent gates remain open; no tracking implementation or closure.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2182,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2151/#2181 and external #1601 (root #3521), with closed auth lifecycle boundaries. No sessions/proofs/storage generation until private/truth/temporal contracts are satisfied.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2694,
+      "role": "execution",
+      "historicalStatus": "waiting",
+      "historicalReason": "Requires #2151/#2181/#2182/#2183. No deletion of auth truth fallback before verified canonical and isolated negative replacements. Narrow handoff confirmed CleanupPrivateAsync only for private admin carrier/session; no verified aggregate auth cleanup API. Required ownership/truth consumer inventories remain absent.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 2184,
+      "role": "tracking-only",
+      "historicalStatus": "tracking-only",
+      "historicalReason": "Aggregate #2182/#2183/#2694 and external #2695 (root #3654). Need exact current permission/refresh terminal evidence; source presence is not auth acceptance.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 1726,
+      "role": "tracking-only",
+      "historicalStatus": "tracking-only",
+      "historicalReason": "Aggregate #1723/#2181/#2182/#2183/#2184. Each owned truth/admission prerequisite remains waiting; no independent tracking implementation.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "no new execution in this ordinary composition; prior blockers/evidence retained as historical context"
+    },
+    {
+      "id": 3576,
+      "role": "execution",
+      "historicalStatus": "compiled acceptance passed; original gates blocked",
+      "historicalReason": "Original five production-source reads absent with no new findings. Genuine current compiled tests 140/140 pass: publication fixture 34, real PostgreSQL publication integration 18, DocumentExport 70, metadata helper 18. Preserved normalization/rights/responsibility/comment-port regressions 131/131, scanner/article/inventory 59/59, owner style, locked restore and full commit range pass. Original matrix exits 1; actual PR generated-repair gate exits 1; two current-epoch retirement declarations remain invalid. No whole-issue closure or merge qualification. Changed-owner C# style is also failed (78 whitespace diagnostics and four import-order diagnostics); original baseline formatter independently reports the same 78 whitespace diagnostics. GitHub CI is disabled and not a blocker; actual failed local gates remain binding.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "publication owner candidate unchanged; no publication test rerun in this caller-only attempt",
+      "currentBlockers": [
+        "original publication owner evidence remains bound to frozen f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+        "matrix/generated admission/current-epoch/full stage gates remain unaccepted; not rerun or promoted by this caller work"
+      ]
+    },
+    {
+      "id": 2099,
+      "role": "execution",
+      "historicalStatus": "partial source increment published; runtime/producer acceptance blocked",
+      "historicalReason": "375/768 canonical catalog and planner increment ec09353, naming metadata head 7a9d30c4b / PR #3921. Original five suites 29/29, range and PR contract pass; scoped style fails. Geometry API/schema/verifier, verified scene/state admission, native zoom, font/artifact/transport and real local/published receipts remain unavailable. Exact sibling #2097 source bed5c5d was inspected only; no full acceptance inferred.",
+      "historicalCandidateSha": "f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+      "wholeIssueAccepted": false,
+      "currentAttempt": "Complete supplied e5405fc canonical source/export/digest closure consumed without conflict at c3538c5ee3133ff71bf0b34b5c93055e7eccdbc8. All10 closure hashes and root package exports match; all24 original166 product source files unchanged. Fresh original composition source scan exits1 with78 real diagnostics:29 unknown-component,31 unknown-render,1 unbound-native-prop,17 route visual branch. Exact old-record comparison94 no longer reported/72 retained/6 new or changed; all90 supplier-mapped rows no longer reported. Syntax10, changed JS style10, source docs lint and range pass.91pending/79null and qualificationfalse preserved. No SDK/build/test/browser/control execution or inventory; external retained-build prerequisite stays separate.",
+      "currentSourceCandidateSha": "c3538c5ee3133ff71bf0b34b5c93055e7eccdbc8",
+      "currentOrdinaryEvidence": "artifacts/handoffs/issue-2099-current-source-rescan-20261009",
+      "currentBlockers": [
+        "Fresh source scan at c3538c5ee3133ff71bf0b34b5c93055e7eccdbc8 exits1 with78 preserved real diagnostics including6 new/changed records; remaining analyzer modules have distinct external owners and are not duplicated",
+        "Original source-bound retained inventory build attempt with actual .tmp/**/nuget-packages and locked SDK metadata/properties/lifecycle evidence not supplied; previous successful builds used external /workspace/.setup/nuget",
+        "91 pending-current-run states /79 null fixtureRefs and unresolved1814/1895 capability bindings",
+        "Existing caller lacks canonical scene/state/verified fixture/identity/run/source binding",
+        "Previous full style349 and original source-unit189 gates remain failed; no policy allowance or rebinding",
+        "Full PR/generated/product/browser/native zoom/current-state/published-package acceptance remains unaccepted"
+      ]
+    }
+  ],
+  "wholeAssignmentAccepted": false,
+  "previousStatusSource": "artifacts/handoffs/issue-2099-separator-retained-entry-20261009/all41-status.json",
+  "previousStatusSha256": "6e012feb957140cde42c4e976280cfaafa899fd2bf678a91e90b51d2cb1f2f92",
+  "geometrySourceCandidate": "c3538c5ee3133ff71bf0b34b5c93055e7eccdbc8",
+  "otherIssueEvidenceUnchanged": true,
+  "updatedAtUtc": "2026-10-09T11:37:04.499215+00:00",
+  "commentMetadataOnlySuccessor": "86b02bc431251901d3ebba0306a371903b1d0bf7",
+  "commentMetadataOnlyEvidence": "https://github.com/Ozwasyd/FsusBlog/blob/9ccb6d617e187f7279606f81feaaf793cecf7477/artifacts/handoffs/comment-naming-completion-20261009/handoff.json",
+  "commentOriginal16ReceiptNotRebound": true,
+  "priorGeometryStatusSource": "https://github.com/Ozwasyd/FsusBlog/blob/fa2568ce14022df08fcc8c0ec5adfb6e77df5b9d/artifacts/handoffs/issue-2099-geometry-integration-20261009/assignment-status-update.json",
+  "diagnosticPublicationCommit": "218db5725bd7becc44fe7cb31429e64352a29cfb",
+  "currentInventoryBoundaryPublication": "6abc3c276a5f2af8536e2ad845280bbb00f579f7",
+  "separatorSourceCommit": "8f3e46e17e6fa0f118bf4bd89b5b2de6392cb65b",
+  "separatorSupplierCommit": "9b1455c00389daf6472749f78c22d4a77a37766e",
+  "currentAnalyzerSupplier": "e5405fc822bb788882d98bc155d379f5d2314875"
+}

@@ -1,0 +1,971 @@
+{
+  "sourceCommit": "c3538c5ee3133ff71bf0b34b5c93055e7eccdbc8",
+  "sourceTree": "a27ae1a967d7b219d30ef00bfddc089f90a1a66c",
+  "worktreeDigest": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48",
+  "analyzerDigest": "af942e35f232aab7093b6f2287b7fda1874cf5e5fcb9108dfe5abaab0a30d184",
+  "originalReceiptSha256": "8205b0199800f7539bc84b8ca9724b7d6146a086acd0fa45d52cb8b0b9703298",
+  "originalReceiptBytes": 17967390,
+  "compressedReceiptSha256": "f65d8e770dcb20ea32030fcb41ad97c70d99339ee493d850f729a59047ecab7c",
+  "decompressionExact": true,
+  "scanExitCode": 1,
+  "startedAtUtc": "2026-10-09T11:33:18.509913+00:00",
+  "endedAtUtc": "2026-10-09T11:33:29.069767+00:00",
+  "currentErrors": 78,
+  "errorsByReason": {
+    "unknown-component-source": 29,
+    "unknown-render-source": 31,
+    "unbound-native-prop-source": 1,
+    "route-name-visual-branch": 17
+  },
+  "archetypes": 12,
+  "pendingStates": 91,
+  "nullFixtureRefs": 79,
+  "contractStatus": {
+    "status": "contract-defined",
+    "archetypes": 12,
+    "pendingCapabilities": [
+      {
+        "issue": 1814,
+        "capability": "authoring-product-model",
+        "status": "pending-exact-commit"
+      },
+      {
+        "issue": 1895,
+        "capability": "fsusui-control-origin",
+        "status": "pending-exact-commit"
+      }
+    ],
+    "runtimeFixtureBinding": {
+      "status": "requires-current-run-state-binding",
+      "ownerIssue": 2099
+    },
+    "pendingStateBindings": [
+      {
+        "archetype": "public/feed",
+        "stateId": "loading",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/feed",
+        "stateId": "empty",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/feed",
+        "stateId": "error",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/feed",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/feed",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/feed",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/reading",
+        "stateId": "loading",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/reading",
+        "stateId": "empty",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/reading",
+        "stateId": "error",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/reading",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/reading",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/reading",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/index",
+        "stateId": "loading",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/index",
+        "stateId": "empty",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/index",
+        "stateId": "error",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/index",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/index",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/index",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/document",
+        "stateId": "loading",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/document",
+        "stateId": "empty",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/document",
+        "stateId": "error",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/document",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/document",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/document",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/filter-search",
+        "stateId": "loading",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/filter-search",
+        "stateId": "empty",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/filter-search",
+        "stateId": "error",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/filter-search",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/filter-search",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "public/filter-search",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/identity-settings",
+        "stateId": "loading",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/identity-settings",
+        "stateId": "empty",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/identity-settings",
+        "stateId": "error",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/identity-settings",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/identity-settings",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/identity-settings",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/inbox-takeover",
+        "stateId": "loading",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/inbox-takeover",
+        "stateId": "empty",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/inbox-takeover",
+        "stateId": "error",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/inbox-takeover",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/inbox-takeover",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "identity/inbox-takeover",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/dashboard",
+        "stateId": "loading",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/dashboard",
+        "stateId": "empty",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/dashboard",
+        "stateId": "error",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/dashboard",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/dashboard",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/dashboard",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/collection",
+        "stateId": "loading",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/collection-workbench-contract.json",
+          "pointer": "/pages/1/states"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/collection",
+        "stateId": "empty",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/collection-workbench-contract.json",
+          "pointer": "/pages/1/states"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/collection",
+        "stateId": "error",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/collection",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/collection",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/collection",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/form",
+        "stateId": "loading",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/article-editor-production-contract.json",
+          "pointer": "/states"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/form",
+        "stateId": "empty",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/article-editor-production-contract.json",
+          "pointer": "/states"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/form",
+        "stateId": "error",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/article-editor-production-contract.json",
+          "pointer": "/states"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/form",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/form",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/form",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/form",
+        "stateId": "success",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/article-editor-production-contract.json",
+          "pointer": "/states"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/form",
+        "stateId": "partial",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/article-editor-production-contract.json",
+          "pointer": "/states"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "initial-loading",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "loaded",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "save-pending",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "save-success",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "save-failure",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "empty-values",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "current-values",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "invalid-values",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "brand-empty",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/settingsBrandUploadTrigger.ts",
+          "pointer": "source-file"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "brand-preview-loaded",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/settingsBrandUploadTrigger.ts",
+          "pointer": "source-file"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "brand-preview-failed",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/settingsBrandUploadTrigger.ts",
+          "pointer": "source-file"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "brand-uploading",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/settingsBrandUploadTrigger.ts",
+          "pointer": "source-file"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "brand-disabled",
+        "fixtureRef": {
+          "source": "tests/frontend/fixtures/settingsBrandUploadTrigger.ts",
+          "pointer": "source-file"
+        },
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "icon-generation-idle",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "icon-generation-pending",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "icon-generation-partial",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "icon-generation-failed",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "icon-generation-complete",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "tab-site",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "tab-compliance",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "tab-pages",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/settings",
+        "stateId": "tab-media",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/console",
+        "stateId": "loading",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/console",
+        "stateId": "empty",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/console",
+        "stateId": "error",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/console",
+        "stateId": "populated",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/console",
+        "stateId": "disabled",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      },
+      {
+        "archetype": "admin/console",
+        "stateId": "permission-denied",
+        "fixtureRef": null,
+        "ownerIssue": 2099
+      }
+    ]
+  },
+  "sourceGraphIdentities": [
+    {
+      "archetype": "public/feed",
+      "sourceDigest": "3c45f324720a981b3b6bcd18db1ae9a0977c5baf5801f9afa60a5302e5b51a7b",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "public/reading",
+      "sourceDigest": "8812a3ea830c65beb744dccd5a0da569dcc478a1cd633a1d68b31a81c0a796bf",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "public/index",
+      "sourceDigest": "4ce5b4222ff71cd33ab8b2342bb800575d06696f2e05d45b247a1d29ffbcadaf",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "public/document",
+      "sourceDigest": "d1d94aa8b8cdc97e89d3882d362da8bb44fa06e279408982ecd601422da49679",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "public/filter-search",
+      "sourceDigest": "a360cc4ae309668cf24518edfd5ce05bb3c5e0de9d4e29fa246ba676717acbff",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "identity/identity-settings",
+      "sourceDigest": "9e57eb9e629aa4721f4b72dc46c433728bf86fbb882736fa8eb24282f43f6be1",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "identity/inbox-takeover",
+      "sourceDigest": "2244c136eb1dc6c704282e43df72f6662d7defc008d29e99b7bcc2a189b7f00a",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "admin/dashboard",
+      "sourceDigest": "503c5220ad410ce8d1bf748cfe84134486f64158ca50a8b6a82e224f7f7c03e8",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "admin/collection",
+      "sourceDigest": "937263810565e19b8aeca438e9540041ba7af0dc50c5905d72f5e8572d10fb4e",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "admin/form",
+      "sourceDigest": "a607aae4639e8cae85d361df7156aaea4676866355cb23bb8fefebf181915a7c",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "admin/settings",
+      "sourceDigest": "2762b3141702cff87155f07c660ae5e27bc4be08a0dca548c2eb36dbf7a45127",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    },
+    {
+      "archetype": "admin/console",
+      "sourceDigest": "e3b62a50eb37d52bcf77a4b8eaadc8f87a61cdddf59f2a798bb5b07b2be177e4",
+      "sourceIdentity": {
+        "mode": "local",
+        "package": "@ozwasyd/element-plus",
+        "publicRoot": "/workspace/FsusUI/vue/packages/element-plus",
+        "packageDigest": "5e9ec32635bd3861a54dab7b6d03bb9c2b1d6350656d5d041dc1596348f9031b",
+        "upstream": {
+          "kind": "local-source",
+          "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+          "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+          "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "resolutionInputs": [
+          {
+            "path": "/workspace/FsusUI/vue/tsconfig.base.json",
+            "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+          }
+        ],
+        "parsers": {
+          "typescript": "6.0.3",
+          "vueSfc": "3.5.33",
+          "vueDom": "3.5.33"
+        }
+      }
+    }
+  ],
+  "originalRowsNoLongerReported": 94,
+  "originalRowsRetained": 72,
+  "newOrChangedRecords": 6,
+  "supplierMapped90RowsAllNoLongerReported": true,
+  "testsExecuted": 0,
+  "browserRuns": 0,
+  "sdkBuilds": 0,
+  "qualified": false,
+  "fullVisualVerified": false,
+  "fullGeometryVerified": false,
+  "privatePublishedModeNotRun": true,
+  "existingPrivatePackage401NotRetried": true,
+  "supplier331ControlsNotInherited": true,
+  "inventoryRetainedBuildPrerequisiteUnchanged": true,
+  "newOrChangedDiagnosticsAreNotDiscarded": true,
+  "originalRouteAstSourceUnchanged": true,
+  "secondRouteMapCreated": false,
+  "otherFiveModuleOwnersNotImplemented": true
+}
