@@ -1,0 +1,168 @@
+{
+  "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+  "sourceBranch": "task/3593-leaf-source-port",
+  "frozenReviewSource": "cdc7b00932a448effdae08b9c9550b59e535a423",
+  "totalChangedPaths": 16,
+  "categoryCounts": {
+    "indispensable-governed-metadata": 5,
+    "consumed-canonical-prerequisite": 10,
+    "owned-js-leaf-source": 1
+  },
+  "productionRuntimeSources": 0,
+  "evidenceOnlyPathsInSourceDiff": 0,
+  "completePathClosure": [
+    {
+      "path": ".git-blame-ignore-revs",
+      "status": "M",
+      "category": "indispensable-governed-metadata",
+      "blob": "02ffa70e5adf9a8aca340aa97562aebce9280b26",
+      "sha256": "d8ab2deb7f0af5e1550e5a0e4f19f2610606027cf38658d47c4b73c269519f1e",
+      "productionRuntimeSource": false,
+      "reason": "Original later blame registration is mandatory, reachable and validated against actual pure format parent diff."
+    },
+    {
+      "path": "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+      "status": "A",
+      "category": "indispensable-governed-metadata",
+      "blob": "5a6f6ee7095584b08b01e0032979a5e9a535e080",
+      "sha256": "d996ed81f91abf0ae142a8a1268c13ef5e6e9c277737b366c0c25ce032010511",
+      "productionRuntimeSource": false,
+      "reason": "Existing ordinary v1 binding of actual changed inputs and independently produced output, no catalog historical admission invented."
+    },
+    {
+      "path": "artifacts/change-contract/suite-convergence-leaf-external-naming.json",
+      "status": "A",
+      "category": "indispensable-governed-metadata",
+      "blob": "88e523969b5ae87bd73fe4c0c1009ae1a84e6402",
+      "sha256": "64adb0cefb10393dd5ac5ab7790aa576cc4dede0dd83bace82124f6728a3d97b",
+      "productionRuntimeSource": false,
+      "reason": "Existing json-wire-key/environment-variable registry scopes cover all actual changed registered surfaces, no policy/exception additions."
+    },
+    {
+      "path": "artifacts/style/suite-convergence-leaf-idempotence.json",
+      "status": "A",
+      "category": "indispensable-governed-metadata",
+      "blob": "006da5ebf875e0628dc694da59fa27bd22b3cecf",
+      "sha256": "2a30d09a647c1010d6d6b79a783313c922ea3b549a32f06574cc3d15f3cee1b0",
+      "productionRuntimeSource": false,
+      "reason": "Original format footer and change-contract require exact candidate HEAD idempotence evidence in changed files."
+    },
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+      "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+      "productionRuntimeSource": false,
+      "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+    },
+    {
+      "path": "config/testing/release-final-execution-authority-index.json",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "b881ab993faf6cd5d44136277510bba669fa66ea",
+      "sha256": "3f78fef68734af5595d12fc560a043fcc4c20f4bb2ad0a2174fd4450e347d6c6",
+      "productionRuntimeSource": false,
+      "reason": "Exact compatible sole3534 source5e01897f5bed3a31d17b87d65b15a653cd8f1517; original parser algorithm unchanged, actual source91339e... and expression1194f... matched two sealed package inputs. Full module callbacks remain unrun; current original primitive and canonical producer separately passed."
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "status": "M",
+      "category": "indispensable-governed-metadata",
+      "blob": "9e7ccfabc6a14d951bc759b315fe8bac02ced535",
+      "sha256": "77b6fe9ff8c7066334d3df8414e4cfb36286c9f4ca265883a9ece40057df4dbc",
+      "productionRuntimeSource": false,
+      "reason": "Actual original producer run twice identically;1139 closure rows and102 unchanged target identities. No manual fixture edit."
+    },
+    {
+      "path": "tests/tools/blame-ignore-source.test.mjs",
+      "status": "A",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "dc12d44ce1b61e2bdfc8bdbef7920f252a18851b",
+      "sha256": "75ce8087b6b46e5701cfa81613e699e2dd0daf21649cea35fd6648cdcacb80e7",
+      "productionRuntimeSource": false,
+      "reason": "Exact canonical3659 delta consumed; union of current fs/path and original port URL imports is the sole authorized conflict resolution. Actual tests/source held controls are not promoted to current execution."
+    },
+    {
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "33e14abbbed9b3d7d074aae96cc679e9e313b8b3",
+      "sha256": "0103479f0ce7ccf2a30a6a2460fd3fcb82f48e8b518c6c14528a4c548fa1aac7",
+      "productionRuntimeSource": false,
+      "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+    },
+    {
+      "path": "tests/tools/pr-impact-plan.test.mjs",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "d89ac6a6eeed8b3d7d70af35a6a83ef63d273820",
+      "sha256": "5c4c41baea24be8bdaf86d327b66e0e44744a7118180e8fdf3c745f7beb39c65",
+      "productionRuntimeSource": false,
+      "reason": "Exact canonical3659 delta consumed; union of current fs/path and original port URL imports is the sole authorized conflict resolution. Actual tests/source held controls are not promoted to current execution."
+    },
+    {
+      "path": "tests/tools/release-final-static-boundary.test.mjs",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "3a989ca888b4801ebfe0f1a8e199f6ba76d9d25a",
+      "sha256": "abf1de5f01ead7f1683bd2e0c4254ba22d7b3e0acbf7f22627ff98581be16df3",
+      "productionRuntimeSource": false,
+      "reason": "Exact compatible sole3534 source5e01897f5bed3a31d17b87d65b15a653cd8f1517; original parser algorithm unchanged, actual source91339e... and expression1194f... matched two sealed package inputs. Full module callbacks remain unrun; current original primitive and canonical producer separately passed."
+    },
+    {
+      "path": "tests/tools/test-suite-convergence.test.mjs",
+      "status": "M",
+      "category": "owned-js-leaf-source",
+      "blob": "4cad13021658379c7189cf5de84af0fe6d60daea",
+      "sha256": "17b6d8622108eb53421af1f830f0cd37dba60ede4ed65c9c554b596e20cdd238",
+      "productionRuntimeSource": false,
+      "reason": "Original issue3593 test owner, exact unchanged17 IDs; original format/syntax history remains."
+    },
+    {
+      "path": "tools/test-matrix/blame-ignore-source.mjs",
+      "status": "A",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "0b167292a8b2fe123031a8af2cddfdbd0ad7aa89",
+      "sha256": "46cbee66b9ec8ffb956383251c90913d8553f6fe4da4650661ea1a1daa21d300",
+      "productionRuntimeSource": false,
+      "reason": "Exact canonical3659 delta consumed; union of current fs/path and original port URL imports is the sole authorized conflict resolution. Actual tests/source held controls are not promoted to current execution."
+    },
+    {
+      "path": "tools/test-matrix/pr-impact-plan.mjs",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "625edf5fffdbb45beaa4acb33efa194aa77ea012",
+      "sha256": "4611fac4fef71f5f68b9a0fdb956e3d02f041e281c1274e4355f86d9e60af63d",
+      "productionRuntimeSource": false,
+      "reason": "Exact canonical3659 delta consumed; union of current fs/path and original port URL imports is the sole authorized conflict resolution. Actual tests/source held controls are not promoted to current execution."
+    },
+    {
+      "path": "tools/test-matrix/source-governance.mjs",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "4f9f4a41035234982e6aa097c9611d2a05ba1625",
+      "sha256": "b16f0a97701f042cbb56119436554dc2e9f6d46e2023101a6c75d09e5b221e64",
+      "productionRuntimeSource": false,
+      "reason": "Exact canonical3659 delta consumed; union of current fs/path and original port URL imports is the sole authorized conflict resolution. Actual tests/source held controls are not promoted to current execution."
+    },
+    {
+      "path": "tools/test/correctness-attempt-migration.mjs",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "blob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+      "sha256": "f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+      "productionRuntimeSource": false,
+      "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+    }
+  ],
+  "canonical3659PortPaths": [
+    "tests/tools/blame-ignore-source.test.mjs",
+    "tests/tools/pr-impact-plan.test.mjs",
+    "tools/test-matrix/blame-ignore-source.mjs",
+    "tools/test-matrix/pr-impact-plan.mjs",
+    "tools/test-matrix/source-governance.mjs"
+  ],
+  "reviewerThread": "01a11bee-ee2f-71f8-b929-9e6fc95fa00b"
+}

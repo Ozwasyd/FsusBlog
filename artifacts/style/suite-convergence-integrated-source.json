@@ -1,0 +1,1144 @@
+{
+  "schema": "fsusblog.issue-3593-canonical-source-port-integration.v1",
+  "issue": 3593,
+  "status": "OPEN / authorized single import conflict resolved, integrated source and permitted ordinary controls verified; independent and complete acceptance remain outstanding",
+  "runId": "issue-3593-ordinary-current-20261009T053322Z",
+  "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+  "sourceBranch": "task/3593-leaf-source-port",
+  "sourceFrozenForSameReviewer": true,
+  "frozenReviewedSource": "cdc7b00932a448effdae08b9c9550b59e535a423",
+  "previousCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+  "reviewerThread": "01a11bee-ee2f-71f8-b929-9e6fc95fa00b",
+  "reviewerNeedsFullCurrentScope": true,
+  "sourceCompareUrl": "https://github.com/Ozwasyd/FsusBlog/compare/be7c53d99b64342925ca63d061bacde34d22ba4c...0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+  "sourceRemoteVerification": "cdc7b00932a448effdae08b9c9550b59e535a423\trefs/heads/task/3593-leaf-review-boundary\n0a6dc39f7b2c3a5527d020ff855973ac27bb1226\trefs/heads/task/3593-leaf-source-port\n",
+  "completePathClosure": {
+    "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+    "sourceBranch": "task/3593-leaf-source-port",
+    "frozenReviewSource": "cdc7b00932a448effdae08b9c9550b59e535a423",
+    "totalChangedPaths": 16,
+    "categoryCounts": {
+      "indispensable-governed-metadata": 5,
+      "consumed-canonical-prerequisite": 10,
+      "owned-js-leaf-source": 1
+    },
+    "productionRuntimeSources": 0,
+    "evidenceOnlyPathsInSourceDiff": 0,
+    "completePathClosure": [
+      {
+        "path": ".git-blame-ignore-revs",
+        "status": "M",
+        "category": "indispensable-governed-metadata",
+        "blob": "02ffa70e5adf9a8aca340aa97562aebce9280b26",
+        "sha256": "d8ab2deb7f0af5e1550e5a0e4f19f2610606027cf38658d47c4b73c269519f1e",
+        "productionRuntimeSource": false,
+        "reason": "Original later blame registration is mandatory, reachable and validated against actual pure format parent diff."
+      },
+      {
+        "path": "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+        "status": "A",
+        "category": "indispensable-governed-metadata",
+        "blob": "5a6f6ee7095584b08b01e0032979a5e9a535e080",
+        "sha256": "d996ed81f91abf0ae142a8a1268c13ef5e6e9c277737b366c0c25ce032010511",
+        "productionRuntimeSource": false,
+        "reason": "Existing ordinary v1 binding of actual changed inputs and independently produced output, no catalog historical admission invented."
+      },
+      {
+        "path": "artifacts/change-contract/suite-convergence-leaf-external-naming.json",
+        "status": "A",
+        "category": "indispensable-governed-metadata",
+        "blob": "88e523969b5ae87bd73fe4c0c1009ae1a84e6402",
+        "sha256": "64adb0cefb10393dd5ac5ab7790aa576cc4dede0dd83bace82124f6728a3d97b",
+        "productionRuntimeSource": false,
+        "reason": "Existing json-wire-key/environment-variable registry scopes cover all actual changed registered surfaces, no policy/exception additions."
+      },
+      {
+        "path": "artifacts/style/suite-convergence-leaf-idempotence.json",
+        "status": "A",
+        "category": "indispensable-governed-metadata",
+        "blob": "006da5ebf875e0628dc694da59fa27bd22b3cecf",
+        "sha256": "2a30d09a647c1010d6d6b79a783313c922ea3b549a32f06574cc3d15f3cee1b0",
+        "productionRuntimeSource": false,
+        "reason": "Original format footer and change-contract require exact candidate HEAD idempotence evidence in changed files."
+      },
+      {
+        "path": "config/testing/correctness-attempt-producers.json",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+        "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+        "productionRuntimeSource": false,
+        "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+      },
+      {
+        "path": "config/testing/release-final-execution-authority-index.json",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "b881ab993faf6cd5d44136277510bba669fa66ea",
+        "sha256": "3f78fef68734af5595d12fc560a043fcc4c20f4bb2ad0a2174fd4450e347d6c6",
+        "productionRuntimeSource": false,
+        "reason": "Exact compatible sole3534 source5e01897f5bed3a31d17b87d65b15a653cd8f1517; original parser algorithm unchanged, actual source91339e... and expression1194f... matched two sealed package inputs. Full module callbacks remain unrun; current original primitive and canonical producer separately passed."
+      },
+      {
+        "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "status": "M",
+        "category": "indispensable-governed-metadata",
+        "blob": "9e7ccfabc6a14d951bc759b315fe8bac02ced535",
+        "sha256": "77b6fe9ff8c7066334d3df8414e4cfb36286c9f4ca265883a9ece40057df4dbc",
+        "productionRuntimeSource": false,
+        "reason": "Actual original producer run twice identically;1139 closure rows and102 unchanged target identities. No manual fixture edit."
+      },
+      {
+        "path": "tests/tools/blame-ignore-source.test.mjs",
+        "status": "A",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "dc12d44ce1b61e2bdfc8bdbef7920f252a18851b",
+        "sha256": "75ce8087b6b46e5701cfa81613e699e2dd0daf21649cea35fd6648cdcacb80e7",
+        "productionRuntimeSource": false,
+        "reason": "Exact canonical3659 delta consumed; union of current fs/path and original port URL imports is the sole authorized conflict resolution. Actual tests/source held controls are not promoted to current execution."
+      },
+      {
+        "path": "tests/tools/correctness-attempt-migration.test.mjs",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "33e14abbbed9b3d7d074aae96cc679e9e313b8b3",
+        "sha256": "0103479f0ce7ccf2a30a6a2460fd3fcb82f48e8b518c6c14528a4c548fa1aac7",
+        "productionRuntimeSource": false,
+        "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+      },
+      {
+        "path": "tests/tools/pr-impact-plan.test.mjs",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "d89ac6a6eeed8b3d7d70af35a6a83ef63d273820",
+        "sha256": "5c4c41baea24be8bdaf86d327b66e0e44744a7118180e8fdf3c745f7beb39c65",
+        "productionRuntimeSource": false,
+        "reason": "Exact canonical3659 delta consumed; union of current fs/path and original port URL imports is the sole authorized conflict resolution. Actual tests/source held controls are not promoted to current execution."
+      },
+      {
+        "path": "tests/tools/release-final-static-boundary.test.mjs",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "3a989ca888b4801ebfe0f1a8e199f6ba76d9d25a",
+        "sha256": "abf1de5f01ead7f1683bd2e0c4254ba22d7b3e0acbf7f22627ff98581be16df3",
+        "productionRuntimeSource": false,
+        "reason": "Exact compatible sole3534 source5e01897f5bed3a31d17b87d65b15a653cd8f1517; original parser algorithm unchanged, actual source91339e... and expression1194f... matched two sealed package inputs. Full module callbacks remain unrun; current original primitive and canonical producer separately passed."
+      },
+      {
+        "path": "tests/tools/test-suite-convergence.test.mjs",
+        "status": "M",
+        "category": "owned-js-leaf-source",
+        "blob": "4cad13021658379c7189cf5de84af0fe6d60daea",
+        "sha256": "17b6d8622108eb53421af1f830f0cd37dba60ede4ed65c9c554b596e20cdd238",
+        "productionRuntimeSource": false,
+        "reason": "Original issue3593 test owner, exact unchanged17 IDs; original format/syntax history remains."
+      },
+      {
+        "path": "tools/test-matrix/blame-ignore-source.mjs",
+        "status": "A",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "0b167292a8b2fe123031a8af2cddfdbd0ad7aa89",
+        "sha256": "46cbee66b9ec8ffb956383251c90913d8553f6fe4da4650661ea1a1daa21d300",
+        "productionRuntimeSource": false,
+        "reason": "Exact canonical3659 delta consumed; union of current fs/path and original port URL imports is the sole authorized conflict resolution. Actual tests/source held controls are not promoted to current execution."
+      },
+      {
+        "path": "tools/test-matrix/pr-impact-plan.mjs",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "625edf5fffdbb45beaa4acb33efa194aa77ea012",
+        "sha256": "4611fac4fef71f5f68b9a0fdb956e3d02f041e281c1274e4355f86d9e60af63d",
+        "productionRuntimeSource": false,
+        "reason": "Exact canonical3659 delta consumed; union of current fs/path and original port URL imports is the sole authorized conflict resolution. Actual tests/source held controls are not promoted to current execution."
+      },
+      {
+        "path": "tools/test-matrix/source-governance.mjs",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "4f9f4a41035234982e6aa097c9611d2a05ba1625",
+        "sha256": "b16f0a97701f042cbb56119436554dc2e9f6d46e2023101a6c75d09e5b221e64",
+        "productionRuntimeSource": false,
+        "reason": "Exact canonical3659 delta consumed; union of current fs/path and original port URL imports is the sole authorized conflict resolution. Actual tests/source held controls are not promoted to current execution."
+      },
+      {
+        "path": "tools/test/correctness-attempt-migration.mjs",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "blob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+        "sha256": "f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+        "productionRuntimeSource": false,
+        "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+      }
+    ],
+    "canonical3659PortPaths": [
+      "tests/tools/blame-ignore-source.test.mjs",
+      "tests/tools/pr-impact-plan.test.mjs",
+      "tools/test-matrix/blame-ignore-source.mjs",
+      "tools/test-matrix/pr-impact-plan.mjs",
+      "tools/test-matrix/source-governance.mjs"
+    ],
+    "reviewerThread": "01a11bee-ee2f-71f8-b929-9e6fc95fa00b"
+  },
+  "canonical3659": {
+    "suppliedCommit": "0a88beb347d1941d140898cfa39c49285841e2d5",
+    "localReplayCommit": "462d0f872a791764255e8d342d4268a70417ee05",
+    "sourceConsumed": true,
+    "canonicalOwnerBranchUnmodified": true,
+    "authorizedImportResolution": {
+      "port": "0a88beb347d1941d140898cfa39c49285841e2d5",
+      "beforeHead": "9538740ecc8f2f11ab0d67e210e0899b20cf1796",
+      "path": "tools/test-matrix/pr-impact-plan.mjs",
+      "oneImportConflictOnly": true,
+      "postImportAutoMergedLogicByteIdentical": true,
+      "retainedCurrentImports": [
+        "node:child_process",
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
+      "retainedCanonicalSymbols": [
+        "URL from node:url",
+        "isValidatedBlameIgnoreSourceReceipt via original ./blame-ignore-source.mjs URL"
+      ],
+      "stagesSha256": {
+        "1": "afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe",
+        "2": "c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f",
+        "3": "36e22f4671c4f73bebbe14644effa0e23fdb4d3972b60869b87ebf33a4b4ab38"
+      },
+      "resolvedSha256": "4611fac4fef71f5f68b9a0fdb956e3d02f041e281c1274e4355f86d9e60af63d",
+      "allCanonicalBodyDeltasConsumedExactly": true,
+      "unrelatedCurrentLogicByteIdentical": true,
+      "currentWholeOldFileNotSubstituted": true,
+      "replayCommit": "462d0f872a791764255e8d342d4268a70417ee05"
+    },
+    "donorComparison": {
+      "tests/tools/blame-ignore-source.test.mjs": {
+        "donorByteIdentical": true
+      },
+      "tests/tools/pr-impact-plan.test.mjs": {
+        "donorByteIdentical": false,
+        "currentFunctionalityPreservedBeyondDonorDelta": true,
+        "correction": "Initial collector used incorrect expected literal replacement; corrected against actual donor diff, no source or test change."
+      },
+      "tools/test-matrix/blame-ignore-source.mjs": {
+        "donorByteIdentical": true
+      },
+      "tools/test-matrix/source-governance.mjs": {
+        "donorByteIdentical": false,
+        "currentRepositoryRootRoutingPreserved": true
+      }
+    },
+    "supplier60TestsInheritedAsCurrent": false
+  },
+  "canonical3534": {
+    "source": "5e01897f5bed3a31d17b87d65b15a653cd8f1517",
+    "sourceStillPreserved": true,
+    "fullTestModuleCallbacksExecuted": false
+  },
+  "masterIntegration": {
+    "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "mergeCommit": "9538740ecc8f2f11ab0d67e210e0899b20cf1796",
+    "overlap": {
+      "previousBase": "85aa75af8949401ef9997c5042d22b1071414e0a",
+      "currentBase": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+      "masterIncrementPaths": [
+        "artifacts/change-contract/public-hot-risk-projection-docs-external-naming.json",
+        "src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs"
+      ],
+      "previousOwnedClosure": [
+        ".git-blame-ignore-revs",
+        "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+        "artifacts/change-contract/suite-convergence-leaf-external-naming.json",
+        "artifacts/style/suite-convergence-leaf-idempotence.json",
+        "config/testing/correctness-attempt-producers.json",
+        "config/testing/release-final-execution-authority-index.json",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "tests/tools/correctness-attempt-migration.test.mjs",
+        "tests/tools/release-final-static-boundary.test.mjs",
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tools/test/correctness-attempt-migration.mjs"
+      ],
+      "directOverlap": []
+    }
+  },
+  "toolchain": {
+    "versions": {
+      "node": "v24.16.0",
+      "npm": "11.13.0"
+    },
+    "officialNodeTarSha256": "d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9",
+    "officialLockedInstallResults": [
+      {
+        "command": [
+          "npm",
+          "ci",
+          "--ignore-scripts",
+          "--prefix",
+          "tests/tools"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 0,
+        "log": "install-tests__tools.log"
+      },
+      {
+        "command": [
+          "npm",
+          "ci",
+          "--ignore-scripts",
+          "--prefix",
+          "tools/frontend/style-toolchain"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 0,
+        "log": "install-tools__frontend__style-toolchain.log"
+      },
+      {
+        "command": [
+          "npm",
+          "ci",
+          "--ignore-scripts",
+          "--prefix",
+          "tools/governance/javascript-format-parser"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 0,
+        "log": "install-tools__governance__javascript-format-parser.log"
+      },
+      {
+        "command": [
+          "npm",
+          "ci",
+          "--ignore-scripts",
+          "--prefix",
+          "tools/test-inventory/ts-ast-adapter"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 0,
+        "log": "install-tools__test-inventory__ts-ast-adapter.log"
+      },
+      {
+        "command": [
+          "npm",
+          "ci",
+          "--ignore-scripts",
+          "--prefix",
+          "tools/test-matrix/schema-validator"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 0,
+        "log": "install-tools__test-matrix__schema-validator.log"
+      }
+    ],
+    "trustedParserInstall": {
+      "command": [
+        "npm",
+        "ci",
+        "--ignore-scripts",
+        "--prefix",
+        "tools/governance/javascript-format-parser"
+      ],
+      "cwd": "/tmp/fsusblog-3593/resume-base-authority",
+      "taskScopedCache": "/tmp/fsusblog-3593/npm-cache",
+      "exitCode": 0,
+      "log": "trusted-parser-install-task-cache.log",
+      "logSha256": "03d53a9dbefaef2805c0a36e46bf1e9e9b03bd65b74457016079f902555e5599"
+    },
+    "lifecycleScriptsExecuted": false
+  },
+  "canonicalProducer": {
+    "commands": [
+      {
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/test-matrix/generate-release-final-execution-authority.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "sourceInputHead": "462d0f872a791764255e8d342d4268a70417ee05",
+        "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+        "exitCode": 0,
+        "log": "original-authority-pass-0.log"
+      },
+      {
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/test-matrix/generate-release-final-execution-authority.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "sourceInputHead": "462d0f872a791764255e8d342d4268a70417ee05",
+        "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+        "exitCode": 0,
+        "log": "original-authority-pass-1.log"
+      }
+    ],
+    "unchangedProducerSourceIdentities": [
+      {
+        "path": "tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "sha256": "85bd0c3eb2a17e9dbda9fb86d4a2c2fd9bd17d9c6eb2ae3ed3e0e97e49c44fef",
+        "unchangedVersusCurrentBaseAndPreviousCandidate": true
+      },
+      {
+        "path": "tools/test-matrix/release-final-static-boundary.mjs",
+        "sha256": "89e18f63eb9edaf6541b4b4bf2c07f7bf93a045a764b7b1fa171299cd6e2adb3",
+        "unchangedVersusCurrentBaseAndPreviousCandidate": true
+      }
+    ],
+    "outputProof": {
+      "sourceInputHead": "462d0f872a791764255e8d342d4268a70417ee05",
+      "originalProducerUnchanged": true,
+      "twoPassesByteIdentical": true,
+      "outputSha256": "77b6fe9ff8c7066334d3df8414e4cfb36286c9f4ca265883a9ece40057df4dbc",
+      "oldRowCount": 1128,
+      "newRowCount": 1139,
+      "targetCount": 102,
+      "targetRosterPreserved": true,
+      "addedClosurePaths": [
+        "commitlint.config.mjs",
+        "docs/development/native-tooling-style-enforcement.md",
+        "tests/tools/blame-ignore-source.test.mjs",
+        "tools/governance/change-contract.mjs",
+        "tools/governance/generated-output-digest-repair-repository.mjs",
+        "tools/governance/generated-output-digest-repair-v2.mjs",
+        "tools/governance/generated-output-history-repair-v3.mjs",
+        "tools/governance/javascript-format-equivalence.mjs",
+        "tools/governance/javascript-format-parser/package-lock.json",
+        "tools/governance/javascript-format-parser/package.json",
+        "tools/test-matrix/blame-ignore-source.mjs"
+      ],
+      "changedExistingRows": [
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs"
+      ],
+      "changedTargets": [
+        "tools/coverage/collect-backend-coverage.sh",
+        "tools/run-test-matrix.mjs",
+        "tools/test-matrix/source-governance.mjs",
+        "tools/test/lanes/acceptance-playwright.sh",
+        "tools/test/lanes/aeds-compression-profile.sh",
+        "tools/test/lanes/aeds-frame-cost.sh",
+        "tools/test/lanes/article-private-preview.sh",
+        "tools/test/lanes/backend-api-integration.sh",
+        "tools/test/lanes/backend-auth-state-machine.sh",
+        "tools/test/lanes/backend-benchmark-regression.sh",
+        "tools/test/lanes/backend-build-governance.sh",
+        "tools/test/lanes/backend-concurrency.sh",
+        "tools/test/lanes/backend-fast.sh",
+        "tools/test/lanes/backend-golden.sh",
+        "tools/test/lanes/backend-mutation-changed-critical.sh",
+        "tools/test/lanes/backend-mutation.sh",
+        "tools/test/lanes/backend-property.sh",
+        "tools/test/lanes/backend-test-governance.sh",
+        "tools/test/lanes/backend-unit.sh",
+        "tools/test/lanes/behavior-test-evidence.sh",
+        "tools/test/lanes/bootstrap-acceptance-env.sh",
+        "tools/test/lanes/browser-contract.sh",
+        "tools/test/lanes/browser-diagnostics.sh",
+        "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
+        "tools/test/lanes/cross-browser-smoke.sh",
+        "tools/test/lanes/cross-stack-contract.sh",
+        "tools/test/lanes/csrf-browser-matrix.sh",
+        "tools/test/lanes/data-scale.sh",
+        "tools/test/lanes/distributed-contract-fast.sh",
+        "tools/test/lanes/fault-injection.sh",
+        "tools/test/lanes/frontend-build.sh",
+        "tools/test/lanes/frontend-property-model-perf.sh",
+        "tools/test/lanes/frontend-runtime-contracts.sh",
+        "tools/test/lanes/frontend-static-governance.sh",
+        "tools/test/lanes/frontend-unit-shard.sh",
+        "tools/test/lanes/homogeneous-two-node-fixture.sh",
+        "tools/test/lanes/load-smoke.sh",
+        "tools/test/lanes/perception-v2-test-matrix.sh",
+        "tools/test/lanes/perf-regression.sh",
+        "tools/test/lanes/plan-pr-risk.sh",
+        "tools/test/lanes/privacy-zk-comment-matrix.sh",
+        "tools/test/lanes/production-xss-fast.sh",
+        "tools/test/lanes/production-xss-release.sh",
+        "tools/test/lanes/release-evidence.sh",
+        "tools/test/lanes/release-final.sh",
+        "tools/test/lanes/release-public.sh",
+        "tools/test/lanes/resilience-runtime.sh",
+        "tools/test/lanes/risk-control-test-matrix.sh",
+        "tools/test/lanes/runtime-integration.sh",
+        "tools/test/lanes/security-runtime.sh",
+        "tools/test/lanes/soak.sh",
+        "tools/test/lanes/static-governance.sh",
+        "tools/test/lanes/ux-viewport-boundaries.sh",
+        "tools/test/lanes/ux-viewport-smoke.sh",
+        "tools/test/lanes/ux-viewport-visual.sh",
+        "tools/test/lanes/visual-console-playwright.sh",
+        "tools/test/lanes/visual-public-playwright.sh",
+        "tools/test/run-matrix-governance-once.sh",
+        "tools/test/run-release-reliability-qualified-local.sh",
+        "tools/test/run-release-reliability-scenarios.mjs",
+        "tools/test/run-runtime-order-equivalence.mjs"
+      ],
+      "unchangedOtherTopLevel": [
+        "schema",
+        "source",
+        "sourceIndex",
+        "sourceIndexDigest",
+        "producer",
+        "nodeParserIdentity"
+      ],
+      "existingRowDrops": [],
+      "fixtureHandEdited": false,
+      "sourceBinding": {
+        "schema": "fsusblog.generated-output-binding.v1",
+        "sources": [
+          "tools/test/correctness-attempt-migration.mjs",
+          "config/testing/release-final-execution-authority-index.json",
+          "tests/tools/blame-ignore-source.test.mjs",
+          "tests/tools/pr-impact-plan.test.mjs",
+          "tools/test-matrix/blame-ignore-source.mjs",
+          "tools/test-matrix/pr-impact-plan.mjs",
+          "tools/test-matrix/source-governance.mjs"
+        ],
+        "outputs": [
+          {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "77b6fe9ff8c7066334d3df8414e4cfb36286c9f4ca265883a9ece40057df4dbc"
+          }
+        ]
+      },
+      "qualification": false,
+      "collectorCorrection": "Initial sourceBinding variable held naming manifest; read exact committed generated binding instead. No source/output regeneration, source edit or test change."
+    },
+    "actualTwoPassFixedPoint": true,
+    "handEditedOutput": false,
+    "qualification": false
+  },
+  "currentOrdinaryChecks": {
+    "runId": "issue-3593-ordinary-current-20261009T053322Z",
+    "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+    "results": [
+      {
+        "runId": "issue-3593-ordinary-current-20261009T053322Z",
+        "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+        "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+        "name": "ordinary-canonical7",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "--test-name-pattern",
+          "^(?:all\\ 225\\ correctness\\ producers\\ bind\\ canonical\\ attempt\\ and\\ external\\ authorities|matrix\\ and\\ physical\\ producers\\ fail\\ closed\\ on\\ a\\ crossed\\ execution\\ owner|test\\ producer\\ inventory\\ exactly\\ rebuilds\\ matrix\\ and\\ physical\\ authorities|unit,\\ integration,\\ property,\\ model,\\ fuzz\\ and\\ mutation\\ producers\\ are\\ first\\-attempt\\ only|diagnostic\\ matrix\\ producers\\ do\\ not\\ leak\\ into\\ correctness\\ inventory|build\\ and\\ release\\ inventory\\ covers\\ immutable\\ build,\\ reliability,\\ projection\\ and\\ finalizer\\ owners|all\\ build\\ and\\ release\\ producers\\ are\\ first\\-attempt\\ clean\\ only)$",
+          "tests/tools/correctness-attempt-migration.test.mjs",
+          "tests/tools/correctness-attempt-test-producers.test.mjs",
+          "tests/tools/correctness-attempt-build-release.test.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "startedAt": "2026-10-09T05:33:22.158471+00:00",
+        "exitCode": 0,
+        "log": "ordinary-canonical7.log",
+        "logSha256": "34c70d95468beea49c08380725a7ff13e3561188fdee252de94a74a728c68a17",
+        "expectedExecutedCases": 7,
+        "actualExecutedCases": 7
+      },
+      {
+        "runId": "issue-3593-ordinary-current-20261009T053322Z",
+        "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+        "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+        "name": "ordinary-routing6",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--test",
+          "--test-name-pattern",
+          "^(?:SOURCE\\ frontend\\ routing\\ retains\\ source\\-diff\\ only\\ with\\ complete\\ unchanged\\ actual\\ configuration|SOURCE\\ configuration\\ drift\\ dispatches\\ every\\ applicable\\ changed\\ input\\ through\\ strict\\-full\\ without\\ exemptions|SOURCE\\ detects\\ drift\\ in\\ every\\ actual\\ configuration\\ input,\\ including\\ the\\ checker\\ and\\ fixed\\ data\\ inputs|SOURCE\\ compares\\ the\\ union\\ of\\ actual\\ base\\ and\\ current\\ policy\\ inputs\\ including\\ added\\ configuration|SOURCE\\ refuses\\ omitted\\ changed\\ inputs\\ under\\ both\\ unchanged\\ and\\ changed\\ configuration|SOURCE\\ refuses\\ absent,\\ nonregular,\\ untracked\\ and\\ malformed\\ configuration\\ instead\\ of\\ claiming\\ unchanged\\ identity)$",
+          "tests/tools/pr-impact-plan.test.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "startedAt": "2026-10-09T05:33:22.158794+00:00",
+        "exitCode": 0,
+        "log": "ordinary-routing6.log",
+        "logSha256": "4e15b9ce695299867acf8d90a71c16f21e050774d478f05d67b085d9a5385069",
+        "expectedExecutedCases": 6,
+        "actualExecutedCases": 6
+      },
+      {
+        "runId": "issue-3593-ordinary-current-20261009T053322Z",
+        "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+        "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+        "name": "strict-leaf-style",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "strict-full",
+          "--file",
+          "tests/tools/test-suite-convergence.test.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "startedAt": "2026-10-09T05:33:22.161331+00:00",
+        "exitCode": 0,
+        "log": "strict-leaf-style.log",
+        "logSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+        "expectedExecutedCases": null
+      },
+      {
+        "runId": "issue-3593-ordinary-current-20261009T053322Z",
+        "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+        "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+        "name": "ordinary-source-style",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "source-diff",
+          "--base",
+          "be7c53d99b64342925ca63d061bacde34d22ba4c",
+          "--file",
+          "tests/tools/test-suite-convergence.test.mjs",
+          "--file",
+          "tests/tools/correctness-attempt-migration.test.mjs",
+          "--file",
+          "tools/test/correctness-attempt-migration.mjs",
+          "--file",
+          "tests/tools/release-final-static-boundary.test.mjs",
+          "--file",
+          "tests/tools/blame-ignore-source.test.mjs",
+          "--file",
+          "tests/tools/pr-impact-plan.test.mjs",
+          "--file",
+          "tools/test-matrix/blame-ignore-source.mjs",
+          "--file",
+          "tools/test-matrix/pr-impact-plan.mjs",
+          "--file",
+          "tools/test-matrix/source-governance.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "startedAt": "2026-10-09T05:33:22.161707+00:00",
+        "exitCode": 0,
+        "log": "ordinary-source-style.log",
+        "logSha256": "8ba5c8c9cc3e8b141766f2834004e33c942f664758a5e9de774788f9fdea3af4",
+        "expectedExecutedCases": null
+      },
+      {
+        "runId": "issue-3593-ordinary-current-20261009T053322Z",
+        "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+        "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+        "name": "catalog-current-check",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/test/generate-correctness-attempt-producers.mjs",
+          "--check"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "startedAt": "2026-10-09T05:33:22.460937+00:00",
+        "exitCode": 0,
+        "log": "catalog-current-check.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "expectedExecutedCases": null
+      },
+      {
+        "runId": "issue-3593-ordinary-current-20261009T053322Z",
+        "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+        "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+        "name": "original-qps-convergence-refusals",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/check-test-suite-convergence.mjs",
+          "--out",
+          "/tmp/fsusblog-3593/resume-integration/current-qps-convergence.json"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "startedAt": "2026-10-09T05:33:22.574438+00:00",
+        "exitCode": 1,
+        "log": "original-qps-convergence-refusals.log",
+        "logSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2",
+        "expectedExecutedCases": null
+      },
+      {
+        "runId": "issue-3593-ordinary-current-20261009T053322Z",
+        "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+        "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+        "name": "current-diff-check",
+        "command": [
+          "git",
+          "diff",
+          "--check",
+          "be7c53d99b64342925ca63d061bacde34d22ba4c..0a6dc39f7b2c3a5527d020ff855973ac27bb1226"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "startedAt": "2026-10-09T05:33:27.107146+00:00",
+        "exitCode": 0,
+        "log": "current-diff-check.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "expectedExecutedCases": null
+      },
+      {
+        "runId": "issue-3593-ordinary-current-20261009T053322Z",
+        "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+        "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+        "name": "original-full-static-reader",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--input-type=module",
+          "-e",
+          "import {validateRepositoryReleaseFinalStaticBoundary} from './tools/test-matrix/release-final-static-boundary.mjs';const errors=validateRepositoryReleaseFinalStaticBoundary(process.cwd());console.log(JSON.stringify({errors},null,2));if(errors.length)process.exitCode=1;"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "startedAt": "2026-10-09T05:33:27.141770+00:00",
+        "exitCode": 0,
+        "log": "original-full-static-reader.log",
+        "logSha256": "5eb1c8922ccbc3ac21b9cb606d654c08814ecdc67d54ffc27a53715089cc2cf4",
+        "expectedExecutedCases": null
+      }
+    ]
+  },
+  "positiveAllowlist": {
+    "runId": "issue-3593-ordinary-current-20261009T053322Z",
+    "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+    "testJobs": [
+      {
+        "files": [
+          "tests/tools/correctness-attempt-migration.test.mjs",
+          "tests/tools/correctness-attempt-test-producers.test.mjs",
+          "tests/tools/correctness-attempt-build-release.test.mjs"
+        ],
+        "names": [
+          "all 225 correctness producers bind canonical attempt and external authorities",
+          "matrix and physical producers fail closed on a crossed execution owner",
+          "test producer inventory exactly rebuilds matrix and physical authorities",
+          "unit, integration, property, model, fuzz and mutation producers are first-attempt only",
+          "diagnostic matrix producers do not leak into correctness inventory",
+          "build and release inventory covers immutable build, reliability, projection and finalizer owners",
+          "all build and release producers are first-attempt clean only"
+        ],
+        "expectedExecutedCases": 7,
+        "pattern": "^(?:all\\ 225\\ correctness\\ producers\\ bind\\ canonical\\ attempt\\ and\\ external\\ authorities|matrix\\ and\\ physical\\ producers\\ fail\\ closed\\ on\\ a\\ crossed\\ execution\\ owner|test\\ producer\\ inventory\\ exactly\\ rebuilds\\ matrix\\ and\\ physical\\ authorities|unit,\\ integration,\\ property,\\ model,\\ fuzz\\ and\\ mutation\\ producers\\ are\\ first\\-attempt\\ only|diagnostic\\ matrix\\ producers\\ do\\ not\\ leak\\ into\\ correctness\\ inventory|build\\ and\\ release\\ inventory\\ covers\\ immutable\\ build,\\ reliability,\\ projection\\ and\\ finalizer\\ owners|all\\ build\\ and\\ release\\ producers\\ are\\ first\\-attempt\\ clean\\ only)$"
+      },
+      {
+        "files": [
+          "tests/tools/pr-impact-plan.test.mjs"
+        ],
+        "names": [
+          "SOURCE frontend routing retains source-diff only with complete unchanged actual configuration",
+          "SOURCE configuration drift dispatches every applicable changed input through strict-full without exemptions",
+          "SOURCE detects drift in every actual configuration input, including the checker and fixed data inputs",
+          "SOURCE compares the union of actual base and current policy inputs including added configuration",
+          "SOURCE refuses omitted changed inputs under both unchanged and changed configuration",
+          "SOURCE refuses absent, nonregular, untracked and malformed configuration instead of claiming unchanged identity"
+        ],
+        "expectedExecutedCases": 6,
+        "pattern": "^(?:SOURCE\\ frontend\\ routing\\ retains\\ source\\-diff\\ only\\ with\\ complete\\ unchanged\\ actual\\ configuration|SOURCE\\ configuration\\ drift\\ dispatches\\ every\\ applicable\\ changed\\ input\\ through\\ strict\\-full\\ without\\ exemptions|SOURCE\\ detects\\ drift\\ in\\ every\\ actual\\ configuration\\ input,\\ including\\ the\\ checker\\ and\\ fixed\\ data\\ inputs|SOURCE\\ compares\\ the\\ union\\ of\\ actual\\ base\\ and\\ current\\ policy\\ inputs\\ including\\ added\\ configuration|SOURCE\\ refuses\\ omitted\\ changed\\ inputs\\ under\\ both\\ unchanged\\ and\\ changed\\ configuration|SOURCE\\ refuses\\ absent,\\ nonregular,\\ untracked\\ and\\ malformed\\ configuration\\ instead\\ of\\ claiming\\ unchanged\\ identity)$"
+      }
+    ],
+    "positiveAllowlistAuditedBeforeExecution": true,
+    "excluded": [
+      "complete source-integration callback suites",
+      "test-replacement-transaction full module",
+      "post-baseline-history full module",
+      "held Git replacement controls",
+      "receipt substitution controls",
+      "cohort controls",
+      "lease controls"
+    ],
+    "broadExecutionThenReportFiltering": false,
+    "qualification": false
+  },
+  "actualCurrentCallbackExecution": {
+    "expected": 13,
+    "passed": 13,
+    "failed": 0,
+    "skipped": 0,
+    "canonical": 7,
+    "routing": 6,
+    "noHeldCallbacks": true
+  },
+  "originalTrustedRange": {
+    "head": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+    "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "command": [
+      "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "/tmp/fsusblog-3593/resume-base-authority/tools/governance/check-change-contract.mjs",
+      "--root",
+      "/workspace/FsusBlog-3593-source-port",
+      "--range",
+      "be7c53d99b64342925ca63d061bacde34d22ba4c..0a6dc39f7b2c3a5527d020ff855973ac27bb1226"
+    ],
+    "exitCode": 0,
+    "log": "original-trusted-range.log"
+  },
+  "localPreparedOriginalMetadataGate": {
+    "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "head": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+    "changedFiles": [
+      ".git-blame-ignore-revs",
+      "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+      "artifacts/change-contract/suite-convergence-leaf-external-naming.json",
+      "artifacts/style/suite-convergence-leaf-idempotence.json",
+      "config/testing/correctness-attempt-producers.json",
+      "config/testing/release-final-execution-authority-index.json",
+      "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "tests/tools/blame-ignore-source.test.mjs",
+      "tests/tools/correctness-attempt-migration.test.mjs",
+      "tests/tools/pr-impact-plan.test.mjs",
+      "tests/tools/release-final-static-boundary.test.mjs",
+      "tests/tools/test-suite-convergence.test.mjs",
+      "tools/test-matrix/blame-ignore-source.mjs",
+      "tools/test-matrix/pr-impact-plan.mjs",
+      "tools/test-matrix/source-governance.mjs",
+      "tools/test/correctness-attempt-migration.mjs"
+    ],
+    "originalCheckerAuthority": "/tmp/fsusblog-3593/resume-base-authority",
+    "preparedLocalMetadataOnly": true,
+    "actualPullRequest": false,
+    "errors": [],
+    "blameErrors": [],
+    "exitCode": 0,
+    "originalUnsupported": [
+      ".git-blame-ignore-revs"
+    ],
+    "portConsumed": true,
+    "qualification": false
+  },
+  "actualGitHubPrGate": "NOT_RUN: coordinator sole content API writer; prepared body only",
+  "actualOriginalParserInspection": {
+    "owner": "tools/governance/javascript-format-equivalence.mjs",
+    "index": "config/testing/release-final-execution-authority-index.json",
+    "exactActualSourceDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+    "actualFiniteEntry": [
+      {
+        "owner": "tools/governance/javascript-format-equivalence.mjs",
+        "sourceDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+        "expressionDigest": "sha256:1194f26d255953521c4695d2e2c8f846dbd455bb916275c81e8cdf5a4951d015",
+        "kind": "runtime-require-path",
+        "dependencies": [
+          "tools/governance/javascript-format-parser/package.json",
+          "tools/governance/javascript-format-parser/package-lock.json"
+        ]
+      }
+    ],
+    "sourceBindingActual": true,
+    "expressionBindingActual": true,
+    "actualInputs": [
+      {
+        "path": "tools/governance/javascript-format-parser/package.json",
+        "digest": "sha256:e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6"
+      },
+      {
+        "path": "tools/governance/javascript-format-parser/package-lock.json",
+        "digest": "sha256:d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9"
+      }
+    ],
+    "inspection": {
+      "errors": [],
+      "target": "tools/governance/javascript-format-equivalence.mjs",
+      "contentDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+      "indexDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+      "dependencyClosure": [
+        {
+          "path": "config/testing/release-final-execution-authority-index.json",
+          "contentDigest": "sha256:3f78fef68734af5595d12fc560a043fcc4c20f4bb2ad0a2174fd4450e347d6c6",
+          "indexDigest": "sha256:3f78fef68734af5595d12fc560a043fcc4c20f4bb2ad0a2174fd4450e347d6c6"
+        },
+        {
+          "path": "tools/governance/javascript-format-parser/package-lock.json",
+          "contentDigest": "sha256:d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9",
+          "indexDigest": "sha256:d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9"
+        },
+        {
+          "path": "tools/governance/javascript-format-parser/package.json",
+          "contentDigest": "sha256:e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6",
+          "indexDigest": "sha256:e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6"
+        },
+        {
+          "path": "tools/package.json",
+          "contentDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd",
+          "indexDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd"
+        }
+      ]
+    },
+    "exitCode": 0,
+    "fullTestModuleExecuted": false,
+    "heldCallbackExecuted": false,
+    "qualification": false
+  },
+  "currentAstAndImmutableHistory": {
+    "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "sourceCandidate": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+    "frozenSourcePreserved": "cdc7b00932a448effdae08b9c9550b59e535a423",
+    "caseOwners": [
+      {
+        "path": "tests/tools/test-suite-convergence.test.mjs",
+        "base": {
+          "command": [
+            "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "/workspace/FsusBlog-3593-source-port/tools/test-inventory/ts-ast-adapter/index.mjs",
+            "/tmp/fsusblog-3593/resume-integration/ast-0-base-request.json"
+          ],
+          "exitCode": 0,
+          "ids": [
+            "node-test:tests/tools/test-suite-convergence.test.mjs#2348-canonical-mfa-retirement-retains-before-identities--a4fe4944c8",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-accepts-runtime-artifacts-a-e2dc7d58d1",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-does-not-mistake-a-temporar-a8f8c27204",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-reconstructs-segmented-repo-86e7108d25",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#child-issue-evidence-requires-the-exact-closed-1032-thro-d560990262",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#compact-retention-audit-resolves-hashed-deletions-replac-2ab62f815c",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#convergence-plan-enforces-all-child-issues-exactly-once--b6ef7911c7",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#final-evidence-contracts-report-every-invalid-status-fie-0f187ef8af",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#issue-local-replacement-manifest-count-is-exact-e028734d05",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#matrix-is-the-single-current-command-and-retention-gover-2d95901b5e",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#path-migration-expansion-emits-every-exact-baseline-test-1ad9e3dc8a",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-chains-remain-acyclic-without-a-fixed-histor-d6df85c3cf",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-merge-accepts-identical-declarations-and-rep-96f182811c",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-accepts-a-declared-deletion-whose-replac-c6090891ca",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-inherits-pre-baseline-declarations-but-r-ab0022c0f5",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304"
+          ]
+        },
+        "candidate": {
+          "command": [
+            "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "/workspace/FsusBlog-3593-source-port/tools/test-inventory/ts-ast-adapter/index.mjs",
+            "/tmp/fsusblog-3593/resume-integration/ast-0-candidate-request.json"
+          ],
+          "exitCode": 0,
+          "ids": [
+            "node-test:tests/tools/test-suite-convergence.test.mjs#2348-canonical-mfa-retirement-retains-before-identities--a4fe4944c8",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-accepts-runtime-artifacts-a-e2dc7d58d1",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-does-not-mistake-a-temporar-a8f8c27204",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#backend-source-locking-owner-reconstructs-segmented-repo-86e7108d25",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#child-issue-evidence-requires-the-exact-closed-1032-thro-d560990262",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#compact-retention-audit-resolves-hashed-deletions-replac-2ab62f815c",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#convergence-plan-enforces-all-child-issues-exactly-once--b6ef7911c7",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#final-after-snapshot-must-be-independently-run-bound-and-e508ed3dcf",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#final-evidence-contracts-report-every-invalid-status-fie-0f187ef8af",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#issue-local-replacement-manifest-count-is-exact-e028734d05",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#matrix-is-the-single-current-command-and-retention-gover-2d95901b5e",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#path-migration-expansion-emits-every-exact-baseline-test-1ad9e3dc8a",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-chains-remain-acyclic-without-a-fixed-histor-d6df85c3cf",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#replacement-merge-accepts-identical-declarations-and-rep-96f182811c",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-accepts-a-declared-deletion-whose-replac-c6090891ca",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-inherits-pre-baseline-declarations-but-r-ab0022c0f5",
+            "node-test:tests/tools/test-suite-convergence.test.mjs#retention-audit-reports-every-undeclared-deletion-and-mi-eea2b06304"
+          ]
+        },
+        "exactIDsPreserved": true,
+        "sourceBytesIdenticalToFrozenCdc7": true
+      },
+      {
+        "path": "tests/tools/correctness-attempt-migration.test.mjs",
+        "base": {
+          "command": [
+            "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "/workspace/FsusBlog-3593-source-port/tools/test-inventory/ts-ast-adapter/index.mjs",
+            "/tmp/fsusblog-3593/resume-integration/ast-1-base-request.json"
+          ],
+          "exitCode": 0,
+          "ids": [
+            "node-test:tests/tools/correctness-attempt-migration.test.mjs#all-225-correctness-producers-bind-canonical-attempt-and-ced1a75c0b",
+            "node-test:tests/tools/correctness-attempt-migration.test.mjs#matrix-and-physical-producers-fail-closed-on-a-crossed-e-f5553eb348"
+          ]
+        },
+        "candidate": {
+          "command": [
+            "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+            "/workspace/FsusBlog-3593-source-port/tools/test-inventory/ts-ast-adapter/index.mjs",
+            "/tmp/fsusblog-3593/resume-integration/ast-1-candidate-request.json"
+          ],
+          "exitCode": 0,
+          "ids": [
+            "node-test:tests/tools/correctness-attempt-migration.test.mjs#all-225-correctness-producers-bind-canonical-attempt-and-ced1a75c0b",
+            "node-test:tests/tools/correctness-attempt-migration.test.mjs#matrix-and-physical-producers-fail-closed-on-a-crossed-e-f5553eb348"
+          ]
+        },
+        "exactIDsPreserved": true,
+        "sourceBytesIdenticalToFrozenCdc7": true
+      }
+    ],
+    "immutableHistory": [
+      {
+        "path": "tests/test-retention-before.json",
+        "blob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+        "sha256": "d7f94274b023110ba2ebaa1fc97f654118ffb3bef1d971a828891925651fcc46",
+        "frozenBytesUnchanged": true
+      },
+      {
+        "path": "tests/test-retention-replacements.json",
+        "blob": "00f850a2fbbc5e5afe1c1c201e0b1f21117beee3",
+        "sha256": "c56c7f168af626392bc3dd5e0b38b653244e5b2c7d8b98e92b55c267dd11e1db",
+        "frozenBytesUnchanged": true
+      },
+      {
+        "path": "tests/matrix.yml",
+        "blob": "a166e3ddb89917ee988bc752982cf9764f1adadb",
+        "sha256": "db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03",
+        "frozenBytesUnchanged": true
+      },
+      {
+        "path": "tools/test-convergence/post-baseline-history.mjs",
+        "blob": "68b12d3aaa470882d236e16837a5b2a0c2928b30",
+        "sha256": "cb2c60e1f0530d3ad8e763b9d958877e6954783c935049627621591c28c659cf",
+        "frozenBytesUnchanged": true
+      },
+      {
+        "path": "tests/tools/backend-qps-runtime-cache-migration.test.mjs",
+        "blob": "ec49ddc21181a34721f01864c0a9dcacfb391011",
+        "sha256": "1c76f5adf1afa7524a4645a8ef9359bb2d2818f17c70eb9275d0d674a54b0837",
+        "frozenBytesUnchanged": true
+      },
+      {
+        "path": "artifacts/style/suite-convergence-leaf-idempotence.json",
+        "blob": "006da5ebf875e0628dc694da59fa27bd22b3cecf",
+        "sha256": "2a30d09a647c1010d6d6b79a783313c922ea3b549a32f06574cc3d15f3cee1b0",
+        "frozenBytesUnchanged": true
+      }
+    ],
+    "qualification": false
+  },
+  "currentFormatterIdempotence": {
+    "head": "0a6dc39f7b2c3a5527d020ff855973ac27bb1226",
+    "passes": [
+      {
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js",
+          "--config",
+          "eslint.config.mjs",
+          "--fix",
+          "--rule",
+          "@stylistic/semi: off",
+          "--rule",
+          "import-x/order: off",
+          "--rule",
+          "curly: off",
+          "tests/tools/test-suite-convergence.test.mjs"
+        ],
+        "exitCode": 0,
+        "log": "current-idempotence-0.log",
+        "currentBytesUnchanged": true
+      },
+      {
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js",
+          "--config",
+          "eslint.config.mjs",
+          "--fix",
+          "--rule",
+          "@stylistic/semi: off",
+          "--rule",
+          "import-x/order: off",
+          "--rule",
+          "curly: off",
+          "tests/tools/test-suite-convergence.test.mjs"
+        ],
+        "exitCode": 0,
+        "log": "current-idempotence-1.log",
+        "currentBytesUnchanged": true
+      }
+    ],
+    "actualTwoPassIdempotence": true,
+    "sha256": "17b6d8622108eb53421af1f830f0cd37dba60ede4ed65c9c554b596e20cdd238",
+    "governedHistoricalEvidenceUnchanged": true
+  },
+  "originalMechanicalHistoryReachable": [
+    {
+      "commit": "f6e6aa2455489c4d3fe65b9cbd6ad5831f6d2f04",
+      "reachable": true
+    },
+    {
+      "commit": "e8def31887dab241d74ad712226290f715ace23d",
+      "reachable": true
+    },
+    {
+      "commit": "27a09aa6223ca61922c08e96fb1d1760e912c163",
+      "reachable": true
+    },
+    {
+      "commit": "f1291150a5b2ff6a7c327fe1bc3b4355bca7f12c",
+      "reachable": true
+    }
+  ],
+  "currentOriginalQpsErrors": [
+    "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#backend-qps-lane-rejects-every-legacy-argument-before-ex-c81f0d3f88: replacement declaration does not resolve in the compact before snapshot",
+    "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#zero-argument-backend-qps-lane-delegates-only-to-the-cur-e536405a30: replacement declaration does not resolve in the compact before snapshot"
+  ],
+  "frozenBefore": {
+    "blob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+    "sha256": "d7f94274b023110ba2ebaa1fc97f654118ffb3bef1d971a828891925651fcc46",
+    "unchanged": true
+  },
+  "catalogCurrent226Capability": "Actual canonical --check and original ordinary7 pass; separate current-epoch historical generated-only qualification is still unresolved per supplied canonical owner handoff. No synthetic consumer-to-catalog edge or frozen-v2 disposition added.",
+  "sourcePolicyWithoutValidatedReceipt": "Default unsupportedSourceStageFiles returns .git-blame-ignore-revs intentionally without a receipt. Consumed canonical port now supplies guarded SOURCE capability; no whole SOURCE receipt or receipt validation audit is claimed.",
+  "sourceWholeStage": "NOT_RUN: declared regressions contain task-held Git replacement/receipt/cohort/lease/native controls; no broad execution followed by report filtering",
+  "remainingGates": [
+    {
+      "owner": "same independent reviewer 01a11bee-ee2f-71f8-b929-9e6fc95fa00b",
+      "status": "PENDING",
+      "required": "Review this exact16-path current head/base and canonical integration; frozen cdc7 review does not cover new port scope."
+    },
+    {
+      "owner": "coordinator-held full SOURCE stage",
+      "status": "NOT_RUN",
+      "required": "Original complete SOURCE stage and port history/receipt execution evidence through authorized staged controls, no altered selection."
+    },
+    {
+      "owner": "canonical Node post-anchor history authority",
+      "status": "FAILED",
+      "required": "Two original QPS compact-BEFORE identities remain refused; do not rewrite frozen BEFORE, anchor or replacement grammar."
+    },
+    {
+      "owner": "canonical3520/3521 current-epoch generated-only historical admission",
+      "status": "BLOCKED",
+      "required": "Independent formal historical qualification; local226 source capability and ordinary output binding do not substitute."
+    },
+    {
+      "owner": "compiled/native/PG/runtime/fullCI qualification",
+      "status": "NOT_RUN",
+      "required": "Real current candidate acceptance and original toolchain/resource/negative controls through their authorized owners."
+    }
+  ],
+  "ownedIssueStatuses": [
+    {
+      "issue": 3593,
+      "status": "OPEN / assigned feasible source integration completed, full acceptance remains pending"
+    }
+  ],
+  "trackingOnlyIssues": [],
+  "setupAndCollectorFailuresPreserved": [
+    {
+      "artifact": "initial-metadata-and-policy-result.json",
+      "reason": "Build title did not permit Behavior classification, plus trusted parser lacked acorn after install attempted default unwritable/missing home cache."
+    },
+    {
+      "artifact": "second-metadata-and-policy-result.json",
+      "reason": "Fix PR title requires internal release-note category rather than none; corrected local body/label only."
+    },
+    {
+      "artifact": "original-trusted-range-first-result.json",
+      "reason": "Original range failed before trusted parser installation recovered with task-scoped cache; current rerun passes."
+    },
+    {
+      "artifact": "donor-integration-comparison.json",
+      "reason": "Initial comparison script used incorrect expected literal; corrected exact donor length10->12 and preserved routing-root delta."
+    },
+    {
+      "artifact": "canonical-output-closure-proof.initial.json",
+      "reason": "Initial proof collector misbound sourceBinding variable to naming manifest; corrected by reading committed binding, no source/output edit."
+    }
+  ],
+  "prohibitionsObserved": {
+    "githubContentApiWrites": false,
+    "newOrEditedPr": false,
+    "masterPush": false,
+    "mergePr": false,
+    "deploy": false,
+    "closeIssue": false,
+    "packagePublish": false,
+    "canonicalOwnerBranchAltered": false,
+    "frozenEvidenceModified": false,
+    "policyExceptionAdded": false,
+    "baselineDebtAdded": false,
+    "broadSuiteThenFiltering": false,
+    "heldAuditExecuted": false
+  },
+  "rawArchive": "suite-convergence-integrated-source-raw.tar.gz",
+  "sealedAt": "2026-10-09T05:38:14.315013+00:00",
+  "rawArchiveSha256": "2bbc0c697edbe99a1a75d2edc7967f9ae1c14bef7c47e2a2103a0f0c6862620e",
+  "rawFilesVerified": 95
+}
