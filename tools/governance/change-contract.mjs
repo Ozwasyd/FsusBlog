@@ -4660,11 +4660,87 @@ function preprocessorFingerprint(source)
     return output;
 }
 
+export function csharpFormatFingerprint(source)
+{
+    const normalized = source.replace(/\r\n/gu, '\n');
+    const tokens = lexicalTokens(normalized);
+    const preprocessor = preprocessorFingerprint(normalized);
+    const ordered = () => JSON.stringify({ tokens, preprocessor });
+    // Only a compilation-unit prefix of ordinary namespace imports is order independent.
+    // Directive-bearing files and unsupported using forms retain the ordered comparison.
+    if (preprocessor.length > 0)
+    {
+        return ordered();
+    }
+    const isComment = (token) => /^(?:line|block)-comment:/u.test(token ?? '');
+    const keywords = new Set((
+        '__arglist __makeref __reftype __refvalue abstract as base bool break byte case catch char checked class const continue decimal '
+        + 'default delegate do double else enum event explicit extern false finally fixed float '
+        + 'for foreach goto if implicit in int interface internal is lock long namespace new null '
+        + 'object operator out override params private protected public readonly ref return sbyte '
+        + 'sealed short sizeof stackalloc static string struct switch this throw true try typeof '
+        + 'uint ulong unchecked unsafe ushort using virtual void volatile while'
+    ).split(' '));
+    const isIdentifier = (token) => /^word:[A-Za-z_][A-Za-z0-9_]*$/u.test(token ?? '')
+        && !keywords.has(token.slice(5));
+    let first = 0;
+    while (isComment(tokens[first]))
+    {
+        first += 1;
+    }
+    let cursor = first;
+    const directives = [];
+    while (tokens[cursor] === 'word:using')
+    {
+        const start = cursor;
+        cursor += 1;
+        if (!isIdentifier(tokens[cursor]))
+        {
+            return ordered();
+        }
+        cursor += 1;
+        while (tokens[cursor] === 'punctuation:.')
+        {
+            cursor += 1;
+            if (!isIdentifier(tokens[cursor]))
+            {
+                return ordered();
+            }
+            cursor += 1;
+        }
+        if (tokens[cursor] !== 'punctuation:;')
+        {
+            return ordered();
+        }
+        cursor += 1;
+        directives.push(tokens.slice(start, cursor).join('\n'));
+    }
+    let next = cursor;
+    while (isComment(tokens[next]))
+    {
+        next += 1;
+    }
+    if (directives.length < 2 || ['word:using', 'word:global', 'word:extern'].includes(tokens[next]))
+    {
+        return ordered();
+    }
+    return JSON.stringify({
+        header: tokens.slice(0, first),
+        usingDirectives: directives.sort(),
+        remainder: tokens.slice(cursor),
+        preprocessor
+    });
+}
+
 function formatFingerprint(source, path)
 {
     if (/\.(?:mjs|cjs|js)$/u.test(path))
     {
         return javascriptFormatFingerprint(source, path);
+    }
+    if (/\.cs$/u.test(path))
+    {
+        return csharpFormatFingerprint(source);
     }
     const normalized = source.replace(/\r\n/gu, '\n');
     if (/\.ya?ml$/u.test(path) && /^\s*[^#\r\n][^\r\n]*:\s*[|>][-+0-9]*\s*(?:#.*)?$/mu.test(normalized))
