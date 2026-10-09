@@ -387,11 +387,14 @@ public sealed class AuthoringRevisionCompareAuthority(
         {
             return null;
         }
-        return await db.Queryable<Article>()
+        var article = await db.Queryable<Article>()
             .Where(item => item.Id == articleId && !item.IsDeleted)
-            .Select(item => new AuthoringRevisionCompareArticle(item.Id, item.CurrentRevisionId))
+            .Select(item => new { item.Id, item.CurrentRevisionId })
             .FirstAsync(cancellationToken)
             .ConfigureAwait(false);
+        return article is null
+            ? null
+            : new AuthoringRevisionCompareArticle(article.Id, article.CurrentRevisionId);
     }
 
     public Task<ServerDraftResponse?> GetDraftAsync(
