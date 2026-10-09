@@ -1,0 +1,12 @@
+
+ RUN  v4.1.11 /workspace/chain1975-provider-facts-only/src/frontend
+
+ ✓ ../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts (20 tests | 18 skipped) 194ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 18 skipped (20)
+   Start at  13:54:05
+   Duration  635ms (transform 357ms, setup 245ms, import 90ms, tests 194ms, environment 0ms)
+
+JSON report written to /workspace/chain-1975-evidence/provider-facts-only/positive/reports/vitest/unit/unsharded.json
+JUNIT report written to /workspace/chain-1975-evidence/provider-facts-only/positive/reports/vitest/unit/unsharded.xml

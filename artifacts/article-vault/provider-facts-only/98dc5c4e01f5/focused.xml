@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="54" failures="0" errors="0" time="0.875232058">
+    <testsuite name="../../tests/frontend/unit/api/upload.test.ts" timestamp="2026-10-09T13:55:29.613Z" hostname="053f59c5d37b" tests="5" failures="0" errors="0" skipped="0" time="0.059329049">
+        <testcase classname="../../tests/frontend/unit/api/upload.test.ts" name="upload API requests &gt; preview uses the original protected upload request and verifies actual response bytes" time="0.004654407">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/upload.test.ts" name="upload API requests &gt; preview refuses URL identity and cancelled late completion" time="0.001140247">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/upload.test.ts" name="upload API requests &gt; initUploadSession sends an UploadInitRequest AEDS frame" time="0.000918007">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/upload.test.ts" name="upload API requests &gt; uploadPart sends raw bytes with binary metadata headers" time="0.000650579">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/upload.test.ts" name="upload API requests &gt; completeUpload sends an UploadCompleteRequest AEDS frame" time="0.000539102">
+        </testcase>
+    </testsuite>
+    <testsuite name="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" timestamp="2026-10-09T13:55:29.615Z" hostname="053f59c5d37b" tests="26" failures="0" errors="0" skipped="0" time="0.436289656">
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; preserves actual pending refs during save and blocks publish/revision/leave" time="0.00955373">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; preserves actual failed refs during save and blocks publish/revision/leave" time="0.00257302">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; preserves actual cancelled refs during save and blocks publish/revision/leave" time="0.003832144">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; preserves actual recovery-required refs during save and blocks publish/revision/leave" time="0.001825447">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; uses exact current reference facts and original callbacks for successful resources" time="0.002498539">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; does not promote real upload ledger facts into an article operation grant" time="0.001158134">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; rejects changed reference assetId" time="0.000783506">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; rejects changed reference assetVersionSha256" time="0.000616047">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; rejects changed reference referenceLedgerSha256" time="0.000727012">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; rejects changed reference contextDigest" time="0.000784347">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; rejects changed reference nodeId" time="0.000755104">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; rejects changed reference transactionRef" time="0.000513524">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; rejects placeholder or URL-only identity and never exposes it in preview" time="0.000687303">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; admits unreferenced removed only after original cleanup observation" time="0.00155199">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; admits unreferenced cancelled only after original cleanup observation" time="0.001516748">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; routes late committed facts into cleanup and rejects source/epoch changes" time="0.000888242">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; saves explicit current state without dropping identity or recovery refs" time="0.00088654">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; saves explicit stale state without dropping identity or recovery refs" time="0.000669406">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; saves explicit removed state without dropping identity or recovery refs" time="0.000622717">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; saves explicit cancelled state without dropping identity or recovery refs" time="0.000668034">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; permits the original save acknowledgement draft revision and rejects that drift during publish" time="0.004446919">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; detects node removal while save is running without rewriting history" time="0.000793411">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; preserves original save retry/conflict and original prepublish refusal" time="0.002030563">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; re-observes provider/reference facts when verifying receipt and ledger tamper" time="0.00080644">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; ignores caption fields and rejects duplicated identity/source order" time="0.001889362">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts" name="attachment business contribution to original owners &gt; calls actual owned retry/cancel ports and respects interrupted work" time="0.001265694">
+        </testcase>
+    </testsuite>
+    <testsuite name="../../tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts" timestamp="2026-10-09T13:55:29.619Z" hostname="053f59c5d37b" tests="3" failures="0" errors="0" skipped="0" time="0.166307211">
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts" name="actual facts-only provider business caller &gt; keeps large upload facts blocked without an actual business reference receipt" time="0.007031445">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts" name="actual facts-only provider business caller &gt; preserves current-context rejection and cleanup after a late large facts response" time="0.053091784">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts" name="actual facts-only provider business caller &gt; propagates interrupted large facts through the original business caller" time="0.052741945">
+        </testcase>
+    </testsuite>
+    <testsuite name="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" timestamp="2026-10-09T13:55:29.619Z" hostname="053f59c5d37b" tests="20" failures="0" errors="0" skipped="0" time="0.213306142">
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; observes actual status with owner token and actual progress without committing" time="0.002843252">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; uses actual completion then re-observes original ledger/bytes instead of trusting URL" time="0.001328548">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; coalesces duplicate commit attempts against the same original session" time="0.000664389">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; retains uncertainty and never aborts after a possibly committed failed RPC" time="0.000606633">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; requires a real abort acknowledgement and preserves failed abort obligations for retry" time="0.000580234">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; blocks commit after an uncertain abort rather than racing a deleted original session" time="0.000402199">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; interrupts its actual commit task and observes late server promotion without deleting it" time="0.00074605">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; never revives unknown/expired progress or URL-only commit evidence" time="0.000508407">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; reads original facts without preview bytes for 8387833-byte committed uploads" time="0.000786721">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; reads original facts without preview bytes for 20971520-byte committed uploads" time="0.000627674">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; retains the preview route at the original exact budget" time="0.000341999">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; refuses changed facts uploadId without promoting a receipt" time="0.000417862">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; refuses changed facts sha256 without promoting a receipt" time="0.000243282">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; refuses changed facts sizeBytes without promoting a receipt" time="0.000181209">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; preserves original owner-token refusal for large facts" time="0.000330462">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; rejects changed session status before requesting large facts" time="0.000227749">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; propagates cancellation while reading original large facts" time="0.053008853">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; coalesces large retry attempts and reads facts after the actual completion RPC" time="0.000454287">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; observes a late large commit on cancel without deleting original bytes" time="0.000794122">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; does not send an interrupted operation or acknowledge interrupted abort" time="0.000619602">
+        </testcase>
+    </testsuite>
+</testsuites>

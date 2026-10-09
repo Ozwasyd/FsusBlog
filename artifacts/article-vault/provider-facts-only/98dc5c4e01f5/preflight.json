@@ -1,0 +1,45 @@
+{
+  "sourceSha": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+  "base": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "parent": "8ff02b213a60551a31e687463f6084028bac563b",
+  "suppliedLaterSharedDtoFormatNotConsumed": "6edc4e20cc1ce4054c5c5356902dbc3fb9828025",
+  "fetchedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "total": 54,
+  "counts": {
+    "upload.test.ts": 5,
+    "articleAttachmentBusinessState.test.ts": 26,
+    "articleAttachmentFactsBusiness.test.ts": 3,
+    "articleAttachmentUploadProvider.test.ts": 20
+  },
+  "positiveNames": [
+    "original upload business provider operations > uses actual completion then re-observes original ledger/bytes instead of trusting URL",
+    "original upload business provider operations > reads original facts without preview bytes for 20971520-byte committed uploads"
+  ],
+  "sourceHashes": {
+    "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts": "b185dea802e8ecd12cfcdd0592c184e42b54ce9fbf9931d70ef4a24c41432536",
+    "tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts": "839cf18f0a4f0e9725215e99ffe8f624290ca918ae7879425151354d09f662aa",
+    "tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts": "b28d147ac61ed7c73047136261b3d178f0f4e3331057eb7c1ef59bcfc915318d",
+    "tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts": "ebb445d2b9e0b12ed0f26a3309880f3e7bdba9a7c891c6b960ef6c92a2216daa",
+    "tests/frontend/unit/api/upload.test.ts": "d3c7d9f39e390dd944b60b024c037ab4c45de32068aa3462e11469f3353e4ffd",
+    "src/frontend/vitest.config.ts": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+    "src/frontend/vitest.shared.mjs": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
+    "tests/frontend/support/unit/setup.ts": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a"
+  },
+  "hooks": "Original setup: task HappyDOM/animation frames disposed afterAll, locale graph beforeAll; original AEDS/PoW/search unit mocks. Controlled requestBinaryOnly and intent/reference/cleanup callbacks; new async controls finish all deferred requests. No actual HTTP/owner/PoW/WASM/native/browser receipt qualification; no DB, Docker, server, held/security/receipt/integrity suites. Exact4-file selection only.",
+  "resourceObservation": {
+    "actualAvailableParallelism": 4,
+    "observedMemoryBytes": 18882699264,
+    "workerCpuBudget": 1,
+    "workerMemoryGiB": 0.5
+  },
+  "node": "24.19.0",
+  "npm": "11.13.0",
+  "vitest": "4.1.11",
+  "uiSource": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+  "installerSource": "75e66fa4e7ad7e4c1d58357298ac5fd18735d1f4",
+  "toolcacheInputManifestsMatchExactly": true,
+  "private401NotRetried": true,
+  "qualification": false,
+  "maximumConcurrentWorkers": 1,
+  "observedFocusedWorkerProcesses": 4
+}

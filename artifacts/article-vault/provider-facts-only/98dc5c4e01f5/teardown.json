@@ -1,0 +1,38 @@
+{
+  "removedOwnedUiSourceLinks": [
+    "vue/packages/node_modules/gsap",
+    "vue/packages/node_modules/katex",
+    "vue/packages/node_modules/lodash",
+    "vue/packages/node_modules/shiki",
+    "vue/packages/node_modules/lodash-unified",
+    "vue/packages/node_modules/mermaid",
+    "vue/packages/node_modules/dayjs",
+    "vue/packages/node_modules/escape-html",
+    "vue/packages/node_modules/motion-dom",
+    "vue/packages/node_modules/memoize-one",
+    "vue/packages/node_modules/normalize-wheel-es",
+    "vue/packages/node_modules/lodash-es",
+    "vue/packages/node_modules/async-validator",
+    "vue/packages/node_modules/vue",
+    "vue/packages/node_modules/@element-plus/icons-vue",
+    "vue/packages/node_modules/@types/lodash",
+    "vue/packages/node_modules/@types/lodash-es",
+    "vue/packages/node_modules/@floating-ui/dom",
+    "vue/packages/node_modules/@popperjs/core",
+    "vue/packages/node_modules/@ctrl/tinycolor"
+  ],
+  "ownedUiDependencyDirectoryAbsent": true,
+  "consumerCacheLinkRemoved": true,
+  "baselineCacheLinkRemoved": true,
+  "sharedPublicCacheUntouched": true,
+  "trackedUiSourceUnchanged": true,
+  "runtimeWorkerPidsExited": [
+    220262,
+    221475,
+    221483,
+    221491,
+    221537
+  ],
+  "noDbDockerBrowserServerResourcesCreated": true,
+  "qualification": false
+}

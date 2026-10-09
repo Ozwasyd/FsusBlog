@@ -1,0 +1,7 @@
+[binary-import-boundaries] FAILED
+- src/frontend/src/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter
+- src/frontend/src/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter
+- src/frontend/src/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter
+- src/frontend/src/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter
+- src/frontend/src/api/uploadFacts.ts: API must not import binary decoder adapter: @/adapters/binary/uploadAdapter
+- src/frontend/src/contracts/authoringCanvas.ts: contracts must not have runtime import @/codecs/binary/authoringCanvasWire.generated

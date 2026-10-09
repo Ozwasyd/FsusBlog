@@ -1,0 +1,278 @@
+{
+  "sourceSha": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+  "base": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "parent": "8ff02b213a60551a31e687463f6084028bac563b",
+  "suppliedLaterSharedDtoFormatNotConsumed": "6edc4e20cc1ce4054c5c5356902dbc3fb9828025",
+  "fetchedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "total": 54,
+  "counts": {
+    "upload.test.ts": 5,
+    "articleAttachmentBusinessState.test.ts": 26,
+    "articleAttachmentFactsBusiness.test.ts": 3,
+    "articleAttachmentUploadProvider.test.ts": 20
+  },
+  "positiveNames": [
+    "original upload business provider operations > uses actual completion then re-observes original ledger/bytes instead of trusting URL",
+    "original upload business provider operations > reads original facts without preview bytes for 20971520-byte committed uploads"
+  ],
+  "sourceHashes": {
+    "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts": "b185dea802e8ecd12cfcdd0592c184e42b54ce9fbf9931d70ef4a24c41432536",
+    "tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts": "839cf18f0a4f0e9725215e99ffe8f624290ca918ae7879425151354d09f662aa",
+    "tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts": "b28d147ac61ed7c73047136261b3d178f0f4e3331057eb7c1ef59bcfc915318d",
+    "tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts": "ebb445d2b9e0b12ed0f26a3309880f3e7bdba9a7c891c6b960ef6c92a2216daa",
+    "tests/frontend/unit/api/upload.test.ts": "d3c7d9f39e390dd944b60b024c037ab4c45de32068aa3462e11469f3353e4ffd",
+    "src/frontend/vitest.config.ts": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+    "src/frontend/vitest.shared.mjs": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
+    "tests/frontend/support/unit/setup.ts": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a"
+  },
+  "hooks": "Original setup: task HappyDOM globals; animation frames disposed afterAll and all worker processes exit, locale graph beforeAll; original AEDS/PoW/search unit mocks. Controlled requestBinaryOnly and intent/reference/cleanup callbacks; new async controls finish all deferred requests. No actual HTTP/owner/PoW/WASM/native/browser receipt qualification; no DB, Docker, server, held/security/receipt/integrity suites. Exact4-file selection only.",
+  "resourceObservation": {
+    "actualAvailableParallelism": 4,
+    "observedMemoryBytes": 18882699264,
+    "workerCpuBudget": 1,
+    "workerMemoryGiB": 0.5
+  },
+  "node": "24.19.0",
+  "npm": "11.13.0",
+  "vitest": "4.1.11",
+  "uiSource": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+  "installerSource": "75e66fa4e7ad7e4c1d58357298ac5fd18735d1f4",
+  "toolcacheInputManifestsMatchExactly": true,
+  "private401NotRetried": true,
+  "qualification": false,
+  "runs": [
+    {
+      "runId": "chain1975-provider-facts-98dc5c4e-positive",
+      "testedSource": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+      "startUtc": "2026-10-09T13:54:04.786653+00:00",
+      "stopUtc": "2026-10-09T13:54:05.907731+00:00",
+      "command": [
+        "node_modules/.bin/vitest",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts",
+        "--testNamePattern",
+        "(uses actual completion then re-observes original ledger/bytes instead of trusting URL|reads original facts without preview bytes for 20971520-byte committed uploads)$"
+      ],
+      "cwd": "/workspace/chain1975-provider-facts-only/src/frontend",
+      "exitCode": 0,
+      "resumedAlreadyCompletedPositiveWithoutRerun": true,
+      "report": "/workspace/chain-1975-evidence/provider-facts-only/positive/reports/vitest/unit/unsharded.json",
+      "passed": 2,
+      "failed": 0,
+      "outsideSelectorOrSkipped": 18,
+      "total": 20,
+      "starts": 2,
+      "finishes": 2,
+      "workerPids": [
+        220262
+      ],
+      "workersRemaining": [],
+      "maximumObservedConcurrentActiveTests": 1,
+      "distinctWorkerProcessCount": 1
+    },
+    {
+      "runId": "chain1975-provider-facts-98dc5c4e-focused",
+      "testedSource": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+      "startUtc": "2026-10-09T13:55:26.840348+00:00",
+      "stopUtc": "2026-10-09T13:55:29.658081+00:00",
+      "command": [
+        "node_modules/.bin/vitest",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts",
+        "../../tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts",
+        "../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts",
+        "../../tests/frontend/unit/api/upload.test.ts"
+      ],
+      "cwd": "/workspace/chain1975-provider-facts-only/src/frontend",
+      "exitCode": 0,
+      "resumedAlreadyCompletedPositiveWithoutRerun": false,
+      "report": "/workspace/chain-1975-evidence/provider-facts-only/focused/reports/vitest/unit/unsharded.json",
+      "passed": 54,
+      "failed": 0,
+      "outsideSelectorOrSkipped": 0,
+      "total": 54,
+      "starts": 54,
+      "finishes": 54,
+      "workerPids": [
+        221475,
+        221483,
+        221491,
+        221537
+      ],
+      "workersRemaining": [],
+      "maximumObservedConcurrentActiveTests": 1,
+      "distinctWorkerProcessCount": 4
+    }
+  ],
+  "maximumConcurrentWorkers": 1,
+  "branch": "codex/chain-1975-provider-facts-only",
+  "implementationCommit": "412a7092f195b34263cf1b9e738b4f8449ba13a6",
+  "callerControlsCommit": "8a4af047cfb97c0b9762fe4d9e2be275c041b9d5",
+  "readableSourceHead": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+  "reviewBase": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "fullSourceDeltaPaths": [
+    "docs/api/contracts.md",
+    "docs/testing.md",
+    "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts",
+    "tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts",
+    "tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  ],
+  "sharedApiAdapterClientCheckerUnchanged": true,
+  "suppliedApiSha256": "daeb28bf7fa2b02c8b0e73f608551cb0463a700f973c399a9b1d13a9ab8c84e9",
+  "typedLint": {
+    "actuallyInspectedFiles": 1,
+    "exitCode": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "canonicalStyle": {
+    "actuallyInspectedFiles": 1,
+    "exitCode": 0,
+    "violations": 0
+  },
+  "applicationTypecheck": {
+    "baselineSha": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+    "currentSha": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+    "uiSha": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+    "command": [
+      "node",
+      "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+      "--application"
+    ],
+    "baselineExitCode": 2,
+    "currentExitCode": 2,
+    "baselineDiagnosticCount": 271,
+    "currentDiagnosticCount": 271,
+    "newDiagnostics": [],
+    "removedDiagnostics": [],
+    "fullTypecheckPassed": false,
+    "supplier290ResultRetainedOnlyAtSupplierConfiguration": true
+  },
+  "importBoundary": {
+    "exitCode": 1,
+    "diagnosticCount": 6,
+    "newSuppliedFactsApiDefect": {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "message": "API must not import binary decoder adapter: @/adapters/binary/uploadAdapter",
+      "soleOwner": 3735
+    },
+    "otherFiveExistingDiagnostics": [
+      "fontAdmin API imports/export x2",
+      "themeAdmin API imports/export x2",
+      "contracts/authoringCanvas runtime codec import"
+    ],
+    "ownerFilesUnmodified": true
+  },
+  "historicalOrdinaryToolFailures": [
+    "Initial /workspace shell git commands used a directory without .git; subsequent original business worktree read succeeded at exact8ff02b2 with clean status.",
+    "Initial style invocation lacked own configured style tools; exact original public cache inputs were compared and copied, then current style passed.",
+    "A symlink for tools style node_modules caused EISDIR in original worktree fingerprint; replaced the task-owned link with a real cache copy, without checker changes.",
+    "First collector expected a run-named JSON but original Vitest wrote unsharded.json: actual positive2 passed/exit0, collector exited1. Actual report resumed and positive was not rerun.",
+    "A direct undeclared @vue/runtime-core source-host probe failed; actual source Vue resolution and Vue own dependencies then verified, without modifying UI links for that probe."
+  ],
+  "supplierEvidenceNotInherited": {
+    "frontendControls": 27,
+    "nodeControls": 52,
+    "nativeControls": 31,
+    "strictSdkWarningRecord": 1529,
+    "managedCases": "9 UNRUN",
+    "fullTypesSupplierConfig": 290,
+    "allRemainSupplierBound": true
+  },
+  "wholeChainComplete": false,
+  "notRun": [
+    "Actual HTTP/admin/PoW/current owner runtime",
+    "Actual native FileService facts endpoint or supplied C++/WASM suites",
+    "Strict SDK and managed9",
+    "Held/security/receipt/integrity audit",
+    "Production DB, browser/Writer integration, full package/app qualification",
+    "Business reference/reuse/cleanup receipt verification",
+    "DI/transport changes or GitHub content writes"
+  ],
+  "artifactHashes": {
+    "typecheck-current.log": "df3b44beeeb69fd76a99fc9c0fcb7ccaa1e70df27bfb9b84129a2a94483a87ea",
+    "source-alias-verify.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "current-import-boundary.log": "1dcbf4e9a72ab6d85d5515a1656b3f8341b2f9314f9b47a65c1edfe0fa72232e",
+    "provider-typed-lint.json": "02cf4fea923a980c46932bf0f2013262f5356d453519d686f9359a367bc0a480",
+    "source-style-initial.log": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0",
+    "discovery-current.json": "d5998426e3f7e78fe754f7ac11922227d64a0e8d1072d2dda3fa9602285715bb",
+    "test-runs.json": "cfd16760112baf4605d16948a9ae580d0b778f552b02334b9f7f9d7f916cb9f9",
+    "README.md": "2753fedf4ca2d638e94aadc2cc1ef2164095997ab1ab74015575bca4659ee47f",
+    "positive.xml": "b9dd33170f99cf0d6763dda95c9fee80334a9220507b688d299d70f2fcc2693b",
+    "focused.xml": "145ccbe4281e460171d189f3b2c175a2abd4b3c200c165f28938f2579c22ded3",
+    "typecheck-baseline.log": "99c7f25b99df557164ea8055ebb87b8c8aa7d76dd1c9760ab03b85574a80e25b",
+    "source-style-current.log": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+    "focused.json": "6738ba1b49e3980df7a5baa75d30b5f661a0d88f4d9a04ddad1fcf2034cb20aa",
+    "positive-topology.jsonl": "f8937ed6a2bd81fb3d7af3f7633e4ff8a49e61c42a2fb9691ff46bfc477e7e47",
+    "discovery-current.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "test-runs-collector-failure.json": "9e35c69730e4099c1ed6c336e2b9e3e746750cf522cb5eff831f79830e3958ac",
+    "run-controls-collector-failure.py": "22ebddbb71f405a4daec70f6a724900c4bd02dafe3391b98c7b6c528035aaf7b",
+    "focused-topology.jsonl": "1adf97c49c6a2e3f4224e66f901c85edc6d34b7a09d8ef34b6174bd0d4e75513",
+    "run-controls.py": "2d820b115b4c194a56e554267a8c3db144ac5e927ab3a4499fcdb174c6890651",
+    "physical-vue.json": "ab93cd392d3feffb526e7dc726a1fa17d11655c8c3f40fa2a6add0e0e6c2a253",
+    "focused.log": "f44f0003bf562e7d9b0c60f4fcfa46c593a3e93c64241618cee8c897474bedde",
+    "teardown.json": "402a69d83542e976704498b3e7fb752c0e1874e9db1ca627eafdac60675a6b1e",
+    "positive.json": "19d303b0ab0f5ee6f5501baa3076a3418c6eaa7fdd96adf88f5149eb16d87b79",
+    "provider-discovery.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "preflight.json": "2ec4548d2634abf185c72a8af0483fc05c0b59ab2448755cd76a756ae83e612a",
+    "positive.log": "0ab37285ef8d29bfa265e34c7c5dbecc03ac8288a5a3ad37452ee9304a6e0aa9",
+    "provider-discovery.json": "984b02a0f23f2641090d1f08fe6fc32030590f528c0885e011250813a4eaae14",
+    "dependency-import-boundary.log": "1dcbf4e9a72ab6d85d5515a1656b3f8341b2f9314f9b47a65c1edfe0fa72232e",
+    "typecheck-delta.json": "eab221ce405c472915e656685419d9054634790e1626708e6dac75d9190079d4",
+    "issue-status.md": "348ba1d44f214e82c4d2dc4df687c158473b0c202ab9e1e92f0c04388f8fa9ac"
+  },
+  "physicalVue": {
+    "actualVueHosts": 3,
+    "actualVueDependencyComparisons": 12,
+    "allSame": true,
+    "path": "artifacts/article-vault/provider-facts-only/98dc5c4e01f5/physical-vue.json"
+  },
+  "teardown": {
+    "removedOwnedUiSourceLinks": [
+      "vue/packages/node_modules/gsap",
+      "vue/packages/node_modules/katex",
+      "vue/packages/node_modules/lodash",
+      "vue/packages/node_modules/shiki",
+      "vue/packages/node_modules/lodash-unified",
+      "vue/packages/node_modules/mermaid",
+      "vue/packages/node_modules/dayjs",
+      "vue/packages/node_modules/escape-html",
+      "vue/packages/node_modules/motion-dom",
+      "vue/packages/node_modules/memoize-one",
+      "vue/packages/node_modules/normalize-wheel-es",
+      "vue/packages/node_modules/lodash-es",
+      "vue/packages/node_modules/async-validator",
+      "vue/packages/node_modules/vue",
+      "vue/packages/node_modules/@element-plus/icons-vue",
+      "vue/packages/node_modules/@types/lodash",
+      "vue/packages/node_modules/@types/lodash-es",
+      "vue/packages/node_modules/@floating-ui/dom",
+      "vue/packages/node_modules/@popperjs/core",
+      "vue/packages/node_modules/@ctrl/tinycolor"
+    ],
+    "ownedUiDependencyDirectoryAbsent": true,
+    "consumerCacheLinkRemoved": true,
+    "baselineCacheLinkRemoved": true,
+    "sharedPublicCacheUntouched": true,
+    "trackedUiSourceUnchanged": true,
+    "runtimeWorkerPidsExited": [
+      220262,
+      221475,
+      221483,
+      221491,
+      221537
+    ],
+    "noDbDockerBrowserServerResourcesCreated": true,
+    "qualification": false
+  },
+  "currentTypecheckDeltaExact": true,
+  "remainingBoundaryRequest": {
+    "soleOwner": 3735,
+    "required": "Supply exact API/contract source fix and guard evidence for uploadFacts.ts decoder-adapter type import, preserving285 request/body/admin/PoW/token/session/hash contract. Other five pre-existing guard diagnostics remain separate.",
+    "ownProviderReferenceReceiptPromotion": false
+  }
+}

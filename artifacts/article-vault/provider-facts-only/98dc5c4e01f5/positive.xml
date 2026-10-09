@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="20" failures="0" errors="0" time="0.193858052">
+    <testsuite name="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" timestamp="2026-10-09T13:54:05.876Z" hostname="053f59c5d37b" tests="20" failures="0" errors="0" skipped="18" time="0.193858052">
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; observes actual status with owner token and actual progress without committing" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; uses actual completion then re-observes original ledger/bytes instead of trusting URL" time="0.002923752">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; coalesces duplicate commit attempts against the same original session" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; retains uncertainty and never aborts after a possibly committed failed RPC" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; requires a real abort acknowledgement and preserves failed abort obligations for retry" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; blocks commit after an uncertain abort rather than racing a deleted original session" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; interrupts its actual commit task and observes late server promotion without deleting it" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; never revives unknown/expired progress or URL-only commit evidence" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; reads original facts without preview bytes for 8387833-byte committed uploads" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; reads original facts without preview bytes for 20971520-byte committed uploads" time="0.004352779">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; retains the preview route at the original exact budget" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; refuses changed facts uploadId without promoting a receipt" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; refuses changed facts sha256 without promoting a receipt" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; refuses changed facts sizeBytes without promoting a receipt" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; preserves original owner-token refusal for large facts" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; rejects changed session status before requesting large facts" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; propagates cancellation while reading original large facts" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; coalesces large retry attempts and reads facts after the actual completion RPC" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; observes a late large commit on cancel without deleting original bytes" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts" name="original upload business provider operations &gt; does not send an interrupted operation or acknowledge interrupted abort" time="0">
+            <skipped/>
+        </testcase>
+    </testsuite>
+</testsuites>

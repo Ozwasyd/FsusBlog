@@ -1,0 +1,4 @@
+{"event":"start","workerProcessId":220262,"task":{"id":"672008907_0_1","name":"uses actual completion then re-observes original ledger/bytes instead of trusting URL"}}
+{"event":"finish","workerProcessId":220262,"task":{"id":"672008907_0_1","name":"uses actual completion then re-observes original ledger/bytes instead of trusting URL"}}
+{"event":"start","workerProcessId":220262,"task":{"id":"672008907_0_9","name":"reads original facts without preview bytes for 20971520-byte committed uploads"}}
+{"event":"finish","workerProcessId":220262,"task":{"id":"672008907_0_9","name":"reads original facts without preview bytes for 20971520-byte committed uploads"}}

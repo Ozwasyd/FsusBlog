@@ -1,0 +1,109 @@
+{
+  "uiSource": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+  "assertions": 15,
+  "rows": [
+    {
+      "host": "/workspace/chain1975-provider-facts-only/src/frontend/package.json",
+      "name": "vue",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-only/src/frontend/package.json",
+      "name": "@vue/runtime-core",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-only/src/frontend/package.json",
+      "name": "@vue/runtime-dom",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-only/src/frontend/package.json",
+      "name": "@vue/reactivity",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-only/src/frontend/package.json",
+      "name": "@vue/shared",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-fsusui/vue/packages/element-plus/package.json",
+      "name": "vue",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-fsusui/vue/packages/element-plus/package.json",
+      "name": "@vue/runtime-core",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-fsusui/vue/packages/element-plus/package.json",
+      "name": "@vue/runtime-dom",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-fsusui/vue/packages/element-plus/package.json",
+      "name": "@vue/reactivity",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-fsusui/vue/packages/element-plus/package.json",
+      "name": "@vue/shared",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-fsusui/vue/packages/components/markdown-editor/package.json",
+      "name": "vue",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-fsusui/vue/packages/components/markdown-editor/package.json",
+      "name": "@vue/runtime-core",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-fsusui/vue/packages/components/markdown-editor/package.json",
+      "name": "@vue/runtime-dom",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-fsusui/vue/packages/components/markdown-editor/package.json",
+      "name": "@vue/reactivity",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json"
+    },
+    {
+      "host": "/workspace/chain1975-provider-facts-fsusui/vue/packages/components/markdown-editor/package.json",
+      "name": "@vue/shared",
+      "resolutionOrigin": "actual resolved Vue package, not an undeclared direct UI dependency",
+      "actual": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "expected": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json"
+    }
+  ],
+  "earlierProbe": "Direct @vue/runtime-core lookup from UI host failed: it is not a declared source binding; verify actual Vue and its own dependency resolution instead. No UI links or source modified to satisfy the probe."
+}

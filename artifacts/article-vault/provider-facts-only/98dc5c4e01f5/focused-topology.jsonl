@@ -1,0 +1,108 @@
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_0","name":"observes actual status with owner token and actual progress without committing"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_0","name":"observes actual status with owner token and actual progress without committing"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_1","name":"uses actual completion then re-observes original ledger/bytes instead of trusting URL"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_1","name":"uses actual completion then re-observes original ledger/bytes instead of trusting URL"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_2","name":"coalesces duplicate commit attempts against the same original session"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_2","name":"coalesces duplicate commit attempts against the same original session"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_3","name":"retains uncertainty and never aborts after a possibly committed failed RPC"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_3","name":"retains uncertainty and never aborts after a possibly committed failed RPC"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_4","name":"requires a real abort acknowledgement and preserves failed abort obligations for retry"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_4","name":"requires a real abort acknowledgement and preserves failed abort obligations for retry"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_5","name":"blocks commit after an uncertain abort rather than racing a deleted original session"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_5","name":"blocks commit after an uncertain abort rather than racing a deleted original session"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_6","name":"interrupts its actual commit task and observes late server promotion without deleting it"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_6","name":"interrupts its actual commit task and observes late server promotion without deleting it"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_7","name":"never revives unknown/expired progress or URL-only commit evidence"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_7","name":"never revives unknown/expired progress or URL-only commit evidence"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_8","name":"reads original facts without preview bytes for 8387833-byte committed uploads"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_8","name":"reads original facts without preview bytes for 8387833-byte committed uploads"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_9","name":"reads original facts without preview bytes for 20971520-byte committed uploads"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_9","name":"reads original facts without preview bytes for 20971520-byte committed uploads"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_10","name":"retains the preview route at the original exact budget"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_10","name":"retains the preview route at the original exact budget"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_11","name":"refuses changed facts uploadId without promoting a receipt"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_11","name":"refuses changed facts uploadId without promoting a receipt"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_12","name":"refuses changed facts sha256 without promoting a receipt"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_12","name":"refuses changed facts sha256 without promoting a receipt"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_13","name":"refuses changed facts sizeBytes without promoting a receipt"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_13","name":"refuses changed facts sizeBytes without promoting a receipt"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_14","name":"preserves original owner-token refusal for large facts"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_14","name":"preserves original owner-token refusal for large facts"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_15","name":"rejects changed session status before requesting large facts"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_15","name":"rejects changed session status before requesting large facts"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_16","name":"propagates cancellation while reading original large facts"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_16","name":"propagates cancellation while reading original large facts"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_17","name":"coalesces large retry attempts and reads facts after the actual completion RPC"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_17","name":"coalesces large retry attempts and reads facts after the actual completion RPC"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_18","name":"observes a late large commit on cancel without deleting original bytes"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_18","name":"observes a late large commit on cancel without deleting original bytes"}}
+{"event":"start","workerProcessId":221475,"task":{"id":"672008907_0_19","name":"does not send an interrupted operation or acknowledge interrupted abort"}}
+{"event":"finish","workerProcessId":221475,"task":{"id":"672008907_0_19","name":"does not send an interrupted operation or acknowledge interrupted abort"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_0","name":"preserves actual pending refs during save and blocks publish/revision/leave"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_0","name":"preserves actual pending refs during save and blocks publish/revision/leave"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_1","name":"preserves actual failed refs during save and blocks publish/revision/leave"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_1","name":"preserves actual failed refs during save and blocks publish/revision/leave"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_2","name":"preserves actual cancelled refs during save and blocks publish/revision/leave"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_2","name":"preserves actual cancelled refs during save and blocks publish/revision/leave"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_3","name":"preserves actual recovery-required refs during save and blocks publish/revision/leave"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_3","name":"preserves actual recovery-required refs during save and blocks publish/revision/leave"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_4","name":"uses exact current reference facts and original callbacks for successful resources"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_4","name":"uses exact current reference facts and original callbacks for successful resources"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_5","name":"does not promote real upload ledger facts into an article operation grant"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_5","name":"does not promote real upload ledger facts into an article operation grant"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_6","name":"rejects changed reference assetId"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_6","name":"rejects changed reference assetId"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_7","name":"rejects changed reference assetVersionSha256"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_7","name":"rejects changed reference assetVersionSha256"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_8","name":"rejects changed reference referenceLedgerSha256"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_8","name":"rejects changed reference referenceLedgerSha256"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_9","name":"rejects changed reference contextDigest"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_9","name":"rejects changed reference contextDigest"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_10","name":"rejects changed reference nodeId"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_10","name":"rejects changed reference nodeId"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_11","name":"rejects changed reference transactionRef"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_11","name":"rejects changed reference transactionRef"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_12","name":"rejects placeholder or URL-only identity and never exposes it in preview"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_12","name":"rejects placeholder or URL-only identity and never exposes it in preview"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_13","name":"admits unreferenced removed only after original cleanup observation"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_13","name":"admits unreferenced removed only after original cleanup observation"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_14","name":"admits unreferenced cancelled only after original cleanup observation"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_14","name":"admits unreferenced cancelled only after original cleanup observation"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_15","name":"routes late committed facts into cleanup and rejects source/epoch changes"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_15","name":"routes late committed facts into cleanup and rejects source/epoch changes"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_16","name":"saves explicit current state without dropping identity or recovery refs"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_16","name":"saves explicit current state without dropping identity or recovery refs"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_17","name":"saves explicit stale state without dropping identity or recovery refs"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_17","name":"saves explicit stale state without dropping identity or recovery refs"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_18","name":"saves explicit removed state without dropping identity or recovery refs"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_18","name":"saves explicit removed state without dropping identity or recovery refs"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_19","name":"saves explicit cancelled state without dropping identity or recovery refs"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_19","name":"saves explicit cancelled state without dropping identity or recovery refs"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_20","name":"permits the original save acknowledgement draft revision and rejects that drift during publish"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_20","name":"permits the original save acknowledgement draft revision and rejects that drift during publish"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_21","name":"detects node removal while save is running without rewriting history"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_21","name":"detects node removal while save is running without rewriting history"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_22","name":"preserves original save retry/conflict and original prepublish refusal"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_22","name":"preserves original save retry/conflict and original prepublish refusal"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_23","name":"re-observes provider/reference facts when verifying receipt and ledger tamper"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_23","name":"re-observes provider/reference facts when verifying receipt and ledger tamper"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_24","name":"ignores caption fields and rejects duplicated identity/source order"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_24","name":"ignores caption fields and rejects duplicated identity/source order"}}
+{"event":"start","workerProcessId":221483,"task":{"id":"1098966866_0_25","name":"calls actual owned retry/cancel ports and respects interrupted work"}}
+{"event":"finish","workerProcessId":221483,"task":{"id":"1098966866_0_25","name":"calls actual owned retry/cancel ports and respects interrupted work"}}
+{"event":"start","workerProcessId":221491,"task":{"id":"1154655295_0_0","name":"preview uses the original protected upload request and verifies actual response bytes"}}
+{"event":"finish","workerProcessId":221491,"task":{"id":"1154655295_0_0","name":"preview uses the original protected upload request and verifies actual response bytes"}}
+{"event":"start","workerProcessId":221491,"task":{"id":"1154655295_0_1","name":"preview refuses URL identity and cancelled late completion"}}
+{"event":"finish","workerProcessId":221491,"task":{"id":"1154655295_0_1","name":"preview refuses URL identity and cancelled late completion"}}
+{"event":"start","workerProcessId":221491,"task":{"id":"1154655295_0_2","name":"initUploadSession sends an UploadInitRequest AEDS frame"}}
+{"event":"finish","workerProcessId":221491,"task":{"id":"1154655295_0_2","name":"initUploadSession sends an UploadInitRequest AEDS frame"}}
+{"event":"start","workerProcessId":221491,"task":{"id":"1154655295_0_3","name":"uploadPart sends raw bytes with binary metadata headers"}}
+{"event":"finish","workerProcessId":221491,"task":{"id":"1154655295_0_3","name":"uploadPart sends raw bytes with binary metadata headers"}}
+{"event":"start","workerProcessId":221491,"task":{"id":"1154655295_0_4","name":"completeUpload sends an UploadCompleteRequest AEDS frame"}}
+{"event":"finish","workerProcessId":221491,"task":{"id":"1154655295_0_4","name":"completeUpload sends an UploadCompleteRequest AEDS frame"}}
+{"event":"start","workerProcessId":221537,"task":{"id":"789940488_0_0","name":"keeps large upload facts blocked without an actual business reference receipt"}}
+{"event":"finish","workerProcessId":221537,"task":{"id":"789940488_0_0","name":"keeps large upload facts blocked without an actual business reference receipt"}}
+{"event":"start","workerProcessId":221537,"task":{"id":"789940488_0_1","name":"preserves current-context rejection and cleanup after a late large facts response"}}
+{"event":"finish","workerProcessId":221537,"task":{"id":"789940488_0_1","name":"preserves current-context rejection and cleanup after a late large facts response"}}
+{"event":"start","workerProcessId":221537,"task":{"id":"789940488_0_2","name":"propagates interrupted large facts through the original business caller"}}
+{"event":"finish","workerProcessId":221537,"task":{"id":"789940488_0_2","name":"propagates interrupted large facts through the original business caller"}}

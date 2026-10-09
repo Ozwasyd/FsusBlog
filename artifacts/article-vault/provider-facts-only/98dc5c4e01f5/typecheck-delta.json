@@ -1,0 +1,18 @@
+{
+  "baselineSha": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "currentSha": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+  "uiSha": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+  "command": [
+    "node",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "--application"
+  ],
+  "baselineExitCode": 2,
+  "currentExitCode": 2,
+  "baselineDiagnosticCount": 271,
+  "currentDiagnosticCount": 271,
+  "newDiagnostics": [],
+  "removedDiagnostics": [],
+  "fullTypecheckPassed": false,
+  "supplier290ResultRetainedOnlyAtSupplierConfiguration": true
+}

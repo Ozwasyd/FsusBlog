@@ -1,0 +1,218 @@
+[
+  {
+    "name": "upload API requests > preview uses the original protected upload request and verifies actual response bytes",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > preview refuses URL identity and cancelled late completion",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > initUploadSession sends an UploadInitRequest AEDS frame",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > uploadPart sends raw bytes with binary metadata headers",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > completeUpload sends an UploadCompleteRequest AEDS frame",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > preserves actual pending refs during save and blocks publish/revision/leave",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > preserves actual failed refs during save and blocks publish/revision/leave",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > preserves actual cancelled refs during save and blocks publish/revision/leave",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > preserves actual recovery-required refs during save and blocks publish/revision/leave",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > uses exact current reference facts and original callbacks for successful resources",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > does not promote real upload ledger facts into an article operation grant",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference assetId",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference assetVersionSha256",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference referenceLedgerSha256",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference contextDigest",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference nodeId",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference transactionRef",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects placeholder or URL-only identity and never exposes it in preview",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > admits unreferenced removed only after original cleanup observation",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > admits unreferenced cancelled only after original cleanup observation",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > routes late committed facts into cleanup and rejects source/epoch changes",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > saves explicit current state without dropping identity or recovery refs",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > saves explicit stale state without dropping identity or recovery refs",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > saves explicit removed state without dropping identity or recovery refs",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > saves explicit cancelled state without dropping identity or recovery refs",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > permits the original save acknowledgement draft revision and rejects that drift during publish",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > detects node removal while save is running without rewriting history",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > preserves original save retry/conflict and original prepublish refusal",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > re-observes provider/reference facts when verifying receipt and ledger tamper",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > ignores caption fields and rejects duplicated identity/source order",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > calls actual owned retry/cancel ports and respects interrupted work",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "actual facts-only provider business caller > keeps large upload facts blocked without an actual business reference receipt",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts"
+  },
+  {
+    "name": "actual facts-only provider business caller > preserves current-context rejection and cleanup after a late large facts response",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts"
+  },
+  {
+    "name": "actual facts-only provider business caller > propagates interrupted large facts through the original business caller",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > observes actual status with owner token and actual progress without committing",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > uses actual completion then re-observes original ledger/bytes instead of trusting URL",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > coalesces duplicate commit attempts against the same original session",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > retains uncertainty and never aborts after a possibly committed failed RPC",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > requires a real abort acknowledgement and preserves failed abort obligations for retry",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > blocks commit after an uncertain abort rather than racing a deleted original session",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > interrupts its actual commit task and observes late server promotion without deleting it",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > never revives unknown/expired progress or URL-only commit evidence",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > reads original facts without preview bytes for 8387833-byte committed uploads",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > reads original facts without preview bytes for 20971520-byte committed uploads",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > retains the preview route at the original exact budget",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > refuses changed facts uploadId without promoting a receipt",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > refuses changed facts sha256 without promoting a receipt",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > refuses changed facts sizeBytes without promoting a receipt",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > preserves original owner-token refusal for large facts",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > rejects changed session status before requesting large facts",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > propagates cancellation while reading original large facts",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > coalesces large retry attempts and reads facts after the actual completion RPC",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > observes a late large commit on cancel without deleting original bytes",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > does not send an interrupted operation or acknowledge interrupted abort",
+    "file": "/workspace/chain1975-provider-facts-only/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  }
+]
