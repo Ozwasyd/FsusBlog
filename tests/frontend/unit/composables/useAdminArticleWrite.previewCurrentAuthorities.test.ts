@@ -57,7 +57,7 @@ async function host()
     let owner!: ReturnType<typeof useAdminArticleWrite>;
     const wrapper = mount(defineComponent({ setup() { owner = useAdminArticleWrite(); return () => null; } }));
     await flushPromises();
-    expect(owner.pageLoading.value).toBe(false);
+    await vi.waitFor(() => expect(owner.pageLoading.value).toBe(false));
     return { wrapper, owner, reads: owner.privatePreviewCurrentAuthorities };
 }
 
