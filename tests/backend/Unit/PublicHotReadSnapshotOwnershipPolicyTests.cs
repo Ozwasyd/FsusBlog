@@ -319,9 +319,9 @@ public sealed class PublicHotReadSnapshotOwnershipPolicyTests
         context.Request.Path = "/api/binary/article/42.aeds";
         context.Request.Method = "GET";
         context.Features.Set<IHttpResponseBodyFeature>(new PipeBodyFeature(pipe.Writer));
-        Task<bool> serving = PublicHotReadFastPath.TryServeAsync(context, fixture.Store, new PublicHotReadCounters(),
-            () => throw new InvalidOperationException("Endpoint must not execute."),
-            () => throw new InvalidOperationException("Endpoint must not execute."));
+        Task serving = PublicHotReadFastPath.TryServeAsync(context,
+            _ => throw new InvalidOperationException("Endpoint must not execute."), fixture.Store, Options(),
+            new PublicHotReadCounters());
         ReadResult read = await pipe.Reader.ReadAsync();
         try
         {
@@ -334,13 +334,14 @@ public sealed class PublicHotReadSnapshotOwnershipPolicyTests
             Assert.True(fixture.Store.TryApplySnapshotOwnershipPolicy(next).Value!.Draining);
             Assert.Equal(MemoryFailure.TierUnavailable, fixture.Store.TryAttachSnapshotHostOwnership(
                 nextSource.Prepared, [nextSource.Lease], fixture.Now).Failure);
-            fixture.Store.Invalidate("owned-policy-control", PublicHotReadInvalidationPolicy.DropToEmptyUntilPublish);
+            fixture.Store.InvalidateDistributedSnapshot("owned-policy-control", PublicHotReadInvalidationPolicy.DropToEmpty);
             Assert.Equal(576, fixture.Ledger.Snapshot().Used["metadata"]);
             Assert.Equal(MemoryFailure.TierUnavailable, fixture.Store.TryAttachSnapshotHostOwnership(
                 nextSource.Prepared, [nextSource.Lease], fixture.Now).Failure);
             Assert.Equal(old.Frame, read.Buffer.ToArray());
             pipe.Reader.AdvanceTo(read.Buffer.End);
-            Assert.True(await serving);
+            await serving;
+            Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
             Assert.Equal(0, fixture.Ledger.Snapshot().Used["metadata"]);
             PublicHotReadSnapshot nextSnapshot = fixture.Attach(nextSource);
             Assert.Equal(704, fixture.Ledger.Snapshot().Used["metadata"]);
@@ -492,7 +493,7 @@ public sealed class PublicHotReadSnapshotOwnershipPolicyTests
 
         public void Dispose()
         {
-            Store.Invalidate("fixture-cleanup", PublicHotReadInvalidationPolicy.DropToEmptyUntilPublish);
+            Store.InvalidateDistributedSnapshot("fixture-cleanup", PublicHotReadInvalidationPolicy.DropToEmpty);
             foreach (PublicHotReadSnapshot snapshot in _attached)
             {
                 snapshot.DisposeUnclaimedHostOwnership();
