@@ -47,7 +47,7 @@ public sealed class OsWindowsPageGeometryIntegrationTests
         IOsPageNativeApi? native = OsPageNativeApi.DetectWindows(OsPageStrategy.Normal, MemoryCapabilityMode.Auto,
             mode => WindowsPageGeometryReader.Observe(mode, true,
                 () => new WindowsSystemInfo { PageSize = 4096, AllocationGranularity = 65536 },
-                () => missingApi ? throw new EntryPointNotFoundException() : 0, TimeProvider.System), out var geometry);
+                () => missingApi ? throw new EntryPointNotFoundException() : (nuint)0, TimeProvider.System), out var geometry);
 
         Assert.Equal(4096, Assert.IsType<WindowsOsPageNativeApi>(native).PageBytes);
         Assert.False(native!.UsesExplicitLargePages);
