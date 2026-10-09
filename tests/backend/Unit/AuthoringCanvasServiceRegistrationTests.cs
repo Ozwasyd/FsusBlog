@@ -1,6 +1,8 @@
 using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,10 +20,17 @@ public sealed class AuthoringCanvasServiceRegistrationTests
     {
         var services = new ServiceCollection();
         services.AddSingleton(TimeProvider.System);
+        services.AddLogging();
         services.AddScoped(_ => Substitute.For<ISqlSugarClient>());
         services.AddFsusRuntimeDomainServices();
         using ServiceProvider provider = services.BuildServiceProvider();
         using IServiceScope scope = provider.CreateScope();
+
+        UserLocalePreferenceService preferenceOwner = Assert.Single(
+            scope.ServiceProvider.GetServices<UserLocalePreferenceService>());
+        Assert.Same(preferenceOwner, Assert.Single(scope.ServiceProvider.GetServices<IWritingAidPreferenceReader>()));
+        Assert.Same(preferenceOwner, Assert.Single(scope.ServiceProvider.GetServices<IWritingAidPreferenceCommand>()));
+        Assert.Same(preferenceOwner, Assert.Single(scope.ServiceProvider.GetServices<IWritingAidPreferenceInitializationCommand>()));
 
         Assert.IsType<AuthoringCanvasDocumentStore>(
             scope.ServiceProvider.GetRequiredService<IAuthoringCanvasDocumentStore>());

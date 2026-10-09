@@ -1809,6 +1809,31 @@ public static class OfflineMigrationClassificationFacts
                     "authoring_workspace_snapshot_owner_site_default", "authoring_workspace_snapshot_canonical_cas",
                     "authoring_workspace_snapshot_bounded_bytes"]));
 
+        result.Add(
+            "20261008-post-writing-aid-preferences",
+            new OfflineMigrationClassificationFact(
+                "20261008-post-writing-aid-preferences",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20261008-writing-aid-preferences"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "authoring_preference_owner_site_isolation",
+                    "authoring_preference_shared_revision_cas",
+                    "authoring_preference_operation_replay",
+                    "writing_aid_independent_boolean_schema"
+                ]));
+
         foreach (string id in result.Keys.ToArray())
         {
             result[id] = result[id] with

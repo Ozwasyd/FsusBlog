@@ -147,7 +147,8 @@ internal sealed class SchemaMigrationManifest
         SchemaMigrationCatalog[] catalogs =
         [
             SchemaMigrationCatalog20261008ArticlePropertyValues.Create(),
-            SchemaMigrationCatalog20261008AuthoringWorkspaceSnapshot.Create()
+            SchemaMigrationCatalog20261008AuthoringWorkspaceSnapshot.Create(),
+            SchemaMigrationCatalog20261008WritingAidPreferences.Create()
         ];
         return new SchemaMigrationCatalog(
             CatalogId: "current-20261008-authoring",
