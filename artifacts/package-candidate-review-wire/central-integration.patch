@@ -1,0 +1,224 @@
+--- a/src/shared/Contracts/Validation/aeds-protocol.json
++++ b/src/shared/Contracts/Validation/aeds-protocol.json
+@@ -1517,6 +1517,18 @@
+             "value": 252,
+             "goldenFamily": "theme-activation-response",
+             "goldenOrder": 243
++        },
++        {
++            "name": "ArticlePackageCandidateReviewReadRequest",
++            "value": 288,
++            "goldenFamily": "authoring-request",
++            "goldenOrder": 244
++        },
++        {
++            "name": "ArticlePackageCandidateReviewReadResponse",
++            "value": 289,
++            "goldenFamily": "authoring-response",
++            "goldenOrder": 245
+         }
+     ],
+     "goldenCatalog": {
+--- a/src/frontend/wasm/aeds/include/aeds_decode.hpp
++++ b/src/frontend/wasm/aeds/include/aeds_decode.hpp
+@@ -18,7 +18,8 @@
+     ArticlePayloadInvalid = 7,
+     FrameTypeUnsupported = 8,
+     FrameTypeRetired = 9,
+-    FontThemePayloadInvalid = 10
++    FontThemePayloadInvalid = 10,
++    ArticlePackageCandidateReviewPayloadInvalid = 11
+ };
+ 
+ struct DecodeResult
+--- a/src/frontend/wasm/aeds/src/aeds_decode.cpp
++++ b/src/frontend/wasm/aeds/src/aeds_decode.cpp
+@@ -2,6 +2,7 @@
+ 
+ #include "aeds_crc32.hpp"
+ #include "aeds_frame.hpp"
++#include "article_package_candidate_review_wire.hpp"
+ #include "font_theme_admin_pods.hpp"
+ #include "pod_views.hpp"
+ 
+@@ -62,6 +63,8 @@
+             return "frame_type_retired";
+         case ErrorCode::FontThemePayloadInvalid:
+             return "font_theme_payload_invalid";
++        case ErrorCode::ArticlePackageCandidateReviewPayloadInvalid:
++            return "article_package_candidate_review_payload_invalid";
+         default:
+             return "decode_failed";
+     }
+@@ -133,6 +136,17 @@
+         return MakeError(ErrorCode::FontThemePayloadInvalid);
+     }
+ 
++    if (FrameType == static_cast<std::uint16_t>(FrameType::ArticlePackageCandidateReviewReadRequest)
++        || FrameType == static_cast<std::uint16_t>(FrameType::ArticlePackageCandidateReviewReadResponse))
++    {
++        const bool response = FrameType == static_cast<std::uint16_t>(FrameType::ArticlePackageCandidateReviewReadResponse);
++        if (ReadU16Le(frame + 6) != 0
++            || !ArticlePackageCandidateReviewWire::ValidatePayload(payload, PayloadLength, response))
++        {
++            return MakeError(ErrorCode::ArticlePackageCandidateReviewPayloadInvalid);
++        }
++    }
++
+     DecodeResult ok{};
+     ok.ok = true;
+     ok.frame_type = FrameType;
+--- a/src/frontend/src/composition/binaryDecoderRegistry.ts
++++ b/src/frontend/src/composition/binaryDecoderRegistry.ts
+@@ -1,5 +1,6 @@
+ import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload, mapTrashClearResponseFromPodPayload } from '@/adapters/binary/articleAdapter';
+ import { mapPublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader';
++import { decodeArticlePackageCandidateReviewResponse } from '@/codecs/binary/articlePackageCandidateReviewWire';
+ import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIdentityAccountSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapPowChallengeFromPayload, mapRecoveryKeyCreateResponseFromPayload, mapRecoveryKeyVerifyResponseFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter';
+ import { mapAuthoringJsonFromPayload } from '@/adapters/binary/authoringAdapter';
+ import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialRevocationArtifactFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentChildCursorFromPayload, mapCommentCreateResultFromPayload, mapCommentCursorFromPodPayload, mapCommentPermalinkContextFromPayload, mapCommentPolicySnapshotFromPayload, mapCommentTreeRootCursorFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from '@/adapters/binary/commentAdapter';
+@@ -136,6 +137,7 @@
+     FrameType.ContentExport,
+     FrameType.ContentBackupExport,
+     FrameType.ContentImportResponse,
++    FrameType.ArticlePackageCandidateReviewReadResponse,
+     FrameType.ArticleRevisionList,
+     FrameType.ArticleRevisionDetail,
+     FrameType.ArticleRevisionRollbackResponse,
+@@ -338,6 +340,7 @@
+     [FrameType.ContentExport, mapAuthoringJsonFromPayload],
+     [FrameType.ContentBackupExport, mapAuthoringJsonFromPayload],
+     [FrameType.ContentImportResponse, mapAuthoringJsonFromPayload],
++    [FrameType.ArticlePackageCandidateReviewReadResponse, decodeArticlePackageCandidateReviewResponse],
+     [FrameType.ArticleRevisionList, mapAuthoringJsonFromPayload],
+     [FrameType.ArticleRevisionDetail, mapAuthoringJsonFromPayload],
+     [FrameType.ArticleRevisionRollbackResponse, mapAuthoringJsonFromPayload],
+--- a/src/backend/Modules/Endpoints/AuthoringEndpoints.cs
++++ b/src/backend/Modules/Endpoints/AuthoringEndpoints.cs
+@@ -44,6 +44,7 @@
+             .WithTags("Authoring");
+ 
+         MapAuthoringWorkflowRoutes(group);
++        MapArticlePackageCandidateReviewRoutes(group);
+         MapAuthoringModerationRoutes(group);
+         MapAuthoringOperationsRoutes(group);
+         return app;
+--- a/src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs
++++ b/src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs
+@@ -149,6 +149,8 @@
+     private static IServiceCollection AddGeneralDomainServices(this IServiceCollection services)
+     {
+         services.AddScoped<SystemService>();
++        services.AddScoped<ISystemSiteIdentityReader>(serviceProvider => serviceProvider.GetRequiredService<SystemService>());
++        services.AddScoped<ArticlePackageCandidateReviewReadService>();
+         services.AddSingleton<IReadAnalyticsPrivacyPolicy, ReadAnalyticsPrivacyPolicy>();
+         services.AddScoped<StatsService>();
+         services.AddScoped<AuthoringAnalyticsReadService>();
+--- a/src/frontend/wasm/web/aeds.ts
++++ b/src/frontend/wasm/web/aeds.ts
+@@ -8,7 +8,7 @@
+ } from './runtime/assets';
+ import { loadEmscriptenModule, type EmscriptenLoadMetrics } from './runtime/emscripten';
+ 
+-export const AEDS_WASM_ABI = 'fsusblog.aeds.v4';
++export const AEDS_WASM_ABI = 'fsusblog.aeds.v5';
+ export const AEDS_MAX_FRAME_BYTES = 8 * 1024 * 1024;
+ 
+ type WasmAddress = number | bigint;
+--- a/tools/frontend/ensure-wasm.mjs
++++ b/tools/frontend/ensure-wasm.mjs
+@@ -78,7 +78,7 @@
+ 
+ export const wasmArtifactContract = Object.freeze({
+     schemaVersion: 3,
+-    aedsAbi: 'fsusblog.aeds.v4',
++    aedsAbi: 'fsusblog.aeds.v5',
+     buildModes: Object.freeze(['basic', 'simd', 'relaxed', 'threads']),
+     toolchain: wasmToolchainContract,
+     aedsRuntimeRoot: Object.freeze({
+--- a/tools/build-wasm-artifact.sh
++++ b/tools/build-wasm-artifact.sh
+@@ -76,7 +76,7 @@
+ }
+ 
+ const manifest = parseManifest(fs.readFileSync(manifestPath, 'utf8'));
+-if (manifest.schemaVersion !== 3 || manifest.aedsAbi !== 'fsusblog.aeds.v4' || !manifest.toolchain) {
++if (manifest.schemaVersion !== 3 || manifest.aedsAbi !== 'fsusblog.aeds.v5' || !manifest.toolchain) {
+-  console.error('[build-wasm-artifact] fatal: manifest must bind schema v3, AEDS ABI v4, and immutable toolchain identity');
++  console.error('[build-wasm-artifact] fatal: manifest must bind schema v3, AEDS ABI v5, and immutable toolchain identity');
+   process.exit(1);
+ }
+--- a/tools/security/run-wasm-fuzz.mjs
++++ b/tools/security/run-wasm-fuzz.mjs
+@@ -333,7 +333,7 @@
+         })),
+         crashes: [],
+         sanitizerOutput: null,
+-        decoder: { sha256: decoderDigest, abi: 'fsusblog.aeds.v4', tiers: decoderEvidence },
++        decoder: { sha256: decoderDigest, abi: 'fsusblog.aeds.v5', tiers: decoderEvidence },
+         blocker: null,
+         startedAt,
+         generatedAt
+@@ -364,7 +364,7 @@
+         seedPlan: corpus.map((entry, corpusIndex) => ({ corpus: entry.id, firstSeed: seedFor(corpusIndex, 0), count: seedsPerCorpus })),
+         crashes: [`${relativeOutputDirectory}/crashes/${crashName}`],
+         sanitizerOutput: null,
+-        decoder: { sha256: decoderDigest || null, abi: 'fsusblog.aeds.v4', tiers: decoderEvidence },
++        decoder: { sha256: decoderDigest || null, abi: 'fsusblog.aeds.v5', tiers: decoderEvidence },
+         blocker: 'wasm-fuzz-execution-failed',
+         error: message,
+         startedAt,
+--- a/tests/frontend/checks/perf/check-aeds-decode-budget.mjs
++++ b/tests/frontend/checks/perf/check-aeds-decode-budget.mjs
+@@ -89,7 +89,7 @@
+     const worker = manifest?.workerModel;
+     const active = worker?.activeRequests;
+     if (manifest?.schema !== 'fsusblog.aeds-runtime.v1'
+-    || manifest.abi !== 'fsusblog.aeds.v4'
++    || manifest.abi !== 'fsusblog.aeds.v5'
+     || manifest.maxFrameBytes !== 8 * 1024 * 1024
+     || worker?.instancesPerPage !== 1
+     || active?.source !== 'runtime-logical-processors'
+--- a/tests/frontend/unit/aedsWasmTier.test.ts
++++ b/tests/frontend/unit/aedsWasmTier.test.ts
+@@ -4,7 +4,7 @@
+   const hash = 'a'.repeat(64)
+   return {
+     schema: 'fsusblog.aeds-runtime.v1' as const,
+-    abi: 'fsusblog.aeds.v4',
++    abi: 'fsusblog.aeds.v5',
+     maxFrameBytes: 8 * 1024 * 1024,
+     workerModel: {
+       instancesPerPage: 1 as const,
+--- a/tests/tools/wasm-build-receipt.test.mjs
++++ b/tests/tools/wasm-build-receipt.test.mjs
+@@ -92,7 +92,7 @@
+     write(path.join(artifactDir, 'decoder.wasm'), outputBody);
+     const manifest = {
+         schemaVersion: 3,
+-        aedsAbi: 'fsusblog.aeds.v4',
++        aedsAbi: 'fsusblog.aeds.v5',
+         sourceHash: sourceDigest(clientRoot, sourceFiles),
+         sourceFiles,
+         outputFiles: ['decoder.wasm'],
+--- a/tests/tools/wasm-artifact-ownership.test.mjs
++++ b/tests/tools/wasm-artifact-ownership.test.mjs
+@@ -236,7 +236,7 @@
+-test('ensure-wasm exposes the current schema v3, ABI v4 and complete output contract', () =>
++test('ensure-wasm exposes the current schema v3, ABI v5 and complete output contract', () =>
+ {
+     assert.equal(wasmArtifactContract.schemaVersion, 3);
+-    assert.equal(wasmArtifactContract.aedsAbi, 'fsusblog.aeds.v4');
++    assert.equal(wasmArtifactContract.aedsAbi, 'fsusblog.aeds.v5');
+     assert.deepEqual(wasmArtifactContract.toolchain, wasmToolchainContract);
+     assert.equal(wasmToolchainContract.emscriptenVersion, '6.0.0');
+     assert.equal(wasmToolchainContract.binaryenVersion, '123');
+@@ -281,7 +281,7 @@
+ 
+     const report = await validateGeneratedWasmPackage({ artifactDir });
+     assert.equal(report.schemaVersion, 3);
+-    assert.equal(report.aedsAbi, 'fsusblog.aeds.v4');
++    assert.equal(report.aedsAbi, 'fsusblog.aeds.v5');
+     assert.equal(report.outputCount, wasmArtifactContract.requiredOutputFiles.length);
+ });
+ 

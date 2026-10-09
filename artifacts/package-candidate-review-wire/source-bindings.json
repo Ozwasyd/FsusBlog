@@ -1,0 +1,283 @@
+{
+  "base": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "canonicalOwnerRelease": "9d1f98d0279bb65c51140a762f7c0b9d75da1614",
+  "supplierSource": "d49a430828354760ec42463d98739babdbec9312",
+  "supplierFinal": "76f900f3266560af64e05f6936d4096f76577361",
+  "sourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "ownerThread": "01a11963-efb0-7431-8fc4-3a54b35e7034",
+  "ownedFiles": [
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+      "sha256": "f51b57926643f65bccda318f5ffc600dd905b44aeb62f083202e5928bf3fd596",
+      "baseAbsent": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewWireValidation.cs",
+      "sha256": "453246d5439261b3760bea7bc04f86420ff52e896a680e8da020967b4349037d",
+      "baseAbsent": true
+    },
+    {
+      "path": "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
+      "sha256": "5836d3230899166dd56a3716c9f172d45a2828b50261fb1049ea12908f072b47",
+      "baseAbsent": true
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/article_package_candidate_review_wire.hpp",
+      "sha256": "8fd62f13213ffb7c66c073abadf80a7035b5bb5a0235d1a83605580ab5f4b5a4",
+      "baseAbsent": true
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
+      "sha256": "2ba843a9570bd3edd8510433284083a6c6c33d347df0b667cb62fe2cd5da04dd",
+      "baseAbsent": true
+    },
+    {
+      "path": "tests/tools/article-package-candidate-review-wire.test.mjs",
+      "sha256": "207a7c794f1ad6062705fb33ad5f1d7d1ae13127bf02944b56a52e6a8d3a58fc",
+      "baseAbsent": true
+    },
+    {
+      "path": "tests/native/ArticlePackageCandidateReviewWireTests.cpp",
+      "sha256": "466b5eada3a2ca639352c32e0626bff0b5bc8ebde25be30feaf45ec1c45d1083",
+      "baseAbsent": true
+    }
+  ],
+  "consumedDependencies": [
+    {
+      "path": "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "63e994b7d0ffaae47f7cfc4ed6b364bf8a3a863a",
+      "sha256": "ee6371258149f8fc98b5540b7092a8751cde8adca73e22d405d7fc4c411159c6",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+      "supplier": "adc2e50070ffecbd1e003e7a051450c2dea6ff1f",
+      "blob": "2779552c57f2f4361348f002d62cf3aa3d49c187",
+      "sha256": "4821cc46efdb834c7bc84f548303f58e6ca6808fa1592749634582dea6b210d3",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePackageCandidateReviewReadService.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "1e6b978f4eecc227f6194036107e295a1fb64f86",
+      "sha256": "cd13a3ff651968e26199055ce21212fe35a16f329834b4f1c090484ee1ad1163",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProducer.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "82236f1bfa3cb1e313d5f388e54615a9dd390692",
+      "sha256": "ce500192fb0080cf2b80f07230efaf952fda8c9be896610b2da34d8011e94ef7",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "64712805fcc89d0b5d77341437883553a7fa3ed3",
+      "sha256": "c5b90c4bee8e7dfaacbbb5345dde4f6cd146278af28821c71049ddbeba246799",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewReadContracts.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "15c2c39cbc4cb7e3124a2b3f1e828b4148d93434",
+      "sha256": "c4d13a13d572fcd061cdbee6409c4767ab9c470d0f418beaceea124e2b80ddad",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "5efd320607c42e54edf6183257b3b8be60d9014b",
+      "sha256": "90ae25aa5f712fb98a5b88f041dc609bbc8d54c847e097aae4f53f5a2779683e",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "fffd88b4664604fadedf7897e98ee92bbdea18c3",
+      "sha256": "0fe36244e5fb47cbbdc67c022a3b881e16722980869d8e6743d00967076e2826",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "0349b601d66fed31483639b11f716e6fd8e9ee78",
+      "sha256": "f3e0fea81b2a4926202ed19fa236794fac2a511d729377ccb45c5988b63caecc",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "703501fe781def4f7818bff75fb7943b24ae2406",
+      "sha256": "2280792b9e35d4e1e96be5afc8d7060473ec826fd04485c8bb496e152e3e1604",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "e36842251889f60ca1d59b26d566444ca5b245d3",
+      "sha256": "4f36f0c335d3125b65e52f322d03e848de225c2d188c09773b6d9c9ef6d0d062",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "e4545ed0c9ecebf2a103b94711ae10efa182bf0a",
+      "sha256": "9a7359237cea0a63cba12f5c0d7c52dfeeb759087208cab4aa72b6716045e33a",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipDirectory.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "c0fa119c8256fbee5b68a2b1fbafd6833141f99d",
+      "sha256": "60f873c8930fe5573d6b71257731a13457ef5f3f3e4c58e25c510d8aebf6c2fd",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "33855d7e02f825aaab609530327cd586346162ea",
+      "sha256": "d68ab160127912c8675ab211616bf113a0bd0bbf2e6aaa68ea552ac49aa623f3",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetCollection.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "891fe8ed60f486cb6d09386f2c04d3c77b070906",
+      "sha256": "ccf4c56f27f8169a69b2126e14e05f19fcf5b3384a9b34e5193dd0f8ad20059e",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetMetadata.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "201da3565ab762d4967647404c4c6aebd1bb3039",
+      "sha256": "958a73f07dc948e91e4bbe0b5c846935849251a36247f4db48c81d4fba9fd7d8",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "c7cc09a894ea454beb7304bd03b0b9197e1d45f6",
+      "sha256": "908a108caf94d1bfc1f07b1121fbd27ca2490a4fa404e60aa1053b11a0e00841",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "56cb3abdac3dbf68abff92dbf79edff41a0fcc89",
+      "sha256": "040df41eddd5c6fc751a8c8e7064e71658c8ebc3466cb31fbee9eedb6934c4d6",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "7dba85d0b156841d5fdff5e5208979021b7a6925",
+      "sha256": "65fdf16486f7ec9f82f6199c018226fa5eec194533e49bfe879f5d8be0bec1f7",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "7d384124dd514c22c806cfc0320966b245fb7f4d",
+      "sha256": "955ca10aff7740cca91082e0e212f4d70ab6f9c5c06fcd612b75caa442e94ae5",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "79be4d889519a3ff93d22a95427c407454e52d5c",
+      "sha256": "49958b5a81bb2b8c11200a9a5333ced401cfebc4193b761698f68361d1f32569",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyCodec.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "bf70731af298fa0dd654ce8e4f807e5e2020d975",
+      "sha256": "a3b57ab48272f8eaa0cdcbba050f545a00c072fa3ea596ee523e226712c34b50",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyContracts.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "307aa308f29307f29130acd6e7a59c9951f1d485",
+      "sha256": "456156021007e5aeb8df3bab4c0969f92d032a0a56083f73ef484f6afbda5715",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestVersionRegistry.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "6722da44ef71c8550a5e42d2c18e138488b8771e",
+      "sha256": "c1968a6da626f248e82f9b3c3d8770ae84fb288b14c2f979e51fa56d196a7f42",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "d364b5e587bb7545ae7784258e2e3798a2c67aea",
+      "sha256": "bec4ec1bd472480f6cc8e3e130fac51488fc1b3e44d0d37b16eff220cc0ec9a5",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "b983c751c710118d88642a3a69c0e1a54cabc6e7",
+      "sha256": "b15687dfc98d664ee267c9056fe7f3c008eddab1b8f6a3dc8081eab21f99697d",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "dbfdbb966493224fae21e1f4c192bcd9f5f48674",
+      "sha256": "18e5b691b6067a1760bb8bd9c26552d1aa9da6a9928588827e7bce264f3bea51",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "ccc417763c04e36b8414325e944e48035018ae15",
+      "sha256": "c67134167da864a7d7830e0ae4be558cc518d2f539c2e5ef87903e3c2554316b",
+      "byteExact": true
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageCandidateReviewReadServiceTests.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "8b9e51cc92e454b7de3a542194c8afb34743bf92",
+      "sha256": "753a378530602ba9281dcb1a55f4153bb996161d8346105fe14e7f180a5d26cd",
+      "byteExact": true
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageImportCandidateByteTests.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "3c500e66b80e24ae9adb1f3e72918d23049f7b68",
+      "sha256": "03e89232d2194118b650f9d991d44c7ec56ec4cff6cb8a1f8f2afa712e240b31",
+      "byteExact": true
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageImportCandidateReviewProducerTests.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "ce601ff0e60370c769dbc88889e74463daacf146",
+      "sha256": "20541210c5d2959f79cb29e41986636c9fed7ae9be33861a7cc9573b0abba25f",
+      "byteExact": true
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs",
+      "supplier": "76f900f3266560af64e05f6936d4096f76577361",
+      "blob": "5a6e12b5ab55bff67378674df76d64c865df2588",
+      "sha256": "fcaa7d21f3141dca22f20611392e97cd3e805e7982caef165de025bbe8cc37fc",
+      "byteExact": true
+    },
+    {
+      "path": "src/frontend/src/api/types/articlePackageCandidateReview.ts",
+      "supplier": "820be8ea3c35debcbc9b486d04ab6be4b175098e",
+      "blob": "904f677f36eb288c1c03d394100da4fcd357943e",
+      "sha256": "091c1bee151aeeae5d16191c3069962c1a321b3facb3927c6fd61158d0c5ea8f",
+      "byteExact": true
+    }
+  ],
+  "supplierExecutionCredit": false,
+  "registrationActive": false,
+  "routeMapped": false,
+  "executeDisabled": true,
+  "qualification": false
+}

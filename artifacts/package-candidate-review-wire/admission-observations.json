@@ -1,0 +1,51 @@
+[
+  {
+    "name": "mandatory-preflight",
+    "argv": [
+      "node",
+      "tools/run-test-matrix.mjs",
+      "preflight"
+    ],
+    "sourceCommit": "934211fa851a4a2d4353d60af0fe8daecaad096a",
+    "exitCode": 124,
+    "seconds": 55.098
+  },
+  {
+    "name": "original-entry-help",
+    "argv": [
+      "./tools/test.sh",
+      "help"
+    ],
+    "sourceCommit": "934211fa851a4a2d4353d60af0fe8daecaad096a",
+    "exitCode": 0,
+    "seconds": 1.749
+  },
+  {
+    "name": "source-selection-plan",
+    "argv": [
+      "node",
+      "tools/run-test-matrix.mjs",
+      "ci-pr-smart",
+      "--stage",
+      "source-integration",
+      "--base-ref",
+      "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "--plan-only"
+    ],
+    "sourceCommit": "934211fa851a4a2d4353d60af0fe8daecaad096a",
+    "exitCode": 1,
+    "seconds": 4.068
+  },
+  {
+    "name": "backend-selection-plan",
+    "argv": [
+      "./tools/test.sh",
+      "ci-tier",
+      "backend-build-governance",
+      "--plan-only"
+    ],
+    "sourceCommit": "934211fa851a4a2d4353d60af0fe8daecaad096a",
+    "exitCode": 124,
+    "seconds": 55.081
+  }
+]

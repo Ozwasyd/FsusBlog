@@ -1,0 +1,356 @@
+{
+  "sourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "status": "DECLARED_ONLY_ADMISSION_REJECTED",
+  "mandatoryPreflight": "UNRUN_AT_FINAL_SOURCE; original attempt at 934211fa851a4a2d4353d60af0fe8daecaad096a timed out",
+  "actualSelection": "FAIL_DIRTY_EVIDENCE_WORKTREE_AT_FINAL_SOURCE",
+  "testBodies": "UNRUN",
+  "managedDiscovery": "UNRUN",
+  "sdkGate": "UNRUN_NO_ADMITTED_MANAGED_SELECTION",
+  "sdkObservation": "10.0.401 via original build-with-data-env.sh --info; not SDK execution authority",
+  "managedProject": "tests/backend/FsusBlog.Server.Tests.csproj",
+  "managedDeclaredSelectors": [
+    {
+      "path": "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
+      "sha256": "2ba843a9570bd3edd8510433284083a6c6c33d347df0b667cb62fe2cd5da04dd",
+      "declaredCaseCount": 31,
+      "cases": [
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.LiteralSeedAndReadonlyProjection_PreserveCorrelationWithoutAuthority",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.RequestWrongPrimitiveBudgetAndIntent_AreRefused",
+          "declaredInlineCases": 14
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.RequestAndEveryNestedResponse_RejectUnknownDuplicateAndMissingProperties",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.NestedTargetRevision_RefusesNoncanonicalInt64Strings",
+          "declaredInlineCases": 6
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.ExactInt64AndReplayContext_RemainStringsAndRejectDrift",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.RequestedTargetCountAndBijection_UseOriginalThousandTargetLimit",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.Utf16ArchiveAndCompleteFrameBudgets_AreExact",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.ResponseExecuteGrantPrivateScopeAndUnknownAuthority_AreRefused",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointOriginalFrameHelper_RefusesCompleteOversizeKnownAndUnknownBodies",
+          "declaredInlineCases": 2
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.UnknownLengthTrailingBodyAndOpenShape_RefuseBeforeReader",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointOriginalProducer_PreservesAuthContextCorrelationAndRefusal",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointInitializationRequiredDenialCancellationAndStorageFailure_RemainPrivateRefusals",
+          "declaredInlineCases": 1
+        }
+      ],
+      "fixtures": []
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageCandidateReviewReadServiceTests.cs",
+      "sha256": "753a378530602ba9281dcb1a55f4153bb996161d8346105fe14e7f180a5d26cd",
+      "declaredCaseCount": 21,
+      "cases": [
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CurrentExactScope_UsesOriginalProducerAndPreservesObservedCoordinates",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent",
+          "declaredInlineCases": 5
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused",
+          "declaredInlineCases": 7
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.FinalRevisionDrift_IsRefusedEvenWhenIdentityIsUnchanged",
+          "declaredInlineCases": 3
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.StatelessReplay_RequiresSamePlanAndContextRatherThanRefreshingThem",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.PermissionDenialAndOversizeEnvelope_DoNotCallReader",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.ScopeChangeAfterProjection_IsRefusedWithoutUrlNormalization",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.UpdateHint_Int64StaysExactAndExecutionStillHasNoAuthority",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CancelAndOwnerFailure_NeverFabricateBindingOrDefaultIdentity",
+          "declaredInlineCases": 1
+        }
+      ],
+      "fixtures": []
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageImportCandidateReviewProducerTests.cs",
+      "sha256": "20541210c5d2959f79cb29e41986636c9fed7ae9be33861a7cc9573b0abba25f",
+      "declaredCaseCount": 26,
+      "cases": [
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ServerContext_ComposesOriginalZipPlanAndBoundedDisabledProjection",
+          "declaredInlineCases": 2
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingAuthentication_RefusesBeforeObserverOrArchive",
+          "declaredInlineCases": 5
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestContext_CannotSelectDifferentServerBinding",
+          "declaredInlineCases": 3
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.MissingOrUrlSite_ProducesNoDefaultIdentity",
+          "declaredInlineCases": 2
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.ChangedFinalObservation_RefusesCompleteCandidate",
+          "declaredInlineCases": 4
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.OriginalRefusals_ReturnNoPartialProjection",
+          "declaredInlineCases": 4
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.RequestRevokedDuringTargetCopy_RefusesBeforeFinalObserver",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.FinalRequestMovement_RefusesEvenWhenContextValueIsUnchanged",
+          "declaredInlineCases": 2
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.CancelledAndRepeatedCalls_RefuseWithoutPartialOutputThenRecover",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.AuthenticationMovementAtProjectionTime_IsCheckedBeforeReturn",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProducerTests.CanonicalReaderFailure_IsNotConvertedToAContextOrSuccessfulReview",
+          "declaredInlineCases": 1
+        }
+      ],
+      "fixtures": []
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs",
+      "sha256": "fcaa7d21f3141dca22f20611392e97cd3e805e7982caef165de025bbe8cc37fc",
+      "declaredCaseCount": 18,
+      "cases": [
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.Create_ProjectsOriginalSummaryDigestsAndIdentityRequirementsWithoutAuthority",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.Update_CompleteHintsRemainUnresolvedAndExactInt64SurvivesJson",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.Projection_PreservesUtcTicksInStringsWithoutClientNumericCoordinates",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.ThousandTargets_ArePagedInOriginalOrderWithNoFullTargetPayload",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.FinalPage_IsBoundedAndOriginalPlanRemainsImmutable",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.InvalidPages_RefuseWithoutPartialProjectionOrOverflow",
+          "declaredInlineCases": 7
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.CallerInterval_UsesExactBoundariesAndNeverChangesAuthority",
+          "declaredInlineCases": 3
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.MissingPlanAndNonUtcClock_RefuseWithoutReview",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.EmptyAndOverbudgetCandidates_StayOriginalCodecRefusals",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests.MalformedAndOverbudgetRequests_CannotAcquireAReviewOrExecutionAuthority",
+          "declaredInlineCases": 1
+        }
+      ],
+      "fixtures": []
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageImportCandidateByteTests.cs",
+      "sha256": "03e89232d2194118b650f9d991d44c7ec56ec4cff6cb8a1f8f2afa712e240b31",
+      "declaredCaseCount": 36,
+      "cases": [
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_MatchesIndependentPythonByteGoldenIncludingChecksumWhitespace",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_BindsExactArticleSetAndFreezesSortedBytes",
+          "declaredInlineCases": 2
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_RejectsEmptyNullAndOutOfBudgetListsWithoutIndexing",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_RejectsZeroArticlePackageThroughActualInventoryOwner",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_FailsClosedOnHostileCountAndIndexProviders",
+          "declaredInlineCases": 3
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_RejectsEveryBadRowWithoutPartialCandidate",
+          "declaredInlineCases": 8
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_RejectsManifestArticleClosureEvenWithValidChecksums",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_RefusesAssetsWithoutInventingAnAssetMapping",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_RechecksAllRawMetadataAfterMatchingManifestAndFileChecksums",
+          "declaredInlineCases": 9
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_RetainsExactUnicodeBomAndWhitespaceBytes",
+          "declaredInlineCases": 4
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_PackageDigestIncludesActualChecksumDocumentBytes",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_RefusesMalformedManifestEvenWithMatchingChecksumRows",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_PreCancelledDoesNotReadInputsAndMidCopyCancellationReturnsNoCandidate",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_RejectsPostBufferCopyCancellationAndThrowingMemoryProviders",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateByteTests.Validate_AggregateBudgetRefusesBeforeAccessingAnyByteSpan",
+          "declaredInlineCases": 1
+        }
+      ],
+      "fixtures": []
+    }
+  ],
+  "nodeFile": "tests/tools/article-package-candidate-review-wire.test.mjs",
+  "nodeExactSelector": "^(literal\\ seed\\ and\\ projection\\ retain\\ refusal\\ and\\ exact\\ correlation|request\\ closed\\ shape\\ rejects\\ duplicates\\ missing\\ null\\ wrong\\ primitives\\ and\\ unsafe\\ numbers|every\\ nested\\ response\\ level\\ rejects\\ unknown\\ duplicate\\ missing\\ and\\ required\\ null\\ members|nested\\ targets\\ preserve\\ exact\\ Int64\\ strings\\ and\\ reject\\ numeric\\ or\\ noncanonical\\ revisions|archive\\ requestId\\ and\\ complete\\ frame\\ budgets\\ use\\ original\\ byte\\ and\\ UTF16\\ units|requestedTargets\\ budget\\ and\\ original\\ target\\ identity\\ closure\\ are\\ finite|correlation\\ refuses\\ old\\ request\\ plan\\ context\\ dates\\ and\\ changed\\ target\\ hints|private\\ material\\ and\\ malformed\\ UTF8\\ never\\ enter\\ accepted\\ projection\\ or\\ error\\ text)$",
+  "nodeDeclaredTestNames": [
+    "literal seed and projection retain refusal and exact correlation",
+    "request closed shape rejects duplicates missing null wrong primitives and unsafe numbers",
+    "every nested response level rejects unknown duplicate missing and required null members",
+    "nested targets preserve exact Int64 strings and reject numeric or noncanonical revisions",
+    "archive requestId and complete frame budgets use original byte and UTF16 units",
+    "requestedTargets budget and original target identity closure are finite",
+    "correlation refuses old request plan context dates and changed target hints",
+    "private material and malformed UTF8 never enter accepted projection or error text"
+  ],
+  "nativeOriginalProject": "tests/native/CMakeLists.txt",
+  "nativeProposedTarget": "FsusArticlePackageCandidateReviewWireTests",
+  "nativeExactSelector": "^FsusArticlePackageCandidateReviewWireTests$",
+  "nativeSelection": "UNRUN_TARGET_NOT_REGISTERED",
+  "nativeSupportSources": [
+    "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+    "src/frontend/wasm/aeds/src/pod_parse_article.cpp",
+    "src/frontend/wasm/aeds/src/aeds_crc32.cpp"
+  ],
+  "hooks": [
+    {
+      "path": "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs",
+      "sha256": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b",
+      "enabledEnvironmentVariable": "FSUSBLOG_TEST_REDIS_DIAGNOSTICS",
+      "actualEnabledEnvironmentPresent": false,
+      "behaviorWhenAbsent": "returns before subscribing; source inspection only"
+    },
+    {
+      "path": "tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs",
+      "behavior": "original csproj StartupObject; not invoked through vstest; discovery and bodies UNRUN"
+    }
+  ],
+  "declaredResources": {
+    "managed": {
+      "cpuUnits": 1,
+      "memoryGiB": 2,
+      "services": [],
+      "resourceOwners": "memory ZIP; original claims/configuration; controlled typed reader; HttpContext memory BodyReader/BodyWriter; scoped provider and streams disposed; no live server/database/Redis"
+    },
+    "node": {
+      "cpuUnits": 1,
+      "memoryGiB": 0.5,
+      "services": [],
+      "resourceOwners": "original TS source imported using pinned Node type stripping; bounded literal payloads and AbortControllers; no I/O transport/network"
+    },
+    "native": {
+      "cpuUnits": 1,
+      "memoryGiB": 0.5,
+      "services": [],
+      "resourceOwners": "original CMake/native producer target; production DecodeFrame/CRC/article parser; vectors/strings scoped to process; target not admitted"
+    }
+  },
+  "actualObservedCgroupLimits": {
+    "cpuMax": "400000 100000",
+    "memoryMax": "17179869184",
+    "memoryCurrent": "306835456",
+    "pidsMax": "max",
+    "membership": "0::/"
+  },
+  "reservationOrGrantCreated": false,
+  "dynamicExecutionStarted": false,
+  "qualification": false,
+  "excluded": [
+    "held receipt",
+    "replacement",
+    "cohort",
+    "native custody audits"
+  ],
+  "priorMandatoryPreflightSource": "934211fa851a4a2d4353d60af0fe8daecaad096a",
+  "priorSelectionFailure": {
+    "sourceCommit": "934211fa851a4a2d4353d60af0fe8daecaad096a",
+    "reason": "independent release-final Node parser identity drifted; applicable execution authority schema, source index or parser identity drifted"
+  }
+}

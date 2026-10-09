@@ -1,0 +1,18 @@
+{
+  "name": "final-source-selection-plan",
+  "argv": [
+    "node",
+    "tools/run-test-matrix.mjs",
+    "ci-pr-smart",
+    "--stage",
+    "source-integration",
+    "--base-ref",
+    "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "--plan-only"
+  ],
+  "sourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "exitCode": 1,
+  "seconds": 1.968,
+  "testBodies": "UNRUN",
+  "qualification": false
+}

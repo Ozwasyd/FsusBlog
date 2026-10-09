@@ -1,0 +1,20 @@
+--- a/tests/native/CMakeLists.txt
++++ b/tests/native/CMakeLists.txt
+@@ -9,6 +9,17 @@
+ FsusEnableSanitizers(FsusNativeSmokeTests)
+ 
+ add_test(NAME FsusNativeSmokeTests COMMAND FsusNativeSmokeTests)
++
++add_executable(
++    FsusArticlePackageCandidateReviewWireTests
++    ArticlePackageCandidateReviewWireTests.cpp
++    "${PROJECT_SOURCE_DIR}/src/frontend/wasm/aeds/src/aeds_decode.cpp"
++    "${PROJECT_SOURCE_DIR}/src/frontend/wasm/aeds/src/pod_parse_article.cpp"
++)
++target_link_libraries(FsusArticlePackageCandidateReviewWireTests PRIVATE FsusAedsCrc16)
++FsusEnableProjectWarnings(FsusArticlePackageCandidateReviewWireTests)
++FsusEnableSanitizers(FsusArticlePackageCandidateReviewWireTests)
++add_test(NAME FsusArticlePackageCandidateReviewWireTests COMMAND FsusArticlePackageCandidateReviewWireTests)
+ 
+ if(FSUSBLOG_ENABLE_FUZZING)
+     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")

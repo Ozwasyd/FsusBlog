@@ -1,0 +1,14 @@
+{
+  "name": "original-helper-sdk-observation",
+  "argv": [
+    "tools/build-with-data-env.sh",
+    "/workspace/.setup/dotnet/dotnet",
+    "--info"
+  ],
+  "sourceCommit": "934211fa851a4a2d4353d60af0fe8daecaad096a",
+  "exitCode": 0,
+  "seconds": 0.319,
+  "managedDiscovery": "UNRUN",
+  "testBodies": "UNRUN",
+  "qualification": false
+}
