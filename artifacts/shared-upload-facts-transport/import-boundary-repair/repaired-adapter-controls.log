@@ -1,0 +1,13 @@
+
+ RUN  v4.1.11 /workspace/FsusBlog-upload-facts-transport/src/frontend
+
+ ✓ ../../tests/frontend/unit/adapters/binary/uploadAssetFacts.test.ts (11 tests) 1525ms
+ ✓ ../../tests/frontend/unit/adapters/binary/uploadAssetPreview.test.ts (16 tests) 1532ms
+
+ Test Files  2 passed (2)
+      Tests  27 passed (27)
+   Start at  13:44:41
+   Duration  2.65s (transform 3.14s, setup 1.44s, import 226ms, tests 3.06s, environment 1ms)
+
+JSON report written to /workspace/FsusBlog-upload-facts-transport/.tmp/test-results/vitest/adapters-binary/unsharded.json
+JUNIT report written to /workspace/FsusBlog-upload-facts-transport/.tmp/test-results/vitest/adapters-binary/unsharded.xml

@@ -1,0 +1,21 @@
+{
+  "sourceCommit": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "src/frontend/node_modules/vitest/vitest.mjs",
+    "run",
+    "--root",
+    "src/frontend",
+    "--config",
+    "vitest.adapters-binary.config.ts",
+    "/workspace/FsusBlog-upload-facts-transport/tests/frontend/unit/adapters/binary/uploadAssetFacts.test.ts",
+    "/workspace/FsusBlog-upload-facts-transport/tests/frontend/unit/adapters/binary/uploadAssetPreview.test.ts"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T13:44:40.714092+00:00",
+  "endedAtUtc": "2026-10-09T13:44:44.344065+00:00",
+  "exitCode": 0,
+  "seconds": 3.63,
+  "stdoutArtifact": "repaired-adapter-controls.log",
+  "runtimeQualification": false
+}

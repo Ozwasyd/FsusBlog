@@ -1,0 +1,7 @@
+[binary-import-boundaries] FAILED
+- ../../tmp/upload-facts-import-negative-jylr3huj/src/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter
+- ../../tmp/upload-facts-import-negative-jylr3huj/src/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter
+- ../../tmp/upload-facts-import-negative-jylr3huj/src/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter
+- ../../tmp/upload-facts-import-negative-jylr3huj/src/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter
+- ../../tmp/upload-facts-import-negative-jylr3huj/src/api/uploadFacts.ts: API must not import binary decoder adapter: @/adapters/binary/uploadAdapter
+- ../../tmp/upload-facts-import-negative-jylr3huj/src/contracts/authoringCanvas.ts: contracts must not have runtime import @/codecs/binary/authoringCanvasWire.generated

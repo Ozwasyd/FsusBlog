@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "67cebeb0bd666255c50302b9391730783f9db551",
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T13:42:16.551060+00:00",
+  "endedAtUtc": "2026-10-09T13:42:16.837150+00:00",
+  "exitCode": 1,
+  "seconds": 0.286,
+  "stdoutArtifact": "initial-original-boundary.log",
+  "runtimeQualification": false
+}

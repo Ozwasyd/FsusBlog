@@ -1,0 +1,10 @@
+{
+  "sourceCommit": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "root": "/tmp/upload-facts-import-negative-hw8vzjdh",
+  "sourceRootCopiedFrom": "/workspace/FsusBlog-upload-facts-transport/src/frontend/src",
+  "mutatedFile": "api/uploadFacts.ts",
+  "change": "restore forbidden API-to-binary-adapter TYPE dependency only",
+  "checker": "original tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+  "runtimeQualification": false,
+  "taskExclusiveTmpRemoved": true
+}

@@ -1,0 +1,33 @@
+{
+  "sourceCommit": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "root": "/tmp/upload-facts-import-negative-jylr3huj",
+  "sourceRootCopiedFrom": "/workspace/FsusBlog-upload-facts-transport/src/frontend/src",
+  "mutatedFile": "api/uploadFacts.ts",
+  "change": "restore forbidden API-to-binary-adapter TYPE dependency only",
+  "checker": "original tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+  "runtimeQualification": false,
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+  ],
+  "env": {
+    "FSUSBLOG_BINARY_IMPORT_SOURCE_ROOT": "/tmp/upload-facts-import-negative-jylr3huj/src"
+  },
+  "exitCode": 1,
+  "temporaryPathPrefixNormalizedForComparison": "../../tmp/upload-facts-import-negative-jylr3huj/src/",
+  "normalizedRows": [
+    "- src/frontend/src/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+    "- src/frontend/src/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+    "- src/frontend/src/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+    "- src/frontend/src/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+    "- src/frontend/src/api/uploadFacts.ts: API must not import binary decoder adapter: @/adapters/binary/uploadAdapter",
+    "- src/frontend/src/contracts/authoringCanvas.ts: contracts must not have runtime import @/codecs/binary/authoringCanvasWire.generated"
+  ],
+  "expectedTargetRefusalDetected": true,
+  "preservedBaselineViolations": 5,
+  "extraViolations": 1,
+  "negativeAssertionsPassed": true,
+  "rawLog": "original-boundary-negative.log",
+  "initialDriverFailure": "Originalchecker correctly refused6rows; first driver expected repository paths instead of temporary-path display. Preserved rawinitial negative files, corrected only output prefix comparison.",
+  "taskExclusiveTmpRemoved": true
+}

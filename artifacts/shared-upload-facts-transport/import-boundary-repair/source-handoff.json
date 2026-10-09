@@ -1,0 +1,75 @@
+{
+  "schema": "fsusblog.source-import-boundary-repair.v1",
+  "sourceCommit": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "parent": "67cebeb0bd666255c50302b9391730783f9db551",
+  "branch": "codex/shared-upload-facts-transport-20261009",
+  "createdAtUtc": "2026-10-09T13:53:40.514565+00:00",
+  "changedPaths": [
+    {
+      "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "beforeBlob": "1b56396b6b7902453170bdf6bdc6eca287a531a9",
+      "afterBlob": "981e816ba993c9e0e9ec4111d829b8c6445937af"
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "beforeBlob": "0c16998759e5ee5329a034b9bfea88459b69bf81",
+      "afterBlob": "9d26121b7a191923e3a5f3555e85481b936a631d"
+    },
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "beforeBlob": "7d314a7730688e7562383feefcaacf75e53b9a4b",
+      "afterBlob": "2c3f7ae2e39fe620496aefa21648e06652895a83"
+    }
+  ],
+  "typeAliasByteIdentical": true,
+  "sourceIntent": "Move the existing view-model alias to neutral binaryApi contract; API and decoder adapter import the same type. No cast, shape change, decoder parser change or checker exception.",
+  "originalBoundary": {
+    "beforeViolations": 6,
+    "afterViolations": 5,
+    "exitCodeAfter": 1,
+    "factsEdgeRemoved": true,
+    "baselineRowsIdentical": true,
+    "remainingRows": [
+      "- src/frontend/src/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+      "- src/frontend/src/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+      "- src/frontend/src/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+      "- src/frontend/src/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+      "- src/frontend/src/contracts/authoringCanvas.ts: contracts must not have runtime import @/codecs/binary/authoringCanvasWire.generated"
+    ]
+  },
+  "negativeControl": {
+    "extraForbiddenTypeEdgeRefused": true,
+    "exitCode": 1,
+    "negativeAssertionsPassed": true,
+    "taskExclusiveTmpRemoved": true,
+    "initialDriverPathComparisonFailurePreserved": true
+  },
+  "frontendControls": {
+    "sourceCommit": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+    "exitCode": 0,
+    "passed": 27,
+    "facts": 11,
+    "unchangedPreview": 16,
+    "artifact": "repaired-adapter-controls.json"
+  },
+  "style": {
+    "passed": true,
+    "files": 8,
+    "diagnostics": 0,
+    "artifact": "boundary-source-style-fix.json",
+    "binding": "Formatter ran before commit at parent; source-only formatting included in sourceCommit."
+  },
+  "unchangedHistoricalBindings": {
+    "strictSdk": "6edc4e20cc1ce4054c5c5356902dbc3fb9828025: exit1/1529errors/0changed diagnostics; nine new cases and discovery UNRUN",
+    "fullTypes": "4cfdbbf9542f14eab305642aabb968fb6b3179bd: 290diagnostics; real FsUI f2b3bb89ffe5f749da26c388f058efdbb6aee864; no current-candidate rebind",
+    "protocolNativeProductsOpenApi": "Existing artifacts remain bound to their original tested commits; not rerun for this type-only source repair."
+  },
+  "runtimeQualification": false,
+  "unaccepted": [
+    "Original strict SDK and full frontend types",
+    "HTTP/Postgres/session/native-file acceptance",
+    "Original1975 provider consumption",
+    "Actual ledger owner eight-field reference receipt issuer",
+    "Wasm/CI/rendered UX"
+  ]
+}

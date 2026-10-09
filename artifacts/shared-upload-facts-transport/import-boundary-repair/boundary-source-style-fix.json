@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "67cebeb0bd666255c50302b9391730783f9db551",
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "8ff02b213a60551a31e687463f6084028bac563b",
+    "--fix"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T13:42:51.576971+00:00",
+  "endedAtUtc": "2026-10-09T13:43:12.079935+00:00",
+  "exitCode": 0,
+  "seconds": 20.503,
+  "stdoutArtifact": "boundary-source-style-fix.log",
+  "runtimeQualification": false
+}
