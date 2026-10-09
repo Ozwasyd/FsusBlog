@@ -1,0 +1,33 @@
+{"id":"windows.valid.restart","status":"PASS","actual":true,"expected":true}
+{"id":"windows.valid.rename_old","status":"PASS","actual":true,"expected":true}
+{"id":"windows.refusal.restart_erases_rescan_reason","status":"FAIL","actual":{"verified":true,"FactClass":0,"NativeAction":0,"RescanRequired":false,"ReasonCode":null,"RawOldRelativePath":null,"RawNewRelativePath":null},"expected":{"verified":false}}
+{"id":"windows.refusal.overflow_erases_rescan_reason","status":"FAIL","actual":{"verified":true,"FactClass":6,"NativeAction":0,"RescanRequired":false,"ReasonCode":null,"RawOldRelativePath":null,"RawNewRelativePath":null},"expected":{"verified":false}}
+{"id":"windows.refusal.action_class_contradiction","status":"FAIL","actual":{"verified":true,"FactClass":3,"NativeAction":4,"RescanRequired":false,"ReasonCode":null,"RawOldRelativePath":"old.md","RawNewRelativePath":null},"expected":{"verified":false}}
+{"id":"windows.refusal.rename_old_has_only_new_path","status":"FAIL","actual":{"verified":true,"FactClass":4,"NativeAction":4,"RescanRequired":false,"ReasonCode":null,"RawOldRelativePath":null,"RawNewRelativePath":"new.md"},"expected":{"verified":false}}
+{"id":"windows.refusal.rename_old_has_two_paths","status":"FAIL","actual":{"verified":true,"FactClass":4,"NativeAction":4,"RescanRequired":false,"ReasonCode":null,"RawOldRelativePath":"old.md","RawNewRelativePath":"new.md"},"expected":{"verified":false}}
+{"id":"windows.refusal.pathless_mutation","status":"FAIL","actual":{"verified":true,"FactClass":3,"NativeAction":3,"RescanRequired":false,"ReasonCode":null,"RawOldRelativePath":null,"RawNewRelativePath":null},"expected":{"verified":false}}
+{"id":"windows.refusal.failure_contains_private_reason","status":"FAIL","actual":{"verified":true,"FactClass":0,"NativeAction":0,"RescanRequired":true,"ReasonCode":"private body/token\nnot_a_code","RawOldRelativePath":null,"RawNewRelativePath":null},"expected":{"verified":false}}
+{"id":"windows.refusal.nonpositive_timestamps","status":"FAIL","actual":{"verified":true,"FactClass":0,"NativeAction":0,"RescanRequired":true,"ReasonCode":"windows_vault_watcher_restart","RawOldRelativePath":null,"RawNewRelativePath":null},"expected":{"verified":false}}
+{"id":"windows.refusal.source_path_escape","status":"FAIL","actual":{"verified":true,"FactClass":4,"NativeAction":4,"RescanRequired":false,"ReasonCode":null,"RawOldRelativePath":"..\\outside.md","RawNewRelativePath":null},"expected":{"verified":false}}
+{"id":"windows.refusal.non_ntfs_identity","status":"FAIL","actual":true,"expected":false}
+{"id":"windows.valid.refuse_clean_watermark","status":"PASS","actual":{"verified":false,"FactClass":0,"NativeAction":0,"RescanRequired":true,"ReasonCode":"windows_vault_watcher_restart","RawOldRelativePath":null,"RawNewRelativePath":null},"expected":{"verified":false}}
+{"id":"windows.valid.refuse_content_digest_authority","status":"PASS","actual":{"verified":false,"FactClass":0,"NativeAction":0,"RescanRequired":true,"ReasonCode":"windows_vault_watcher_restart","RawOldRelativePath":null,"RawNewRelativePath":null},"expected":{"verified":false}}
+{"id":"mac.valid.fact","status":"PASS","actual":true,"expected":true}
+{"id":"mac.refusal.nonpositive_timestamps","status":"PASS","actual":false,"expected":false}
+{"id":"mac.refusal.private_reason","status":"PASS","actual":false,"expected":false}
+{"id":"mac.refusal.clear_rescan","status":"PASS","actual":false,"expected":false}
+{"id":"mac.refusal.rename_invents_pair","status":"PASS","actual":false,"expected":false}
+{"id":"mac.refusal.root_escape","status":"PASS","actual":false,"expected":false}
+{"id":"mac.valid.global_event_ids_not_consecutive","status":"PASS","actual":"mac_vault_rescan_pending","expected":"mac_vault_rescan_pending"}
+{"id":"windows.queue.loss_marker_preserves_prefix","status":"PASS","actual":{"Count":8,"lastClass":"BufferOverflow","lastSequence":10},"expected":"8 facts; explicit overflow"}
+{"id":"windows.queue.next_delivery_exposes_gap","status":"PASS","actual":{"previous":10,"next":53},"expected":"next \u003E previous \u002B 1"}
+{"id":"windows.decoder.duplicate_and_reverse_rename_order","status":"PASS","actual":[5,3,3,4],"expected":[5,3,3,4]}
+{"id":"windows.decoder.truncated_tail_reports_failure_after_auditable_prefix","status":"PASS","actual":{"deliveredPrefix":1,"error":"windows_vault_native_name_invalid"},"expected":"one raw prefix fact plus explicit decode failure; session must require rescan"}
+{"id":"composite.real_linux_adapter_overflow_creates_obligation","status":"PASS","actual":{"obligations":1,"CanAdmitSynchronization":false,"reasons":["linux_vault_kernel_overflow","vault_observation_watch_overflow"]},"expected":"one blocking root obligation; no sync"}
+{"id":"composite.independent_batch_verify","status":"PASS","actual":true,"expected":true}
+{"id":"composite.resealed_obligation_erasure_refused","status":"PASS","actual":false,"expected":false}
+{"id":"composite.interrupted_rescan_persists_on_empty_next_batch","status":"PASS","actual":{"state":"Failed","CanAdmitSynchronization":false},"expected":"Failed \u002B blocking"}
+{"id":"composite.structural_scan_does_not_manufacture_native_receipt","status":"PASS","actual":{"state":"AwaitingNativeVerification","NativeTerminalReceiptSha256":null,"BlocksSynchronization":true},"expected":"awaiting native; no native receipt; blocking"}
+{"id":"declaration.native_windows_no_public_factory","status":"PASS","actual":0,"expected":0}
+{"id":"declaration.no_windows_or_mac_normalizer_adapter","status":"PASS","actual":"Linux adapter only","expected":"WIP: no Windows/macOS composite acceptance"}
+{"summary":true,"passed":22,"failed":10,"nativeWindowsNtfs":"UNRUN: Linux host","nativeMacosApfs":"UNRUN: Linux host; Darwin C uncompiled"}

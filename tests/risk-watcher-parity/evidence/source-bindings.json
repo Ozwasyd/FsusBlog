@@ -1,0 +1,70 @@
+{
+    "scope": "managed negative and composite controls; not platform qualification",
+    "sdk": "10.0.401",
+    "inputs": [
+        {
+            "surface": "windows",
+            "sourceSha": "a69a1ea853d617048649f55e3c74661ad21a51a8",
+            "sourceFiles": {
+                "src/article-vault/windows/WindowsDirectoryChangesNative.cs": "e65914e6ab26f009e6784b83a42b0ce577a0907f395521c532fc8a95ea11ab93",
+                "src/article-vault/windows/WindowsVaultFactBuffer.cs": "c1194ffaeb911d39d59df9b01744b3a9d17c38f10b37188add177516c54066ec",
+                "src/article-vault/windows/WindowsVaultNotifyDecoder.cs": "334cb218c3468925269f4b2f0d721fa944251a2d894dc15727530fd01876764e",
+                "src/article-vault/windows/WindowsVaultRawFactCodec.cs": "d9804f142f7cf497cc2befd5fea79a31c2869deb6f8d94a1d19acc12862b3a11",
+                "src/article-vault/windows/WindowsVaultTestAccess.cs": "4574442925902320a6d048c4d8b66686c264a4e247c131a715ab2319d643072c",
+                "src/article-vault/windows/WindowsVaultWatchContracts.cs": "174ec0d4749b39f614a85ab2b2d8a6daca532fa490f104f353abbf9c879c8904",
+                "src/article-vault/windows/WindowsVaultWatcherSession.cs": "3e2dfdd59eb1429dcfbd5fdd497879c20ea020354ac115b76894e40207825c96"
+            }
+        },
+        {
+            "surface": "macos",
+            "sourceSha": "0538404eba4c6818db5ff02f057ac2650d6d97d3",
+            "sourceFiles": {
+                "src/article-vault/macos/FSEventsNative.cs": "ab3d9d566e595ad6ce73424f257b74143f9cc5d83a92fe3454a11b619b654695",
+                "src/article-vault/macos/MacVaultRawFactBuffer.cs": "a6a5bdefe37aa725a6530475d044198f66f691f2d141b7ec8218db17af6603ce",
+                "src/article-vault/macos/MacVaultRawFactCodec.cs": "bba7f44111c70bec5ec8df79a421371050c29b7f904ec0faaaff35e704fcad21",
+                "src/article-vault/macos/MacVaultRootPathScope.cs": "408d16193ec66f3b419b1e7d4c34474ba277274cea91a343aba5af98b9490237",
+                "src/article-vault/macos/MacVaultWatchContracts.cs": "9ffe2e07b95fff71f3f4b0f587b283b42afbca05843fadc90264d1ce9d91ed93",
+                "src/article-vault/macos/MacVaultWatcherSession.cs": "87b6abdce7b64f5b11452b8fc2acbae95c2fde341b392e2bf250ccb0d1847005",
+                "src/article-vault/macos/native/MacVaultFSEvents.c": "d32c37e3b8e23b993979afdabb4a563bb680f8d2b10e28bef991364d36da17c6"
+            }
+        },
+        {
+            "surface": "observations",
+            "sourceSha": "7bab017f162852eea4f8c7888e1bccfcc9b3b9ea",
+            "sourceFiles": {
+                "src/article-vault/linux/InotifyNative.cs": "6ee67f89355497442e689e3bf52d997e975848759520d2dbaa79e11005e57027",
+                "src/article-vault/linux/LinuxVaultRawFactCodec.cs": "15420ca636d1b747e6f2c2a9842e328fd0e8a4272938707a0bda4af27001e702",
+                "src/article-vault/linux/LinuxVaultRootPathScope.cs": "9de1a44ad8adbb7f22e1cebbca42bd5c8cff6453df0af60201f75a174c9dd0a1",
+                "src/article-vault/linux/LinuxVaultRootVerifier.cs": "58209999e7849c7a46361a460c62cbbd86406f945a7d321a7ebccd76f18fe648",
+                "src/article-vault/linux/LinuxVaultWatchContracts.cs": "63ea27f8a1765e2f19bb67b9c66aaab525f2376b233103c52763cdb0d60eb20c",
+                "src/article-vault/linux/LinuxVaultWatcherSession.cs": "2332751e6ad2d023524f6a6884236b0bf307101bc696c104ee0005f09a88efe4",
+                "src/article-vault/observations/LinuxVaultObservationAdapter.cs": "f94b63878ef7a875b955cb54a38673ce6b2b657ccf6bef813e6e8912bfce05be",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAtomicWriteAssessment.cs": "6f5d935e6111fee101b3773c0233f937da6b5866875e531afba474c9083a7a70",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs": "26317092311377815f1a06a826d4092c6ba493159f8461557fb2e754641e99de",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs": "06c343b9529c0a54a09cf42ee4b56e65cd9dfbfa504db1ed2e84ce0c0716de17",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs": "e0481f2769b3acad4d9b50b6df0d238f031dbcda6baa0e89717e5694e3ca6b35",
+                "src/shared/Contracts/ArticleVault/ArticleVaultEventNormalizer.cs": "e410d0345cf1d8850ac0b4af0b728531bd98ed94e21d72562d0f587ae4e84f09",
+                "src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs": "f9e898a3f48c43e2042b9223e7476247c09044836dc9fe36706727a67a543de3",
+                "src/shared/Contracts/ArticleVault/ArticleVaultManifestContracts.cs": "66ec8bc2077388095660c39e65a1292c764e0162acf6afcfa421f43874b812d1",
+                "src/shared/Contracts/ArticleVault/ArticleVaultMaterializationInstruction.cs": "ff69b169bc5bf041cce0d0dcf17d7ece70265a26ae6ffd449ae3e24d2f0c867e",
+                "src/shared/Contracts/ArticleVault/ArticleVaultObservationContracts.cs": "356d761bd633baea8f62a92fea5b55471169ba13c0b4415610892ef8e5a55ef1",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureContracts.cs": "9a3f00b721b5f755a891ca83b65fcbf28edc6ff49b52144378a0843664eb0475",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureValidator.cs": "aa0c16ec941be9b8ab014270fe09c8d65a4d3b3d2eccb681ab5da40ced7f8b48",
+                "src/shared/Contracts/ArticleVault/ArticleVaultRescanTracker.cs": "69f88c043650169ea385e7fc88c37dd830de9f951aac147ce2950001e06a094c",
+                "src/shared/Contracts/ArticleVault/ArticleVaultScalarMetadataMerge.cs": "71eb0324d8fb33d076676f68f0d8e6ddb2e8d33ca44fe1f0f86eca59abeb34ee",
+                "src/shared/Contracts/ArticleVault/ArticleVaultSnapshotAssessment.cs": "65060663d69037ff919caa32145903e6d8e46f4d4312638378381212d4aea522",
+                "src/shared/Contracts/ArticleVault/ArticleVaultSourceAdmission.cs": "25ccf240ae36f46228fd474af37df2effa0b9a98724486455573a38a6dce6b9c",
+                "src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanContracts.cs": "5bac70138224fc2975c6efd7fd19bb2498d3250ebe2ff13b5ad3f2be82f50312",
+                "src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanner.cs": "75f44f5f0519535ecf7e974e0189877d70bb6a5b7af327e0bcae95f56f8eb0fd"
+            }
+        }
+    ],
+    "loadedAssembliesSha256": {
+        "FsusBlog.ArticleVault.Linux.dll": "cbfd96a6b50bb4f2855947d8c53b2a2c128985605b839c645084d7c6e7385a7c",
+        "FsusBlog.ArticleVault.Windows.dll": "bde0301c66861fe6668a368bf963e20e59a458752aa46daa50cd7156608999bd",
+        "FsusBlog.Shared.dll": "7b7e2c74008ac4abc32f4ff821beabfa9d27acb1dacf29ec85aaece74dadaeb5",
+        "FsusBlog.ArticleVault.Observations.dll": "2a565a08162a1b1ae41dbd197b9b310c5743a928e0e3796f156e9cbc34c5af28",
+        "FsusBlog.ArticleVault.MacOS.dll": "9af9ee3bba8821d7189917c61a985ca44da82126e0b099ad0eb9221a44540a27"
+    },
+    "unchangedLinuxSessionBlob": "01488c124d1971f1003828662a571e2fb2fef2e9"
+}
