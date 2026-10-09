@@ -58,15 +58,30 @@ public sealed partial class FileService
         if (candidate.Value.Status == AttachmentCleanupStatus.SchedulingRequired)
         {
             // The original observer owns completed-upload byte/media validation.
-            var upload = await ObserveCommittedUploadAsync(access, sha256, cancellationToken).ConfigureAwait(false);
-            if (!upload.IsSuccess)
+            // Preserve borrowed client state across that existing validation boundary too.
+            using IServiceScope validationScope = _scopeFactory!.CreateScope();
+            ISqlSugarClient? validationDb = validationScope.ServiceProvider.GetService<ISqlSugarClient>();
+            if (validationDb is null)
             {
-                return Result<AttachmentCleanupObservation>.Failure(upload.Error.Code, upload.Error.Message);
+                return Result<AttachmentCleanupObservation>.Failure(ErrorCode.InfraFailure, "upload_asset_ledger_unavailable");
             }
-            if (!string.Equals(upload.Value!.AssetVersionSha256, expectedAssetVersionSha256, StringComparison.OrdinalIgnoreCase)
-                || !string.Equals(upload.Value.ReferenceLedgerSha256, expectedReferenceObservationSha256, StringComparison.OrdinalIgnoreCase))
+            CancellationToken? previousNativeCancellation = validationDb.Ado.CancellationToken;
+            try
             {
-                return Result<AttachmentCleanupObservation>.Failure(ErrorCode.Conflict, "attachment_cleanup_upload_observation_changed");
+                var upload = await ObserveCommittedUploadAsync(access, sha256, cancellationToken).ConfigureAwait(false);
+                if (!upload.IsSuccess)
+                {
+                    return Result<AttachmentCleanupObservation>.Failure(upload.Error.Code, upload.Error.Message);
+                }
+                if (!string.Equals(upload.Value!.AssetVersionSha256, expectedAssetVersionSha256, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(upload.Value.ReferenceLedgerSha256, expectedReferenceObservationSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Result<AttachmentCleanupObservation>.Failure(ErrorCode.Conflict, "attachment_cleanup_upload_observation_changed");
+                }
+            }
+            finally
+            {
+                validationDb.Ado.CancellationToken = previousNativeCancellation;
             }
         }
         return await ReadAttachmentCleanupAsync(access, sha256, expectedAssetVersionSha256,
