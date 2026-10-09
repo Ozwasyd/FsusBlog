@@ -1,0 +1,18 @@
+{
+  "source": "373bcaa74f37aed9b07504040ec7ddca8bf293d9",
+  "argv": [
+    "/tmp/issue-2325/canonical-prerequisites-20261009/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/generate-aeds-protocol.mjs",
+    "--check"
+  ],
+  "exitCode": 0,
+  "products": [
+    "src/core/Algorithms/AedsFrameType.cs",
+    "src/shared/AedsFrameHeader.cs",
+    "src/frontend/wasm/web/protocol/frame.ts",
+    "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+    "tests/backend/Fixtures/aeds-golden-catalog.json"
+  ],
+  "productCount": 5,
+  "filesWritten": false
+}
