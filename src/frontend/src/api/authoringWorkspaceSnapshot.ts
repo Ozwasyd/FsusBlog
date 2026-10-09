@@ -72,9 +72,11 @@ export interface AuthoringWorkspaceSnapshotResult {
 }
 export class AuthoringWorkspaceSnapshotError extends Error
 {
-    public constructor(public readonly reason: string)
+    public readonly reason: string;
+    public constructor(reason: string)
     {
         super(reason);
+        this.reason = reason;
     }
 }
 export const workspaceSnapshotDigest = calculateOpenArticleDocumentDigest;
@@ -259,9 +261,15 @@ export class AuthoringWorkspaceSnapshotApi
     private latestObservation: AuthoringWorkspaceServerObservation | null = null;
     private lifecycleGeneration = 0;
     private readSequence = 0;
+    private readonly transport: AuthoringWorkspaceSnapshotTransport;
+    private readonly now: () => number;
     public readonly scope: AuthoringWorkspaceSnapshotScope;
-    public constructor(private readonly transport: AuthoringWorkspaceSnapshotTransport, scope: AuthoringWorkspaceSnapshotScope, public readonly sourceDigest: string, private readonly now: () => number = Date.now)
+    public readonly sourceDigest: string;
+    public constructor(transport: AuthoringWorkspaceSnapshotTransport, scope: AuthoringWorkspaceSnapshotScope, sourceDigest: string, now: () => number = Date.now)
     {
+        this.transport = transport;
+        this.sourceDigest = sourceDigest;
+        this.now = now;
         validateWorkspaceSnapshotScope(scope);
         if (!workspaceSnapshotHash(sourceDigest))
         {

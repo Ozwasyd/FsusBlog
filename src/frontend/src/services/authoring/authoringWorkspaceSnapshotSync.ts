@@ -54,6 +54,12 @@ const browserClock: WorkspaceSnapshotSyncClock = {
 /// Coordinates only revisions/leases; every layout write remains server CAS and every cache write is server verified.
 export class AuthoringWorkspaceSnapshotSync
 {
+    private readonly api: AuthoringWorkspaceSnapshotApi;
+    private readonly cache: AuthoringWorkspaceSnapshotCache;
+    private readonly channel: WorkspaceSnapshotCoordinationChannel | null;
+    private readonly ownerRef: string;
+    private readonly lease: WorkspaceSnapshotFlushLease | null;
+    private readonly clock: WorkspaceSnapshotSyncClock;
     private readonly scopeDigest: string;
     private readonly abort = new AbortController();
     private readonly listeners = new Set<() => void>();
@@ -83,8 +89,14 @@ export class AuthoringWorkspaceSnapshotSync
         revision: number | null;
         status: WorkspaceSnapshotSyncStatus;
     }[] = [];
-    public constructor(private readonly api: AuthoringWorkspaceSnapshotApi, private readonly cache: AuthoringWorkspaceSnapshotCache, private readonly channel: WorkspaceSnapshotCoordinationChannel | null, private readonly ownerRef: string, private readonly lease: WorkspaceSnapshotFlushLease | null = null, private readonly clock: WorkspaceSnapshotSyncClock = browserClock)
+    public constructor(api: AuthoringWorkspaceSnapshotApi, cache: AuthoringWorkspaceSnapshotCache, channel: WorkspaceSnapshotCoordinationChannel | null, ownerRef: string, lease: WorkspaceSnapshotFlushLease | null = null, clock: WorkspaceSnapshotSyncClock = browserClock)
     {
+        this.api = api;
+        this.cache = cache;
+        this.channel = channel;
+        this.ownerRef = ownerRef;
+        this.lease = lease;
+        this.clock = clock;
         if (!workspaceSnapshotId(ownerRef))
         {
             throw new AuthoringWorkspaceSnapshotError('invalid_flush_owner');
@@ -709,8 +721,11 @@ export class AuthoringWorkspaceSnapshotBroadcastChannel implements WorkspaceSnap
 }
 export class AuthoringWorkspaceSnapshotWebLocks implements WorkspaceSnapshotFlushLease
 {
-    public constructor(private readonly locks: LockManager)
-    { }
+    private readonly locks: LockManager;
+    public constructor(locks: LockManager)
+    {
+        this.locks = locks;
+    }
     public async run(name: string, operation: () => Promise<void>): Promise<boolean>
     {
         return this.locks.request(`fsusblog.authoring-workspace:${name}`, { ifAvailable: true }, async (lock) =>

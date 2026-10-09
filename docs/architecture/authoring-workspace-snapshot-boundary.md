@@ -118,5 +118,45 @@ controls, not authenticated HTTP, production FsusUI or terminal acceptance evide
 Actual wire/session/PoW, registered migration/DI, real permission batch, official
 two-group ownership/collapse, rendered UX, full restore browser/multi-device end-to-end,
 mutation governance and performance qualification must be completed before issue
-closure. Existing registry/session type errors and title-field governance failure
-remain original-owner dependencies; no failed gate is waived.
+closure. Scope-external type and title-field governance failures remain
+original-owner dependencies; no failed gate is waived.
+
+## Canonical app typing handoff
+
+The 2026-10-09 ordinary source check consumes Blog
+`c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f`, including merged #4032, and FsusUI
+`8db0ac8f49749e3e5f28be5051bb3d3ed71ada71`. The isolated diagnostic composition
+adds these six snapshot modules and the unchanged original unit/fixture to that
+Blog source. It does not replace current app configuration or edit retained core.
+Use the canonical producer with `--application`, not the focused export project:
+
+```sh
+FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI-typing-current-20261009 node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application
+```
+
+The effective project includes 672 app/declaration roots, all six snapshot modules,
+Vue SFCs and Wasm glue. It preserves `strict`, both unused checks,
+`erasableSyntaxOnly`, and `noUncheckedSideEffectImports`. Installed consumer tools
+are TypeScript 6.0.3, vue-tsc 3.2.7 and Vue 3.5.33. Snapshot classes now declare
+their existing readonly fields and assign constructor arguments explicitly;
+they add no casts, public contract substitutes or configuration exemptions.
+This removes all 17 snapshot TS1294 diagnostics. The complete app still exits 2
+with 197 unchanged diagnostics outside snapshot ownership (154 Blog, 43 FsusUI),
+identical to the prior run after excluding the 17 owned diagnostics. The original
+selected unit passes 57/57 against this composition. These are ordinary source
+checks, not independent QA, runtime qualification or terminal acceptance.
+
+The old limited-program diagnostics must not be carried forward as current facts.
+`openArticleDocumentRegistry.ts:1177` no longer emits TS2345 on this input:
+master commit `f636b7cc30d1dadcfd9d05906ec4964e97d9d9a7` introduced its existing
+`Omit<OpenArticleDocumentEntry, 'contentDigest'>` assertion. This domain does not
+introduce or copy that assertion into a consumer fix.
+`authoringSessionHost.ts:80` still emits TS2322 because `Object.freeze` infers
+the two ordered fact arrays as `string[]`; lines 589–590 emit TS1294 for retained
+constructor parameter properties. The current writer claim remains original3735
+under the coordinator's exclusion grant; the last master writer is
+`74f9189d530acfcb775d080790576a63dbcc5b47` (#2294). The cast-free minimal offer
+is `Object.freeze<AuthoringSessionResourcePolicy>({...})`, plus explicit readonly
+`factory`/`policy` fields and matching constructor assignments. Its exact patch
+is delivered separately, passes `git apply --check` against the bound master,
+and remains unapplied and untested pending that single owner's integration.

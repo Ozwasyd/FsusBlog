@@ -38,11 +38,17 @@ export type WorkspaceSnapshotCacheRead = {
 };
 export class AuthoringWorkspaceSnapshotCache
 {
+    private readonly storage: WorkspaceSnapshotCacheStorage;
     private readonly scope: AuthoringWorkspaceSnapshotScope;
+    private readonly sourceDigest: string;
+    private readonly now: () => number;
     private closed = false;
     private readonly writes = new Set<Promise<'stored' | 'cleared' | 'unavailable'>>();
-    public constructor(private readonly storage: WorkspaceSnapshotCacheStorage, scope: AuthoringWorkspaceSnapshotScope, private readonly sourceDigest: string, private readonly now: () => number = Date.now)
+    public constructor(storage: WorkspaceSnapshotCacheStorage, scope: AuthoringWorkspaceSnapshotScope, sourceDigest: string, now: () => number = Date.now)
     {
+        this.storage = storage;
+        this.sourceDigest = sourceDigest;
+        this.now = now;
         validateWorkspaceSnapshotScope(scope);
         this.scope = freezeWorkspaceSnapshot(structuredClone(scope));
     }
@@ -169,10 +175,13 @@ export class AuthoringWorkspaceSnapshotCache
 /// One atomic IDB transaction replaces the last verified value and enforces finite browser retention.
 export class AuthoringWorkspaceSnapshotIndexedDbStorage implements WorkspaceSnapshotCacheStorage
 {
+    private readonly factory: IDBFactory | undefined;
     private database: Promise<IDBDatabase> | null = null;
     private closed = false;
-    public constructor(private readonly factory: IDBFactory | undefined = globalThis.indexedDB)
-    { }
+    public constructor(factory: IDBFactory | undefined = globalThis.indexedDB)
+    {
+        this.factory = factory;
+    }
     public async get(key: string): Promise<unknown>
     {
         const database = await this.open();
