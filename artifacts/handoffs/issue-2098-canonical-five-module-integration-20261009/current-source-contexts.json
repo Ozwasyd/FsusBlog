@@ -1,0 +1,1997 @@
+{
+  "sourceCommit": "c3538c5ee3133ff71bf0b34b5c93055e7eccdbc8",
+  "contexts": [
+    {
+      "diagnosticIndex": 0,
+      "diagnostic": {
+        "archetype": "public/feed",
+        "file": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+        "offset": 272,
+        "line": 10,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/BlogLayout.vue:272"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+      "sourceSha256": "9a3c243cde49235c276edb24c644360e0977b6b4a50ad67eae0f306778290975",
+      "excerptFirstLine": 7,
+      "excerpt": [
+        "        @search-focus=\"handleSearchFocus\"",
+        "    >",
+        "        <RouterView v-slot=\"{ Component }\">",
+        "            <component",
+        "                :is=\"Component\"",
+        "                :key=\"route.fullPath\"",
+        "            />"
+      ]
+    },
+    {
+      "diagnosticIndex": 1,
+      "diagnostic": {
+        "archetype": "public/feed",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 2,
+      "diagnostic": {
+        "archetype": "public/feed",
+        "file": "FsusUI/vue/packages/components/input/src/input.vue",
+        "offset": 3009,
+        "line": 87,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "sourceSha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "excerptFirstLine": 84,
+      "excerpt": [
+        "                nsInput.is('loading', validateState === 'validating'),",
+        "              ]\"",
+        "            >",
+        "              <component :is=\"validateIcon\" />",
+        "            </el-icon>",
+        "          </span>",
+        "        </span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 3,
+      "diagnostic": {
+        "archetype": "public/reading",
+        "file": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+        "offset": 272,
+        "line": 10,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/BlogLayout.vue:272"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+      "sourceSha256": "9a3c243cde49235c276edb24c644360e0977b6b4a50ad67eae0f306778290975",
+      "excerptFirstLine": 7,
+      "excerpt": [
+        "        @search-focus=\"handleSearchFocus\"",
+        "    >",
+        "        <RouterView v-slot=\"{ Component }\">",
+        "            <component",
+        "                :is=\"Component\"",
+        "                :key=\"route.fullPath\"",
+        "            />"
+      ]
+    },
+    {
+      "diagnosticIndex": 4,
+      "diagnostic": {
+        "archetype": "public/reading",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 5,
+      "diagnostic": {
+        "archetype": "public/reading",
+        "file": "FsusUI/vue/packages/components/input/src/input.vue",
+        "offset": 3009,
+        "line": 87,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "sourceSha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "excerptFirstLine": 84,
+      "excerpt": [
+        "                nsInput.is('loading', validateState === 'validating'),",
+        "              ]\"",
+        "            >",
+        "              <component :is=\"validateIcon\" />",
+        "            </el-icon>",
+        "          </span>",
+        "        </span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 6,
+      "diagnostic": {
+        "archetype": "public/reading",
+        "file": "FsusBlog/src/frontend/src/components/article/ArticleDetailHeader.vue",
+        "offset": 2017,
+        "line": 51,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] ambiguous dynamic component FsusBlog/src/frontend/src/components/article/ArticleDetailHeader.vue:2017"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/components/article/ArticleDetailHeader.vue",
+      "sourceSha256": "2e847ea417f733573c4ed6fb1d6562a387fd8a88821d33f84d444b4c747c9a7d",
+      "excerptFirstLine": 48,
+      "excerpt": [
+        "                class=\"article-detail-metadata__group article-detail-metadata__group--context\"",
+        "                data-article-metadata-group=\"context\"",
+        "            >",
+        "                <component",
+        "                    :is=\"categoryComponent\"",
+        "                    v-if=\"view.meta.categoryHref\"",
+        "                    v-bind=\"categoryLinkProps\""
+      ]
+    },
+    {
+      "diagnosticIndex": 7,
+      "diagnostic": {
+        "archetype": "public/reading",
+        "file": "FsusBlog/src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue",
+        "offset": 5371,
+        "line": 153,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] ambiguous dynamic component FsusBlog/src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue:5371"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue",
+      "sourceSha256": "bca6a27ba1acd37f72b57a1792aee1e1c4be74eb7e372a98c091e20a5539eade",
+      "excerptFirstLine": 150,
+      "excerpt": [
+        "                class=\"fsus-appendix__tags\"",
+        "                :aria-label=\"messages.article.content.tagsAria\"",
+        "            >",
+        "                <component",
+        "                    :is=\"appendixTagComponent\"",
+        "                    v-for=\"tag in detailView.header.tags\"",
+        "                    :key=\"tag.label\""
+      ]
+    },
+    {
+      "diagnosticIndex": 8,
+      "diagnostic": {
+        "archetype": "public/reading",
+        "file": "FsusUI/vue/packages/components/image-viewer/src/image-viewer.vue",
+        "offset": 1927,
+        "line": 69,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/image-viewer/src/image-viewer.vue: unbound finite component binding mode"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/image-viewer/src/image-viewer.vue",
+      "sourceSha256": "28e92d5b9cbe2ffdfb3d133ba63a1b26f673ad9ba716d24825de95b87c628cd0",
+      "excerptFirstLine": 66,
+      "excerpt": [
+        "            tabindex=\"0\"",
+        "            v-on=\"toggleModeEvents\"",
+        "          >",
+        "            <component :is=\"mode.icon\" />",
+        "          </span>",
+        "          <i :class=\"ns.e('actions__divider')\" />",
+        "          <span"
+      ]
+    },
+    {
+      "diagnosticIndex": 9,
+      "diagnostic": {
+        "archetype": "public/reading",
+        "file": "FsusUI/vue/packages/components/button/src/button.vue",
+        "offset": 13,
+        "line": 2,
+        "reason": "unbound-native-prop-source",
+        "property": "tag",
+        "callNode": "5f6554f2bdced23703c6d88a",
+        "message": "[composition-source] unknown native prop input FsusUI/vue/packages/components/button/src/button.vue#tag"
+      },
+      "actualCallNode": {
+        "id": "5f6554f2bdced23703c6d88a",
+        "file": "FsusBlog/src/frontend/src/components/article/ArticleDetailNotFoundState.vue",
+        "offset": 197,
+        "line": 7,
+        "tag": "ElButton",
+        "parentId": "b8cac6aac9a37abbb23afc29",
+        "attributes": {
+          "type": "primary"
+        },
+        "directives": [
+          {
+            "name": "bind",
+            "argument": "tag",
+            "argumentStatic": true,
+            "expression": "RouterLink"
+          },
+          {
+            "name": "bind",
+            "argument": "to",
+            "argumentStatic": true,
+            "expression": "view.actionHref"
+          }
+        ],
+        "origin": {
+          "kind": "fsusui-public",
+          "package": "@ozwasyd/element-plus",
+          "entry": "@ozwasyd/element-plus",
+          "publicName": "ElButton",
+          "definition": "FsusUI/vue/packages/components/button/index.ts",
+          "exportName": "ElButton",
+          "registration": "vite:unplugin-vue-components"
+        },
+        "definition": "FsusUI/vue/packages/components/button/src/button.vue",
+        "definitions": [],
+        "slotInputs": {
+          "present": {
+            "default": true
+          },
+          "unknown": false
+        },
+        "sourceDigest": "16a886f4ded44a7a04f4ccb706d971f174f29058a1647f15a7cd2f710fb48830",
+        "ancestors": [
+          "b9097e08c3d1631285d5cb1c",
+          "b8cac6aac9a37abbb23afc29"
+        ],
+        "scopedBindings": [],
+        "structural": false,
+        "conditional": [],
+        "slot": null,
+        "teleport": false
+      },
+      "file": "FsusUI/vue/packages/components/button/src/button.vue",
+      "sourceSha256": "24f55d1392971c5ff240ef4ac1298e06692d59dd017bd8506bc94b63a4ccf7d0",
+      "excerptFirstLine": 1,
+      "excerpt": [
+        "<template>",
+        "  <component",
+        "    :is=\"tag\"",
+        "    ref=\"_ref\"",
+        "    v-bind=\"_props\""
+      ]
+    },
+    {
+      "diagnosticIndex": 10,
+      "diagnostic": {
+        "archetype": "public/index",
+        "file": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+        "offset": 272,
+        "line": 10,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/BlogLayout.vue:272"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+      "sourceSha256": "9a3c243cde49235c276edb24c644360e0977b6b4a50ad67eae0f306778290975",
+      "excerptFirstLine": 7,
+      "excerpt": [
+        "        @search-focus=\"handleSearchFocus\"",
+        "    >",
+        "        <RouterView v-slot=\"{ Component }\">",
+        "            <component",
+        "                :is=\"Component\"",
+        "                :key=\"route.fullPath\"",
+        "            />"
+      ]
+    },
+    {
+      "diagnosticIndex": 11,
+      "diagnostic": {
+        "archetype": "public/index",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 12,
+      "diagnostic": {
+        "archetype": "public/index",
+        "file": "FsusUI/vue/packages/components/input/src/input.vue",
+        "offset": 3009,
+        "line": 87,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "sourceSha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "excerptFirstLine": 84,
+      "excerpt": [
+        "                nsInput.is('loading', validateState === 'validating'),",
+        "              ]\"",
+        "            >",
+        "              <component :is=\"validateIcon\" />",
+        "            </el-icon>",
+        "          </span>",
+        "        </span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 13,
+      "diagnostic": {
+        "archetype": "public/document",
+        "file": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+        "offset": 272,
+        "line": 10,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/BlogLayout.vue:272"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+      "sourceSha256": "9a3c243cde49235c276edb24c644360e0977b6b4a50ad67eae0f306778290975",
+      "excerptFirstLine": 7,
+      "excerpt": [
+        "        @search-focus=\"handleSearchFocus\"",
+        "    >",
+        "        <RouterView v-slot=\"{ Component }\">",
+        "            <component",
+        "                :is=\"Component\"",
+        "                :key=\"route.fullPath\"",
+        "            />"
+      ]
+    },
+    {
+      "diagnosticIndex": 14,
+      "diagnostic": {
+        "archetype": "public/document",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 15,
+      "diagnostic": {
+        "archetype": "public/document",
+        "file": "FsusUI/vue/packages/components/input/src/input.vue",
+        "offset": 3009,
+        "line": 87,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "sourceSha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "excerptFirstLine": 84,
+      "excerpt": [
+        "                nsInput.is('loading', validateState === 'validating'),",
+        "              ]\"",
+        "            >",
+        "              <component :is=\"validateIcon\" />",
+        "            </el-icon>",
+        "          </span>",
+        "        </span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 16,
+      "diagnostic": {
+        "archetype": "public/filter-search",
+        "file": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+        "offset": 272,
+        "line": 10,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/BlogLayout.vue:272"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+      "sourceSha256": "9a3c243cde49235c276edb24c644360e0977b6b4a50ad67eae0f306778290975",
+      "excerptFirstLine": 7,
+      "excerpt": [
+        "        @search-focus=\"handleSearchFocus\"",
+        "    >",
+        "        <RouterView v-slot=\"{ Component }\">",
+        "            <component",
+        "                :is=\"Component\"",
+        "                :key=\"route.fullPath\"",
+        "            />"
+      ]
+    },
+    {
+      "diagnosticIndex": 17,
+      "diagnostic": {
+        "archetype": "public/filter-search",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 18,
+      "diagnostic": {
+        "archetype": "public/filter-search",
+        "file": "FsusUI/vue/packages/components/input/src/input.vue",
+        "offset": 3009,
+        "line": 87,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "sourceSha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "excerptFirstLine": 84,
+      "excerpt": [
+        "                nsInput.is('loading', validateState === 'validating'),",
+        "              ]\"",
+        "            >",
+        "              <component :is=\"validateIcon\" />",
+        "            </el-icon>",
+        "          </span>",
+        "        </span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 19,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 20,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+        "offset": 1812,
+        "line": 58,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+      "sourceSha256": "3beb081fdba9f33d56e19f9011187ccc2ef46b64c47fea372e3e54c26f0e6e61",
+      "excerptFirstLine": 55,
+      "excerpt": [
+        "                    :name=\"motionPolicy.preset ?? fsusBlogMotionPresets.route\"",
+        "                    :disabled=\"motionPolicy.preset === null || !motionEnabled\"",
+        "                >",
+        "                    <component",
+        "                        :is=\"Component\"",
+        "                        :key=\"accountRouteViewKey\"",
+        "                        class=\"account-frame-outlet\""
+      ]
+    },
+    {
+      "diagnosticIndex": 21,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+        "offset": 228,
+        "line": 9,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+      "sourceSha256": "0990b1784f0959903aed68eb3ca2a3e18a5c0e353c4419555e4c4e93ff923461",
+      "excerptFirstLine": 6,
+      "excerpt": [
+        "            density=\"compact\"",
+        "        />",
+        "",
+        "        <template v-if=\"isSection('UserIdentityOverview')\">",
+        "            <div class=\"identity-status-grid\">",
+        "                <div class=\"identity-status-card\">",
+        "                    <span class=\"identity-status-label\">{{ copy.passkeyLabel }}</span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 22,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+        "offset": 4123,
+        "line": 94,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+      "sourceSha256": "0990b1784f0959903aed68eb3ca2a3e18a5c0e353c4419555e4c4e93ff923461",
+      "excerptFirstLine": 91,
+      "excerpt": [
+        "            </FsusUiDangerZone>",
+        "        </template>",
+        "",
+        "        <FsusUiSettingsSection",
+        "            v-else-if=\"isSection('UserIdentityPasskeys')\"",
+        "            :title=\"passkeysCopy.sectionTitle\"",
+        "            :description=\"passkeysCopy.sectionDescription\""
+      ]
+    },
+    {
+      "diagnosticIndex": 23,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusUI/vue/packages/components/input/src/input.vue",
+        "offset": 3009,
+        "line": 87,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "sourceSha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "excerptFirstLine": 84,
+      "excerpt": [
+        "                nsInput.is('loading', validateState === 'validating'),",
+        "              ]\"",
+        "            >",
+        "              <component :is=\"validateIcon\" />",
+        "            </el-icon>",
+        "          </span>",
+        "        </span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 24,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+        "offset": 10261,
+        "line": 230,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+      "sourceSha256": "0990b1784f0959903aed68eb3ca2a3e18a5c0e353c4419555e4c4e93ff923461",
+      "excerptFirstLine": 227,
+      "excerpt": [
+        "            </div>",
+        "        </FsusUiSettingsSection>",
+        "",
+        "        <FsusUiSettingsSection",
+        "            v-else-if=\"isSection('UserIdentityRecoveryKey')\"",
+        "            :title=\"recoveryKeyCopy.sectionTitle\"",
+        "            :description=\"recoveryKeyCopy.sectionDescription\""
+      ]
+    },
+    {
+      "diagnosticIndex": 25,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+        "offset": 12244,
+        "line": 278,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+      "sourceSha256": "0990b1784f0959903aed68eb3ca2a3e18a5c0e353c4419555e4c4e93ff923461",
+      "excerptFirstLine": 275,
+      "excerpt": [
+        "            </div>",
+        "        </FsusUiSettingsSection>",
+        "",
+        "        <FsusUiSettingsSection",
+        "            v-else-if=\"isSection('UserIdentityMfa')\"",
+        "            :title=\"mfaCopy.sectionTitle\"",
+        "            :description=\"mfaCopy.sectionDescription\""
+      ]
+    },
+    {
+      "diagnosticIndex": 26,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+        "offset": 14162,
+        "line": 331,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+      "sourceSha256": "0990b1784f0959903aed68eb3ca2a3e18a5c0e353c4419555e4c4e93ff923461",
+      "excerptFirstLine": 328,
+      "excerpt": [
+        "            </div>",
+        "        </FsusUiSettingsSection>",
+        "",
+        "        <FsusUiSettingsSection",
+        "            v-else-if=\"isSection('UserIdentityAnonymous')\"",
+        "            :title=\"anonymousCopy.sectionTitle\"",
+        "            :description=\"anonymousCopy.sectionDescription\""
+      ]
+    },
+    {
+      "diagnosticIndex": 27,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+        "offset": 14615,
+        "line": 343,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+      "sourceSha256": "0990b1784f0959903aed68eb3ca2a3e18a5c0e353c4419555e4c4e93ff923461",
+      "excerptFirstLine": 340,
+      "excerpt": [
+        "            </div>",
+        "        </FsusUiSettingsSection>",
+        "",
+        "        <FsusUiSettingsSection",
+        "            v-else-if=\"isSection('UserIdentityPublicProfile')\"",
+        "            :title=\"publicProfileCopy.sectionTitle\"",
+        "            :description=\"publicProfileCopy.sectionDescription\""
+      ]
+    },
+    {
+      "diagnosticIndex": 28,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+        "offset": 17166,
+        "line": 402,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+      "sourceSha256": "0990b1784f0959903aed68eb3ca2a3e18a5c0e353c4419555e4c4e93ff923461",
+      "excerptFirstLine": 399,
+      "excerpt": [
+        "            </div>",
+        "        </FsusUiSettingsSection>",
+        "",
+        "        <FsusUiSettingsSection",
+        "            v-else-if=\"isSection('UserIdentitySessions')\"",
+        "            :title=\"sessionsCopy.sectionTitle\"",
+        "            :description=\"sessionsCopy.sectionDescription\""
+      ]
+    },
+    {
+      "diagnosticIndex": 29,
+      "diagnostic": {
+        "archetype": "identity/identity-settings",
+        "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+        "offset": 22596,
+        "line": 519,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue",
+      "sourceSha256": "0990b1784f0959903aed68eb3ca2a3e18a5c0e353c4419555e4c4e93ff923461",
+      "excerptFirstLine": 516,
+      "excerpt": [
+        "            </template>",
+        "        </FsusUiSettingsSection>",
+        "",
+        "        <FsusUiSettingsSection",
+        "            v-else-if=\"isSection('UserIdentityCommentRecords')\"",
+        "            :title=\"commentRecordsCopy.sectionTitle\"",
+        "            :description=\"commentRecordsCopy.sectionDescription\""
+      ]
+    },
+    {
+      "diagnosticIndex": 30,
+      "diagnostic": {
+        "archetype": "identity/inbox-takeover",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 31,
+      "diagnostic": {
+        "archetype": "identity/inbox-takeover",
+        "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+        "offset": 1812,
+        "line": 58,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+      "sourceSha256": "3beb081fdba9f33d56e19f9011187ccc2ef46b64c47fea372e3e54c26f0e6e61",
+      "excerptFirstLine": 55,
+      "excerpt": [
+        "                    :name=\"motionPolicy.preset ?? fsusBlogMotionPresets.route\"",
+        "                    :disabled=\"motionPolicy.preset === null || !motionEnabled\"",
+        "                >",
+        "                    <component",
+        "                        :is=\"Component\"",
+        "                        :key=\"accountRouteViewKey\"",
+        "                        class=\"account-frame-outlet\""
+      ]
+    },
+    {
+      "diagnosticIndex": 32,
+      "diagnostic": {
+        "archetype": "identity/inbox-takeover",
+        "file": "FsusBlog/src/frontend/src/views/user/Messages.vue",
+        "offset": 1300,
+        "line": 31,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/Messages.vue",
+      "sourceSha256": "b784bbc4cbfd6d356e7b4a172720113bbcbb3ad1c1ff65f68c41a7815104294c",
+      "excerptFirstLine": 28,
+      "excerpt": [
+        "                @load-more=\"handleLoadMoreConversations\"",
+        "            >",
+        "                <template #mobile-compose>",
+        "                    <MessagesComposePanel",
+        "                        v-if=\"isMobile && isAdminView\"",
+        "                        v-model:system-target-account-id=\"systemTargetAccountId\"",
+        "                        v-model:system-subject=\"systemSubject\""
+      ]
+    },
+    {
+      "diagnosticIndex": 33,
+      "diagnostic": {
+        "archetype": "identity/inbox-takeover",
+        "file": "FsusUI/vue/packages/components/input/src/input.vue",
+        "offset": 3009,
+        "line": 87,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "sourceSha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "excerptFirstLine": 84,
+      "excerpt": [
+        "                nsInput.is('loading', validateState === 'validating'),",
+        "              ]\"",
+        "            >",
+        "              <component :is=\"validateIcon\" />",
+        "            </el-icon>",
+        "          </span>",
+        "        </span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 34,
+      "diagnostic": {
+        "archetype": "identity/inbox-takeover",
+        "file": "FsusBlog/src/frontend/src/views/user/Messages.vue",
+        "offset": 1787,
+        "line": 41,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/Messages.vue",
+      "sourceSha256": "b784bbc4cbfd6d356e7b4a172720113bbcbb3ad1c1ff65f68c41a7815104294c",
+      "excerptFirstLine": 38,
+      "excerpt": [
+        "                        :loading=\"processing\"",
+        "                        @submit=\"sendSystemMessage\"",
+        "                    />",
+        "                    <MessagesComposePanel",
+        "                        v-if=\"isMobile && !isAdminView && showMobileTicketCompose\"",
+        "                        v-model:create-subject=\"createSubject\"",
+        "                        v-model:create-body=\"createBody\""
+      ]
+    },
+    {
+      "diagnosticIndex": 35,
+      "diagnostic": {
+        "archetype": "identity/inbox-takeover",
+        "file": "FsusUI/vue/packages/components/select/src/options.ts",
+        "offset": 1664,
+        "line": 55,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] escaped script render constant FsusUI/vue/packages/components/select/src/options.ts#children"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/select/src/options.ts",
+      "sourceSha256": "533ca86eb0bb5cc0b85d4b3b1fee5fedf496f48f3cc497cca54f656957971ce9",
+      "excerptFirstLine": 52,
+      "excerpt": [
+        "        emit('update-options', filteredOptions)",
+        "      }",
+        "",
+        "      return children",
+        "    }",
+        "  },",
+        "})"
+      ]
+    },
+    {
+      "diagnosticIndex": 36,
+      "diagnostic": {
+        "archetype": "identity/inbox-takeover",
+        "file": "FsusBlog/src/frontend/src/views/user/Messages.vue",
+        "offset": 3583,
+        "line": 82,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/Messages.vue",
+      "sourceSha256": "b784bbc4cbfd6d356e7b4a172720113bbcbb3ad1c1ff65f68c41a7815104294c",
+      "excerptFirstLine": 79,
+      "excerpt": [
+        "                    @load-more=\"loadOlderMessages\"",
+        "                />",
+        "",
+        "                <MessagesComposePanel",
+        "                    v-if=\"!isMobile && isAdminView\"",
+        "                    v-model:system-target-account-id=\"systemTargetAccountId\"",
+        "                    v-model:system-subject=\"systemSubject\""
+      ]
+    },
+    {
+      "diagnosticIndex": 37,
+      "diagnostic": {
+        "archetype": "identity/inbox-takeover",
+        "file": "FsusBlog/src/frontend/src/views/user/Messages.vue",
+        "offset": 4004,
+        "line": 91,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/views/user/Messages.vue",
+      "sourceSha256": "b784bbc4cbfd6d356e7b4a172720113bbcbb3ad1c1ff65f68c41a7815104294c",
+      "excerptFirstLine": 88,
+      "excerpt": [
+        "                    :loading=\"processing\"",
+        "                    @submit=\"sendSystemMessage\"",
+        "                />",
+        "                <MessagesComposePanel",
+        "                    v-else-if=\"!isMobile && (isAdminView || showMobileTicketCompose)\"",
+        "                    v-model:create-subject=\"createSubject\"",
+        "                    v-model:create-body=\"createBody\""
+      ]
+    },
+    {
+      "diagnosticIndex": 38,
+      "diagnostic": {
+        "archetype": "admin/dashboard",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 39,
+      "diagnostic": {
+        "archetype": "admin/dashboard",
+        "file": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+        "offset": 297,
+        "line": 10,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+      "sourceSha256": "13bf60af1441990ae1a135c6e84dcb4228a6a9aee6fd8d073e7d00468176a743",
+      "excerptFirstLine": 7,
+      "excerpt": [
+        "        :motion-policy=\"motionPolicy\"",
+        "    >",
+        "        <template #before-content>",
+        "            <ArticleWorkspaceTabStrip v-if=\"isArticleWorkspaceRouteValue\" />",
+        "        </template>",
+        "    </AccountRouteFrame>",
+        "</template>"
+      ]
+    },
+    {
+      "diagnosticIndex": 40,
+      "diagnostic": {
+        "archetype": "admin/dashboard",
+        "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+        "offset": 1812,
+        "line": 58,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+      "sourceSha256": "3beb081fdba9f33d56e19f9011187ccc2ef46b64c47fea372e3e54c26f0e6e61",
+      "excerptFirstLine": 55,
+      "excerpt": [
+        "                    :name=\"motionPolicy.preset ?? fsusBlogMotionPresets.route\"",
+        "                    :disabled=\"motionPolicy.preset === null || !motionEnabled\"",
+        "                >",
+        "                    <component",
+        "                        :is=\"Component\"",
+        "                        :key=\"accountRouteViewKey\"",
+        "                        class=\"account-frame-outlet\""
+      ]
+    },
+    {
+      "diagnosticIndex": 41,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 42,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+        "offset": 297,
+        "line": 10,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+      "sourceSha256": "13bf60af1441990ae1a135c6e84dcb4228a6a9aee6fd8d073e7d00468176a743",
+      "excerptFirstLine": 7,
+      "excerpt": [
+        "        :motion-policy=\"motionPolicy\"",
+        "    >",
+        "        <template #before-content>",
+        "            <ArticleWorkspaceTabStrip v-if=\"isArticleWorkspaceRouteValue\" />",
+        "        </template>",
+        "    </AccountRouteFrame>",
+        "</template>"
+      ]
+    },
+    {
+      "diagnosticIndex": 43,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+        "offset": 1812,
+        "line": 58,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+      "sourceSha256": "3beb081fdba9f33d56e19f9011187ccc2ef46b64c47fea372e3e54c26f0e6e61",
+      "excerptFirstLine": 55,
+      "excerpt": [
+        "                    :name=\"motionPolicy.preset ?? fsusBlogMotionPresets.route\"",
+        "                    :disabled=\"motionPolicy.preset === null || !motionEnabled\"",
+        "                >",
+        "                    <component",
+        "                        :is=\"Component\"",
+        "                        :key=\"accountRouteViewKey\"",
+        "                        class=\"account-frame-outlet\""
+      ]
+    },
+    {
+      "diagnosticIndex": 44,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/input/src/input.vue",
+        "offset": 3009,
+        "line": 87,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "sourceSha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "excerptFirstLine": 84,
+      "excerpt": [
+        "                nsInput.is('loading', validateState === 'validating'),",
+        "              ]\"",
+        "            >",
+        "              <component :is=\"validateIcon\" />",
+        "            </el-icon>",
+        "          </span>",
+        "        </span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 45,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/select/src/options.ts",
+        "offset": 1664,
+        "line": 55,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] escaped script render constant FsusUI/vue/packages/components/select/src/options.ts#children"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/select/src/options.ts",
+      "sourceSha256": "533ca86eb0bb5cc0b85d4b3b1fee5fedf496f48f3cc497cca54f656957971ce9",
+      "excerptFirstLine": 52,
+      "excerpt": [
+        "        emit('update-options', filteredOptions)",
+        "      }",
+        "",
+        "      return children",
+        "    }",
+        "  },",
+        "})"
+      ]
+    },
+    {
+      "diagnosticIndex": 46,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+        "offset": 8415,
+        "line": 326,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown/reserved script render attribute FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8426"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+      "sourceSha256": "b1ed74cf6e22f7c2b8df0c89aab07d600dcd2fd30f1dd506200826efa3a76e0c",
+      "excerptFirstLine": 323,
+      "excerpt": [
+        "",
+        "      return (",
+        "        <div class={rootKls} style={unref(rootStyle)}>",
+        "          <MainTable {...mainTableProps}>{tableSlots}</MainTable>",
+        "          <LeftTable {...leftTableProps}>{tableSlots}</LeftTable>",
+        "          <RightTable {...rightTableProps}>{tableSlots}</RightTable>",
+        "          {slots.footer && ("
+      ]
+    },
+    {
+      "diagnosticIndex": 47,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+        "offset": 8481,
+        "line": 327,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown/reserved script render attribute FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8492"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+      "sourceSha256": "b1ed74cf6e22f7c2b8df0c89aab07d600dcd2fd30f1dd506200826efa3a76e0c",
+      "excerptFirstLine": 324,
+      "excerpt": [
+        "      return (",
+        "        <div class={rootKls} style={unref(rootStyle)}>",
+        "          <MainTable {...mainTableProps}>{tableSlots}</MainTable>",
+        "          <LeftTable {...leftTableProps}>{tableSlots}</LeftTable>",
+        "          <RightTable {...rightTableProps}>{tableSlots}</RightTable>",
+        "          {slots.footer && (",
+        "            <Footer {...footerProps}>{{ default: slots.footer }}</Footer>"
+      ]
+    },
+    {
+      "diagnosticIndex": 48,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+        "offset": 8547,
+        "line": 328,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown/reserved script render attribute FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8559"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+      "sourceSha256": "b1ed74cf6e22f7c2b8df0c89aab07d600dcd2fd30f1dd506200826efa3a76e0c",
+      "excerptFirstLine": 325,
+      "excerpt": [
+        "        <div class={rootKls} style={unref(rootStyle)}>",
+        "          <MainTable {...mainTableProps}>{tableSlots}</MainTable>",
+        "          <LeftTable {...leftTableProps}>{tableSlots}</LeftTable>",
+        "          <RightTable {...rightTableProps}>{tableSlots}</RightTable>",
+        "          {slots.footer && (",
+        "            <Footer {...footerProps}>{{ default: slots.footer }}</Footer>",
+        "          )}"
+      ]
+    },
+    {
+      "diagnosticIndex": 49,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+        "offset": 8647,
+        "line": 330,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown/reserved script render attribute FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8655"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+      "sourceSha256": "b1ed74cf6e22f7c2b8df0c89aab07d600dcd2fd30f1dd506200826efa3a76e0c",
+      "excerptFirstLine": 327,
+      "excerpt": [
+        "          <LeftTable {...leftTableProps}>{tableSlots}</LeftTable>",
+        "          <RightTable {...rightTableProps}>{tableSlots}</RightTable>",
+        "          {slots.footer && (",
+        "            <Footer {...footerProps}>{{ default: slots.footer }}</Footer>",
+        "          )}",
+        "          {unref(showEmpty) && (",
+        "            <Empty class={ns.e('empty')} style={unref(emptyStyle)}>"
+      ]
+    },
+    {
+      "diagnosticIndex": 50,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+        "offset": 8767,
+        "line": 333,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] mutated/shadowed render binding FsusUI/vue/packages/components/table-v2/src/renderers/empty.tsx#Footer"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+      "sourceSha256": "b1ed74cf6e22f7c2b8df0c89aab07d600dcd2fd30f1dd506200826efa3a76e0c",
+      "excerptFirstLine": 330,
+      "excerpt": [
+        "            <Footer {...footerProps}>{{ default: slots.footer }}</Footer>",
+        "          )}",
+        "          {unref(showEmpty) && (",
+        "            <Empty class={ns.e('empty')} style={unref(emptyStyle)}>",
+        "              {{ default: slots.empty }}",
+        "            </Empty>",
+        "          )}"
+      ]
+    },
+    {
+      "diagnosticIndex": 51,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+        "offset": 8838,
+        "line": 334,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8838: { default: slots.empty }"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+      "sourceSha256": "b1ed74cf6e22f7c2b8df0c89aab07d600dcd2fd30f1dd506200826efa3a76e0c",
+      "excerptFirstLine": 331,
+      "excerpt": [
+        "          )}",
+        "          {unref(showEmpty) && (",
+        "            <Empty class={ns.e('empty')} style={unref(emptyStyle)}>",
+        "              {{ default: slots.empty }}",
+        "            </Empty>",
+        "          )}",
+        "          {slots.overlay && ("
+      ]
+    },
+    {
+      "diagnosticIndex": 52,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+        "offset": 8940,
+        "line": 338,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] mutated/shadowed render binding FsusUI/vue/packages/components/table-v2/src/renderers/overlay.tsx#Overlay"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+      "sourceSha256": "b1ed74cf6e22f7c2b8df0c89aab07d600dcd2fd30f1dd506200826efa3a76e0c",
+      "excerptFirstLine": 335,
+      "excerpt": [
+        "            </Empty>",
+        "          )}",
+        "          {slots.overlay && (",
+        "            <Overlay class={ns.e('overlay')}>",
+        "              {{ default: slots.overlay }}",
+        "            </Overlay>",
+        "          )}"
+      ]
+    },
+    {
+      "diagnosticIndex": 53,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+        "offset": 8989,
+        "line": 339,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/table-v2/src/table-v2.tsx:8989: { default: slots.overlay }"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx",
+      "sourceSha256": "b1ed74cf6e22f7c2b8df0c89aab07d600dcd2fd30f1dd506200826efa3a76e0c",
+      "excerptFirstLine": 336,
+      "excerpt": [
+        "          )}",
+        "          {slots.overlay && (",
+        "            <Overlay class={ns.e('overlay')}>",
+        "              {{ default: slots.overlay }}",
+        "            </Overlay>",
+        "          )}",
+        "        </div>"
+      ]
+    },
+    {
+      "diagnosticIndex": 54,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/table-v2/src/components/auto-resizer.tsx",
+        "offset": 578,
+        "line": 20,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/table-v2/src/components/auto-resizer.tsx:578: slots.default?.({\n            height: height.value,\n            width: width.value,\n          })"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/table-v2/src/components/auto-resizer.tsx",
+      "sourceSha256": "2eca14620d5ddad1eb2bdac2316f27b940be0daa60eaf488fc3b1e248038766d",
+      "excerptFirstLine": 17,
+      "excerpt": [
+        "    return () => {",
+        "      return (",
+        "        <div ref={sizer} class={ns.b()} style={style}>",
+        "          {slots.default?.({",
+        "            height: height.value,",
+        "            width: width.value,",
+        "          })}"
+      ]
+    },
+    {
+      "diagnosticIndex": 55,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/pagination/src/pagination.ts",
+        "offset": 13640,
+        "line": 464,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] escaped script render constant FsusUI/vue/packages/components/pagination/src/pagination.ts#navigationChildren"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/pagination/src/pagination.ts",
+      "sourceSha256": "953aa7398a087e9dad3d0a23fd0ae733183f3857ef365176931c910b72abef9b",
+      "excerptFirstLine": 461,
+      "excerpt": [
+        "                class: ns.e('navigation'),",
+        "                'aria-label': props.ariaLabel,",
+        "              },",
+        "              navigationChildren,",
+        "            ),",
+        "            informationChildren.length > 0",
+        "              ? h("
+      ]
+    },
+    {
+      "diagnosticIndex": 56,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/pagination/src/pagination.ts",
+        "offset": 13982,
+        "line": 475,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] escaped script render constant FsusUI/vue/packages/components/pagination/src/pagination.ts#informationChildren"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/pagination/src/pagination.ts",
+      "sourceSha256": "953aa7398a087e9dad3d0a23fd0ae733183f3857ef365176931c910b72abef9b",
+      "excerptFirstLine": 472,
+      "excerpt": [
+        "                      ns.is('has-total', requested.has('total')),",
+        "                    ],",
+        "                  },",
+        "                  informationChildren,",
+        "                )",
+        "              : null,",
+        "          ],"
+      ]
+    },
+    {
+      "diagnosticIndex": 57,
+      "diagnostic": {
+        "archetype": "admin/collection",
+        "file": "FsusUI/vue/packages/components/pagination/src/pagination.ts",
+        "offset": 15047,
+        "line": 518,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] escaped script render constant FsusUI/vue/packages/components/pagination/src/pagination.ts#rootChildren"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/pagination/src/pagination.ts",
+      "sourceSha256": "953aa7398a087e9dad3d0a23fd0ae733183f3857ef365176931c910b72abef9b",
+      "excerptFirstLine": 515,
+      "excerpt": [
+        "            },",
+        "          ],",
+        "        },",
+        "        rootChildren,",
+        "      )",
+        "    }",
+        "  },"
+      ]
+    },
+    {
+      "diagnosticIndex": 58,
+      "diagnostic": {
+        "archetype": "admin/form",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 59,
+      "diagnostic": {
+        "archetype": "admin/form",
+        "file": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+        "offset": 297,
+        "line": 10,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+      "sourceSha256": "13bf60af1441990ae1a135c6e84dcb4228a6a9aee6fd8d073e7d00468176a743",
+      "excerptFirstLine": 7,
+      "excerpt": [
+        "        :motion-policy=\"motionPolicy\"",
+        "    >",
+        "        <template #before-content>",
+        "            <ArticleWorkspaceTabStrip v-if=\"isArticleWorkspaceRouteValue\" />",
+        "        </template>",
+        "    </AccountRouteFrame>",
+        "</template>"
+      ]
+    },
+    {
+      "diagnosticIndex": 60,
+      "diagnostic": {
+        "archetype": "admin/form",
+        "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+        "offset": 1812,
+        "line": 58,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+      "sourceSha256": "3beb081fdba9f33d56e19f9011187ccc2ef46b64c47fea372e3e54c26f0e6e61",
+      "excerptFirstLine": 55,
+      "excerpt": [
+        "                    :name=\"motionPolicy.preset ?? fsusBlogMotionPresets.route\"",
+        "                    :disabled=\"motionPolicy.preset === null || !motionEnabled\"",
+        "                >",
+        "                    <component",
+        "                        :is=\"Component\"",
+        "                        :key=\"accountRouteViewKey\"",
+        "                        class=\"account-frame-outlet\""
+      ]
+    },
+    {
+      "diagnosticIndex": 61,
+      "diagnostic": {
+        "archetype": "admin/form",
+        "file": "FsusUI/vue/packages/components/input/src/input.vue",
+        "offset": 3009,
+        "line": 87,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "sourceSha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "excerptFirstLine": 84,
+      "excerpt": [
+        "                nsInput.is('loading', validateState === 'validating'),",
+        "              ]\"",
+        "            >",
+        "              <component :is=\"validateIcon\" />",
+        "            </el-icon>",
+        "          </span>",
+        "        </span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 62,
+      "diagnostic": {
+        "archetype": "admin/form",
+        "file": "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+        "offset": 498,
+        "line": 19,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] ambiguous dynamic component FsusBlog/src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:498"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+      "sourceSha256": "a178b13ac970efa973f00c34aaf5ee478a0b45de967cacd01504f59ef6152787",
+      "excerptFirstLine": 16,
+      "excerpt": [
+        "        <span class=\"article-write-outline-visually-hidden\">打开文章大纲</span>",
+        "    </button>",
+        "",
+        "    <component",
+        "        v-if=\"isCompact || isOpen\"",
+        "        :is=\"outlineHost\"",
+        "        v-bind=\"outlineHostProperties\""
+      ]
+    },
+    {
+      "diagnosticIndex": 63,
+      "diagnostic": {
+        "archetype": "admin/form",
+        "file": "FsusUI/vue/packages/components/select/src/options.ts",
+        "offset": 1664,
+        "line": 55,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] escaped script render constant FsusUI/vue/packages/components/select/src/options.ts#children"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/select/src/options.ts",
+      "sourceSha256": "533ca86eb0bb5cc0b85d4b3b1fee5fedf496f48f3cc497cca54f656957971ce9",
+      "excerptFirstLine": 52,
+      "excerpt": [
+        "        emit('update-options', filteredOptions)",
+        "      }",
+        "",
+        "      return children",
+        "    }",
+        "  },",
+        "})"
+      ]
+    },
+    {
+      "diagnosticIndex": 64,
+      "diagnostic": {
+        "archetype": "admin/form",
+        "file": "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteSidebar.vue",
+        "offset": 1757,
+        "line": 45,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] mutated/shadowed render binding FsusUI/vue/packages/components/date-picker/index.ts#_DatePicker"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteSidebar.vue",
+      "sourceSha256": "b7878f5b713eab30fad0309cd2d5ee47efc8860b9ee22b41cf504470942598dd",
+      "excerptFirstLine": 42,
+      "excerpt": [
+        "                        <span class=\"article-field-label\"><span>发布时间</span></span>",
+        "                    </template>",
+        "                    <div class=\"mt-2\">",
+        "                        <ElDatePicker",
+        "                            v-model=\"form.scheduledPublishAt\"",
+        "                            type=\"datetime\"",
+        "                            value-format=\"YYYY-MM-DDTHH:mm:ss\""
+      ]
+    },
+    {
+      "diagnosticIndex": 65,
+      "diagnostic": {
+        "archetype": "admin/form",
+        "file": "FsusUI/vue/packages/components/slider/src/marker.ts",
+        "offset": 1035,
+        "line": 39,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slider/src/marker.ts:1035: label.value"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slider/src/marker.ts",
+      "sourceSha256": "8427793e25687a44d7b114d56c7449931347049906c4c15cc6a321fef579cd1d",
+      "excerptFirstLine": 36,
+      "excerpt": [
+        "          class: ns.e('marks-text'),",
+        "          style: style.value,",
+        "        },",
+        "        label.value",
+        "      )",
+        "  },",
+        "})"
+      ]
+    },
+    {
+      "diagnosticIndex": 66,
+      "diagnostic": {
+        "archetype": "admin/form",
+        "file": "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteInspectorRail.vue",
+        "offset": 796,
+        "line": 21,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusBlog/src/frontend/src/components/admin/article/ArticleWriteInspectorRail.vue: unbound finite component binding view"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteInspectorRail.vue",
+      "sourceSha256": "001606cf183f6fb432d4a4c8b48a27660d29699ca75226f7777350532d986590",
+      "excerptFirstLine": 18,
+      "excerpt": [
+        "            @click=\"activate(view.id, $event)\"",
+        "        >",
+        "            <ElIcon aria-hidden=\"true\">",
+        "                <component :is=\"view.icon\" />",
+        "            </ElIcon>",
+        "            <span class=\"article-write-inspector-rail__label\">{{ view.label }}</span>",
+        "        </button>"
+      ]
+    },
+    {
+      "diagnosticIndex": 67,
+      "diagnostic": {
+        "archetype": "admin/form",
+        "file": "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteInspectorShell.vue",
+        "offset": 958,
+        "line": 30,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] ambiguous dynamic component FsusBlog/src/frontend/src/components/admin/article/ArticleWriteInspectorShell.vue:958"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteInspectorShell.vue",
+      "sourceSha256": "76210a7c49e2f7c6dc0b8594b93ea9fa8eb728b6388b50ec5bf556c9bf51b5f5",
+      "excerptFirstLine": 27,
+      "excerpt": [
+        "            </ElIcon>",
+        "        </button>",
+        "",
+        "        <component",
+        "            :is=\"inspectorHost\"",
+        "            v-bind=\"inspectorHostProperties\"",
+        "            @update:model-value=\"handleDrawerVisibility\""
+      ]
+    },
+    {
+      "diagnosticIndex": 68,
+      "diagnostic": {
+        "archetype": "admin/settings",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 69,
+      "diagnostic": {
+        "archetype": "admin/settings",
+        "file": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+        "offset": 297,
+        "line": 10,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+      "sourceSha256": "13bf60af1441990ae1a135c6e84dcb4228a6a9aee6fd8d073e7d00468176a743",
+      "excerptFirstLine": 7,
+      "excerpt": [
+        "        :motion-policy=\"motionPolicy\"",
+        "    >",
+        "        <template #before-content>",
+        "            <ArticleWorkspaceTabStrip v-if=\"isArticleWorkspaceRouteValue\" />",
+        "        </template>",
+        "    </AccountRouteFrame>",
+        "</template>"
+      ]
+    },
+    {
+      "diagnosticIndex": 70,
+      "diagnostic": {
+        "archetype": "admin/settings",
+        "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+        "offset": 1812,
+        "line": 58,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+      "sourceSha256": "3beb081fdba9f33d56e19f9011187ccc2ef46b64c47fea372e3e54c26f0e6e61",
+      "excerptFirstLine": 55,
+      "excerpt": [
+        "                    :name=\"motionPolicy.preset ?? fsusBlogMotionPresets.route\"",
+        "                    :disabled=\"motionPolicy.preset === null || !motionEnabled\"",
+        "                >",
+        "                    <component",
+        "                        :is=\"Component\"",
+        "                        :key=\"accountRouteViewKey\"",
+        "                        class=\"account-frame-outlet\""
+      ]
+    },
+    {
+      "diagnosticIndex": 71,
+      "diagnostic": {
+        "archetype": "admin/settings",
+        "file": "FsusUI/vue/packages/components/input/src/input.vue",
+        "offset": 3009,
+        "line": 87,
+        "reason": "unknown-component-source",
+        "message": "[control-legality] FsusUI/vue/packages/components/input/src/input.vue: unresolved component expression validateState.value && ValidateComponentsMap[validateState.value]"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/input/src/input.vue",
+      "sourceSha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "excerptFirstLine": 84,
+      "excerpt": [
+        "                nsInput.is('loading', validateState === 'validating'),",
+        "              ]\"",
+        "            >",
+        "              <component :is=\"validateIcon\" />",
+        "            </el-icon>",
+        "          </span>",
+        "        </span>"
+      ]
+    },
+    {
+      "diagnosticIndex": 72,
+      "diagnostic": {
+        "archetype": "admin/settings",
+        "file": "FsusUI/vue/packages/components/select/src/options.ts",
+        "offset": 1664,
+        "line": 55,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] escaped script render constant FsusUI/vue/packages/components/select/src/options.ts#children"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/select/src/options.ts",
+      "sourceSha256": "533ca86eb0bb5cc0b85d4b3b1fee5fedf496f48f3cc497cca54f656957971ce9",
+      "excerptFirstLine": 52,
+      "excerpt": [
+        "        emit('update-options', filteredOptions)",
+        "      }",
+        "",
+        "      return children",
+        "    }",
+        "  },",
+        "})"
+      ]
+    },
+    {
+      "diagnosticIndex": 73,
+      "diagnostic": {
+        "archetype": "admin/settings",
+        "file": "FsusUI/vue/packages/components/slider/src/marker.ts",
+        "offset": 1035,
+        "line": 39,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slider/src/marker.ts:1035: label.value"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slider/src/marker.ts",
+      "sourceSha256": "8427793e25687a44d7b114d56c7449931347049906c4c15cc6a321fef579cd1d",
+      "excerptFirstLine": 36,
+      "excerpt": [
+        "          class: ns.e('marks-text'),",
+        "          style: style.value,",
+        "        },",
+        "        label.value",
+        "      )",
+        "  },",
+        "})"
+      ]
+    },
+    {
+      "diagnosticIndex": 74,
+      "diagnostic": {
+        "archetype": "admin/settings",
+        "file": "FsusUI/vue/packages/components/tabs/src/tab-nav.tsx",
+        "offset": 8632,
+        "line": 311,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/tabs/src/tab-nav.tsx:8632: props.panes.map((pane, index) => {\n        const uid = pane.uid\n        const disabled = pane.props.disabled\n        const tabName = pane.props.name ?? pane.index ?? `${index}`\n        const closable = !disabled && (pane.isClosable || props.editable)\n        pane.index = `${index}`\n\n        const btnClose = closable ? (\n          <ElIcon\n            class=\"is-icon-close\"\n            // `onClick` not exist when generate dts\n            // eslint-disable-next-line @typescript-eslint/ban-ts-comment\n            // @ts-ignore\n            onClick={(ev: MouseEvent) => emit('tabRemove', pane, ev)}\n          >\n            <Close />\n          </ElIcon>\n        ) : null\n\n        const tabLabelContent = pane.slots.label?.() || pane.props.label\n        const tabindex = !disabled && pane.active ? 0 : -1\n\n        return (\n          <div\n            ref={`tab-${uid}`}\n            class={[\n              ns.e('item'),\n              ns.is(rootTabs.props.tabPosition),\n              ns.is('active', pane.active),\n              ns.is('disabled', disabled),\n              ns.is('closable', closable),\n              ns.is('focus', isFocus.value),\n            ]}\n            id={`tab-${tabName}`}\n            key={`tab-${uid}`}\n            aria-controls={`pane-${tabName}`}\n            role=\"tab\"\n            aria-selected={pane.active}\n            tabindex={tabindex}\n            onFocus={() => setFocus()}\n            onBlur={() => removeFocus()}\n            onClick={(ev: MouseEvent) => {\n              removeFocus()\n              emit('tabClick', pane, tabName, ev)\n            }}\n            onKeydown={(ev: KeyboardEvent) => {\n              if (\n                closable &&\n                (ev.code === EVENT_CODE.delete ||\n                  ev.code === EVENT_CODE.backspace)\n              ) {\n                emit('tabRemove', pane, ev)\n              }\n            }}\n          >\n            {...[tabLabelContent, btnClose]}\n          </div>\n        )\n      })"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/tabs/src/tab-nav.tsx",
+      "sourceSha256": "16f8ecea3da3a88d81e8a5dc218766d2784adea5384b983522b45c631985e4e4",
+      "excerptFirstLine": 308,
+      "excerpt": [
+        "          ]",
+        "        : null",
+        "",
+        "      const tabs = props.panes.map((pane, index) => {",
+        "        const uid = pane.uid",
+        "        const disabled = pane.props.disabled",
+        "        const tabName = pane.props.name ?? pane.index ?? `${index}`"
+      ]
+    },
+    {
+      "diagnosticIndex": 75,
+      "diagnostic": {
+        "archetype": "admin/console",
+        "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+        "offset": 1069,
+        "line": 44,
+        "reason": "unknown-render-source",
+        "message": "[composition-source] unknown script render output FsusUI/vue/packages/components/slot/src/only-child.tsx:1069: withDirectives(cloneVNode(firstLegitNode!, attrs), [\n        [forwardRefDirective],\n      ])"
+      },
+      "actualCallNode": null,
+      "file": "FsusUI/vue/packages/components/slot/src/only-child.tsx",
+      "sourceSha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "excerptFirstLine": 41,
+      "excerpt": [
+        "        return null",
+        "      }",
+        "",
+        "      return withDirectives(cloneVNode(firstLegitNode!, attrs), [",
+        "        [forwardRefDirective],",
+        "      ])",
+        "    }"
+      ]
+    },
+    {
+      "diagnosticIndex": 76,
+      "diagnostic": {
+        "archetype": "admin/console",
+        "file": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+        "offset": 297,
+        "line": 10,
+        "reason": "route-name-visual-branch"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+      "sourceSha256": "13bf60af1441990ae1a135c6e84dcb4228a6a9aee6fd8d073e7d00468176a743",
+      "excerptFirstLine": 7,
+      "excerpt": [
+        "        :motion-policy=\"motionPolicy\"",
+        "    >",
+        "        <template #before-content>",
+        "            <ArticleWorkspaceTabStrip v-if=\"isArticleWorkspaceRouteValue\" />",
+        "        </template>",
+        "    </AccountRouteFrame>",
+        "</template>"
+      ]
+    },
+    {
+      "diagnosticIndex": 77,
+      "diagnostic": {
+        "archetype": "admin/console",
+        "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+        "offset": 1812,
+        "line": 58,
+        "reason": "unknown-component-source",
+        "message": "[composition-source] unbound template component binding FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue:1812"
+      },
+      "actualCallNode": null,
+      "file": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+      "sourceSha256": "3beb081fdba9f33d56e19f9011187ccc2ef46b64c47fea372e3e54c26f0e6e61",
+      "excerptFirstLine": 55,
+      "excerpt": [
+        "                    :name=\"motionPolicy.preset ?? fsusBlogMotionPresets.route\"",
+        "                    :disabled=\"motionPolicy.preset === null || !motionEnabled\"",
+        "                >",
+        "                    <component",
+        "                        :is=\"Component\"",
+        "                        :key=\"accountRouteViewKey\"",
+        "                        class=\"account-frame-outlet\""
+      ]
+    }
+  ],
+  "deduplicatedSourceFiles": {
+    "FsusBlog/src/frontend/src/layouts/BlogLayout.vue": {
+      "sha256": "9a3c243cde49235c276edb24c644360e0977b6b4a50ad67eae0f306778290975",
+      "bytes": 7444
+    },
+    "FsusUI/vue/packages/components/slot/src/only-child.tsx": {
+      "sha256": "04e032d075cb999b7d2f85e325affd583a719e07201373a944ec4927498230cb",
+      "bytes": 2121
+    },
+    "FsusUI/vue/packages/components/input/src/input.vue": {
+      "sha256": "7ae3082eb0adae61d2e329a8cb2042db02c4d8fbe08a812981e8eea0b9b522c2",
+      "bytes": 16198
+    },
+    "FsusBlog/src/frontend/src/components/article/ArticleDetailHeader.vue": {
+      "sha256": "2e847ea417f733573c4ed6fb1d6562a387fd8a88821d33f84d444b4c747c9a7d",
+      "bytes": 4636
+    },
+    "FsusBlog/src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue": {
+      "sha256": "bca6a27ba1acd37f72b57a1792aee1e1c4be74eb7e372a98c091e20a5539eade",
+      "bytes": 17478
+    },
+    "FsusUI/vue/packages/components/image-viewer/src/image-viewer.vue": {
+      "sha256": "28e92d5b9cbe2ffdfb3d133ba63a1b26f673ad9ba716d24825de95b87c628cd0",
+      "bytes": 11621
+    },
+    "FsusUI/vue/packages/components/button/src/button.vue": {
+      "sha256": "24f55d1392971c5ff240ef4ac1298e06692d59dd017bd8506bc94b63a4ccf7d0",
+      "bytes": 2281
+    },
+    "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue": {
+      "sha256": "3beb081fdba9f33d56e19f9011187ccc2ef46b64c47fea372e3e54c26f0e6e61",
+      "bytes": 4631
+    },
+    "FsusBlog/src/frontend/src/views/user/IdentityCenter.vue": {
+      "sha256": "0990b1784f0959903aed68eb3ca2a3e18a5c0e353c4419555e4c4e93ff923461",
+      "bytes": 56080
+    },
+    "FsusBlog/src/frontend/src/views/user/Messages.vue": {
+      "sha256": "b784bbc4cbfd6d356e7b4a172720113bbcbb3ad1c1ff65f68c41a7815104294c",
+      "bytes": 21020
+    },
+    "FsusUI/vue/packages/components/select/src/options.ts": {
+      "sha256": "533ca86eb0bb5cc0b85d4b3b1fee5fedf496f48f3cc497cca54f656957971ce9",
+      "bytes": 1687
+    },
+    "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue": {
+      "sha256": "13bf60af1441990ae1a135c6e84dcb4228a6a9aee6fd8d073e7d00468176a743",
+      "bytes": 3915
+    },
+    "FsusUI/vue/packages/components/table-v2/src/table-v2.tsx": {
+      "sha256": "b1ed74cf6e22f7c2b8df0c89aab07d600dcd2fd30f1dd506200826efa3a76e0c",
+      "bytes": 9960
+    },
+    "FsusUI/vue/packages/components/table-v2/src/components/auto-resizer.tsx": {
+      "sha256": "2eca14620d5ddad1eb2bdac2316f27b940be0daa60eaf488fc3b1e248038766d",
+      "bytes": 741
+    },
+    "FsusUI/vue/packages/components/pagination/src/pagination.ts": {
+      "sha256": "953aa7398a087e9dad3d0a23fd0ae733183f3857ef365176931c910b72abef9b",
+      "bytes": 15083
+    },
+    "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue": {
+      "sha256": "a178b13ac970efa973f00c34aaf5ee478a0b45de967cacd01504f59ef6152787",
+      "bytes": 21795
+    },
+    "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteSidebar.vue": {
+      "sha256": "b7878f5b713eab30fad0309cd2d5ee47efc8860b9ee22b41cf504470942598dd",
+      "bytes": 12907
+    },
+    "FsusUI/vue/packages/components/slider/src/marker.ts": {
+      "sha256": "8427793e25687a44d7b114d56c7449931347049906c4c15cc6a321fef579cd1d",
+      "bytes": 1063
+    },
+    "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteInspectorRail.vue": {
+      "sha256": "001606cf183f6fb432d4a4c8b48a27660d29699ca75226f7777350532d986590",
+      "bytes": 4391
+    },
+    "FsusBlog/src/frontend/src/components/admin/article/ArticleWriteInspectorShell.vue": {
+      "sha256": "76210a7c49e2f7c6dc0b8594b93ea9fa8eb728b6388b50ec5bf556c9bf51b5f5",
+      "bytes": 10018
+    },
+    "FsusUI/vue/packages/components/tabs/src/tab-nav.tsx": {
+      "sha256": "16f8ecea3da3a88d81e8a5dc218766d2784adea5384b983522b45c631985e4e4",
+      "bytes": 11800
+    }
+  }
+}

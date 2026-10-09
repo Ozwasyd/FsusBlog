@@ -1,0 +1,20 @@
+{
+  "sourceCommit": "c3538c5ee3133ff71bf0b34b5c93055e7eccdbc8",
+  "sourceTree": "a27ae1a967d7b219d30ef00bfddc089f90a1a66c",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tests/frontend/checks/static/check-layout-composition.mjs",
+    "/workspace/FsusBlog-2099-geometry-integration/.tmp/issue-2099-analyzer-consumption-20261009/original-full-receipt.json"
+  ],
+  "environment": {
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI"
+  },
+  "startedAtUtc": "2026-10-09T11:33:18.509913+00:00",
+  "endedAtUtc": "2026-10-09T11:33:29.069767+00:00",
+  "exitCode": 1,
+  "testsExecuted": 0,
+  "browserRuns": 0,
+  "sdkBuilds": 0,
+  "originalQualificationFlagsIntact": true,
+  "supplier331ControlsNotInherited": true
+}

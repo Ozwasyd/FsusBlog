@@ -1,0 +1,45 @@
+{
+  "command": [
+    "node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "33de0733a5adb049751f13a11295ff4a0fb381f9..HEAD"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791549373.472019,
+  "durationSeconds": 1.532641887664795,
+  "source": {
+    "blog": {
+      "commit": "71ff02c51992cdf74ee6e0f85f91321975abeec2",
+      "tree": "956fa33d0371715f345340ccc68def0ac571417f",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "71ff02c51992cdf74ee6e0f85f91321975abeec2",
+      "tree": "956fa33d0371715f345340ccc68def0ac571417f",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/clean-integrated-contract.log",
+  "logSha256": "05a092192eb0683c6e3a717fdac3cd291925c0497835a845752964e94cbd7690",
+  "portableLog": "clean-integrated-contract.txt"
+}

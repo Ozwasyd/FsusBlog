@@ -1,0 +1,1 @@
+[change-contract] ok commit-range=33de0733a5adb049751f13a11295ff4a0fb381f9..HEAD
