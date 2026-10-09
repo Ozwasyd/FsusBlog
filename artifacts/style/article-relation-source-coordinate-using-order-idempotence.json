@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "afae0e36e48955e560a24b8653fde93f861da577",
+    "formatter": {
+        "identity": "fsusblog-csharp-style",
+        "version": "git-65ca74461666c641c47bc8793f5f60728dcef326",
+        "command": "node tools/dotnet/check-csharp-style.mjs --mode changed --fix --file src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs --file tests/backend/Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs --file tests/backend/Unit/ArticleRelationSourceCoordinateAuthorityTests.cs"
+    },
+    "paths": [
+        "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs",
+        "tests/backend/Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs",
+        "tests/backend/Unit/ArticleRelationSourceCoordinateAuthorityTests.cs"
+    ],
+    "firstPassTreeSha256": "e64024f5b5894dd22553d93395f49d95341a127c926515c01979043cdfdc1d1e",
+    "secondPassTreeSha256": "e64024f5b5894dd22553d93395f49d95341a127c926515c01979043cdfdc1d1e",
+    "idempotent": true
+}
