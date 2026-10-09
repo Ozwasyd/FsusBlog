@@ -2951,3 +2951,29 @@ request or acknowledge a stale private response. Typed payloads are bounded at
 128 KiB and use the same closed scalar substrate as Canvas. Source and codec
 checks do not certify real HTTP, PostgreSQL transaction or rendered interaction
 acceptance.
+
+The current-handle business consumer uses
+`createArticleAttachmentBusinessIntentReader({ attachments, handle, binding })`.
+`attachments` is the original `ArticleAttachmentContextAdapter`; `handle(intentRef)`
+borrows the actual host-held pending/completed handle; `binding()` reads the
+original current context and actual public position map. There is no second
+intent store, copied lease or lifecycle-receipt ownership. `readOwnedIntent`
+retains the original observation: `sourceReferenced: null` means unknown;
+`false` is only the original proven removal observation. Neither grants cleanup.
+
+Its `verifyIntent(node, context, signal)` implements the existing business port
+for current pending/completed intents. It calls the original reader before and
+after the promise boundary, requiring the same handle, snapshot and provider
+version plus exact intent/node/transaction/provider/context/order/source relation
+and URL coordinates. Caller cancellation propagates. Terminal, missing, foreign,
+cloned or changed handles and unknown maps return false. A completed original
+handle's aborted signal is not rejected independently of the original completed
+lease authority. This reader creates no asset operation, reference receipt,
+resource rights, upload store or cleanup observation.
+
+`AttachmentBusinessAuthority.observeReference` still belongs to the original
+ledger/resource owner. The server current-asset supplier's version/ledger/edge
+facts contain no `receiptRef`; hashing them, copying lifecycle receipts or using
+a structural clone cannot manufacture that authority. The host must preserve
+unconfirmed/recovery-required behavior until the original reference owner is
+bound. The intent reader does not activate a host or add public transport.

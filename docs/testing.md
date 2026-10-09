@@ -1735,3 +1735,14 @@ against the expected candidate HEAD before accepting any `.py` path. Unchecked
 Python paths remain unsupported. This checks AST syntax only; compiled, import,
 native, runtime, and release qualification remain unrun, and the default
 qualification and full-stage routes are unchanged.
+
+The owned-intent business adapter's selected controls are in
+`tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts`.
+They execute the original attachment owner and actual FsusUI editor dispatch/map,
+including a pending handle, committed successor, actual removal tombstone,
+unknown source relation, changed business coordinates, cloned/foreign handles,
+revocation/source edits across the promise boundary, caller cancellation and
+original owner disposal. No fake receipt oracle, new intent store, asset/cleanup
+grant or live browser/product acceptance is supplied by this test file. Its
+runtime observations must bind its own current source and locked toolchain;
+the supplied reader's35/host37 results are not inherited.
