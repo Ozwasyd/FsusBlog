@@ -7,10 +7,10 @@ import test from 'node:test';
 const repoRoot = path.resolve(import.meta.dirname, '../../../..');
 const frontendRoot = path.join(repoRoot, 'src/frontend');
 const require = createRequire(path.join(frontendRoot, 'package.json'));
-const ts = require('typescript');
-const vue = require('@vue/language-core');
 const { proxyCreateProgram } = require('@volar/typescript/lib/node/proxyCreateProgram');
 const { compileScript, parse } = require('@vue/compiler-sfc');
+const vue = require('@vue/language-core');
+const ts = require('typescript');
 const componentPath = path.join(frontendRoot, 'src/components/security/FsusPoSpaceChallenge.vue');
 const probePath = path.join(frontendRoot, 'src/pospaceImportedTypeBindings.static.ts');
 
@@ -50,7 +50,8 @@ component.$emit('verified', 'invalid-proof');
 component.$emit('verification', proof);
 `;
 
-function componentProgram() {
+function componentProgram()
+{
     const configPath = path.join(frontendRoot, 'tsconfig.app.json');
     const { vueOptions } = vue.createParsedCommandLine(ts, ts.sys, configPath);
     const parsed = ts.getParsedCommandLineOfConfigFile(configPath, undefined, {
@@ -82,7 +83,8 @@ function componentProgram() {
     });
 }
 
-test('PoSpace props and verified emit bind to the existing imported types in the app program', (context) => {
+test('PoSpace props and verified emit bind to the existing imported types in the app program', (context) =>
+{
     const program = componentProgram();
     assert.ok(program.getSourceFile(componentPath), 'the compiler must check the genuine SFC');
     assert.ok(program.getSourceFile(probePath), 'the compiler must check the type consumer');
@@ -97,7 +99,8 @@ test('PoSpace props and verified emit bind to the existing imported types in the
     context.diagnostic(`Unrelated app diagnostics: ${diagnostics.length - relevant.length}; this is a component check, not an app-wide pass.`);
 });
 
-test('binding the imported types preserves development and production emitted runtime JavaScript', () => {
+test('binding the imported types preserves development and production emitted runtime JavaScript', () =>
+{
     const source = readFileSync(componentPath, 'utf8');
     const { descriptor, errors } = parse(source, { filename: componentPath });
     assert.deepEqual(errors, []);
@@ -114,15 +117,18 @@ test('binding the imported types preserves development and production emitted ru
     let restored = 0;
     const unboundSetup = setup.content.replace(
         /\b(ExecutorAssignment|ExecutorProviderPayload|ExecutorContext|ExecutorProof|ExecutorVerifyResponse)\b/gu,
-        (name) => {
+        (name) =>
+        {
             restored++;
             return aliases[name];
         }
     );
     assert.equal(restored, 5, 'the comparison must cover all five repaired annotations');
     const before = source.slice(0, setup.loc.start.offset) + unboundSetup + source.slice(setup.loc.end.offset);
-    for (const isProd of [false, true]) {
-        const emit = (input) => {
+    for (const isProd of [false, true])
+    {
+        const emit = (input) =>
+        {
             const { descriptor: inputDescriptor, errors: inputErrors } = parse(input, { filename: componentPath });
             assert.deepEqual(inputErrors, []);
             const compiled = compileScript(inputDescriptor, {
