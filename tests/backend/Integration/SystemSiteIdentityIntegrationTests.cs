@@ -294,8 +294,23 @@ public sealed class SystemSiteIdentityIntegrationTests(PostgresSchemaMigrationFi
         Assembly original = typeof(SqlSugarInitializer).Assembly;
         string revision = original.GetCustomAttributes<AssemblyMetadataAttribute>()
             .Single(attribute => attribute.Key == "FsusBlog.SourceCommit").Value!;
-        string evidence = Path.Combine(BackendTestPaths.RepositoryRoot, ".tmp", "site-identity-owner", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(evidence);
+        // Consume the original execution-envelope directory owner's exported
+        // current-run/current-attempt temp root. Its finalizer inventories these
+        // producer files before cleanup on every physical terminal outcome.
+        // Missing managed ingress refuses; no ambient repository/tmp fallback,
+        // serialized capability, lease or evidence receipt is manufactured here.
+        string managedTemp = Environment.GetEnvironmentVariable("TMPDIR")
+            ?? throw new InvalidOperationException("site_identity_managed_evidence_directory_required");
+        if (!Path.IsPathFullyQualified(managedTemp)
+            || string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FSUSBLOG_TEST_RUN_ID"))
+            || Environment.GetEnvironmentVariable("TMP") != managedTemp
+            || Environment.GetEnvironmentVariable("TEMP") != managedTemp
+            || Path.TrimEndingDirectorySeparator(Path.GetTempPath()) != Path.TrimEndingDirectorySeparator(managedTemp)
+            || !Directory.Exists(managedTemp))
+        {
+            throw new InvalidOperationException("site_identity_managed_evidence_directory_required");
+        }
+        string evidence = Directory.CreateTempSubdirectory("fsus-site-identity-owner-").FullName;
         return await OwnedCurrentSchemaTarget.InvokeOriginalOwnerAsync(original.Location, revision, evidence, CancellationToken.None);
     }
 
