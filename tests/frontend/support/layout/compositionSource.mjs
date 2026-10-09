@@ -389,6 +389,51 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         return { usesRouteName };
     }
 
+    function propMacroValues(record, property)
+    {
+        const standalone = record.scripts.filter(({ setup }) => setup).flatMap(({ ast }) => ast.statements
+            .filter(ts.isExpressionStatement).map((statement) => unwrap(statement.expression))
+            .filter((node) => node && ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+                && ['defineProps', 'withDefaults'].includes(node.expression.text)));
+        if (!standalone.length)
+        {
+            return [...record.variables.values()];
+        }
+        const macros = [];
+        function visit(node)
+        {
+            if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+                && ['defineProps', 'withDefaults'].includes(node.expression.text))
+            {
+                const parent = node.parent;
+                const nestedProps = node.expression.text === 'defineProps' && ts.isCallExpression(parent)
+                    && ts.isIdentifier(parent.expression) && parent.expression.text === 'withDefaults'
+                    && parent.arguments[0] === node;
+                if (!nestedProps)
+                {
+                    macros.push(node);
+                }
+            }
+            ts.forEachChild(node, visit);
+        }
+        record.scripts.forEach(({ ast }) => visit(ast));
+        if (standalone.length !== 1 || macros.length !== 1 || macros[0] !== standalone[0]
+            || ['defineProps', 'withDefaults', property].some((name) => record.imports.has(name) || record.variables.has(name)))
+        {
+            fail(`unknown standalone prop macro ${record.file}#${property}`);
+        }
+        const macro = standalone[0];
+        if (macro.arguments.some(ts.isSpreadElement) || (macro.expression.text === 'withDefaults'
+            ? macro.arguments.length !== 2 : macro.arguments.length !== (macro.typeArguments?.length ? 0 : 1)))
+        {
+            fail(`unknown standalone prop macro arguments ${record.file}#${property}`);
+        }
+        for (const name of ['defineProps', 'withDefaults', property])
+        {
+            unchangedBinding(record, name, null);
+        }
+        return [...record.variables.values(), standalone[0]];
+    }
     function nativePropTargets(record, identifier)
     {
         function literal(node, file, seen = new Set())
@@ -443,7 +488,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             return null;
         }
-        for (const value of record.variables.values())
+        for (const value of propMacroValues(record, identifier))
         {
             if (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && value.expression.text === 'defineProps')
             {
@@ -532,7 +577,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             return null;
         }
-        for (const value of record.variables.values())
+        for (const value of propMacroValues(record, name))
         {
             if (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && value.expression.text === 'withDefaults'
                 && !record.imports.has('withDefaults') && !record.variables.has('withDefaults')

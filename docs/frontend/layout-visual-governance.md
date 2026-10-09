@@ -321,6 +321,14 @@ mutating or escaping a rendered value, or shadowing an actual Vue constructor or
 component import remains an error. This declaration rule proves no helper effects
 or slot provenance.
 
+Standalone script-setup prop macros bind their native default and actual literal
+call inputs through the same prop declaration path as assigned macros. The
+actual Vue compiler exposes PublicReadingPageFrame's unassigned `as` prop;
+no local variable is fabricated. Only one actual top-level macro supplies the
+declaration. Duplicate, nested, imported, shadowed or malformed macros and unknown
+defaults or call inputs remain errors. A declaration without actual suppliers
+retains its unbound input error.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;
