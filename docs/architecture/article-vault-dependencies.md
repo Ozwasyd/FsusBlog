@@ -87,6 +87,8 @@ the original sealed operation, current dependency plan/request/authority inputs
 and an exact planned server-side pull asset, then validates the actual returned
 record and copied bytes. Current rights and the original plan are checked before
 and after the read. It creates no rights from the byte digest or reference ledger.
+The retained input carries the original global operation identity and dependency
+plan digest alongside the original supplier observation; it is not a persisted receipt.
 Its retained input cannot execute, materialize, upload or commit base. A blocked
 plan remains blocked; local/push inputs are not upgraded to current server inputs.
 
@@ -96,6 +98,9 @@ file service and clock. It supplies one scoped caller and original supplier with
 an explicit trusted site, without a fallback owner or endpoint. Backend authoring
 contracts retain their current canonical location; no second Shared canvas grammar
 is copied as part of this integration.
+The existing runtime bootstrap installs these scoped readers only with its
+server-owned `ArticleVault:TrustedSiteIdentity`; the ordinary domain supplies the
+original current source reader through its existing article and revision ports.
 
 The original current dependency/resource-rights supplier, operation-bound intended
 AssetId upload/reuse/accepted-reference receipts, full V1 metadata and canonical

@@ -167,13 +167,19 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration,
         IHostEnvironment? hostEnvironment = null)
     {
-        return services
+        services
             .AddFsusDependencyGraphValidation()
             .AddFsusRuntimeSecurityAndLifecycleServices(configuration)
             .AddFsusRuntimeInfrastructureServices(configuration)
             .AddFsusRuntimePublicAotServices()
             .AddFsusRuntimeDomainServices(configuration, hostEnvironment)
             .AddActiveReleaseFencing();
+        string? trustedVaultSiteIdentity = configuration["ArticleVault:TrustedSiteIdentity"];
+        if (!string.IsNullOrWhiteSpace(trustedVaultSiteIdentity))
+        {
+            services.AddFsusArticleVaultCurrentUploadAssetInputs(trustedVaultSiteIdentity);
+        }
+        return services;
     }
 
     public static IServiceCollection AddFsusRateLimiting(this IServiceCollection services)

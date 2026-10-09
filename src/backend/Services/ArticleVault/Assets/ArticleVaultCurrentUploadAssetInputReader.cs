@@ -15,10 +15,23 @@ namespace FsusBlog.Server.Services.ArticleVault.Assets;
 public sealed class ArticleVaultCurrentUploadAssetInput
 {
     internal ArticleVaultCurrentUploadAssetInput(
+        ArticleVaultOperationIdentity operation, string dependencyPlanSha256,
         ArticleVaultCurrentUploadAssetObservation observation, ImmutableArray<byte> bytes)
     {
+        Operation = operation;
+        DependencyPlanSha256 = dependencyPlanSha256;
         Observation = observation;
         Bytes = bytes;
+    }
+
+    public ArticleVaultOperationIdentity Operation
+    {
+        get;
+    }
+
+    public string DependencyPlanSha256
+    {
+        get;
     }
 
     public ArticleVaultCurrentUploadAssetObservation Observation
@@ -113,7 +126,7 @@ public sealed class ArticleVaultCurrentUploadAssetInputReader(
             currentDependencies, principal, trustedVaultSiteIdentity, item.OperationIdentity, reference.AssetId.Value,
             observation.Asset, bytes.AsSpan(), timeProvider, cancellationToken));
         RequireCurrent();
-        return new(observation, bytes);
+        return new(operation, dependencies.ContentSha256, observation, bytes);
 
         void RequireCurrent()
         {

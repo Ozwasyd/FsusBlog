@@ -171,6 +171,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringRevisionCompareDraftContextProvider, AuthoringRevisionCompareDraftContextProvider>();
         services.AddScoped<IAuthoringRevisionCompareDraftContextAuthority, AuthoringRevisionCompareDraftContextAuthority>();
         services.AddScoped<IRevisionComparePackageReader, AuthoringRevisionComparePackageReader>();
+        services.AddScoped<IAuthoringArticleCurrentSourceReader, AuthoringArticleCurrentSourceReader>();
         services.AddScoped<RevisionComparePlanner>();
         services.AddScoped<RevisionComparePlanVerifier>();
         services.AddSingleton<IRevisionMarkdownStructureProvider, CanonicalRevisionMarkdownStructureProvider>();
