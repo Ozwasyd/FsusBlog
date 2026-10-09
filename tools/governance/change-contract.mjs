@@ -4678,9 +4678,14 @@ export function csharpFormatFingerprint(source)
         + 'sealed short sizeof stackalloc static string struct switch this throw true try typeof '
         + 'uint ulong unchecked unsafe ushort using virtual void volatile while'
     ).split(' '));
-    const skipWhitespace = (offset) =>
+    const skipWhitespace = (offset, commentLookahead = false) =>
     {
-        while (/[ \t\r\n]/u.test(source[offset] ?? ''))
+        // Import normalization stays ASCII-only; the unsupported-import lookahead
+        // must traverse every legal C# whitespace and line-terminator character.
+        const whitespace = commentLookahead
+            ? /[\p{Zs}\t\v\f\r\n\u0085\u2028\u2029]/u
+            : /[ \t\r\n]/u;
+        while (whitespace.test(source[offset] ?? ''))
         {
             offset += 1;
         }
@@ -4688,7 +4693,7 @@ export function csharpFormatFingerprint(source)
     };
     const skipComments = (offset) =>
     {
-        offset = skipWhitespace(offset);
+        offset = skipWhitespace(offset, true);
         while (source.startsWith('//', offset) || source.startsWith('/*', offset))
         {
             if (source.startsWith('//', offset))
@@ -4705,7 +4710,7 @@ export function csharpFormatFingerprint(source)
                 }
                 offset = end + 2;
             }
-            offset = skipWhitespace(offset);
+            offset = skipWhitespace(offset, true);
         }
         return offset;
     };

@@ -281,3 +281,56 @@ test('CSharp using equivalence refuses hashes and unsupported import separators 
             `using Beta;${separator}using Alpha;${separator}${body}`);
     }
 });
+
+function rejectUnsupportedImportsAfterLineComment(separator)
+{
+    const declarations = ['using static System.Math;', 'using Name = Alpha;',
+        'global using Gamma;', 'extern alias External;'];
+    const cases = declarations.flatMap((declaration) => [separator, `${separator} ${separator}\u00a0`]
+        .map((separatorTrivia) => ({ declaration, separatorTrivia })));
+    const observed = cases.map(({ declaration, separatorTrivia }) =>
+    {
+        const remainder = `// barrier${separatorTrivia}${declaration}${separator}${body}`;
+        const before = `${imports}${remainder}`;
+        const after = `${reversed}${remainder}`;
+        return {
+            declaration,
+            separatorTrivia,
+            fingerprintsEqual: fingerprint(before) === fingerprint(after),
+            diffAccepted: compareDiff('sample.cs', before, after).length === 0
+        };
+    });
+    assert.deepEqual(observed, cases.map(({ declaration, separatorTrivia }) => ({
+        declaration, separatorTrivia, fingerprintsEqual: false, diffAccepted: false
+    })));
+}
+
+test('CSharp using equivalence refuses unsupported imports after CR line comments', () =>
+{
+    rejectUnsupportedImportsAfterLineComment('\r');
+});
+
+test('CSharp using equivalence refuses unsupported imports after LF line comments', () =>
+{
+    rejectUnsupportedImportsAfterLineComment('\n');
+});
+
+test('CSharp using equivalence refuses unsupported imports after CRLF line comments', () =>
+{
+    rejectUnsupportedImportsAfterLineComment('\r\n');
+});
+
+test('CSharp using equivalence refuses unsupported imports after U0085 line comments', () =>
+{
+    rejectUnsupportedImportsAfterLineComment('\u0085');
+});
+
+test('CSharp using equivalence refuses unsupported imports after U2028 line comments', () =>
+{
+    rejectUnsupportedImportsAfterLineComment('\u2028');
+});
+
+test('CSharp using equivalence refuses unsupported imports after U2029 line comments', () =>
+{
+    rejectUnsupportedImportsAfterLineComment('\u2029');
+});
