@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphFactory.AutomaticModeration.cs"
+            ],
+            "reason": "Preserve diagnostic contract identifiers while consuming the original production automatic moderation policy without copying its business rules or generating events."
+        }
+    ]
+}

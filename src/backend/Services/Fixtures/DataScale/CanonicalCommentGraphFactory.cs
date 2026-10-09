@@ -10,7 +10,7 @@ namespace FsusBlog.Server.Services.Fixtures.DataScale;
 /// original-owner facts and pure policies; physical graph rows await shared original
 /// production builders and native identities. No alternate row authority is supplied.
 /// </summary>
-public static class CanonicalCommentGraphFactory
+public static partial class CanonicalCommentGraphFactory
 {
     /// <summary>Bounds graph-intent count per batch, not physical rows, memory or throughput.</summary>
     public const int MaximumIntentsPerBatch = 256;
