@@ -44,11 +44,11 @@
         "trx": "projection-results.xml (original VSTest TRX bytes, unchanged)"
     },
     "bootstrapReceiptRefusalControls": "UNRUN and not selected",
-    "frontendControls": "PASS previously on unchanged six-file module source 7d23fc30865a206de0b31df527a6b6e59cd7c932: 20 component controls + 23 original hook controls; no rerun for backend prerequisites.",
-    "moduleSourceChanged": false,
+    "frontendControls": "PASS 34/34 original component entrypoint + 23/23 original HTML hooks on 0ea8b5246968602a570909c21104724b57e64a6d; original 20 retained, 14 identity/cancellation/order/context/error regressions added.",
+    "moduleSourceChanged": true,
     "sharedLockRegenerated": false,
     "alternateHarnessUsed": false,
-    "remainingInput": "None for the assigned source module and ordinary projection/component controls. Original-owner route/permission integration and the full export/intake/resolution/executor/results lifecycle remain integration gaps, not implemented by this module.",
+    "remainingInput": "No missing implementation input for the assigned P2 source fixes. Full-app declaration/type prerequisites, existing compiler/style prerequisites, original-owner authenticated route/permission integration and full package lifecycle remain gaps; browser and independent UX acceptance UNRUN.",
     "previousDiscoveryDiagnosticCount": 16,
     "previousDiscoveryDiagnosticFileCount": 7,
     "canonicalMasterSource": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
@@ -78,5 +78,15 @@
     "supplierRestoreBuildTransferredAsTestAcceptance": false,
     "resourcePreflight": "PASS no external fixture; original opt-in Redis module initializer inactive; ordinary startup/hook configuration unchanged.",
     "browserIndependentUX": "UNRUN; no rendered or independent UX acceptance claimed.",
-    "rawTestOutput": "test-run.txt (original stdout/stderr bytes, unchanged)"
+    "rawTestOutput": "test-run.txt (original stdout/stderr bytes, unchanged)",
+    "latestModuleSource": "0ea8b5246968602a570909c21104724b57e64a6d",
+    "initialModuleSource": "7d23fc30865a206de0b31df527a6b6e59cd7c932",
+    "priorFrontendControls": "PASS previously on unchanged six-file module source 7d23fc30865a206de0b31df527a6b6e59cd7c932: 20 component controls + 23 original hook controls; no rerun for backend prerequisites.",
+    "backendModuleSourceChanged": false,
+    "frontendModuleSourceChanged": true,
+    "frontendFollowup": "frontend-page-identity-followup.json",
+    "fullAppTypecheck": "FAIL 311 diagnostics, including existing @ozwasyd/element-plus declaration gap in this SFC; no broader prerequisite edits.",
+    "testTypeScriptStyle": "UNRUN: excluded by original source-set policy.",
+    "frontendControlsRerunForChangedSource": true,
+    "currentSourceStyleCoverage": "PASS Vue/type source pair only; test TypeScript style UNRUN."
 }

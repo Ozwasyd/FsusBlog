@@ -1,0 +1,122 @@
+{
+  "source": "0ea8b5246968602a570909c21104724b57e64a6d",
+  "parentSource": "134649893ec14884be584af82e7d583a218f8f2f",
+  "branch": "article-package-review-page-identity-delivery-20261009-a91f",
+  "changedModulePaths": [
+    "src/frontend/src/api/types/articlePackageCandidateReview.ts",
+    "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue",
+    "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  ],
+  "unchangedModulePaths": [
+    "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
+    "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
+    "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs"
+  ],
+  "reproduction": {
+    "environment": "original happy-dom ordinary component entrypoint, not a browser runtime",
+    "selected": 22,
+    "passedOriginal": 20,
+    "failedRegressions": 2,
+    "htmlHookPassed": 23,
+    "failures": [
+      "wrong pageSize cleared pending",
+      "loading-to-ready cancellation left pending active"
+    ]
+  },
+  "hostContract": {
+    "scope": "UI-only draft host correlation, not immutable backend DTO, transport or authority",
+    "request": "Frozen requestId, planDigest, pageIndex, pageSize; freshly identified for each read",
+    "completion": "Echo exact request and ready with exact bounded projection, or cancelled/error",
+    "context": "Clear pageCompletion before authoritative context updates; clear review then seed it to reset the same candidate after an error",
+    "ordering": "Ignore uncorrelated, cancelled, completed, duplicate or superseded outcomes; keep accepted page until matching ready, cancellation retains it"
+  },
+  "componentTests": {
+    "status": "PASS",
+    "expected": 34,
+    "discovered": 34,
+    "passed": 34,
+    "failed": 0,
+    "skipped": 0,
+    "original20ControlsAndAssertionsRetained": true,
+    "exactResultSetMatchesSelection": true,
+    "cases": [
+      "ArticlePackageCandidateReview ordinary component controls > labels the finite candidate, original summary, assertions and unresolved hints accurately",
+      "ArticlePackageCandidateReview ordinary component controls > shows new identity requirements without implying a created identity or resolved target",
+      "ArticlePackageCandidateReview ordinary component controls > never enables or emits execution for complete structurally valid hints, clicks or keys",
+      "ArticlePackageCandidateReview ordinary component controls > handles zero supplied candidates without inventing a zero-article validated plan",
+      "ArticlePackageCandidateReview ordinary component controls > announces loading and error states and keeps the execution refusal",
+      "ArticlePackageCandidateReview ordinary component controls > keeps stale/refusal semantics for caller_interval_not_started",
+      "ArticlePackageCandidateReview ordinary component controls > keeps stale/refusal semantics for caller_interval_expired",
+      "ArticlePackageCandidateReview ordinary component controls > keeps stale/refusal semantics for caller_interval_current",
+      "ArticlePackageCandidateReview ordinary component controls > renders only one supplied page for 1000 hints with semantic headings, list and live pagination",
+      "ArticlePackageCandidateReview ordinary component controls > requests digest-bound pages only, blocks repeated requests and focuses arrived hints through loading",
+      "ArticlePackageCandidateReview ordinary component controls > returns focus to the review heading after a failed page read",
+      "ArticlePackageCandidateReview ordinary component controls > handles final pages and plan replacement without stealing outside focus",
+      "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 0",
+      "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 1",
+      "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 2",
+      "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 3",
+      "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 4",
+      "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 5",
+      "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 6",
+      "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 7",
+      "ArticlePackageCandidateReview ordinary component controls > keeps a size-50 request pending when the same digest and page arrives with size 25",
+      "ArticlePackageCandidateReview ordinary component controls > finishes a cancelled loading-to-ready read while retaining the original page",
+      "ArticlePackageCandidateReview ordinary component controls > does not infer cancellation or accept a response from an uncorrelated ready transition",
+      "ArticlePackageCandidateReview ordinary component controls > ignores late success, error and duplicate cancellation after retrying the same page",
+      "ArticlePackageCandidateReview ordinary component controls > ignores cancellation with mismatched request identity 0",
+      "ArticlePackageCandidateReview ordinary component controls > ignores cancellation with mismatched request identity 1",
+      "ArticlePackageCandidateReview ordinary component controls > ignores cancellation with mismatched request identity 2",
+      "ArticlePackageCandidateReview ordinary component controls > ignores cancellation with mismatched request identity 3",
+      "ArticlePackageCandidateReview ordinary component controls > ignores unsolicited and duplicate success while a different page is pending",
+      "ArticlePackageCandidateReview ordinary component controls > invalidates an outstanding completion when the host replaces the candidate context",
+      "ArticlePackageCandidateReview ordinary component controls > clears the completion slot for a new context and rejects an old response mirrored into review",
+      "ArticlePackageCandidateReview ordinary component controls > recovers an identified error through an empty context without accepting its late duplicate",
+      "ArticlePackageCandidateReview ordinary component controls > ignores an exact request echo with a mismatched projected digest",
+      "ArticlePackageCandidateReview ordinary component controls > ignores an exact request echo with a mismatched projected page"
+    ],
+    "command": "npm run test:unit:fast -- ../../tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  "originalHooks": {
+    "htmlSinkAST": "PASS 23/23",
+    "publicPageManifest": "PASS",
+    "optionalTopologyOptIn": "inactive"
+  },
+  "style": {
+    "vueAndTypeSource": "PASS strict-full, 2 ESLint / 1 Stylelint / 0 violations",
+    "unitTestTypeScript": "UNRUN: original policy selects only .mjs under tests; no style coverage or exemption is claimed"
+  },
+  "fullAppTypecheck": {
+    "status": "FAIL",
+    "exitCode": 1,
+    "diagnosticCount": 311,
+    "command": "npx --no-install vue-tsc --noEmit -p tsconfig.app.json",
+    "moduleDiagnostics": [
+      "src/components/admin/article-packages/ArticlePackageCandidateReview.vue(117,26): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations."
+    ],
+    "unchangedImportStatement": "import { ElButton } from '@ozwasyd/element-plus';",
+    "broaderPrerequisitesChanged": false
+  },
+  "ordinaryFrontendLayout": "PASS",
+  "browser": {
+    "status": "UNRUN",
+    "BrowserPlugin": "absent",
+    "PlaywrightVersion": "1.59.1 available",
+    "reason": "The component has no mounted route or original e2e flow; no route/config changes, synthetic HTTP or substitute rendered acceptance host created",
+    "browserRuntimeReproductionClaimed": false,
+    "screenshotsOrIndependentUXClaimed": false
+  },
+  "backend": {
+    "source": "1ec04f0fef46b4c66337c2c95295e4b6c090d99c",
+    "existingControls": "PASS 18/18 on the previously tested backend source; unchanged backend module paths retained",
+    "rerun": false
+  },
+  "contentAPI": "HOLD; no review/PR content writes or new review launched",
+  "executionAuthority": "Always article_package_import_authority_unavailable",
+  "fullIssuesCompleted": false,
+  "commitContract": "PASS original message and full commit range from 134649893ec14884be584af82e7d583a218f8f2f",
+  "earlierPublishedWIP": {
+    "source": "d325aa99bd8ecf3847eb7246b999716a749c0aef",
+    "reason": "Footer paragraphs were rejected by original commit-contract parser; source-only WIP remains published without history rewrite. Consume the new validated delivery branch."
+  }
+}
