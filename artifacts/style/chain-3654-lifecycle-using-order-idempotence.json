@@ -1,0 +1,61 @@
+{
+  "schema": "fsusblog.format-idempotence-evidence.v1",
+  "revision": "2028188e5868c414894815ffefcb0d8ab2e78a5b",
+  "formatter": {
+    "identity": "csharp-style",
+    "version": "v1",
+    "command": "node tools/dotnet/check-csharp-style.mjs --fix --mode changed --file tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs"
+  },
+  "paths": [
+    "tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs"
+  ],
+  "firstPassTreeSha256": "9b399561b4b7c491144c852052101443f176d5af918ecb7739175e808c8b508b",
+  "secondPassTreeSha256": "9b399561b4b7c491144c852052101443f176d5af918ecb7739175e808c8b508b",
+  "idempotent": true,
+  "originalFormatterPasses": [
+    {
+      "sourceBeforeFormatter": "3d5c7987a52d527c0a34fcb423695fc5fba25621",
+      "argv": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--fix",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs"
+      ],
+      "startUnix": 1791556509.9788308,
+      "databaseTestsNotRun": true,
+      "policyUnchanged": true,
+      "exitCode": 0,
+      "endUnix": 1791556517.3296473,
+      "treeSha256": "9b399561b4b7c491144c852052101443f176d5af918ecb7739175e808c8b508b"
+    },
+    {
+      "sourceBeforeFormatter": "3d5c7987a52d527c0a34fcb423695fc5fba25621",
+      "argv": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--fix",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs"
+      ],
+      "startUnix": 1791556517.331611,
+      "databaseTestsNotRun": true,
+      "policyUnchanged": true,
+      "exitCode": 0,
+      "endUnix": 1791556523.7459762,
+      "treeSha256": "9b399561b4b7c491144c852052101443f176d5af918ecb7739175e808c8b508b"
+    }
+  ],
+  "bodyBytesPreserved": true,
+  "ordinaryUsingDirectiveMultisetPreserved": true,
+  "activeFormatHistoryQualification": "UNVERIFIED_UNTIL_ORIGINAL_INCREMENTAL_GATE; no proposed using-equivalence policy used",
+  "formatterSourceBlob": "7a716357c0734cc4be39439348f23379c52554e5",
+  "formatterPolicyBlob": "bd9f1fef0fbc4c1cca02037df7800f0bddd31f21",
+  "unchangedBodySHA256": "5dcf7171b36a051c78f5940a9f8c9cf2b3faa77a22c491ef6b4de6cfee685376",
+  "preimageBlob": "853dc046c1656566ae6a11d29a49272a390c0c89",
+  "postimageBlob": "9af8ceb2755beeaab8b1085273e56fc9bc54ebb8"
+}

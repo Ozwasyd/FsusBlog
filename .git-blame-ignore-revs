@@ -30,3 +30,6 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 
 # Native regular file guard getter whitespace; mechanical source only.
 56f49e4b49e2c10c86900bfdfefc3ffbec87342a
+
+# Official one-file lifecycle using-order correction for #3654; format-history qualification remains separately gated.
+2028188e5868c414894815ffefcb0d8ab2e78a5b
