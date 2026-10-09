@@ -1,0 +1,273 @@
+{
+  "recordedAtUtc": "2026-10-09T05:40:51.493007+00:00",
+  "issue": 3464,
+  "sourceCandidate": "083e8149f5b3e467785d22e5ce11634c2f7a7233",
+  "candidateTree": "e6f6a75b790045b2583fecbcfe0ff1a0a8b7a3a8",
+  "branch": "codex/mem-3464-ordinary-source-composition",
+  "sourceBase": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "lastObservedRemoteMaster": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+  "priorFrozenHeadsPreserved": [
+    "22e30eb72171ae35a2fbe3740fd11970263c3fa3",
+    "7df862545ee4ed762575203b1ab7abf4a6a7ce3f"
+  ],
+  "existingOriginalChecksPreserved": "Previous isolated/formal/component results remain bound to their original heads; /tmp evidence was ephemeral and is not claimed as newly rerun. The committed original source/evidence head remains 0cdd964110f01cc6bf184ccda7873d1575064eeb.",
+  "sourceProof": [
+    {
+      "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+      "gitBlob": "2b943a073797bc558ff86d0b612737ecc82ab856",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+      "gitBlob": "bb78e6dd58df6a199d511b2e60e3786172c146a7",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+      "gitBlob": "63477bad24069ef0ae0e549af558d368e4e6aa6a",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+      "gitBlob": "b0af8166af5ea20a29a308a98e73e40ef760815c",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+      "gitBlob": "a0c4d9c403400a2a9cb152e159752a1b50844add",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+      "gitBlob": "6dd3db5d42aadd04cc9e4c2f044703c830a37c66",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+      "gitBlob": "b2ea20b5fa483dc0edc5d1329170285d7d807713",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/FlatArtifactIndexLayout.cs",
+      "gitBlob": "a12c9dc1cafc87efc6085bb86fed508b5ae95181",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/ReferenceArtifactIndex.cs",
+      "gitBlob": "0c803a9e3de23420bbc7fec7213a4f1bf4b66a78",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs",
+      "gitBlob": "d9667fed6a480b3a378ff20da99f6b45a4a25018",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    },
+    {
+      "path": "tests/backend/Unit/FlatArtifactIndexTests.cs",
+      "gitBlob": "7074fff49a0dbed69d3eae50d5ccdee6b74c80c4",
+      "unchangedFrom": "22e30eb72171ae35a2fbe3740fd11970263c3fa3"
+    }
+  ],
+  "supplierInputs": {
+    "canonicalContracts": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "memoryRegistryOwner": [
+      "aed9e2dbe438f65d97760bc7f4297cd67357eb4f",
+      "e4b806ac50e1dd18972ff62b81fc4a5ca6dddfcf"
+    ],
+    "ordinaryRoute": "90157858f42f4c4fa2941107aa3354d25285fa74",
+    "classifierSource": "6fe5eb07b93743ac32585eb69899356f96715482",
+    "classifierReview": "pending same independent review; no failed 17da source imported as a delivered capability",
+    "fontSource": "4fa48cacb1def74e963dd2feb03beb6440e67472",
+    "fontEvidenceAndOriginalHistory": "e032196eaf5e155b336618d867c221b662704981",
+    "fontOriginalStyleSHAReachable": true
+  },
+  "ordinaryAllowlist": [
+    {
+      "file": "tools/configuration/cpp-source.test.mjs",
+      "pattern": "all five inspected ordinary compile-context controls",
+      "expectedCount": 5,
+      "actualCount": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "file": "tests/tools/blame-ignore-source.test.mjs",
+      "pattern": "^(?:ordinary metadata uses real original history and only a consumer-validated receipt admits the exact path|original repository owner refuses (?:duplicate SHA|invalid uppercase SHA|unknown SHA|removed mandatory legacy|non-style commit)|an existing style revision outside actual HEAD ancestry is refused|original owner refuses a real (?:root|merge) commit)$",
+      "expectedCount": 9,
+      "actualCount": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "file": "tests/tools/pr-impact-plan.test.mjs",
+      "pattern": "^C\\+\\+ suffixes remain unsupported until their actual compiler context succeeds and controls are selected$",
+      "expectedCount": 1,
+      "actualCount": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "checks": {
+    "backendLockedOfficialRestore": {
+      "exitCode": 0,
+      "NuGetAudit": true
+    },
+    "backendBuild": {
+      "exitCode": 0,
+      "errors": 0,
+      "existingWarnings": 323,
+      "actualBuildHead": "2630f21c568c79eae593d8cc34c8da3875d313ec",
+      "sourceTreeEquivalence": "HEAD/tree unchanged after correcting only an unpublished local composition commit scope; same complete source tree e6f6a75b790045b2583fecbcfe0ff1a0a8b7a3a8"
+    },
+    "fullCodeIntent": {
+      "exitCode": 0,
+      "checkedFiles": 5456
+    },
+    "csharpStyle": {
+      "exitCode": 0,
+      "checkedFiles": 11
+    },
+    "entrypointOwnership": {
+      "exitCode": 0,
+      "csharpFiles": 2145,
+      "entrypoints": 14
+    },
+    "completeRangeChangeContract": {
+      "exitCode": 0,
+      "range": "be7c53d99b64342925ca63d061bacde34d22ba4c..083e8149f5b3e467785d22e5ce11634c2f7a7233"
+    },
+    "diffCheck": {
+      "exitCode": 0
+    },
+    "actualCombinedBlameSource": {
+      "exitCode": 0,
+      "head": "083e8149f5b3e467785d22e5ce11634c2f7a7233",
+      "trustedBase": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+      "authorityFiles": 10,
+      "qualificationEligible": false
+    },
+    "combinedOriginalAuthorityProducer": {
+      "exitCode": 1,
+      "sourceEquivalentAttemptHead": "2630f21c568c79eae593d8cc34c8da3875d313ec",
+      "attemptTreeEqualsCandidateTree": true,
+      "error": "Node module AST parse failed: native checker contains an unresolved dynamic import",
+      "fixtureStatus": "supplier-only, not regenerated or qualified for this combination"
+    },
+    "actualChangedFontCpp": {
+      "exitCode": 1,
+      "error": "C++ compile context missing for actual changed inputs: src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp"
+    },
+    "fullSourceStage": "NotRun: original producer cannot bind combined source; no unsupported whole regression suite run",
+    "unchangedFlatTests": "NotRun this turn per instruction; no repeated unchanged controls",
+    "platformNativeFaultHeldAudits": "NotRun",
+    "fontActualFormatterDryRun": {
+      "exitCode": 0,
+      "command": "clang-format --dry-run --Werror --style=file --fallback-style=none src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp",
+      "qualificationEligible": false
+    }
+  },
+  "exactRemainingInterfaces": [
+    {
+      "owner": "sole1686",
+      "path": "config/testing/release-final-execution-authority-index.json",
+      "runtimeDynamicImportOwner": "tools/style/check-native-tooling-style.mjs",
+      "requiredSourceDigest": "sha256:fdf3dc04da47f4e7db2f2d151a92ffbf8cf502b073423d4c8749fa2ab430b601",
+      "expressionDigest": "sha256:5cc87864b98ca34840541a357ee2c6a385acac3f2cbb8765cff64e04c4dc241a",
+      "requiredAction": "Publish exact compatible original-index binding for corrected classifier, then original producer may regenerate this combined authority. No consumer registry rewrite."
+    },
+    {
+      "owner": "sole1686 with sole2575 actual TU inputs",
+      "path": "tools/configuration/check-cpp-source.mjs",
+      "requiredAction": "Publish real accepted font TU/CMake compile-context interface. Existing FsusBlogNativeTooling CMake targets cover CRC TUs and do not include this header; no invented target or compile database."
+    }
+  ],
+  "qualificationEligible": false,
+  "noBroadNativeFaultHeldAudits": true,
+  "noContentApiWrites": true,
+  "rawEvidence": [
+    {
+      "path": "authority-generation.log",
+      "sha256": "abde5680666476ea45114e24355557a2b10a1808b0afd007c5aae9f99039e7cd"
+    },
+    {
+      "path": "cpp-five.log",
+      "sha256": "3d8c1fe019a160a39586c12c94ad0be7121de5bb70ccd9e3621b47e03970d1de"
+    },
+    {
+      "path": "blame-nine.log",
+      "sha256": "91d05b0739b6bc7c91b5e57f9a01bf4ff4868d3b625e484688c19599802c0d6a"
+    },
+    {
+      "path": "planner-one.log",
+      "sha256": "9d188c0e86b0cc99fd89ab949dc59c3d9cb16ca78631d291967351077649fa60"
+    },
+    {
+      "path": "actual-blame.json",
+      "sha256": "6433f6fac81d86161a5682de8746ef1d022ee4400a8f45595b35f9a5ad7c2bf6"
+    },
+    {
+      "path": "actual-blame.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "actual-cpp-context.json",
+      "sha256": "4862fa5ba3ac8fce5e026116355ca960baf27c347e76d71e51c5cd4a6df9725f"
+    },
+    {
+      "path": "backend-restore.log",
+      "sha256": "cf7ec5e3dce9f1dd31aecff352e8951a1042371ded795b2da010d5e4a3b4adf7"
+    },
+    {
+      "path": "backend-build.log",
+      "sha256": "eeb97822b2df948f72420dcfaa3f8381cf77086e736dd9d696cd7ce4b6f790cf"
+    },
+    {
+      "path": "code-intent.log",
+      "sha256": "7b0cb208bd9df88bcc5ab0f05de464054dfb741307ad46b0a31245f4484b4b3c"
+    },
+    {
+      "path": "csharp-style.log",
+      "sha256": "5288e645993e17189c2f7b8aee1184e42c089b85263d0aebcb4f77ec419e9ff6"
+    },
+    {
+      "path": "entrypoint-ownership.log",
+      "sha256": "cee9f60788055ee3b6b2ce2b3f1f55ac2259b94a2085978749df8a4d8ce7716a"
+    },
+    {
+      "path": "change-contract.log",
+      "sha256": "dd237e52eb99dac847745d7f0aa984d9addb32cb8fc911fb955a5fafd2b2787e"
+    },
+    {
+      "path": "source.diff",
+      "sha256": "21253ffcc2f13f3ef216cd4415dc3fc8456f74bd60c95b476c63173b0a9dbe84"
+    },
+    {
+      "path": "native-source-tool-setup.log",
+      "sha256": "d00ab35b5e056f49d159dafd4b751938037a879eaed7b0aa151f23dc358a4b11"
+    },
+    {
+      "path": "font-format-check.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "requiredSourceToolsResolved": {
+    "source": "official PyPI binary wheels, task-owned prefix; no system/package-publication/driver changes",
+    "clang-formatPackage": "19.1.7",
+    "clang-tidyPackage": "19.1.0.1",
+    "identities": {
+      "clang-format": {
+        "actualPath": "/workspace/.setup/mem-3464-native-source-tools/clang_format/data/bin/clang-format",
+        "version": "clang-format version 19.1.7",
+        "sha256": "70966c7d32d605aaccd043dd59bd3ee2173531043918a9714b78ebf8eb8e4028"
+      },
+      "clang-tidy": {
+        "actualPath": "/workspace/.setup/mem-3464-native-source-tools/clang_tidy/data/bin/clang-tidy",
+        "version": "LLVM (http://llvm.org/):\n  LLVM version 19.1.0\n  Optimized build.",
+        "sha256": "a7e77f7cd1478d2bb633c101f24c43075eaf042bba08aaf19b19b1e8d82d337c"
+      }
+    }
+  }
+}
