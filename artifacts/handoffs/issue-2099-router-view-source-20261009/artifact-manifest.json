@@ -1,0 +1,71 @@
+{
+  "sourceCandidate": "fc21ca28d43314a3c49adf1ab75deeeb77a48c37",
+  "files": [
+    {
+      "path": "all41-status.json",
+      "sha256": "8017214b791a5d80909dfb6c7cdb7fa4f92b1084f28f198ea8bdbfb22d7252ca",
+      "bytes": 33230
+    },
+    {
+      "path": "api-contract-and-consumption.json",
+      "sha256": "b783d7e35984b1bc4241964a0da161c1095650c7fae7da213e0c5cffca491373",
+      "bytes": 4607
+    },
+    {
+      "path": "changed-docs-style.log",
+      "sha256": "b608acafb63a002126a587f683eb22e426cb681ff44d215c85f96dee49eb5ec4",
+      "bytes": 111
+    },
+    {
+      "path": "committed-changed-source-style.log",
+      "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7",
+      "bytes": 68
+    },
+    {
+      "path": "committed-focused-controls.log",
+      "sha256": "0131039824205f52cba9f9e07acc53d0b1fab2557b6102a3adae4db2f21c9163",
+      "bytes": 1775
+    },
+    {
+      "path": "first-focused-controls.log",
+      "sha256": "99b63c574a1f01e989bef3f92dad88bdd108589b7d111ca52d85dabe489226a9",
+      "bytes": 1430
+    },
+    {
+      "path": "focused-verification.json",
+      "sha256": "5ca4a8d9c748ebafd9cce98810cfcd69ef095c2b834d5064acc8faa5b6471d20",
+      "bytes": 3213
+    },
+    {
+      "path": "fourth-focused-controls.log",
+      "sha256": "dbe1e96fb195de4c6556175c0018f8f8842100911805c3d790e6ab2d8e82a158",
+      "bytes": 2991
+    },
+    {
+      "path": "original-real-records.json",
+      "sha256": "96db38ed78f7be49bf96ecf0ebe3778918df8a4223eef32f129ba9d25cfab8ab",
+      "bytes": 446149
+    },
+    {
+      "path": "portable-real-records.json",
+      "sha256": "7a1d4cacac96aee8491d321dba87a12124148c61299f3102e8dd5a00a7087ff1",
+      "bytes": 432308
+    },
+    {
+      "path": "second-focused-controls.log.gz",
+      "sha256": "f90d6a7e6fa5f6538f4f9888dcce495dd977531b660c541eb3bc4e92f090e36f",
+      "bytes": 1214
+    },
+    {
+      "path": "source-contract.log",
+      "sha256": "199b5090b105b0e5f34b099dc34e40fdcaaa2f30c9e13f4a61d59d76b64dba36",
+      "bytes": 81
+    },
+    {
+      "path": "tools-support-install.log",
+      "sha256": "c03194213fb81d59e8f7d49c83ae864e50729a0ecca9343a0994bf53a1bd6111",
+      "bytes": 27
+    }
+  ],
+  "wholeAssignmentAccepted": false
+}

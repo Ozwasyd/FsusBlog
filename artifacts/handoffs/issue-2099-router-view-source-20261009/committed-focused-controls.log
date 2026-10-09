@@ -1,0 +1,28 @@
+✔ real BlogLayout slot retains exact original route suppliers without runtime selection (533.825907ms)
+✔ finite route suppliers retain empty views and nested immediate outlets (52.92115ms)
+✔ actual slot destructuring aliases keep the Component property supplier (51.741967ms)
+✔ named views keep their own original component declaration (51.035754ms)
+✔ an imported RouterView alias binds through the actual canonical framework import (49.238236ms)
+✔ componentless records pass through while an explicitly empty components object stops the next outlet (147.977105ms)
+✔ competing singular and named component declarations retain an explicit refusal (25.871361ms)
+✔ real reusable AccountRouteFrame requires its actual route-owner call path (945.765934ms)
+✔ unknown route supplier refuses unrelated slot owner (29.828084ms)
+✔ unknown route supplier refuses unknown binding (32.560127ms)
+✔ unknown route supplier refuses slot default expression (31.146789ms)
+✔ unknown route supplier refuses spread selector supplier (25.954136ms)
+✔ unknown route supplier refuses shadow loop (23.604354ms)
+✔ unknown route supplier refuses unknown view name (24.130309ms)
+✔ unknown route supplier refuses custom route override (33.554369ms)
+✔ unknown route supplier refuses nested RouterView depth (29.01823ms)
+✔ unknown route supplier refuses compound selector (28.8792ms)
+✔ route observation cannot be cloned, retargeted or mutated into authority (45.561296ms)
+✔ changed router or slot source bytes invalidate the original declaration observation (127.160456ms)
+✔ an arbitrary offset cannot select a different slot supplier (29.661968ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2494.789706

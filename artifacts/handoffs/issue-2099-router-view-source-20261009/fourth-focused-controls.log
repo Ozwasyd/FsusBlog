@@ -1,0 +1,44 @@
+✔ real BlogLayout slot retains exact original route suppliers without runtime selection (474.042713ms)
+✔ finite route suppliers retain empty views and nested immediate outlets (43.928416ms)
+✔ actual slot destructuring aliases keep the Component property supplier (35.129391ms)
+✔ named views keep their own original component declaration (35.962675ms)
+✖ an imported RouterView alias binds through the actual canonical framework import (21.486938ms)
+✔ componentless records pass through while an explicitly empty components object stops the next outlet (113.259213ms)
+✔ competing singular and named component declarations retain an explicit refusal (26.261967ms)
+✔ real reusable AccountRouteFrame requires its actual route-owner call path (909.972911ms)
+✔ unknown route supplier refuses unrelated slot owner (23.60993ms)
+✔ unknown route supplier refuses unknown binding (23.50097ms)
+✔ unknown route supplier refuses slot default expression (20.985242ms)
+✔ unknown route supplier refuses spread selector supplier (21.637448ms)
+✔ unknown route supplier refuses shadow loop (19.649112ms)
+✔ unknown route supplier refuses unknown view name (19.507759ms)
+✔ unknown route supplier refuses custom route override (23.401024ms)
+✔ unknown route supplier refuses nested RouterView depth (19.622823ms)
+✔ unknown route supplier refuses compound selector (20.97082ms)
+✔ route observation cannot be cloned, retargeted or mutated into authority (43.364552ms)
+✔ changed router or slot source bytes invalidate the original declaration observation (97.067552ms)
+✔ an arbitrary offset cannot select a different slot supplier (20.063343ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 19
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2151.332257
+
+✖ failing tests:
+
+test at tests/tools/layout-router-view-source.test.mjs:80:1
+✖ an imported RouterView alias binds through the actual canonical framework import (21.486938ms)
+  Error: [composition-routes] slot target is not an exact authored dynamic component selector
+      at fail (file:///workspace/FsusBlog-2099-geometry-integration/tests/frontend/support/layout/compositionRoutes.mjs:328:15)
+      at resolveCompositionRouterViewSlot (file:///workspace/FsusBlog-2099-geometry-integration/tests/frontend/support/layout/compositionRoutes.mjs:359:9)
+      at bind (file:///workspace/FsusBlog-2099-geometry-integration/tests/tools/layout-router-view-source.test.mjs:36:62)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog-2099-geometry-integration/tests/tools/layout-router-view-source.test.mjs:84:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)

@@ -1,0 +1,86 @@
+{
+  "testedSourceCommit": "fc21ca28d43314a3c49adf1ab75deeeb77a48c37",
+  "sourceTree": "5adc4e2a3e6d297e0c8ce7f684cd1bd79984e356",
+  "ordinaryControlsCommand": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/layout-router-view-source.test.mjs"
+  ],
+  "environment": {
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI"
+  },
+  "fsusUiSourceCommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "ordinaryControlsExitCode": 0,
+  "passed": 20,
+  "failed": 0,
+  "formalExecutionOrQualificationReceiptMinted": false,
+  "initialRetainedAttempts": [
+    {
+      "log": "first-focused-controls.log",
+      "exitCode": 1,
+      "reason": "test body not loaded: missing declared tests/tools local package dependencies"
+    },
+    {
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+        "ci",
+        "--ignore-scripts",
+        "--prefix",
+        "tests/tools",
+        "--cache",
+        ".tmp/issue-2099-router-view-source-20261009/npm-cache"
+      ],
+      "exitCode": 0,
+      "manifestsAndLocksUnchanged": true
+    },
+    {
+      "log": "second-focused-controls.log.gz",
+      "exitCode": 1,
+      "passed": 15,
+      "failed": 2,
+      "correction": "test expectation now follows actual views/ArticleDetail.vue; slot drift control now first observes the slot",
+      "compression": "lossless gzip; original Node output includes whitespace-only lines; source and assertions unchanged",
+      "originalSha256": "fe61d834d5e700718164937579c43757b46f94f31b6fb6cf6a44f7a14389f21e"
+    },
+    {
+      "log": "fourth-focused-controls.log",
+      "exitCode": 1,
+      "passed": 19,
+      "failed": 1,
+      "correction": "alias fixture now computes its actual offset after changing the import text; stale-offset refusal preserved"
+    }
+  ],
+  "syntaxChecks": {
+    "files": [
+      "tests/frontend/support/layout/compositionRoutes.mjs",
+      "tests/tools/layout-router-view-source.test.mjs"
+    ],
+    "exitCode": 0
+  },
+  "changedJsStyleCommand": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "5fbc9e5cb0c09faf9bc6797280b892793801a70f",
+    "--file",
+    "tests/frontend/support/layout/compositionRoutes.mjs",
+    "--file",
+    "tests/tools/layout-router-view-source.test.mjs"
+  ],
+  "changedJsStyleExitCode": 0,
+  "changedDocsStyleExitCode": 0,
+  "commitContractRange": "5fbc9e5cb0c09faf9bc6797280b892793801a70f..fc21ca28d43314a3c49adf1ab75deeeb77a48c37",
+  "commitContractExitCode": 0,
+  "diffWhitespaceExitCode": 0,
+  "realRecordCaptureExitCode": 0,
+  "firstCaptureUnavailableExportErrorRetainedAsFact": true,
+  "firstCaptureDidNotLoadSourceBody": true,
+  "qualifiedRuntimeAccepted": false,
+  "broadSuitesNotRun": true,
+  "heldCallbacksNotRun": true,
+  "previous78DiagnosticsRemainBoundTo": "c3538c5ee3133ff71bf0b34b5c93055e7eccdbc8",
+  "previousFullScanNotRerunOrRebound": true
+}

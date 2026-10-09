@@ -1,0 +1,87 @@
+{
+  "sourceCommit": "fc21ca28d43314a3c49adf1ab75deeeb77a48c37",
+  "branch": "codex/issue-2099-geometry-integration-20261009",
+  "latestFetchedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "module": "@fsusblog/layout-governance/composition-routes",
+  "exports": [
+    {
+      "name": "resolveCompositionRoutes",
+      "signature": "resolveCompositionRoutes(source, routerFile)",
+      "record": "schema fsusblog.composition-routes.v1; original path/componentFiles/ancestorFiles plus matchedRecords[{path,componentViews,hasComponents,ambiguousViews}]"
+    },
+    {
+      "name": "resolveCompositionRouterViewSlot",
+      "signature": "resolveCompositionRouterViewSlot(source, routes, { file, offset, callPath = [] })",
+      "record": "schema fsusblog.composition-router-view-slot.v1; kind router-view-slot, supplierKind route-component-vnode, exact selector, slotOwner, routeOwner/callPath, all alternatives including empty-view, local backing-definition variants, resolverInputs, proofDigest, qualificationEligible=false"
+    },
+    {
+      "name": "bindCompositionArchetypes",
+      "signature": "bindCompositionArchetypes(matrix, routes)",
+      "changed": false
+    }
+  ],
+  "offsetSemantics": "actual dynamic <component> template-node start in the full current SFC, not RouterView offset or a caller-selected route",
+  "callPathSemantics": "nearest-first IDs of actual canonical component calls from the slot SFC to a route-declared owner; actual definition/file adjacency is checked; direct route owners use []",
+  "serializationIsInspectionOnly": "the source-bound route object must come from resolveCompositionRoutes with the same source instance; JSON/clone/substitution is refused",
+  "emptyOutlets": "explicit empty-view alternatives are preserved; componentless route records pass through; explicitly empty named-components records stop the outlet",
+  "unknownSuppliers": "unknown slot binding/scope, route override, dynamic view name, nested view depth, ambiguous declarations, missing actual route owner, source drift, forged/looping call path remain explicit refusals",
+  "centralIntegration": "original1894 and mixed-target owner consume this export/record; no central analyzer/source/DOM registration edits were made here",
+  "mixedTargetSuppliedCommitInspectedOnly": "674a310600b7985f880b2efc8373fd5e5e040ea6",
+  "mixedTarget18ControlsNotInherited": true,
+  "frameworkSourceReferences": [
+    "https://router.vuejs.org/guide/advanced/router-view-slot.html",
+    "https://github.com/vuejs/router/blob/v4.6.4/packages/router/src/RouterView.ts"
+  ],
+  "frontendLockedVueRouterVersion": "4.6.4",
+  "legacyRouteProjectionUnchanged": true,
+  "originalRecordExample": {
+    "publicFile": "FsusBlog/src/frontend/src/layouts/BlogLayout.vue",
+    "dynamicOffset": 272,
+    "routerViewOffset": 224,
+    "routerViewCallNode": "3b9163fb7328487c921d49f4",
+    "declaredPath": "/article/:id",
+    "componentFile": "FsusBlog/src/frontend/src/views/ArticleDetail.vue"
+  },
+  "reusableRecordExample": {
+    "slotFile": "FsusBlog/src/frontend/src/layouts/AccountRouteFrame.vue",
+    "dynamicOffset": 1812,
+    "routerViewOffset": 1549,
+    "routerViewCallNode": "e1326b937b5abbc039cc8b34",
+    "callPath": [
+      "83e26baaf26285298eae2748"
+    ],
+    "routeOwner": "FsusBlog/src/frontend/src/layouts/AdminWorkspaceFrame.vue",
+    "declaredPath": "/user/manage",
+    "componentFile": "FsusBlog/src/frontend/src/views/admin/Dashboard.vue"
+  },
+  "productRouterAndAuthorizationSourceFilesEdited": false,
+  "secondRouteMapCreated": false,
+  "statesOrGeometryInferred": false,
+  "newBrowserRuns": 0,
+  "newSdkBuilds": 0,
+  "newRuntimeReceipts": 0,
+  "pendingStates": 91,
+  "nullFixtureRefs": 79,
+  "qualificationEligible": false,
+  "retainedOriginalGraphErrors": 5,
+  "centralConsumptionNotClaimed": true,
+  "sourceBindings": [
+    {
+      "path": "tests/frontend/support/layout/compositionRoutes.mjs",
+      "sha256": "f244d6aaacc23ebf7352efeeda0b27a5e19d5c533d7909c4eeab20a6edfcf066",
+      "gitBlob": "f9b62fbc1af8aa10b447dc162765ccdb9f954645"
+    },
+    {
+      "path": "tests/tools/layout-router-view-source.test.mjs",
+      "sha256": "e3cc00243f9c3d89f71ab949f08c949c3d128bc520c396faf9113eb867144a50",
+      "gitBlob": "643ff8a9a608814ddc799c6e8cbe68e78cf65ac9"
+    },
+    {
+      "path": "docs/frontend/layout-visual-governance.md",
+      "sha256": "fa98eaba294ada2ea96e423c1075c4accd41b3b877b7bc9d7a5396ac575eaea5",
+      "gitBlob": "5e1df06131993757c93b4e8da0e2b9cffb56cffa"
+    }
+  ],
+  "rootPackageExportsUnchanged": true,
+  "originalInventoryRetainedBuildPrerequisiteUnchanged": true
+}
