@@ -19,7 +19,7 @@ public sealed record DocumentExportSandboxPlan(
     string InputDigest,
     string SourceDigest,
     long UserId,
-    long SiteId,
+    string SiteScope,
     string ProviderId,
     string ProviderVersion,
     string HostBuildDigest,
@@ -55,7 +55,7 @@ public sealed record DocumentExportSandboxReceipt(
     string InputDigest,
     string SourceDigest,
     long UserId,
-    long SiteId,
+    string SiteScope,
     string HostBuildDigest,
     string ProviderId,
     string ProviderVersion,
@@ -249,7 +249,26 @@ public sealed class DocumentExportSandboxRuntime
         DocumentExportToolContract tool,
         Func<Stream, CancellationToken, Task> writeRequestAsync,
         CancellationToken cancellationToken = default)
-        => await ExecuteWithStageAsync(task, input, tool, writeRequestAsync, SandboxStage.Provider, cancellationToken);
+        => await ExecuteWithStageAsync(task, input, tool, writeRequestAsync, SandboxStage.Provider,
+            CreateAttemptResources(task, input), cancellationToken);
+
+    public DocumentExportAttemptResources CreateAttemptResources(
+        DocumentExportTask task, DocumentExportFrozenInput input, TimeProvider? time = null)
+    {
+        DocumentExportContractValidator.Validate(task, input);
+        return new(task, input, ResolveBudgets(DocumentExportContractCatalog.RequireProvider(task.FormatId)),
+            time ?? TimeProvider.System);
+    }
+
+    public async Task<DocumentExportSandboxResult> ExecuteAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportToolContract tool,
+        Func<Stream, CancellationToken, Task> writeRequestAsync,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken = default)
+        => await ExecuteWithStageAsync(task, input, tool, writeRequestAsync, SandboxStage.Provider,
+            resources, cancellationToken);
 
     internal async Task<DocumentExportSandboxResult> ExecuteCanonicalRendererAsync(
         DocumentExportTask task,
@@ -259,14 +278,43 @@ public sealed class DocumentExportSandboxRuntime
     {
         _ = RequireCanonicalRendererProvider(task, input);
         DocumentExportToolContract tool = RequireRegisteredTool("self-contained-html");
-        return await ExecuteWithStageAsync(task, input, tool, writeRequestAsync, SandboxStage.CanonicalRenderer, cancellationToken);
+        return await ExecuteWithStageAsync(task, input, tool, writeRequestAsync, SandboxStage.CanonicalRenderer,
+            CreateAttemptResources(task, input), cancellationToken);
+    }
+
+    internal async Task<DocumentExportSandboxResult> ExecuteCanonicalRendererAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        Func<Stream, CancellationToken, Task> writeRequestAsync,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken = default)
+    {
+        _ = RequireCanonicalRendererProvider(task, input);
+        return await ExecuteWithStageAsync(task, input, RequireRegisteredTool("self-contained-html"),
+            writeRequestAsync, SandboxStage.CanonicalRenderer, resources, cancellationToken);
     }
 
     private enum SandboxStage
     {
         Provider,
-        CanonicalRenderer
+        CanonicalRenderer,
+        IndependentVerification
     }
+
+    /// <summary>
+    /// Executes one independent verification stage after the provider stage,
+    /// retaining the same frozen attempt and cumulative resource owner. The
+    /// original registry, native authority, builder and cleanup gates apply.
+    /// </summary>
+    public async Task<DocumentExportSandboxResult> ExecuteVerificationAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportToolContract tool,
+        Func<Stream, CancellationToken, Task> writeRequestAsync,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken = default)
+        => await ExecuteWithStageAsync(task, input, tool, writeRequestAsync, SandboxStage.IndependentVerification,
+            resources, cancellationToken);
 
     private async Task<DocumentExportSandboxResult> ExecuteWithStageAsync(
         DocumentExportTask task,
@@ -274,13 +322,15 @@ public sealed class DocumentExportSandboxRuntime
         DocumentExportToolContract tool,
         Func<Stream, CancellationToken, Task> writeRequestAsync,
         SandboxStage stage,
+        DocumentExportAttemptResources resources,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(writeRequestAsync);
+        ArgumentNullException.ThrowIfNull(resources);
         await _concurrency.WaitAsync(cancellationToken);
         try
         {
-            return await ExecuteOwnedAsync(task, input, tool, writeRequestAsync, stage, cancellationToken);
+            return await ExecuteOwnedAsync(task, input, tool, writeRequestAsync, stage, resources, cancellationToken);
         }
         finally
         {
@@ -305,6 +355,7 @@ public sealed class DocumentExportSandboxRuntime
         DocumentExportToolContract tool,
         Func<Stream, CancellationToken, Task> writeRequestAsync,
         SandboxStage stage,
+        DocumentExportAttemptResources resources,
         CancellationToken cancellationToken)
     {
         DocumentExportContractValidator.Validate(task, input);
@@ -328,6 +379,10 @@ public sealed class DocumentExportSandboxRuntime
         }
         tool = registered;
         ValidateToolMetadata(toolProvider, tool);
+        using DocumentExportAttemptResources.Stage resourceStage = stage == SandboxStage.IndependentVerification
+            ? resources.BeginVerificationStage(task, input, budgets)
+            : resources.BeginStage(task, input, budgets, stage == SandboxStage.CanonicalRenderer);
+        budgets = resourceStage.Budgets;
         string runId = Guid.NewGuid().ToString("N");
         Dictionary<string, string> environment = MinimalEnvironment();
         DocumentExportSandboxPlan plan = SealPlan(new DocumentExportSandboxPlan(
@@ -337,7 +392,7 @@ public sealed class DocumentExportSandboxRuntime
             input.ContentDigest,
             input.SourceDigest,
             input.UserId,
-            input.SiteId,
+            input.SiteScope,
             provider.ProviderId,
             provider.ProviderVersion,
             _hostBuildDigest,
@@ -498,7 +553,7 @@ public sealed class DocumentExportSandboxRuntime
                 }
                 ValidateLiveLogBudget(standardOutputPath, budgets.MaxStandardOutputBytes, "stdout-budget");
                 ValidateLiveLogBudget(standardErrorPath, budgets.MaxStandardErrorBytes, "stderr-budget");
-                ValidateRunArtifacts(
+                ObserveRunArtifacts(resourceStage, observation.CpuUsageMicroseconds, requestBytesLength,
                     outputRoot,
                     workRoot,
                     standardOutputPath,
@@ -564,7 +619,7 @@ public sealed class DocumentExportSandboxRuntime
             }
 
             (outputBytes, outputFileCount) = await ReadOutputAsync(outputRoot, budgets, cancellationToken);
-            ValidateRunArtifacts(
+            ObserveRunArtifacts(resourceStage, observation.CpuUsageMicroseconds, requestBytesLength,
                 outputRoot,
                 workRoot,
                 standardOutputPath,
@@ -653,6 +708,27 @@ public sealed class DocumentExportSandboxRuntime
             }
             try
             {
+                if (File.Exists(standardOutputPath) && File.Exists(standardErrorPath)
+                    && Directory.Exists(outputRoot) && Directory.Exists(workRoot))
+                {
+                    ObserveRunArtifacts(resourceStage, observation.CpuUsageMicroseconds, requestBytesLength,
+                        outputRoot, workRoot, standardOutputPath, standardErrorPath, budgets);
+                }
+                else
+                {
+                    resourceStage.Observe(observation.CpuUsageMicroseconds, 0, 0, requestBytesLength, 0, 0, 0);
+                }
+            }
+            catch (Exception exception)
+            {
+                if (failure is null && !cancellationToken.IsCancellationRequested)
+                {
+                    failure = exception;
+                    failureCode = ClassifyFailure(exception);
+                }
+            }
+            try
+            {
                 if (Directory.Exists(runRoot))
                 {
                     Directory.Delete(runRoot, recursive: true);
@@ -664,6 +740,26 @@ public sealed class DocumentExportSandboxRuntime
                 failure ??= exception;
                 failureCode = "run-directory-cleanup";
                 removed = false;
+            }
+        }
+
+        try
+        {
+            Exception? resourceFailure = resourceStage.Complete(failure is null && !cancellationToken.IsCancellationRequested
+                && processTreeTerminated && removed && finalProcessesRemaining == 0
+                && !finalCgroupPopulated && unitRemoved && cgroupRemoved);
+            if (failure is null && resourceFailure is not null && !cancellationToken.IsCancellationRequested)
+            {
+                failure = resourceFailure;
+                failureCode = ClassifyFailure(resourceFailure);
+            }
+        }
+        catch (Exception exception)
+        {
+            if (failure is null && !cancellationToken.IsCancellationRequested)
+            {
+                failure = exception;
+                failureCode = ClassifyFailure(exception);
             }
         }
 
@@ -688,7 +784,7 @@ public sealed class DocumentExportSandboxRuntime
             input.ContentDigest,
             input.SourceDigest,
             input.UserId,
-            input.SiteId,
+            input.SiteScope,
             _hostBuildDigest,
             provider.ProviderId,
             provider.ProviderVersion,
@@ -872,7 +968,7 @@ public sealed class DocumentExportSandboxRuntime
             || receipt.InputDigest != input.ContentDigest
             || receipt.SourceDigest != input.SourceDigest
             || receipt.UserId != input.UserId
-            || receipt.SiteId != input.SiteId
+            || receipt.SiteScope != input.SiteScope
             || receipt.HostBuildDigest != plan.HostBuildDigest
             || receipt.ProviderId != DocumentExportContractCatalog.RequireProvider(task.FormatId).ProviderId
             || receipt.ProviderVersion != DocumentExportContractCatalog.RequireProvider(task.FormatId).ProviderVersion
@@ -1004,7 +1100,7 @@ public sealed class DocumentExportSandboxRuntime
             || receipt.InputDigest != input.ContentDigest
             || receipt.SourceDigest != input.SourceDigest
             || receipt.UserId != input.UserId
-            || receipt.SiteId != input.SiteId
+            || receipt.SiteScope != input.SiteScope
             || receipt.HostBuildDigest != expectedHostBuildDigest
             || receipt.ProviderId != DocumentExportContractCatalog.RequireProvider(task.FormatId).ProviderId
             || receipt.ProviderVersion != DocumentExportContractCatalog.RequireProvider(task.FormatId).ProviderVersion
@@ -1189,7 +1285,7 @@ public sealed class DocumentExportSandboxRuntime
             || plan.InputDigest != input.ContentDigest
             || plan.SourceDigest != input.SourceDigest
             || plan.UserId != input.UserId
-            || plan.SiteId != input.SiteId
+            || plan.SiteScope != input.SiteScope
             || plan.ProviderId != provider.ProviderId
             || plan.ProviderVersion != provider.ProviderVersion
             || plan.HostBuildDigest != expectedHostBuildDigest
@@ -1248,7 +1344,7 @@ public sealed class DocumentExportSandboxRuntime
             Math.Min(final.MaxProcessCount, renderer.MaxProcessCount),
             Math.Min(final.MaxConcurrency, renderer.MaxConcurrency));
 
-    private static void ValidateEffectiveBudgets(
+    internal static void ValidateEffectiveBudgets(
         DocumentExportResourceBudgets actual,
         DocumentExportResourceBudgets maximum)
     {
@@ -1461,7 +1557,10 @@ public sealed class DocumentExportSandboxRuntime
         return (await File.ReadAllBytesAsync(outputPath, cancellationToken), files.Length);
     }
 
-    private static void ValidateRunArtifacts(
+    private static void ObserveRunArtifacts(
+        DocumentExportAttemptResources.Stage stage,
+        long cpuMicroseconds,
+        long inputBytes,
         string outputRoot,
         string workRoot,
         string standardOutputPath,
@@ -1479,6 +1578,7 @@ public sealed class DocumentExportSandboxRuntime
         }
 
         long totalBytes = 0;
+        long outputBytes = 0;
         foreach (string path in files)
         {
             long length = new FileInfo(path).Length;
@@ -1496,12 +1596,18 @@ public sealed class DocumentExportSandboxRuntime
                     "file-bytes-budget");
             }
             totalBytes = checked(totalBytes + length);
+            if (outputFiles.Contains(path, StringComparer.Ordinal))
+            {
+                outputBytes = checked(outputBytes + length);
+            }
         }
+        stage.Observe(cpuMicroseconds, files.Length, totalBytes, inputBytes, outputBytes,
+            new FileInfo(standardOutputPath).Length, new FileInfo(standardErrorPath).Length);
         long maximumMutableBytes = checked(
             budgets.MaxOutputBytes
             + budgets.MaxStandardOutputBytes
             + budgets.MaxStandardErrorBytes);
-        if (totalBytes > maximumMutableBytes)
+        if (totalBytes > maximumMutableBytes || totalBytes > stage.FileBytesBudget)
         {
             throw new DocumentExportBudgetExceededException(
                 "Document export sandbox exceeded its aggregate file byte budget.",

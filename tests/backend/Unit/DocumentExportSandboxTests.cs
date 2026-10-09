@@ -533,8 +533,8 @@ public sealed class DocumentExportSandboxTests : IDisposable
     {
         MethodInfo builder = RequireMetadataFixtureBuilder(type);
         IReadOnlyList<SandboxMemberSite> sites = ReadSandboxMemberSites(type);
-        Assert.Equal(builder, Assert.Single(sites.Where(IsStartInfoConstruction)).Method);
-        Assert.Equal(builder, Assert.Single(sites.Where(IsShellExecuteSetter)).Method);
+        Assert.Equal(builder, Assert.Single(sites, IsStartInfoConstruction).Method);
+        Assert.Equal(builder, Assert.Single(sites, IsShellExecuteSetter).Method);
         if (type == typeof(MemberLiteralSandboxMetadataFixture))
         {
             string compiled = DescribeSandboxTypeTree(type);
@@ -585,10 +585,10 @@ public sealed class DocumentExportSandboxTests : IDisposable
                 Assert.Contains(sites, site => IsShellExecuteSetter(site) && site.Method.DeclaringType != type);
                 break;
             case "outside-builder-constructor":
-                Assert.NotEqual(builder, Assert.Single(sites.Where(IsStartInfoConstruction)).Method);
+                Assert.NotEqual(builder, Assert.Single(sites, IsStartInfoConstruction).Method);
                 break;
             case "outside-builder-setter":
-                Assert.NotEqual(builder, Assert.Single(sites.Where(IsShellExecuteSetter)).Method);
+                Assert.NotEqual(builder, Assert.Single(sites, IsShellExecuteSetter).Method);
                 break;
             case "process-start":
                 Assert.Contains(sites, site => IsProcessStart(site) && site.Method.DeclaringType != type);
@@ -611,8 +611,8 @@ public sealed class DocumentExportSandboxTests : IDisposable
     private static void AssertCompiledSandboxBoundary(Type type, MethodInfo builder)
     {
         IReadOnlyList<SandboxMemberSite> sites = ReadSandboxMemberSites(type);
-        SandboxMemberSite construction = Assert.Single(sites.Where(IsStartInfoConstruction));
-        SandboxMemberSite setter = Assert.Single(sites.Where(IsShellExecuteSetter));
+        SandboxMemberSite construction = Assert.Single(sites, IsStartInfoConstruction);
+        SandboxMemberSite setter = Assert.Single(sites, IsShellExecuteSetter);
         Assert.Equal(builder, construction.Method);
         Assert.Equal(builder, setter.Method);
         Assert.DoesNotContain(sites, IsProcessStart);

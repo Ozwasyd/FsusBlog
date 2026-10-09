@@ -1,0 +1,36 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.DocumentExport.cs",
+                "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs",
+                "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+                "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs",
+                "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs",
+                "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+                "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+                "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+                "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs",
+                "src/backend/Services/DocumentExport/Jobs/DocumentExportJobPolicy.cs",
+                "src/backend/Services/DocumentExport/Jobs/DocumentExportJobRepository.cs",
+                "src/backend/Services/DocumentExport/Jobs/DocumentExportJobService.cs",
+                "src/backend/Services/DocumentExport/Pdf/PdfDocumentExportAttemptEvidence.cs",
+                "src/backend/Services/DocumentExport/Pdf/PdfDocumentExportJobProvider.cs",
+                "src/backend/Services/DocumentExport/Pdf/PdfDocumentExportProvider.cs",
+                "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs",
+                "src/core/Cache/PodBinaryCodec.DocumentExport.cs",
+                "src/core/Mapping/Models/DocumentExportModels.cs"
+            ],
+            "reason": "These exact changed C# paths are covered by the registry's src/**/*.cs process-environment surface. They introduce no process-environment keys or reads; configuration, session and tool authorities remain with the original adapters, and internal identifiers retain the repository C# mapping. This declaration records the registered path scope without granting additional naming exceptions."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/document-export-payload-goldens-v1.json"
+            ],
+            "reason": "The canonical literal payload fixture preserves its consumer-visible keys kind, encoding, framesOrErrorIdsAllocated and vectors, plus each vector's name and hex keys. Codec tests consume those exact keys and the five original vector names; this declaration preserves their JSON spelling without changing payload bytes, assigning frame IDs or exempting internal model identifiers."
+        }
+    ]
+}
