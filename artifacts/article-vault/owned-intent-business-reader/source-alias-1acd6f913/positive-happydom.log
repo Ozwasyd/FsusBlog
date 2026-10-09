@@ -1,0 +1,12 @@
+
+ RUN  v4.1.11 /workspace/chain1975-intent-source-alias-verification/src/frontend
+
+ ✓ ../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts (21 tests | 19 skipped) 451ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 19 skipped (21)
+   Start at  10:12:50
+   Duration  6.78s (transform 5.32s, setup 57ms, import 5.98s, tests 451ms, environment 183ms)
+
+JSON report written to /workspace/chain1975-intent-source-alias-verification/.tmp/test-results/vitest/intent-alias/positive-happydom.json
+JUNIT report written to /workspace/chain1975-intent-source-alias-verification/.tmp/test-results/vitest/intent-alias/positive-happydom.xml

@@ -1,0 +1,12 @@
+
+ RUN  v4.1.11 /workspace/chain1975-intent-source-alias-verification/src/frontend
+
+ ✓ ../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts (21 tests) 693ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  10:14:40
+   Duration  7.04s (transform 5.36s, setup 61ms, import 6.00s, tests 693ms, environment 184ms)
+
+JSON report written to /workspace/chain1975-intent-source-alias-verification/.tmp/test-results/vitest/intent-alias/controls-1acd6f913.json
+JUNIT report written to /workspace/chain1975-intent-source-alias-verification/.tmp/test-results/vitest/intent-alias/controls-1acd6f913.xml

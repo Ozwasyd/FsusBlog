@@ -1,0 +1,688 @@
+
+ RUN  v4.1.11 /workspace/chain1975-intent-source-alias-verification/src/frontend
+
+stderr | ../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts > Original owned intent business adapter > verifies the actual current pending handle without a lifecycle receipt or new store
+[Vue warn]: injection "Symbol(v-scx)" not found. 
+  at <ElMarkdownEditor mode="source" modelValue="paragraph" documentIdentity= { id: 'document:1', epoch: 1 }  ... > 
+  at <VTUROOT>
+[Vue warn]: Server rendering context not provided. Make sure to only call useSSRContext() conditionally in the server build. 
+  at <ElMarkdownEditor mode="source" modelValue="paragraph" documentIdentity= { id: 'document:1', epoch: 1 }  ... > 
+  at <VTUROOT>
+[Vue warn]: Component is missing template or render function:  {
+  name: 'ElMarkdownEditor',
+  inheritAttrs: false,
+  __name: 'markdown-editor',
+  props: {
+    modelValue: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: ''
+    },
+    documentIdentity: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    defaultMode: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'source'
+    },
+    mode: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: undefined
+    },
+    chrome: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'framed'
+    },
+    localeText: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    statusDensity: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'minimal'
+    },
+    metrics: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    toolbarDensity: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'standard'
+    },
+    surfaces: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: [Function: default]
+    },
+    writingAids: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    focusExemptions: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    placeholder: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: ''
+    },
+    writingPlaceholder: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: ''
+    },
+    editorProfile: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'markdown'
+    },
+    interactionProfile: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'auto'
+    },
+    textareaId: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    textareaName: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    readonly: [Function: Boolean],
+    disabled: [Function: Boolean],
+    loading: [Function: Boolean],
+    showModeSwitcher: {
+      type: [Function: Boolean],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: true
+    },
+    showActions: {
+      type: [Function: Boolean],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: true
+    },
+    showImageAction: {
+      type: [Function: Boolean],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: true
+    },
+    imageActionLabel: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    showSaveAction: {
+      type: [Function: Boolean],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: true
+    },
+    saveActionLabel: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    showSubmitAction: {
+      type: [Function: Boolean],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: true
+    },
+    submitActionLabel: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    actionOverflowKeys: {
+      type: [Function: Array],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: [Function: default]
+    },
+    commands: {
+      type: [Function: Array],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: [Function: default]
+    },
+    primaryCommandKeys: {
+      type: [Function: Array],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    commandOverflowLabel: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    mobileLayout: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'auto'
+    },
+    previewBaseUrl: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: null
+    },
+    previewCspNonce: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: null
+    },
+    previewFeatures: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    embedProvider: {
+      type: [Function: Function],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    minRows: {
+      type: [Function: Number],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: 12
+    },
+    spellcheck: {
+      type: [Array],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: 'auto'
+    },
+    lang: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    nativeWritingTools: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'auto'
+    }
+  },
+  emits: {
+    'update:modelValue': [Function: update:modelValue],
+    change: [Function: change],
+    command: [Function: command],
+    'mode-change': [Function: mode-change],
+    save: [Function: save],
+    submit: [Function: submit],
+    'upload-image': [Function: upload-image],
+    'render-complete': [Function: render-complete],
+    'render-error': [Function: render-error],
+    'features-activated': [Function: features-activated],
+    'embed-open-source': [Function: embed-open-source],
+    'embed-retry': [Function: embed-retry],
+    transaction: [Function: transaction],
+    'selection-change': [Function: selection-change],
+    'history-change': [Function: history-change]
+  },
+  setup: [Function (anonymous)],
+  ssrRender: [Function: _sfc_ssrRender],
+  __file: '/workspace/chain1975-intent-fsusui-source/vue/packages/components/markdown-editor/src/markdown-editor.vue',
+  install: [Function (anonymous)],
+  components: {}
+} 
+  at <ElMarkdownEditor mode="source" modelValue="paragraph" documentIdentity= { id: 'document:1', epoch: 1 }  ... > 
+  at <VTUROOT>
+
+stderr | ../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts > Original owned intent business adapter > verifies the actual committed successor after the original owner microtask
+[Vue warn]: injection "Symbol(v-scx)" not found. 
+  at <ElMarkdownEditor mode="source" modelValue="paragraph" documentIdentity= { id: 'document:2', epoch: 1 }  ... > 
+  at <VTUROOT>
+[Vue warn]: Server rendering context not provided. Make sure to only call useSSRContext() conditionally in the server build. 
+  at <ElMarkdownEditor mode="source" modelValue="paragraph" documentIdentity= { id: 'document:2', epoch: 1 }  ... > 
+  at <VTUROOT>
+[Vue warn]: Component is missing template or render function:  {
+  name: 'ElMarkdownEditor',
+  inheritAttrs: false,
+  __name: 'markdown-editor',
+  props: {
+    modelValue: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: ''
+    },
+    documentIdentity: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    defaultMode: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'source'
+    },
+    mode: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: undefined
+    },
+    chrome: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'framed'
+    },
+    localeText: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    statusDensity: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'minimal'
+    },
+    metrics: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    toolbarDensity: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'standard'
+    },
+    surfaces: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: [Function: default]
+    },
+    writingAids: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    focusExemptions: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    placeholder: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: ''
+    },
+    writingPlaceholder: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: ''
+    },
+    editorProfile: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'markdown'
+    },
+    interactionProfile: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'auto'
+    },
+    textareaId: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    textareaName: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    readonly: [Function: Boolean],
+    disabled: [Function: Boolean],
+    loading: [Function: Boolean],
+    showModeSwitcher: {
+      type: [Function: Boolean],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: true
+    },
+    showActions: {
+      type: [Function: Boolean],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: true
+    },
+    showImageAction: {
+      type: [Function: Boolean],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: true
+    },
+    imageActionLabel: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    showSaveAction: {
+      type: [Function: Boolean],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: true
+    },
+    saveActionLabel: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    showSubmitAction: {
+      type: [Function: Boolean],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: true
+    },
+    submitActionLabel: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    actionOverflowKeys: {
+      type: [Function: Array],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: [Function: default]
+    },
+    commands: {
+      type: [Function: Array],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: [Function: default]
+    },
+    primaryCommandKeys: {
+      type: [Function: Array],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    commandOverflowLabel: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    mobileLayout: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'auto'
+    },
+    previewBaseUrl: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: null
+    },
+    previewCspNonce: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: null
+    },
+    previewFeatures: {
+      type: [Function: Object],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    embedProvider: {
+      type: [Function: Function],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    minRows: {
+      type: [Function: Number],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: 12
+    },
+    spellcheck: {
+      type: [Array],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: 'auto'
+    },
+    lang: {
+      type: [Function: String],
+      required: false,
+      validator: undefined,
+      __epPropKey: true,
+      default: undefined
+    },
+    nativeWritingTools: {
+      type: [Function: String],
+      required: false,
+      validator: [Function (anonymous)],
+      __epPropKey: true,
+      default: 'auto'
+    }
+  },
+  emits: {
+    'update:modelValue': [Function: update:modelValue],
+    change: [Function: change],
+    command: [Function: command],
+    'mode-change': [Function: mode-change],
+    save: [Function: save],
+    submit: [Function: submit],
+    'upload-image': [Function: upload-image],
+    'render-complete': [Function: render-complete],
+    'render-error': [Function: render-error],
+    'features-activated': [Function: features-activated],
+    'embed-open-source': [Function: embed-open-source],
+    'embed-retry': [Function: embed-retry],
+    transaction: [Function: transaction],
+    'selection-change': [Function: selection-change],
+    'history-change': [Function: history-change]
+  },
+  setup: [Function (anonymous)],
+  ssrRender: [Function: _sfc_ssrRender],
+  __file: '/workspace/chain1975-intent-fsusui-source/vue/packages/components/markdown-editor/src/markdown-editor.vue',
+  install: [Function (anonymous)],
+  components: {}
+} 
+  at <ElMarkdownEditor mode="source" modelValue="paragraph" documentIdentity= { id: 'document:2', epoch: 1 }  ... > 
+  at <VTUROOT>
+
+ ❯ ../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts (21 tests | 2 failed | 19 skipped) 424ms
+     × verifies the actual current pending handle without a lifecycle receipt or new store 19ms
+     × verifies the actual committed successor after the original owner microtask 3ms
+     ↓ rejects changed business intentRef coordinates
+     ↓ rejects changed business nodeId coordinates
+     ↓ rejects changed business transactionRef coordinates
+     ↓ rejects changed business providerRef coordinates
+     ↓ rejects changed business contextDigest coordinates
+     ↓ rejects changed business sourceOrder coordinates
+     ↓ rejects changed business sourceReferenced coordinates
+     ↓ rejects changed business disposition coordinates
+     ↓ rejects changed business sourceUrl coordinates
+     ↓ refuses an original handle lookup replaced by clone
+     ↓ refuses an original handle lookup replaced by receipt
+     ↓ refuses an original handle lookup replaced by foreign
+     ↓ refuses an original handle lookup replaced by missing
+     ↓ preserves actual removal false and denies a current intent grant for a terminal handle
+     ↓ preserves unknown source relation without turning it into proven removal
+     ↓ rereads handle ownership after the promise boundary
+     ↓ rereads the actual host context after a concurrent source edit
+     ↓ propagates caller cancellation at the promise boundary
+     ↓ rejects after the original adapter is disposed
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  ../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts > Original owned intent business adapter > verifies the actual current pending handle without a lifecycle receipt or new store
+ FAIL  ../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts > Original owned intent business adapter > verifies the actual committed successor after the original owner microtask
+TypeError: Cannot read properties of undefined (reading 'modules')
+ ❯ _sfc_main.setup ../../../chain1975-intent-fsusui-source/vue/packages/components/markdown-editor/src/markdown-editor.vue:4400:14
+    4398| const closePasteAsMarkdownSurface = (selection: MarkdownEditorSelectio…
+    4399|   pasteAsMarkdownSession.value = null
+    4400|   pasteAsMarkdownError.value = ''
+       |              ^
+    4401|   restorePasteAsMarkdownFocus(selection)
+    4402| }
+ ❯ callWithErrorHandling node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:200:19
+ ❯ setupStatefulComponent node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:8071:25
+ ❯ setupComponent node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:8033:36
+ ❯ mountComponent node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5958:7
+ ❯ processComponent node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5924:9
+ ❯ patch node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5434:11
+ ❯ ReactiveEffect.componentUpdateFn [as fn] node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6072:11
+ ❯ ReactiveEffect.run node_modules/@vue/reactivity/dist/reactivity.cjs.js:254:19
+ ❯ setupRenderEffect node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6200:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 19 skipped (21)
+   Start at  10:12:11
+   Duration  7.72s (transform 6.19s, setup 255ms, import 6.90s, tests 424ms, environment 0ms)
+
+JSON report written to /workspace/chain1975-intent-source-alias-verification/.tmp/test-results/vitest/intent-alias/positive-current.json
+JUNIT report written to /workspace/chain1975-intent-source-alias-verification/.tmp/test-results/vitest/intent-alias/positive-current.xml

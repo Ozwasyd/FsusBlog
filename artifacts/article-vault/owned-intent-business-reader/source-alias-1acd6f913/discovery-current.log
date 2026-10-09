@@ -1,0 +1,11 @@
+Error: Cannot find package 'fsusui' imported from /workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts
+ ❯ ../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts:3:1
+      1| import { afterEach, describe, expect, it } from 'vitest';
+      2| import { mount } from '@vue/test-utils';
+      3| import { ElMarkdownEditor } from 'fsusui';
+       | ^
+      4| import { createMarkdownAnchorMap, type MarkdownEditorDispatchResult, t…
+      5| import { ArticleAnchorContextAdapter } from '@/services/authoring/arti…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_MODULE_NOT_FOUND' }

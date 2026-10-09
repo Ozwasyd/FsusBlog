@@ -1,0 +1,12 @@
+
+ RUN  v4.1.11 /workspace/chain1975-intent-source-alias-verification/src/frontend
+
+ ↓ ../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts (21 tests | 21 skipped)
+
+ Test Files  1 skipped (1)
+      Tests  21 skipped (21)
+   Start at  10:11:26
+   Duration  7.70s (transform 6.17s, setup 270ms, import 7.31s, tests 0ms, environment 0ms)
+
+JSON report written to /workspace/chain1975-intent-source-alias-verification/.tmp/test-results/vitest/intent-alias/positive.json
+JUNIT report written to /workspace/chain1975-intent-source-alias-verification/.tmp/test-results/vitest/intent-alias/positive.xml
