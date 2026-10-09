@@ -72,3 +72,5 @@ writer. Code is published only to this isolated branch; no merge or deployment.
 After this increment, the original owner will repair consumer2325's exact Canvas
 contracts-layer runtime dependency, inspected at
 `a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f`. Font/theme API work remains with group1.
+
+Published source candidate: `71179da783bae459b665b1ca168a97b718b4b01b`. Exact-candidate ordinary controls: 71 protocol/Export, 90 prerequisite wire, 8 property codec, 374 managed tests, all passed. Raw logs/TRX and setup/first-failure records are under `evidence/`; `run-evidence.json` binds the run and original 12M native input artifact. No issue acceptance is inferred.

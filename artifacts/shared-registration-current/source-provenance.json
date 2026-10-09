@@ -980,5 +980,6 @@
       "currentSha256": "9dfdde1f8b23c988753e21454a12d9d46e3dcbf0fbaa0b3277ff05986849fb36",
       "transformed": false
     }
-  ]
+  ],
+  "portedCandidateCommit": "71179da783bae459b665b1ca168a97b718b4b01b"
 }
