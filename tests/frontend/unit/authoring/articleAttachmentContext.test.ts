@@ -375,6 +375,25 @@ describe('Article attachment owned-handle currentness reader (#2256)', () =>
         expect(editor.adapter.readOwnedIntent(handle, binding)?.current).toBe(true);
     });
 
+    it('rejects equal-length foreign source bytes for both a pending node and a real removal tombstone', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        const altered = '![two.png]()paragraph';
+        expect(altered.length).toBe(editor.source().length);
+        const mismatched = { document: editor.owner.context,
+            map: createMarkdownAnchorMap({ identity: editor.owner.documentIdentity, source: altered }) };
+        expect(editor.adapter.readOwnedIntent(handle, mismatched)).toMatchObject({ current: false,
+            sourceReferenced: null, disposition: 'stale' });
+        editor.adapter.remove(handle, editor.port);
+        const removed = { document: editor.owner.context,
+            map: createMarkdownAnchorMap({ identity: editor.owner.documentIdentity, source: 'different' }) };
+        expect(removed.map.source.length).toBe(editor.source().length);
+        expect(editor.adapter.readOwnedIntent(handle, removed)).toMatchObject({ current: false,
+            sourceReferenced: null, disposition: 'removed' });
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())?.sourceReferenced).toBe(false);
+    });
+
     it('separates cancelled ownership from a placeholder still present in the current public map', () =>
     {
         const editor = lifecycle();
@@ -436,6 +455,32 @@ describe('Article attachment owned-handle currentness reader (#2256)', () =>
         deleted.commands.undo();
         expect(deleted.adapter.readOwnedIntent(removed, deleted.binding())).toMatchObject({ current: false,
             sourceReferenced: false, disposition: 'removed' });
+    });
+
+    it('preserves a real committed removal when its optional tombstone map observation throws', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        let bindingReads = 0;
+        const port: ArticleAttachmentTransactionPort = { ...editor.port, binding: () =>
+        {
+            bindingReads++;
+            if (bindingReads > 1) throw new Error('unexpected-binding-reread');
+            return editor.binding();
+        }, dispatch: transaction =>
+        {
+            const committed = editor.commands.dispatchTransaction(transaction);
+            expect(committed.accepted).toBe(true);
+            return { ...committed, positionMap: { ...committed.positionMap!, mapRange: () =>
+            {
+                throw new Error('tombstone-observation-unavailable');
+            } } };
+        } };
+        expect(editor.adapter.remove(handle, port).state).toBe('removed');
+        expect(bindingReads).toBe(1);
+        expect(editor.source()).toBe('paragraph');
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())).toMatchObject({ current: false,
+            sourceReferenced: null, disposition: 'removed' });
     });
 
     it('denies failed leases, partial deletions, epoch switches and disposed owners without fabricated facts', () =>

@@ -417,7 +417,11 @@ export class ArticleAttachmentContextAdapter
         {
             try
             {
-                createArticleDocumentContext({ ...binding.document, content: binding.map.source });
+                const sourceContext = createArticleDocumentContext({ ...binding.document, content: binding.map.source });
+                if (sourceContext.contextDigest !== binding.document.contextDigest)
+                {
+                    throw new Error('attachment-owned-source-binding-invalid');
+                }
                 const identityCurrent = binding.map.documentIdentity.id === binding.document.documentId
                     && binding.map.documentIdentity.epoch === binding.document.documentEpoch;
                 const range = snapshot.anchor.range;
@@ -783,21 +787,30 @@ export class ArticleAttachmentContextAdapter
         {
             return this.finish(entry, 'stale', 'attachment-remove-identity-invalid');
         }
+        let binding: ArticlePositionMapBinding;
         try
         {
             port.commitSource(result);
-            this.assertCurrentResult(result, port.binding());
+            binding = port.binding();
+            this.assertCurrentResult(result, binding);
         }
         catch
         {
             return this.finish(entry, 'stale', 'attachment-remove-binding-invalid');
         }
         const snapshot = this.finish(entry, 'removed', 'attachment-node-removed');
-        if (result.positionMap?.mapRange(entry.snapshot.anchor.range).deleted)
+        try
         {
-            entry.removedContext = port.binding().document;
+            if (result.positionMap?.mapRange(entry.snapshot.anchor.range).deleted)
+            {
+                entry.removedContext = binding.document;
+            }
         }
-        this.observeTransaction(result, port.binding());
+        catch
+        {
+            // A missing tombstone observation does not undo or fail the already committed removal.
+        }
+        this.observeTransaction(result, binding);
         return snapshot;
     }
 
