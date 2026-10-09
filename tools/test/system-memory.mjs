@@ -4,6 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
+import { locateInheritedCgroupV2Membership } from './linux-cgroup-membership-locator.mjs';
+
 const bytesPerGiB = 1024 ** 3;
 const cacheTtlMs = 1_000;
 let darwinCache = null;
@@ -64,7 +66,7 @@ function memoryMountPath(value)
     return linuxMemoryPath(decoded);
 }
 
-function linuxMemoryMount(source, membership, readText)
+function linuxMemoryMount(source, membership, readText, locatorObservations)
 {
     if (source === null)
     {
@@ -87,7 +89,9 @@ function linuxMemoryMount(source, membership, readText)
         {
             throw new Error('Linux cgroup memory invalid cgroup2 mountinfo');
         }
-        return [{ device: fields[2], root: memoryMountPath(fields[3]), mount: memoryMountPath(fields[4]) }];
+        const inheritedNamespaceRoot = fields[3] === '/..' && membership === '/';
+        return [{ device: fields[2], root: inheritedNamespaceRoot ? fields[3] : memoryMountPath(fields[3]),
+            mount: memoryMountPath(fields[4]), inheritedNamespaceRoot }];
     });
     if (mounts.length === 0)
     {
@@ -96,6 +100,18 @@ function linuxMemoryMount(source, membership, readText)
     if (new Set(mounts.map((mount) => mount.device)).size !== 1)
     {
         throw new Error('Linux cgroup memory ambiguous cgroup2 hierarchy');
+    }
+    if (mounts.some((mount) => mount.inheritedNamespaceRoot))
+    {
+        if (mounts.length !== 1)
+        {
+            throw new Error('Linux cgroup memory ambiguous inherited mount view');
+        }
+        const selected = mounts[0];
+        return locateInheritedCgroupV2Membership({
+            membership, mountRoot: selected.root, mountPath: selected.mount,
+            readText, ...locatorObservations
+        });
     }
     const candidates = mounts.flatMap((mount) =>
     {
@@ -173,7 +189,9 @@ function linuxMemoryInteger(value, file, allowUnlimited = false)
 }
 
 export function sampleLinuxCgroupV2HeadroomBytes({
-    readText = (file) => readFileSync(file, 'utf8')
+    readText = (file) => readFileSync(file, 'utf8'),
+    listChildren,
+    observeDirectory
 } = {})
 {
     const membershipFile = '/proc/self/cgroup';
@@ -182,7 +200,8 @@ export function sampleLinuxCgroupV2HeadroomBytes({
     {
         return null;
     }
-    const mapping = linuxMemoryMount(linuxMemoryText('/proc/self/mountinfo', readText), membership, readText);
+    const mapping = linuxMemoryMount(linuxMemoryText('/proc/self/mountinfo', readText), membership, readText,
+        { listChildren, observeDirectory });
     if (mapping === null)
     {
         return null;
@@ -197,6 +216,10 @@ export function sampleLinuxCgroupV2HeadroomBytes({
         const before = linuxMemoryText(maximumFile, readText);
         const current = linuxMemoryText(currentFile, readText);
         const after = linuxMemoryText(maximumFile, readText);
+        if (mapping.requiredAncestors && (before === null || after === null || current === null))
+        {
+            throw new Error(`Linux cgroup memory unobservable required ancestor: ${directory}`);
+        }
         if (before === null && after === null)
         {
             if (directory === mapping.leaf && current === null
