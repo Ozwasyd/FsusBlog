@@ -12,8 +12,8 @@ using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Memory.Transient;
+using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -556,6 +556,7 @@ internal static class PublicHotReadBinaryArtifactFactory
                 throw new InvalidOperationException("Reserved AEDS frame validation failed.");
             }
 
+            token.ThrowIfCancellationRequested();
             // The existing operation hold covers encoding and the consumer's terminal event.
             await consumer(frame, token).ConfigureAwait(false);
         }, cancellationToken);

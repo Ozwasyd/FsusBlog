@@ -1,6 +1,7 @@
 using System.Buffers;
 
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Memory.Transient;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Tests.Helpers;
@@ -63,7 +64,7 @@ public sealed class ReservedAedsTransientCompositionTests
             }, cancellation.Token).AsTask();
         try
         {
-            await entered.Task;
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation.WaitAsync(cancellation.Token));
             destination.Dispose();
@@ -209,5 +210,44 @@ public sealed class ReservedAedsTransientCompositionTests
         Assert.True(destination.Memory.Span.IndexOfAnyExcept((byte)90) < 0);
         Assert.Equal(1, pool.Snapshot().Holds);
         Assert.Equal(32, ledger.Snapshot().Used["host"]);
+    }
+
+    [Fact]
+    public async Task CancellationDuringCanonicalEncodingPreventsConsumerDeliveryAndReleasesTheOperationHold()
+    {
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(32);
+        using var pool = new TransientBufferPool(ledger, host, TransientWorkload.Encoding, new(32, 4, 0, 0));
+        using IMemoryOwner<byte> destination = pool.TryRent(17).Value!;
+        using var cancellation = new CancellationTokenSource();
+        var encoder = new CancelAfterEncoding(cancellation);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => PublicHotReadBinaryArtifactFactory.ConsumeReservedPayloadAsync(
+            encoder, AedsFrameType.ArticleList, new byte[] { 1 }, (TransientBufferLease)destination, new(),
+            (_, _) => throw new InvalidOperationException("Canceled encoded frame must not reach the consumer."), cancellation.Token).AsTask());
+        Assert.True(encoder.WroteCanonicalFrame);
+        Assert.Equal(1, pool.Snapshot().Holds);
+        Assert.Equal(32, ledger.Snapshot().Used["host"]);
+        destination.Dispose();
+        Assert.Equal(0, ledger.Snapshot().Used["host"]);
+        Assert.Single(ledger.EventWindow().Events, item => item.Kind == "allocation-released");
+    }
+
+    private sealed class CancelAfterEncoding(CancellationTokenSource cancellation) : IAedsEncoder
+    {
+        private readonly AedsEncoder _encoder = new();
+        public bool WroteCanonicalFrame
+        {
+            get; private set;
+        }
+        public byte[] Encode(AedsFrameType frameType, ReadOnlySpan<byte> payload, ushort version = AedsFrameHeader.CurrentVersion, uint flags = 0)
+            => _encoder.Encode(frameType, payload, version, flags);
+        public void WriteFrame(AedsFrameType frameType, ReadOnlySpan<byte> payload, IBufferWriter<byte> destination, ushort version = AedsFrameHeader.CurrentVersion, uint flags = 0)
+        {
+            _encoder.WriteFrame(frameType, payload, destination, version, flags);
+            WroteCanonicalFrame = true;
+            cancellation.Cancel();
+        }
+        public void WriteHeader(AedsFrameType frameType, ReadOnlySpan<byte> payload, IBufferWriter<byte> destination, ushort version = AedsFrameHeader.CurrentVersion, uint flags = 0)
+            => _encoder.WriteHeader(frameType, payload, destination, version, flags);
+        public Result<AedsDecodeResult> TryDecode(ReadOnlyMemory<byte> frame) => _encoder.TryDecode(frame);
     }
 }
