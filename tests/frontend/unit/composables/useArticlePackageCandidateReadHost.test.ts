@@ -191,9 +191,13 @@ describe('inactive authenticated candidate read host', () =>
         try
         {
             await seeded(p);
-            const pending = p.host.requestPage(nextPage);
+            await flushPromises();
+            const next = wrapper.findAll('button').find(button => button.text() === '下一页');
+            expect(next).toBeDefined();
+            await next!.trigger('click');
+            await flushPromises();
+            expect(p.calls).toHaveLength(2);
             p.calls[1].result.reject(new Error('controlled-read-error'));
-            await pending;
             await flushPromises();
             expect(wrapper.find('[role="alert"]').exists()).toBe(true);
             const replacement = p.host.seed(input(), 'seed-2');

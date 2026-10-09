@@ -106,9 +106,8 @@ public sealed class ArticlePackageCandidateReadEndpointTests
         builder.Services.AddScoped<ArticlePackageCandidateReviewReadService>();
         builder.Services.AddSingleton<IAedsEncoder, AedsEncoder>();
         builder.Services.AddAuthentication("controlled-package-unit")
-            .AddScheme<AuthenticationSchemeOptions, ControlledAuthentication>("controlled-package-unit", _ =>
-            {
-            });
+            .AddScheme<AuthenticationSchemeOptions, ControlledAuthentication>("controlled-package-unit",
+                options => options.ClaimsIssuer = "controlled-package-unit");
         builder.Services.AddAuthorization();
         await using WebApplication app = builder.Build();
         app.UseAuthentication();
