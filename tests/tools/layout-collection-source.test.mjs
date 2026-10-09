@@ -4,11 +4,16 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 
-import { createCompositionCollectionSource } from '@fsusblog/layout-governance/composition-collection-source';
 import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
+// The package export remains the central owner's write scope. Load the exact
+// new source file for ordinary module controls without installing an alternate
+// package manifest, parser, resolver, or test runner.
+const { createCompositionCollectionSource } = await import(pathToFileURL(resolve(repositoryRoot,
+    'tests/frontend/support/layout/compositionCollectionSource.mjs')).href);
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;
 const parserRoot = process.env.FSUSBLOG_PARSER_ROOT || repositoryRoot;
 assert.ok(fsusUIRoot, 'the actual original FsusUI checkout is required');
@@ -459,7 +464,7 @@ test('collection continuation: parameter closure retains the unresolved external
 test('collection continuation: actual Pagination information map binds all four original table suppliers', () =>
 {
     const state = actualPagination();
-    const result = state.module.keyedMap(state.file, state.record.variables.get('informationChildren'));
+    const result = state.module.keyedMap(state.file, state.record.variables.get('informationChildren'), null, state.bindings);
     assert.deepEqual(result.outputs.map((item) => item.key), ['total', 'sizes', 'jumper', 'slot']);
     assert.ok(result.outputs.every((item) => item.conditions.at(-1).expression === 'requested.has(key)'));
     assert.equal(result.outputs[3].node.getText(), 'slots?.default?.() ?? null');
@@ -654,7 +659,7 @@ test('collection continuation: actual Slider caller closure isolates precisely t
 test('collection continuation: actual Pagination information slot binds the original null fallback for an absent caller slot', () =>
 {
     const state = actualPagination();
-    const result = state.module.keyedMap(state.file, state.record.variables.get('informationChildren'), state.componentCall);
+    const result = state.module.keyedMap(state.file, state.record.variables.get('informationChildren'), state.componentCall, state.bindings);
     const slot = result.outputs.find((item) => item.key === 'slot');
     assert.equal(slot.node.kind, state.ts.SyntaxKind.NullKeyword);
     assert.equal(slot.slot.absent, true);
@@ -751,4 +756,503 @@ test('collection continuation: class supplier rejects its object identity escape
     const state = partitionFixture({ change: (value) => value.replace("function decorate(element:any", "function classes(){const is=(name)=>{return name;};return {is};}const ns=classes();foreign(ns);function decorate(element:any")
         .replace("decorate(root[0],'first');", "decorate(root[0],ns.is('first'));") });
     assert.throws(() => state.module.partitionCollection(state.file, state.loop, state.componentCall, state.bindings), /escaped class supplier identity/u);
+});
+
+// Independent review probes: retain their original inputs and assertion boundaries.
+function reviewReadonly(body)
+{
+    const state = context();
+    const file = fixture(body);
+    const record = state.source.resolver.parse(file);
+    const fn = find(record, (node) => state.ts.isFunctionDeclaration(node) && node.name?.text === 'owner', state.ts)[0];
+    return state.module.parameterClosure(file, fn, 0, 'marks');
+}
+function reviewPartition(transform = (value) => value, input = 'a, ->, b')
+{
+    const state = context();
+    const file = fixture(transform(`import {defineComponent,h} from 'vue';
+const ownerProps={layout:{type:String,default:'a, ->, b'}};
+export default defineComponent({props:ownerProps,setup(props){
+function decorate(element,cls){if(element){if(!element.props){element.props={};}element.props.class=[element.props.class,cls].join(' ');}}
+return ()=>{const root=[];const right=[];const wrapper=h('div',{},right);const table={a:h('span',{},'A'),b:h('span',{},'B')};
+const keys=props.layout.split(',').map(item=>item.trim());let switched=false;
+keys.forEach(key=>{if(key==='->'){switched=true;return;}if(!switched){root.push(table[key]);}else{right.push(table[key]);}});
+decorate(root[0],'first');decorate(root[root.length-1],'last');
+if(switched&&right.length>0){decorate(right[0],'first');decorate(right[right.length-1],'last');root.push(wrapper);}
+return h('div',{},root);};}});`), 'partition.tsx');
+    const entry = fixture(`<script setup>import Owner from './partition';</script><template><Owner layout="${input}"/></template>`, 'PartitionEntry.vue');
+    const call = state.source.graph([entry]).nodes.find((node) => node.file === entry && node.definition === file);
+    assert.ok(call);
+    const record = state.source.resolver.parse(file);
+    const loop = find(record, (node) => state.ts.isCallExpression(node) && node.expression.getText() === 'keys.forEach', state.ts)[0];
+    const fn = find(record, (node) => state.ts.isFunctionDeclaration(node) && node.name?.text === 'decorate', state.ts)[0];
+    const bindings = new Map(find(record, (node) => state.ts.isCallExpression(node) && node.expression.getText() === 'decorate', state.ts)
+        .map((node) => [node.expression, { file, fn, name: 'decorate' }]));
+    return { ...state, file, record, loop, call, bindings };
+}
+function reviewPlan(state)
+{
+    return state.module.partitionCollection(state.file, state.loop, state.call, state.bindings);
+}
+test('probe: parenthesized array escape is rejected', () => reject("const children=['a'];foreign((children));"));
+test('probe: parenthesized mutating array receiver is rejected', () => reject("const children=['a','b'];(children).reverse();"));
+test('probe: conditional array escape is rejected', () => reject("const children=['a'];foreign(flag?children:[]);"));
+test('probe: repeated loop push is rejected as unbounded', () => reject("const children=[];for(let i=0;i<2;i++){children.push('a');}"));
+test('probe: conditional parameter escape is not readonly', () => assert.equal(reviewReadonly('function owner(props){foreign(flag?props:null);}').readonly, false));
+test('probe: spread parameter escape is not readonly', () => assert.equal(reviewReadonly('function owner(props){foreign(...props);}').readonly, false));
+test('probe: helper default parameter mutation is not readonly', () => assert.equal(reviewReadonly('function helper(p,side=(p.marks=unknown)){}function owner(props){helper(props);}').readonly, false));
+test('probe: guarded partition loop keeps its authored condition', () =>
+{
+    const result = reviewPlan(reviewPartition((value) => value.replace('keys.forEach(key=>', 'if(extra)keys.forEach(key=>')));
+    assert.ok(result.outputs[0].conditions.some((entry) => entry.expression === 'extra' && entry.name === 'if'));
+});
+test('probe: conditional nested return does not invent a whole-guard else', () =>
+{
+    const result = reviewPlan(reviewPartition((value) => value.replace('const keys=props.layout', 'if(outer){if(inner)return null;}const keys=props.layout')));
+    assert.ok(!result.outputs[0].conditions.some((entry) => entry.expression === 'outer' && entry.name === 'else'));
+});
+test('probe: class mutations preserve authored cross-container order', () =>
+{
+    const result = reviewPlan(reviewPartition((value) => value.replace("decorate(root[0],'first');", "decorate(right[0],'early');decorate(root[0],'first');")));
+    assert.equal(result.outputs[0].mutations[0].binding.classValue, 'early');
+});
+test('probe: unconditional wrapper push survives a no-delimiter input', () =>
+{
+    const state = reviewPartition((value) => value.replace('root.push(wrapper);', '').replace("return h('div',{},root);", "root.push(wrapper);return h('div',{},root);"), 'a');
+    assert.equal(reviewPlan(state).outputs[0].wrappers.length, 1);
+});
+test('probe: malformed pane provider is rejected', () =>
+{
+    const state = context();
+    fixture("export const key=Symbol('k');", 'key.ts');
+    const ownerFile = fixture("import {key} from './key';const children=[];const addChild=child=>{children.push(child);};export const registry=()=>{return {children,addChild};};const {children:panes,addChild:registerPane}=registry();foreign(key,{registerPane});const output=<WrongNav panes={panes.value}/>;", 'Tabs.tsx');
+    const paneFile = fixture("import {key} from './key';const props={};const slots={};const pane=foreign({props,slots});const tabsRoot=foreign(key);tabsRoot.registerPane(pane);", 'Pane.tsx');
+    const navFile = fixture('const other={panes:[]};const out=other.panes.map(pane=>pane.props.label);', 'Nav.tsx');
+    const owner = state.source.resolver.parse(ownerFile);
+    const pane = state.source.resolver.parse(paneFile);
+    const nav = state.source.resolver.parse(navFile);
+    const call = (record, name) => find(record, (node) => state.ts.isCallExpression(node) && node.expression.getText() === name, state.ts)[0];
+    const chain = { ownerFile, registryCall: call(owner, 'registry'), providerCall: call(owner, 'foreign'), paneFile,
+        recordExpression: pane.variables.get('pane'), injectionCall: pane.variables.get('tabsRoot'), registerCall: call(pane, 'tabsRoot.registerPane'),
+        navExpression: find(owner, (node) => state.ts.isPropertyAccessExpression(node) && node.getText() === 'panes.value', state.ts)[0],
+        navFile, mapCall: call(nav, 'other.panes.map') };
+    assert.throws(() => state.module.paneSourceChain(chain), /composition-collection-source|control-legality/u);
+});
+test('probe: pane label rejects changed caller props before record construction', () =>
+{
+    const state = context();
+    const file = fixture("<script setup>import {useSlots,reactive} from 'vue';const props=defineProps({label:String});const slots=useSlots();props.label='changed';const pane=reactive({props,slots});</script><template><div/></template>", 'LabelPane.vue');
+    const entry = fixture('<script setup>import Pane from "./LabelPane.vue";</script><template><Pane label="original"/></template>', 'LabelEntry.vue');
+    const callbackFile = fixture('const callback=pane=>pane.slots.label?.()||pane.props.label;', 'LabelNav.tsx');
+    const call = state.source.graph([entry]).nodes.find((node) => node.file === entry && node.definition === file);
+    assert.ok(call);
+    const record = state.source.resolver.parse(file);
+    const callback = state.source.resolver.parse(callbackFile).variables.get('callback');
+    assert.throws(() => state.module.paneLabel(file, record.variables.get('pane'), call, callbackFile, callback), /composition-collection-source|control-legality/u);
+});
+test('probe: keyed table entry escaped before map is rejected', () =>
+{
+    const state = local("const table={a:<div/>};foreign(table.a);const requested=new Set(['a']);const children=['a'].filter(key=>requested.has(key)).map(key=>table[key]);");
+    assert.throws(() => state.module.keyedMap(state.file, state.record.variables.get('children')), /composition-collection-source|control-legality/u);
+});
+test('probe: keyed map retains callback parameter binding with distinct parameter names', () =>
+{
+    const state = local("const table={a:<div/>};const requested=new Set(['a']);const children=['a'].filter(filterKey=>requested.has(filterKey)).map(mapKey=>table[mapKey]);");
+    const result = state.module.keyedMap(state.file, state.record.variables.get('children'));
+    assert.equal(result.outputs[0].bindings.get('mapKey')?.node.text, 'a');
+});
+test('probe: class supplier retains an opaque earlier factory return alternative', () =>
+{
+    const state = reviewPartition((value) => value.replace('function decorate(element,cls)', 'function classes(){const is=(name)=>{return name;};if(flag)return {is:foreign};return {is};}const ns=classes();function decorate(element,cls)').replace("decorate(root[0],'first');", "decorate(root[0],ns.is('first'));"));
+    const fn = find(state.record, (node) => state.ts.isFunctionDeclaration(node) && node.name?.text === 'classes', state.ts)[0];
+    find(state.record, (node) => state.ts.isCallExpression(node) && node.expression.getText() === 'classes', state.ts)
+        .forEach((node) => state.bindings.set(node.expression, { file: state.file, fn, name: 'classes' }));
+    assert.throws(() => reviewPlan(state), /composition-collection-source|control-legality/u);
+});
+test('probe: partition callback cannot precede false state initialization', () =>
+{
+    const state = reviewPartition((value) => value.replace('let switched=false;', '').replace("decorate(root[0],'first');", "let switched=false;decorate(root[0],'first');"));
+    assert.throws(() => reviewPlan(state), /composition-collection-source|control-legality/u);
+});
+test('probe: copied callback AST is rejected by canonical source ownership', () =>
+{
+    const state = local('const callback=item=><div/>;const children=[];');
+    assert.throws(() => state.module.callbackEffects(state.file, { ...state.record.variables.get('callback') }), /unowned source proof node/u);
+});
+
+test('repair: satisfies-wrapped collection escape is rejected', () => reject("const children=['a'];foreign(children satisfies string[]);"));
+test('repair: short-circuit collection escape is rejected', () => reject("const children=['a'];foreign(flag&&children);"));
+test('repair: while collection multiplicity is rejected', () => reject("const children=[];while(flag){children.push('a');}"));
+test('repair: switch-dependent collection push is rejected', () => reject("const children=[];switch(flag){case true:children.push('a');}"));
+test('repair: try-dependent collection push is rejected', () => reject("const children=[];try{children.push('a');}catch(error){}"));
+test('repair: callback conditional and spread arguments retain every actual origin', () =>
+{
+    const state = local('const callback=(item,other)=>{foreign(flag?item:other);foreign(...item);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'call-argument').map((entry) => entry.path), [['item'], ['other'], ['item']]);
+    assert.ok(result.calls[0].arguments[0].paths.length === 2);
+});
+test('repair: helper default parameter escape stays unresolved', () =>
+{
+    assert.equal(reviewReadonly('function helper(p,side=foreign(p)){}function owner(props){helper(props);}').readonly, false);
+});
+test('repair: guarded partition retains both executed and bypassed paths', () =>
+{
+    const result = reviewPlan(reviewPartition((value) => value.replace('keys.forEach(key=>', 'if(extra)keys.forEach(key=>')));
+    assert.equal(result.outputs.length, 2);
+    assert.deepEqual(result.outputs.map((entry) => entry.loopExecuted), [true, false]);
+    assert.deepEqual(result.outputs[1].assembledRoot, []);
+    assert.ok(result.outputs[1].conditions.some((entry) => entry.expression === 'extra' && entry.name === 'else'));
+});
+test('repair: nested terminal guards retain both surviving control paths', () =>
+{
+    const result = reviewPlan(reviewPartition((value) => value.replace('const keys=props.layout', 'if(outer){if(inner)return null;}const keys=props.layout')));
+    assert.deepEqual(result.outputs.map((entry) => entry.conditions.filter((guard) => ['outer', 'inner'].includes(guard.expression)).map(({name, expression}) => [name, expression])),
+        [[['if', 'outer'], ['else', 'inner']], [['else', 'outer']]]);
+    assert.ok(result.excludedReturns.some((entry) => entry.conditions.length === 2));
+});
+test('repair: callback return before loop does not become a render guard', () =>
+{
+    const result = reviewPlan(reviewPartition((value) => value.replace('const keys=props.layout', 'if(extra){const read=()=>{return null;};}const keys=props.layout')));
+    assert.equal(result.outputs.length, 2);
+    assert.ok(result.outputs[0].conditions.some((entry) => entry.expression === 'extra' && entry.name === 'if'));
+});
+test('repair: wrapper push keeps its own unknown authored guard', () =>
+{
+    const result = reviewPlan(reviewPartition((value) => value.replace('root.push(wrapper);', '').replace("return h('div',{},root);", "if(extra)root.push(wrapper);return h('div',{},root);"), 'a'));
+    assert.deepEqual(result.outputs.map((entry) => entry.wrappers.length), [1, 0]);
+    assert.deepEqual(result.outputs[0].assembledRoot.map((entry) => entry.wrapper ?? false), [false, true]);
+});
+test('repair: late last class write targets wrapper at that program point', () =>
+{
+    const state = reviewPartition((value) => value.replace('root.push(wrapper);', '').replace("return h('div',{},root);", "root.push(wrapper);decorate(root[root.length-1],'late');return h('div',{},root);"), 'a');
+    const result = reviewPlan(state);
+    const last = result.outputs[0].mutations.at(-1);
+    assert.equal(last.binding.classValue, 'late');
+    assert.equal(last.binding.constructor.digest, state.source.resolver.sourceStep(state.file, result.outputs[0].wrappers[0].node).digest);
+});
+test('repair: conditional wrapper omission does not borrow a right-side condition', () =>
+{
+    const result = reviewPlan(reviewPartition((value) => value.replace('if(switched&&right.length>0)', 'if(!switched)'), 'a'));
+    assert.equal(result.outputs[0].wrappers.length, 1);
+    assert.equal(result.outputs[0].right.length, 0);
+});
+test('repair: unsupported render loop is rejected before a partition plan', () =>
+{
+    assert.throws(() => reviewPlan(reviewPartition((value) => value.replace('const keys=props.layout', 'while(extra){}const keys=props.layout'))), /unsupported partition control flow/u);
+});
+test('repair: wrapped keyed table entry escape is rejected', () =>
+{
+    const state = local("const table={a:<div/>};foreign(flag?table.a:null);const requested=new Set(['a']);const children=['a'].filter(key=>requested.has(key)).map(key=>table[key]);");
+    assert.throws(() => state.module.keyedMap(state.file, state.record.variables.get('children')), /escaped keyed collection/u);
+});
+test('repair: fresh keyed sink cannot escape through a carrier expression', () =>
+{
+    const state = local("const table={a:<div/>};const borrowed=[];borrowed.push(table.a);foreign(flag?borrowed:null);const requested=new Set(['a']);const children=['a'].filter(key=>requested.has(key)).map(key=>table[key]);");
+    assert.throws(() => state.module.keyedMap(state.file, state.record.variables.get('children')), /escaped keyed collection sink/u);
+});
+test('repair: distinct keyed parameters preserve exact original binding scopes', () =>
+{
+    const state = local("const table={a:<div/>};const requested=new Set(['a']);const children=['a'].filter(filterKey=>requested.has(filterKey)).map(mapKey=>table[mapKey]);");
+    const result = state.module.keyedMap(state.file, state.record.variables.get('children'));
+    const bindings = result.outputs[0].bindings;
+    assert.equal(bindings.get('filterKey').parameter.parent, bindings.get('filterKey').scope);
+    assert.equal(bindings.get('mapKey').parameter.parent, bindings.get('mapKey').scope);
+    assert.notEqual(bindings.get('filterKey').scope, bindings.get('mapKey').scope);
+});
+test('repair: class factory rejects opaque earlier throw alternative', () =>
+{
+    const state = reviewPartition((value) => value.replace('function decorate(element,cls)', 'function classes(){const is=(name)=>{return name;};if(flag)throw unknown;return {is};}const ns=classes();function decorate(element,cls)').replace("decorate(root[0],'first');", "decorate(root[0],ns.is('first'));"));
+    const fn = find(state.record, (node) => state.ts.isFunctionDeclaration(node) && node.name?.text === 'classes', state.ts)[0];
+    find(state.record, (node) => state.ts.isCallExpression(node) && node.expression.getText() === 'classes', state.ts).forEach((node) => state.bindings.set(node.expression, {file:state.file,fn,name:'classes'}));
+    assert.throws(() => reviewPlan(state), /alternate class supplier factory flow/u);
+});
+test('repair: class supplier rejects a projected method escape', () =>
+{
+    const state = partitionFixture({change: (value) => value.replace('function decorate(element:any,cls:string)', "function classes(){const is=(name)=>{return name;};return {is};}const ns=classes();foreign(ns.is);function decorate(element:any,cls:string)").replace("decorate(root[0],'first');", "decorate(root[0],ns.is('first'));" )});
+    assert.throws(() => state.module.partitionCollection(state.file, state.loop, state.componentCall, state.bindings), /escaped class supplier identity/u);
+});
+test('repair: class supplier rejects an overriding factory spread', () =>
+{
+    const state = partitionFixture({change: (value) => value.replace('function decorate(element:any,cls:string)', "function classes(){const is=(name)=>{return name;};return {is,...unknown};}const ns=classes();function decorate(element:any,cls:string)").replace("decorate(root[0],'first');", "decorate(root[0],ns.is('first'));" )});
+    assert.throws(() => state.module.partitionCollection(state.file, state.loop, state.componentCall, state.bindings), /open class supplier/u);
+});
+test('repair: class supplier rejects an effectful default parameter initializer', () =>
+{
+    const state = partitionFixture({change: (value) => value.replace('function decorate(element:any,cls:string)', "function classes(){const is=(name,side=foreign())=>{return name;};return {is};}const ns=classes();function decorate(element:any,cls:string)").replace("decorate(root[0],'first');", "decorate(root[0],ns.is('first'));" )});
+    assert.throws(() => state.module.partitionCollection(state.file, state.loop, state.componentCall, state.bindings), /opaque primitive parameter/u);
+});
+test('repair: labeled wrapper push remains unsupported', () =>
+{
+    assert.throws(() => reviewPlan(reviewPartition((value) => value.replace('root.push(wrapper);', 'label:root.push(wrapper);'))), /unsupported partition control flow/u);
+});
+test('repair: actual pane chain precisely reports the missing central Vue binding interface', () =>
+{
+    const state = actualPanes();
+    const module = createCompositionCollectionSource({ ...state.source, vueBinding: undefined });
+    assert.throws(() => module.paneSourceChain(state.chain), /required central interface: vueBinding\(record, actualCalleeAST, exportedName\)/u);
+});
+test('repair: callback alias effects retain their lexical block identity', () =>
+{
+    const state = local('const callback=(item,other)=>{const alias=item;{const alias=other;foreign(alias);}foreign(alias);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    const escapes = result.escapes.filter((entry) => entry.kind === 'call-argument');
+    assert.deepEqual(escapes.map((entry) => entry.path), [['other'], ['item']]);
+    assert.notEqual(escapes[0].binding.digest, escapes[1].binding.digest);
+});
+test('repair: nested callback parameter does not borrow an outer capture', () =>
+{
+    const state = local('const callback=item=>{const inner=(item)=>item;return item;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(!result.escapes.some((entry) => entry.kind === 'callback-capture'));
+});
+test('repair: conditional callback aliases preserve writes to both original parameters', () =>
+{
+    const state = local('const callback=(item,other)=>{const alias=flag?item:other;alias.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.writes.map((entry) => entry.path), [['item','value'],['other','value']]);
+    assert.equal(result.writes[0].originBindings.length, 2);
+});
+test('repair: inner shadowed alias does not create an outer parameter capture', () =>
+{
+    const state = local('const callback=item=>{const inner=item=>{const alias=item;return alias;};return item;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(!result.escapes.some((entry) => entry.kind === 'callback-capture'));
+});
+test('repair: callback effects retain opaque free condition reads without inferring values', () =>
+{
+    const state = local('const callback=item=>flag?item:unknown;const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.freeReads.map((entry) => entry.path), [['flag'],['unknown']]);
+    assert.ok(result.freeReads.every((entry) => entry.binding === null));
+});
+test('repair: callback type references do not manufacture runtime free reads', () =>
+{
+    const state = local('const callback=item=>{const value:Opaque=item;return value;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(!result.freeReads.some((entry) => entry.path?.[0] === 'Opaque'));
+});
+
+function frameworkCall(relative, name)
+{
+    const state = context();
+    const file = resolve(fsusUIRoot, 'vue/packages/components', relative);
+    const record = state.source.resolver.parse(file);
+    const call = find(record, (node) => state.ts.isCallExpression(node) && node.expression.getText() === name, state.ts)[0];
+    return { ...state, file, call };
+}
+function frameworkFixture(body, imported = 'wrap')
+{
+    const state = context();
+    fixture(body, 'FrameworkHelper.ts');
+    const file = fixture(`import {${imported}} from './FrameworkHelper';const value=${imported}(input);`, 'FrameworkEntry.ts');
+    const record = state.source.resolver.parse(file);
+    return { ...state, file, call: record.variables.get('value') };
+}
+test('framework continuation: actual Slider toRefs binds every canonical import export edge and function definition', () =>
+{
+    const state = frameworkCall('slider/src/slider.vue', 'toRefs');
+    const actual = state.source.resolver.resolveFrameworkExport(state.file, state.call.expression);
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.equal(result.fn, actual.fn);
+    assert.equal(result.file, actual.file);
+    assert.equal(result.exportIdentity.sourceKind, 'declared-frontend-public-esm');
+    assert.deepEqual(result.importEdges.map((edge) => edge.source), actual.edges.map((edge) => state.source.resolver.sourceStep(edge.file, edge.originalImportOrExportAST)));
+    assert.equal(result.qualificationEligible, false);
+    assert.equal(result.renderProven, false);
+    assert.equal(result.readonly, false);
+});
+test('framework continuation: actual ObjectRefImpl setter preserves stored object parameter and both write paths', () =>
+{
+    const state = frameworkCall('form/src/hooks/use-form-item.ts', 'toRef');
+    const actual = state.source.resolver.resolveFrameworkExport(state.file, state.call.expression);
+    const definition = actual.dependencies.find((entry) => entry.classDeclaration?.name?.text === 'ObjectRefImpl');
+    assert.ok(definition);
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    const record = result.classes.find((entry) => entry.definition.digest === state.source.resolver.sourceStep(definition.file, definition.classDeclaration).digest);
+    assert.ok(record);
+    assert.ok(record.deferredWrites.some((entry) => entry.write.path.join('.') === 'this._object.*'));
+    assert.ok(record.deferredWrites.some((entry) => entry.write.path.join('.') === 'this._object.*.value'));
+    assert.ok(record.deferredWrites.every((entry) => entry.constructorParameterPath[0] === 0));
+    assert.ok(record.deferredWrites.every((entry) => entry.kind === 'SetAccessor'));
+    assert.equal(result.readonly, false);
+});
+test('framework continuation: actual Vue native dependency gaps remain explicit after source resolution', () =>
+{
+    const state = frameworkCall('slider/src/slider.vue', 'toRefs');
+    const actual = state.source.resolver.resolveFrameworkExport(state.file, state.call.expression);
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.deepEqual(result.unresolvedDependencies, actual.unresolvedDependencies);
+    assert.ok(result.unresolvedDependencies.some((entry) => entry.name === 'isArray'));
+    assert.ok(result.openEffects.length);
+    assert.equal(result.closureComplete, false);
+});
+test('framework continuation: actual Slider caller now retains both resolved framework bodies and readonly rejection', () =>
+{
+    const state = frameworkCall('slider/src/slider.vue', 'toRefs');
+    const record = state.source.resolver.parse(state.file);
+    const binding = find(record, (node) => state.ts.isVariableDeclaration(node) && node.name.getText() === 'props', state.ts)[0];
+    const selected = record.variables.get('markList');
+    const result = state.module.bindingClosure(state.file, binding, 'marks', new Set([selected.arguments[0]]));
+    assert.equal(result.readonly, false);
+    assert.equal(result.frameworkClosures.length, 2);
+    assert.deepEqual(result.frameworkClosures.map((entry) => entry.effects.exportIdentity.exportedName).sort(), ['toRef','toRefs']);
+    assert.ok(result.frameworkClosures.every((entry) => !entry.parameterEffects.readonly));
+    assert.ok(result.frameworkClosures.some((entry) => entry.parameterEffects.functions.some((fn) => fn.escapes.length)));
+    assert.ok(result.frameworkClosures.every((entry) => entry.effects.classes.some((record) => record.deferredWrites.length)));
+    assert.equal(result.unresolved.length, 2);
+    assert.ok(result.unresolved.every((entry) => entry.framework?.effects && entry.framework?.parameterEffects && !entry.framework.readonly));
+});
+test('framework continuation: a canonical function body with no effects closes source readonly without name authority', () =>
+{
+    const state = frameworkFixture('export function wrap(value){return 1;}');
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.equal(result.readonly, true);
+    assert.equal(result.closureComplete, true);
+    assert.equal(result.renderProven, false);
+    assert.equal(result.qualificationEligible, false);
+});
+test('framework continuation: default parameter write rejects readonly from the actual initializer source', () =>
+{
+    const state = frameworkFixture('export function wrap(value,side=(value.marks=unknown)){return 1;}');
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.ok(result.functions[0].effects.writes.some((entry) => entry.path.join('.') === 'value.marks'));
+    assert.ok(result.functions[0].effects.parameterSources[1].initializer);
+    assert.equal(result.readonly, false);
+});
+test('framework continuation: authored class setter maps back to its actual constructor parameter', () =>
+{
+    const state = frameworkFixture('export function wrap(value){return new Carrier(value);}class Carrier{constructor(value){this.target=value;}set value(next){this.target.marks=next;}}');
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.deepEqual(result.classes[0].deferredWrites[0].constructorParameterPath, [0,'marks']);
+    assert.equal(result.classes[0].fieldBindings[0].field, 'target');
+    assert.equal(result.readonly, false);
+    assert.ok(result.classes[0].deferredWrites[0].requiredBinding.includes('actual new-expression-to-class'));
+});
+test('framework continuation: copied named import callee AST is rejected', () =>
+{
+    const state = frameworkFixture('export function wrap(value){return 1;}');
+    assert.throws(() => state.module.frameworkExportEffects(state.file, {...state.call.expression}), /unowned source proof node/u);
+});
+test('framework continuation: namespace callee cannot replace an actual named import', () =>
+{
+    const state = context();
+    fixture('export function wrap(value){return 1;}', 'FrameworkHelper.ts');
+    const file = fixture("import * as ns from './FrameworkHelper';const value=ns.wrap(input);", 'FrameworkEntry.ts');
+    const call = state.source.resolver.parse(file).variables.get('value');
+    assert.throws(() => state.module.frameworkExportEffects(file, call.expression), /actual named import AST/u);
+});
+test('framework continuation: provided unknown marks remains rejected after framework source closure expansion', () =>
+{
+    const state = emptyFixture({input: ':marks="unknown"', ownerExtra: "import {toRefs} from 'vue';const forwarded=toRefs(props);"});
+    assert.throws(() => state.module.emptyComputedCall(state.file, state.call, state.componentCall), /escaped collection binding/u);
+});
+test('framework continuation: ordinary callback rest parameters remain rejected', () =>
+{
+    const state = local('const callback=(item,...rest)=>item;const children=[];');
+    assert.throws(() => state.module.callbackEffects(state.file, state.record.variables.get('callback')), /unknown callback parameter/u);
+});
+test('framework continuation: alias rebinding does not manufacture a write through its borrowed object', () =>
+{
+    const state = local('const callback=item=>{let alias=item;alias=other;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.writes.map((entry) => entry.path), [['alias']]);
+    assert.ok(result.writes[0].originBindings.length);
+});
+test('framework continuation: a string annotation cannot close implicit argument conversion effects', () =>
+{
+    const state = frameworkFixture('export function wrap(value:string){return value+1;}');
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.ok(result.openEffects.some((entry) => entry.required.includes('primitive conversion')));
+    assert.equal(result.readonly, false);
+    assert.equal(result.closureComplete, false);
+});
+test('framework continuation: constructor field overwrite retains only a possible authored source origin', () =>
+{
+    const state = frameworkFixture('export function wrap(value){return new Carrier(value);}class Carrier{constructor(value){this.target=value;this.target=unknown;}set value(next){this.target.marks=next;}}');
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    const stored = result.classes[0].fieldBindings[0];
+    assert.equal(stored.overwrittenOrConditional, true);
+    assert.equal(stored.possibleSourceAssignment, true);
+    assert.equal(result.classes[0].deferredWrites[0].constructorBindingProven, false);
+    assert.equal(result.readonly, false);
+});
+
+test('re-review: comma array escape is rejected', () => reject("const children=['a'];foreign((0,children));"));
+test('re-review: comma parameter escape is not readonly', () => assert.equal(reviewReadonly('function owner(props){foreign((0,props));}').readonly, false));
+test('re-review: short-circuit class write is rejected or modeled', () =>
+{
+    const state = reviewPartition((value) => value.replace("decorate(root[0],'first');", "extra&&decorate(root[0],'conditional');"));
+    let result;
+    try
+    {
+        result = reviewPlan(state);
+    }
+    catch (error)
+    {
+        assert.match(error.message, /composition-collection-source|control-legality/u); return;
+    }
+    assert.ok(result.outputs.some((branch) => branch.mutations.some((write) => write.binding.classValue === 'conditional')));
+});
+test('re-review: reassigned callback alias retains actual parameter write', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;alias=item;alias.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'item.value'));
+});
+test('re-review boundary: a comma left operand does not supply the returned array identity', () =>
+{
+    const result = collection("const children=['a'];foreign((children,[]));");
+    assert.deepEqual(result.outputs.map((entry) => entry.node.text), ['a']);
+});
+test('re-review boundary: a conditional alias assignment retains both actual parameter origins', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;if(flag)alias=item;alias.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'item.value'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'other.value'));
+});
+test('re-review boundary: a later const alias reads the updated source binding', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;alias=item;const next=alias;next.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'item.value'));
+    assert.ok(!result.writes.some((write) => write.path?.join('.') === 'other.value'));
+});
+test('re-review boundary: a class write in an initializer cannot disappear from a successful partition plan', () =>
+{
+    assert.throws(() => reviewPlan(reviewPartition((value) => value.replace("decorate(root[0],'first');", "const ignored=decorate(root[0],'nested');"))), /unsupported nested partition operation/u);
+});
+test('vue continuation: actual Tabs chain consumes the original public Vue binding interface', () =>
+{
+    const state = actualPanes();
+    assert.equal(typeof state.source.vueBinding, 'function');
+    const result = state.module.paneSourceChain(state.chain);
+    assert.equal(result.frameworkEdges.length, 3);
+    assert.equal(result.renderProven, false);
+    assert.ok(result.navigationCall);
+});
+test('vue continuation: copied provider call AST cannot gain framework identity', () =>
+{
+    const state = actualPanes();
+    assert.throws(() => state.module.paneSourceChain({...state.chain,providerCall:{...state.chain.providerCall}}), /unowned source proof node/u);
+});
+test('vue continuation: a foreign parse record cannot gain original Vue binding identity', () =>
+{
+    const state = actualPanes();
+    const record = state.source.resolver.parse(state.chain.ownerFile);
+    assert.throws(() => state.source.vueBinding({...record}, state.chain.providerCall.expression, 'provide'), /foreign Vue binding record/u);
+});
+test('re-review boundary: nested assignment RHS completes before the outer alias receives its value', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=item;alias=(alias=item,other);alias.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'other.value'));
+    assert.ok(!result.writes.some((write) => write.path?.join('.') === 'item.value'));
+});
+test('re-review boundary: reassigned parameter member follows its current actual source origin', () =>
+{
+    const state = local('const callback=(item,other)=>{item=other;item.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'other.value'));
 });

@@ -50,6 +50,10 @@ export function createCompositionCollectionSource(source)
     function path(node)
     {
         node = unwrap(node);
+        if (node?.kind === ts.SyntaxKind.ThisKeyword)
+        {
+            return ['this'];
+        }
         if (node && ts.isIdentifier(node))
         {
             return [node.text];
@@ -66,6 +70,47 @@ export function createCompositionCollectionSource(source)
             return base && [...base, key && (ts.isStringLiteral(key) || ts.isNumericLiteral(key)) ? key.text : '*'];
         }
         return null;
+    }
+    // Follow an actual value through transparent syntax and value-carrying
+    // alternatives. Keep its original member path: a conditional is not itself
+    // a member expression, but still carries that identity to its consumer.
+    function valueUse(node)
+    {
+        let top = node;
+        let parts = path(node);
+        let indirect = false;
+        while (top.parent)
+        {
+            const parent = top.parent;
+            if ((ts.isPropertyAccessExpression(parent) || ts.isElementAccessExpression(parent)) && parent.expression === top)
+            {
+                parts = path(parent) ?? parts;
+            }
+            else if (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent)
+                || ts.isNonNullExpression(parent) || ts.isSatisfiesExpression(parent))
+            {
+                // All these nodes preserve the value; annotations add no facts.
+            }
+            else if (ts.isConditionalExpression(parent) && parent.condition !== top
+                || ts.isBinaryExpression(parent) && [ts.SyntaxKind.AmpersandAmpersandToken,
+                    ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(parent.operatorToken.kind)
+                || ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.CommaToken && parent.right === top
+                || ts.isCommaListExpression(parent) && parent.elements.at(-1) === top
+                || ts.isSpreadElement(parent) || ts.isAwaitExpression(parent))
+            {
+                indirect = true;
+            }
+            else
+            {
+                break;
+            }
+            top = parent;
+        }
+        return { top, parts, indirect, use: top.parent };
+    }
+    function effectRegions(fn)
+    {
+        return [...(fn.parameters ?? []).flatMap((parameter) => parameter.initializer ? [parameter.initializer] : []), fn.body ?? fn];
     }
     function declaration(file, name, use)
     {
@@ -120,6 +165,10 @@ export function createCompositionCollectionSource(source)
             {
                 conditions.unshift(condition(file, parent.expression, child === parent.thenStatement ? 'if' : 'else'));
             }
+            else if (ts.isIterationStatement(parent, false) || ts.isSwitchStatement(parent) || ts.isTryStatement(parent))
+            {
+                fail(`unsupported collection multiplicity/control flow ${file}:${node.getStart()}`);
+            }
             else if (ts.isFunctionLike(parent))
             {
                 fail(`deferred collection write ${file}:${node.getStart()}`);
@@ -146,70 +195,235 @@ export function createCompositionCollectionSource(source)
         return { ...target, importSteps: [step(file, expression), step(target.file, target.fn)] };
     }
     /** Full callback effects, including nested callbacks; annotations grant nothing. */
-    function callbackEffects(file, fn)
+    function callbackEffects(file, fn, openParameters = false)
     {
         step(file, fn);
         const reads = [];
+        const freeReads = [];
         const writes = [];
         const escapes = [];
         const calls = [];
         const bindings = new Set();
         const aliases = new Map();
+        const aliasBindings = new Map();
         const parameters = fn.parameters.map((parameter) =>
         {
-            if (!ts.isIdentifier(parameter.name) || parameter.initializer || parameter.dotDotDotToken)
+            if (!ts.isIdentifier(parameter.name) || !openParameters && (parameter.initializer || parameter.dotDotDotToken))
             {
                 fail(`unknown callback parameter ${file}:${parameter.getStart()}`);
             }
             bindings.add(parameter.name.text);
             return parameter.name.text;
         });
-        const rooted = (node) =>
+        const localDeclarations = [...fn.parameters];
+        effectRegions(fn).forEach((region) => walk(region, (node) =>
         {
-            const parts = path(node);
-            if (!parts)
+            if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && ts.isIdentifier(node.name))
+            {
+                localDeclarations.push(node);
+            }
+        }));
+        function lexicalBinding(identifier)
+        {
+            if (!identifier)
             {
                 return null;
             }
-            return aliases.has(parts[0]) ? [...aliases.get(parts[0]), ...parts.slice(1)] : parts;
-        };
-        walk(fn.body, (node) =>
-        {
-            if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name))
+            const scopes = [];
+            for (let parent = identifier; parent; parent = parent.parent)
             {
-                bindings.add(node.name.text);
-                const origin = rooted(node.initializer);
-                if (origin)
+                scopes.push(parent);
+            }
+            const candidates = localDeclarations.filter((entry) => entry.name.text === identifier.text).map((entry) =>
+            {
+                let scope = entry.parent;
+                if (ts.isVariableDeclaration(entry))
                 {
-                    aliases.set(node.name.text, origin);
+                    while (scope && !(entry.parent.flags & ts.NodeFlags.BlockScoped ? ts.isBlock(scope) : ts.isFunctionLike(scope)))
+                    {
+                        scope = scope.parent;
+                    }
+                }
+                return { entry, rank: scopes.indexOf(scope) };
+            }).filter((entry) => entry.rank >= 0).sort((a, b) => a.rank - b.rank);
+            if (candidates.length > 1 && candidates[0].rank === candidates[1].rank)
+            {
+                fail(`ambiguous callback lexical binding ${file}#${identifier.text}`);
+            }
+            return candidates[0]?.entry ?? null;
+        }
+        function rootIdentifier(node)
+        {
+            node = unwrap(node);
+            while (node && (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)))
+            {
+                node = unwrap(node.expression);
+            }
+            return node && ts.isIdentifier(node) ? node : null;
+        }
+        function origins(node)
+        {
+            node = unwrap(node);
+            if (!node)
+            {
+                return [];
+            }
+            const parts = path(node);
+            if (parts)
+            {
+                const binding = lexicalBinding(rootIdentifier(node));
+                return aliases.has(binding) ? aliases.get(binding).map((origin) => [...origin, ...parts.slice(1)]) : [parts];
+            }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.CommaToken)
+            {
+                return origins(node.right);
+            }
+            if (ts.isConditionalExpression(node))
+            {
+                return [...origins(node.whenTrue), ...origins(node.whenFalse)];
+            }
+            if (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken,
+                ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind))
+            {
+                return [...origins(node.left), ...origins(node.right)];
+            }
+            if (ts.isSpreadElement(node) || ts.isSpreadAssignment(node) || ts.isAwaitExpression(node))
+            {
+                return origins(node.expression);
+            }
+            if (ts.isArrayLiteralExpression(node))
+            {
+                return node.elements.flatMap(origins);
+            }
+            if (ts.isObjectLiteralExpression(node))
+            {
+                return node.properties.flatMap((entry) => ts.isShorthandPropertyAssignment(entry)
+                    ? origins(entry.name) : ts.isPropertyAssignment(entry) ? origins(entry.initializer) : ts.isSpreadAssignment(entry) ? origins(entry.expression) : []);
+            }
+            return [];
+        }
+        const rooted = (node) => origins(node)[0] ?? null;
+        function originBindings(node)
+        {
+            node = unwrap(node);
+            if (!node)
+            {
+                return [];
+            }
+            const root = rootIdentifier(node);
+            if (root)
+            {
+                const binding = lexicalBinding(root);
+                return aliasBindings.get(binding) ?? (binding ? [binding] : []);
+            }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.CommaToken)
+            {
+                return originBindings(node.right);
+            }
+            if (ts.isConditionalExpression(node))
+            {
+                return [...originBindings(node.whenTrue), ...originBindings(node.whenFalse)];
+            }
+            if (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken,
+                ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind))
+            {
+                return [...originBindings(node.left), ...originBindings(node.right)];
+            }
+            if (ts.isSpreadElement(node) || ts.isSpreadAssignment(node) || ts.isAwaitExpression(node))
+            {
+                return originBindings(node.expression);
+            }
+            if (ts.isArrayLiteralExpression(node))
+            {
+                return node.elements.flatMap(originBindings);
+            }
+            if (ts.isObjectLiteralExpression(node))
+            {
+                return node.properties.flatMap((entry) => ts.isShorthandPropertyAssignment(entry)
+                    ? originBindings(entry.name) : ts.isPropertyAssignment(entry) ? originBindings(entry.initializer) : ts.isSpreadAssignment(entry) ? originBindings(entry.expression) : []);
+            }
+            return [];
+        }
+        localDeclarations.filter((node) => ts.isVariableDeclaration(node)).forEach((node) => bindings.add(node.name.text));
+        function updateAlias(binding, value, guarded = false)
+        {
+            const next = origins(value);
+            const nextBindings = originBindings(value);
+            if (guarded)
+            {
+                const possible = [...(aliases.get(binding) ?? [[binding.name.text]]), ...(next.length ? next : [[binding.name.text]])];
+                aliases.set(binding, [...new Map(possible.map((parts) => [parts.join('.'), parts])).values()]);
+                aliasBindings.set(binding, [...new Set([...(aliasBindings.get(binding) ?? []), ...nextBindings])]);
+            }
+            else if (next.length)
+            {
+                aliases.set(binding, next);
+                aliasBindings.set(binding, nextBindings);
+            }
+            else
+            {
+                aliases.delete(binding);
+                aliasBindings.delete(binding);
+            }
+        }
+        function guardedAssignment(node, binding)
+        {
+            for (let owner = node.parent; owner && owner !== binding.parent; owner = owner.parent)
+            {
+                if (ts.isIfStatement(owner) || ts.isConditionalExpression(owner) || ts.isIterationStatement(owner, false)
+                    || ts.isSwitchStatement(owner) || ts.isTryStatement(owner) || ts.isFunctionLike(owner) && owner !== fn
+                    || ts.isBinaryExpression(owner) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken,
+                        ts.SyntaxKind.QuestionQuestionToken].includes(owner.operatorToken.kind))
+                {
+                    return true;
+                }
+                if (owner === fn)
+                {
+                    break;
                 }
             }
-        });
-        const entry = (node, target, extra = {}) => ({ ...step(file, node), path: target, ...extra });
-        walk(fn.body, (node) =>
+            return false;
+        }
+        const entry = (node, target, extra = {}, originNode = node) =>
+        {
+            const root = rootIdentifier(originNode);
+            const binding = root && lexicalBinding(root);
+            return { ...step(file, node), path: target, binding: binding ? step(file, binding) : null,
+                originBindings: [...new Set(originBindings(originNode))].map((owner) => step(file, owner)), ...extra };
+        };
+        const writeOrigins = (node) => ts.isIdentifier(unwrap(node)) ? [[unwrap(node).text]] : origins(node);
+        function inspectEffects(node)
         {
             if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
                 && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
             {
-                writes.push(entry(node, rooted(node.left), { operator: node.operatorToken.getText(), value: step(file, node.right) }));
+                for (const target of writeOrigins(node.left).length ? writeOrigins(node.left) : [null])
+                {
+                    writes.push(entry(node, target, { operator: node.operatorToken.getText(), value: step(file, node.right) }, node.left));
+                }
             }
             if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
                 && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator))
             {
-                writes.push(entry(node, rooted(node.operand), { operator: ts.tokenToString(node.operator) }));
+                for (const target of writeOrigins(node.operand).length ? writeOrigins(node.operand) : [null])
+                {
+                    writes.push(entry(node, target, { operator: ts.tokenToString(node.operator) }, node.operand));
+                }
             }
             if (ts.isDeleteExpression(node))
             {
-                writes.push(entry(node, rooted(node.expression), { operator: 'delete' }));
+                for (const target of writeOrigins(node.expression).length ? writeOrigins(node.expression) : [null])
+                {
+                    writes.push(entry(node, target, { operator: 'delete' }, node.expression));
+                }
             }
             if (ts.isCallExpression(node) || ts.isNewExpression(node))
             {
                 calls.push(entry(node, rooted(node.expression), { expression: node.expression.getText(),
-                    arguments: (node.arguments ?? []).map((argument) => ({ ...step(file, argument), path: rooted(argument), expression: argument.getText() })) }));
+                    arguments: (node.arguments ?? []).map((argument) => ({ ...step(file, argument), path: rooted(argument), paths: origins(argument), expression: argument.getText() })) }));
                 for (const argument of node.arguments ?? [])
                 {
-                    const target = rooted(argument);
-                    if (target)
+                    for (const target of origins(argument))
                     {
                         escapes.push(entry(argument, target, { kind: 'call-argument' }));
                     }
@@ -230,9 +444,26 @@ export function createCompositionCollectionSource(source)
             {
                 reads.push(entry(node, rooted(node)));
             }
-            if (ts.isReturnStatement(node) && node.expression && rooted(node.expression))
+            if (ts.isIdentifier(node) && !bindings.has(node.text) && node.parent.name !== node
+                && !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)
+                && node.parent.tagName !== node)
             {
-                escapes.push(entry(node.expression, rooted(node.expression), { kind: 'return' }));
+                let typeOnly = false;
+                for (let owner = node.parent; owner && owner !== fn.body; owner = owner.parent)
+                {
+                    typeOnly ||= ts.isTypeNode(owner) || ts.isTypeAliasDeclaration(owner) || ts.isInterfaceDeclaration(owner);
+                }
+                if (!typeOnly)
+                {
+                    freeReads.push(entry(node, rooted(node)));
+                }
+            }
+            if (ts.isReturnStatement(node) && node.expression)
+            {
+                for (const target of origins(node.expression))
+                {
+                    escapes.push(entry(node.expression, target, { kind: 'return' }));
+                }
             }
             if (ts.isArrowFunction(node) || ts.isFunctionExpression(node))
             {
@@ -241,7 +472,10 @@ export function createCompositionCollectionSource(source)
                     let captured = false;
                     walk(node.body, (child) =>
                     {
-                        captured ||= rooted(child)?.[0] === parameter;
+                        if (ts.isIdentifier(child) && !(ts.isPropertyAccessExpression(child.parent) && child.parent.name === child))
+                        {
+                            captured ||= originBindings(child).includes(fn.parameters.find((entry) => entry.name.text === parameter));
+                        }
                     });
                     if (captured)
                     {
@@ -249,8 +483,28 @@ export function createCompositionCollectionSource(source)
                     }
                 }
             }
-        });
-        return proof({ parameters, reads, writes, escapes, calls }, [step(file, fn)]);
+            ts.forEachChild(node, inspectEffects);
+            // A binding receives the RHS value only after all RHS effects.
+            // This keeps nested assignments/comma carriers in authored order.
+            if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name))
+            {
+                updateAlias(node, node.initializer);
+            }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
+            {
+                const assigned = unwrap(node.left);
+                const binding = ts.isIdentifier(assigned) && lexicalBinding(assigned);
+                if (binding && (ts.isVariableDeclaration(binding) || ts.isParameter(binding)))
+                {
+                    updateAlias(binding, node.operatorToken.kind === ts.SyntaxKind.EqualsToken ? node.right : null, guardedAssignment(node, binding));
+                }
+            }
+        }
+        effectRegions(fn).forEach(inspectEffects);
+        return proof({ parameters, parameterSources: fn.parameters.map((parameter) => ({ source: step(file, parameter),
+            rest: !!parameter.dotDotDotToken, initializer: parameter.initializer ? step(file, parameter.initializer) : null })),
+        reads, freeReads, writes, escapes, calls }, [step(file, fn)]);
     }
     function readonlyReferences(file, name, allowed = new Set())
     {
@@ -270,13 +524,7 @@ export function createCompositionCollectionSource(source)
             {
                 return;
             }
-            let top = node;
-            while (top.parent && ((ts.isPropertyAccessExpression(top.parent) || ts.isElementAccessExpression(top.parent))
-                && top.parent.expression === top || ts.isNonNullExpression(top.parent) || ts.isAsExpression(top.parent)))
-            {
-                top = top.parent;
-            }
-            const use = top.parent;
+            const { top, use } = valueUse(node);
             if (ts.isBinaryExpression(use) && use.left === top && use.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
                 && use.operatorToken.kind <= ts.SyntaxKind.LastAssignment || ts.isDeleteExpression(use)
                 || (ts.isPrefixUnaryExpression(use) || ts.isPostfixUnaryExpression(use))
@@ -621,6 +869,158 @@ export function createCompositionCollectionSource(source)
             renderProven: false }, steps);
         return { ...target, ...result, effects: functions[0].effects };
     }
+    /** Consume the original public export API; dependency lists grant no purity. */
+    function frameworkExportEffects(file, callee)
+    {
+        step(file, callee);
+        const target = resolver.resolveFrameworkExport(file, callee);
+        if (target.dependencies.length > 64)
+        {
+            fail(`framework dependency source closure exceeds 64 ${file}`);
+        }
+        const steps = [step(file, callee), step(target.file, target.fn)];
+        const importEdges = target.edges.map((edge) =>
+        {
+            const original = step(edge.file, edge.originalImportOrExportAST);
+            steps.push(original);
+            return { file: edge.file, source: original, resolvedFile: edge.resolvedFile, exportedName: edge.exportedName };
+        });
+        const functions = [];
+        const classes = [];
+        const openEffects = [];
+        function sourceContexts(ownerFile, node, stop)
+        {
+            const contexts = [];
+            for (let child = node, parent = node.parent; parent && parent !== stop; child = parent, parent = parent.parent)
+            {
+                if (ts.isIfStatement(parent))
+                {
+                    contexts.unshift(condition(ownerFile, parent.expression, child === parent.thenStatement ? 'if' : 'else'));
+                }
+                else if (ts.isIterationStatement(parent, false) || ts.isSwitchStatement(parent) || ts.isTryStatement(parent))
+                {
+                    contexts.unshift({ kind: ts.SyntaxKind[parent.kind], source: step(ownerFile, parent), multiplicityProven: false });
+                }
+            }
+            return contexts;
+        }
+        function implicitEffects(ownerFile, fn, definition)
+        {
+            effectRegions(fn).forEach((region) => walk(region, (node) =>
+            {
+                if (ts.isBinaryExpression(node) && ![ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken,
+                    ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken,
+                    ts.SyntaxKind.EqualsToken].includes(node.operatorToken.kind) && (!scalar(node.left) || !scalar(node.right))
+                    || ts.isTemplateExpression(node) && node.templateSpans.some((span) => !scalar(span.expression))
+                    || ts.isSpreadElement(node) || ts.isSpreadAssignment(node) || ts.isForInStatement(node) || ts.isForOfStatement(node))
+                {
+                    openEffects.push({ definition, source: step(ownerFile, node), contexts: sourceContexts(ownerFile, node, fn.body),
+                        required: 'actual primitive conversion, property enumeration or iterator effects; annotations grant no runtime values' });
+                }
+            }));
+        }
+        for (const dependency of target.dependencies)
+        {
+            const definition = dependency.fn ?? dependency.classDeclaration;
+            const owned = step(dependency.file, definition);
+            steps.push(owned);
+            if (dependency.fn)
+            {
+                const effects = callbackEffects(dependency.file, dependency.fn, true);
+                functions.push({ file: dependency.file, definition: owned, effects });
+                implicitEffects(dependency.file, dependency.fn, owned);
+                openEffects.push(...effects.freeReads.map((read) => ({ definition: owned, read,
+                    required: 'actual captured binding value/effects; free identifier text grants no primitive or purity fact' })));
+                // Direct call/new definitions supplied by the canonical API do
+                // not close the body, member dispatch or native call effects.
+                openEffects.push(...effects.calls.map((call) => ({ definition: owned, call,
+                    required: 'actual argument/receiver effect closure; dependency enumeration alone grants no purity' })));
+                continue;
+            }
+            const constructors = [];
+            const members = [];
+            const fields = [];
+            const fieldBindings = [];
+            for (const member of definition.members)
+            {
+                const memberSource = step(dependency.file, member);
+                if (ts.isConstructorDeclaration(member))
+                {
+                    const effects = callbackEffects(dependency.file, member, true);
+                    constructors.push({ source: memberSource, effects });
+                    walk(member.body, (node) =>
+                    {
+                        if (!ts.isBinaryExpression(node) || node.operatorToken.kind !== ts.SyntaxKind.EqualsToken
+                            || path(node.left)?.[0] !== 'this' || path(node.left).length !== 2 || !ts.isIdentifier(unwrap(node.right)))
+                        {
+                            return;
+                        }
+                        const parameterIndex = member.parameters.findIndex((parameter) => ts.isIdentifier(parameter.name)
+                            && parameter.name.text === unwrap(node.right).text);
+                        if (parameterIndex >= 0)
+                        {
+                            fieldBindings.push({ field: path(node.left)[1], parameterIndex,
+                                parameter: step(dependency.file, member.parameters[parameterIndex]), assignment: step(dependency.file, node),
+                                contexts: sourceContexts(dependency.file, node, member.body), possibleSourceAssignment: true });
+                        }
+                    });
+                }
+                else if (ts.isGetAccessorDeclaration(member) || ts.isSetAccessorDeclaration(member) || ts.isMethodDeclaration(member))
+                {
+                    if (!member.body)
+                    {
+                        openEffects.push({ definition: owned, source: memberSource, required: 'actual member implementation body' });
+                        continue;
+                    }
+                    const effects = callbackEffects(dependency.file, member, true);
+                    members.push({ source: memberSource, name: member.name.getText(), kind: ts.SyntaxKind[member.kind], effects });
+                }
+                else
+                {
+                    fields.push({ source: memberSource, initializer: member.initializer ? step(dependency.file, member.initializer) : null });
+                    if (member.initializer)
+                    {
+                        openEffects.push({ definition: owned, source: memberSource, required: 'class field initialization effects remain unproved' });
+                    }
+                }
+            }
+            for (const binding of fieldBindings)
+            {
+                binding.overwrittenOrConditional = !!binding.contexts.length || constructors.some((constructor) =>
+                    constructor.effects.writes.filter((write) => write.path?.join('.') === `this.${binding.field}`).length > 1);
+            }
+            const deferredWrites = members.flatMap((member) => member.effects.writes.flatMap((write) =>
+                fieldBindings.filter((binding) => write.path?.[0] === 'this' && write.path?.[1] === binding.field)
+                    .map((binding) => ({ member: member.source, kind: member.kind, write, storedInput: binding,
+                        constructorParameterPath: [binding.parameterIndex, ...write.path.slice(2)], possibleSourceOrigin: true,
+                        constructorBindingProven: false,
+                        requiredBinding: 'actual new-expression-to-class constructor binding, returned carrier escape and later member dispatch; no runtime item identity inferred' }))));
+            for (const member of definition.members)
+            {
+                if (ts.isFunctionLike(member) && member.body)
+                {
+                    implicitEffects(dependency.file, member, owned);
+                }
+            }
+            for (const member of [...constructors, ...members])
+            {
+                openEffects.push(...member.effects.calls.map((call) => ({ definition: owned, member: member.source, call,
+                    required: 'actual constructor/member argument and receiver effects remain unproved' })));
+            }
+            classes.push({ file: dependency.file, definition: owned, constructors, fields, members, fieldBindings, deferredWrites });
+        }
+        const unresolvedDependencies = target.unresolvedDependencies.map((entry) => ({ ...entry }));
+        const closureComplete = !openEffects.length && !unresolvedDependencies.length;
+        const readonly = closureComplete && functions.every((entry) => !entry.effects.writes.length && !entry.effects.escapes.length)
+            && classes.every((entry) => !entry.deferredWrites.length && [...entry.constructors, ...entry.members]
+                .every((member) => !member.effects.writes.length && !member.effects.escapes.length));
+        const result = proof({ kind: 'framework-export-effect-closure', exportIdentity: target.exportIdentity,
+            importEdges, functions, classes, unresolvedDependencies, openEffects, dependencyScope: target.dependencyScope,
+            closureComplete, readonly, qualificationEligible: false, renderProven: false }, steps);
+        // The original function AST stays outside serializable proof identities.
+        return { ...result, file: target.file, fn: target.fn };
+    }
+    const activeFrameworkParameters = new Set();
     /** Parameter-relative closure: other arguments/effects never imply purity. */
     function boundFunction(file, callee, bindings)
     {
@@ -657,6 +1057,7 @@ export function createCompositionCollectionSource(source)
         const functions = [];
         const edges = [];
         const unresolved = [];
+        const frameworkClosures = [];
         const steps = [];
         function inspect(ownerFile, owner, parameterIndex)
         {
@@ -681,7 +1082,7 @@ export function createCompositionCollectionSource(source)
             const writes = [];
             const escapes = [];
             const relevant = (parts) => parts?.[0] === root && (!property || parts.length === 1 || parts[1] === property || parts[1] === '*');
-            walk(owner.body ?? owner, (node) =>
+            effectRegions(owner).forEach((region) => walk(region, (node) =>
             {
                 if ((ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isBindingElement(node))
                     && ts.isIdentifier(node.name) && node.name.text === root && node !== seed)
@@ -693,19 +1094,11 @@ export function createCompositionCollectionSource(source)
                 {
                     return;
                 }
-                let top = node;
-                while (top.parent && ((ts.isPropertyAccessExpression(top.parent) || ts.isElementAccessExpression(top.parent))
-                    && top.parent.expression === top || ts.isNonNullExpression(top.parent) || ts.isAsExpression(top.parent)
-                    || ts.isParenthesizedExpression(top.parent)))
-                {
-                    top = top.parent;
-                }
-                const parts = path(top);
+                const { top, parts, use, indirect } = valueUse(node);
                 if (!relevant(parts))
                 {
                     return;
                 }
-                const use = top.parent;
                 const entry = { ...step(ownerFile, top), path: parts };
                 reads.push(entry);
                 if (ts.isBinaryExpression(use) && use.left === top && use.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
@@ -716,7 +1109,7 @@ export function createCompositionCollectionSource(source)
                     writes.push({ ...entry, operation: step(ownerFile, use) });
                     return;
                 }
-                if (ts.isCallExpression(use) && use.arguments.includes(top) && parts.length === 1)
+                if (ts.isCallExpression(use) && use.arguments.includes(top) && parts.length === 1 && !indirect)
                 {
                     try
                     {
@@ -728,8 +1121,50 @@ export function createCompositionCollectionSource(source)
                     }
                     catch (error)
                     {
-                        unresolved.push({ ...entry, call: step(ownerFile, use), reason: error.message,
-                            required: 'original resolver export/function AST and parameter effect closure' });
+                        let framework = null;
+                        const callee = unwrap(use.expression);
+                        if (ts.isIdentifier(callee) && resolver.parse(ownerFile).imports.has(callee.text)
+                            && typeof resolver.resolveFrameworkExport === 'function')
+                        {
+                            try
+                            {
+                                const { fn: frameworkAST, file: frameworkFile, ...effects } = frameworkExportEffects(ownerFile, callee);
+                                const argumentIndex = use.arguments.indexOf(top);
+                                const key = controlDigest({ definition: step(frameworkFile, frameworkAST), argumentIndex, property });
+                                if (activeFrameworkParameters.has(key))
+                                {
+                                    fail('recursive framework parameter source closure');
+                                }
+                                activeFrameworkParameters.add(key);
+                                let parameterEffects;
+                                try
+                                {
+                                    parameterEffects = parameterClosure(frameworkFile, frameworkAST, argumentIndex, property, bindings);
+                                }
+                                finally
+                                {
+                                    activeFrameworkParameters.delete(key);
+                                }
+                                const closure = { call: step(ownerFile, use), argument: entry, parameterIndex: argumentIndex,
+                                    callee: step(frameworkFile, frameworkAST), effects, parameterEffects };
+                                frameworkClosures.push(closure);
+                                framework = { effects: effects.proofDigest, parameterEffects: parameterEffects.proofDigest,
+                                    readonly: effects.readonly && parameterEffects.readonly };
+                                steps.push(...effects.steps, ...parameterEffects.steps);
+                                if (framework.readonly)
+                                {
+                                    edges.push({ call: closure.call, argument: entry, parameterIndex: argumentIndex, callee: closure.callee,
+                                        framework: framework.effects });
+                                    return;
+                                }
+                            }
+                            catch (frameworkError)
+                            {
+                                framework = { reason: frameworkError.message };
+                            }
+                        }
+                        unresolved.push({ ...entry, call: step(ownerFile, use), reason: error.message, framework,
+                            required: 'original resolver export/function AST and parameter effect closure; native, indirect and deferred member effects remain explicit' });
                     }
                     return;
                 }
@@ -745,12 +1180,12 @@ export function createCompositionCollectionSource(source)
                 {
                     escapes.push({ ...entry, operation: step(ownerFile, use), kind: 'identity-escape' });
                 }
-            });
+            }));
             steps.push(definition);
             functions.push({ file: ownerFile, definition, parameterIndex, parameter: root, reads, writes, escapes });
         }
         inspect(file, fn, index);
-        return proof({ kind: seed ? 'binding-source-closure' : 'parameter-source-closure', property, functions, edges, unresolved,
+        return proof({ kind: seed ? 'binding-source-closure' : 'parameter-source-closure', property, functions, edges, unresolved, frameworkClosures,
             readonly: !unresolved.length && functions.every((entry) => !entry.writes.length && !entry.escapes.length),
             renderProven: false }, steps);
     }
@@ -846,7 +1281,7 @@ export function createCompositionCollectionSource(source)
         }
         return proof({ kind: 'closed-call-strings', property, ...input, branches, renderProven: false }, steps);
     }
-    function tableEntries(file, expression)
+    function tableEntries(file, expression, functionBindings = new Map())
     {
         expression = unwrap(expression);
         if (!ts.isIdentifier(expression))
@@ -874,32 +1309,160 @@ export function createCompositionCollectionSource(source)
             }
             entries.set(key, entry.initializer);
         }
-        // Root identity must stay local; projecting an entry is not a proof
-        // that the entry/VNode itself is immutable.
-        walk(found.parent.parent.parent, (node) =>
+        const projectionSteps = [];
+        const sinkEffects = [];
+        const checkedArrays = new Set();
+        function arraySink(receiver)
         {
-            if (ts.isIdentifier(node) && node.text === expression.text && node !== found.name)
+            if (!ts.isIdentifier(receiver))
             {
-                const parent = node.parent;
-                if ((ts.isPropertyAccessExpression(parent) || ts.isElementAccessExpression(parent)) && parent.expression === node)
+                fail(`opaque keyed collection sink ${file}`);
+            }
+            const array = declaration(file, receiver.text, receiver);
+            if (!ts.isVariableDeclaration(array) || !(array.parent.flags & ts.NodeFlags.Const)
+                || !ts.isArrayLiteralExpression(unwrap(array.initializer)) || unwrap(array.initializer).elements.length)
+            {
+                fail(`nonfresh keyed collection sink ${file}`);
+            }
+            if (checkedArrays.has(array))
+            {
+                return;
+            }
+            checkedArrays.add(array);
+            resolver.assertImmutableBinding(file, receiver.text);
+            const allowed = new Set([array.name]);
+            walk(array.parent.parent.parent, (node) =>
+            {
+                if (!ts.isIdentifier(node) || node.text !== receiver.text || node === array.name
+                    || ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)
                 {
-                    let top = parent;
-                    while (ts.isPropertyAccessExpression(top.parent) && top.parent.expression === top)
-                    {
-                        top = top.parent;
-                    }
-                    const use = top.parent;
-                    if (ts.isBinaryExpression(use) && use.left === top && use.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
-                        && use.operatorToken.kind <= ts.SyntaxKind.LastAssignment || ts.isDeleteExpression(use))
-                    {
-                        fail(`mutated keyed collection table ${file}`);
-                    }
                     return;
                 }
+                const { top, use, indirect } = valueUse(node);
+                if (indirect)
+                {
+                    fail(`escaped keyed collection sink ${file}`);
+                }
+                if (ts.isCallExpression(use) && use.expression === top && ts.isPropertyAccessExpression(unwrap(top))
+                    && unwrap(top).name.text === 'push' && use.arguments.length && !use.arguments.some(ts.isSpreadElement))
+                {
+                    let enclosingFunction = use.parent;
+                    while (enclosingFunction && enclosingFunction !== array.parent.parent.parent && !ts.isFunctionLike(enclosingFunction))
+                    {
+                        enclosingFunction = enclosingFunction.parent;
+                    }
+                    if (enclosingFunction && ts.isFunctionLike(enclosingFunction))
+                    {
+                        const invoke = enclosingFunction.parent;
+                        if (!ts.isArrowFunction(enclosingFunction) || !ts.isCallExpression(invoke)
+                            || invoke.arguments.length !== 1 || invoke.arguments[0] !== enclosingFunction
+                            || !ts.isPropertyAccessExpression(invoke.expression) || invoke.expression.name.text !== 'forEach')
+                        {
+                            fail(`escaped keyed collection callback ${file}`);
+                        }
+                        // Record the actual deferred effects. This does not prove
+                        // iteration count or grant purity to a runtime receiver.
+                        sinkEffects.push(callbackEffects(file, enclosingFunction));
+                        enclosingConditions(file, use, enclosingFunction.body);
+                    }
+                    else
+                    {
+                        enclosingConditions(file, use, array.parent.parent.parent);
+                    }
+                    allowed.add(node);
+                    return;
+                }
+                if (ts.isCallExpression(use) && use.arguments[2] === top && top === node)
+                {
+                    constructorOrigin(file, use);
+                    allowed.add(node);
+                    return;
+                }
+                if (ts.isElementAccessExpression(unwrap(top)) && ts.isCallExpression(use) && use.arguments[0] === top)
+                {
+                    const target = boundFunction(file, use.expression, functionBindings);
+                    classMutation(target.file, target.fn);
+                    allowed.add(node);
+                    return;
+                }
+                if (path(top)?.join('.') === `${receiver.text}.length`)
+                {
+                    return;
+                }
+                fail(`escaped keyed collection sink ${file}`);
+            });
+            readonlyReferences(file, receiver.text, allowed);
+        }
+        // Every projection must end at a modeled collection/constructor edge;
+        // merely seeing table.member does not close the supplier's identity.
+        walk(found.parent.parent.parent, (node) =>
+        {
+            if (!ts.isIdentifier(node) || node.text !== expression.text || node === found.name
+                || ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)
+            {
+                return;
+            }
+            const { top, use, indirect } = valueUse(node);
+            const member = node.parent;
+            const carrier = unwrap(top);
+            let nullishCarrier = false;
+            if (indirect && ts.isBinaryExpression(carrier) && carrier.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+                && unwrap(carrier.left) === member)
+            {
+                const alternative = unwrap(carrier.right);
+                let unshadowedUndefined = ts.isIdentifier(alternative) && alternative.text === 'undefined';
+                if (unshadowedUndefined)
+                {
+                    for (const { ast } of resolver.parse(file).scripts)
+                    {
+                        walk(ast, (entry) =>
+                        {
+                            if ((ts.isVariableDeclaration(entry) || ts.isParameter(entry) || ts.isBindingElement(entry)
+                            || ts.isFunctionDeclaration(entry) || ts.isImportSpecifier(entry)) && entry.name?.getText() === 'undefined')
+                            {
+                                unshadowedUndefined = false;
+                            }
+                        });
+                    }
+                }
+                nullishCarrier = scalar(alternative) || unshadowedUndefined;
+            }
+            if (indirect && !nullishCarrier || !(ts.isPropertyAccessExpression(member) || ts.isElementAccessExpression(member))
+                || member.expression !== node)
+            {
                 fail(`escaped keyed collection table ${file}`);
             }
+            if (ts.isBinaryExpression(use) && use.left === top && use.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && use.operatorToken.kind <= ts.SyntaxKind.LastAssignment || ts.isDeleteExpression(use))
+            {
+                fail(`mutated keyed collection table ${file}`);
+            }
+            if (ts.isArrowFunction(use) && use.body === top && use.parameters.length === 1
+                && ts.isIdentifier(use.parameters[0].name) && !use.parameters[0].initializer && !use.parameters[0].dotDotDotToken
+                && !use.modifiers?.length && ts.isElementAccessExpression(member)
+                && member.argumentExpression.getText() === use.parameters[0].name.text
+                && ts.isCallExpression(use.parent) && use.parent.arguments[0] === use
+                && ts.isPropertyAccessExpression(use.parent.expression) && use.parent.expression.name.text === 'map')
+            {
+                projectionSteps.push(step(file, member));
+                return;
+            }
+            if (ts.isCallExpression(use) && use.arguments.includes(top) && ts.isPropertyAccessExpression(use.expression)
+                && use.expression.name.text === 'push')
+            {
+                arraySink(unwrap(use.expression.expression));
+                projectionSteps.push(step(file, use));
+                return;
+            }
+            if (ts.isCallExpression(use) && use.arguments[2] === top)
+            {
+                constructorOrigin(file, use);
+                projectionSteps.push(step(file, use));
+                return;
+            }
+            fail(`escaped keyed collection entry ${file}`);
         });
-        return { entries, declaration: found, object };
+        return { entries, declaration: found, object, projectionSteps, sinkEffects };
     }
     /** Finite key lookup with an authored fresh-Set membership condition. */
     function slotFallback(file, expression, call)
@@ -937,7 +1500,7 @@ export function createCompositionCollectionSource(source)
             suppliedBranch: step(file, invoke), emptyBranch: step(file, expression.right), renderProven: false },
         [step(file, expression), step(file, binding)]), node: expression.right };
     }
-    function keyedMap(file, expression, componentCall = null)
+    function keyedMap(file, expression, componentCall = null, functionBindings = new Map())
     {
         expression = unwrap(expression);
         step(file, expression);
@@ -958,7 +1521,7 @@ export function createCompositionCollectionSource(source)
         {
             fail(`unbound keyed map callback ${file}`);
         }
-        const table = tableEntries(file, result.expression);
+        const table = tableEntries(file, result.expression, functionBindings);
         const input = unwrap(expression.expression.expression);
         if (!ts.isCallExpression(input) || !ts.isPropertyAccessExpression(input.expression) || input.expression.name.text !== 'filter'
             || input.arguments.length !== 1)
@@ -1013,7 +1576,8 @@ export function createCompositionCollectionSource(source)
                 fail(`unknown keyed collection element ${file}`);
             }
             const bindings = new Map(item.bindings);
-            bindings.set(predicate.fn.parameters[0].name.text, { node: item.node, file });
+            bindings.set(predicate.fn.parameters[0].name.text, { node: item.node, file, parameter: predicate.fn.parameters[0], scope: predicate.fn });
+            bindings.set(callback.parameters[0].name.text, { node: item.node, file, parameter: callback.parameters[0], scope: callback });
             let node = table.entries.get(unwrap(item.node).text);
             let slot = null;
             if (componentCall && ts.isBinaryExpression(unwrap(node)) && unwrap(node).operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)
@@ -1028,7 +1592,7 @@ export function createCompositionCollectionSource(source)
         return { ...proof({ kind: 'keyed-map-plan', effects: [callbackEffects(file, callback), callbackEffects(file, predicate.fn)],
             elements: outputs.map((item) => ({ key: item.key, source: step(file, item.node), conditions: item.conditions,
                 keySource: step(file, item.bindings.get(predicate.fn.parameters[0].name.text).node), slot: item.slot })),
-            membershipInput: step(file, constructor.arguments[0]), renderProven: false },
+            membershipInput: step(file, constructor.arguments[0]), projectionSteps: table.projectionSteps, sinkEffects: table.sinkEffects, renderProven: false },
         [step(file, expression), step(file, table.declaration), step(file, constructor), ...keys.steps]), outputs };
     }
     /** Real pane record and actual caller label/slot supplier, no UID inference. */
@@ -1082,9 +1646,22 @@ export function createCompositionCollectionSource(source)
             fail(`opaque pane props/slots ${file}`);
         }
         const propsBinding = declaration(file, props.text, props);
+        resolver.assertImmutableBinding(file, props.text);
+        resolver.assertImmutableBinding(file, slots.text);
+        if (effects.writes.some((entry) => entry.path?.[0] === callback.parameters[0]?.name.text
+            && ['props', 'slots', '*'].includes(entry.path?.[1])))
+        {
+            fail(`mutated pane label supplier ${callbackFile}`);
+        }
         const slotsBinding = declaration(file, slots.text, slots);
         const propsCall = unwrap(propsBinding.initializer);
         const slotsCall = unwrap(slotsBinding.initializer);
+        const propsClosure = bindingClosure(file, propsBinding, 'label', new Set([props]));
+        const slotsClosure = bindingClosure(file, slotsBinding, 'label', new Set([slots]));
+        if (!propsClosure.readonly || !slotsClosure.readonly)
+        {
+            fail(`escaped pane label/slot supplier ${file}`);
+        }
         if (!ts.isCallExpression(propsCall) || propsCall.expression.getText() !== 'defineProps'
             || resolver.parse(file).imports.has('defineProps') || !ts.isCallExpression(slotsCall))
         {
@@ -1102,7 +1679,7 @@ export function createCompositionCollectionSource(source)
         const strings = callStrings(call, 'label');
         return proof({ kind: 'pane-label-supplier', ...input, labels: strings.branches, labelInput: strings.proofDigest,
             slot: { name: 'label', absent: true }, fields: [...fields].map(([name, node]) => ({ name, source: step(file, node) })),
-            callbackEffects: effects, labelFallback: step(callbackFile, label[0]),
+            callbackEffects: effects, propsClosure, slotsClosure, labelFallback: step(callbackFile, label[0]),
             requiredBinding: 'canonical provider/registry call-to-runtime-item identity; no uid or pane index inferred',
             renderProven: false }, [step(file, recordExpression), step(file, propsBinding), step(file, slotsBinding),
             step(callbackFile, label[0]), ...strings.steps]);
@@ -1211,6 +1788,32 @@ export function createCompositionCollectionSource(source)
         {
             fail('mismatched pane navigation prop edge');
         }
+        const opening = jsx.parent.parent;
+        const navNode = [...source.nodes.values()].find((node) => node.file === ownerFile && node.definition === navFile
+            && node.sourceSyntax?.kind === 'jsx' && node.offset === opening.getStart()
+            && node.sourceDigest === controlDigest(opening.getText()));
+        const receiver = unwrap(mapCall.expression.expression);
+        const propsBinding = ts.isPropertyAccessExpression(receiver) && ts.isIdentifier(receiver.expression)
+            && declaration(navFile, receiver.expression.text, receiver);
+        if (!navNode || !propsBinding || !ts.isParameter(propsBinding)
+            || propsBinding.parent.name?.getText() !== 'setup' || propsBinding.parent.parameters[0] !== propsBinding)
+        {
+            fail('unbound actual pane navigation component/props source');
+        }
+        function frameworkCall(file, call, exportedName)
+        {
+            if (typeof source.vueBinding !== 'function')
+            {
+                fail('required central interface: vueBinding(record, actualCalleeAST, exportedName)');
+            }
+            if (!ts.isCallExpression(call) || !source.vueBinding(resolver.parse(file), call.expression, exportedName))
+            {
+                fail(`unbound framework pane ${exportedName} source ${file}`);
+            }
+            return owned(file, call);
+        }
+        const frameworkEdges = [frameworkCall(ownerFile, providerCall, 'provide'),
+            frameworkCall(paneFile, injectionCall, 'inject'), frameworkCall(paneFile, recordExpression, 'reactive')];
         const target = resolver.resolveSourceFunction(ownerFile, registryCall.expression);
         const returned = ts.isBlock(target.fn.body) && target.fn.body.statements.at(-1);
         const returnedObject = returned && ts.isReturnStatement(returned) && unwrap(returned.expression);
@@ -1239,7 +1842,7 @@ export function createCompositionCollectionSource(source)
         const { fn: closureAST, ...supplierClosure } = supplier(ownerFile, registryCall.expression);
         // Raw ASTs (with parent cycles) remain outside proof identities.
         owned(supplierClosure.file, closureAST);
-        return proof({ kind: 'pane-provider-source-chain', key: providedKey,
+        return proof({ kind: 'pane-provider-source-chain', key: providedKey, frameworkEdges, navigationCall: navNode.id,
             registry: owned(target.file, target.fn), register: owned(register.file, register.fn),
             item: owned(paneFile, recordExpression), children: owned(target.file, childrenMember),
             suppliedNavigation: owned(ownerFile, navExpression), map: owned(navFile, mapCall),
@@ -1301,7 +1904,7 @@ export function createCompositionCollectionSource(source)
         const used = [];
         fn.parameters.forEach((parameter, index) =>
         {
-            if (!ts.isIdentifier(parameter.name))
+            if (!ts.isIdentifier(parameter.name) || parameter.initializer)
             {
                 fail(`opaque primitive parameter ${file}`);
             }
@@ -1454,8 +2057,9 @@ export function createCompositionCollectionSource(source)
                 {
                     return;
                 }
-                if ((ts.isPropertyAccessExpression(node.parent) || ts.isElementAccessExpression(node.parent))
-                    && node.parent.expression === node)
+                const { top, use, indirect } = valueUse(node);
+                if (!indirect && (ts.isPropertyAccessExpression(unwrap(top)) || ts.isElementAccessExpression(unwrap(top)))
+                    && ts.isCallExpression(use) && use.expression === top)
                 {
                     return;
                 }
@@ -1468,9 +2072,17 @@ export function createCompositionCollectionSource(source)
             fail(`opaque class supplier ${file}`);
         }
         const target = boundFunction(file, initialization.expression, bindings);
+        if (!ts.isBlock(target.fn.body) || target.fn.body.statements.slice(0, -1).some((statement) =>
+            !ts.isVariableStatement(statement) && !ts.isFunctionDeclaration(statement)))
+        {
+            fail(`alternate class supplier factory flow ${file}`);
+        }
         const returned = ts.isBlock(target.fn.body) && target.fn.body.statements.at(-1);
         const object = returned && ts.isReturnStatement(returned) && unwrap(returned.expression);
-        if (!object || !ts.isObjectLiteralExpression(object))
+        if (!object || !ts.isObjectLiteralExpression(object) || object.properties.some((entry) =>
+            !(ts.isShorthandPropertyAssignment(entry) || ts.isPropertyAssignment(entry)) || ts.isComputedPropertyName(entry.name)
+            || ['__proto__', 'constructor', 'prototype'].includes(entry.name.text))
+            || new Set(object.properties.map((entry) => entry.name.text)).size !== object.properties.length)
         {
             fail(`open class supplier ${file}`);
         }
@@ -1480,7 +2092,7 @@ export function createCompositionCollectionSource(source)
             fail(`unknown class supplier member ${file}`);
         }
         const member = ts.isShorthandPropertyAssignment(properties[0]) ? properties[0].name : properties[0].initializer;
-        const closure = resolver.resolveSourceFunction(target.file, member);
+        const closure = functionBody(target.file, member);
         const values = expression.arguments.map((argument) =>
         {
             argument = unwrap(argument);
@@ -1721,30 +2333,10 @@ export function createCompositionCollectionSource(source)
         {
             fail(`ambiguous partition destinations ${file}`);
         }
-        const table = tableEntries(file, unwrap(leftPush.arguments[0]).expression);
         const scope = state.parent.parent.parent;
         const classCalls = [];
         const wrappers = [];
         const constructorEdges = [];
-        const guardSteps = [];
-        for (const statement of scope.statements)
-        {
-            if (statement.getStart() < loop.getStart() && ts.isIfStatement(statement))
-            {
-                const returns = [];
-                walk(statement.thenStatement, (node) =>
-                {
-                    if (ts.isReturnStatement(node))
-                    {
-                        returns.push(node);
-                    }
-                });
-                if (returns.length)
-                {
-                    guardSteps.push(condition(file, statement.expression, 'else'));
-                }
-            }
-        }
         for (const name of [leftName, rightName])
         {
             const array = declaration(file, name, loop);
@@ -1836,58 +2428,274 @@ export function createCompositionCollectionSource(source)
                 fail(`mutated partition state ${file}`);
             }
         });
-        const branches = strings.branches.map((branch) =>
+        const table = tableEntries(file, unwrap(leftPush.arguments[0]).expression, bindings);
+        // Enumerate bounded source control paths. Return statements belonging
+        // to callbacks/functions never terminate this render block. Each branch
+        // decision is retained at its actual evaluation point.
+        const modeledOperations = new Set([loop, ...classCalls.map((entry) => entry.node), ...wrappers.map((entry) => entry.operation)]);
+        function rejectNestedOperations(node, allowRoot = false)
+        {
+            const root = unwrap(node);
+            walk(node, (child) =>
+            {
+                if (modeledOperations.has(child) && !(allowRoot && child === root))
+                {
+                    fail(`unsupported nested partition operation ${file}:${child.getStart()}`);
+                }
+            });
+        }
+        function flow(statement, incoming)
+        {
+            if (ts.isBlock(statement))
+            {
+                return statement.statements.reduce((paths, child) =>
+                {
+                    const next = paths.flatMap((entry) => entry.returned ? [entry] : flow(child, [entry]));
+                    if (next.length > 64)
+                    {
+                        fail(`partition control paths exceed 64 ${file}`);
+                    }
+                    return next;
+                }, incoming);
+            }
+            if (ts.isIfStatement(statement))
+            {
+                rejectNestedOperations(statement.expression);
+                const result = incoming.flatMap((entry) => ['if', 'else'].flatMap((name) =>
+                {
+                    const next = { ...entry, events: [...entry.events, { guard: statement, name }],
+                        conditions: [...entry.conditions, condition(file, statement.expression, name)] };
+                    const child = name === 'if' ? statement.thenStatement : statement.elseStatement;
+                    return child ? flow(child, [next]) : [next];
+                }));
+                if (result.length > 64)
+                {
+                    fail(`partition control paths exceed 64 ${file}`);
+                }
+                return result;
+            }
+            if (ts.isIterationStatement(statement, false) || ts.isSwitchStatement(statement) || ts.isTryStatement(statement)
+                || ![ts.isVariableStatement, ts.isFunctionDeclaration, ts.isExpressionStatement, ts.isReturnStatement,
+                    ts.isThrowStatement, ts.isEmptyStatement].some((check) => check(statement)))
+            {
+                fail(`unsupported partition control flow ${file}:${statement.getStart()}`);
+            }
+            if (ts.isExpressionStatement(statement))
+            {
+                rejectNestedOperations(statement.expression, true);
+            }
+            else if (ts.isVariableStatement(statement))
+            {
+                statement.declarationList.declarations.forEach((binding) =>
+                {
+                    if (binding.initializer)
+                    {
+                        rejectNestedOperations(binding.initializer);
+                    }
+                });
+            }
+            else if (ts.isReturnStatement(statement) && statement.expression)
+            {
+                rejectNestedOperations(statement.expression);
+            }
+            return incoming.map((entry) => ({ ...entry, events: [...entry.events, { statement }],
+                returned: ts.isReturnStatement(statement) || ts.isThrowStatement(statement) ? statement : entry.returned }));
+        }
+        const paths = flow(scope, [{ events: [], conditions: [], returned: null }]);
+        if (paths.length > 64)
+        {
+            fail(`partition control paths exceed 64 ${file}`);
+        }
+        const rootPaths = paths.filter((entry) => ts.isReturnStatement(entry.returned)
+            && ts.isCallExpression(unwrap(entry.returned.expression))
+            && path(unwrap(entry.returned.expression).arguments[2])?.join('.') === leftName);
+        if (!rootPaths.length)
+        {
+            fail(`missing actual partition root return ${file}`);
+        }
+        const excludedReturns = paths.filter((entry) => !rootPaths.includes(entry)).map((entry) => ({
+            conditions: entry.conditions, terminal: entry.returned ? step(file, entry.returned) : null }));
+        const branches = strings.branches.flatMap((branch) => rootPaths.flatMap((sourcePath) =>
         {
             const left = [];
             const right = [];
-            let switched = false;
-            const transitions = [];
-            for (const [index, key] of branch.value.split(split.arguments[0].text).map((key) => key.trim()).entries())
-            {
-                if (key === delimiter.right.text)
-                {
-                    switched = true;
-                    transitions.push({ index, key, write: step(file, stateWrite), condition: condition(file, delimiter, 'if') });
-                    continue;
-                }
-                if (!table.entries.has(key))
-                {
-                    fail(`unknown supplied partition key ${call.id}#${key}`);
-                }
-                let node = table.entries.get(key);
-                let slot = null;
-                const supplierNode = node;
-                if (ts.isBinaryExpression(unwrap(node)) && unwrap(node).operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)
-                {
-                    const { node: fallback, ...identity } = slotFallback(file, node, call);
-                    node = fallback;
-                    slot = identity;
-                }
-                (switched ? right : left).push({ key, node, supplier: step(file, supplierNode), slot, index });
-            }
+            const assembledRoot = [];
             const mutations = [];
-            for (const operation of classCalls)
+            const includedWrappers = [];
+            const transitions = [];
+            const evaluatedConditions = [];
+            let initialized = false;
+            let switched = false;
+            let loopExecuted = false;
+            const UNKNOWN = Symbol('unknown authored condition');
+            function evaluate(expression)
             {
-                const items = operation.name === leftName ? left : right;
-                const item = operation.position === 'first' ? items[0] : items.at(-1);
-                // Undefined receives no writes under the authored first guard.
-                if (!item || item.node.kind === ts.SyntaxKind.NullKeyword)
+                expression = unwrap(expression);
+                if (expression.kind === ts.SyntaxKind.TrueKeyword)
                 {
+                    return true;
+                }
+                if (expression.kind === ts.SyntaxKind.FalseKeyword)
+                {
+                    return false;
+                }
+                if (ts.isNumericLiteral(expression))
+                {
+                    return Number(expression.text);
+                }
+                if (ts.isStringLiteral(expression))
+                {
+                    return expression.text;
+                }
+                const parts = path(expression);
+                if (parts?.join('.') === state.name.text && initialized)
+                {
+                    return switched;
+                }
+                if (parts?.join('.') === `${leftName}.length`)
+                {
+                    return assembledRoot.length;
+                }
+                if (parts?.join('.') === `${rightName}.length`)
+                {
+                    return right.length;
+                }
+                if (ts.isPrefixUnaryExpression(expression) && expression.operator === ts.SyntaxKind.ExclamationToken)
+                {
+                    const value = evaluate(expression.operand);
+                    return value === UNKNOWN ? UNKNOWN : !value;
+                }
+                if (ts.isBinaryExpression(expression))
+                {
+                    const a = evaluate(expression.left);
+                    const b = evaluate(expression.right);
+                    const op = expression.operatorToken.kind;
+                    if (op === ts.SyntaxKind.AmpersandAmpersandToken)
+                    {
+                        return a === UNKNOWN ? UNKNOWN : a ? b : a;
+                    }
+                    if (op === ts.SyntaxKind.BarBarToken)
+                    {
+                        return a === UNKNOWN ? UNKNOWN : a ? a : b;
+                    }
+                    if (a === UNKNOWN || b === UNKNOWN)
+                    {
+                        return UNKNOWN;
+                    }
+                    if (op === ts.SyntaxKind.GreaterThanToken)
+                    {
+                        return a > b;
+                    }
+                    if (op === ts.SyntaxKind.GreaterThanEqualsToken)
+                    {
+                        return a >= b;
+                    }
+                    if (op === ts.SyntaxKind.LessThanToken)
+                    {
+                        return a < b;
+                    }
+                    if (op === ts.SyntaxKind.LessThanEqualsToken)
+                    {
+                        return a <= b;
+                    }
+                    if (op === ts.SyntaxKind.EqualsEqualsEqualsToken)
+                    {
+                        return a === b;
+                    }
+                    if (op === ts.SyntaxKind.ExclamationEqualsEqualsToken)
+                    {
+                        return a !== b;
+                    }
+                }
+                return UNKNOWN;
+            }
+            function partition()
+            {
+                if (!initialized || switched || loopExecuted)
+                {
+                    fail(`partition state not initialized at actual call ${file}`);
+                }
+                loopExecuted = true;
+                for (const [index, key] of branch.value.split(split.arguments[0].text).map((value) => value.trim()).entries())
+                {
+                    if (key === delimiter.right.text)
+                    {
+                        switched = true;
+                        transitions.push({ index, key, write: step(file, stateWrite), condition: condition(file, delimiter, 'if') });
+                        continue;
+                    }
+                    if (!table.entries.has(key))
+                    {
+                        fail(`unknown supplied partition key ${call.id}#${key}`);
+                    }
+                    let node = table.entries.get(key);
+                    let slot = null;
+                    const supplierNode = node;
+                    if (ts.isBinaryExpression(unwrap(node)) && unwrap(node).operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken)
+                    {
+                        const { node: fallback, ...identity } = slotFallback(file, node, call);
+                        node = fallback;
+                        slot = identity;
+                    }
+                    const item = { key, node, supplier: step(file, supplierNode), slot, index };
+                    (switched ? right : left).push(item);
+                    if (!switched)
+                    {
+                        assembledRoot.push(item);
+                    }
+                }
+            }
+            for (const event of sourcePath.events)
+            {
+                if (event.guard)
+                {
+                    const value = evaluate(event.guard.expression);
+                    if (value !== UNKNOWN && !!value !== (event.name === 'if'))
+                    {
+                        return [];
+                    }
+                    evaluatedConditions.push(condition(file, event.guard.expression, event.name));
                     continue;
                 }
-                mutations.push({ key: item.key, index: item.index, position: operation.position,
-                    conditions: operation.conditions, binding: bindClass(file, operation.node, item.node, bindings) });
+                const statement = event.statement;
+                if (ts.isVariableStatement(statement) && statement.declarationList.declarations.includes(state))
+                {
+                    initialized = true;
+                }
+                const expression = ts.isExpressionStatement(statement) && unwrap(statement.expression);
+                if (expression === loop)
+                {
+                    partition();
+                }
+                const operation = classCalls.find((entry) => entry.node === expression);
+                if (operation)
+                {
+                    const items = operation.name === leftName ? assembledRoot : right;
+                    const item = operation.position === 'first' ? items[0] : items.at(-1);
+                    if (item && item.node.kind !== ts.SyntaxKind.NullKeyword)
+                    {
+                        mutations.push({ key: item.key ?? null, index: item.index ?? null, position: operation.position,
+                            conditions: [...evaluatedConditions], binding: bindClass(file, operation.node, item.node, bindings) });
+                    }
+                }
+                const wrapper = wrappers.find((entry) => entry.operation === expression);
+                if (wrapper)
+                {
+                    includedWrappers.push({ ...wrapper, conditions: [...evaluatedConditions] });
+                    assembledRoot.push({ node: wrapper.node, wrapper: true, supplier: step(file, wrapper.node) });
+                }
             }
-            return { conditions: [...guardSteps, ...branch.conditions], transitions, left, right, mutations,
-                wrappers: switched && right.length ? wrappers : [] };
-        });
+            return [{ conditions: [...sourcePath.conditions, ...branch.conditions], loopExecuted, transitions,
+                left, right, assembledRoot, mutations, wrappers: includedWrappers }];
+        }));
         const payload = branches.map((branch) => ({ ...branch, left: branch.left.map((item) => ({ ...item, node: step(file, item.node) })),
             right: branch.right.map((item) => ({ ...item, node: step(file, item.node) })),
+            assembledRoot: branch.assembledRoot.map((item) => ({ ...item, node: step(file, item.node) })),
             wrappers: branch.wrappers.map((item) => ({ source: step(file, item.node), push: step(file, item.operation), conditions: item.conditions })) }));
         return { ...proof({ kind: 'ordered-partition-plan', callNode: call.id, input: strings.proofDigest, inputClosure,
-            branches: payload, constructorEdges, callbackEffects: callbackEffects(file, fn), renderProven: false },
+            branches: payload, excludedReturns, projectionSteps: table.projectionSteps, sinkEffects: table.sinkEffects, constructorEdges, callbackEffects: callbackEffects(file, fn), renderProven: false },
         [step(file, loop), step(file, components), step(file, table.declaration), step(file, state), ...strings.steps, ...inputClosure.steps]), outputs: branches };
     }
     return { collect, callbackEffects, computedBranches, emptyComputedCall, supplier, parameterClosure, bindingClosure,
-        callStrings, keyedMap, paneLabel, paneSourceChain, classMutation, bindClass, partitionCollection, slotFallback };
+        callStrings, keyedMap, paneLabel, paneSourceChain, classMutation, bindClass, partitionCollection, slotFallback, frameworkExportEffects };
 }
