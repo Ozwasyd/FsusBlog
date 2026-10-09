@@ -1,0 +1,45 @@
+{
+    "producerSource": "31542bc59d98f99d8432553f8c9d2b8b86139a74",
+    "consumerParent": "0645e81fc138beb1683745ed2604e62f075bcf9b",
+    "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+    "preimageBlob": "088c12503a683bfd2bbfa6b336e90d0c9816fc58",
+    "postimageBlob": "837b11c183d886cb69d748301b4cdc63544955fd",
+    "exactProviderPreimageMatched": true,
+    "exactProviderPostimageMatched": true,
+    "addedXmlDocumentationLines": 16,
+    "removedSourceLines": 0,
+    "productionBehaviorChanged": false,
+    "recordedAtUtc": "2026-10-09T05:28:08.765813+00:00",
+    "consumerSource": "88019e01f5b3dc116addc1f595edadafbe7d5681",
+    "productionTokenEquivalence": {
+        "schema": "fsusblog.xml-documentation-production-token-equivalence.v1",
+        "parserAssemblyVersion": "5.9.0.0",
+        "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
+        "productionTokenCount": 4421,
+        "beforeProductionTokenSha256": "3fabeb8c5a5adb4bd20ab5e7cd88300d489e08f3fb4a4596903f15399fc01d44",
+        "afterProductionTokenSha256": "3fabeb8c5a5adb4bd20ab5e7cd88300d489e08f3fb4a4596903f15399fc01d44",
+        "productionTokensEquivalent": true,
+        "xmlDocumentationTriviaDeliberatelyAdded": true,
+        "syntaxErrorCount": 0
+    },
+    "exactByteProof": {
+        "exactTwoXmlDocumentationBlocks": [
+            "    /// <summary>Recomputes the canonical relation identity and record digest on a copy of the supplied record.</summary>\n    /// <param name=\"record\">The non-null record whose existing identity and digest will be replaced.</param>\n    /// <returns>A record copy with both hashes recomputed; the supplied instance is unchanged.</returns>\n    /// <remarks>\n    /// Sealing computes hashes without validating the supplied facts or performing authorization.\n    /// Use <see cref=\"Validate(ArticleRelationRecord)\"/> to check the resulting record contract.\n    /// </remarks>\n    /// <exception cref=\"ArgumentNullException\"><paramref name=\"record\"/> is <see langword=\"null\"/>.</exception>\n",
+            "    /// <summary>Checks a relation record's declared facts, contract bindings and canonical hashes.</summary>\n    /// <param name=\"record\">The record to check; null is refused as an invalid record.</param>\n    /// <returns>A valid result when all checks succeed, or an invalid result with the first refusal reason code.</returns>\n    /// <remarks>\n    /// Checks schema, closed enums, coordinates, source/target/visibility/occurrence facts, catalogue eligibility,\n    /// actor and resolution bindings, public-scope restrictions, identity and digest. Unlinked mentions require\n    /// the separate candidate contract. This method does not fetch permission or publication authority.\n    /// </remarks>\n"
+        ],
+        "originalBytesRestoredByRemovingOnlyThoseTwoBlocks": true,
+        "allOtherSourceTriviaAndTokensByteIdentical": true,
+        "initialUnadjustedSyntaxApiAttemptsExitCode": 134,
+        "initialUnadjustedSyntaxApiAttemptsAcceptanceCredit": 0
+    },
+    "scopedSourceStyleExitCode": 0,
+    "changedSourceStyleExitCode": 0,
+    "changedSourceStyleFiles": 15,
+    "lastActualStrictReleaseSource": "0645e81fc138beb1683745ed2604e62f075bcf9b",
+    "lastActualStrictReleaseErrors": 161,
+    "currentStrictReleaseBuildRun": false,
+    "backendSchemaReceiptNativeTestsExecuted": 0,
+    "qualificationEligible": false,
+    "remainingSchemaSixFileMechanicalSource": "waiting for sole3657 compatible source; no independent shared formatting or behavior backport",
+    "lastActual161ErrorLogSha256": "51a69121e343259cac60bf7352c45b5be3d2e68a9e4a14730de179572115bfea"
+}
