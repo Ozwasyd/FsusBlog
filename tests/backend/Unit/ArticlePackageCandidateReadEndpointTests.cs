@@ -98,7 +98,10 @@ public sealed class ArticlePackageCandidateReadEndpointTests
     public async Task DisposableOriginalHost_StillRefusesUnregisteredPairWithRealAedsError()
     {
         var reader = new NeverRead();
-        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = "Test"
+        });
         builder.WebHost.UseTestServer();
         builder.Configuration["SITE_BASEURL"] = "https://controlled.example";
         builder.Services.AddHttpContextAccessor();
@@ -110,6 +113,7 @@ public sealed class ArticlePackageCandidateReadEndpointTests
                 options => options.ClaimsIssuer = "controlled-package-unit");
         builder.Services.AddAuthorization();
         await using WebApplication app = builder.Build();
+        Assert.Equal("Test", app.Environment.EnvironmentName);
         app.UseAuthentication();
         app.UseAuthorization();
         // Explicit task-local mapping only; original production host hook remains absent.
