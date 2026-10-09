@@ -307,6 +307,7 @@ public sealed class DocumentExportContractTests
             "zh-CN",
             ImmutableCollectionsMarshal.AsImmutableArray(assets),
             DocumentExportReadingStyleAuthority.AuthorityDigest,
+            null,
             string.Empty);
 
         DocumentExportFrozenInput frozen = DocumentExportContractValidator.Seal(unsealed);
@@ -326,7 +327,8 @@ public sealed class DocumentExportContractTests
     [Theory]
     [InlineData("fsusblog.document-export-frozen-input.v1")]
     [InlineData("fsusblog.document-export-frozen-input.v2")]
-    [InlineData("fsusblog.document-export-frozen-input.v4")]
+    [InlineData("fsusblog.document-export-frozen-input.v3")]
+    [InlineData("fsusblog.document-export-frozen-input.v5")]
     [InlineData("")]
     public void FrozenInput_RejectsOldFutureAndMissingSchemas(string schema)
     {
@@ -342,6 +344,8 @@ public sealed class DocumentExportContractTests
     [InlineData("fsusblog.document-export-frozen-input.v2", true)]
     [InlineData("fsusblog.document-export-frozen-input.v3", false)]
     [InlineData("fsusblog.document-export-frozen-input.v3", true)]
+    [InlineData("fsusblog.document-export-frozen-input.v4", false)]
+    [InlineData("fsusblog.document-export-frozen-input.v4", true)]
     public void FrozenInput_RejectsNumericSiteMemberWithoutAnyRemapping(string schema, bool keepScope)
     {
         JsonObject value = JsonNode.Parse(DocumentExportDigest.Serialize(ValidInput()))!.AsObject();
@@ -1140,6 +1144,7 @@ public sealed class DocumentExportContractTests
             "zh-Hant",
             assets.ToImmutableArray(),
             DocumentExportReadingStyleAuthority.AuthorityDigest,
+            null,
             string.Empty);
         return DocumentExportContractValidator.Seal(input);
     }

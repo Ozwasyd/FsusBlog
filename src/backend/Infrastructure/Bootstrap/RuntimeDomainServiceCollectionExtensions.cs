@@ -198,7 +198,12 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthorArticlePinProjectionService, AuthorArticlePinProjectionService>();
         services.AddScoped<IAuthorArticlePinApplicationFacade, AuthorArticlePinApplicationFacade>();
         services.AddScoped<IAuthorRecentArticleHistoryStore, AuthorRecentArticleHistoryStore>();
-        services.AddScoped<SqlAuthorRecentArticleHistoryPermissionAuthority>();
+        services.AddScoped<IAuthorRecentArticleHistoryPersistedPermissionReader,
+            AuthorRecentArticleHistoryPersistedPermissionReader>();
+        services.AddScoped(sp => new SqlAuthorRecentArticleHistoryPermissionAuthority(
+            sp.GetRequiredService<IAuthorRecentArticleHistoryPersistedPermissionReader>(),
+            sp.GetRequiredService<IHttpContextAccessor>(),
+            sp.GetRequiredService<IConfiguration>()));
         services.AddScoped<IAuthorRecentArticleHistoryMutationAuthorizer>(sp =>
             sp.GetRequiredService<SqlAuthorRecentArticleHistoryPermissionAuthority>());
         services.AddScoped<IAuthorRecentArticleHistoryPermissionProjectionProvider>(sp =>

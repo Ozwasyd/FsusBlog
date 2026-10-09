@@ -6,11 +6,14 @@ using System.Text.Json.Nodes;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
+using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
+using FsusBlog.Server.Services.DocumentExport.Sources;
 
 using Microsoft.Extensions.Configuration;
 
@@ -93,8 +96,8 @@ public sealed class DocumentExportEndpointsTests
             context, jobs, binding, new AedsEncoder(), default);
         await AssertDeniedAsync(context, result);
         Assert.Empty(jobs.ReceivedCalls());
-        await binding.DidNotReceive().FreezeRequestAsync(Arg.Any<HttpContext>(),
-            Arg.Any<DocumentExportJobActor>(), Arg.Any<CancellationToken>());
+        await binding.DidNotReceive().FreezeDecodedRequestAsync(Arg.Any<HttpContext>(),
+            Arg.Any<DocumentExportJobActor>(), Arg.Any<DocumentExportRequestCoreModel>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -116,7 +119,8 @@ public sealed class DocumentExportEndpointsTests
         {
             Schema = mutation == "task" ? "fsusblog.document-export-task.v2" : DocumentExportContractCatalog.TaskSchema
         });
-        binding.FreezeRequestAsync(context, Actor(), Arg.Any<CancellationToken>()).Returns((task, input));
+        ConfigureSelection(context, binding);
+        binding.FreezeDecodedRequestAsync(context, Actor(), Arg.Any<DocumentExportRequestCoreModel>(), Arg.Any<CancellationToken>()).Returns((task, input));
         IResult result = await BinaryEndpoints.HandleDocumentExportRequestAsync(
             context, jobs, binding, new AedsEncoder(), default);
         await AssertDeniedAsync(context, result);
@@ -144,7 +148,8 @@ public sealed class DocumentExportEndpointsTests
         }
         // Exercise the sole contract codec in the controlled frozen-input port;
         // this does not add a JSON HTTP route or a second parser.
-        binding.FreezeRequestAsync(context, Actor(), Arg.Any<CancellationToken>()).Returns(_ =>
+        ConfigureSelection(context, binding);
+        binding.FreezeDecodedRequestAsync(context, Actor(), Arg.Any<DocumentExportRequestCoreModel>(), Arg.Any<CancellationToken>()).Returns(_ =>
         {
             DocumentExportFrozenInput input = DocumentExportDigest.Deserialize<DocumentExportFrozenInput>(
                 Encoding.UTF8.GetBytes(value.ToJsonString()));
@@ -154,7 +159,7 @@ public sealed class DocumentExportEndpointsTests
             context, jobs, binding, new AedsEncoder(), default);
         await AssertDeniedAsync(context, result);
         Assert.Empty(jobs.ReceivedCalls());
-        await binding.Received(1).FreezeRequestAsync(context, Actor(), Arg.Any<CancellationToken>());
+        await binding.Received(1).FreezeDecodedRequestAsync(context, Actor(), Arg.Any<DocumentExportRequestCoreModel>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -253,7 +258,7 @@ public sealed class DocumentExportEndpointsTests
     public async Task DurableAdmission_IdempotencyAndRestartUseTheOriginalFrozenTask(string format)
     {
         using var fixture = new DurableFixture(format);
-        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(fixture.Binding, fixture.Task),
             fixture.Service(), fixture.Binding, new AedsEncoder(), default);
         DocumentExportJobSnapshot original = Assert.IsType<DocumentExportJobSnapshot>(fixture.LastSnapshot);
         Assert.Equal(DocumentExportTaskStatus.Queued, original.Task.Status);
@@ -264,7 +269,7 @@ public sealed class DocumentExportEndpointsTests
             TaskId = "response-loss-retry",
             RequestId = "response-loss-retry-request"
         });
-        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(fixture.Binding, fixture.Task),
             fixture.Service(), fixture.Binding, new AedsEncoder(), default);
         Assert.Equal(original.Task.TaskId, fixture.LastSnapshot!.Task.TaskId);
         Assert.Single(await fixture.Service().ListAsync(Actor(), default));
@@ -292,7 +297,7 @@ public sealed class DocumentExportEndpointsTests
                 RequestId = $"page-request-{index}",
                 IdempotencyKey = $"page-key-{index}"
             });
-            await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+            await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(fixture.Binding, fixture.Task),
                 fixture.Service(), fixture.Binding, new AedsEncoder(), default);
         }
         HttpContext context = AuthenticatedContext();
@@ -323,12 +328,15 @@ public sealed class DocumentExportEndpointsTests
     {
         using var fixture = new DurableFixture();
         fixture.Authorization.Allowed = false;
-        HttpContext resultContext = AuthenticatedContext();
+        HttpContext resultContext = AuthenticatedContext(fixture.Binding, fixture.Task);
         IResult result = await BinaryEndpoints.HandleDocumentExportRequestAsync(resultContext,
             fixture.Service(), fixture.Binding, new AedsEncoder(), default);
         await AssertDeniedAsync(resultContext, result);
         Assert.False(Directory.Exists(fixture.JobRoot));
         Assert.Null(fixture.LastSnapshot);
+        Assert.Equal(1, fixture.Authorization.Calls);
+        await fixture.Binding.Received(1).FreezeDecodedRequestAsync(resultContext, Actor(),
+            Arg.Any<DocumentExportRequestCoreModel>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -336,7 +344,7 @@ public sealed class DocumentExportEndpointsTests
     public async Task DurableRevocation_UniformlyDeniesStatusCancelAndDownloadWithoutChangingState()
     {
         using var fixture = new DurableFixture();
-        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(fixture.Binding, fixture.Task),
             fixture.Service(), fixture.Binding, new AedsEncoder(), default);
         byte[] before = File.ReadAllBytes(fixture.StatePath);
         fixture.Authorization.Allowed = false;
@@ -360,7 +368,7 @@ public sealed class DocumentExportEndpointsTests
     public async Task DurableCancelAndDelete_ReturnActualPersistedStateAndDenyRetryOrDownload()
     {
         using var fixture = new DurableFixture();
-        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(fixture.Binding, fixture.Task),
             fixture.Service(), fixture.Binding, new AedsEncoder(), default);
         await BinaryEndpoints.HandleDocumentExportCancelAsync(AuthenticatedContext(),
             fixture.Service(), fixture.Binding, new AedsEncoder(), default);
@@ -386,7 +394,7 @@ public sealed class DocumentExportEndpointsTests
     public async Task DurableExpiry_ReturnsActualExpiredProjectionAndDeniesDownload()
     {
         using var fixture = new DurableFixture();
-        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(fixture.Binding, fixture.Task),
             fixture.Service(), fixture.Binding, new AedsEncoder(), default);
         fixture.Time.Now = fixture.LastSnapshot!.ExpiresAt.AddSeconds(1);
         await BinaryEndpoints.HandleDocumentExportStatusAsync(AuthenticatedContext(),
@@ -430,11 +438,16 @@ public sealed class DocumentExportEndpointsTests
     private sealed class DurableAuthorization : IDocumentExportJobAuthorization
     {
         public bool Allowed { get; set; } = true;
+        public int Calls
+        {
+            get; private set;
+        }
 
         public ValueTask<bool> IsAllowedAsync(DocumentExportJobActor actor, DocumentExportArticleCoordinate coordinate,
             DocumentExportJobOperation operation, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Calls++;
             return ValueTask.FromResult(Allowed && actor == Actor());
         }
     }
@@ -490,7 +503,8 @@ public sealed class DocumentExportEndpointsTests
             });
             string taskId = Task.TaskId;
             Binding.ResolveActorAsync(Arg.Any<HttpContext>(), Arg.Any<CancellationToken>()).Returns(Actor());
-            Binding.FreezeRequestAsync(Arg.Any<HttpContext>(), Actor(), Arg.Any<CancellationToken>())
+            Binding.FreezeDecodedRequestAsync(Arg.Any<HttpContext>(), Actor(),
+                Arg.Any<DocumentExportRequestCoreModel>(), Arg.Any<CancellationToken>())
                 .Returns(_ => (Task, Input));
             Binding.ReadTaskIdAsync(Arg.Any<HttpContext>(), Arg.Any<CancellationToken>()).Returns(taskId);
             Binding.WriteSnapshot(Arg.Any<DocumentExportJobSnapshot>(), Arg.Any<IAedsEncoder>()).Returns(call =>
@@ -532,8 +546,9 @@ public sealed class DocumentExportEndpointsTests
         return binding;
     }
 
-    private static HttpContext AuthenticatedContext()
-        => new DefaultHttpContext
+    private static HttpContext AuthenticatedContext(IDocumentExportEndpointBinding? binding = null, DocumentExportTask? task = null)
+    {
+        var context = new DefaultHttpContext
         {
             RequestServices = new ServiceCollection().AddLogging()
                 .AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(
@@ -547,6 +562,37 @@ public sealed class DocumentExportEndpointsTests
                 new Claim("sid", "anonymous-session-must-not-be-used")
             ], "fixture-admin"))
         };
+        if (binding is not null)
+        {
+            ConfigureSelection(context, binding, task);
+        }
+        return context;
+    }
+
+    private static void ConfigureSelection(HttpContext context, IDocumentExportEndpointBinding binding,
+        DocumentExportTask? task = null)
+    {
+        task ??= DocumentExportContractTests.ValidTask(DocumentExportContractTests.ValidInput());
+        var request = new DocumentExportRequestCoreModel(task.RequestId, task.IdempotencyKey,
+            new((int)task.Coordinate.Kind, task.Coordinate.ArticleId, task.Coordinate.DraftKey,
+                task.Coordinate.RevisionId, task.Coordinate.PublicationId, task.Coordinate.SourceVersion),
+            task.FormatId, task.LayoutProfile, task.ThemeProfile, task.Locale);
+        var encoder = new AedsEncoder();
+        var requests = Substitute.For<IBinaryEndpointRequestContext>();
+        requests.ReadFrameAsync(context, encoder, AedsFrameType.DocumentExportRequest,
+            Arg.Any<CancellationToken>(), PodBinaryCodec.MaximumDocumentExportRequestFrameBytes)
+            .Returns(BinaryRequestPayload.Success(PodBinaryCodec.EncodeDocumentExportRequest(request),
+                AedsFrameType.DocumentExportRequest));
+        var catalog = Substitute.For<IDocumentExportSourceCatalog>();
+        catalog.ReadBoundAsync(Actor(), task.Coordinate, Arg.Any<CancellationToken>())
+            .Returns(new DocumentExportBoundSource(new("controlled-choice", "controlled-label", task.Coordinate),
+                "controlled-fingerprint", null, null, null, null, null));
+        IConfiguration configuration = context.RequestServices.GetRequiredService<IConfiguration>();
+        context.RequestServices = new ServiceCollection().AddLogging()
+            .AddSingleton(configuration).AddSingleton<IAedsEncoder>(encoder)
+            .AddScoped(_ => new DocumentExportSourceSelectionAdapter(binding, requests, catalog))
+            .BuildServiceProvider();
+    }
 
     private static async Task AssertDeniedAsync(HttpContext context, IResult result)
     {
