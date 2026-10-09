@@ -1,49 +1,59 @@
 {
-    "baseSourceSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
-    "originalPlanBlob": "703501fe781def4f7818bff75fb7943b24ae2406",
-    "originalPlanPath": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
-    "existingFrontendPackageComponentsOrTsContracts": [],
-    "releasedExclusivePaths": [
-        "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
-        "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs",
-        "src/frontend/src/api/types/articlePackageCandidateReview.ts",
-        "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue",
-        "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
-    ],
-    "release": "Coordinating root selected the sole worker and actual five exclusive paths. No competing source implementation here. Planner, registry, DI, routes and integration remain with this owner.",
-    "sourceFields": [
-        "Candidate.Manifest version tuple, article count, SemanticDigest",
-        "Candidate.PackageBytesDigest",
-        "Actor/request assertions (not permission decisions)",
-        "Mode, PolicyDigest, CreatedAtUtc, ExpiresAtUtc, PlanDigest",
-        "Targets: PortableArticle, RequiresNewIdentity, RequestedTargetArticleId, ExpectedTargetRevision",
-        "RequiredAuthorities",
-        "RequireExecutionAuthority(): always false/article_package_import_authority_unavailable"
-    ],
-    "constraints": [
-        "copy original plan only; no second planner/digest/parser/writer",
-        "typed immutable read model; bounded pagination and content-free diagnostics",
-        "requested targets remain unresolved hints",
-        "unknown asset/unresolved counts stay unknown, not zero",
-        "execution always disabled; not-executed is not a zero-write runtime receipt",
-        "no browser ZIP parser, content API writes, route authority, registry/DI edits",
-        "no source/private title telemetry or fake permission-allowed targets"
-    ],
-    "retainedOwnerPaths": [
-        "original planner",
-        "registry",
-        "DI/HTTP routes",
-        "historical metadata mapper",
-        "original providers/writers"
-    ],
-    "notAcceptedIssues": [
-        2406,
-        2418
-    ],
-    "worker": "01a11f99-25af-7470-9134-0b795317b03e",
-    "workerBaseSourceSha": "08787f22f038569e893d6d1a4923aebc5b6bbe0f",
-    "previousSuggestedSharedContractPath": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
-    "sharedContractNotPartOfActualFivePathRelease": true,
-    "absenceAndOverlapCheckedAt": "b734d38e3cf11101079d61bc78764c99ee13322d",
-    "allFivePathsAbsentAndNoActiveOrUnpublishedOverlap": true
+  "baseSourceSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+  "originalPlanBlob": "703501fe781def4f7818bff75fb7943b24ae2406",
+  "originalPlanPath": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
+  "existingFrontendPackageComponentsOrTsContracts": [],
+  "releasedExclusivePaths": [
+    "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
+    "src/frontend/src/api/types/articlePackageCandidateReview.ts",
+    "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue",
+    "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
+    "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs",
+    "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  ],
+  "release": "Parent delivered actual six exclusive paths, including Shared contract, at7d23fc3; normal no-conflict merge180949 and root original verification follow. Planner/registry/routes/DI remain root-owned.",
+  "sourceFields": [
+    "Candidate.Manifest version tuple, article count, SemanticDigest",
+    "Candidate.PackageBytesDigest",
+    "Actor/request assertions (not permission decisions)",
+    "Mode, PolicyDigest, CreatedAtUtc, ExpiresAtUtc, PlanDigest",
+    "Targets: PortableArticle, RequiresNewIdentity, RequestedTargetArticleId, ExpectedTargetRevision",
+    "RequiredAuthorities",
+    "RequireExecutionAuthority(): always false/article_package_import_authority_unavailable"
+  ],
+  "constraints": [
+    "copy original plan only; no second planner/digest/parser/writer",
+    "typed immutable read model; bounded pagination and content-free diagnostics",
+    "requested targets remain unresolved hints",
+    "unknown asset/unresolved counts stay unknown, not zero",
+    "execution always disabled; not-executed is not a zero-write runtime receipt",
+    "no browser ZIP parser, content API writes, route authority, registry/DI edits",
+    "no source/private title telemetry or fake permission-allowed targets"
+  ],
+  "retainedOwnerPaths": [
+    "original planner",
+    "registry",
+    "DI/HTTP routes",
+    "historical metadata mapper",
+    "original providers/writers"
+  ],
+  "notAcceptedIssues": [
+    2406,
+    2418
+  ],
+  "worker": "01a11f99-25af-7470-9134-0b795317b03e",
+  "workerBaseSourceSha": "08787f22f038569e893d6d1a4923aebc5b6bbe0f",
+  "previousSuggestedSharedContractPath": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
+  "absenceAndOverlapCheckedAt": "b734d38e3cf11101079d61bc78764c99ee13322d",
+  "allFivePathsAbsentAndNoActiveOrUnpublishedOverlap": true,
+  "initialFivePathRelease": [
+    "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
+    "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs",
+    "src/frontend/src/api/types/articlePackageCandidateReview.ts",
+    "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue",
+    "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  ],
+  "actualDeliverySource": "7d23fc30865a206de0b31df527a6b6e59cd7c932",
+  "mergedSource": "180949cdf16cc277d9f8c75cd0350022b1e56232",
+  "currentEvidence": "../chain-3663-review-module-integration/final-report.json"
 }

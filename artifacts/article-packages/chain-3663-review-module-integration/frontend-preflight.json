@@ -1,0 +1,18 @@
+{
+  "testedSha": "ec70100fd2513f8c3e7c5586c7e3341f70446896",
+  "originalConfig": "src/frontend/vitest.config.ts",
+  "originalSetup": "tests/frontend/support/unit/setup.ts",
+  "positiveFile": "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts",
+  "expectedCases": 20,
+  "actualDiscoveredCases": 20,
+  "firstEmptyDiscovery": "preserved, no execution; root cwd did not match original relative includes",
+  "secondDiscovery": "failed on missing @vue/shared, no execution",
+  "correctedSetup": "task-scoped FsUI clone root links to exact checked-in npm-ci public install; Vue dependencies verified against original lock; canonical FsUI not altered",
+  "setupHooks": "original locale/animation setup and original Wasm mocks preserved; component afterEach unmount/body reset; no HTTP/API writes",
+  "noAlternateConfig": true,
+  "noCoverageThresholdWaiver": true,
+  "productionUiQualification": false,
+  "activeFsUI": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "publicComponent": "actual ElButton from local FsUI 1.5.1 source, no stub",
+  "runtimeTestData": "test-only supplied DTO, no authenticated producer or persisted acceptance"
+}

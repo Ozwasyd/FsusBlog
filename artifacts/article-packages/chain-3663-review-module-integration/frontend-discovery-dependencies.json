@@ -1,0 +1,82 @@
+[
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > labels the finite candidate, original summary, assertions and unresolved hints accurately",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > shows new identity requirements without implying a created identity or resolved target",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > never enables or emits execution for complete structurally valid hints, clicks or keys",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > handles zero supplied candidates without inventing a zero-article validated plan",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > announces loading and error states and keeps the execution refusal",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > keeps stale/refusal semantics for caller_interval_not_started",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > keeps stale/refusal semantics for caller_interval_expired",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > keeps stale/refusal semantics for caller_interval_current",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > renders only one supplied page for 1000 hints with semantic headings, list and live pagination",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > requests digest-bound pages only, blocks repeated requests and focuses arrived hints through loading",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > returns focus to the review heading after a failed page read",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > handles final pages and plan replacement without stealing outside focus",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 0",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 1",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 2",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 3",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 4",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 5",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 6",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  },
+  {
+    "name": "ArticlePackageCandidateReview ordinary component controls > refuses malformed or overbudget display projections 7",
+    "file": "/workspace/FsusBlog-group-property-recheck-3663/tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+  }
+]

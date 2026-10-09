@@ -1,0 +1,18 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "src/backend/FsusBlog.Server.csproj",
+        "--no-restore",
+        "--no-incremental"
+    ],
+    "testedSha": "180949cdf16cc277d9f8c75cd0350022b1e56232",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T08:13:03.429692+00:00",
+    "endUtc": "2026-10-09T08:14:28.951830+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/review-module-integration/original-server-build.log"
+}

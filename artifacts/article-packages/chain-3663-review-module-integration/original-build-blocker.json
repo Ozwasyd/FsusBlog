@@ -1,0 +1,11 @@
+{
+  "testedSha": "ec70100fd2513f8c3e7c5586c7e3341f70446896",
+  "restore": "PASS with audit enabled; no lock regeneration",
+  "originalTestProjectBuild": "FAIL CS0182 at lines 23,24,25,26; 4 errors,1065 warnings",
+  "affectedFile": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+  "currentBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+  "base3d177Blob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+  "selectedTests": "NOT RUN; no test project compile, fresh original discovery or execution after this failure",
+  "noAlternateHost": true,
+  "smallestNextAction": "Parent supplies exact authorized correction from existing lifecycle/bootstrap test owner; no cross-chain fix or exclusion here"
+}

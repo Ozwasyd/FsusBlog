@@ -1,0 +1,17 @@
+Error: Failed to resolve import "@vue/shared" from "../../../FsusUI-review-module-3663/vue/packages/utils/types.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /workspace/FsusUI-review-module-3663/vue/packages/utils/types.ts:12:7
+  1  |  import { isArray, isObject, isString } from "@vue/shared";
+  2  |  import { isNil } from "lodash-unified";
+  3  |  export { isArray, isFunction, isObject, isString, isDate, isPromise, isSymbol } from "@vue/shared";
+     |                                                                                        ^
+  4  |  export { isVNode } from "vue";
+  5  |  export const isUndefined = (val) => val === undefined;
+ ❯ TransformPluginContext._formatLog ../../../chain-3663-frontend-review-install/node_modules/vite/dist/node/chunks/node.js:30602:39
+ ❯ TransformPluginContext.error ../../../chain-3663-frontend-review-install/node_modules/vite/dist/node/chunks/node.js:30599:14
+ ❯ normalizeUrl ../../../chain-3663-frontend-review-install/node_modules/vite/dist/node/chunks/node.js:27842:18
+ ❯ ../../../chain-3663-frontend-review-install/node_modules/vite/dist/node/chunks/node.js:27905:30
+ ❯ TransformPluginContext.transform ../../../chain-3663-frontend-review-install/node_modules/vite/dist/node/chunks/node.js:27873:4
+ ❯ EnvironmentPluginContainer.transform ../../../chain-3663-frontend-review-install/node_modules/vite/dist/node/chunks/node.js:30387:14
+ ❯ loadAndTransform ../../../chain-3663-frontend-review-install/node_modules/vite/dist/node/chunks/node.js:24646:26
+

@@ -1,0 +1,18 @@
+{
+    "command": [
+        "npm",
+        "ci",
+        "--prefix",
+        "tools/frontend/style-toolchain",
+        "--cache",
+        "/workspace/chain-3663-data/original-project-recheck-20261009/npm-cache"
+    ],
+    "testedSha": "ec70100fd2513f8c3e7c5586c7e3341f70446896",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T08:30:59.011741+00:00",
+    "endUtc": "2026-10-09T08:31:02.156840+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/review-module-integration/frontend-style-tooling-install.log"
+}

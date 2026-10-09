@@ -1,0 +1,47 @@
+{
+  "supplier": "7d23fc30865a206de0b31df527a6b6e59cd7c932",
+  "supplierBranch": "article-package-candidate-review-delivery-20261009-0753",
+  "merge": "180949cdf16cc277d9f8c75cd0350022b1e56232",
+  "testedSha": "ec70100fd2513f8c3e7c5586c7e3341f70446896",
+  "files": [
+    {
+      "path": "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs",
+      "supplierBlob": "64712805fcc89d0b5d77341437883553a7fa3ed3",
+      "testedBlob": "64712805fcc89d0b5d77341437883553a7fa3ed3",
+      "identical": true
+    },
+    {
+      "path": "src/frontend/src/api/types/articlePackageCandidateReview.ts",
+      "supplierBlob": "545fce7f5c8ba019ad9cf8f2211d19e30b64d082",
+      "testedBlob": "545fce7f5c8ba019ad9cf8f2211d19e30b64d082",
+      "identical": true
+    },
+    {
+      "path": "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue",
+      "supplierBlob": "c80fe791006c040c0d7eb49d1587868fd21c9d23",
+      "testedBlob": "c80fe791006c040c0d7eb49d1587868fd21c9d23",
+      "identical": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs",
+      "supplierBlob": "e36842251889f60ca1d59b26d566444ca5b245d3",
+      "testedBlob": "e36842251889f60ca1d59b26d566444ca5b245d3",
+      "identical": true
+    },
+    {
+      "path": "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs",
+      "supplierBlob": "5a6e12b5ab55bff67378674df76d64c865df2588",
+      "testedBlob": "5a6e12b5ab55bff67378674df76d64c865df2588",
+      "identical": true
+    },
+    {
+      "path": "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts",
+      "supplierBlob": "99256efb3998dfe123eb9dcc95da97f90b63d0ef",
+      "testedBlob": "99256efb3998dfe123eb9dcc95da97f90b63d0ef",
+      "identical": true
+    }
+  ],
+  "originalPlannerBlob": "703501fe781def4f7818bff75fb7943b24ae2406",
+  "lockHandoff": "53075182a4cccf400e1a389d5dfc7dca5ab4d09d",
+  "lockConsumption": "ec70100fd2513f8c3e7c5586c7e3341f70446896"
+}

@@ -1,0 +1,21 @@
+{
+    "command": [
+        "node",
+        "src/frontend/scripts/prepare-local-fsusui-install.mjs",
+        "prepare",
+        "--frontend-root",
+        "/workspace/FsusBlog-group-property-recheck-3663/src/frontend",
+        "--fsusui-root",
+        "/workspace/FsusUI-review-module-3663",
+        "--output",
+        "/workspace/chain-3663-frontend-review-install"
+    ],
+    "testedSha": "180949cdf16cc277d9f8c75cd0350022b1e56232",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T08:22:29.381620+00:00",
+    "endUtc": "2026-10-09T08:22:29.454776+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/review-module-integration/frontend-install-prepare.log"
+}

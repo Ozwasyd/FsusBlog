@@ -1,0 +1,18 @@
+{
+    "command": [
+        "npm",
+        "ci",
+        "--prefix",
+        "/workspace/chain-3663-frontend-review-install",
+        "--cache",
+        "/workspace/chain-3663-data/original-project-recheck-20261009/npm-cache"
+    ],
+    "testedSha": "180949cdf16cc277d9f8c75cd0350022b1e56232",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T08:22:29.506029+00:00",
+    "endUtc": "2026-10-09T08:22:42.500608+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/review-module-integration/frontend-npm-ci.log"
+}

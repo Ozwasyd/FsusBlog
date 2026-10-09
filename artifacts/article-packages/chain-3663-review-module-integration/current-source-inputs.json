@@ -1,0 +1,326 @@
+{
+  "testedSha": "ec70100fd2513f8c3e7c5586c7e3341f70446896",
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "gitBlob": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715",
+      "sha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "Directory.Packages.props",
+      "gitBlob": "0abc085c29fb28bcc5982c8f45e4085d2b739812",
+      "sha256": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+      "gitBlob": "4aca7ddd43f73dd995bf29b93040056d4623c72d",
+      "sha256": "d3230cc81493e0decf4409153b2a09b74a2ed595b46eba12bad4c18a38585503",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "benchmarks/core/packages.lock.json",
+      "gitBlob": "53990209a76199c44fa8772a2fd04171e5e2506a",
+      "sha256": "f4c3b1b947af4c745744c221a1f560e0802e18f01ef86f97a28b41e9df1f1d7e",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/article-vault/linux/FsusBlog.ArticleVault.Linux.csproj",
+      "gitBlob": "17d2ee14cf50d8ba3709fd0e5b8a81e9dc0c629e",
+      "sha256": "e54b46522ac7a35cddd8e71814b5f757d566e6584f160927cf0da25bd5b36348",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/article-vault/linux/packages.lock.json",
+      "gitBlob": "a09c9f7ced5b678ee6ef082fcb73263a0c3be199",
+      "sha256": "ea3c4550086493eae4221fb89d63ef57b58776baf81363dd3f57c91eb7fab7c4",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/backend/FsusBlog.Server.csproj",
+      "gitBlob": "c7e38c66b974862cddaef76897c957c9c28a5d81",
+      "sha256": "750dc43234f15be728a4eff93b1df2690d9efff880ecd8f9446aac726aa0bddc",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/backend/packages.lock.json",
+      "gitBlob": "d0f3030e8e8aa91f3ea07371fdb52fe528504d21",
+      "sha256": "faf347073d76a55c4f48b4621a8591d33d7f2f45fd6330ed9eda3f07ec3ed51c",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/core/FsusBlog.Core.csproj",
+      "gitBlob": "dca4d483ac841a816c9b2a2405cb431773f47f2a",
+      "sha256": "a4eab8c5ccccdb999cc7d62e4d2fa6fc225c44d4279296251e1b32de6adad87e",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/core/packages.lock.json",
+      "gitBlob": "96f49c26fa2525f2e6b51c73723de710fd8e06c3",
+      "sha256": "e8f0732557ad7dc23e25b0758e65022af0b336d20800e14250b22b9ecb529ff4",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/migration/FsusBlog.Migration.csproj",
+      "gitBlob": "f4d1c7d1f1b76ee7a8295b08c9e5c17f58237264",
+      "sha256": "c1a554c4bcb77290033d2f20ffa0a41fc6a4d095b5dbd280a41e3a333400ee01",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/migration/packages.lock.json",
+      "gitBlob": "e74965f2a58cdc8abf2bec593089aa1aa7da10c3",
+      "sha256": "1adc775f9affa3b5f938a54fd0175c9c666edc655e3fbb6d3f6ea9501166c70e",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/shared/FsusBlog.Shared.csproj",
+      "gitBlob": "fd5ab10d4e68c771aad5e80f0eb53447e51e0a47",
+      "sha256": "4e0119671817f75e1f70e9c277b45adde6a9d294353a826a7f83eec74177a91b",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/shared/packages.lock.json",
+      "gitBlob": "6afd6786b95a8c85febce85cf6219643ee860872",
+      "sha256": "03eeadc5ef377c17f787ab65f41fb4c8a9c936bb7f7f4171111fdeec8a81cb46",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj",
+      "gitBlob": "442575a6bdad454c0467beebd6ba1e4e8ad1cf7b",
+      "sha256": "c0df430f1412e5b1c03d524ad3181befb5922b4f41c243e83ae5ed62cd0f7166",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tests/article-vault/linux/packages.lock.json",
+      "gitBlob": "f83c2accc6e97fd537bd8f88372c687a47601d32",
+      "sha256": "021d9274e53e6acd842146698ab8b6305444047e58388a848964962de07c7dbb",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tests/backend/FsusBlog.Server.Tests.csproj",
+      "gitBlob": "eabae0a574d36a17a9af7885ef2528ec4f010707",
+      "sha256": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tests/backend/packages.lock.json",
+      "gitBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+      "sha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tests/cache-coordination-probe/CacheCoordinationProbe.csproj",
+      "gitBlob": "62156e3c29de8539fcc7ecb2b9eeed6f7026e783",
+      "sha256": "c7e21e429f3590419c2e2497a06ac6e552ee0cedb08f02ae7a1004421282376e",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tests/cache-coordination-probe/packages.lock.json",
+      "gitBlob": "ec1b8e08c5ea44c1769d194f801cc30137fb575b",
+      "sha256": "672dc6c3601ca9a7aabc98dc40720c466f03cbc4eec2d026e581e7bf274b4453",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
+      "gitBlob": "a0429efa5ba4ad42af667b0af5d9f5c117e7d210",
+      "sha256": "bb2b2bcafc4eb624e62ea2ef44070ae8e2a428b17482318657a6459ed47729be",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tests/migration/packages.lock.json",
+      "gitBlob": "9e289962c72dce2a415191635d02079fa7172888",
+      "sha256": "5b3208a3c880021b003e6e653286d5debb3cf959a7e2dfb48d22d0e6f3d275b6",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+      "gitBlob": "94bf9c67257e799e344738bda5bf87301374c1b5",
+      "sha256": "3299f5a3daaac10dd85032d6a1cbc2ed8cd648b5dccbfb085212d7be17142e32",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json",
+      "gitBlob": "721102ac7bd2f3b9b46fda035eb44eb365b75933",
+      "sha256": "b7cd55294c02cba922f35efd9b10b8b41e3bb764c17f2bbb4b6faa88162d79f2",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+      "gitBlob": "ac6538f325848d6a55343abda0092169edc16d8a",
+      "sha256": "89c457e3561aebf6805e042bff9ee03ca4c7167c21572e2f5aa084a107d12571",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "gitBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "sha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+      "gitBlob": "3d9e5c92d7dc0d49d8e44ab2b47dead7ded60ce7",
+      "sha256": "e210b6274d9f7a34cb6f7ee3935f33bdebeda05c19227e35559512aaf6fb59a8",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "gitBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "sha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+      "gitBlob": "44286797b3f0ab2f6b79b03b2022c34537997e54",
+      "sha256": "c46a7ad6054bc1750ce164d27b95f4b6e482d262dc4328baab6be5b6c02a000e",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "gitBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "sha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "gitBlob": "f4e2b49036284183ee1d9f93e928c12aa43e902d",
+      "sha256": "44b126ec8add20863116209483e06363c229c74d087d2618e872f410b1209af4",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "gitBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "sha256": "8aee3433cfe8a83f3ff49b59e973d4701542e94579b6f4b2226153e60372592d",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+      "gitBlob": "bdd3c1797230ebb548de84107f57ac83b8d5680a",
+      "sha256": "068819349834506bc8f4d501fb47a38d7548f6d5978ba0408c9a9042cb19f3c3",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "gitBlob": "08e62e583616c40424a919b7eb188b5238e33d47",
+      "sha256": "6c29c80a5c5ceff2be39c282788171a5b94259fcad7b6d7a8fa4f9777d9ac7ff",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj",
+      "gitBlob": "e87963bebc64439e73d0921934e0e55e1daf1d4a",
+      "sha256": "2b3e6e1388aec9566cc0944eb57b98c858665255b204b2e99a2304f10c9c5807",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/security/AnonymousCredentialRootBootstrap/packages.lock.json",
+      "gitBlob": "3f9ff51e18261dc48ed4bcdad3700284aa230951",
+      "sha256": "01824eb08f7119333a4c12396410b8abe25c7b38d15480b54f9a81b43564b3e2",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj",
+      "gitBlob": "4e7749e833090b5c3a6bc48d2a8997d46487679b",
+      "sha256": "24a68eb9a47e85977091d80ea76831e0204801718d2d850aff5695affbe685d8",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/security/FsusBlog.SecuritySourceAnalyzer/packages.lock.json",
+      "gitBlob": "e7f43bef25ef367c43529f769dca98e146883ae2",
+      "sha256": "78cd465c893a0817e3de7fbcfd62319140ebacc51e0e70b9383dadca4006a76f",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj",
+      "gitBlob": "ace25f7c171862b761cf6b5a8bb47d6bacb629f3",
+      "sha256": "d3f0fbb4b96002c3f01515a4e7ee8081b134d5d869e1e0bd75d4c77c6041b151",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/AdapterFixtureTests.csproj",
+      "gitBlob": "ae12b127ed93fb722b1538450a8a0ff75c0e7c37",
+      "sha256": "8a6c54d3541319f9f1673be86a60db33b75c7692e287cca1c5bceb4b23ca3042",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/packages.lock.json",
+      "gitBlob": "7d008c89e63fa5c8ccc90ff074e1f289ce8bd18c",
+      "sha256": "2572a132e5c1291f75f5e169e42bbc905e4073122da72fddc8947cdc7393197e",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/packages.lock.json",
+      "gitBlob": "ea63e2eec8ed69b1d04d3a4fd3e4f46733dcb279",
+      "sha256": "a15ea719f370e93d3122eb69d4eaa648e02f07c14c4bae8802ed4cffb5cbeb25",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/test/xunit-replay-runner/FsusBlog.XunitReplayRunner.csproj",
+      "gitBlob": "d9657b758fd382985b0f1b483d8a118ad88ebaf5",
+      "sha256": "4234f3de28a5ae545f02bcfd55151e3180ca90caf64548dfb74533412e8ff11d",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/test/xunit-replay-runner/packages.lock.json",
+      "gitBlob": "6e591efdacc92a916206fd6ed48c42c9faa1ac7b",
+      "sha256": "1b7b6e9381f5a280445ab125ee42e80bcba09c7c1d92f568d31cabd44e0ba7bf",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj",
+      "gitBlob": "2060e0490c5dcfe9dfda2a4a409c4bc6befbf171",
+      "sha256": "34e27af729d33c02404e7223bc510381bf1f5149999086bd084268e778a82799",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets",
+      "gitBlob": "fd53f985fb4e1c5a38134359703789eb0b8ad727",
+      "sha256": "b7170eacabd01580b2c53eb1b7db7f692a59fef512fc13d46c2eb7ee47fe773b",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/packages.lock.json",
+      "gitBlob": "8b79dba10730ad9b2e04e413be07a2375968e969",
+      "sha256": "80b263bedef69aeff9dd39b0c5b2a1f0c1fabca5bed8172210d451d9d47c02f4",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/transport/FsusBlog.Http3Lab/FsusBlog.Http3Lab.csproj",
+      "gitBlob": "09e5f9ada359c0f81a53b5e41e8376c04b5e1024",
+      "sha256": "71879073cbfce080d9e53e59e1a471d13a32bc2c6e966bebf848d2c6eb063a12",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/transport/FsusBlog.Http3Lab/packages.lock.json",
+      "gitBlob": "f2d03b0dd31eb73eb213a3e8a02b20f8e23c2e9c",
+      "sha256": "8a56ea56be5ff19698e40a3d3e04ee140f0492f86eaed9777f1884bb81138660",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/frontend/package.json",
+      "gitBlob": "3adbc430bdca54a3b2ba73683cb02ad2a73b6bae",
+      "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "src/frontend/package-lock.json",
+      "gitBlob": "18adea02bb0dc2abb27a64c6073de9151f616c39",
+      "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/frontend/style-toolchain/package.json",
+      "gitBlob": "c1271b1f11feabd7d35c1efb5e287d094d956694",
+      "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+      "workingBytesMatchCommit": true
+    },
+    {
+      "path": "tools/frontend/style-toolchain/package-lock.json",
+      "gitBlob": "cda087663517c681f64ea2a6facdeae13e3df98d",
+      "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+      "workingBytesMatchCommit": true
+    }
+  ],
+  "count": 53,
+  "inputMutation": false,
+  "onlyAuthorizedDependencyChangeSince180949": "one supplied AngleSharp edge in tests/backend/packages.lock.json; no version/integrity change"
+}

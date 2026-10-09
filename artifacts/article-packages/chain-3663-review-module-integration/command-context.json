@@ -1,0 +1,15 @@
+{
+  "repositoryCwd": "/workspace/FsusBlog-group-property-recheck-3663",
+  "frontendCwd": "/workspace/FsusBlog-group-property-recheck-3663/src/frontend",
+  "frontendNames": [
+    "frontend-exact-discovery-cwd",
+    "frontend-exact-discovery-dependencies",
+    "frontend-selected-tests"
+  ],
+  "frontendEnvironment": {
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-review-module-3663"
+  },
+  "firstDiscoveryCwd": "/workspace/FsusBlog-group-property-recheck-3663",
+  "otherCwd": "/workspace/FsusBlog-group-property-recheck-3663",
+  "source": "ec70100fd2513f8c3e7c5586c7e3341f70446896"
+}

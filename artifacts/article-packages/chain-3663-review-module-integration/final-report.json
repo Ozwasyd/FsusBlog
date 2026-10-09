@@ -1,0 +1,155 @@
+{
+  "schema": "fsusblog.article-package.original-project-review-integration.v1",
+  "capturedUtc": "2026-10-09T08:33:37.945545+00:00",
+  "testedSourceSha": "ec70100fd2513f8c3e7c5586c7e3341f70446896",
+  "branch": "codex/chain-3663-group-property-recheck",
+  "sdk": "10.0.302",
+  "node": "24.16.0",
+  "npm": "11.13.0",
+  "recovery": "one bounded git/environment check succeeded; clean180949 followed by normal supplied minimal lock consumption; actual audited locked restore exit0 at ec70100f",
+  "uiSupplier": "7d23fc30865a206de0b31df527a6b6e59cd7c932",
+  "uiMerge": "180949cdf16cc277d9f8c75cd0350022b1e56232",
+  "lockSource": "53075182a4cccf400e1a389d5dfc7dca5ab4d09d",
+  "sourceBindings": "supplier-source-binding.json",
+  "packageInputs": "current-source-inputs.json",
+  "checks": {
+    "originalServerBuildAt180949": "PASS exit0,0errors322warnings; original project, no suppression",
+    "freshOriginalTestProjectRestoreAtEc701": "PASS exit0,NuGetAudit=true/all/low; SQLite NU1903 visible, no regeneration",
+    "originalTestProjectBuildAtEc701": "FAIL exit1,4CS0182,1065warnings in unchanged LifecycleHostedBootstrapServiceTests.cs lines23-26",
+    "backendOriginalDiscovery": "NOT RUN: original compile failed",
+    "backendOriginalSelectedTests": "NOT RUN: expected813 with264exactmethods preflight prepared; includes18new projection controls, excludes held trust/full-matrix cases. Never executed a substitute host",
+    "frontendOriginalDiscovery": "PASS exact20cases after two preserved non-executing setup failures",
+    "frontendOriginalTests": "PASS20/20,0failed,0pending; actual original config/setup and actual ElButton; component proof only",
+    "csharpStyle": "PASS actual3deliveredCSharp files0violations",
+    "frontendStyle": "PASS actual2implementation files,eslint2/stylelint1,0violations; test path excluded by original checker selection policy",
+    "newSourceCommitRange": "PASS a1b24e733..ec70100f via unchanged trusted checker",
+    "fullPrGates": "UNRUN/unaccepted; no narrow result approves inherited WIP diff",
+    "fullRuntimeMatrix": "NOT RUN/HOLD",
+    "productionRenderedUi": "NOT RUN/BLOCKED",
+    "evidenceReadmeLint": "PASS exit0 exactREADME only",
+    "deliveredSourceDiffCheck": "PASS exit0 a1..ec70100f",
+    "evidenceDiffCheck": "FAIL exit2 solely preserved raw failed-discovery log new blank line atEOF; raw bytes not normalized or suppressed; full PR gate unaccepted"
+  },
+  "originalBuildBlocker": "original-build-blocker.json",
+  "nextExternalRequest": {
+    "owner": "existing lifecycle/bootstrap/native migration source owner through coordinating parent",
+    "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+    "blob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+    "errors": "InlineData uses Environments.Development/Production static values, not attribute constants; CS0182 lines23-26",
+    "needed": "explicit exact authorized owner correction commit, then rerun fresh original compile/discovery/positive tests",
+    "prohibited": "no own cross-chain edit, exclusion, alternate host, suppression or broad sibling merge",
+    "introducedBy": "d56c2f04b"
+  },
+  "hostIntegration": {
+    "status": "BLOCKED",
+    "existingContentTools": "legacy Markdown/frontmatter intake/export; not candidate plan producer",
+    "actualProjection": "copies immutable original finite plan; no new parser/planner/digest/executor",
+    "missing": "authenticated finite candidate plan producer/read route and original AEDS transport binding, plus admitted production UI fixture",
+    "activation": "none; no DI/HTTP API/hostmount/json fallback introduced",
+    "classification": "component test runtime is not inspected production-fixture acceptance",
+    "skillBoundary": "After behavior green, use independent verification; acceptance requires inspected production-fixture evidence. See .agents/skills/fsusblog-design-conformance/references/orchestrated-ui.md"
+  },
+  "frontendSetup": {
+    "publicInstall": "original prepare/local npm-ci/verify, exact checked-in public integrity versions",
+    "fsusui": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "taskClone": "/workspace/FsusUI-review-module-3663",
+    "canonicalFsusUiModified": false,
+    "builtAssets": "pre-existing copied bytes hashes recorded, not new production provenance",
+    "browserAcceptance": false
+  },
+  "priorDiagnostic795": "f3928561aec01b728fc5eae09e568f97481f8ed1 only, private source-host diagnosis; not retargeted or original-project proof",
+  "supplierReported20And23": "not inherited as our results; own20fresh pass is independently recorded, HTML-sink23 not rerun by root",
+  "evidenceOnlyDirtDuringStyle": "only earlier ui-module-release.json metadata update; source/test/tool/config files remained canonical53inputs plus six supplier blobs",
+  "issueStates": {
+    "3663": {
+      "accepted": false,
+      "state": "open",
+      "status": "BLOCKED: current original test project compile has four inherited CS0182 errors after fresh audited locked restore passes. Original trust31/current discovery/required full matrices and independent acceptance NOT RUN."
+    },
+    "2398": {
+      "accepted": false,
+      "state": "open",
+      "status": "WIP: sole finite codec, version registry, property/metadata/taxonomy/asset components implemented; accepted complete V1 root and legitimate source admission remain."
+    },
+    "2408": {
+      "accepted": false,
+      "state": "open",
+      "status": "WIP: same finite components and selected historical DTO bridge; complete manifests/provenance/privacy/version acceptance remain."
+    },
+    "2400": {
+      "accepted": false,
+      "state": "open",
+      "status": "WIP: finite frozen export writer/property planner; complete canonical source, assets, frozen/permission/runtime gate remain."
+    },
+    "2410": {
+      "accepted": false,
+      "state": "open",
+      "status": "WIP: same finite export source; original frozen plan and accepted schema/export runtime remain."
+    },
+    "2402": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: finite intake/bytes/ZIP source exists; accepted export/schema and formal complete preflight remain."
+    },
+    "2411": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: finite intake exists; original full schema/rights/plan preflight unaccepted."
+    },
+    "2404": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: accepted preflight and real resolution/definition/permission inputs missing."
+    },
+    "2413": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: accepted preflight and canonical resolution/replan authority missing."
+    },
+    "2405": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: accepted plan and canonical atomic executor/rollback/recovery/outbox/audit gates missing."
+    },
+    "2415": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: accepted plan and original execution/recovery/permission authority missing."
+    },
+    "2406": {
+      "accepted": false,
+      "state": "open",
+      "status": "WIP: supplied six-file read-only review merged unchanged; current original-config frontend20/20 PASS and strict scope style PASS. Backend18 projection controls NOT RUN due original test-project compile failure. Authenticated source producer/read route/AEDS binding/production-fixture UX acceptance missing; execution always refused."
+    },
+    "2418": {
+      "accepted": false,
+      "state": "open",
+      "status": "WIP: supplied six-file read-only review merged unchanged; current original-config frontend20/20 PASS and strict scope style PASS. Backend18 projection controls NOT RUN due original test-project compile failure. Authenticated source producer/read route/AEDS binding/production-fixture UX acceptance missing; execution always refused."
+    },
+    "2407": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: accepted replacement and migration acceptance absent; no legacy retirement."
+    },
+    "2409": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: terminal whole-chain/native/mutation/performance/caption acceptance."
+    },
+    "2420": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: terminal whole-chain qualification and independent runtime acceptance."
+    }
+  },
+  "trackingIssues": [],
+  "prPublication": "Parent sole PR/issue body writer. Read-only GitHub query returned no open PR for this branch at08:32; complete updated draft provided; no PR created here.",
+  "prohibitionsPreserved": [
+    "no productionDB/credentials",
+    "no lock regeneration",
+    "no held audit recreated",
+    "no gate/threshold/test alterations",
+    "no masterpush/merge/closure/deploy",
+    "no cross-chain conflict resolution"
+  ]
+}

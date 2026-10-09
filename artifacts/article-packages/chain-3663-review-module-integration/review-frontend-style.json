@@ -1,0 +1,24 @@
+{
+    "command": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--root",
+        "/workspace/FsusBlog-group-property-recheck-3663",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/frontend/src/api/types/articlePackageCandidateReview.ts",
+        "--file",
+        "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue",
+        "--file",
+        "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts"
+    ],
+    "testedSha": "ec70100fd2513f8c3e7c5586c7e3341f70446896",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T08:30:28.478622+00:00",
+    "endUtc": "2026-10-09T08:30:30.933610+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/review-module-integration/review-frontend-style.log"
+}

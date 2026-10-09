@@ -1,0 +1,17 @@
+{
+    "command": [
+        "markdownlint-cli2",
+        "--config",
+        ".markdownlint-cli2.jsonc",
+        "--no-globs",
+        ":artifacts/article-packages/chain-3663-review-module-integration/README.md"
+    ],
+    "testedSha": "ec70100fd2513f8c3e7c5586c7e3341f70446896",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T08:34:07.822653+00:00",
+    "endUtc": "2026-10-09T08:34:08.079743+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/review-module-integration/current-readme-lint.log"
+}
