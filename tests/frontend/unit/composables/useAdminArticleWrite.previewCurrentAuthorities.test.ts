@@ -1,23 +1,22 @@
 // @vitest-environment happy-dom
 
-import { ElMarkdownEditor } from '@ozwasyd/element-plus';
+import { ElMarkdownEditor, type MarkdownEditorTransactionEvent } from '@ozwasyd/element-plus';
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 import { defineComponent, nextTick } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
 import type { SeoConfigPublic } from '@/api/system';
-import type { MarkdownEditorTransactionEvent } from '@/fsusui/articlePositionMaps';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import { ArticlePreviewSourceAdmission } from '@/services/authoring/articlePreviewSourceAdmission';
 import { calculateOpenArticleDocumentDigest as digest } from '@/services/authoring/openArticleDocumentRegistry';
 import type { ArticleDraftResponsibilitySource } from '@/view-contracts/articleDraftResponsibility';
 
-const api = vi.hoisted(() => ({ site: vi.fn(), history: vi.fn(), preview: vi.fn() }));
+const api = vi.hoisted(() => ({ site: vi.fn(), history: vi.fn(), preview: vi.fn(), principalId: '', caseId: 0 }));
 vi.mock('vue-router', () => ({ useRoute: () => ({ params: {}, query: {} }),
     useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/store/admin', () => ({ useAdminStore: () => ({ setPageTitle: vi.fn(),
-    adminPrincipal: { id: 'preview-current-host', username: 'preview-current-host' } }) }));
+    adminPrincipal: { id: api.principalId, username: api.principalId } }) }));
 vi.mock('@/api/article', () => ({ ArticlePublishStatus: { Draft: 0, Published: 1, Scheduled: 2, Private: 3 },
     createArticle: vi.fn(), updateArticle: vi.fn(), getAdminArticleById: vi.fn() }));
 vi.mock('@/api/authoring', () => ({ getArticleResponsibilityHistory: api.history, previewArticleDraft: api.preview,
@@ -47,6 +46,8 @@ vi.mock('@/services/articleRecoveryJournal', async importOriginal => ({
 
 enableAutoUnmount(afterEach);
 beforeEach(() => {
+    // The original authority retains a document across remounts. Each ordinary case owns a separate user scope.
+    api.principalId = `preview-current-host-${++api.caseId}`;
     api.site.mockReset().mockResolvedValue({ author: 'Canonical observed author' });
     api.history.mockReset().mockResolvedValue([]);
     api.preview.mockReset();
