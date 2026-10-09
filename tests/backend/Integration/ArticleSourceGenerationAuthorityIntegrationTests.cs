@@ -559,6 +559,29 @@ public sealed class ArticleSourceGenerationAuthorityIntegrationTests(PostgresSch
         Assert.Equal(0, await CountAsync(db, "article_rights_snapshot"));
     }
 
+    [Theory]
+    [InlineData("family")]
+    [InlineData("sequence")]
+    public async Task MissingCounterWithSurvivingJournal_RefusesReinitialization(string missingCounter)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        ArticleCreateMutationAuthority.Result created = await SeedAsync(db);
+        await db.Ado.ExecuteCommandAsync(missingCounter == "family"
+            ? "DELETE FROM article_source_generation;"
+            : "DELETE FROM article_source_sequence;");
+        db.Ado.BeginTran();
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db);
+        ArticleMutationOutboxEvent next = await InsertCurrentAsync(db, created.ArticleId);
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => ArticleSourceGenerationAuthority.RecordMutationAsync(db, next.EventId));
+        Assert.Equal(missingCounter == "family"
+            ? "article_source_clock_missing_for_persisted_state"
+            : "article_source_sequence_missing_for_persisted_state", error.Message);
+        Assert.Equal(1, await CountAsync(db, "article_source_mutation"));
+        db.Ado.RollbackTran();
+        Assert.Equal(1, await CountAsync(db, "article_mutation_outbox"));
+    }
+
     private static IConfiguration Configuration()
         => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
