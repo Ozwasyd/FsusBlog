@@ -1,0 +1,106 @@
+{
+  "schema": "fsusblog.exact-canonical-correctness-roster-integration.v1",
+  "preparedAtUtc": "2026-10-09T15:30:18.140754+00:00",
+  "sourceCommit": "165005a00305daa9d8117494a1d33bc09b4a122f",
+  "branch": "codex/shared-pin-permission-gate-integration-20261009",
+  "baseMinimalPermissionSource": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
+  "parentSuppliedCanonicalFix": "fae117436a4c829748c04c6381d86db6be764e76",
+  "exactPaths": [
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "basePermissionBlob": "e79a780cf59f3815ca7197926d61a83bb2336602",
+      "supplierPreimage": "e79a780cf59f3815ca7197926d61a83bb2336602",
+      "supplierPostimage": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+      "integrationBlob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac"
+    },
+    {
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "basePermissionBlob": "470d1c518eb69e2e370570d6393b66ad00969afd",
+      "supplierPreimage": "470d1c518eb69e2e370570d6393b66ad00969afd",
+      "supplierPostimage": "18a47e207c8a340b346e6ea421d94de38a9d6050",
+      "integrationBlob": "18a47e207c8a340b346e6ea421d94de38a9d6050"
+    },
+    {
+      "path": "tools/test/correctness-attempt-migration.mjs",
+      "basePermissionBlob": "03cc98b74786d6a2d4c80337b57dd093f74ebb39",
+      "supplierPreimage": "03cc98b74786d6a2d4c80337b57dd093f74ebb39",
+      "supplierPostimage": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+      "integrationBlob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212"
+    }
+  ],
+  "currentMatrixDigest": "sha256:db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03",
+  "originalProducerGeneratedProduct": true,
+  "productHandEdited": false,
+  "all226OriginalEntriesUnchanged": true,
+  "canonicalInventoryEqualityValidatorUnchanged": true,
+  "historicalControlNamePreserved": true,
+  "commands": [
+    {
+      "sourceCommit": "5ea4f8d021e0a5a499e8f50f1b51799083c9b43a",
+      "argv": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test/generate-correctness-attempt-producers.mjs",
+        "--write"
+      ],
+      "cwd": "/workspace/FsusBlog-pin-permission-gate-integration",
+      "startedAtUtc": "2026-10-09T15:28:24.466968+00:00",
+      "endedAtUtc": "2026-10-09T15:28:24.742205+00:00",
+      "exitCode": 0,
+      "seconds": 0.275,
+      "runtimeQualification": false,
+      "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-gate-integration/.tmp/pin-permission-gate-integration/evidence/original-correctness-producer.log",
+      "stdoutSha256": "d47550f01597eebc23c46efd64de516e88aa44edd7b52e95a673f104025f2074",
+      "bindingNote": "Executed at5ea HEAD with two exact handwritten fae source hunks in worktree; generated product then verified byte-exact supplier postimage before immutable165 commit. Not an immutable5ea verification."
+    },
+    {
+      "sourceCommit": "165005a00305daa9d8117494a1d33bc09b4a122f",
+      "argv": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/correctness-attempt-migration.test.mjs"
+      ],
+      "cwd": "/workspace/FsusBlog-pin-permission-gate-integration",
+      "startedAtUtc": "2026-10-09T15:28:56.933593+00:00",
+      "endedAtUtc": "2026-10-09T15:28:57.421902+00:00",
+      "exitCode": 0,
+      "seconds": 0.488,
+      "runtimeQualification": false,
+      "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-gate-integration/.tmp/pin-permission-gate-integration/evidence/original-roster-migration-controls.log",
+      "stdoutSha256": "0e18fd0bc3684624e58327fbcd786a0e3ad2b588335834710af942d55571c171",
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Original gate-source migration tests only; no managed permission test execution."
+    },
+    {
+      "sourceCommit": "165005a00305daa9d8117494a1d33bc09b4a122f",
+      "argv": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "cwd": "/workspace/FsusBlog-pin-permission-gate-integration",
+      "startedAtUtc": "2026-10-09T15:28:53.658410+00:00",
+      "endedAtUtc": "2026-10-09T15:31:37.136870+00:00",
+      "exitCode": 1,
+      "seconds": 163.479,
+      "runtimeQualification": false,
+      "failureReason": "release-final static boundary rejected matrix parse: execution target authority owner/content/dependency closure drift",
+      "expectedAuthoritySha256": "142d04ffc89385fb9de39a0322902fdb2d1a7d5382c6cb688e74511808f940ea",
+      "actualAuthoritySha256": "39642f38ee0a5328fe4729756b02567c4238af5370a19c7b4c81b1a2855f9720",
+      "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-gate-integration/.tmp/pin-permission-gate-integration/evidence/consumed-roster-preflight.log",
+      "stdoutSha256": "21e7c7d78dff087828cc25a1e932a1a3ba8a602c9ec7f4113a46d20ae0592c7e"
+    }
+  ],
+  "runtimeQualification": false,
+  "managedCompilationDiscoveryBodies": "UNRUN",
+  "canonical3657RosterAdmissionStillRequired": true,
+  "rawLogsPublished": false,
+  "mandatoryPreflight": "REFUSED; original migration source controls2/2 PASS do not substitute full gate",
+  "minimalPermissionEvidenceHead": "65a667f84c404f2840d07e0fbabdffe7e1985406",
+  "canonicalAuthorityNextAction": "Original execution-target authority owner supplies current complete owner/content/dependency closure and canonical producer-backed authority; canonical3657 owner enrolls14new original cases. No root hand-filled output or authority relaxation. SAME reviewer01a12134-c63b reviews fixed minimal permission source5ea.",
+  "changedMandatoryGateWasRunOnce": true,
+  "unchangedFailedGateReruns": 0,
+  "updatedAtUtc": "2026-10-09T15:32:48.393001+00:00"
+}
