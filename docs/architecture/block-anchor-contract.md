@@ -329,3 +329,59 @@ supply the cross-article expected-revision atomic/recovery protocol required her
 Its original owner's PostgreSQL evidence is not this planner's runtime acceptance.
 No writer, marker mutation, history/outbox/audit/reindex receipt or collision authority
 is fabricated. Execution and package round-trip acceptance remain open.
+
+## Bounded article adjacency source capability
+
+`ArticleRelationIndex.ReadAdjacencyAsync(request, authority, budget, cancellationToken)`
+reads incoming/outgoing article adjacency from lookup references built and committed
+with the same canonical index snapshot. It never calls `InspectTarget` and then
+truncates a complete target result. The lookup includes original article, heading
+and block link targets plus the existing independently typed embed edges. Ordering
+is ordinal and deterministic; self-loops are admitted before deduplication. Exact
+incoming link-target, revision and kind filters remain link-specific and cannot
+reinterpret or suppress the separately selected embed domain. Explicit
+`IncludeLinks`/`IncludeEmbeds` switches select domains after permission admission.
+The sole codec, scanner, producer, history and impact APIs are unchanged.
+
+The explicit `IAdjacencyAuthority` read port independently observes actor/site,
+index/source generation, document identity/epoch, scope and opaque
+permission/site/session versions. Observation reads receive actor/scope only;
+client expected versions and document coordinates cannot become observed facts.
+Every decision binds that complete observation and its original exact
+source/target coordinate. Root admission precedes lookup; source and target
+admission precede filters, node/edge charging and output. Nested embed hosts need
+separate admission, including the original host document identity/epoch and source
+sequence/generation binding. Missing embed revision identity/kind stays missing; authoring
+scope is not fabricated as a Draft/Current revision. Unknown and denied decisions
+produce no withheld metadata, degree, total or marker. The returned embed projection
+contains a single approved edge, coordinate/receipt and original host bindings,
+never its whole admission or sibling edge set.
+
+`CreateAdjacencyBudget` permits lowering, not raising, the hard caps of 1,000 article
+nodes, 2,000 domain edges, 1 MiB, 4,096 index operations and 250 ms. The lease is
+bound to one index, authority and observation; concurrent readers are refused.
+It applies cumulatively across Graph depth-one/depth-two reads. Depth selection,
+frame IDs and final wire-envelope bytes remain Graph responsibilities. Operations
+include candidate advances, permission/source reads, source-set lookups and each
+original record/coordinate comparison. Byte charges conservatively bound UTF-8
+metadata and payload using three bytes per UTF-16 code unit plus scalar allowance;
+the same lease also pays complete original-family revalidation work. These are
+upper caps, not a promise that 2,000 edges fit before another cap is reached.
+Both the supplied clock and a system monotonic deadline enforce elapsed time.
+Owned timeout scopes bound awaited reads, including noncooperative asynchronous
+providers; an adapter must still bound synchronous work and storage materialization.
+
+Before a successful read returns, complete original admitted host families are
+reread with bounded full-fact parity, all admitted permission coordinates are
+rechecked, the authority is reobserved and the original source generation is probed
+again. Provider failure, tampering, drift or any exhausted budget returns a single
+empty unavailable result and invalidates earlier staged reads under the lease;
+caller cancellation throws. Graph must discard all staged items on any refusal
+and call `VerifyAdjacencyBudgetAsync` before publishing a multi-read result.
+No partial-success or truncation receipt is emitted.
+
+This source capability has no SQL adapter, registration, endpoint, durable store,
+Graph integration or runtime privacy/latency qualification. Ordinary controlled
+unit fixtures exercise the algorithm; they cannot qualify observed permissions,
+provider storage bounds, device/runtime behavior or publication. The real local
+FsusUI alias stays under its existing owner; no UI source or package changes occur.
