@@ -1,0 +1,13 @@
+{
+  "runtime": "7a14773d81d3b588abe2866ab5c772389f17615f",
+  "provider": "99500e5ca0ceeafd9b3ef0791de54b6eb95c972e",
+  "neutralFix": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "protocolRouteSource": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "noCopiedGeneratedProducts": [
+    "config/testing/correctness-attempt-producers.json",
+    "config/testing/fixture-consumer-inventory.generated.json",
+    "config/testing/fixture-profile-matrix.generated.json",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "nonUploadContractsAndDecoderRosterPreserved": true
+}

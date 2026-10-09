@@ -1,0 +1,89 @@
+{
+  "recordedAt": "2026-10-09T17:42:38.821458+00:00",
+  "ownedFsusuiSourceAliasLinksRemoved": [
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/katex",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/fsusui-local-katex"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/vue",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/vue"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/lodash",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/lodash"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/mermaid",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/mermaid"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/normalize-wheel-es",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/normalize-wheel-es"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/motion-dom",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/motion-dom"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/lodash-unified",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/lodash-unified"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/async-validator",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/async-validator"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/escape-html",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/escape-html"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/memoize-one",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/memoize-one"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/dayjs",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/dayjs"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/lodash-es",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/lodash-es"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/gsap",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/gsap"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/shiki",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/shiki"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/@floating-ui/dom",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/@floating-ui/dom"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/@types/lodash",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/@types/lodash"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/@types/lodash-es",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/@types/lodash-es"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/@popperjs/core",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/@popperjs/core"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/@element-plus/icons-vue",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/@element-plus/icons-vue"
+    },
+    {
+      "path": "/workspace/FsusUI-palette-2246/vue/packages/node_modules/@ctrl/tinycolor",
+      "target": "/workspace/FsusBlog-writer-owned-upload-2246/src/frontend/node_modules/@ctrl/tinycolor"
+    }
+  ],
+  "foreignCacheChanged": false,
+  "frontendTaskInstallRetained": "Own locked task install retained for review; no production resources created",
+  "runtimeProcesses": "All three committed Vitest runner invocations returned recorded exit codes; no live execution sessions retained",
+  "sharedUiSourceChanges": "No tracked FsusUI source changes"
+}

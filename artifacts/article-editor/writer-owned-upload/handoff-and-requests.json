@@ -1,0 +1,51 @@
+{
+  "runtimeBorrowPrerequisite": {
+    "status": "RESOLVED FOR ORDINARY HOST SOURCE",
+    "source": "7a14773d81d3b588abe2866ab5c772389f17615f",
+    "remoteEvidence": "6f6312e42fa41acb294f871689eaa42f7e92d442",
+    "hostTestedSha": "35a028c7be7f031a3f3beb986ff79418dcd08582",
+    "counts": "12 new host +148 original regressions PASS; legacy2 FAIL; original13=11PASS/2FAIL"
+  },
+  "productionInputBridge": {
+    "status": "WAITING",
+    "need": "Original canonical component/FsusUI owner must supply a genuine per-file File capability associated with the original pending capture/commitCreated handle, including original pick/paste/drop/replace/retry/cancel semantics",
+    "currentSource": [
+      "MarkdownEditorAdapter.vue listens to retired @on-upload-img and forwards File[] callbacks",
+      "Actual FsusUI 0e markdownEditorEmits exposes upload-image batch; exposed commands have no original File lending API",
+      "No cloned handle, metadata-to-File reconstruction, local parser, private DOM/caret extraction or fabricated receipt is authorized"
+    ]
+  },
+  "transactionAuthority": {
+    "status": "WAITING",
+    "need": "Original business reference/cleanup authority and accepted operation coordinates for actual document completion outside withSession; transport facts alone cannot authorize it"
+  },
+  "2245": {
+    "status": "WAITING FOR ACCEPTED STAGE EVIDENCE",
+    "ownerRoot": 2245,
+    "need": "Parent-supplied exact prerequisite commit(s), current context/epoch/last-valid-render acceptance and compatibility evidence per dependent issue; do not wait for the whole chain or guess/cherry-pick source"
+  },
+  "styleBaselineOwner": {
+    "status": "WAITING",
+    "need": "Original approved baseline producer must satisfy binding gates; no local baseline/checker changes",
+    "existingBindingErrors": 3,
+    "contractStrictDiagnosticDelta": 0,
+    "existingContractDiagnostics": [
+      "binaryApi.ts:177 consistent-type-imports",
+      "binaryApi.ts:184 consistent-type-imports"
+    ]
+  },
+  "nativeBoundary": {
+    "status": "NOT QUALIFIED / NOT RUN",
+    "suppliedTransportSource": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+    "need": "Original backend/native producer integration and permitted current runtime qualification; only supplied frontend source/projection inputs were consumed here",
+    "dotnet": "command not found",
+    "noFakeApiOrRuntimeReceipt": true
+  },
+  "publication": {
+    "status": "PROHIBITED BY LATEST PARENT STEERING",
+    "localBranch": "codex/chain-2246-writer-owned-upload",
+    "sourceCommit": "35a028c7be7f031a3f3beb986ff79418dcd08582",
+    "remoteSha": null,
+    "draftPr": null
+  }
+}

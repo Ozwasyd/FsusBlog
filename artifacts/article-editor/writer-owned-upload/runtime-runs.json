@@ -1,0 +1,872 @@
+{
+  "testedSha": "35a028c7be7f031a3f3beb986ff79418dcd08582",
+  "groups": {
+    "committed-positive": {
+      "testedSha": "35a028c7be7f031a3f3beb986ff79418dcd08582",
+      "startTime": "2026-10-09T17:32:42.748000+00:00",
+      "success": true,
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "pending": 0,
+      "todo": 0,
+      "cases": [
+        {
+          "fullName": "actual Writer owned upload observation observes large facts through the original per-attempt loan after public session clearing",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation uses the original bounded preview read for small files and returns no bytes",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation refuses a cloned pending handle before starting the original upload",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation refuses mismatched file metadata before starting the original upload",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation refuses the legacy body callback without an original document intent",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation refuses a concurrent owned invocation without replacing the original attempt",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation rejects late completion after the genuine intent is cancelled",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation rejects late completion after the actual Writer unmounts",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation releases the loan signal after an observation and never grants a source transaction",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation retains recovery-required observations without retrying or deleting an uncertain commit",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation rejects a late provider read when the calling signal aborts the original flow lease",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer owned upload observation rejects a late preview observation after the actual editor owner is released",
+          "status": "passed"
+        }
+      ],
+      "commands": [
+        {
+          "key": "collect",
+          "args": [
+            "node",
+            "node_modules/vitest/vitest.mjs",
+            "list",
+            "--config",
+            "vitest.config.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.ownedUploadObservation.test.ts",
+            "--json",
+            "/workspace/FsusBlog-writer-owned-upload-2246/.tmp/chain-2246/writer-owned-upload/committed-positive/positive-list.json"
+          ],
+          "exitCode": 0
+        },
+        {
+          "key": "runtime-collect",
+          "args": [
+            "node",
+            "node_modules/vitest/vitest.mjs",
+            "list",
+            "--config",
+            "vitest.config.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.ownedUploadObservation.test.ts",
+            "--testNamePattern",
+            "^(?:actual\\ Writer\\ owned\\ upload\\ observation\\ observes\\ large\\ facts\\ through\\ the\\ original\\ per\\-attempt\\ loan\\ after\\ public\\ session\\ clearing|actual\\ Writer\\ owned\\ upload\\ observation\\ uses\\ the\\ original\\ bounded\\ preview\\ read\\ for\\ small\\ files\\ and\\ returns\\ no\\ bytes|actual\\ Writer\\ owned\\ upload\\ observation\\ refuses\\ a\\ cloned\\ pending\\ handle\\ before\\ starting\\ the\\ original\\ upload|actual\\ Writer\\ owned\\ upload\\ observation\\ refuses\\ mismatched\\ file\\ metadata\\ before\\ starting\\ the\\ original\\ upload|actual\\ Writer\\ owned\\ upload\\ observation\\ refuses\\ the\\ legacy\\ body\\ callback\\ without\\ an\\ original\\ document\\ intent|actual\\ Writer\\ owned\\ upload\\ observation\\ refuses\\ a\\ concurrent\\ owned\\ invocation\\ without\\ replacing\\ the\\ original\\ attempt|actual\\ Writer\\ owned\\ upload\\ observation\\ rejects\\ late\\ completion\\ after\\ the\\ genuine\\ intent\\ is\\ cancelled|actual\\ Writer\\ owned\\ upload\\ observation\\ rejects\\ late\\ completion\\ after\\ the\\ actual\\ Writer\\ unmounts|actual\\ Writer\\ owned\\ upload\\ observation\\ releases\\ the\\ loan\\ signal\\ after\\ an\\ observation\\ and\\ never\\ grants\\ a\\ source\\ transaction|actual\\ Writer\\ owned\\ upload\\ observation\\ retains\\ recovery\\-required\\ observations\\ without\\ retrying\\ or\\ deleting\\ an\\ uncertain\\ commit|actual\\ Writer\\ owned\\ upload\\ observation\\ rejects\\ a\\ late\\ provider\\ read\\ when\\ the\\ calling\\ signal\\ aborts\\ the\\ original\\ flow\\ lease|actual\\ Writer\\ owned\\ upload\\ observation\\ rejects\\ a\\ late\\ preview\\ observation\\ after\\ the\\ actual\\ editor\\ owner\\ is\\ released)$",
+            "--json",
+            "/workspace/FsusBlog-writer-owned-upload-2246/.tmp/chain-2246/writer-owned-upload/committed-positive/runtime-positive-list.json"
+          ],
+          "exitCode": 0
+        },
+        {
+          "key": "unit",
+          "args": [
+            "node",
+            "node_modules/vitest/vitest.mjs",
+            "run",
+            "--config",
+            "vitest.config.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.ownedUploadObservation.test.ts",
+            "--testNamePattern",
+            "^(?:actual\\ Writer\\ owned\\ upload\\ observation\\ observes\\ large\\ facts\\ through\\ the\\ original\\ per\\-attempt\\ loan\\ after\\ public\\ session\\ clearing|actual\\ Writer\\ owned\\ upload\\ observation\\ uses\\ the\\ original\\ bounded\\ preview\\ read\\ for\\ small\\ files\\ and\\ returns\\ no\\ bytes|actual\\ Writer\\ owned\\ upload\\ observation\\ refuses\\ a\\ cloned\\ pending\\ handle\\ before\\ starting\\ the\\ original\\ upload|actual\\ Writer\\ owned\\ upload\\ observation\\ refuses\\ mismatched\\ file\\ metadata\\ before\\ starting\\ the\\ original\\ upload|actual\\ Writer\\ owned\\ upload\\ observation\\ refuses\\ the\\ legacy\\ body\\ callback\\ without\\ an\\ original\\ document\\ intent|actual\\ Writer\\ owned\\ upload\\ observation\\ refuses\\ a\\ concurrent\\ owned\\ invocation\\ without\\ replacing\\ the\\ original\\ attempt|actual\\ Writer\\ owned\\ upload\\ observation\\ rejects\\ late\\ completion\\ after\\ the\\ genuine\\ intent\\ is\\ cancelled|actual\\ Writer\\ owned\\ upload\\ observation\\ rejects\\ late\\ completion\\ after\\ the\\ actual\\ Writer\\ unmounts|actual\\ Writer\\ owned\\ upload\\ observation\\ releases\\ the\\ loan\\ signal\\ after\\ an\\ observation\\ and\\ never\\ grants\\ a\\ source\\ transaction|actual\\ Writer\\ owned\\ upload\\ observation\\ retains\\ recovery\\-required\\ observations\\ without\\ retrying\\ or\\ deleting\\ an\\ uncertain\\ commit|actual\\ Writer\\ owned\\ upload\\ observation\\ rejects\\ a\\ late\\ provider\\ read\\ when\\ the\\ calling\\ signal\\ aborts\\ the\\ original\\ flow\\ lease|actual\\ Writer\\ owned\\ upload\\ observation\\ rejects\\ a\\ late\\ preview\\ observation\\ after\\ the\\ actual\\ editor\\ owner\\ is\\ released)$",
+            "--reporter=default",
+            "--reporter=json",
+            "--outputFile=/workspace/FsusBlog-writer-owned-upload-2246/.tmp/chain-2246/writer-owned-upload/committed-positive/unit-results.json"
+          ],
+          "exitCode": 0
+        }
+      ],
+      "qualification": false
+    },
+    "committed-regression": {
+      "testedSha": "35a028c7be7f031a3f3beb986ff79418dcd08582",
+      "startTime": "2026-10-09T17:33:06.700000+00:00",
+      "success": true,
+      "total": 148,
+      "passed": 148,
+      "failed": 0,
+      "pending": 0,
+      "todo": 0,
+      "cases": [
+        {
+          "fullName": "upload API requests preview uses the original protected upload request and verifies actual response bytes",
+          "status": "passed"
+        },
+        {
+          "fullName": "upload API requests preview refuses URL identity and cancelled late completion",
+          "status": "passed"
+        },
+        {
+          "fullName": "upload API requests initUploadSession sends an UploadInitRequest AEDS frame",
+          "status": "passed"
+        },
+        {
+          "fullName": "upload API requests uploadPart sends raw bytes with binary metadata headers",
+          "status": "passed"
+        },
+        {
+          "fullName": "upload API requests completeUpload sends an UploadCompleteRequest AEDS frame",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter verifies the actual current pending handle without a lifecycle receipt or new store",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter verifies the actual committed successor after the original owner microtask",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rejects changed business intentRef coordinates",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rejects changed business nodeId coordinates",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rejects changed business transactionRef coordinates",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rejects changed business providerRef coordinates",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rejects changed business contextDigest coordinates",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rejects changed business sourceOrder coordinates",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rejects changed business sourceReferenced coordinates",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rejects changed business disposition coordinates",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rejects changed business sourceUrl coordinates",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter refuses an original handle lookup replaced by clone",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter refuses an original handle lookup replaced by receipt",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter refuses an original handle lookup replaced by foreign",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter refuses an original handle lookup replaced by missing",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter preserves actual removal false and denies a current intent grant for a terminal handle",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter preserves unknown source relation without turning it into proven removal",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rereads handle ownership after the promise boundary",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rereads the actual host context after a concurrent source edit",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter propagates caller cancellation at the promise boundary",
+          "status": "passed"
+        },
+        {
+          "fullName": "Original owned intent business adapter rejects after the original adapter is disposed",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition reads existing APIs for the exact current revision and projects the latest original history version",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition refreshes changed canonical site authors and rejects the older admission with unchanged body",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition observes a later host site-author edit at admission acceptance",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition preserves inherit toggles and explicit responsible editor input without changing source or confirmation",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition keeps explicit missing input missing and never restores saved responsibility over it",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition keeps an unsaved new article and missing current-authoring transport explicitly unavailable",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition does not manufacture an author or confirmation from empty site config and unconfirmed saved history",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition rejects same-body A to B context switches and a late A history result",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition does not dispatch APIs for a pre-canceled request",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition settles cancellation promptly even when the original API ignores abort and rejects late data",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition keeps a superseded caller canceled and prevents late old reads from overwriting a new refresh",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition rejects responsibility edits made while a site-author read is pending",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition rejects revision and metadata changes during pending reads without changing the document owner",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition rejects foreign, unordered and ambiguous revision history rather than guessing a current version",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition does not reuse a previously successful read after either existing API fails",
+          "status": "passed"
+        },
+        {
+          "fullName": "article preview current authority composition cancels and disposes only this read consumer while retaining the original host",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation binds continuity, actual cache and attachment ports to the same writer and public editor",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation shares the actual article owner through controlled attachment transactions and releases its editor lease",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation exposes one actual editor port through the production wrappers and forwards admitted transaction/focus events",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation rejects a new public editor at revision zero against a retained advanced owner without resetting its epoch",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation edit -> autosave/draft save only calls draft owner and never calls prepublish or publish APIs",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation retries a transient draft-save failure without publishing and deduplicates an identical in-flight save",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation pauses on a server draft conflict without losing editor content or promoting it to publication success",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation blocks publication when prepublish check finds blocking error issues",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation gates warning overrides: rejects short reason and requires explicit >=8 char confirmation before publishing",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation invalidates a late prepublish result when article revision content changes and requires a fresh current check",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation deduplicates concurrent prepublish commands while the current check is pending",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation preserves draft conflict state and does not mark publication successful on draft save or publish conflict",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation guards duplicate submits allowing only one concurrent submission in-flight",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation aborts an in-flight submit on unmount so a late result cannot navigate or publish stale success state",
+          "status": "passed"
+        },
+        {
+          "fullName": "useAdminArticleWrite authoring gates and draft isolation mounts ArticleWriteCommandBar and verifies save draft vs publish button contracts",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer preview current authority binding lends the original owned intent reader through the live Writer binding and withdraws it on unmount",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer preview current authority binding binds business intent verification to the original caller-held Writer capability",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer preview current authority binding rechecks the actual Writer source after the business verification promise boundary",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer preview current authority binding keeps a new draft explicitly missing and lends the genuine current host fields",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer preview current authority binding withdraws observations on the actual host source change without releasing its owner",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer preview current authority binding uses only live borrowed editing fields and rejects older source admission after their edit",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer preview current authority binding refreshes canonical reads before the original generation flow and preserves a business refusal",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer preview current authority binding disposes only the read consumer while its host owner remains current",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual Writer preview current authority binding aborts the actual read consumer on host unmount and refuses its abort-ignoring late response",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime runs compression and hashing before init, uploads every required part, then completes once",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime pauses after part retry exhaustion while retaining the resumable attempt and snapshot",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime resumes the same file and options with the stored identity and uploads only missing parts",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime initializes a new identity when a stored snapshot is tampered",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime initializes a new identity when stored-session status lookup fails",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime clears local state and calls abort once even when abort fails",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime shares an in-flight abort and blocks replacement until server cleanup is acknowledged",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime a late part failure cannot resurrect a cancelled recovery snapshot",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime does not call the API when abandoning without an active session",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime does not let a late part acknowledgement overwrite a new upload attempt",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime borrows actual compressed facts and retains a bound handle after public session and original lease clear",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime refuses a clone pending handle before creating a session",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime refuses a foreign pending handle before creating a session",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime refuses a clone document lease through the real original registry",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime refuses a foreign document lease through the real original registry",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime refuses to mint a borrow from a localStorage-only resumed session",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime expires a completed borrow without refreshing it from public state or storage",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime waits for a cancelled original initialization and real cleanup acknowledgement before replacement",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime retains true completion history and unknown cleanup after a cancelled completion without deleting it",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime uses the existing flow original lease and caller cancellation without creating a second upload",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime revokes a borrow on scope disposal and waits for the original part before settling",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime rereads original document and intent ownership after an asynchronous borrow callback",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime does not grant a legacy attempt a new deletion action on scope disposal",
+          "status": "passed"
+        },
+        {
+          "fullName": "useImageUploadRuntime invalidates a completed original borrow when a new attempt starts",
+          "status": "passed"
+        },
+        {
+          "fullName": "ImageUploadOptionsPanel upload controls shows resume and abandon only for the corresponding runtime state and wires both actions",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners preserves actual pending refs during save and blocks publish/revision/leave",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners preserves actual failed refs during save and blocks publish/revision/leave",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners preserves actual cancelled refs during save and blocks publish/revision/leave",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners preserves actual recovery-required refs during save and blocks publish/revision/leave",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners uses exact current reference facts and original callbacks for successful resources",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners does not promote real upload ledger facts into an article operation grant",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners rejects changed reference assetId",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners rejects changed reference assetVersionSha256",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners rejects changed reference referenceLedgerSha256",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners rejects changed reference contextDigest",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners rejects changed reference nodeId",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners rejects changed reference transactionRef",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners rejects placeholder or URL-only identity and never exposes it in preview",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners admits unreferenced removed only after original cleanup observation",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners admits unreferenced cancelled only after original cleanup observation",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners routes late committed facts into cleanup and rejects source/epoch changes",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners saves explicit current state without dropping identity or recovery refs",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners saves explicit stale state without dropping identity or recovery refs",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners saves explicit removed state without dropping identity or recovery refs",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners saves explicit cancelled state without dropping identity or recovery refs",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners permits the original save acknowledgement draft revision and rejects that drift during publish",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners detects node removal while save is running without rewriting history",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners preserves original save retry/conflict and original prepublish refusal",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners re-observes provider/reference facts when verifying receipt and ledger tamper",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners ignores caption fields and rejects duplicated identity/source order",
+          "status": "passed"
+        },
+        {
+          "fullName": "attachment business contribution to original owners calls actual owned retry/cancel ports and respects interrupted work",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual facts-only provider business caller keeps large upload facts blocked without an actual business reference receipt",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual facts-only provider business caller preserves current-context rejection and cleanup after a late large facts response",
+          "status": "passed"
+        },
+        {
+          "fullName": "actual facts-only provider business caller propagates interrupted large facts through the original business caller",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations observes actual status with owner token and actual progress without committing",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations uses actual completion then re-observes original ledger/bytes instead of trusting URL",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations coalesces duplicate commit attempts against the same original session",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations rejects a joining caller abort while preserving the original 3-byte commit",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations rejects a joining caller abort while preserving the original 20971520-byte commit",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations preserves the original caller control of the shared 3-byte commit",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations preserves the original caller control of the shared 20971520-byte commit",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations retains the original shared task after a joining caller abort until transport actually settles",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations retains each cancelled caller reason when both signals abort the shared attempt",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations retains uncertainty and never aborts after a possibly committed failed RPC",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations requires a real abort acknowledgement and preserves failed abort obligations for retry",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations blocks commit after an uncertain abort rather than racing a deleted original session",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations interrupts its actual commit task and observes late server promotion without deleting it",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations never revives unknown/expired progress or URL-only commit evidence",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations reads original facts without preview bytes for 8387833-byte committed uploads",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations reads original facts without preview bytes for 20971520-byte committed uploads",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations retains the preview route at the original exact budget",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations refuses changed facts uploadId without promoting a receipt",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations refuses changed facts sha256 without promoting a receipt",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations refuses changed facts sizeBytes without promoting a receipt",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations preserves original owner-token refusal for large facts",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations rejects changed session status before requesting large facts",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations propagates cancellation while reading original large facts",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations coalesces large retry attempts and reads facts after the actual completion RPC",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations preserves the original caller cancellation during a coalesced large facts read",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations observes a late large commit on cancel without deleting original bytes",
+          "status": "passed"
+        },
+        {
+          "fullName": "original upload business provider operations does not send an interrupted operation or acknowledge interrupted abort",
+          "status": "passed"
+        }
+      ],
+      "commands": [
+        {
+          "key": "collect",
+          "args": [
+            "node",
+            "node_modules/vitest/vitest.mjs",
+            "list",
+            "--config",
+            "vitest.config.ts",
+            "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+            "../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts",
+            "../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts",
+            "../../tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts",
+            "../../tests/frontend/unit/api/upload.test.ts",
+            "../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts",
+            "../../tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts",
+            "--json",
+            "/workspace/FsusBlog-writer-owned-upload-2246/.tmp/chain-2246/writer-owned-upload/committed-regression/positive-list.json"
+          ],
+          "exitCode": 0
+        },
+        {
+          "key": "runtime-collect",
+          "args": [
+            "node",
+            "node_modules/vitest/vitest.mjs",
+            "list",
+            "--config",
+            "vitest.config.ts",
+            "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+            "../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts",
+            "../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts",
+            "../../tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts",
+            "../../tests/frontend/unit/api/upload.test.ts",
+            "../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts",
+            "../../tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts",
+            "--testNamePattern",
+            "^(?:useImageUploadRuntime\\ runs\\ compression\\ and\\ hashing\\ before\\ init,\\ uploads\\ every\\ required\\ part,\\ then\\ completes\\ once|useImageUploadRuntime\\ pauses\\ after\\ part\\ retry\\ exhaustion\\ while\\ retaining\\ the\\ resumable\\ attempt\\ and\\ snapshot|useImageUploadRuntime\\ resumes\\ the\\ same\\ file\\ and\\ options\\ with\\ the\\ stored\\ identity\\ and\\ uploads\\ only\\ missing\\ parts|useImageUploadRuntime\\ initializes\\ a\\ new\\ identity\\ when\\ a\\ stored\\ snapshot\\ is\\ tampered|useImageUploadRuntime\\ initializes\\ a\\ new\\ identity\\ when\\ stored\\-session\\ status\\ lookup\\ fails|useImageUploadRuntime\\ clears\\ local\\ state\\ and\\ calls\\ abort\\ once\\ even\\ when\\ abort\\ fails|useImageUploadRuntime\\ shares\\ an\\ in\\-flight\\ abort\\ and\\ blocks\\ replacement\\ until\\ server\\ cleanup\\ is\\ acknowledged|useImageUploadRuntime\\ a\\ late\\ part\\ failure\\ cannot\\ resurrect\\ a\\ cancelled\\ recovery\\ snapshot|useImageUploadRuntime\\ does\\ not\\ call\\ the\\ API\\ when\\ abandoning\\ without\\ an\\ active\\ session|useImageUploadRuntime\\ does\\ not\\ let\\ a\\ late\\ part\\ acknowledgement\\ overwrite\\ a\\ new\\ upload\\ attempt|useImageUploadRuntime\\ borrows\\ actual\\ compressed\\ facts\\ and\\ retains\\ a\\ bound\\ handle\\ after\\ public\\ session\\ and\\ original\\ lease\\ clear|useImageUploadRuntime\\ refuses\\ a\\ clone\\ pending\\ handle\\ before\\ creating\\ a\\ session|useImageUploadRuntime\\ refuses\\ a\\ foreign\\ pending\\ handle\\ before\\ creating\\ a\\ session|useImageUploadRuntime\\ refuses\\ a\\ clone\\ document\\ lease\\ through\\ the\\ real\\ original\\ registry|useImageUploadRuntime\\ refuses\\ a\\ foreign\\ document\\ lease\\ through\\ the\\ real\\ original\\ registry|useImageUploadRuntime\\ refuses\\ to\\ mint\\ a\\ borrow\\ from\\ a\\ localStorage\\-only\\ resumed\\ session|useImageUploadRuntime\\ expires\\ a\\ completed\\ borrow\\ without\\ refreshing\\ it\\ from\\ public\\ state\\ or\\ storage|useImageUploadRuntime\\ waits\\ for\\ a\\ cancelled\\ original\\ initialization\\ and\\ real\\ cleanup\\ acknowledgement\\ before\\ replacement|useImageUploadRuntime\\ keeps\\ unknown\\ initialization\\ cleanup\\ blocked\\ instead\\ of\\ fabricating\\ an\\ abort\\ acknowledgement|useImageUploadRuntime\\ retains\\ true\\ completion\\ history\\ and\\ unknown\\ cleanup\\ after\\ a\\ cancelled\\ completion\\ without\\ deleting\\ it|useImageUploadRuntime\\ uses\\ the\\ existing\\ flow\\ original\\ lease\\ and\\ caller\\ cancellation\\ without\\ creating\\ a\\ second\\ upload|useImageUploadRuntime\\ revokes\\ a\\ borrow\\ on\\ scope\\ disposal\\ and\\ waits\\ for\\ the\\ original\\ part\\ before\\ settling|useImageUploadRuntime\\ rereads\\ original\\ document\\ and\\ intent\\ ownership\\ after\\ an\\ asynchronous\\ borrow\\ callback|useImageUploadRuntime\\ does\\ not\\ grant\\ a\\ legacy\\ attempt\\ a\\ new\\ deletion\\ action\\ on\\ scope\\ disposal|useImageUploadRuntime\\ invalidates\\ a\\ completed\\ original\\ borrow\\ when\\ a\\ new\\ attempt\\ starts|ImageUploadOptionsPanel\\ upload\\ controls\\ shows\\ resume\\ and\\ abandon\\ only\\ for\\ the\\ corresponding\\ runtime\\ state\\ and\\ wires\\ both\\ actions|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ lends\\ the\\ original\\ owned\\ intent\\ reader\\ through\\ the\\ live\\ Writer\\ binding\\ and\\ withdraws\\ it\\ on\\ unmount|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ binds\\ business\\ intent\\ verification\\ to\\ the\\ original\\ caller\\-held\\ Writer\\ capability|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ rechecks\\ the\\ actual\\ Writer\\ source\\ after\\ the\\ business\\ verification\\ promise\\ boundary|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ keeps\\ a\\ new\\ draft\\ explicitly\\ missing\\ and\\ lends\\ the\\ genuine\\ current\\ host\\ fields|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ withdraws\\ observations\\ on\\ the\\ actual\\ host\\ source\\ change\\ without\\ releasing\\ its\\ owner|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ uses\\ only\\ live\\ borrowed\\ editing\\ fields\\ and\\ rejects\\ older\\ source\\ admission\\ after\\ their\\ edit|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ refreshes\\ canonical\\ reads\\ before\\ the\\ original\\ generation\\ flow\\ and\\ preserves\\ a\\ business\\ refusal|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ disposes\\ only\\ the\\ read\\ consumer\\ while\\ its\\ host\\ owner\\ remains\\ current|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ aborts\\ the\\ actual\\ read\\ consumer\\ on\\ host\\ unmount\\ and\\ refuses\\ its\\ abort\\-ignoring\\ late\\ response|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ binds\\ continuity,\\ actual\\ cache\\ and\\ attachment\\ ports\\ to\\ the\\ same\\ writer\\ and\\ public\\ editor|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ shares\\ the\\ actual\\ article\\ owner\\ through\\ controlled\\ attachment\\ transactions\\ and\\ releases\\ its\\ editor\\ lease|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ exposes\\ one\\ actual\\ editor\\ port\\ through\\ the\\ production\\ wrappers\\ and\\ forwards\\ admitted\\ transaction/focus\\ events|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ rejects\\ a\\ new\\ public\\ editor\\ at\\ revision\\ zero\\ against\\ a\\ retained\\ advanced\\ owner\\ without\\ resetting\\ its\\ epoch|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ edit\\ \\->\\ autosave/draft\\ save\\ only\\ calls\\ draft\\ owner\\ and\\ never\\ calls\\ prepublish\\ or\\ publish\\ APIs|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ retries\\ a\\ transient\\ draft\\-save\\ failure\\ without\\ publishing\\ and\\ deduplicates\\ an\\ identical\\ in\\-flight\\ save|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ pauses\\ on\\ a\\ server\\ draft\\ conflict\\ without\\ losing\\ editor\\ content\\ or\\ promoting\\ it\\ to\\ publication\\ success|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ blocks\\ publication\\ when\\ prepublish\\ check\\ finds\\ blocking\\ error\\ issues|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ gates\\ warning\\ overrides:\\ rejects\\ short\\ reason\\ and\\ requires\\ explicit\\ >=8\\ char\\ confirmation\\ before\\ publishing|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ invalidates\\ a\\ late\\ prepublish\\ result\\ when\\ article\\ revision\\ content\\ changes\\ and\\ requires\\ a\\ fresh\\ current\\ check|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ deduplicates\\ concurrent\\ prepublish\\ commands\\ while\\ the\\ current\\ check\\ is\\ pending|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ preserves\\ draft\\ conflict\\ state\\ and\\ does\\ not\\ mark\\ publication\\ successful\\ on\\ draft\\ save\\ or\\ publish\\ conflict|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ guards\\ duplicate\\ submits\\ allowing\\ only\\ one\\ concurrent\\ submission\\ in\\-flight|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ aborts\\ an\\ in\\-flight\\ submit\\ on\\ unmount\\ so\\ a\\ late\\ result\\ cannot\\ navigate\\ or\\ publish\\ stale\\ success\\ state|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ mounts\\ ArticleWriteCommandBar\\ and\\ verifies\\ save\\ draft\\ vs\\ publish\\ button\\ contracts|Original\\ owned\\ intent\\ business\\ adapter\\ verifies\\ the\\ actual\\ current\\ pending\\ handle\\ without\\ a\\ lifecycle\\ receipt\\ or\\ new\\ store|Original\\ owned\\ intent\\ business\\ adapter\\ verifies\\ the\\ actual\\ committed\\ successor\\ after\\ the\\ original\\ owner\\ microtask|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ intentRef\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ nodeId\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ transactionRef\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ providerRef\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ contextDigest\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ sourceOrder\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ sourceReferenced\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ disposition\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ sourceUrl\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ refuses\\ an\\ original\\ handle\\ lookup\\ replaced\\ by\\ clone|Original\\ owned\\ intent\\ business\\ adapter\\ refuses\\ an\\ original\\ handle\\ lookup\\ replaced\\ by\\ receipt|Original\\ owned\\ intent\\ business\\ adapter\\ refuses\\ an\\ original\\ handle\\ lookup\\ replaced\\ by\\ foreign|Original\\ owned\\ intent\\ business\\ adapter\\ refuses\\ an\\ original\\ handle\\ lookup\\ replaced\\ by\\ missing|Original\\ owned\\ intent\\ business\\ adapter\\ preserves\\ actual\\ removal\\ false\\ and\\ denies\\ a\\ current\\ intent\\ grant\\ for\\ a\\ terminal\\ handle|Original\\ owned\\ intent\\ business\\ adapter\\ preserves\\ unknown\\ source\\ relation\\ without\\ turning\\ it\\ into\\ proven\\ removal|Original\\ owned\\ intent\\ business\\ adapter\\ rereads\\ handle\\ ownership\\ after\\ the\\ promise\\ boundary|Original\\ owned\\ intent\\ business\\ adapter\\ rereads\\ the\\ actual\\ host\\ context\\ after\\ a\\ concurrent\\ source\\ edit|Original\\ owned\\ intent\\ business\\ adapter\\ propagates\\ caller\\ cancellation\\ at\\ the\\ promise\\ boundary|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ after\\ the\\ original\\ adapter\\ is\\ disposed|original\\ upload\\ business\\ provider\\ operations\\ observes\\ actual\\ status\\ with\\ owner\\ token\\ and\\ actual\\ progress\\ without\\ committing|original\\ upload\\ business\\ provider\\ operations\\ uses\\ actual\\ completion\\ then\\ re\\-observes\\ original\\ ledger/bytes\\ instead\\ of\\ trusting\\ URL|original\\ upload\\ business\\ provider\\ operations\\ coalesces\\ duplicate\\ commit\\ attempts\\ against\\ the\\ same\\ original\\ session|original\\ upload\\ business\\ provider\\ operations\\ rejects\\ a\\ joining\\ caller\\ abort\\ while\\ preserving\\ the\\ original\\ 3\\-byte\\ commit|original\\ upload\\ business\\ provider\\ operations\\ rejects\\ a\\ joining\\ caller\\ abort\\ while\\ preserving\\ the\\ original\\ 20971520\\-byte\\ commit|original\\ upload\\ business\\ provider\\ operations\\ preserves\\ the\\ original\\ caller\\ control\\ of\\ the\\ shared\\ 3\\-byte\\ commit|original\\ upload\\ business\\ provider\\ operations\\ preserves\\ the\\ original\\ caller\\ control\\ of\\ the\\ shared\\ 20971520\\-byte\\ commit|original\\ upload\\ business\\ provider\\ operations\\ retains\\ the\\ original\\ shared\\ task\\ after\\ a\\ joining\\ caller\\ abort\\ until\\ transport\\ actually\\ settles|original\\ upload\\ business\\ provider\\ operations\\ retains\\ each\\ cancelled\\ caller\\ reason\\ when\\ both\\ signals\\ abort\\ the\\ shared\\ attempt|original\\ upload\\ business\\ provider\\ operations\\ retains\\ uncertainty\\ and\\ never\\ aborts\\ after\\ a\\ possibly\\ committed\\ failed\\ RPC|original\\ upload\\ business\\ provider\\ operations\\ requires\\ a\\ real\\ abort\\ acknowledgement\\ and\\ preserves\\ failed\\ abort\\ obligations\\ for\\ retry|original\\ upload\\ business\\ provider\\ operations\\ blocks\\ commit\\ after\\ an\\ uncertain\\ abort\\ rather\\ than\\ racing\\ a\\ deleted\\ original\\ session|original\\ upload\\ business\\ provider\\ operations\\ interrupts\\ its\\ actual\\ commit\\ task\\ and\\ observes\\ late\\ server\\ promotion\\ without\\ deleting\\ it|original\\ upload\\ business\\ provider\\ operations\\ never\\ revives\\ unknown/expired\\ progress\\ or\\ URL\\-only\\ commit\\ evidence|original\\ upload\\ business\\ provider\\ operations\\ reads\\ original\\ facts\\ without\\ preview\\ bytes\\ for\\ 8387833\\-byte\\ committed\\ uploads|original\\ upload\\ business\\ provider\\ operations\\ reads\\ original\\ facts\\ without\\ preview\\ bytes\\ for\\ 20971520\\-byte\\ committed\\ uploads|original\\ upload\\ business\\ provider\\ operations\\ retains\\ the\\ preview\\ route\\ at\\ the\\ original\\ exact\\ budget|original\\ upload\\ business\\ provider\\ operations\\ refuses\\ changed\\ facts\\ uploadId\\ without\\ promoting\\ a\\ receipt|original\\ upload\\ business\\ provider\\ operations\\ refuses\\ changed\\ facts\\ sha256\\ without\\ promoting\\ a\\ receipt|original\\ upload\\ business\\ provider\\ operations\\ refuses\\ changed\\ facts\\ sizeBytes\\ without\\ promoting\\ a\\ receipt|original\\ upload\\ business\\ provider\\ operations\\ preserves\\ original\\ owner\\-token\\ refusal\\ for\\ large\\ facts|original\\ upload\\ business\\ provider\\ operations\\ rejects\\ changed\\ session\\ status\\ before\\ requesting\\ large\\ facts|original\\ upload\\ business\\ provider\\ operations\\ propagates\\ cancellation\\ while\\ reading\\ original\\ large\\ facts|original\\ upload\\ business\\ provider\\ operations\\ coalesces\\ large\\ retry\\ attempts\\ and\\ reads\\ facts\\ after\\ the\\ actual\\ completion\\ RPC|original\\ upload\\ business\\ provider\\ operations\\ preserves\\ the\\ original\\ caller\\ cancellation\\ during\\ a\\ coalesced\\ large\\ facts\\ read|original\\ upload\\ business\\ provider\\ operations\\ observes\\ a\\ late\\ large\\ commit\\ on\\ cancel\\ without\\ deleting\\ original\\ bytes|original\\ upload\\ business\\ provider\\ operations\\ does\\ not\\ send\\ an\\ interrupted\\ operation\\ or\\ acknowledge\\ interrupted\\ abort|article\\ preview\\ current\\ authority\\ composition\\ reads\\ existing\\ APIs\\ for\\ the\\ exact\\ current\\ revision\\ and\\ projects\\ the\\ latest\\ original\\ history\\ version|article\\ preview\\ current\\ authority\\ composition\\ refreshes\\ changed\\ canonical\\ site\\ authors\\ and\\ rejects\\ the\\ older\\ admission\\ with\\ unchanged\\ body|article\\ preview\\ current\\ authority\\ composition\\ observes\\ a\\ later\\ host\\ site\\-author\\ edit\\ at\\ admission\\ acceptance|article\\ preview\\ current\\ authority\\ composition\\ preserves\\ inherit\\ toggles\\ and\\ explicit\\ responsible\\ editor\\ input\\ without\\ changing\\ source\\ or\\ confirmation|article\\ preview\\ current\\ authority\\ composition\\ keeps\\ explicit\\ missing\\ input\\ missing\\ and\\ never\\ restores\\ saved\\ responsibility\\ over\\ it|article\\ preview\\ current\\ authority\\ composition\\ keeps\\ an\\ unsaved\\ new\\ article\\ and\\ missing\\ current\\-authoring\\ transport\\ explicitly\\ unavailable|article\\ preview\\ current\\ authority\\ composition\\ does\\ not\\ manufacture\\ an\\ author\\ or\\ confirmation\\ from\\ empty\\ site\\ config\\ and\\ unconfirmed\\ saved\\ history|article\\ preview\\ current\\ authority\\ composition\\ rejects\\ same\\-body\\ A\\ to\\ B\\ context\\ switches\\ and\\ a\\ late\\ A\\ history\\ result|article\\ preview\\ current\\ authority\\ composition\\ does\\ not\\ dispatch\\ APIs\\ for\\ a\\ pre\\-canceled\\ request|article\\ preview\\ current\\ authority\\ composition\\ settles\\ cancellation\\ promptly\\ even\\ when\\ the\\ original\\ API\\ ignores\\ abort\\ and\\ rejects\\ late\\ data|article\\ preview\\ current\\ authority\\ composition\\ keeps\\ a\\ superseded\\ caller\\ canceled\\ and\\ prevents\\ late\\ old\\ reads\\ from\\ overwriting\\ a\\ new\\ refresh|article\\ preview\\ current\\ authority\\ composition\\ rejects\\ responsibility\\ edits\\ made\\ while\\ a\\ site\\-author\\ read\\ is\\ pending|article\\ preview\\ current\\ authority\\ composition\\ rejects\\ revision\\ and\\ metadata\\ changes\\ during\\ pending\\ reads\\ without\\ changing\\ the\\ document\\ owner|article\\ preview\\ current\\ authority\\ composition\\ rejects\\ foreign,\\ unordered\\ and\\ ambiguous\\ revision\\ history\\ rather\\ than\\ guessing\\ a\\ current\\ version|article\\ preview\\ current\\ authority\\ composition\\ does\\ not\\ reuse\\ a\\ previously\\ successful\\ read\\ after\\ either\\ existing\\ API\\ fails|article\\ preview\\ current\\ authority\\ composition\\ cancels\\ and\\ disposes\\ only\\ this\\ read\\ consumer\\ while\\ retaining\\ the\\ original\\ host|actual\\ facts\\-only\\ provider\\ business\\ caller\\ keeps\\ large\\ upload\\ facts\\ blocked\\ without\\ an\\ actual\\ business\\ reference\\ receipt|actual\\ facts\\-only\\ provider\\ business\\ caller\\ preserves\\ current\\-context\\ rejection\\ and\\ cleanup\\ after\\ a\\ late\\ large\\ facts\\ response|actual\\ facts\\-only\\ provider\\ business\\ caller\\ propagates\\ interrupted\\ large\\ facts\\ through\\ the\\ original\\ business\\ caller|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ preserves\\ actual\\ pending\\ refs\\ during\\ save\\ and\\ blocks\\ publish/revision/leave|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ preserves\\ actual\\ failed\\ refs\\ during\\ save\\ and\\ blocks\\ publish/revision/leave|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ preserves\\ actual\\ cancelled\\ refs\\ during\\ save\\ and\\ blocks\\ publish/revision/leave|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ preserves\\ actual\\ recovery\\-required\\ refs\\ during\\ save\\ and\\ blocks\\ publish/revision/leave|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ uses\\ exact\\ current\\ reference\\ facts\\ and\\ original\\ callbacks\\ for\\ successful\\ resources|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ does\\ not\\ promote\\ real\\ upload\\ ledger\\ facts\\ into\\ an\\ article\\ operation\\ grant|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ assetId|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ assetVersionSha256|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ referenceLedgerSha256|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ contextDigest|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ nodeId|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ transactionRef|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ placeholder\\ or\\ URL\\-only\\ identity\\ and\\ never\\ exposes\\ it\\ in\\ preview|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ admits\\ unreferenced\\ removed\\ only\\ after\\ original\\ cleanup\\ observation|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ admits\\ unreferenced\\ cancelled\\ only\\ after\\ original\\ cleanup\\ observation|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ routes\\ late\\ committed\\ facts\\ into\\ cleanup\\ and\\ rejects\\ source/epoch\\ changes|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ saves\\ explicit\\ current\\ state\\ without\\ dropping\\ identity\\ or\\ recovery\\ refs|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ saves\\ explicit\\ stale\\ state\\ without\\ dropping\\ identity\\ or\\ recovery\\ refs|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ saves\\ explicit\\ removed\\ state\\ without\\ dropping\\ identity\\ or\\ recovery\\ refs|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ saves\\ explicit\\ cancelled\\ state\\ without\\ dropping\\ identity\\ or\\ recovery\\ refs|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ permits\\ the\\ original\\ save\\ acknowledgement\\ draft\\ revision\\ and\\ rejects\\ that\\ drift\\ during\\ publish|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ detects\\ node\\ removal\\ while\\ save\\ is\\ running\\ without\\ rewriting\\ history|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ preserves\\ original\\ save\\ retry/conflict\\ and\\ original\\ prepublish\\ refusal|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ re\\-observes\\ provider/reference\\ facts\\ when\\ verifying\\ receipt\\ and\\ ledger\\ tamper|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ ignores\\ caption\\ fields\\ and\\ rejects\\ duplicated\\ identity/source\\ order|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ calls\\ actual\\ owned\\ retry/cancel\\ ports\\ and\\ respects\\ interrupted\\ work|upload\\ API\\ requests\\ preview\\ uses\\ the\\ original\\ protected\\ upload\\ request\\ and\\ verifies\\ actual\\ response\\ bytes|upload\\ API\\ requests\\ preview\\ refuses\\ URL\\ identity\\ and\\ cancelled\\ late\\ completion|upload\\ API\\ requests\\ initUploadSession\\ sends\\ an\\ UploadInitRequest\\ AEDS\\ frame|upload\\ API\\ requests\\ uploadPart\\ sends\\ raw\\ bytes\\ with\\ binary\\ metadata\\ headers|upload\\ API\\ requests\\ completeUpload\\ sends\\ an\\ UploadCompleteRequest\\ AEDS\\ frame)$",
+            "--json",
+            "/workspace/FsusBlog-writer-owned-upload-2246/.tmp/chain-2246/writer-owned-upload/committed-regression/runtime-positive-list.json"
+          ],
+          "exitCode": 0
+        },
+        {
+          "key": "unit",
+          "args": [
+            "node",
+            "node_modules/vitest/vitest.mjs",
+            "run",
+            "--config",
+            "vitest.config.ts",
+            "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+            "../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts",
+            "../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts",
+            "../../tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts",
+            "../../tests/frontend/unit/api/upload.test.ts",
+            "../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts",
+            "../../tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts",
+            "--testNamePattern",
+            "^(?:useImageUploadRuntime\\ runs\\ compression\\ and\\ hashing\\ before\\ init,\\ uploads\\ every\\ required\\ part,\\ then\\ completes\\ once|useImageUploadRuntime\\ pauses\\ after\\ part\\ retry\\ exhaustion\\ while\\ retaining\\ the\\ resumable\\ attempt\\ and\\ snapshot|useImageUploadRuntime\\ resumes\\ the\\ same\\ file\\ and\\ options\\ with\\ the\\ stored\\ identity\\ and\\ uploads\\ only\\ missing\\ parts|useImageUploadRuntime\\ initializes\\ a\\ new\\ identity\\ when\\ a\\ stored\\ snapshot\\ is\\ tampered|useImageUploadRuntime\\ initializes\\ a\\ new\\ identity\\ when\\ stored\\-session\\ status\\ lookup\\ fails|useImageUploadRuntime\\ clears\\ local\\ state\\ and\\ calls\\ abort\\ once\\ even\\ when\\ abort\\ fails|useImageUploadRuntime\\ shares\\ an\\ in\\-flight\\ abort\\ and\\ blocks\\ replacement\\ until\\ server\\ cleanup\\ is\\ acknowledged|useImageUploadRuntime\\ a\\ late\\ part\\ failure\\ cannot\\ resurrect\\ a\\ cancelled\\ recovery\\ snapshot|useImageUploadRuntime\\ does\\ not\\ call\\ the\\ API\\ when\\ abandoning\\ without\\ an\\ active\\ session|useImageUploadRuntime\\ does\\ not\\ let\\ a\\ late\\ part\\ acknowledgement\\ overwrite\\ a\\ new\\ upload\\ attempt|useImageUploadRuntime\\ borrows\\ actual\\ compressed\\ facts\\ and\\ retains\\ a\\ bound\\ handle\\ after\\ public\\ session\\ and\\ original\\ lease\\ clear|useImageUploadRuntime\\ refuses\\ a\\ clone\\ pending\\ handle\\ before\\ creating\\ a\\ session|useImageUploadRuntime\\ refuses\\ a\\ foreign\\ pending\\ handle\\ before\\ creating\\ a\\ session|useImageUploadRuntime\\ refuses\\ a\\ clone\\ document\\ lease\\ through\\ the\\ real\\ original\\ registry|useImageUploadRuntime\\ refuses\\ a\\ foreign\\ document\\ lease\\ through\\ the\\ real\\ original\\ registry|useImageUploadRuntime\\ refuses\\ to\\ mint\\ a\\ borrow\\ from\\ a\\ localStorage\\-only\\ resumed\\ session|useImageUploadRuntime\\ expires\\ a\\ completed\\ borrow\\ without\\ refreshing\\ it\\ from\\ public\\ state\\ or\\ storage|useImageUploadRuntime\\ waits\\ for\\ a\\ cancelled\\ original\\ initialization\\ and\\ real\\ cleanup\\ acknowledgement\\ before\\ replacement|useImageUploadRuntime\\ keeps\\ unknown\\ initialization\\ cleanup\\ blocked\\ instead\\ of\\ fabricating\\ an\\ abort\\ acknowledgement|useImageUploadRuntime\\ retains\\ true\\ completion\\ history\\ and\\ unknown\\ cleanup\\ after\\ a\\ cancelled\\ completion\\ without\\ deleting\\ it|useImageUploadRuntime\\ uses\\ the\\ existing\\ flow\\ original\\ lease\\ and\\ caller\\ cancellation\\ without\\ creating\\ a\\ second\\ upload|useImageUploadRuntime\\ revokes\\ a\\ borrow\\ on\\ scope\\ disposal\\ and\\ waits\\ for\\ the\\ original\\ part\\ before\\ settling|useImageUploadRuntime\\ rereads\\ original\\ document\\ and\\ intent\\ ownership\\ after\\ an\\ asynchronous\\ borrow\\ callback|useImageUploadRuntime\\ does\\ not\\ grant\\ a\\ legacy\\ attempt\\ a\\ new\\ deletion\\ action\\ on\\ scope\\ disposal|useImageUploadRuntime\\ invalidates\\ a\\ completed\\ original\\ borrow\\ when\\ a\\ new\\ attempt\\ starts|ImageUploadOptionsPanel\\ upload\\ controls\\ shows\\ resume\\ and\\ abandon\\ only\\ for\\ the\\ corresponding\\ runtime\\ state\\ and\\ wires\\ both\\ actions|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ lends\\ the\\ original\\ owned\\ intent\\ reader\\ through\\ the\\ live\\ Writer\\ binding\\ and\\ withdraws\\ it\\ on\\ unmount|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ binds\\ business\\ intent\\ verification\\ to\\ the\\ original\\ caller\\-held\\ Writer\\ capability|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ rechecks\\ the\\ actual\\ Writer\\ source\\ after\\ the\\ business\\ verification\\ promise\\ boundary|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ keeps\\ a\\ new\\ draft\\ explicitly\\ missing\\ and\\ lends\\ the\\ genuine\\ current\\ host\\ fields|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ withdraws\\ observations\\ on\\ the\\ actual\\ host\\ source\\ change\\ without\\ releasing\\ its\\ owner|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ uses\\ only\\ live\\ borrowed\\ editing\\ fields\\ and\\ rejects\\ older\\ source\\ admission\\ after\\ their\\ edit|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ refreshes\\ canonical\\ reads\\ before\\ the\\ original\\ generation\\ flow\\ and\\ preserves\\ a\\ business\\ refusal|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ disposes\\ only\\ the\\ read\\ consumer\\ while\\ its\\ host\\ owner\\ remains\\ current|actual\\ Writer\\ preview\\ current\\ authority\\ binding\\ aborts\\ the\\ actual\\ read\\ consumer\\ on\\ host\\ unmount\\ and\\ refuses\\ its\\ abort\\-ignoring\\ late\\ response|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ binds\\ continuity,\\ actual\\ cache\\ and\\ attachment\\ ports\\ to\\ the\\ same\\ writer\\ and\\ public\\ editor|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ shares\\ the\\ actual\\ article\\ owner\\ through\\ controlled\\ attachment\\ transactions\\ and\\ releases\\ its\\ editor\\ lease|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ exposes\\ one\\ actual\\ editor\\ port\\ through\\ the\\ production\\ wrappers\\ and\\ forwards\\ admitted\\ transaction/focus\\ events|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ rejects\\ a\\ new\\ public\\ editor\\ at\\ revision\\ zero\\ against\\ a\\ retained\\ advanced\\ owner\\ without\\ resetting\\ its\\ epoch|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ edit\\ \\->\\ autosave/draft\\ save\\ only\\ calls\\ draft\\ owner\\ and\\ never\\ calls\\ prepublish\\ or\\ publish\\ APIs|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ retries\\ a\\ transient\\ draft\\-save\\ failure\\ without\\ publishing\\ and\\ deduplicates\\ an\\ identical\\ in\\-flight\\ save|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ pauses\\ on\\ a\\ server\\ draft\\ conflict\\ without\\ losing\\ editor\\ content\\ or\\ promoting\\ it\\ to\\ publication\\ success|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ blocks\\ publication\\ when\\ prepublish\\ check\\ finds\\ blocking\\ error\\ issues|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ gates\\ warning\\ overrides:\\ rejects\\ short\\ reason\\ and\\ requires\\ explicit\\ >=8\\ char\\ confirmation\\ before\\ publishing|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ invalidates\\ a\\ late\\ prepublish\\ result\\ when\\ article\\ revision\\ content\\ changes\\ and\\ requires\\ a\\ fresh\\ current\\ check|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ deduplicates\\ concurrent\\ prepublish\\ commands\\ while\\ the\\ current\\ check\\ is\\ pending|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ preserves\\ draft\\ conflict\\ state\\ and\\ does\\ not\\ mark\\ publication\\ successful\\ on\\ draft\\ save\\ or\\ publish\\ conflict|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ guards\\ duplicate\\ submits\\ allowing\\ only\\ one\\ concurrent\\ submission\\ in\\-flight|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ aborts\\ an\\ in\\-flight\\ submit\\ on\\ unmount\\ so\\ a\\ late\\ result\\ cannot\\ navigate\\ or\\ publish\\ stale\\ success\\ state|useAdminArticleWrite\\ authoring\\ gates\\ and\\ draft\\ isolation\\ mounts\\ ArticleWriteCommandBar\\ and\\ verifies\\ save\\ draft\\ vs\\ publish\\ button\\ contracts|Original\\ owned\\ intent\\ business\\ adapter\\ verifies\\ the\\ actual\\ current\\ pending\\ handle\\ without\\ a\\ lifecycle\\ receipt\\ or\\ new\\ store|Original\\ owned\\ intent\\ business\\ adapter\\ verifies\\ the\\ actual\\ committed\\ successor\\ after\\ the\\ original\\ owner\\ microtask|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ intentRef\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ nodeId\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ transactionRef\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ providerRef\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ contextDigest\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ sourceOrder\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ sourceReferenced\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ disposition\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ changed\\ business\\ sourceUrl\\ coordinates|Original\\ owned\\ intent\\ business\\ adapter\\ refuses\\ an\\ original\\ handle\\ lookup\\ replaced\\ by\\ clone|Original\\ owned\\ intent\\ business\\ adapter\\ refuses\\ an\\ original\\ handle\\ lookup\\ replaced\\ by\\ receipt|Original\\ owned\\ intent\\ business\\ adapter\\ refuses\\ an\\ original\\ handle\\ lookup\\ replaced\\ by\\ foreign|Original\\ owned\\ intent\\ business\\ adapter\\ refuses\\ an\\ original\\ handle\\ lookup\\ replaced\\ by\\ missing|Original\\ owned\\ intent\\ business\\ adapter\\ preserves\\ actual\\ removal\\ false\\ and\\ denies\\ a\\ current\\ intent\\ grant\\ for\\ a\\ terminal\\ handle|Original\\ owned\\ intent\\ business\\ adapter\\ preserves\\ unknown\\ source\\ relation\\ without\\ turning\\ it\\ into\\ proven\\ removal|Original\\ owned\\ intent\\ business\\ adapter\\ rereads\\ handle\\ ownership\\ after\\ the\\ promise\\ boundary|Original\\ owned\\ intent\\ business\\ adapter\\ rereads\\ the\\ actual\\ host\\ context\\ after\\ a\\ concurrent\\ source\\ edit|Original\\ owned\\ intent\\ business\\ adapter\\ propagates\\ caller\\ cancellation\\ at\\ the\\ promise\\ boundary|Original\\ owned\\ intent\\ business\\ adapter\\ rejects\\ after\\ the\\ original\\ adapter\\ is\\ disposed|original\\ upload\\ business\\ provider\\ operations\\ observes\\ actual\\ status\\ with\\ owner\\ token\\ and\\ actual\\ progress\\ without\\ committing|original\\ upload\\ business\\ provider\\ operations\\ uses\\ actual\\ completion\\ then\\ re\\-observes\\ original\\ ledger/bytes\\ instead\\ of\\ trusting\\ URL|original\\ upload\\ business\\ provider\\ operations\\ coalesces\\ duplicate\\ commit\\ attempts\\ against\\ the\\ same\\ original\\ session|original\\ upload\\ business\\ provider\\ operations\\ rejects\\ a\\ joining\\ caller\\ abort\\ while\\ preserving\\ the\\ original\\ 3\\-byte\\ commit|original\\ upload\\ business\\ provider\\ operations\\ rejects\\ a\\ joining\\ caller\\ abort\\ while\\ preserving\\ the\\ original\\ 20971520\\-byte\\ commit|original\\ upload\\ business\\ provider\\ operations\\ preserves\\ the\\ original\\ caller\\ control\\ of\\ the\\ shared\\ 3\\-byte\\ commit|original\\ upload\\ business\\ provider\\ operations\\ preserves\\ the\\ original\\ caller\\ control\\ of\\ the\\ shared\\ 20971520\\-byte\\ commit|original\\ upload\\ business\\ provider\\ operations\\ retains\\ the\\ original\\ shared\\ task\\ after\\ a\\ joining\\ caller\\ abort\\ until\\ transport\\ actually\\ settles|original\\ upload\\ business\\ provider\\ operations\\ retains\\ each\\ cancelled\\ caller\\ reason\\ when\\ both\\ signals\\ abort\\ the\\ shared\\ attempt|original\\ upload\\ business\\ provider\\ operations\\ retains\\ uncertainty\\ and\\ never\\ aborts\\ after\\ a\\ possibly\\ committed\\ failed\\ RPC|original\\ upload\\ business\\ provider\\ operations\\ requires\\ a\\ real\\ abort\\ acknowledgement\\ and\\ preserves\\ failed\\ abort\\ obligations\\ for\\ retry|original\\ upload\\ business\\ provider\\ operations\\ blocks\\ commit\\ after\\ an\\ uncertain\\ abort\\ rather\\ than\\ racing\\ a\\ deleted\\ original\\ session|original\\ upload\\ business\\ provider\\ operations\\ interrupts\\ its\\ actual\\ commit\\ task\\ and\\ observes\\ late\\ server\\ promotion\\ without\\ deleting\\ it|original\\ upload\\ business\\ provider\\ operations\\ never\\ revives\\ unknown/expired\\ progress\\ or\\ URL\\-only\\ commit\\ evidence|original\\ upload\\ business\\ provider\\ operations\\ reads\\ original\\ facts\\ without\\ preview\\ bytes\\ for\\ 8387833\\-byte\\ committed\\ uploads|original\\ upload\\ business\\ provider\\ operations\\ reads\\ original\\ facts\\ without\\ preview\\ bytes\\ for\\ 20971520\\-byte\\ committed\\ uploads|original\\ upload\\ business\\ provider\\ operations\\ retains\\ the\\ preview\\ route\\ at\\ the\\ original\\ exact\\ budget|original\\ upload\\ business\\ provider\\ operations\\ refuses\\ changed\\ facts\\ uploadId\\ without\\ promoting\\ a\\ receipt|original\\ upload\\ business\\ provider\\ operations\\ refuses\\ changed\\ facts\\ sha256\\ without\\ promoting\\ a\\ receipt|original\\ upload\\ business\\ provider\\ operations\\ refuses\\ changed\\ facts\\ sizeBytes\\ without\\ promoting\\ a\\ receipt|original\\ upload\\ business\\ provider\\ operations\\ preserves\\ original\\ owner\\-token\\ refusal\\ for\\ large\\ facts|original\\ upload\\ business\\ provider\\ operations\\ rejects\\ changed\\ session\\ status\\ before\\ requesting\\ large\\ facts|original\\ upload\\ business\\ provider\\ operations\\ propagates\\ cancellation\\ while\\ reading\\ original\\ large\\ facts|original\\ upload\\ business\\ provider\\ operations\\ coalesces\\ large\\ retry\\ attempts\\ and\\ reads\\ facts\\ after\\ the\\ actual\\ completion\\ RPC|original\\ upload\\ business\\ provider\\ operations\\ preserves\\ the\\ original\\ caller\\ cancellation\\ during\\ a\\ coalesced\\ large\\ facts\\ read|original\\ upload\\ business\\ provider\\ operations\\ observes\\ a\\ late\\ large\\ commit\\ on\\ cancel\\ without\\ deleting\\ original\\ bytes|original\\ upload\\ business\\ provider\\ operations\\ does\\ not\\ send\\ an\\ interrupted\\ operation\\ or\\ acknowledge\\ interrupted\\ abort|article\\ preview\\ current\\ authority\\ composition\\ reads\\ existing\\ APIs\\ for\\ the\\ exact\\ current\\ revision\\ and\\ projects\\ the\\ latest\\ original\\ history\\ version|article\\ preview\\ current\\ authority\\ composition\\ refreshes\\ changed\\ canonical\\ site\\ authors\\ and\\ rejects\\ the\\ older\\ admission\\ with\\ unchanged\\ body|article\\ preview\\ current\\ authority\\ composition\\ observes\\ a\\ later\\ host\\ site\\-author\\ edit\\ at\\ admission\\ acceptance|article\\ preview\\ current\\ authority\\ composition\\ preserves\\ inherit\\ toggles\\ and\\ explicit\\ responsible\\ editor\\ input\\ without\\ changing\\ source\\ or\\ confirmation|article\\ preview\\ current\\ authority\\ composition\\ keeps\\ explicit\\ missing\\ input\\ missing\\ and\\ never\\ restores\\ saved\\ responsibility\\ over\\ it|article\\ preview\\ current\\ authority\\ composition\\ keeps\\ an\\ unsaved\\ new\\ article\\ and\\ missing\\ current\\-authoring\\ transport\\ explicitly\\ unavailable|article\\ preview\\ current\\ authority\\ composition\\ does\\ not\\ manufacture\\ an\\ author\\ or\\ confirmation\\ from\\ empty\\ site\\ config\\ and\\ unconfirmed\\ saved\\ history|article\\ preview\\ current\\ authority\\ composition\\ rejects\\ same\\-body\\ A\\ to\\ B\\ context\\ switches\\ and\\ a\\ late\\ A\\ history\\ result|article\\ preview\\ current\\ authority\\ composition\\ does\\ not\\ dispatch\\ APIs\\ for\\ a\\ pre\\-canceled\\ request|article\\ preview\\ current\\ authority\\ composition\\ settles\\ cancellation\\ promptly\\ even\\ when\\ the\\ original\\ API\\ ignores\\ abort\\ and\\ rejects\\ late\\ data|article\\ preview\\ current\\ authority\\ composition\\ keeps\\ a\\ superseded\\ caller\\ canceled\\ and\\ prevents\\ late\\ old\\ reads\\ from\\ overwriting\\ a\\ new\\ refresh|article\\ preview\\ current\\ authority\\ composition\\ rejects\\ responsibility\\ edits\\ made\\ while\\ a\\ site\\-author\\ read\\ is\\ pending|article\\ preview\\ current\\ authority\\ composition\\ rejects\\ revision\\ and\\ metadata\\ changes\\ during\\ pending\\ reads\\ without\\ changing\\ the\\ document\\ owner|article\\ preview\\ current\\ authority\\ composition\\ rejects\\ foreign,\\ unordered\\ and\\ ambiguous\\ revision\\ history\\ rather\\ than\\ guessing\\ a\\ current\\ version|article\\ preview\\ current\\ authority\\ composition\\ does\\ not\\ reuse\\ a\\ previously\\ successful\\ read\\ after\\ either\\ existing\\ API\\ fails|article\\ preview\\ current\\ authority\\ composition\\ cancels\\ and\\ disposes\\ only\\ this\\ read\\ consumer\\ while\\ retaining\\ the\\ original\\ host|actual\\ facts\\-only\\ provider\\ business\\ caller\\ keeps\\ large\\ upload\\ facts\\ blocked\\ without\\ an\\ actual\\ business\\ reference\\ receipt|actual\\ facts\\-only\\ provider\\ business\\ caller\\ preserves\\ current\\-context\\ rejection\\ and\\ cleanup\\ after\\ a\\ late\\ large\\ facts\\ response|actual\\ facts\\-only\\ provider\\ business\\ caller\\ propagates\\ interrupted\\ large\\ facts\\ through\\ the\\ original\\ business\\ caller|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ preserves\\ actual\\ pending\\ refs\\ during\\ save\\ and\\ blocks\\ publish/revision/leave|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ preserves\\ actual\\ failed\\ refs\\ during\\ save\\ and\\ blocks\\ publish/revision/leave|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ preserves\\ actual\\ cancelled\\ refs\\ during\\ save\\ and\\ blocks\\ publish/revision/leave|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ preserves\\ actual\\ recovery\\-required\\ refs\\ during\\ save\\ and\\ blocks\\ publish/revision/leave|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ uses\\ exact\\ current\\ reference\\ facts\\ and\\ original\\ callbacks\\ for\\ successful\\ resources|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ does\\ not\\ promote\\ real\\ upload\\ ledger\\ facts\\ into\\ an\\ article\\ operation\\ grant|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ assetId|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ assetVersionSha256|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ referenceLedgerSha256|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ contextDigest|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ nodeId|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ changed\\ reference\\ transactionRef|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ rejects\\ placeholder\\ or\\ URL\\-only\\ identity\\ and\\ never\\ exposes\\ it\\ in\\ preview|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ admits\\ unreferenced\\ removed\\ only\\ after\\ original\\ cleanup\\ observation|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ admits\\ unreferenced\\ cancelled\\ only\\ after\\ original\\ cleanup\\ observation|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ routes\\ late\\ committed\\ facts\\ into\\ cleanup\\ and\\ rejects\\ source/epoch\\ changes|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ saves\\ explicit\\ current\\ state\\ without\\ dropping\\ identity\\ or\\ recovery\\ refs|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ saves\\ explicit\\ stale\\ state\\ without\\ dropping\\ identity\\ or\\ recovery\\ refs|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ saves\\ explicit\\ removed\\ state\\ without\\ dropping\\ identity\\ or\\ recovery\\ refs|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ saves\\ explicit\\ cancelled\\ state\\ without\\ dropping\\ identity\\ or\\ recovery\\ refs|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ permits\\ the\\ original\\ save\\ acknowledgement\\ draft\\ revision\\ and\\ rejects\\ that\\ drift\\ during\\ publish|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ detects\\ node\\ removal\\ while\\ save\\ is\\ running\\ without\\ rewriting\\ history|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ preserves\\ original\\ save\\ retry/conflict\\ and\\ original\\ prepublish\\ refusal|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ re\\-observes\\ provider/reference\\ facts\\ when\\ verifying\\ receipt\\ and\\ ledger\\ tamper|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ ignores\\ caption\\ fields\\ and\\ rejects\\ duplicated\\ identity/source\\ order|attachment\\ business\\ contribution\\ to\\ original\\ owners\\ calls\\ actual\\ owned\\ retry/cancel\\ ports\\ and\\ respects\\ interrupted\\ work|upload\\ API\\ requests\\ preview\\ uses\\ the\\ original\\ protected\\ upload\\ request\\ and\\ verifies\\ actual\\ response\\ bytes|upload\\ API\\ requests\\ preview\\ refuses\\ URL\\ identity\\ and\\ cancelled\\ late\\ completion|upload\\ API\\ requests\\ initUploadSession\\ sends\\ an\\ UploadInitRequest\\ AEDS\\ frame|upload\\ API\\ requests\\ uploadPart\\ sends\\ raw\\ bytes\\ with\\ binary\\ metadata\\ headers|upload\\ API\\ requests\\ completeUpload\\ sends\\ an\\ UploadCompleteRequest\\ AEDS\\ frame)$",
+            "--reporter=default",
+            "--reporter=json",
+            "--outputFile=/workspace/FsusBlog-writer-owned-upload-2246/.tmp/chain-2246/writer-owned-upload/committed-regression/unit-results.json"
+          ],
+          "exitCode": 0
+        }
+      ],
+      "qualification": false
+    },
+    "committed-legacy": {
+      "testedSha": "35a028c7be7f031a3f3beb986ff79418dcd08582",
+      "startTime": "2026-10-09T17:34:43.349000+00:00",
+      "success": false,
+      "total": 2,
+      "passed": 0,
+      "failed": 2,
+      "pending": 0,
+      "todo": 0,
+      "cases": [
+        {
+          "fullName": "actual Writer upload provider input preflight runs a large upload through the real Writer but lends no committed owned session or asset receipt",
+          "status": "failed"
+        },
+        {
+          "fullName": "actual Writer upload provider input preflight rejects the late Writer success callback after the actual host unmounts during completion",
+          "status": "failed"
+        }
+      ],
+      "commands": [
+        {
+          "key": "collect",
+          "args": [
+            "node",
+            "node_modules/vitest/vitest.mjs",
+            "list",
+            "--config",
+            "vitest.config.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.uploadProviderInputs.test.ts",
+            "--json",
+            "/workspace/FsusBlog-writer-owned-upload-2246/.tmp/chain-2246/writer-owned-upload/committed-legacy/positive-list.json"
+          ],
+          "exitCode": 0
+        },
+        {
+          "key": "runtime-collect",
+          "args": [
+            "node",
+            "node_modules/vitest/vitest.mjs",
+            "list",
+            "--config",
+            "vitest.config.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.uploadProviderInputs.test.ts",
+            "--testNamePattern",
+            "^(?:actual\\ Writer\\ upload\\ provider\\ input\\ preflight\\ runs\\ a\\ large\\ upload\\ through\\ the\\ real\\ Writer\\ but\\ lends\\ no\\ committed\\ owned\\ session\\ or\\ asset\\ receipt|actual\\ Writer\\ upload\\ provider\\ input\\ preflight\\ rejects\\ the\\ late\\ Writer\\ success\\ callback\\ after\\ the\\ actual\\ host\\ unmounts\\ during\\ completion)$",
+            "--json",
+            "/workspace/FsusBlog-writer-owned-upload-2246/.tmp/chain-2246/writer-owned-upload/committed-legacy/runtime-positive-list.json"
+          ],
+          "exitCode": 0
+        },
+        {
+          "key": "unit",
+          "args": [
+            "node",
+            "node_modules/vitest/vitest.mjs",
+            "run",
+            "--config",
+            "vitest.config.ts",
+            "../../tests/frontend/unit/composables/useAdminArticleWrite.uploadProviderInputs.test.ts",
+            "--testNamePattern",
+            "^(?:actual\\ Writer\\ upload\\ provider\\ input\\ preflight\\ runs\\ a\\ large\\ upload\\ through\\ the\\ real\\ Writer\\ but\\ lends\\ no\\ committed\\ owned\\ session\\ or\\ asset\\ receipt|actual\\ Writer\\ upload\\ provider\\ input\\ preflight\\ rejects\\ the\\ late\\ Writer\\ success\\ callback\\ after\\ the\\ actual\\ host\\ unmounts\\ during\\ completion)$",
+            "--reporter=default",
+            "--reporter=json",
+            "--outputFile=/workspace/FsusBlog-writer-owned-upload-2246/.tmp/chain-2246/writer-owned-upload/committed-legacy/unit-results.json"
+          ],
+          "exitCode": 1
+        }
+      ],
+      "qualification": false
+    }
+  },
+  "total": 162,
+  "passed": 160,
+  "failed": 2,
+  "original13": {
+    "passed": 11,
+    "failed": 2,
+    "dropped": 0
+  },
+  "supplierResultsNotBorrowed": true
+}

@@ -1,0 +1,53 @@
+{
+  "runtimeAndFlowExactSuppliedBlobs": {
+    "src/frontend/src/composables/useImageUploadRuntime.ts": "d4a7d91851531b14f011252b269b7fa73929c347",
+    "src/frontend/src/composables/useImageUploadFlow.ts": "6cc343fa7e9b2ada1a52b02d0f47b5e235e5ba48",
+    "tests/frontend/unit/composables/useImageUploadRuntime.test.ts": "379987f91edd98f045965473fa291dbb346ce0ab"
+  },
+  "originalTestFilesByteUnchanged": {
+    "tests/frontend/unit/composables/useAdminArticleWrite.uploadProviderInputs.test.ts": true,
+    "tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts": true,
+    "tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts": true,
+    "tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts": true,
+    "tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts": true
+  },
+  "old13NotPromotedToPass": true,
+  "providerSourceBlob": "d69ac837c70ebe97cae5061b9403aef631498606",
+  "goldenCatalogOrder": "append supplied wire identities 275/285 at candidate orders 261/262; do not import unrelated five supplier frames",
+  "openApiInput": "only exact supplied original upload preview/facts path objects consumed; canonical source ordering retained; no backend HTTP acceptance claimed",
+  "original13ExactRuntimeNamesAndCurrentStatus": {
+    "useImageUploadRuntime runs compression and hashing before init, uploads every required part, then completes once": "passed",
+    "useImageUploadRuntime pauses after part retry exhaustion while retaining the resumable attempt and snapshot": "passed",
+    "useImageUploadRuntime resumes the same file and options with the stored identity and uploads only missing parts": "passed",
+    "useImageUploadRuntime initializes a new identity when a stored snapshot is tampered": "passed",
+    "useImageUploadRuntime initializes a new identity when stored-session status lookup fails": "passed",
+    "useImageUploadRuntime clears local state and calls abort once even when abort fails": "passed",
+    "useImageUploadRuntime shares an in-flight abort and blocks replacement until server cleanup is acknowledged": "passed",
+    "useImageUploadRuntime a late part failure cannot resurrect a cancelled recovery snapshot": "passed",
+    "useImageUploadRuntime does not call the API when abandoning without an active session": "passed",
+    "useImageUploadRuntime does not let a late part acknowledgement overwrite a new upload attempt": "passed",
+    "ImageUploadOptionsPanel upload controls shows resume and abandon only for the corresponding runtime state and wires both actions": "passed",
+    "actual Writer upload provider input preflight runs a large upload through the real Writer but lends no committed owned session or asset receipt": "failed",
+    "actual Writer upload provider input preflight rejects the late Writer success callback after the actual host unmounts during completion": "failed"
+  },
+  "suppliedRuntimePrerequisiteSourceMatches": {
+    "artifacts/change-contract/issue-2899-locator-external-naming.json": "d356eb3cf580d20940a81eb6d79d6244f6c1415b",
+    "config/schemas/test-execution-envelope-applicability.schema.json": "7a6e432542425700bbdde7c2e3ecacc8680927f1",
+    "config/testing/test-execution-envelope-applicability.json": "87e089503024cff361ac6f882f11fd3a7ec3549e",
+    "docs/testing/issue-1072-production-resource-enforcement.md": "7f5f2f5bae8afd9e219496da9ee208e105d56b5f",
+    "src/frontend/src/composables/useImageUploadFlow.ts": "6cc343fa7e9b2ada1a52b02d0f47b5e235e5ba48",
+    "src/frontend/src/composables/useImageUploadRuntime.ts": "d4a7d91851531b14f011252b269b7fa73929c347",
+    "tests/frontend/unit/composables/useImageUploadRuntime.test.ts": "379987f91edd98f045965473fa291dbb346ce0ab",
+    "tests/governance/test-lifecycle-registry.json": "7f6078a4bff9578b6103f7abfd3343b123eff8b1",
+    "tests/matrix.yml": "1577ce569429b46702645c490a3923e7398ad311",
+    "tests/tools/execution-envelope-policy.test.mjs": "898954c70b7d671696a64d74e12fd26e7d1fc3a5",
+    "tests/tools/linux-cgroup-membership-locator.test.mjs": "15bf17270b303c37eb1165429568fc92757ce100",
+    "tests/tools/local-production-profile-resources.test.mjs": "b38d6b581440c71fcc60bd9df97abe09a2af8f1b",
+    "tests/tools/matrix-fixture-profile.test.mjs": "2bac298b434a98eebccc50002ef04817518039bd",
+    "tools/test-matrix/fixture-profile-contract.mjs": "f081e3ede96ffe3b5ad6ddc645dacc6a7a03eb6f",
+    "tools/test/bundles/run-bundle.mjs": "b00a818aed30e0f3f4c6ee9646524355adf6b88d",
+    "tools/test/lanes/static-governance.sh": "2ee5e3269c3d0523c5e8ba2de5676b08b1bafb6e",
+    "tools/test/linux-cgroup-membership-locator.mjs": "f2aff1f003f3399794735cbd94691dd24917e8c0",
+    "tools/test/system-memory.mjs": "93c9f3ee3bb9f1cc2714916c6fdfc2cc0eaa00bd"
+  }
+}

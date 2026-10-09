@@ -1,0 +1,594 @@
+[
+  {
+    "name": "useImageUploadRuntime > runs compression and hashing before init, uploads every required part, then completes once",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > pauses after part retry exhaustion while retaining the resumable attempt and snapshot",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > resumes the same file and options with the stored identity and uploads only missing parts",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > initializes a new identity when a stored snapshot is tampered",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > initializes a new identity when stored-session status lookup fails",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > clears local state and calls abort once even when abort fails",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > shares an in-flight abort and blocks replacement until server cleanup is acknowledged",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > a late part failure cannot resurrect a cancelled recovery snapshot",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > does not call the API when abandoning without an active session",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > does not let a late part acknowledgement overwrite a new upload attempt",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > borrows actual compressed facts and retains a bound handle after public session and original lease clear",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses a clone pending handle before creating a session",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses a foreign pending handle before creating a session",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses a clone document lease through the real original registry",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses a foreign document lease through the real original registry",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > refuses to mint a borrow from a localStorage-only resumed session",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > expires a completed borrow without refreshing it from public state or storage",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > waits for a cancelled original initialization and real cleanup acknowledgement before replacement",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > retains true completion history and unknown cleanup after a cancelled completion without deleting it",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > uses the existing flow original lease and caller cancellation without creating a second upload",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > revokes a borrow on scope disposal and waits for the original part before settling",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > rereads original document and intent ownership after an asynchronous borrow callback",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > does not grant a legacy attempt a new deletion action on scope disposal",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "useImageUploadRuntime > invalidates a completed original borrow when a new attempt starts",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "ImageUploadOptionsPanel upload controls > shows resume and abandon only for the corresponding runtime state and wires both actions",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  },
+  {
+    "name": "actual Writer preview current authority binding > lends the original owned intent reader through the live Writer binding and withdraws it on unmount",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "actual Writer preview current authority binding > binds business intent verification to the original caller-held Writer capability",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "actual Writer preview current authority binding > rechecks the actual Writer source after the business verification promise boundary",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "actual Writer preview current authority binding > keeps a new draft explicitly missing and lends the genuine current host fields",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "actual Writer preview current authority binding > withdraws observations on the actual host source change without releasing its owner",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "actual Writer preview current authority binding > uses only live borrowed editing fields and rejects older source admission after their edit",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "actual Writer preview current authority binding > refreshes canonical reads before the original generation flow and preserves a business refusal",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "actual Writer preview current authority binding > disposes only the read consumer while its host owner remains current",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "actual Writer preview current authority binding > aborts the actual read consumer on host unmount and refuses its abort-ignoring late response",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > binds continuity, actual cache and attachment ports to the same writer and public editor",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > shares the actual article owner through controlled attachment transactions and releases its editor lease",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > exposes one actual editor port through the production wrappers and forwards admitted transaction/focus events",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > rejects a new public editor at revision zero against a retained advanced owner without resetting its epoch",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > edit -> autosave/draft save only calls draft owner and never calls prepublish or publish APIs",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > retries a transient draft-save failure without publishing and deduplicates an identical in-flight save",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > pauses on a server draft conflict without losing editor content or promoting it to publication success",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > blocks publication when prepublish check finds blocking error issues",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > gates warning overrides: rejects short reason and requires explicit >=8 char confirmation before publishing",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > invalidates a late prepublish result when article revision content changes and requires a fresh current check",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > deduplicates concurrent prepublish commands while the current check is pending",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > preserves draft conflict state and does not mark publication successful on draft save or publish conflict",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > guards duplicate submits allowing only one concurrent submission in-flight",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > aborts an in-flight submit on unmount so a late result cannot navigate or publish stale success state",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "useAdminArticleWrite authoring gates and draft isolation > mounts ArticleWriteCommandBar and verifies save draft vs publish button contracts",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/composables/useAdminArticleWrite.authoringGates.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > verifies the actual current pending handle without a lifecycle receipt or new store",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > verifies the actual committed successor after the original owner microtask",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business intentRef coordinates",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business nodeId coordinates",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business transactionRef coordinates",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business providerRef coordinates",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business contextDigest coordinates",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business sourceOrder coordinates",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business sourceReferenced coordinates",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business disposition coordinates",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business sourceUrl coordinates",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > refuses an original handle lookup replaced by clone",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > refuses an original handle lookup replaced by receipt",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > refuses an original handle lookup replaced by foreign",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > refuses an original handle lookup replaced by missing",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > preserves actual removal false and denies a current intent grant for a terminal handle",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > preserves unknown source relation without turning it into proven removal",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rereads handle ownership after the promise boundary",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rereads the actual host context after a concurrent source edit",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > propagates caller cancellation at the promise boundary",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects after the original adapter is disposed",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > reads existing APIs for the exact current revision and projects the latest original history version",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > refreshes changed canonical site authors and rejects the older admission with unchanged body",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > observes a later host site-author edit at admission acceptance",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > preserves inherit toggles and explicit responsible editor input without changing source or confirmation",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > keeps explicit missing input missing and never restores saved responsibility over it",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > keeps an unsaved new article and missing current-authoring transport explicitly unavailable",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > does not manufacture an author or confirmation from empty site config and unconfirmed saved history",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > rejects same-body A to B context switches and a late A history result",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > does not dispatch APIs for a pre-canceled request",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > settles cancellation promptly even when the original API ignores abort and rejects late data",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > keeps a superseded caller canceled and prevents late old reads from overwriting a new refresh",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > rejects responsibility edits made while a site-author read is pending",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > rejects revision and metadata changes during pending reads without changing the document owner",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > rejects foreign, unordered and ambiguous revision history rather than guessing a current version",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > does not reuse a previously successful read after either existing API fails",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "article preview current authority composition > cancels and disposes only this read consumer while retaining the original host",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/authoring/articlePreviewCurrentAuthorities.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > observes actual status with owner token and actual progress without committing",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > uses actual completion then re-observes original ledger/bytes instead of trusting URL",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > coalesces duplicate commit attempts against the same original session",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > rejects a joining caller abort while preserving the original 3-byte commit",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > rejects a joining caller abort while preserving the original 20971520-byte commit",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > preserves the original caller control of the shared 3-byte commit",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > preserves the original caller control of the shared 20971520-byte commit",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > retains the original shared task after a joining caller abort until transport actually settles",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > retains each cancelled caller reason when both signals abort the shared attempt",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > retains uncertainty and never aborts after a possibly committed failed RPC",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > requires a real abort acknowledgement and preserves failed abort obligations for retry",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > blocks commit after an uncertain abort rather than racing a deleted original session",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > interrupts its actual commit task and observes late server promotion without deleting it",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > never revives unknown/expired progress or URL-only commit evidence",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > reads original facts without preview bytes for 8387833-byte committed uploads",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > reads original facts without preview bytes for 20971520-byte committed uploads",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > retains the preview route at the original exact budget",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > refuses changed facts uploadId without promoting a receipt",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > refuses changed facts sha256 without promoting a receipt",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > refuses changed facts sizeBytes without promoting a receipt",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > preserves original owner-token refusal for large facts",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > rejects changed session status before requesting large facts",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > propagates cancellation while reading original large facts",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > coalesces large retry attempts and reads facts after the actual completion RPC",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > preserves the original caller cancellation during a coalesced large facts read",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > observes a late large commit on cancel without deleting original bytes",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "original upload business provider operations > does not send an interrupted operation or acknowledge interrupted abort",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  },
+  {
+    "name": "actual facts-only provider business caller > keeps large upload facts blocked without an actual business reference receipt",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts"
+  },
+  {
+    "name": "actual facts-only provider business caller > preserves current-context rejection and cleanup after a late large facts response",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts"
+  },
+  {
+    "name": "actual facts-only provider business caller > propagates interrupted large facts through the original business caller",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > preserves actual pending refs during save and blocks publish/revision/leave",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > preserves actual failed refs during save and blocks publish/revision/leave",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > preserves actual cancelled refs during save and blocks publish/revision/leave",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > preserves actual recovery-required refs during save and blocks publish/revision/leave",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > uses exact current reference facts and original callbacks for successful resources",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > does not promote real upload ledger facts into an article operation grant",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference assetId",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference assetVersionSha256",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference referenceLedgerSha256",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference contextDigest",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference nodeId",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects changed reference transactionRef",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > rejects placeholder or URL-only identity and never exposes it in preview",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > admits unreferenced removed only after original cleanup observation",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > admits unreferenced cancelled only after original cleanup observation",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > routes late committed facts into cleanup and rejects source/epoch changes",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > saves explicit current state without dropping identity or recovery refs",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > saves explicit stale state without dropping identity or recovery refs",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > saves explicit removed state without dropping identity or recovery refs",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > saves explicit cancelled state without dropping identity or recovery refs",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > permits the original save acknowledgement draft revision and rejects that drift during publish",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > detects node removal while save is running without rewriting history",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > preserves original save retry/conflict and original prepublish refusal",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > re-observes provider/reference facts when verifying receipt and ledger tamper",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > ignores caption fields and rejects duplicated identity/source order",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "attachment business contribution to original owners > calls actual owned retry/cancel ports and respects interrupted work",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts"
+  },
+  {
+    "name": "upload API requests > preview uses the original protected upload request and verifies actual response bytes",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > preview refuses URL identity and cancelled late completion",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > initUploadSession sends an UploadInitRequest AEDS frame",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > uploadPart sends raw bytes with binary metadata headers",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/api/upload.test.ts"
+  },
+  {
+    "name": "upload API requests > completeUpload sends an UploadCompleteRequest AEDS frame",
+    "file": "/workspace/FsusBlog-writer-owned-upload-2246/tests/frontend/unit/api/upload.test.ts"
+  }
+]

@@ -1,0 +1,46 @@
+{
+  "testedSha": "35a028c7be7f031a3f3beb986ff79418dcd08582",
+  "copiedSupplierCandidateDigests": false,
+  "products": {
+    "config/testing/correctness-attempt-producers.json": {
+      "sha256": "e2cd85c0b97f3471b9da098542744e253fd37b1e68bd1d1a4fffd4089ba51e24",
+      "gitBlob": "d91f1a16768a75ab69fce39de8d21d4dbd16f471"
+    },
+    "config/testing/fixture-consumer-inventory.generated.json": {
+      "sha256": "9e988a5791a2853eecc56b2e78df4a05a3aa4923ecdc166866a4f926497fbe9d",
+      "gitBlob": "2c9e4f18d9af0cdd5e01398cac9ee59fdbd2efb1"
+    },
+    "config/testing/fixture-profile-matrix.generated.json": {
+      "sha256": "25894e315ea042b54da3536a87cab5c2c42aaac3ac4f1aa13e05fc277951fc5f",
+      "gitBlob": "88e9e5ca199ad85178bb7accf04a53a9ac28538b"
+    },
+    "src/core/Algorithms/AedsFrameType.cs": {
+      "sha256": "030eccdf191d1edcd418dcdd3bf510af0ddf18f28d26139dc8d0065460aa6684",
+      "gitBlob": "ced7f7a10ec06aa008412a71bfc16b5fffc3acf0"
+    },
+    "src/frontend/src/generated/fsusBinaryRoutes.ts": {
+      "sha256": "820b6ebdc049405181e6f839f7eddc772a53c78b851d52e709edf5e49f08ce8c",
+      "gitBlob": "f9a27ad10e1a6b7263e97d59e81586032056a081"
+    },
+    "src/frontend/wasm/aeds/include/aeds_frame.hpp": {
+      "sha256": "b2e54bb8e7f94a2580e7aa45303d13ec75df2751f5d032ba782df4f9571cac49",
+      "gitBlob": "34cc2fddb182206edcb867f133ddc986cb9b98f1"
+    },
+    "src/frontend/wasm/web/protocol/frame.ts": {
+      "sha256": "12e04883266c5b546d6cb48c2b3f9772867d97ab1485dc391daa1b01369a5360",
+      "gitBlob": "d04a8e6fe22b48f6f314160713bbb811d093d7a2"
+    },
+    "src/shared/AedsFrameHeader.cs": {
+      "sha256": "39524201ef934914fb09881328ee70ad02ef65de81898842ab1d498622835fab",
+      "gitBlob": "80c821c722f45c26d619caae5a4bd244f6858419"
+    },
+    "tests/backend/Fixtures/aeds-golden-catalog.json": {
+      "sha256": "3cfb31349f6670d86ef1e02b2e8c5e3b3badcedb9901c25a77215810124062ff",
+      "gitBlob": "d77b0e2e0b1ac3eae36a0c3f07190e4a214b1b51"
+    },
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json": {
+      "sha256": "39461de88e6ec25ecd2ea3384251346c8463c24e95a186d0639bb71b613f90be",
+      "gitBlob": "fdda11dd4f112bf23940729c86b4853d6c50a2dd"
+    }
+  }
+}

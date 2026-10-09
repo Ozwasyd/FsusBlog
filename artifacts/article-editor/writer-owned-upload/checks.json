@@ -1,0 +1,163 @@
+{
+  "testedSha": "35a028c7be7f031a3f3beb986ff79418dcd08582",
+  "preflight": {
+    "args": [
+      "node",
+      "tools/run-test-matrix.mjs",
+      "preflight"
+    ],
+    "exitCode": 0
+  },
+  "applicationTypes": {
+    "args": [
+      "node",
+      "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+      "--application"
+    ],
+    "baseExit": 2,
+    "headExit": 2,
+    "baseDiagnostics": 232,
+    "headDiagnostics": 232,
+    "added": 0,
+    "removed": 0,
+    "status": "FAILED; zero delta is not full-type acceptance"
+  },
+  "strictFiveSourceFiles": {
+    "exitCode": 0,
+    "files": 5,
+    "violations": 0,
+    "fullGateAcceptance": false
+  },
+  "strictAllChanged": {
+    "args": [
+      "node",
+      "tools/frontend/check-frontend-style.mjs",
+      "--mode",
+      "strict-full",
+      "--file",
+      "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "--file",
+      "src/frontend/src/api/upload.ts",
+      "--file",
+      "src/frontend/src/api/uploadFacts.ts",
+      "--file",
+      "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "--file",
+      "src/frontend/src/composables/useImageUploadFlow.ts",
+      "--file",
+      "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "--file",
+      "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "--file",
+      "src/frontend/src/contracts/binaryApi.ts",
+      "--file",
+      "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "--file",
+      "src/frontend/src/services/authoring/articleAttachmentBusinessState.ts",
+      "--file",
+      "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts"
+    ],
+    "exitCode": 1,
+    "files": [
+      "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "src/frontend/src/api/upload.ts",
+      "src/frontend/src/api/uploadFacts.ts",
+      "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "src/frontend/src/composables/useImageUploadFlow.ts",
+      "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "src/frontend/src/contracts/binaryApi.ts",
+      "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "src/frontend/src/services/authoring/articleAttachmentBusinessState.ts",
+      "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts"
+    ],
+    "status": "FAILED; same two original contract diagnostics reproduced at base"
+  },
+  "owningFullStyle": {
+    "exitCode": 1,
+    "baselineBindingErrors": 3,
+    "selectedSourceErrors": 0
+  },
+  "originalBinaryImportGuard": {
+    "args": [
+      "node",
+      "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+    ],
+    "exitCode": 1,
+    "existingFailures": 5
+  },
+  "originalImportNegativeFixture": {
+    "args": [
+      "node",
+      "tests/frontend/checks/static/check-binary-import-boundaries-fixture.mjs"
+    ],
+    "exitCode": 0,
+    "qualification": false
+  },
+  "protocolOriginalProducerCheck": {
+    "args": [
+      "node",
+      "tools/frontend/generate-aeds-protocol.mjs",
+      "--check"
+    ],
+    "exitCode": 0
+  },
+  "sourceCommitContract": {
+    "args": [
+      "node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "1a51ac8038f1d4509db5e90e29e736e863a5fba4..35a028c7be7f031a3f3beb986ff79418dcd08582"
+    ],
+    "exitCode": 0
+  },
+  "sourceWhitespace": {
+    "args": [
+      "git",
+      "diff",
+      "--check",
+      "1a51ac8038f1d4509db5e90e29e736e863a5fba4..35a028c7be7f031a3f3beb986ff79418dcd08582"
+    ],
+    "exitCode": 0
+  },
+  "supplierHistoricalCommitContract": {
+    "source": "de10f195911ec945da11537986911209f25b3fb6",
+    "status": "FAILED; preserved; not rewritten",
+    "commits": [
+      "99500e5ca0ceeafd9b3ef0791de54b6eb95c972e",
+      "46d32754651cfc30752e89aada2a0ae26a145859"
+    ],
+    "reason": "missing independent Refs footer"
+  },
+  "notRun": [
+    "held SOURCE/terminal qualification",
+    "native HTTP/PoW/AEDS decoder integration",
+    "browser UX/scroll restoration",
+    "database/ledger/reference/cleanup grant qualification"
+  ],
+  "dotnetAvailable": false,
+  "routesOriginalProducerCheck": {
+    "args": [
+      "node",
+      "tools/contracts/generate-frontend-routes.mjs",
+      "--check"
+    ],
+    "exitCode": 0
+  },
+  "fixtureOriginalProducerCheck": {
+    "args": [
+      "node",
+      "tools/testing/generate-fixture-catalog-artifacts.mjs",
+      "--check"
+    ],
+    "exitCode": 0
+  },
+  "correctnessOriginalProducerCheck": {
+    "args": [
+      "node",
+      "tools/test/generate-correctness-attempt-producers.mjs",
+      "--check"
+    ],
+    "exitCode": 0
+  }
+}

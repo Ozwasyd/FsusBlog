@@ -1,0 +1,85 @@
+{
+  "assignmentIssues": 10,
+  "executionIssues": 9,
+  "trackingIssues": 1,
+  "chainComplete": false,
+  "issues": {
+    "2246": {
+      "status": "PARTIAL",
+      "evidence": "Existing public owner/map/anchor consumer; current original Writer loan binding ordinary verified",
+      "remaining": [
+        "native scroll/viewport and independent SOURCE/product acceptance",
+        "frozen focus failure remains open"
+      ]
+    },
+    "2250": {
+      "status": "PARTIAL",
+      "evidence": "Canonical Writer/document owner and genuine intent readers retained; current 40 host +21 reader controls pass",
+      "remaining": [
+        "qualified surface/tool restoration",
+        "accepted issue-specific #2245 commit and evidence from parent"
+      ]
+    },
+    "2253": {
+      "status": "PARTIAL",
+      "evidence": "Current ordinary negative/cancellation controls; no tests removed",
+      "remaining": [
+        "large-document/performance/device/viewport/a11y and restoration matrix",
+        "accepted #2245 and #2250 evidence"
+      ]
+    },
+    "2256": {
+      "status": "PARTIAL",
+      "evidence": "Original handle/transaction reader plus current Writer observeUpload with public editor and original flow/runtime verified",
+      "remaining": [
+        "native public per-file File/capture capability and production adapter bridge",
+        "business reference/cleanup authority for later transaction",
+        "independent verifier and governance acceptance"
+      ],
+      "scopeNote": "Bytes/WASM/upload/ledger are original #2256 non-goals; current transport-observation work was explicitly requested as a #1975 handoff and is not #2256 terminal acceptance"
+    },
+    "1809": {
+      "status": "TRACKING OPEN",
+      "evidence": "Accounting only; no standalone implementation",
+      "remaining": [
+        "actual accepted #2246/#2250/#2253/#2245 child evidence",
+        "current closed FsusUI/Blog boundary runtime acceptance"
+      ]
+    },
+    "2280": {
+      "status": "BLOCKED / CANONICAL SOURCE TRANSFERRED",
+      "remaining": [
+        "accepted #1809 and #2250",
+        "surface and one-time migration product qualification; do not duplicate existing canonical owner"
+      ]
+    },
+    "2282": {
+      "status": "BLOCKED / CANONICAL SOURCE TRANSFERRED",
+      "remaining": [
+        "accepted #2250/#2280/#2245",
+        "actual Live acknowledgement and session fallback qualification"
+      ]
+    },
+    "2284": {
+      "status": "BLOCKED / CANONICAL SOURCE TRANSFERRED",
+      "remaining": [
+        "accepted #1809/#2246/#2250/#2280/#2245",
+        "actual compare and optional synchronized scrolling qualification"
+      ]
+    },
+    "2286": {
+      "status": "BLOCKED / CANONICAL SOURCE TRANSFERRED",
+      "remaining": [
+        "accepted #2280",
+        "independent user/device focus/typewriter/immersive preference qualification"
+      ]
+    },
+    "2287": {
+      "status": "BLOCKED / CANONICAL SOURCE TRANSFERRED",
+      "remaining": [
+        "accepted #2246/#2250/#2280/#2286",
+        "actual FsusUI Focus/Typewriter native qualification"
+      ]
+    }
+  }
+}

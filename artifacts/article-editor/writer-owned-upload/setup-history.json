@@ -1,0 +1,28 @@
+{
+  "initialNpmInstall": {
+    "exitCode": 254,
+    "error": "ENOENT mkdir /home/agent/.npm/_cacache",
+    "evidence": "tool transcript; full initial output not separately captured"
+  },
+  "correctedNpmInstall": {
+    "exitCode": 0,
+    "cache": "task-owned .tmp/chain-2246/writer-owned-upload/npm-cache"
+  },
+  "schemaValidatorInstall": {
+    "exitCode": 0,
+    "package": "original locked Ajv8.17.1"
+  },
+  "firstReleaseAuthorityGeneration": {
+    "exitCode": 1,
+    "reason": "unstaged source/index mismatches and Node24.19 parser identity"
+  },
+  "correctedReleaseAuthorityGeneration": {
+    "exitCode": 0,
+    "reason": "stage exact source; official Node24.16"
+  },
+  "preflightDuringRestart": {
+    "status": "INTERRUPTED",
+    "exitCode": null,
+    "passed": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "counts": {
+    "useAdminArticleWrite.uploadProviderInputs.test.ts": 2
+  },
+  "names": [
+    "actual Writer upload provider input preflight runs a large upload through the real Writer but lends no committed owned session or asset receipt",
+    "actual Writer upload provider input preflight rejects the late Writer success callback after the actual host unmounts during completion"
+  ],
+  "hooks": {
+    "../../tests/frontend/unit/composables/useAdminArticleWrite.uploadProviderInputs.test.ts": {
+      "beforeEach": 1,
+      "afterEach": 1,
+      "enableAutoUnmount": 1
+    }
+  },
+  "pattern": "^(?:actual\\ Writer\\ upload\\ provider\\ input\\ preflight\\ runs\\ a\\ large\\ upload\\ through\\ the\\ real\\ Writer\\ but\\ lends\\ no\\ committed\\ owned\\ session\\ or\\ asset\\ receipt|actual\\ Writer\\ upload\\ provider\\ input\\ preflight\\ rejects\\ the\\ late\\ Writer\\ success\\ callback\\ after\\ the\\ actual\\ host\\ unmounts\\ during\\ completion)$"
+}
