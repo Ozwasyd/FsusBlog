@@ -555,6 +555,10 @@ public sealed class SqlArticleGraphAdmissionReaderIntegrationTests(PostgresSchem
                     if (originalTransaction is not null)
                     {
                         await db.Ado.RollbackTranAsync();
+                        // Npgsql reuses its transaction object on the same physical connector.
+                        // Reopen this nonpooled connection to exercise an actual reference replacement.
+                        await originalConnection.CloseAsync();
+                        await originalConnection.OpenAsync();
                     }
                     await db.Ado.BeginTranAsync(System.Data.IsolationLevel.ReadCommitted);
                     await db.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;");
