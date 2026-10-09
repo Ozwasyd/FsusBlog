@@ -1,6 +1,8 @@
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.ArticleVault;
+using FsusBlog.Server.Services.ArticleVault.Assets;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleVault;
 
@@ -9,6 +11,38 @@ namespace FsusBlog.Server.Infrastructure.Bootstrap;
 /// <summary>Composes the existing read authorities with an explicit server-owned Vault site binding.</summary>
 public static class ArticleVaultRecoveryServiceCollectionExtensions
 {
+    /// <summary>
+    /// Uses existing authenticated source/upload owners and one explicit host site binding.
+    /// Missing owners fail before registration; no fallback source, store or grant is installed.
+    /// </summary>
+    public static IServiceCollection AddFsusArticleVaultCurrentUploadAssetInputs(
+        this IServiceCollection services, string trustedVaultSiteIdentity)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(trustedVaultSiteIdentity);
+        if (services.Any(static descriptor => descriptor.ServiceType == typeof(ArticleVaultUploadAssetBindingReader)
+            || descriptor.ServiceType == typeof(ArticleVaultCurrentUploadAssetInputReader)))
+        {
+            throw new InvalidOperationException("article_vault_current_upload_input_already_registered");
+        }
+        Type[] owners = [typeof(IArticleVaultExecutionStore), typeof(IArticleVaultCurrentObservationAuthority),
+            typeof(IAuthoringArticleCurrentSourceReader), typeof(IFileService), typeof(TimeProvider)];
+        if (owners.Any(owner => !services.Any(descriptor => descriptor.ServiceType == owner)))
+        {
+            throw new InvalidOperationException("article_vault_current_upload_input_owner_missing");
+        }
+        services.AddScoped(provider => new ArticleVaultUploadAssetBindingReader(
+            provider.GetRequiredService<IArticleVaultExecutionStore>(),
+            provider.GetRequiredService<IArticleVaultCurrentObservationAuthority>(),
+            provider.GetRequiredService<IAuthoringArticleCurrentSourceReader>(),
+            provider.GetRequiredService<IFileService>(), provider.GetRequiredService<TimeProvider>(), trustedVaultSiteIdentity));
+        services.AddScoped(provider => new ArticleVaultCurrentUploadAssetInputReader(
+            provider.GetRequiredService<IArticleVaultExecutionStore>(),
+            provider.GetRequiredService<ArticleVaultUploadAssetBindingReader>(),
+            provider.GetRequiredService<TimeProvider>(), trustedVaultSiteIdentity));
+        return services;
+    }
+
     /// <summary>
     /// Binds the canonical operation adapter to a host-owned agent session, root manifest and actor.
     /// The native session owns the only dispatcher. This installs no endpoint, lease, grant, watcher

@@ -72,13 +72,37 @@ Diagnostics do not choose a winner or produce an upload/materialization receipt.
 ## Outstanding integration
 
 The canonical package owner must provide its actual portable mapping and manifest
-extension API. The current `IAssetStore` exposes deletion only; `FileService`
-upload completion exposes a relative display URL, without the required intended
-AssetId, operation/plan, rights, revision and explicit reuse receipt. Those APIs,
-and the canonical stable snapshot/path capability, are required before pull,
-upload, local materialization, recovery obligations and ledger receipts can be
-implemented. No replacement port, direct database/storage writer or production
-mock is introduced here.
+extension API. The original `IFileService.ReadCommittedUploadInputAsync` now
+supplies session-authorized original upload bytes up to its existing 20 MiB limit,
+with the original `AssetRecord`, asset version and reference ledger observation.
+`ArticleVaultUploadAssetBindingReader.ReadCurrentRevisionUploadInputAsync` brackets
+that read with the original current article source, complete group and permission
+observations. This capability covers owned committed public uploads already
+referenced by the selected current revision; it is not a general private export,
+reuse decision or accepted-reference receipt.
+
+`ArticleVaultCurrentUploadAssetInputReader.ReadAsync` connects that supplier to
+the existing `ArticleVaultAssetInputVerifier.VerifyCurrent`. It first requires
+the original sealed operation, current dependency plan/request/authority inputs
+and an exact planned server-side pull asset, then validates the actual returned
+record and copied bytes. Current rights and the original plan are checked before
+and after the read. It creates no rights from the byte digest or reference ledger.
+Its retained input cannot execute, materialize, upload or commit base. A blocked
+plan remains blocked; local/push inputs are not upgraded to current server inputs.
+
+The explicit `AddFsusArticleVaultCurrentUploadAssetInputs` composition requires
+the host's existing execution store, group observation, current source reader,
+file service and clock. It supplies one scoped caller and original supplier with
+an explicit trusted site, without a fallback owner or endpoint. Backend authoring
+contracts retain their current canonical location; no second Shared canvas grammar
+is copied as part of this integration.
+
+The original current dependency/resource-rights supplier, operation-bound intended
+AssetId upload/reuse/accepted-reference receipts, full V1 metadata and canonical
+stable snapshot/materialization/recovery capabilities remain required. These
+remaining authorities prevent general pull materialization, push upload and
+complete executable-candidate admission. No replacement port, direct database
+writer or production mock is introduced here.
 
 The original integration owner registers the schema resource, documentation,
 test matrix, coverage and lifecycle entry. The adapter

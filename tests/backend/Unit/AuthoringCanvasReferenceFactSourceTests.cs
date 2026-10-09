@@ -419,6 +419,16 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
             BatchReadCount++;
             return Task.FromResult(Records);
         }
+
+        public Task<AuthoringCanvasArticleReferenceRecord?> ReadCurrentArticleAsync(
+            AuthoringCanvasOwner owner,
+            AuthoringCanvasReferencePermission permission,
+            int articleId,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(Records.GetValueOrDefault(articleId));
+        }
     }
 
     private sealed class DeterministicCoordinateProvider(
