@@ -1,5 +1,8 @@
+using System.Security.Cryptography;
+
 using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.ArticleVault;
@@ -15,6 +18,115 @@ namespace FsusBlog.Server.Tests.Integration;
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class ArticleVaultRecoveryCheckpointTransactionPostgresTests(PostgresSchemaMigrationFixture fixture)
 {
+    [Fact]
+    public async Task ProtectedComposition_UsesWriterDatabaseClockAndActualAuthenticator()
+    {
+        // A future controlled business clock distinguishes the writer's retained clock from
+        // TimeProvider.System without exercising native time, key custody or device evidence.
+        await using Database database = await CreateAsync(now: DateTimeOffset.UtcNow.AddDays(2));
+        ProtectedStage protectedStage = await CreateProtectedAsync(database);
+        await AppendProtectedAsync(database, protectedStage);
+        await AppendProtectedAsync(database, protectedStage);
+
+        Assert.Equal(1, await CountAsync(database, "article_vault_operation_checkpoint"));
+        Assert.Equal(1, await CountAsync(database, "article_vault_recovery_journal"));
+        Assert.Single(await protectedStage.Composition.Storage.ReadThroughAsync(database.Plan, database.Proposal,
+            protectedStage.Journal.Sequence, protectedStage.Journal.ContentSha256));
+        Assert.Single(await database.Operations.ReadThroughAsync(database.Plan.Operation, database.Plan.SyncPlan,
+            database.Checkpoint.Sequence, database.Checkpoint.ContentSha256));
+        Assert.Equal(protectedStage.Envelope, (await protectedStage.Composition.Storage.ReadBackupAsync(
+            new(protectedStage.Backup.BackupIdentity, protectedStage.Backup.ContentSha256))).Ciphertext.ToArray());
+        Assert.True(protectedStage.Keys.Reads >= 3);
+    }
+
+    [Fact]
+    public async Task ProtectedComposition_MissingExistingKeyRefusesInitialStageWithoutCheckpoint()
+    {
+        await using Database database = await CreateAsync();
+        ProtectedStage protectedStage = await CreateProtectedAsync(database);
+        protectedStage.Keys.Missing = true;
+        ArticleVaultExecutionRejectedException refusal = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(
+            () => AppendProtectedAsync(database, protectedStage));
+        Assert.Equal("article_vault_recovery_protection_key_unavailable", refusal.ReasonCode);
+        Assert.Equal(0, await CountAsync(database, "article_vault_operation_checkpoint"));
+        Assert.Equal(0, await CountAsync(database, "article_vault_recovery_journal"));
+    }
+
+    [Fact]
+    public async Task ProtectedComposition_CheckpointSqlFailureRollsBackAuthenticatedJournalStage()
+    {
+        await using Database database = await CreateAsync();
+        ProtectedStage protectedStage = await CreateProtectedAsync(database);
+        await fixture.ExecuteAsync(database.ConnectionString, """
+            CREATE FUNCTION diagnostic_protected_checkpoint_failure() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN RAISE EXCEPTION 'diagnostic_protected_checkpoint_failure'; END;
+            $$;
+            CREATE TRIGGER diagnostic_protected_checkpoint_failure BEFORE INSERT ON article_vault_operation_checkpoint
+                FOR EACH ROW EXECUTE FUNCTION diagnostic_protected_checkpoint_failure();
+            """);
+        PostgresException refusal = await Assert.ThrowsAsync<PostgresException>(() => AppendProtectedAsync(database, protectedStage));
+        Assert.Equal("P0001", refusal.SqlState);
+        Assert.True(protectedStage.Keys.Reads >= 2);
+        Assert.Equal(0, await CountAsync(database, "article_vault_operation_checkpoint"));
+        Assert.Equal(0, await CountAsync(database, "article_vault_recovery_journal"));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task ProtectedComposition_PrecommitRevalidatesActualProtectionAndCurrentPolicy(int boundary)
+    {
+        await using Database database = await CreateAsync(retentionMs: boundary == 0 ? 5000 : 60_000);
+        ProtectedStage protectedStage = await CreateProtectedAsync(database);
+        using var cancellation = new CancellationTokenSource();
+        protectedStage.Keys.BeforeRead = read =>
+        {
+            if (read != 3)
+            {
+                return;
+            }
+            // Read 1 authenticates backup storage, read 2 authenticates the first Stage, and
+            // read 3 runs the actual authenticator after checkpoint INSERT in precommit Stage.
+            switch (boundary)
+            {
+                case 0:
+                    database.Clock.Now = DateTimeOffset.FromUnixTimeMilliseconds(protectedStage.Backup.Policy.DeleteAfterUnixMs);
+                    break;
+                case 1:
+                    database.Clock.Now = DateTimeOffset.FromUnixTimeMilliseconds(database.Proposal.ExpiresAtUnixMs);
+                    break;
+                case 2:
+                    protectedStage.Keys.Missing = true;
+                    break;
+                case 3:
+                    cancellation.Cancel();
+                    break;
+            }
+        };
+        if (boundary == 3)
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => AppendProtectedAsync(database, protectedStage,
+                cancellation.Token));
+        }
+        else
+        {
+            ArticleVaultExecutionRejectedException refusal = await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(
+                () => AppendProtectedAsync(database, protectedStage));
+            string expected = boundary switch
+            {
+                0 => "article_vault_recovery_protection_expired_or_future",
+                1 => "article_vault_recovery_storage_proposal_expired",
+                _ => "article_vault_recovery_protection_key_unavailable"
+            };
+            Assert.Equal(expected, refusal.ReasonCode);
+        }
+        Assert.Equal(3, protectedStage.Keys.Reads);
+        Assert.Equal(0, await CountAsync(database, "article_vault_operation_checkpoint"));
+        Assert.Equal(0, await CountAsync(database, "article_vault_recovery_journal"));
+    }
+
     [Fact]
     public async Task JointAppendAndIndependentWriterRetry_CommitExactlyOneCheckpointAndAssociation()
     {
@@ -227,7 +339,7 @@ public sealed class ArticleVaultRecoveryCheckpointTransactionPostgresTests(Postg
         Assert.Equal(3, await CountAsync(database, "article_vault_recovery_journal"));
     }
 
-    private async Task<Database> CreateAsync(long retentionMs = 60_000)
+    private async Task<Database> CreateAsync(long retentionMs = 60_000, DateTimeOffset? now = null)
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         var descriptors = new[] { ArticleVaultExecutionMigrationDefinitions.BuildMigration(), ArticleVaultOperationMigrationDefinitions.BuildMigration(),
@@ -236,7 +348,7 @@ public sealed class ArticleVaultRecoveryCheckpointTransactionPostgresTests(Postg
             .OfType<RawSqlStep>().Select(static step => step.Sql)));
         SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
         NpgsqlDataSource source = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(connectionString) { MaxPoolSize = 1 }.ConnectionString);
-        var clock = new TestClock(DateTimeOffset.UtcNow);
+        var clock = new TestClock(now ?? DateTimeOffset.UtcNow);
         var execution = new PostgresArticleVaultExecutionStore(db, clock);
         var proposals = new PostgresArticleVaultResolutionProposalStore(source, execution, clock);
         var operations = new PostgresArticleVaultOperationCheckpointStore(source, execution, clock);
@@ -297,6 +409,58 @@ public sealed class ArticleVaultRecoveryCheckpointTransactionPostgresTests(Postg
         IArticleVaultTransactionalRecoveryJournalStore? stage = null, CancellationToken cancellationToken = default)
         => (writer ?? database.Operations).AppendAsync(database.Plan, database.Proposal, database.Input, database.Journal,
             database.Checkpoint, database.Association, stage ?? database.Storage, cancellationToken);
+
+    private static async Task<ProtectedStage> CreateProtectedAsync(Database database)
+    {
+        // Fixed public algorithm bytes mirror the supplier's ordinary AES-GCM fixture.
+        // No credential is generated/provisioned, no real key store is instantiated, and
+        // no custody, receipt-substitution, native snapshot or terminal audit is performed.
+        byte[] key = Enumerable.Range(0, 32).Select(static value => (byte)value).ToArray();
+        byte[] plaintext = "source\n"u8.ToArray();
+        byte[] envelope = new byte[ArticleVaultRecoveryBackupEnvelope.CiphertextOffset + plaintext.Length];
+        ArticleVaultRecoveryBackupEnvelope.Magic.CopyTo(envelope);
+        Enumerable.Range(0, 12).Select(static value => (byte)value).ToArray()
+            .CopyTo(envelope, ArticleVaultRecoveryBackupEnvelope.NonceOffset);
+        ArticleVaultRecoveryBackupReceipt backup = database.Backup with
+        {
+            BackupIdentity = "diagnostic-protected-joint-backup",
+            CiphertextBytes = envelope.Length,
+            ProtectionKey = new("controlled-existing-key", ArticleVaultManifestCodec.ComputeSha256(key))
+        };
+        backup = backup with
+        {
+            ContentSha256 = ArticleVaultRecoveryStorageVerifier.ComputeContentSha256(backup)
+        };
+        using (var aes = new AesGcm(key, ArticleVaultRecoveryBackupEnvelope.TagBytes))
+        {
+            aes.Encrypt(envelope.AsSpan(ArticleVaultRecoveryBackupEnvelope.NonceOffset, ArticleVaultRecoveryBackupEnvelope.NonceBytes),
+                plaintext, envelope.AsSpan(ArticleVaultRecoveryBackupEnvelope.CiphertextOffset),
+                envelope.AsSpan(ArticleVaultRecoveryBackupEnvelope.TagOffset, ArticleVaultRecoveryBackupEnvelope.TagBytes),
+                ArticleVaultRecoveryBackupEnvelope.BuildAssociatedData(backup));
+        }
+        backup = backup with
+        {
+            CiphertextSha256 = ArticleVaultManifestCodec.ComputeSha256(envelope)
+        };
+        backup = backup with
+        {
+            ContentSha256 = ArticleVaultRecoveryStorageVerifier.ComputeContentSha256(backup)
+        };
+        var keys = new FixedExistingKeyRead(key);
+        ArticleVaultRecoveryStageComposition composition = database.Operations.ComposeRecoveryStage(
+            new PostgresArticleVaultResolutionProposalStore(database.Source, database.Execution, database.Clock), keys);
+        await composition.Storage.SealBackupAsync(backup, envelope);
+        ArticleVaultRecoveryJournal journal = Seal(database.Journal with
+        {
+            Backup = new(backup.BackupIdentity, backup.ContentSha256)
+        });
+        return new(composition, keys, backup, journal, Association(database, journal, database.Checkpoint), envelope);
+    }
+
+    private static Task AppendProtectedAsync(Database database, ProtectedStage protectedStage,
+        CancellationToken cancellationToken = default)
+        => protectedStage.Composition.AppendAsync(database.Plan, database.Proposal, database.Input,
+            protectedStage.Journal, database.Checkpoint, protectedStage.Association, cancellationToken);
 
     private static ArticleVaultRecoveryJournal Seal(ArticleVaultRecoveryJournal journal)
         => journal with
@@ -387,6 +551,41 @@ public sealed class ArticleVaultRecoveryCheckpointTransactionPostgresTests(Postg
         internal DateTimeOffset Now { get; set; } = now;
         public override DateTimeOffset GetUtcNow() => Now;
     }
+
+    private sealed class FixedExistingKeyRead(byte[] key) : IAuditRetentionEpochKeyStore
+    {
+        internal int Reads
+        {
+            get; private set;
+        }
+        internal bool Missing
+        {
+            get; set;
+        }
+        internal Action<int>? BeforeRead
+        {
+            get; set;
+        }
+
+        public ValueTask<byte[]?> TryReadAsync(string keyDomain, string epochId, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Assert.Equal(ArticleVaultRecoveryBackupEnvelope.KeyDomain, keyDomain);
+            Assert.Equal("controlled-existing-key", epochId);
+            BeforeRead?.Invoke(++Reads);
+            return ValueTask.FromResult(Missing ? null : key.ToArray());
+        }
+
+        public ValueTask<byte[]> CreateAsync(string keyDomain, string epochId, CancellationToken cancellationToken)
+            => throw new NotSupportedException("Only fixed existing public algorithm bytes may be read by this fixture.");
+
+        public ValueTask<bool> DestroyAsync(string keyDomain, string epochId, CancellationToken cancellationToken)
+            => throw new NotSupportedException("Only fixed existing public algorithm bytes may be read by this fixture.");
+    }
+
+    private sealed record ProtectedStage(ArticleVaultRecoveryStageComposition Composition, FixedExistingKeyRead Keys,
+        ArticleVaultRecoveryBackupReceipt Backup, ArticleVaultRecoveryJournal Journal,
+        ArticleVaultRecoveryJournalAssociation Association, byte[] Envelope);
 
     private sealed record Database(string ConnectionString, NpgsqlDataSource Source, SqlSugarClient Db, TestClock Clock,
         PostgresArticleVaultExecutionStore Execution, PostgresArticleVaultOperationCheckpointStore Operations,
