@@ -1,0 +1,146 @@
+{
+  "parentSuppliedSource": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+  "original18Paths": [
+    {
+      "path": "src/backend/Interfaces/AuthorTypographyPreferencePorts.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "b44f2f4f85ff6a579be2c14941c8e4cca4574182",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/backend/Interfaces/WritingAidPreferencePorts.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "a36244740a84dca336853e9da93137346bd84577",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/backend/Services/UserLocalePreferenceService.AuthorTypography.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "a616c1c0964d5727fdf236f29aeb33638930139b",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/backend/Services/UserLocalePreferenceService.AuthoringPreferences.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "6ea22d568a1542ba507f3bfb1bc9eab4e6bad2c8",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/backend/Services/UserLocalePreferenceService.WritingAids.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "c6400528f5597d515983f2c231f34b530214102d",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/backend/Services/UserLocalePreferenceService.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "ac01f56333930d6b5177cd415e2e77bf8f84d002",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20261008WritingAidPreferences.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "da5183ffb1ff624a395bdb56f7369e637b0bb737",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/migration/Definitions/WritingAidPreferenceMigrationDefinitions.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "e934857b9a5e77b8289cdf2af0545e6863d0ff54",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/shared/Contracts/AuthorTypography/AuthorTypographyCommandPolicy.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "6939b775c6d1a6da74b30824bfc3304388f2c8b0",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/shared/Contracts/AuthorTypography/AuthorTypographyCommands.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "14d74908918f621aee228ff397ef635a9650ab8a",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/shared/Contracts/AuthorTypography/AuthorTypographyContractValidator.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "a65ab5068ae5d299d9b91e96d75c7b0fdb011b6b",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/shared/Contracts/AuthorTypography/AuthorTypographyContracts.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "d243b66d2315f04965f4dcc95df9acda083b1264",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "src/shared/Contracts/AuthorTypography/AuthorTypographyRequestReplayPolicy.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "11a9b6ff7f6871a77c86bb33c91774bea96c2770",
+      "byteExact": true,
+      "addedNow": false
+    },
+    {
+      "path": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "e6ae400f767198dba1905b011b5eafb4ad1680f6",
+      "byteExact": true,
+      "addedNow": true
+    },
+    {
+      "path": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "0a6c52994ec374a4bdb0e8fba35947eb08a6f921",
+      "byteExact": true,
+      "addedNow": true
+    },
+    {
+      "path": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "c0c98ce1d87a9c504bca34e5b3891e86a690ab13",
+      "byteExact": true,
+      "addedNow": true
+    },
+    {
+      "path": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "44841461eced09ee3a0a327e0d622b5e3edbf14d",
+      "byteExact": true,
+      "addedNow": true
+    },
+    {
+      "path": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "ownerCommit": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+      "blob": "3d47077fa1b6a7e6a7fa4d39ae8d870595b067c1",
+      "byteExact": true,
+      "addedNow": true
+    }
+  ],
+  "productionDomainPathsPreviouslyExact": 13,
+  "addedOriginalTests": [
+    "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+    "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+    "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+    "tests/backend/Unit/AuthorTypographyContractTests.cs",
+    "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs"
+  ],
+  "canonicalWritingAidContractsAndOriginalContractTest": "also byteexact047; no rewrite",
+  "actualRootDIpreimage": "dde38adea510cbb1e71050a8eb9fe81a9c31071c",
+  "suppliedDIpreimage": "dafee094b79cb22d82ff4fa1700627e875f598da",
+  "DIpreimageDifference": "actualrootalreadyretains3canonicalArticleQuerysource registrations; originalWritingAid aliases insert byteexact at sameUserLocalePreference anchor",
+  "manifestPreimage": "0a587ed6c69ab5bd831ea142ccd2e9db01d817a4",
+  "classificationPreimage": "4427c0b4b244981991cf92e9a86be82e3504fa0e",
+  "sharedHunks": "alreadyactuallyconsumed indbac88a, same3ports/classification/combinedcatalog; no duplicate"
+}

@@ -1,0 +1,29 @@
+{
+  "commands": [
+    {
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/db/generate-offline-migration-catalog.mjs"
+      ],
+      "exitCode": 0,
+      "sourceCommit": "5052fe015e8b5270649f808e2a42aac176292118",
+      "bodiesExecuted": 0
+    },
+    {
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/db/check-offline-migration-catalog-parity.mjs"
+      ],
+      "exitCode": 0,
+      "sourceCommit": "5052fe015e8b5270649f808e2a42aac176292118",
+      "bodiesExecuted": 0
+    }
+  ],
+  "fixedPoint": true,
+  "productionInputsAndOutputBeforeAfter": {
+    "src/migration/OfflineMigrationCatalogEntries.generated.cs": "c4141b0ad4f813c78992a8cdf0fa3f632dff6583fca055f9105a163ab55378c8",
+    "src/migration/OfflineMigrationClassificationFacts.cs": "04cf09eb23c486090642b96f5588b1417528bd540d7be5d365e94ebf41657879",
+    "src/migration/SchemaMigrationManifest.cs": "ab8a29b243206598b46e266e44abdba22f4956eb73c385032683b896eaa1de1c"
+  },
+  "generationOrQualificationReceipt": false
+}

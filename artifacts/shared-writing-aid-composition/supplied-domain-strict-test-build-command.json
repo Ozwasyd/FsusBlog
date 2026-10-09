@@ -1,0 +1,87 @@
+{
+  "testedCommit": "5052fe015e8b5270649f808e2a42aac176292118",
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "build",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "-warnaserror",
+    "-v",
+    "minimal"
+  ],
+  "exitCode": 1,
+  "sdkSummaryErrors": 1541,
+  "distinctLocatedErrors": 1541,
+  "fiveSuppliedAddedFileDiagnostics": 9,
+  "suppliedAddedDiagnostics": [
+    [
+      "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "220",
+      "50",
+      "IDE0055",
+      "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+    ],
+    [
+      "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "52",
+      "82",
+      "IDE0055",
+      "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+    ],
+    [
+      "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "220",
+      "27",
+      "IDE0055",
+      "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+    ],
+    [
+      "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "52",
+      "107",
+      "IDE0055",
+      "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+    ],
+    [
+      "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "162",
+      "47",
+      "IDE0055",
+      "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+    ],
+    [
+      "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "220",
+      "25",
+      "IDE0055",
+      "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+    ],
+    [
+      "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "52",
+      "80",
+      "IDE0055",
+      "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+    ],
+    [
+      "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "162",
+      "45",
+      "IDE0055",
+      "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+    ],
+    [
+      "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "162",
+      "72",
+      "IDE0055",
+      "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+    ]
+  ],
+  "positiveRows": 138,
+  "bodiesExecuted": 0,
+  "executableDiscovery": "UNRUN afterfailedstrictgate",
+  "defaultTestRebuildOrAlternateExecution": false
+}

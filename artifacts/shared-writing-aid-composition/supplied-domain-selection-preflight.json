@@ -1,0 +1,544 @@
+{
+  "sourceCommit": "5052fe015e8b5270649f808e2a42aac176292118",
+  "suppliedSource": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+  "newScopeCounts": {
+    "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs": 12,
+    "tests/backend/Unit/AuthorTypographyContractTests.cs": 21,
+    "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs": 10,
+    "tests/backend/Unit/WritingAidPreferenceContractTests.cs": 33,
+    "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs": 17,
+    "tests/backend/Integration/WritingAidPreferencePostgresTests.cs": 11
+  },
+  "newScopeRows": [
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.PayloadPreparation_RequiresAtomicWriterCasAndDoesNotInventAnObservedProfile",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.SetProfile_PreparesOnlyClosedReplacementWithoutChangingObservedFacts",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.Reset_UsesOnlyTheServerProvidedCurrentDesignDefault",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.MissingOrInvalidDesignDefault_RefusesResetWithoutAClientDefault",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.StaleOrFutureRevision_RefusesRatherThanOverwritingServerCurrent",
+      "data": "0"
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.StaleOrFutureRevision_RefusesRatherThanOverwritingServerCurrent",
+      "data": "7"
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.StaleOrFutureRevision_RefusesRatherThanOverwritingServerCurrent",
+      "data": "9"
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.RevisionChange_InvalidatesAPreviouslyPreparedProposal",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.RevisionZeroObservation_PreparesWithoutReportingACommit",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.InvalidMutationOrPayload_Refuses",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.MissingTamperedOrCrossScopeObservation_Refuses",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyCommandPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.ExhaustedRevision_RefusesWithoutOverflowOrAProposal",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.Catalog_ClosesExactlyFiveDimensionsAndTheirIds",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.All243Combinations_AreAdmittedWithoutASecondModel",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ArbitraryValues_FailEveryDimension",
+      "data": "\"18px\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ArbitraryValues_FailEveryDimension",
+      "data": "\"1.8\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ArbitraryValues_FailEveryDimension",
+      "data": "\"font-size:18px\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ArbitraryValues_FailEveryDimension",
+      "data": "\"https://fonts.example.test/font.woff2\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ArbitraryValues_FailEveryDimension",
+      "data": "\"STANDARD\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ArbitraryValues_FailEveryDimension",
+      "data": "\" standard\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ArbitraryValues_FailEveryDimension",
+      "data": "\"\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ArbitraryValues_FailEveryDimension",
+      "data": "null"
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ExtraFields_FailRatherThanBeingIgnored",
+      "data": "\"mode\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ExtraFields_FailRatherThanBeingIgnored",
+      "data": "\"article\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ExtraFields_FailRatherThanBeingIgnored",
+      "data": "\"selection\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ExtraFields_FailRatherThanBeingIgnored",
+      "data": "\"scroll\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ExtraFields_FailRatherThanBeingIgnored",
+      "data": "\"epoch\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ExtraFields_FailRatherThanBeingIgnored",
+      "data": "\"css\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ExtraFields_FailRatherThanBeingIgnored",
+      "data": "\"fontUrl\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ExtraFields_FailRatherThanBeingIgnored",
+      "data": "\"publicTheme\""
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.MissingFutureCorruptAndCaseFoldedProfiles_Refuse",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.Snapshot_IsScopedAndContentAddressedButNotAnAuthorizationOrCasReceipt",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.Catalog_CannotBeMutatedByConsumers",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.MatchingRetry_ReplaysOriginalObservationBeforeCurrentRevisionCas",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.MissingRecord_IsNotAReplayOrAnAcceptedMutation",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.ReusedRequestIdWithDifferentValidPayloadOrAction_Refuses",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.WrongLookupIdentity_RefusesRatherThanTreatingAnotherRequestAsMissing",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.EmptyIdentityInvalidCommandAndInvalidScope_Refuse",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.AnotherAccountOrSite_CannotReplayAValidRecordedRequest",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.StoredCommandSnapshotOrRecordDigestTamper_Refuses",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.ResetRecord_BindsServerResultWithoutAddingAClientDefault",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.ContentAddress_BindsRequestIdScopeRevisionActionAndEachDimension",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthorTypographyRequestReplayPolicyTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.MalformedOrOverflowingRecords_CannotBeSealed",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.Receipt_BindsDeviceScopeAndClosedActionWithoutAcceptingUnimplementedMigration",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.InitializationReceipt_RequiresAbsentRowAndServerDefaultsEvenAfterResealing",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.Defaults_AreIndependentAndDisabled",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.AllCombinations_ValidateWithoutSurfaceOrDocumentFields",
+      "data": "false, false, false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.AllCombinations_ValidateWithoutSurfaceOrDocumentFields",
+      "data": "false, false, true"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.AllCombinations_ValidateWithoutSurfaceOrDocumentFields",
+      "data": "false, true, false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.AllCombinations_ValidateWithoutSurfaceOrDocumentFields",
+      "data": "false, true, true"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.AllCombinations_ValidateWithoutSurfaceOrDocumentFields",
+      "data": "true, false, false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.AllCombinations_ValidateWithoutSurfaceOrDocumentFields",
+      "data": "true, false, true"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.AllCombinations_ValidateWithoutSurfaceOrDocumentFields",
+      "data": "true, true, false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.AllCombinations_ValidateWithoutSurfaceOrDocumentFields",
+      "data": "true, true, true"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"{\\\"schemaVersion\\\":2,\\\"focusEnabled\\\":false,\\\"typewriterEnabled\\\":false,\\\"immersiveEnabled\\\":false}\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"{\\\"schemaVersion\\\":1,\\\"focusEnabled\\\":\\\"true\\\",\\\"typewriterEnabled\\\":false,\\\"immersiveEnabled\\\":false}\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"{\\\"schemaVersion\\\":1,\\\"focusEnabled\\\":1,\\\"typewriterEnabled\\\":false,\\\"immersiveEnabled\\\":false}\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"{\\\"schemaVersion\\\":1,\\\"focusEnabled\\\":true,\\\"typewriterEnabled\\\":false,\\\"immersiveEnabled\\\":false,\\\"surface\\\":\\\"source\\\"}\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"{\\\"schemaVersion\\\":1,\\\"focusEnabled\\\":true,\\\"typewriterEnabled\\\":false,\\\"immersiveEnabled\\\":false,\\\"articleId\\\":1}\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"{\\\"schemaVersion\\\":1,\\\"focusEnabled\\\":true,\\\"typewriterEnabled\\\":false,\\\"immersiveEnabled\\\":false,\\\"focusEnabled\\\":false}\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"{\\\"schemaVersion\\\":1,\\\"focusEnabled\\\":false,\\\"immersiveEnabled\\\":false}\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"{\\\"writingMode\\\":\\\"zen\\\"}\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"{\\\"schemaVersion\\\":\\\"1\\\",\\\"focusEnabled\\\":false,\\\"typewriterEnabled\\\":false,\\\"immersiveEnabled\\\":false}\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"null\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"[]\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields",
+      "data": "\"{not json}\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.OwnerNamespace_SeparatesAccountAdminAndRejectsAnonymousOrInexactIds",
+      "data": "\"account:1\", true"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.OwnerNamespace_SeparatesAccountAdminAndRejectsAnonymousOrInexactIds",
+      "data": "\"admin:1\", true"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.OwnerNamespace_SeparatesAccountAdminAndRejectsAnonymousOrInexactIds",
+      "data": "\"account:01\", false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.OwnerNamespace_SeparatesAccountAdminAndRejectsAnonymousOrInexactIds",
+      "data": "\"account:0\", false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.OwnerNamespace_SeparatesAccountAdminAndRejectsAnonymousOrInexactIds",
+      "data": "\"account:-1\", false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.OwnerNamespace_SeparatesAccountAdminAndRejectsAnonymousOrInexactIds",
+      "data": "\"guest:1\", false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.OwnerNamespace_SeparatesAccountAdminAndRejectsAnonymousOrInexactIds",
+      "data": "\"article:1\", false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.OwnerNamespace_SeparatesAccountAdminAndRejectsAnonymousOrInexactIds",
+      "data": "\"account:9007199254740992\", false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.SnapshotDigest_BindsOwnerRevisionAndEachAidAndRejectsTamper",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceContractTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.Command_RejectsOverflowAndMissingIdempotencyIdentity",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.MissingDefault_RefusesReadAndResetWithoutCreatingAPreference",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.ClosedManualProfile_PersistsWithoutInventingADefaultAndReloadsFromAnotherClient",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.SetAndReset_PreserveAidValuesAndShareTheirRevision",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.AidMutation_PreservesTypographyAndInvalidatesStaleTypographyCommands",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.ConcurrentDevices_CommitOnlyOneSharedRevision",
+      "data": "false"
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.ConcurrentDevices_CommitOnlyOneSharedRevision",
+      "data": "true"
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.ConcurrentRetry_ReplaysOriginalAfterLaterWritesAndRejectsPayloadOrDeviceReuse",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.ResetRetry_ReplaysEvenWhenCurrentDesignPolicyIsUnavailable",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.AidInitialization_CannotOverwriteAnExistingTypographyPreference",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.SharedJournalCapacity_RetainsTypographyReplayAndRefusesFreshWritesInBothDomains",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.SharedJournalFinalSlot_AdmitsOneConcurrentTypographyRequestAndPreservesItsReplay",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.BothDomains_RejectTheSameOperationIdWithAnotherDomain",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.AccountAndSiteScope_IsolateValuesAndRequestIds",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.InvalidProfileScopeOrDevice_RefusesWithoutAWrite",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.JournalFailure_RollsBackPreferenceAndReturnsNoRecord",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.JournalOrRowTamper_RefusesWithoutAdditionalMutation",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/AuthorTypographyPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.DeviceColumnTamper_CannotTransferAnOriginalRequestToAnotherDevice",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.BoundedJournal_RefusesOverflowPreservesAllReplayIdentitiesAndDoesNotBlockAnotherOwner",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.Initialization_IsOneTimeScopedIdempotentAndNeverOverwritesSubsequentPreferences",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.EveryCombination_PersistsThroughProductionCommandAndReloadsFromAnotherClient",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.ConcurrentDevices_CompareTheSameRevisionAndCommitOnlyOneMutation",
+      "data": "false"
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.ConcurrentDevices_CompareTheSameRevisionAndCommitOnlyOneMutation",
+      "data": "true"
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.ConcurrentRetry_ReplaysItsOriginalReceiptAfterLaterUpdatesAndRejectsPayloadOrDeviceReuse",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.AccountAdminAndSiteCoordinates_DoNotShareValuesOrRequestIdentity",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.RowOrJournalTamper_RefusesWithoutDefaultFallbackOrAdditionalMutation",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.JournalFailure_RollsBackTheProfileAndReturnsNoCommittedReceipt",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.InvalidOrCancelledCommands_LeaveTheOwnedDatabaseEmpty",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.OpaqueTypographyObservation_IsPreservedAndItsSharedRevisionInvalidatesStaleAidCommands",
+      "data": null
+    }
+  ],
+  "priorEndpointAndRegistrationRows": 34,
+  "combinedPositiveRows": 138,
+  "combinedUnit": 107,
+  "combinedPostgres": 31,
+  "selectionPassed": true,
+  "executableDiscovery": "UNRUN: failedstrictgate retained",
+  "bodiesExecuted": 0,
+  "resourceReview": "Entire fiveadded originalfiles and retained contract control inspected: purevalidators/policies; originalPostgresSchemaMigrationFixture collectionB, fixtureowneddisposableDBs, originalDDL, actualSqlSugar/Npgsql transactions/concurrency/journalnegativecontrols. Fixeddevice/defaultfixtures are expressly scopeonly, not attestation/design qualification. No newhooks/services/heldreceipts. Allscopednative clients disposal and originalfixturecleanup retained; noresourcecreated here.",
+  "upstream76OriginalUnit": "parentreported on047, actualupstream filter not provided; neverrebound to this localdifferentroster",
+  "testFilter": "FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.AccountAndSiteScope_IsolateValuesAndRequestIds|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.AidInitialization_CannotOverwriteAnExistingTypographyPreference|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.AidMutation_PreservesTypographyAndInvalidatesStaleTypographyCommands|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.BothDomains_RejectTheSameOperationIdWithAnotherDomain|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.ClosedManualProfile_PersistsWithoutInventingADefaultAndReloadsFromAnotherClient|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.ConcurrentDevices_CommitOnlyOneSharedRevision|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.ConcurrentRetry_ReplaysOriginalAfterLaterWritesAndRejectsPayloadOrDeviceReuse|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.DeviceColumnTamper_CannotTransferAnOriginalRequestToAnotherDevice|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.InvalidProfileScopeOrDevice_RefusesWithoutAWrite|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.JournalFailure_RollsBackPreferenceAndReturnsNoRecord|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.JournalOrRowTamper_RefusesWithoutAdditionalMutation|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.MissingDefault_RefusesReadAndResetWithoutCreatingAPreference|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.ResetRetry_ReplaysEvenWhenCurrentDesignPolicyIsUnavailable|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.SetAndReset_PreserveAidValuesAndShareTheirRevision|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.SharedJournalCapacity_RetainsTypographyReplayAndRefusesFreshWritesInBothDomains|FullyQualifiedName=FsusBlog.Server.Tests.Integration.AuthorTypographyPreferencePostgresTests.SharedJournalFinalSlot_AdmitsOneConcurrentTypographyRequestAndPreservesItsReplay|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferenceEndpointPostgresTests.Read_MissingRowUsesProductionDefaultsAcrossReloadWithoutWrites|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferenceEndpointPostgresTests.Read_UnavailableOriginalPersistenceReturnsUnifiedFailure|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferenceEndpointPostgresTests.UpdateAndInitialize_DeviceRefusalLeavesSolePreferenceAndJournalEmpty|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.AccountAdminAndSiteCoordinates_DoNotShareValuesOrRequestIdentity|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.BoundedJournal_RefusesOverflowPreservesAllReplayIdentitiesAndDoesNotBlockAnotherOwner|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.ConcurrentDevices_CompareTheSameRevisionAndCommitOnlyOneMutation|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.ConcurrentRetry_ReplaysItsOriginalReceiptAfterLaterUpdatesAndRejectsPayloadOrDeviceReuse|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.EveryCombination_PersistsThroughProductionCommandAndReloadsFromAnotherClient|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.Initialization_IsOneTimeScopedIdempotentAndNeverOverwritesSubsequentPreferences|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.InvalidOrCancelledCommands_LeaveTheOwnedDatabaseEmpty|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.JournalFailure_RollsBackTheProfileAndReturnsNoCommittedReceipt|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.OpaqueTypographyObservation_IsPreservedAndItsSharedRevisionInvalidatesStaleAidCommands|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferencePostgresTests.RowOrJournalTamper_RefusesWithoutDefaultFallbackOrAdditionalMutation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.ExhaustedRevision_RefusesWithoutOverflowOrAProposal|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.InvalidMutationOrPayload_Refuses|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.MissingOrInvalidDesignDefault_RefusesResetWithoutAClientDefault|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.MissingTamperedOrCrossScopeObservation_Refuses|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.PayloadPreparation_RequiresAtomicWriterCasAndDoesNotInventAnObservedProfile|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.Reset_UsesOnlyTheServerProvidedCurrentDesignDefault|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.RevisionChange_InvalidatesAPreviouslyPreparedProposal|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.RevisionZeroObservation_PreparesWithoutReportingACommit|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.SetProfile_PreparesOnlyClosedReplacementWithoutChangingObservedFacts|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyCommandPolicyTests.StaleOrFutureRevision_RefusesRatherThanOverwritingServerCurrent|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.All243Combinations_AreAdmittedWithoutASecondModel|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ArbitraryValues_FailEveryDimension|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.Catalog_CannotBeMutatedByConsumers|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.Catalog_ClosesExactlyFiveDimensionsAndTheirIds|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.ExtraFields_FailRatherThanBeingIgnored|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.MissingFutureCorruptAndCaseFoldedProfiles_Refuse|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyContractTests.Snapshot_IsScopedAndContentAddressedButNotAnAuthorizationOrCasReceipt|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.AnotherAccountOrSite_CannotReplayAValidRecordedRequest|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.ContentAddress_BindsRequestIdScopeRevisionActionAndEachDimension|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.EmptyIdentityInvalidCommandAndInvalidScope_Refuse|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.MalformedOrOverflowingRecords_CannotBeSealed|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.MatchingRetry_ReplaysOriginalObservationBeforeCurrentRevisionCas|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.MissingRecord_IsNotAReplayOrAnAcceptedMutation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.ResetRecord_BindsServerResultWithoutAddingAClientDefault|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.ReusedRequestIdWithDifferentValidPayloadOrAction_Refuses|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.StoredCommandSnapshotOrRecordDigestTamper_Refuses|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthorTypographyRequestReplayPolicyTests.WrongLookupIdentity_RefusesRatherThanTreatingAnotherRequestAsMissing|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringCanvasServiceRegistrationTests.RuntimeDomainServices_ResolveOneProductionReferenceAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.AllCombinations_ValidateWithoutSurfaceOrDocumentFields|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.Command_RejectsOverflowAndMissingIdempotencyIdentity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.Defaults_AreIndependentAndDisabled|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.InitializationReceipt_RequiresAbsentRowAndServerDefaultsEvenAfterResealing|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.NormalReader_RejectsUnknownLegacyCorruptAndInexactFields|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.OwnerNamespace_SeparatesAccountAdminAndRejectsAnonymousOrInexactIds|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.Receipt_BindsDeviceScopeAndClosedActionWithoutAcceptingUnimplementedMigration|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceContractTests.SnapshotDigest_BindsOwnerRevisionAndEachAidAndRejectsTamper|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Initialize_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Initialize_RejectsNondefaultOrNonzeroRevision|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_ClientCoordinatesCannotOverrideVerifiedAdminAndSite|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_EncodesDomainDefaultsWithoutInitialization|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_PreservesEveryIndependentBooleanCombination|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_RefusesAnonymousOrAccountPrincipalBeforeDomainRead|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_UsesUnifiedDomainErrors|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RejectsInvalidTransportBeforeDeviceRefusal"
+}

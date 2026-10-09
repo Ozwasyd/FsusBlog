@@ -1,0 +1,114 @@
+{
+  "sourceCommit": "5052fe015e8b5270649f808e2a42aac176292118",
+  "previousProductionSource": "dbac88a329e4e40a96b013a49f8443cbce9eeba3",
+  "suppliedMinimalBase": "04774d16ba0b6a696a6b89de68e84ce0ee7da6c0",
+  "consumption": "exact18domain paths retained; originalShared3contracts and canonicalWritingAidContractTests unchanged; uniqueendpoint3paths still byteexact8208d5d",
+  "newSourceChange": "five originaltestfiles only; no productionfile changed afterdbac",
+  "existingSharedIntegration": "exact3existingWritingAid aliases; originalWritingAid descriptor appended inside existingCreate20261008Catalog; actualclassification block; no duplicatecatalog",
+  "catalogAtCurrentSource": "unchangedoriginalproducer andparity bothPASS0; source/outputhashfixedpoint",
+  "currentPositiveRoster": {
+    "originalDomainUnit": 76,
+    "endpointUnit": 30,
+    "registration": 1,
+    "originalDomainPostgres": 28,
+    "endpointPostgres": 3,
+    "total": 138,
+    "bodiesExecuted": 0,
+    "executableDiscovery": "UNRUN afterfailedstrictgate; no alternateexecution"
+  },
+  "normalServerBuild": "PASS0errors/330warnings at actualdbac; productionbytes unchanged through5052; not rerun/rebound",
+  "suppliedOriginalEvidence": "parent-reported normalbuild0 andoriginal76unitPASS at047; not root acceptance",
+  "incrementPathCount": 27,
+  "newPRStatus": "parentsolePR/contentwriter; previousproposal scope requires27path update; aggregate masterdiff includesolderownedhistory",
+  "heldDeniedOrQualificationWorkRetried": false,
+  "currentStrictTestBuild": {
+    "testedCommit": "5052fe015e8b5270649f808e2a42aac176292118",
+    "command": [
+      "bash",
+      "tools/build-with-data-env.sh",
+      "/tmp/chain-3735-tooling/dotnet/dotnet",
+      "build",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "-warnaserror",
+      "-v",
+      "minimal"
+    ],
+    "exitCode": 1,
+    "sdkSummaryErrors": 1541,
+    "distinctLocatedErrors": 1541,
+    "fiveSuppliedAddedFileDiagnostics": 9,
+    "suppliedAddedDiagnostics": [
+      [
+        "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+        "220",
+        "50",
+        "IDE0055",
+        "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+      ],
+      [
+        "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+        "52",
+        "82",
+        "IDE0055",
+        "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+      ],
+      [
+        "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+        "220",
+        "27",
+        "IDE0055",
+        "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+      ],
+      [
+        "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+        "52",
+        "107",
+        "IDE0055",
+        "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+      ],
+      [
+        "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+        "162",
+        "47",
+        "IDE0055",
+        "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+      ],
+      [
+        "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+        "220",
+        "25",
+        "IDE0055",
+        "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+      ],
+      [
+        "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+        "52",
+        "80",
+        "IDE0055",
+        "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+      ],
+      [
+        "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+        "162",
+        "45",
+        "IDE0055",
+        "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+      ],
+      [
+        "/workspace/FsusBlog-writing-aid-composition/tests/backend/Integration/WritingAidPreferencePostgresTests.cs",
+        "162",
+        "72",
+        "IDE0055",
+        "Fix formatting (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide0055) [/workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj]"
+      ]
+    ],
+    "positiveRows": 138,
+    "bodiesExecuted": 0,
+    "executableDiscovery": "UNRUN afterfailedstrictgate",
+    "defaultTestRebuildOrAlternateExecution": false
+  },
+  "masterAggregateDiffPathCount": 649,
+  "rootProductionBuildClaim": "only actualdbac ordinaryServerbuild0/330; productionunchanged through5052; no resultrebinding",
+  "remainingOwnerAction": "Original2286 narrow originalWritingAidPG test9IDE0055 repair; originalglobalstrict/native/currentmembership/actualdevice/schemaqualification gates retained"
+}
