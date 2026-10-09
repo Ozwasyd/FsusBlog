@@ -388,7 +388,7 @@ export function validateArticleDocumentContext(value: unknown): value is Article
         return false;
     }
 
-    const context = value as ArticleDocumentContext;
+    const context = value as unknown as ArticleDocumentContext;
     if (context.schema !== articleDocumentContextSchema
         || !isArticleId(context.articleId)
         || !isStableRef(context.draftId)
@@ -451,7 +451,7 @@ export function validateArticleDocumentTaskEnvelope(value: unknown): value is Ar
         return false;
     }
 
-    const envelope = value as ArticleDocumentTaskEnvelope;
+    const envelope = value as unknown as ArticleDocumentTaskEnvelope;
     if (envelope.schema !== articleDocumentTaskEnvelopeSchema
         || !isStableRef(envelope.taskRef)
         || !articleDocumentTaskKinds.includes(envelope.kind)
@@ -494,7 +494,7 @@ export function validateArticleDocumentEpochReceipt(value: unknown): value is Ar
         return false;
     }
 
-    const receipt = value as ArticleDocumentEpochReceipt;
+    const receipt = value as unknown as ArticleDocumentEpochReceipt;
     if (receipt.schema !== articleDocumentEpochReceiptSchema
         || !isStableRef(receipt.receiptRef)
         || !Number.isSafeInteger(receipt.receiptSequence)
