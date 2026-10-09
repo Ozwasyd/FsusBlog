@@ -133,7 +133,9 @@
                         "runner-binding",
                         "held-native-bridge",
                         "native-reporter",
-                        "native-runner"
+                        "native-runner",
+                        "native-execution-events",
+                        "replay-parent"
                     ]
                 },
                 "path": {
