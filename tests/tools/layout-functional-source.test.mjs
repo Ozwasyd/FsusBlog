@@ -4,8 +4,8 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-import { controlDigest, createControlSourceResolver } from '../../tools/frontend/control-legality/source.mjs';
-import { createCompositionFunctionalSource } from '../frontend/support/layout/compositionFunctionalSource.mjs';
+import { controlDigest, createControlSourceResolver } from '@fsusblog/control-legality/source';
+import { createCompositionFunctionalSource } from '@fsusblog/layout-governance/composition-functional-source';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;
@@ -41,7 +41,10 @@ function find(s, predicate)
     const nodes = [];
     function visit(node)
     {
-        if (predicate(node)) nodes.push(node);
+        if (predicate(node))
+        {
+            nodes.push(node);
+        }
         s.ts.forEachChild(node, visit);
     }
     s.record.scripts.forEach(({ ast }) => visit(ast));
@@ -245,9 +248,18 @@ for (const [name, text, operation] of negatives)
         assert.throws(() =>
         {
             const binding = s.binding();
-            if (operation === 'output') s.functional.outputValue(s.record, binding.branches[0].node, binding);
-            if (operation === 'target') s.functional.componentOrigin(s.record, opening(s).tagName, true);
-            if (operation === 'fields') s.functional.fields(s.record, opening(s).attributes.properties, binding);
+            if (operation === 'output')
+            {
+                s.functional.outputValue(s.record, binding.branches[0].node, binding);
+            }
+            if (operation === 'target')
+            {
+                s.functional.componentOrigin(s.record, opening(s).tagName, true);
+            }
+            if (operation === 'fields')
+            {
+                s.functional.fields(s.record, opening(s).attributes.properties, binding);
+            }
         }, /\[composition-source\]/);
     });
 }
@@ -256,8 +268,14 @@ test('functional helpers reject foreign AST records and counterfeit bindings', (
 {
     const s = fixture('export default ()=> <div/>;');
     const binding = s.binding();
-    assert.throws(() => { binding.slots = 'injected'; }, TypeError);
-    assert.throws(() => { binding.branches[0].node = null; }, TypeError);
+    assert.throws(() =>
+    {
+        binding.slots = 'injected';
+    }, TypeError);
+    assert.throws(() =>
+    {
+        binding.branches[0].node = null;
+    }, TypeError);
     assert.throws(() => s.functional.bind({ ...s.record }, s.render), /noncanonical functional record/);
     assert.throws(() => s.functional.outputValue(s.record, binding.branches[0].node, { ...binding }), /foreign functional binding/);
     const other = fixture('export default ()=> <span/>;');

@@ -353,6 +353,33 @@ inferred rendered element or slot payload. Central graph and DOM binding remain
 required, and RouterView's exposed Component remains unbound without its actual
 supplier contract. These source facts do not establish runtime qualification.
 
+The original resolver follows facade export-star edges through `resolveImport`,
+preserving the actual public entry identity and upstream alias source closure.
+`source-ref-selectors` supplies bounded ref writes and actual iterable selectors;
+the original template resolver and composition graph retain every target and its
+complete proof. Unknown template scopes and supplier effects remain errors.
+
+The public functional and collection source modules feed the original render
+visitor. Their actual branches, immutable fields, collection elements, scalar
+callback inputs and source steps remain in the original graph and digest.
+Unknown helpers, open spreads, opaque callback outputs and escaped inputs remain
+rejected. Functional lexical slot edges establish no actual callback supplier.
+
+The public slot source module binds actual template suppliers and setup slot
+invocations. Proven child identity remains the child's original source identity.
+Scoped, conditional, forwarded or script callback suppliers without a complete
+proof now retain `unbound-slot-source` errors. Pure DOM matching can join a mixed
+selector to a unique actual component definition branch; matching tag text cannot
+identify a native or framework branch. Their missing rendered supplier remains
+open, as do runtime route state, geometry and visual acceptance.
+
+The analyzer closure binds both canonical package export manifests as well as
+all actual implementation modules. Target prop proofs are checked against the
+complete actual input list for each discovered supplier; an incomplete or
+substituted output is rejected. Module unit results do not replace independent
+review: outstanding functional effects/local-proof and target escape repairs
+remain source acceptance gates until their owners publish verified corrections.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

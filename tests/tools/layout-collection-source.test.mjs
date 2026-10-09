@@ -4,16 +4,11 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
-import { pathToFileURL } from 'node:url';
 
+import { createCompositionCollectionSource } from '@fsusblog/layout-governance/composition-collection-source';
 import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
-// The package export remains the central owner's write scope. Load the exact
-// new source file for ordinary module controls without installing an alternate
-// package manifest, parser, resolver, or test runner.
-const { createCompositionCollectionSource } = await import(pathToFileURL(resolve(repositoryRoot,
-    'tests/frontend/support/layout/compositionCollectionSource.mjs')).href);
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;
 const parserRoot = process.env.FSUSBLOG_PARSER_ROOT || repositoryRoot;
 assert.ok(fsusUIRoot, 'the actual original FsusUI checkout is required');

@@ -5,9 +5,8 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 
 import { controlDigest } from '@fsusblog/control-legality/source';
-
-import { createCompositionSource } from '../frontend/support/layout/compositionSource.mjs';
-import { bindCompositionTargetInputs, resolveCompositionTargetOrigin } from '../frontend/support/layout/compositionTargetSource.mjs';
+import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
+import { bindCompositionTargetInputs, resolveCompositionTargetOrigin } from '@fsusblog/layout-governance/composition-target-source';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;

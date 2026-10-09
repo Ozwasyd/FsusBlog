@@ -1,39 +1,17 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { registerHooks } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
-const { controlDigest } = await import(new URL('../../tools/frontend/control-legality/source.mjs', import.meta.url));
-const { createFiniteRefSelectorSource } = await import(new URL('../../tools/frontend/control-legality/source-ref-selectors.mjs', import.meta.url));
+import { controlDigest } from '@fsusblog/control-legality/source';
+import { createFiniteRefSelectorSource } from '@fsusblog/control-legality/source-ref-selectors';
+import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const parserRoot = process.env.FSUSBLOG_REF_SELECTOR_PARSER_ROOT ?? repositoryRoot;
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT ?? path.resolve(repositoryRoot, '../FsusUI');
-// Read the original package export, without installing dependencies or changing
-// exports. This hook exists only while importing the canonical composition owner.
-const packageRoot = path.join(repositoryRoot, 'tools/frontend/control-legality');
-const packageMetadata = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
-const hook = registerHooks({ resolve(specifier, context, next)
-{
-    if (specifier === `${packageMetadata.name}/source`)
-    {
-        return { url: pathToFileURL(path.resolve(packageRoot, packageMetadata.exports['./source'])).href, shortCircuit: true };
-    }
-    return next(specifier, context);
-} });
-let createCompositionSource;
-try
-{
-    ({ createCompositionSource } = await import(new URL('../frontend/support/layout/compositionSource.mjs', import.meta.url)));
-}
-finally
-{
-    hook.deregister();
-}
-
 const imageRelative = 'vue/packages/components/image-viewer/src/image-viewer.vue';
 const railRelative = 'src/frontend/src/components/admin/article/ArticleWriteInspectorRail.vue';
 const registryRelative = 'src/frontend/src/composables/useArticleWriteInspector.ts';

@@ -85,6 +85,46 @@ export function matchCompositionNativeProp(graph, source, ancestors)
             && binding.inputDigest === binding.inputDigests?.[0]);
 }
 
+/** Match an actual component definition branch; native/framework DOM needs its own supplier proof. */
+export function matchCompositionTargetVariant(graph, selector, source, ancestors)
+{
+    if (!graph.nodes.includes(selector) || !graph.nodes.includes(source)
+        || selector.origin.kind !== 'target-variants' || selector.id === source.id
+        || !ancestors.some((node) => node.sourceCall === selector.id))
+    {
+        return null;
+    }
+    const { proofDigest, ...facts } = selector.origin;
+    if (proofDigest !== compositionDigest(facts) || !facts.resolverInputs?.length
+        || !facts.resolverInputs.every((input) => graph.resolverInputs?.some((entry) => entry.path === input.path && entry.digest === input.digest)))
+    {
+        return null;
+    }
+    const candidates = facts.alternatives.filter((alternative) =>
+    {
+        if (alternative.targetKind !== 'component' || !alternative.definition
+            || !selector.definitions.includes(alternative.definition))
+        {
+            return false;
+        }
+        const reachable = new Set();
+        function visit(file)
+        {
+            if (!file || reachable.has(file))
+            {
+                return;
+            }
+            reachable.add(file);
+            // Another unresolved selector cannot lend its possible branches.
+            graph.nodes.filter((node) => node.file === file).forEach((node) => visit(node.definition));
+        }
+        visit(alternative.definition);
+        return reachable.has(source.file);
+    });
+    const unique = [...new Map(candidates.map((alternative) => [compositionDigest(alternative), alternative])).values()];
+    return unique.length === 1 ? unique[0] : null;
+}
+
 /** Source/DOM observations only; this function cannot issue a geometry or visual verdict. */
 export function analyzeCompositionDom({ archetype, graph, observation, identity, currentIdentity, runId, state = null, runBinding })
 {
@@ -211,6 +251,14 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
             return;
         }
         const chain = ancestry(node);
+        for (const selector of chain.map((ancestor) => sourceNodes.get(ancestor.sourceCall))
+            .filter((candidate) => candidate?.origin.kind === 'target-variants'))
+        {
+            if (!matchCompositionTargetVariant(graph, selector, source, chain))
+            {
+                errors.push(error('unbound-rendered-target-variant', node, { sourceNode: selector.id }));
+            }
+        }
         const dynamic = chain.map((ancestor) => sourceNodes.get(ancestor.sourceCall))
             .filter((candidate) => ['component-prop', 'component-prop-variants'].includes(candidate?.origin.kind));
         for (const prop of dynamic)
@@ -292,7 +340,8 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
     const owners = nodes.filter((node) => node.owner);
     for (const node of nodes.filter((node) => node.owner || node.region || node.action || node.surface || node.material
         || node.responsibility || node.content || node.tag === 'h1' || node.semanticRole === 'heading'
-        || ['native-prop', 'native-variants'].includes(sourceNodes.get(node.sourceNode)?.origin.kind)))
+        || ['native-prop', 'native-variants'].includes(sourceNodes.get(node.sourceNode)?.origin.kind)
+        || ancestry(node).some((ancestor) => sourceNodes.get(ancestor.sourceCall)?.origin.kind === 'target-variants')))
     {
         validateSource(node);
     }

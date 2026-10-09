@@ -7,9 +7,14 @@ import { resolveCompositionRoutes, bindCompositionArchetypes } from './compositi
 import { createCompositionSource } from './compositionSource.mjs';
 
 export const compositionAnalyzerSources = [
+    'package.json',
+    'tools/frontend/control-legality/package.json',
     'tests/frontend/support/layout/compositionAnalyzer.mjs',
     'tests/frontend/support/layout/compositionSource.mjs',
     'tests/frontend/support/layout/compositionTargetSource.mjs',
+    'tests/frontend/support/layout/compositionFunctionalSource.mjs',
+    'tests/frontend/support/layout/compositionSlotSource.mjs',
+    'tests/frontend/support/layout/compositionCollectionSource.mjs',
     'tests/frontend/support/layout/compositionRoutes.mjs',
     'tests/frontend/support/layout/compositionDom.mjs',
     'tests/frontend/support/layout/compositionGeometry.mjs',
@@ -17,7 +22,8 @@ export const compositionAnalyzerSources = [
     'tests/frontend/support/layout/compositionOverflowGeometry.mjs',
     'tests/frontend/support/layout/compositionChromeGeometry.mjs',
     'tests/frontend/support/layout/compositionContracts.mjs',
-    'tools/frontend/control-legality/source.mjs'
+    'tools/frontend/control-legality/source.mjs',
+    'tools/frontend/control-legality/source-ref-selectors.mjs'
 ];
 
 function git(root, args)

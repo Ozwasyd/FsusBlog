@@ -1,4 +1,4 @@
-import { controlDigest } from '../../../../tools/frontend/control-legality/source.mjs';
+import { controlDigest } from '@fsusblog/control-legality/source';
 
 /** Bounded AST helpers for the original composition renderer, never a second graph. */
 export function createCompositionFunctionalSource({ resolver })
@@ -6,7 +6,10 @@ export function createCompositionFunctionalSource({ resolver })
     const { ts, dom } = resolver;
     const reserved = new Set(['data-fsus-composition-node', 'data-fsus-composition-call']);
     const bindings = new WeakSet();
-    const fail = (record, message) => { throw new Error(`[composition-source] ${message} ${record.file}`); };
+    const fail = (record, message) =>
+    {
+        throw new Error(`[composition-source] ${message} ${record.file}`);
+    };
     function unwrap(node)
     {
         while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node)

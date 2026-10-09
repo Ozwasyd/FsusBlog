@@ -4,9 +4,8 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
+import { createCompositionSlotSource } from '@fsusblog/layout-governance/composition-slot-source';
 import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
-
-import { createCompositionSlotSource } from '../frontend/support/layout/compositionSlotSource.mjs';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;

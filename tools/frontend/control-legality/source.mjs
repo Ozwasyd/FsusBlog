@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
+import { createFiniteRefSelectorSource } from './source-ref-selectors.mjs';
+
 export const controlRegistryPath = 'config/frontend/control-legality.json';
 export const controlLegalityVersion = 'fsusblog.control-legality.v1';
 const packageId = '@ozwasyd/element-plus';
@@ -417,10 +419,11 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                     }
                     if (!statement.exportClause)
                     {
-                        const target = modulePath(statement.moduleSpecifier.text, file);
+                        const target = modulePath(statement.moduleSpecifier.text, file,
+                            mode === 'local' && file.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
                         if (typeof target === 'string' && exportsOf(target).has(name))
                         {
-                            return resolveExport(target, name, next);
+                            return resolveImport(file, { specifier: statement.moduleSpecifier.text, name }, next);
                         }
                     }
                 }
@@ -2082,7 +2085,16 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         };
         return inspect(source.definition, source.exportName);
     };
-    return { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations,
+    function expression(source, file)
+    {
+        const ast = ts.createSourceFile(file + '.expression.ts', `(${source});`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+        if (ast.parseDiagnostics.length || ast.statements.length !== 1 || !ts.isExpressionStatement(ast.statements[0]))
+        {
+            fail(`unknown expression ${file}: ${source}`);
+        }
+        return ast.statements[0].expression.expression;
+    }
+    const api = { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations, expression,
         modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent, resolveObjectKeyAbsence,
         sourceStep, resolveSourceFunction: componentFunction, assertImmutableBinding: finiteComponentBinding,
         isInteractive,
@@ -2101,6 +2113,20 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             return { files, errors };
         },
         sourceRoot: src };
+    const finiteSelectors = createFiniteRefSelectorSource({ resolver: api, expression });
+    api.resolveFiniteRefSelector = finiteSelectors.resolve;
+    api.resolveTemplateExpression = (file, node, options = {}) =>
+    {
+        try
+        {
+            return resolveExpression(file, node, new Set(), true);
+        }
+        catch
+        {
+            return finiteSelectors.resolve(file, node, { ...options, templateRefs: true });
+        }
+    };
+    return api;
 }
 
 /** Registry validity is independent of acceptance; missing executions stay errors. */
@@ -2389,7 +2415,7 @@ export function scanControlLegality({ repositoryRoot, resolver, registry, testCa
                         {
                             fail('dynamic component parser failure');
                         }
-                        sourcesForDynamic = resolver.resolveExpression(file, ast.statements[0].expression.expression, new Set(), true);
+                        sourcesForDynamic = resolver.resolveTemplateExpression(file, ast.statements[0].expression.expression, { selectorOffset: offset });
                     }
                     else if (attrs.has('is'))
                     {
