@@ -56,5 +56,23 @@
   "contentAPIWrites": false,
   "PRBodyCommentLabelReadyMerge": false,
   "publishedProviderSourceReadOnly": true,
-  "frozenPredecessor": true
+  "frozenPredecessor": true,
+  "currentBinaryImportGuard": {
+    "command": [
+      "node",
+      "tests/frontend/checks/static/check-binary-import-boundaries.mjs"
+    ],
+    "exitCode": 1,
+    "diagnostics": [
+      "- src/frontend/src/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+      "- src/frontend/src/api/fontAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+      "- src/frontend/src/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+      "- src/frontend/src/api/themeAdmin.ts: API must not import binary decoder adapter: @/adapters/binary/fontThemeAdminAdapter",
+      "- src/frontend/src/contracts/authoringCanvas.ts: contracts must not have runtime import @/codecs/binary/authoringCanvasWire.generated"
+    ],
+    "existingFindings": 5,
+    "suppliedFactsApiNotImported": true,
+    "announced3735FixNotExercised": true,
+    "guardSourceUnchanged": true
+  }
 }
