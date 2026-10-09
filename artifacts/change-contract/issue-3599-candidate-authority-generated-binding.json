@@ -2,12 +2,13 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "tools/check-gate-integrity.sh",
-        "tools/yaml/parse-document.mjs"
+        "tools/yaml/parse-document.mjs",
+        "tools/package.json"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "60fececee3a5fa8f03af33c315b21113cbc3a24e7e8a493440158d4e2856fb59"
+            "sha256": "19be1170b6a0dacd06bcb3be5d3cb4470bee58027d038baadeee85fd72768b32"
         }
     ]
 }
