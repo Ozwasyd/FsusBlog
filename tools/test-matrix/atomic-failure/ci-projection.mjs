@@ -139,6 +139,41 @@ export async function prepareCanonicalAtomicCiGroup(input, hostLimits, options)
         {
             lanePreparations.push({ id: lane.id, kind: lane.kind, status: 'original-admission-complete' });
         }
+        else if (lane.kind === 'backend' || lane.kind === 'static')
+        {
+            const binding = ciMaterial.laneBindings.find((entry) => entry.id === lane.id);
+            let preparation;
+            if (lane.kind === 'backend')
+            {
+                const { prepareBackendAtomicBridge } = await import(new URL('../../test/backend-atomic-bridge.mjs', import.meta.url));
+                const supplied = options.backendContexts?.[lane.id];
+                requireFact(supplied, 'original backend preparation options required');
+                preparation = prepareBackendAtomicBridge(binding.originalBinding, lane.input,
+                    { ...supplied, context: options.context, producerContexts });
+            }
+            else
+            {
+                const { prepareStaticAtomicCompilation } = await import(new URL('../../test/static-atomic/compiler-bridge.mjs', import.meta.url));
+                const compilation = await originalLaneCompilation(lane);
+                sameFact(compilation.binding, binding.originalBinding, 'original static preparation compilation');
+                preparation = prepareStaticAtomicCompilation(compilation,
+                    { ...lane.input, context: options.context, producerContexts });
+            }
+            exactFields(preparation, ['compiled', 'sourceBindingDigest', 'producerIds', 'producerContexts',
+                'context', 'qualificationEligible'], 'original lane preparation');
+            sameFact(preparation.sourceBindingDigest, binding.originalBindingDigest, 'original lane preparation binding');
+            sameFact(preparation.compiled.contentDigest, binding.compiledFragmentDigest, 'original lane preparation fragment');
+            sameFact(preparation.producerIds, binding.producerIds, 'original lane preparation executable scope');
+            requireFact(preparation.context === options.context && preparation.qualificationEligible === false,
+                'original lane preparation must preserve private global context without qualification');
+            exactFields(preparation.producerContexts, binding.producerIds, 'original scoped producer contexts');
+            for (const id of binding.producerIds)
+            {
+                requireFact(preparation.producerContexts[id], 'original prerequisite or producer context required');
+                producerContexts[id] = preparation.producerContexts[id];
+            }
+            lanePreparations.push({ id: lane.id, kind: lane.kind, preparation });
+        }
         else if (lane.kind === 'coverage')
         {
             const { validateCoverageExecutionRequest } = await import(new URL('../../coverage/atomic-coverage-compiler-bridge.mjs', import.meta.url));

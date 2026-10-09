@@ -52,7 +52,17 @@ runner for all consumed lanes. Global job maps never come from lane fragments.
 
 `prepareCanonicalAtomicCiGroup` calls the available original frontend fragment
 admissions and `preparePublicRuntimeAttemptContexts`, binding their steps to the
-global graph. It installs original coverage request/material preparation through
+global graph. It also consumes the original synchronous `prepareBackendAtomicBridge`
+from ffab3106 and `prepareStaticAtomicCompilation` from 8d5e8103. Backend callers
+must supply `options.backendContexts[lane.id]` with the independently selected
+`expectedBindingDigest`, original `profile` and original `verifyAuthority`.
+Static preparation receives its original `lane.input` compilation options. Both
+receive the unchanged global `options.context` and current `producerContexts`.
+Their original binding, fragment digest and exact sorted executable scope must
+match the already compared lane binding. Actual prerequisite contexts are required;
+the static owner's frozen environments/verifier wrappers and original supplied
+prerequisite objects are retained. Nothing is serialized as preparation proof.
+It installs original coverage request/material preparation through
 the original required-input admission seam from 39466f9a. Existing held validators
 remain first in that seam; coverage source/request bytes and upstream materials
 are checked by their original validators after dependency/resource admission and
@@ -60,29 +70,33 @@ before attempt allocation. Host-held callbacks remain private capabilities and d
 not become DATA_ONLY proof. No prepared context qualifies runtime.
 
 `executeCanonicalAtomicCiGroup` executes fully consumed frontend and coverage
-graphs in one original canonical DAG invocation. It preserves capacity, commands,
+graphs in one original canonical DAG invocation. Source wiring now also supports
+prepared backend/static fragments through the same dispatch; genuine-input
+preparation and execution remain UNRUN for those fragments. It preserves capacity, commands,
 attempt policy, finalizers, and the original error/full terminal vector. Complete
 selection and exactly one canonical CI runner group are required; original
 selected/job-scoped dispatch ports are still absent. Its source-only dependency
 consumption includes publication-error preservation from 5c1b8cd7 and input
 admission from 39466f9a, without adopting their ancestor's authority fixture.
 
-Backend/static pre-execution checks remain inside their original wrappers; the
-prepare-only ports are genuinely missing. Their owner must expose those checks
-without dispatch. Public preparation is already callable and used, but original
+Backend/static pre-execution checks are extracted by their original owners and
+consumed without calling their execute wrappers. Public preparation is already callable and used, but original
 runtime admission and settled-reset postflight remain pending. Complete-vector
 domain outcome projection remains with each original owner. No synthetic fixture
 execution or original component control qualifies native/runtime/CI acceptance.
 
-## Prepare-only requests to the existing lane owners
+## Original prepare-only lane contracts
 
-These are proposed exports, not currently callable capabilities. Add them in the
-existing owner modules by extracting their unchanged pre-executor checks; make
-each existing execute wrapper call its own preparation export before its one
-original executor call. Do not add another runner or reconstruct declarations.
+Both requested exports are now published and consumed. Their existing owner
+modules extract unchanged pre-executor checks; each existing execute wrapper calls
+its own preparation export before its one original executor call. This consumer
+adds no runner and reconstructs no declarations. Backend source is consumed by a
+normal merge; the static increment is consumed byte-for-byte on its matching
+compiler base, without importing unrelated ancestor authority outputs.
 
 `prepareBackendAtomicBridge(binding, input, options)` belongs in
-`tools/test/backend-atomic-bridge.mjs`, inspected at
+`tools/test/backend-atomic-bridge.mjs`, published at
+`ffab3106b2d92279f97414b214455d9815a62d67` on original source
 `9690f0924509d665748afd5310c3b074ebcc03d6`. Its inputs are exactly those of
 `executeBackendAtomicBridge`: the original compiled binding; `input.plans`,
 `expectedPlanDigests`, `sourceRoot`, `matrix`, `authorities`; and the existing
@@ -94,9 +108,9 @@ requirements. Preparation must return the original validated contexts for those
 executable IDs. Capacity and finalizers remain caller-owned executor inputs.
 
 `prepareStaticAtomicCompilation(compilation, options)` belongs in
-`tools/test/static-atomic/compiler-bridge.mjs`, inspected at
-`ab9a2493c54e1357e4d2b3c74796cb657cd7c34f` and
-`fd7a8107062aeee52eb9663706bd44d694b6387e`. Inputs retain the existing
+`tools/test/static-atomic/compiler-bridge.mjs`, published at
+`8d5e8103bdeab9960477f6dccca5dd7f7b10b6dc` on source
+`228670054f7cbff4548b2aa2e3fde7265d6745d4`. Inputs retain the existing
 `repositoryRoot`, `matrix`, `authorities`, `memberships`, `prerequisiteBindings`,
 `context`, `producerContexts`. Call the existing exact compilation verifier;
 retain all thirteen original cwd/environment checks, the network-baseline skip
@@ -104,7 +118,7 @@ refusal, frozen environment copies and original `staticAtomicAuthorityVerifier`
 wrappers. Declared executable prerequisites must retain their supplied contexts;
 do not manufacture a prerequisite or turn a projection into an executable.
 
-Both proposed exports should return this private in-memory shape:
+Both original exports return this private in-memory shape:
 
 ```js
 {
@@ -121,10 +135,15 @@ The consumer already compares every owned fragment step with the canonical whole
 graph and retains the original global context, capacity and finalizers. Preparation
 must not execute, allocate attempts, publish receipts, perform terminal readback or
 claim qualification. The returned callbacks are private capabilities, not portable
-JSON evidence. A positive owner control should demonstrate the same original
-binding, scoped contexts and transformed static verifier/environment with zero
-executor invocations. Return an exact tested commit and exported API before this
-consumer can use the port; a proposed signature is not an available implementation.
+JSON evidence. The original framework prerequisite is
+`2eda290cc6098971b685b3fb1465d7193bd3dde2`; later sole-owner input-admission and
+publication corrections already consumed in this stack remain unchanged.
+Source availability does not establish runtime acceptance. Genuine owner inputs
+for both preparation calls remain unavailable here, so their dynamic identity,
+context and no-dispatch controls are explicitly UNRUN. No synthetic authority
+fixture or replacement callback is used to fill that gap. Original domain terminal
+authentication, native/runtime admission and canonical CI attachment remain owner
+integration requirements.
 
 Backend property source `09a3951c90c662c4f80302a9f23fa335abce7edc` has the owner's
 real restore, Release/Debug compilation and four original property-test results;
