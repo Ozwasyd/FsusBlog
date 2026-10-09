@@ -294,6 +294,16 @@ same component. The Dialog motion spread now binds the actual Close fallback
 through its real helper returns and declared attrs exclusion; source proof
 does not grant runtime, geometry or visual qualification.
 
+Object-valued prop spreads follow their actual parent calls and declaration
+defaults. A nullish fallback must be the object authored by that source;
+unknown payloads never become an empty object. The same ordered call path and
+per-call input digests bind component and native prop values. Nested forwarding
+retains every supplier, and source-only matching rejects missing, reordered or
+changed suppliers. Mutable, escaped, template-shadowed, dynamically keyed and
+unknown supplied objects remain errors. The Dropdown Button bindings now follow
+the actual `buttonProps ?? {}` paths rather than guessing Button inputs or
+discarding its split-button branch.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

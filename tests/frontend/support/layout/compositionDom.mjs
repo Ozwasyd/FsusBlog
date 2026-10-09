@@ -48,13 +48,13 @@ function error(reason, node, details = {})
 }
 
 /** Join a proven component input to this exact rendered call chain, never an icon name. */
-export function matchCompositionComponentProp(graph, source, ancestors)
+function matchCompositionInputCalls(graph, source, ancestors, candidates, declaration)
 {
     const markers = ancestors.map((node) => node.sourceCall).filter(Boolean);
-    const bindings = (graph.componentPropBindings ?? []).filter((binding) =>
+    const bindings = (candidates ?? []).filter((binding) =>
     {
         if (!Array.isArray(binding.callPath) || !binding.callPath.length || !Array.isArray(binding.inputDigests)
-            || binding.sourceNode !== source.id || binding.declarationDigest !== source.origin.declarationDigest
+            || binding.sourceNode !== source.id || !declaration(binding)
             || binding.callNode !== binding.callPath[0] || binding.inputDigests.length !== binding.callPath.length)
         {
             return false;
@@ -69,6 +69,20 @@ export function matchCompositionComponentProp(graph, source, ancestors)
         });
     });
     return bindings.length === 1 ? bindings[0] : null;
+}
+
+export function matchCompositionComponentProp(graph, source, ancestors)
+{
+    return matchCompositionInputCalls(graph, source, ancestors, graph.componentPropBindings,
+        (binding) => binding.declarationDigest === source.origin.declarationDigest);
+}
+
+/** Native prop forwarding needs the same exact ordered source-call proof. */
+export function matchCompositionNativeProp(graph, source, ancestors)
+{
+    return matchCompositionInputCalls(graph, source, ancestors, graph.nativePropBindings,
+        (binding) => source.origin.kind === 'native-prop' && typeof binding.tag === 'string' && binding.tag.length > 0
+            && binding.inputDigest === binding.inputDigests?.[0]);
 }
 
 /** Source/DOM observations only; this function cannot issue a geometry or visual verdict. */
@@ -256,11 +270,8 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
         }
         if (source.origin.kind === 'native-prop')
         {
-            const call = ancestry(node).map((ancestor) => sourceNodes.get(ancestor.sourceCall)).find((candidate) => candidate?.definition === source.file);
-            const bindings = graph.nativePropBindings?.filter((binding) => binding.sourceNode === source.id
-                && call?.id === binding.callNode
-                && binding.inputDigest === compositionDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs })) ?? [];
-            if (bindings.length !== 1 || bindings[0].tag !== node.tag)
+            const binding = matchCompositionNativeProp(graph, source, ancestry(node));
+            if (!binding || binding.tag !== node.tag)
             {
                 errors.push(error('unknown-dynamic-native-tag', node));
             }
