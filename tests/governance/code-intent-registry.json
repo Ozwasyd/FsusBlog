@@ -205,6 +205,62 @@
             "path": "src/frontend/wasm/aeds/CMakeLists.txt",
             "symbol": "AddAedsDecoder",
             "documentationStyle": "cmake-doc"
+        },
+        {
+            "id": "memory-v1-stat-parser",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupV1StatParser.cs",
+            "symbol": "LinuxCgroupV1StatParser",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-v1-stat-capture",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupV1StatParser.cs",
+            "symbol": "LinuxCgroupV1StatCapture",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-zram-stat-parser",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Pressure/LinuxZramMemoryStatParser.cs",
+            "symbol": "LinuxZramMemoryStatParser",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-zram-stat-capture",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Pressure/LinuxZramMemoryStatParser.cs",
+            "symbol": "LinuxZramMemoryStatCapture",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-counter-delta-normalizer",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupCounterNormalizer.cs",
+            "symbol": "LinuxCgroupCounterNormalizer",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-timed-counter-reader",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Platform/LinuxCgroupTimedCounterReader.cs",
+            "symbol": "LinuxCgroupTimedCounterReader",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-timed-counter-capture",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Platform/LinuxCgroupTimedCounterReader.cs",
+            "symbol": "LinuxCgroupTimedCounterCapture",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "memory-v1-stat-directory-read",
+            "language": "csharp",
+            "path": "src/backend/Infrastructure/Memory/Platform/LinuxCgroupDirectoryReader.cs",
+            "symbol": "CaptureV1Stat",
+            "documentationStyle": "xml-doc"
         }
     ],
     "intents": [
