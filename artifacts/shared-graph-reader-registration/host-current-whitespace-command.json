@@ -1,0 +1,28 @@
+{
+  "sourceCommit": "999d96e6319124ac796db3e7966ec6b662b3433d",
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "format",
+    "whitespace",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--verify-no-changes",
+    "--include",
+    "src/backend/Services/Authoring/ArticleGraphCurrentArticleHost.cs",
+    "tests/backend/Unit/ArticleGraphCurrentArticleHostTests.cs",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs",
+    "--verbosity",
+    "quiet"
+  ],
+  "startedUtc": "2026-10-09T09:38:33.185145+00:00",
+  "exitCode": 0,
+  "fileSha256": {
+    "src/backend/Services/Authoring/ArticleGraphCurrentArticleHost.cs": "dd6cc4f0410616a0a155911940fa2a2183fb8c36d7b97b514aa13fe42611f70b",
+    "tests/backend/Unit/ArticleGraphCurrentArticleHostTests.cs": "9b7d8e3d2b232d4e19e73b497959faed33c637da3869da0787f8e6f771ceb781",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs": "18a9cdce57caf5b2532d217ce7111b4dc6b7e7dfc5a217a3ebf14a47a6ab68c3",
+    "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs": "88e56e460a97e32fbaad0e1d82670dcf17996d9ade0e708662b30bfc2bcb590d"
+  }
+}

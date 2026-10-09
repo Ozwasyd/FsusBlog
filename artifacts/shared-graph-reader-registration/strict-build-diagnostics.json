@@ -1,0 +1,32 @@
+{
+  "checks": [
+    {
+      "log": "strict-test-build.log",
+      "summaryErrorCount": 1508,
+      "distinctDiagnosticLines": 1508,
+      "rootAndSelectedSuppliedDiagnostics": [],
+      "auditDiagnostics": [],
+      "status": "failed, not a pass"
+    },
+    {
+      "log": "host-strict-test-build.log",
+      "summaryErrorCount": 1508,
+      "distinctDiagnosticLines": 1508,
+      "rootAndSelectedSuppliedDiagnostics": [],
+      "auditDiagnostics": [],
+      "status": "failed, not a pass"
+    }
+  ],
+  "scopePaths": [
+    "src/backend/Services/Authoring/ArticleGraphCurrentArticleHost.cs",
+    "tests/backend/Unit/ArticleGraphCurrentArticleHostTests.cs",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs",
+    "src/backend/Services/Authoring/SqlArticleGraphAdmissionReader.cs",
+    "tests/backend/Unit/SqlArticleGraphAdmissionReaderTests.cs",
+    "tests/backend/Integration/SqlArticleGraphAdmissionReaderIntegrationTests.cs",
+    "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
+    "tests/backend/Unit/ArticlePropertySavedViewDependencyProviderTests.cs"
+  ],
+  "qualification": false
+}

@@ -1,0 +1,73 @@
+{
+  "sourceCommit": "999d96e6319124ac796db3e7966ec6b662b3433d",
+  "exactPositiveMethods": [
+    "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.InvalidActualRequestStopsBeforeAnyPermissionSource",
+    "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.HistoricalTransactionStopsBeforeAnyPermissionSource",
+    "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.OwnerAndCorrelationComeFromTheActualRequest",
+    "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.CancellationBeforeAdmissionAndAfterSourceFailurePropagates",
+    "FsusBlog.Server.Tests.Unit.AuthoringCanvasServiceRegistrationTests.RuntimeDomainServices_ResolveOneProductionReferenceAuthority"
+  ],
+  "expectedCases": [
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.InvalidActualRequestStopsBeforeAnyPermissionSource",
+      "parameter": "context"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.InvalidActualRequestStopsBeforeAnyPermissionSource",
+      "parameter": "unauthenticated"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.InvalidActualRequestStopsBeforeAnyPermissionSource",
+      "parameter": "user"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.InvalidActualRequestStopsBeforeAnyPermissionSource",
+      "parameter": "admin-id"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.InvalidActualRequestStopsBeforeAnyPermissionSource",
+      "parameter": "session"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.InvalidActualRequestStopsBeforeAnyPermissionSource",
+      "parameter": "article-write"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.InvalidActualRequestStopsBeforeAnyPermissionSource",
+      "parameter": "site"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.HistoricalTransactionStopsBeforeAnyPermissionSource",
+      "parameter": "RepeatableRead"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.HistoricalTransactionStopsBeforeAnyPermissionSource",
+      "parameter": "Serializable"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.HistoricalTransactionStopsBeforeAnyPermissionSource",
+      "parameter": "Snapshot"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.HistoricalTransactionStopsBeforeAnyPermissionSource",
+      "parameter": "ReadUncommitted"
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.OwnerAndCorrelationComeFromTheActualRequest",
+      "parameter": null
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.ArticleGraphCurrentArticleHostTests.CancellationBeforeAdmissionAndAfterSourceFailurePropagates",
+      "parameter": null
+    },
+    {
+      "fqn": "FsusBlog.Server.Tests.Unit.AuthoringCanvasServiceRegistrationTests.RuntimeDomainServices_ResolveOneProductionReferenceAuthority",
+      "parameter": null
+    }
+  ],
+  "expectedCount": 14,
+  "hooksReviewed": "both selected classes have no Collection, fixtures or lifecycle hooks; source bodies/helpers reviewed; no real SqlSugarClient created by host cases",
+  "resources": "actual HttpContext/claims/config; original NSubstitute IAdo/ISqlSugarClient/IDbTransaction unit seams; permission source deliberately refuses before coordinate/metadata access; cancellation scopes disposed; registration scope disposed; no PostgreSQL/Docker/native/browser or network",
+  "gate": "failed strict original build stops executable discovery and all test bodies; no alternate harness or relaxed analyzer/audit configuration",
+  "qualification": false
+}

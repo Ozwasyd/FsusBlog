@@ -1,0 +1,3 @@
+[postgres-test-collections] tests/backend/Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs#ArticleRelationSourceCoordinateAuthorityIntegrationTests is missing from the PostgreSQL manifest
+[postgres-test-collections] tests/backend/Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs#ArticleSourceGenerationAuthorityIntegrationTests is missing from the PostgreSQL manifest
+[postgres-test-collections] tests/backend/Integration/SqlArticleGraphAdmissionReaderIntegrationTests.cs#SqlArticleGraphAdmissionReaderIntegrationTests is missing from the PostgreSQL manifest

@@ -1,0 +1,25 @@
+{
+  "suppliedModuleCommit": "020274069153c92725c7c9e5231c88b3415ff6ee",
+  "currentSourceCommit": "999d96e6319124ac796db3e7966ec6b662b3433d",
+  "manifestCurrentBlob": "dc3d15801f165c199cfa89ba38c89dddbb0d5356",
+  "currentMembersRemovedBySuppliedManifest": [
+    "ArticlePropertySavedViewDependencyProviderIntegrationTests"
+  ],
+  "sourceMembershipMissingThree": [
+    "ArticleRelationSourceCoordinateAuthorityIntegrationTests",
+    "ArticleSourceGenerationAuthorityIntegrationTests",
+    "SqlArticleGraphAdmissionReaderIntegrationTests"
+  ],
+  "conflictingPaths": [
+    "tests/backend/Fixtures/postgres-test-collections.json",
+    "tests/tools/check-postgres-test-collections.test.mjs",
+    "docs/testing.md",
+    "artifacts/change-contract/postgres-collection-manifest-naming-exceptions.json"
+  ],
+  "nativeInputsRetainedFromExplicitOtherHandoff": [
+    "src/migration/FsusBlog.Migration.csproj",
+    "src/migration/packages.lock.json",
+    "tests/backend/packages.lock.json"
+  ],
+  "action": "pause conflicting shared consumer replacement; original3657 supplies exact root-combination closure. No local merge or assertion/count repair."
+}

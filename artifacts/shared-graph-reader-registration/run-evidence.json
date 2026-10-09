@@ -1,0 +1,132 @@
+{
+  "sourceCommit": "bdf724ba4f1f25e9f2f433266577b2221b2d1af2",
+  "firstCompositionCommit": "843db5da008358038305ee02f6df7df094585211",
+  "branch": "codex/shared-graph-reader-registration-20261009",
+  "baseEvidenceCommit": "bdf1c5d793afc09f9f1ed907dcc9f571a5870d39",
+  "fetchedMaster": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "rootHost": "src/backend/Services/Authoring/ArticleGraphCurrentArticleHost.cs",
+  "internalMethod": "Task<ArticleGraphCurrentArticleAdmission?> ReadCurrentAsync(string articleIdentity, string revisionIdentity, CancellationToken cancellationToken = default)",
+  "registrations": [
+    "SqlArticleGraphAdmissionReader scoped",
+    "ArticleGraphCurrentArticleHost scoped"
+  ],
+  "runtimeDocumentEpoch": "not supplied or derived; original owner retains runtime/lease-use authority",
+  "suppliedModules": {
+    "graphReaderOriginalApi": "7eeb1f56a6f14e0623482696ce3b8a9d897140d1",
+    "graphReaderFinalTestedCommit": "020274069153c92725c7c9e5231c88b3415ff6ee",
+    "exactByteMatches": {
+      "src/backend/Entities/ArticleRelationSourceCoordinate.cs": true,
+      "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs": true,
+      "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs": true,
+      "tests/backend/Unit/ArticleRelationSourceCoordinateAuthorityTests.cs": true,
+      "tests/backend/Unit/ArticleRelationSourceCoordinateMigrationDefinitionTests.cs": true,
+      "tests/backend/Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs": true,
+      "src/backend/Services/Authoring/SqlArticleGraphAdmissionReader.cs": true,
+      "tests/backend/Unit/SqlArticleGraphAdmissionReaderTests.cs": true,
+      "tests/backend/Integration/SqlArticleGraphAdmissionReaderIntegrationTests.cs": true,
+      "artifacts/change-contract/article-graph-admission-reader-external-naming.json": true
+    },
+    "graphReportedControls": {
+      "total": 106,
+      "readerUnit": 22,
+      "readerPostgres": 64,
+      "coordinateUnit": 6,
+      "coordinateDefinition": 1,
+      "coordinatePostgres": 13,
+      "status": "parent-reported original project PASS0skip at020; not root rerun or rebind"
+    },
+    "revisionHookMinimal": "7b5ddc3ba5b25f281ab1cc574946544cbf5ca796",
+    "revisionHookTested": "c65fc8a0f5efc13d87ac030fbf4734737e65d885",
+    "revisionHookBlob": "968d8179278cd5b5ce760cdbc8c5c3f613428bda",
+    "propertyRepairs": [
+      "f1cc1f1fc402c268bfa69acfde4549514720e0a2",
+      "37cf5ffdf5f06032646ff746a6b70cdc2b9da50a"
+    ],
+    "nativeInputs": [
+      "4a2124d449f45e0cf653a76f0c01adcdca6109de",
+      "e4ac73dad845c71cc0f12027e3fc65ed0d5923cb"
+    ],
+    "collectionInputs": "1630a1c112b7dc4359e9ec203a16dbac8af0613b",
+    "propertyFinalCurrent": "8746ff118796d3b111828bdd903945c3f30a5a59",
+    "propertyFinalReportedVerification": {
+      "defaultBuild": {
+        "exitCode": 0,
+        "errors": 0,
+        "warnings": 1508
+      },
+      "strictBuild": {
+        "exitCode": 1,
+        "warningsElevated": 1508
+      },
+      "positiveCases": 15,
+      "bodiesExecuted": 0,
+      "binding": "parent-reported original provider; not root rerun/rebind"
+    }
+  },
+  "rootVerification": {
+    "lockedRestore": {
+      "testedCommit": "843db5da008358038305ee02f6df7df094585211",
+      "exitCode": 0,
+      "auditUnchanged": true,
+      "NU1903": 0
+    },
+    "strictBuildComposition": {
+      "testedCommit": "843db5da008358038305ee02f6df7df094585211",
+      "exitCode": 1,
+      "errors": 1508
+    },
+    "strictBuildHost": {
+      "testedCommit": "999d96e6319124ac796db3e7966ec6b662b3433d",
+      "exitCode": 1,
+      "errors": 1508,
+      "rootAndSelectedSuppliedFileDiagnostics": 0
+    },
+    "currentRootWhitespace": {
+      "testedCommit": "999d96e6319124ac796db3e7966ec6b662b3433d",
+      "exitCode": 0,
+      "files": 4
+    },
+    "membership": {
+      "testedCommit": "843db5da008358038305ee02f6df7df094585211",
+      "exitCode": 1,
+      "missingClasses": 3
+    },
+    "exactRootControlCount": 14,
+    "rootTestBodiesExecuted": 0,
+    "executableDiscovery": "UNRUN after failed gate",
+    "runtimePostgresHTTPUX": "UNRUN; no acceptance claim",
+    "defaultBuild": "NOT RUN on root; strict gate failure is not ordinary compilation failure"
+  },
+  "conflict": "020 shared membership drops property integration class; older native inputs would undo supplied3filefix. Retained fixes, paused conflicting files, sole3657 to supply exact composition closure.",
+  "writingAid": "current persistence1f03355 and sole endpoint8208d5d fetched/inspected. Existing wiref1cef retained on frozen original. Separate minimal shared protocol/DI/registry/route integration requested; no handler/store duplication; device authority unavailable.",
+  "issues": {
+    "3735": "source WIP; runtime/HTTP/session/storage acceptance open",
+    "3736": "source WIP; full types/composition/rendered UX acceptance open",
+    "3738": "source WIP; actual3654 hook consumed; combined transaction/generation/schema/edge-to-link acceptance open"
+  },
+  "qualification": false,
+  "deniedReadsOrWorkspaceRaceAuditRetried": false,
+  "hostSourceCommit": "999d96e6319124ac796db3e7966ec6b662b3433d",
+  "fullMasterDiffPaths": 49,
+  "ordinaryPropertyResourceRepair": {
+    "sourceCommit": "bdf724ba4f1f25e9f2f433266577b2221b2d1af2",
+    "target": "tests/backend/Unit/ArticlePropertyDefinitionAuthorityTests.cs",
+    "preimage": "a5ad96032d2fab772d44c720ea0725d4cbefebec",
+    "blob": "d808a6ab38df9b48f6d4e0749cadddd6a3dd1f15",
+    "realApi": "FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot",
+    "assertionsAndTwoInlineDataRows": "unchanged",
+    "testBodiesExecuted": 0,
+    "producer": {
+      "sourceParentCommit": "999d96e6319124ac796db3e7966ec6b662b3433d",
+      "command": "node tools/test/generate-backend-evidence-path-authority.mjs --write; --check",
+      "writeExitCode": 0,
+      "checkExitCode": 0,
+      "generatedChange": "one matrix source hash only; no catalog entry or receipt change",
+      "unchangedProducerAndInputs": true
+    },
+    "whitespace": {
+      "testedCommit": "bdf724ba4f1f25e9f2f433266577b2221b2d1af2",
+      "exitCode": 0
+    }
+  }
+}

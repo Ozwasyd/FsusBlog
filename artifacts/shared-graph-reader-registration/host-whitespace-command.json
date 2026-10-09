@@ -1,0 +1,23 @@
+{
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "format",
+    "whitespace",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--verify-no-changes",
+    "--include",
+    "src/backend/Services/Authoring/ArticleGraphCurrentArticleHost.cs",
+    "tests/backend/Unit/ArticleGraphCurrentArticleHostTests.cs",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs",
+    "--verbosity",
+    "quiet"
+  ],
+  "startedUtc": "2026-10-09T09:30:02.742090+00:00",
+  "sourceCommit": "843db5da008358038305ee02f6df7df094585211",
+  "candidate": "uncommitted host increment; bind new source SHA after own formatting repair",
+  "exitCode": 0
+}

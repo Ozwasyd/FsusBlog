@@ -1,0 +1,12 @@
+{
+  "sourceCommit": "843db5da008358038305ee02f6df7df094585211",
+  "positiveFullyQualifiedCases": [
+    "FsusBlog.Server.Tests.Unit.AuthoringCanvasServiceRegistrationTests.RuntimeDomainServices_ResolveOneProductionReferenceAuthority"
+  ],
+  "expectedCount": 1,
+  "filter": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringCanvasServiceRegistrationTests.RuntimeDomainServices_ResolveOneProductionReferenceAuthority",
+  "hooks": "existing selected class has no Collection, lifecycle fixture or test hooks; original method and all constructors reviewed",
+  "resources": "in-memory ServiceCollection and NSubstitute ISqlSugarClient; original missing-HttpContext refusal prevents property persistence; graph constructor resolves canonical SQL dependencies but does not read them; no PostgreSQL/Docker/native/browser body resource",
+  "gate": "strict original build must succeed before executable discovery/test bodies; no looser rebuild/alternate host",
+  "qualification": false
+}

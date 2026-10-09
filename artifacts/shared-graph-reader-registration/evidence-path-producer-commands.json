@@ -1,0 +1,35 @@
+[
+  {
+    "command": [
+      "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/test/generate-backend-evidence-path-authority.mjs",
+      "--check"
+    ],
+    "phase": "before",
+    "exitCode": 1,
+    "sourceParentCommit": "999d96e6319124ac796db3e7966ec6b662b3433d",
+    "candidate": "ordinary property resource-reader repair and producer-owned inventory only; no bodies/hooks/receipts executed"
+  },
+  {
+    "command": [
+      "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/test/generate-backend-evidence-path-authority.mjs",
+      "--write"
+    ],
+    "phase": "write",
+    "exitCode": 0,
+    "sourceParentCommit": "999d96e6319124ac796db3e7966ec6b662b3433d",
+    "candidate": "ordinary property resource-reader repair and producer-owned inventory only; no bodies/hooks/receipts executed"
+  },
+  {
+    "command": [
+      "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/test/generate-backend-evidence-path-authority.mjs",
+      "--check"
+    ],
+    "phase": "after",
+    "exitCode": 0,
+    "sourceParentCommit": "999d96e6319124ac796db3e7966ec6b662b3433d",
+    "candidate": "ordinary property resource-reader repair and producer-owned inventory only; no bodies/hooks/receipts executed"
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "sourceCommit": "bdf724ba4f1f25e9f2f433266577b2221b2d1af2",
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "format",
+    "whitespace",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--verify-no-changes",
+    "--include",
+    "tests/backend/Unit/ArticlePropertyDefinitionAuthorityTests.cs",
+    "--verbosity",
+    "quiet"
+  ],
+  "exitCode": 0,
+  "paths": [
+    "tests/backend/Unit/ArticlePropertyDefinitionAuthorityTests.cs"
+  ],
+  "testBodiesExecuted": 0
+}
