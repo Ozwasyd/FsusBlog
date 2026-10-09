@@ -42,12 +42,14 @@ public sealed class ArticleVaultExecutionPostgresIntegrationTests(PostgresSchema
             rejectSecond: true);
         var store = new PostgresArticleVaultExecutionStore(db, new FixedTimeProvider(s_now));
         await store.SealAsync(bundle);
-        ArticleService service = CreateService(db, store, new RejectSecondPublicationValidator());
+        var publicationValidator = new RejectSecondPublicationValidator();
+        ArticleService service = CreateService(db, store, publicationValidator);
         var executor = new ArticleVaultSyncPlanExecutor(store, service, service, new FixedTimeProvider(s_now));
 
         ArticleVaultExecutionResult first = await executor.ExecuteAsync(bundle.PlanReference, bundle.PlanSha256);
         ArticleVaultExecutionResult replay = await executor.ExecuteAsync(bundle.PlanReference, bundle.PlanSha256);
 
+        Assert.True(publicationValidator.RejectedSecondOperation);
         Assert.Equal(ArticleVaultExecutionOutcome.Failed, first.Outcome);
         Assert.Equal(first.ContentSha256, replay.ContentSha256);
         ArticleVaultGroupResultReceipt failedGroup = Assert.Single(first.Groups);
@@ -111,6 +113,8 @@ public sealed class ArticleVaultExecutionPostgresIntegrationTests(PostgresSchema
             results: 0);
         Article committedArticle = await db.Queryable<Article>().SingleAsync();
         Assert.Equal(ArticleStatus.Draft, committedArticle.Status);
+        Assert.Equal(new ArticleSourceCursor(committedArticle.Id, 1, 1),
+            await ArticleSourceGenerationAuthority.ReadArticleCursorAsync(db, committedArticle.Id));
 
         ArticleVaultExecutionResult recovered = await executor.ExecuteAsync(
             bundle.PlanReference,
@@ -149,6 +153,9 @@ public sealed class ArticleVaultExecutionPostgresIntegrationTests(PostgresSchema
             typeof(ArticlePublicationRecord),
             typeof(ArticleMutationOutboxEvent),
             typeof(ArticleMutationCommand),
+            typeof(ArticleSourceGeneration),
+            typeof(ArticleSourceSequence),
+            typeof(ArticleSourceMutation),
             typeof(AdminPrincipal),
             typeof(AuditLog),
             typeof(ArticleVaultExecutionBundleEntity),
@@ -410,6 +417,10 @@ public sealed class ArticleVaultExecutionPostgresIntegrationTests(PostgresSchema
         Assert.Equal(articles, await db.Queryable<Article>().CountAsync());
         Assert.Equal(revisions, await db.Queryable<ArticleRevision>().CountAsync());
         Assert.Equal(outbox, await db.Queryable<ArticleMutationOutboxEvent>().CountAsync());
+        Assert.Equal(outbox, await db.Queryable<ArticleSourceMutation>().CountAsync());
+        Assert.Equal(articles, await db.Queryable<ArticleSourceSequence>().CountAsync());
+        Assert.Equal(outbox == 0 ? null : (long?)outbox,
+            await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
         Assert.Equal(audits, await db.Queryable<AuditLog>().CountAsync());
         Assert.Equal(groups, await db.Queryable<ArticleVaultGroupResultEntity>().CountAsync());
         Assert.Equal(results, await db.Queryable<ArticleVaultExecutionResultEntity>().CountAsync());
@@ -417,6 +428,11 @@ public sealed class ArticleVaultExecutionPostgresIntegrationTests(PostgresSchema
 
     private sealed class RejectSecondPublicationValidator : IArticlePublicationValidator
     {
+        public bool RejectedSecondOperation
+        {
+            get; private set;
+        }
+
         public ArticlePublicationValidationResult ValidateContent(
             ArticlePublicationValidationInput input,
             DateTime utcNow)
@@ -428,13 +444,18 @@ public sealed class ArticleVaultExecutionPostgresIntegrationTests(PostgresSchema
             CancellationToken cancellationToken = default)
             => Task.FromResult(Result(input));
 
-        private static ArticlePublicationValidationResult Result(ArticlePublicationValidationInput input)
-            => input.Title == "reject-second"
-                ? new ArticlePublicationValidationResult(
+        private ArticlePublicationValidationResult Result(ArticlePublicationValidationInput input)
+        {
+            if (input.Title == "reject-second")
+            {
+                RejectedSecondOperation = true;
+                return new ArticlePublicationValidationResult(
                     false,
                     false,
-                    [new PrepublishIssue("error", "forced_second_failure", "forced second operation failure")])
-                : new ArticlePublicationValidationResult(true, true, []);
+                    [new PrepublishIssue("error", "forced_second_failure", "forced second operation failure")]);
+            }
+            return new ArticlePublicationValidationResult(true, true, []);
+        }
     }
 
     private sealed class CountingWriter(IArticleVaultCanonicalGroupWriter inner)
