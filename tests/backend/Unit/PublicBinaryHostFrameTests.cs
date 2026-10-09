@@ -30,7 +30,7 @@ public sealed class PublicBinaryHostFrameTests
         PublicBinaryArtifact reference = PublicHotReadBinaryArtifactFactory.FromPayload(
             new AedsEncoder(), AedsFrameType.ArticleDetail, payload, "public,max-age=17", 7, options);
         ReadOnlyMemory<byte> captured = default;
-        MemoryOperationResult<MemoryOperationCompletion> result = await Consume(owner, options, (artifact, _) =>
+        MemoryOperationResult<MemoryOperationCompletion> result = await Consume(owner, options, (artifact, token) =>
         {
             Assert.True(artifact.Frame.Span.SequenceEqual(reference.Frame.Span));
             Assert.Equal(reference.ETag, artifact.ETag);
