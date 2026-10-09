@@ -486,9 +486,30 @@ qualification. This operation surface adds no allocator or publication authority
 Long-lived PublicHot snapshots still require a body ownership-transfer contract
 on `PublicBinaryArtifact`, integration with the original snapshot/read retirement
 owner, and simultaneous source/destination/workspace admission. The existing
-byte-array `FromFrame` and unbounded compression path do not supply those
-contracts. Unknown-length producers and compression workspace remain separate
-unverified work; they cannot publish the callback's borrowed memory.
+array construction and unbounded compression path do not supply those contracts.
+Unknown-length producers and compression workspace remain separate unverified
+work; they cannot publish the callback's borrowed memory.
+
+`PublicHotReadBinaryArtifactFactory.ConsumeHostFrameAsync` accepts an existing
+`IMemoryHostViewSource`, its expected `MemoryLocationToken`, explicit artifact
+metadata/options and a consumer. It acquires the original source's CPU-readable
+read lease and awaits the consumer before disposal. Its callback receives the
+existing `PublicBinaryArtifact` with borrowed `ReadOnlyMemory<byte>`; common
+frame validation and ETag generation work on spans. No full-sized compatibility
+array is created. Array callers retain their original compression path. This
+explicit identity-only adapter rejects precompression requests before acquisition
+rather than silently omitting requested variants or starting unadmitted work.
+The source owns immutable bytes and its existing read-hold limit/accounting;
+the caller owns admission for all additional consumer work. Cancellation of an
+outer wait is not completion. Consumer failure or actual cancellation ends the
+read hold only when that consumer has stopped using the borrowed artifact.
+The callback must not publish, retain or return the artifact beyond its scope.
+The original `WriteBinaryFrame` remains the response owner; its internal access
+allows ordinary source composition controls without another response writer.
+This adapter adds no snapshot lifetime owner, publication/qualification authority,
+compression reservation, capability probe, native allocation or Auto activation.
+Long-lived snapshot retirement and the canonical content-to-location binding
+remain prerequisites for production use; native transport evidence is unverified.
 
 The established `CspNonceHtmlResponseWriter.WriteBodyAsync` has an explicit
 `TransientBufferLease` overload for caller-admitted nonce scratch.

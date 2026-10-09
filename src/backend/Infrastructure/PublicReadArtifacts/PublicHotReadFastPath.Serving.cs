@@ -706,7 +706,7 @@ public static partial class PublicHotReadFastPath
         return ServeHtml(ctx, next, snapshot, counters, localizedRouteKey, options, isDevelopment, lastGood, lastGoodWhileRebuild);
     }
 
-    private static Task WriteBinaryFrame(
+    internal static Task WriteBinaryFrame(
         HttpContext ctx,
         RequestDelegate next,
         PublicBinaryArtifact artifact,
