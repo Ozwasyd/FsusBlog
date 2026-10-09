@@ -3,12 +3,12 @@ import { computed, getCurrentScope, onScopeDispose, shallowRef, watch, type Ref 
 import type {
     InternalLinkPickerHeadingResult,
     InternalLinkPickerSearchResult
-} from '@/components/admin/article/ArticleInternalLinkPicker.vue';
+} from '@/components/admin/article/ArticleInternalLinkPicker.types';
 import type {
     ArticleInternalLinkPreviewContent,
     ArticleInternalLinkPreviewPresentation,
     ArticleInternalLinkPreviewRequest
-} from '@/components/admin/article/ArticleInternalLinkPreview.vue';
+} from '@/components/admin/article/ArticleInternalLinkPreview.types';
 import type { MarkdownEditorDispatchResult } from '@/fsusui/articlePositionMaps';
 import type { FsusUiAuthoringCommand } from '@/fsusui/authoringCommands';
 import type { ArticleAnchorCaptureOptions, ArticleAnchorContext } from '@/services/authoring/articleAnchorContext';
