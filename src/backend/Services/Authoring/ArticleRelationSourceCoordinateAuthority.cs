@@ -40,6 +40,8 @@ public sealed class ArticleRelationSourceCoordinateException(string reasonCode) 
 /// </remarks>
 public sealed class ArticleRelationSourceCoordinateAuthority
 {
+    public const int MaxRevisionReadBatchSize = 64;
+
     private const string RevisionSelect = """
         SELECT revision.article_id, revision.id, revision.revision_no,
                article_binding.portable_identity, source.revision_identity, source.source_epoch
@@ -61,6 +63,86 @@ public sealed class ArticleRelationSourceCoordinateAuthority
         ValidateCoordinates(articleId, revisionId);
         NativeSession session = await BorrowReadAsync(db, cancellationToken).ConfigureAwait(false);
         return await ReadRevisionAsync(session, articleId, revisionId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Zero-write exact batch read in one SQL command on the caller's session. Accepts 1–64 distinct
+    /// positive pairs and returns every saved binding in input order, or refuses the entire batch.
+    /// No permissions, isolation changes, provisioning or partial/unavailable fallback are supplied here.
+    /// </summary>
+    public async Task<IReadOnlyList<ArticleRelationRevisionCoordinate>> ReadRevisionsAsync(
+        ISqlSugarClient db,
+        IReadOnlyList<(int ArticleId, long RevisionId)> coordinates,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(coordinates);
+        cancellationToken.ThrowIfCancellationRequested();
+        int count = coordinates.Count;
+        Require(count is >= 1 and <= MaxRevisionReadBatchSize, "article_relation_source_coordinate_invalid");
+        var articleIds = new int[count];
+        var revisionIds = new long[count];
+        var distinct = new HashSet<(int ArticleId, long RevisionId)>();
+        for (int index = 0; index < count; index++)
+        {
+            (int articleId, long revisionId) = coordinates[index];
+            ValidateCoordinates(articleId, revisionId);
+            Require(distinct.Add((articleId, revisionId)), "article_relation_source_coordinate_invalid");
+            articleIds[index] = articleId;
+            revisionIds[index] = revisionId;
+        }
+        Require(coordinates.Count == count, "article_relation_source_coordinate_invalid");
+
+        NativeSession session = await BorrowReadAsync(db, cancellationToken).ConfigureAwait(false);
+        var results = new List<ArticleRelationRevisionCoordinate>(count);
+        var articleIdentities = new Dictionary<int, Guid>();
+        var identityArticles = new Dictionary<Guid, int>();
+        var revisionIdentities = new HashSet<Guid>();
+        var epochs = new HashSet<Guid>();
+        await using (NpgsqlCommand command = session.CreateCommand("""
+            SELECT revision.article_id, revision.id, revision.revision_no,
+                   article_binding.portable_identity, source.revision_identity, source.source_epoch,
+                   requested.ordinal
+            FROM unnest(@articleIds::integer[], @revisionIds::bigint[])
+                 WITH ORDINALITY AS requested(article_id, revision_id, ordinal)
+            JOIN article_revision revision
+              ON revision.article_id = requested.article_id AND revision.id = requested.revision_id
+            JOIN article ON article.id = revision.article_id
+            JOIN article_relation_article_binding article_binding ON article_binding.article_id = revision.article_id
+            JOIN article_relation_source_coordinate source
+              ON source.revision_id = revision.id AND source.article_id = revision.article_id
+            ORDER BY requested.ordinal
+            LIMIT 65;
+            """, cancellationToken))
+        {
+            command.Parameters.AddWithValue("articleIds", articleIds);
+            command.Parameters.AddWithValue("revisionIds", revisionIds);
+            await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                int index = results.Count;
+                Require(index < count && !Enumerable.Range(0, 7).Any(reader.IsDBNull),
+                    "article_relation_binding_invalid");
+                Require(reader.GetInt64(6) == index + 1
+                    && reader.GetInt32(0) == articleIds[index] && reader.GetInt64(1) == revisionIds[index],
+                    "article_relation_binding_unavailable");
+                Guid articleIdentity = reader.GetGuid(3);
+                Guid revisionIdentity = reader.GetGuid(4);
+                Guid epoch = reader.GetGuid(5);
+                Require(reader.GetInt32(2) > 0 && articleIdentity != Guid.Empty
+                    && revisionIdentity != Guid.Empty && epoch != Guid.Empty
+                    && revisionIdentities.Add(revisionIdentity) && epochs.Add(epoch)
+                    && (!articleIdentities.TryGetValue(articleIds[index], out Guid savedArticle) || savedArticle == articleIdentity)
+                    && (!identityArticles.TryGetValue(articleIdentity, out int savedId) || savedId == articleIds[index]),
+                    "article_relation_binding_invalid");
+                articleIdentities[articleIds[index]] = articleIdentity;
+                identityArticles[articleIdentity] = articleIds[index];
+                results.Add(new(articleIds[index], revisionIds[index], reader.GetInt32(2),
+                    ArticleIdentity(articleIdentity), $"revision:{revisionIdentity:D}", epoch));
+            }
+        }
+        session.Validate(cancellationToken);
+        Require(results.Count == count, "article_relation_binding_unavailable");
+        return results.AsReadOnly();
     }
 
     /// <summary>Resolve one codec-validated portable article identity; this does not authorize access.</summary>
