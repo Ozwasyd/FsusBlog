@@ -125,7 +125,12 @@ function wrapped(extra)
 
 test('an actual unrelated Vue toRef preserves the selected object prop source', () =>
 {
-    assert.deepEqual(wrapped(`const motion=toRef(props,'motion');`).errors, []);
+    const result = wrapped(`const motion=toRef(props,'motion');`);
+    assert.equal(result.errors.length, 2, JSON.stringify(result.errors));
+    assert.ok(result.errors.every((error) => error.reason === 'unbound-slot-source'
+        && error.file.endsWith('/icon/src/icon.vue')));
+    assert.equal(new Set(result.errors.map((error) => error.callNode)).size, 2);
+    assert.deepEqual(relevantErrors(result), []);
 });
 
 for (const [label, extra] of [

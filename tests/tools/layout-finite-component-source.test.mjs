@@ -64,6 +64,8 @@ test('finite local component alternatives retain local ownership through public 
 for (const [label, script] of [
     ['mutable selector', imports + 'let choice=computed(() => A);'],
     ['mutated selector', imports + 'const choice=computed(() => A); choice.value=B;'],
+    ['unknown selector escape', imports + 'const choice=computed(() => A); other(choice);'],
+    ['nested selector escape', imports + 'const choice=computed(() => A); const holder={nested:choice}; holder.nested.value=B;'],
     ['unknown branch', imports + 'const choice=computed(() => state ? A : unknown);'],
     ['unknown block return', imports + 'const choice=computed(() => {if(state)return A; return unknown;});'],
     ['fallthrough', imports + 'const choice=computed(() => {if(state)return A;});'],

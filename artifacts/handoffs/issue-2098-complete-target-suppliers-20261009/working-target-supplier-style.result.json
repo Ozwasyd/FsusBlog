@@ -1,0 +1,48 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791551307.4419787,
+  "durationSeconds": 5.04022741317749,
+  "source": {
+    "blog": {
+      "commit": "3b39ccab1c38d458ce422e24be4e0ad05ca4b7f2",
+      "tree": "34346e5dab7508845854a0c09c14516bac4467d4",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "35812640fb30d70020da93f6f11a66bfad5282b76135610d52a2e513bd28e194"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "3b39ccab1c38d458ce422e24be4e0ad05ca4b7f2",
+      "tree": "34346e5dab7508845854a0c09c14516bac4467d4",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "35812640fb30d70020da93f6f11a66bfad5282b76135610d52a2e513bd28e194"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/working-target-supplier-style.log",
+  "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+}

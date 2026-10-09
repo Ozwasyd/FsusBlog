@@ -1,0 +1,1 @@
+[native-tooling-style] ok operation=lint domain=docs mode=full selected=1 checked=1 baseline=0 violations=0

@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
+import { createFiniteRefSelectorSource } from './source-ref-selectors.mjs';
+
 export const controlRegistryPath = 'config/frontend/control-legality.json';
 export const controlLegalityVersion = 'fsusblog.control-legality.v1';
 const packageId = '@ozwasyd/element-plus';
@@ -417,10 +419,11 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                     }
                     if (!statement.exportClause)
                     {
-                        const target = modulePath(statement.moduleSpecifier.text, file);
+                        const target = modulePath(statement.moduleSpecifier.text, file,
+                            mode === 'local' && file.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
                         if (typeof target === 'string' && exportsOf(target).has(name))
                         {
-                            return resolveExport(target, name, next);
+                            return resolveImport(file, { specifier: statement.moduleSpecifier.text, name }, next);
                         }
                     }
                 }
@@ -925,6 +928,55 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         return resolveExpression(file, expression, new Set(), templateRefs);
     };
+    function containsComponentObject(node, name)
+    {
+        node = unwrap(node);
+        if (!node)
+        {
+            return false;
+        }
+        if (ts.isIdentifier(node))
+        {
+            return node.text === name;
+        }
+        if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+        {
+            return ts.isPropertyAccessExpression(node) && node.name.text === 'value'
+                && ts.isIdentifier(unwrap(node.expression)) && unwrap(node.expression).text === name;
+        }
+        if (ts.isPropertyAssignment(node))
+        {
+            return containsComponentObject(node.initializer, name);
+        }
+        if (ts.isShorthandPropertyAssignment(node))
+        {
+            return node.name.text === name;
+        }
+        // Component objects/ref containers are truthy. A left conjunction read
+        // or strict comparison cannot hand that identity to its consumer.
+        // Nested calls are still audited separately by the caller's AST walk.
+        if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)
+        {
+            return containsComponentObject(node.right, name);
+        }
+        if (ts.isBinaryExpression(node) && [ts.SyntaxKind.EqualsEqualsEqualsToken,
+            ts.SyntaxKind.ExclamationEqualsEqualsToken].includes(node.operatorToken.kind)
+            || ts.isTypeOfExpression(node)
+            || ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken)
+        {
+            return false;
+        }
+        if (ts.isConditionalExpression(node))
+        {
+            return containsComponentObject(node.whenTrue, name) || containsComponentObject(node.whenFalse, name);
+        }
+        let found = false;
+        ts.forEachChild(node, (child) =>
+        {
+            found = containsComponentObject(child, name) || found;
+        });
+        return found;
+    }
     const finiteComponentBinding = (file, name) =>
     {
         const record = parse(file);
@@ -972,6 +1024,34 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                 || binding.initializer || binding.dotDotDotToken || (binding.propertyName && ts.isComputedPropertyName(binding.propertyName)))))
         {
             fail(`${file}: unbound finite component binding ${name}`);
+        }
+        const value = unwrap(record.variables.get(name));
+        const imported = value && ts.isCallExpression(value) && ts.isIdentifier(value.expression)
+            ? record.imports.get(value.expression.text) : null;
+        if (imported?.specifier === 'vue' && imported.name === 'computed')
+        {
+            function ownsDeclaration(node)
+            {
+                for (let parent = binding; parent; parent = parent.parent)
+                {
+                    if (parent === node)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            function escape(node)
+            {
+                const supplied = ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments ?? []
+                    : ts.isVariableDeclaration(node) && node !== binding && node.initializer ? [node.initializer] : [];
+                if (supplied.some((argument) => !ownsDeclaration(argument) && containsComponentObject(argument, name)))
+                {
+                    fail(`${file}: escaped finite component binding ${name}`);
+                }
+                ts.forEachChild(node, escape);
+            }
+            record.scripts.forEach(({ ast }) => escape(ast));
         }
     };
     const finiteComputedReturns = (file, fn, seen) =>
@@ -1097,6 +1177,32 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         const script = parse(file).scripts.find(({ ast }) => ast === node.getSourceFile());
         return { file, offset: script ? script.offset + node.getStart() : null,
             kind: script ? 'script-source' : 'selector-expression', digest: controlDigest(node.getText()) };
+    };
+    const sourceStep = (file, node) =>
+    {
+        const record = parse(file);
+        const script = record.scripts.find(({ ast }) => ast === node?.getSourceFile?.());
+        let owned = false;
+        function visit(candidate)
+        {
+            if (candidate === node)
+            {
+                owned = true;
+            }
+            if (!owned)
+            {
+                ts.forEachChild(candidate, visit);
+            }
+        }
+        if (script)
+        {
+            visit(script.ast);
+        }
+        if (!owned || record.content.slice(script.offset + node.getStart(), script.offset + node.end) !== node.getText())
+        {
+            fail(`unowned source proof node ${file}`);
+        }
+        return componentSourceStep(file, node);
     };
     const returnedPropSelector = (file, identifier) =>
     {
@@ -1526,10 +1632,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                     : ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer ? [node.initializer] : [];
                 if (argumentsToCheck.some((argument) =>
                 {
-                    argument = unwrap(argument);
-                    return (ts.isIdentifier(argument) && argument.text === object.text)
-                        || (ts.isPropertyAccessExpression(argument) && ts.isIdentifier(argument.expression)
-                            && argument.expression.text === object.text && argument.name.text === 'value');
+                    return containsComponentObject(argument, object.text);
                 }) || ((ts.isCallExpression(node) || ts.isNewExpression(node)) && root(node.expression) === object.text))
                 {
                     fail(`escaped component member object ${identity}`);
@@ -2056,8 +2159,18 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         };
         return inspect(source.definition, source.exportName);
     };
-    return { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations,
+    function expression(source, file)
+    {
+        const ast = ts.createSourceFile(file + '.expression.ts', `(${source});`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+        if (ast.parseDiagnostics.length || ast.statements.length !== 1 || !ts.isExpressionStatement(ast.statements[0]))
+        {
+            fail(`unknown expression ${file}: ${source}`);
+        }
+        return ast.statements[0].expression.expression;
+    }
+    const api = { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations, expression,
         modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent, resolveObjectKeyAbsence,
+        sourceStep, resolveSourceFunction: componentFunction, assertImmutableBinding: finiteComponentBinding,
         isInteractive,
         identity: { mode, package: packageId, publicRoot, packageDigest: controlDigest(metadata),
             upstream: initialUpstreamIdentity, resolutionInputs, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,
@@ -2074,6 +2187,20 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             return { files, errors };
         },
         sourceRoot: src };
+    const finiteSelectors = createFiniteRefSelectorSource({ resolver: api, expression });
+    api.resolveFiniteRefSelector = finiteSelectors.resolve;
+    api.resolveTemplateExpression = (file, node, options = {}) =>
+    {
+        try
+        {
+            return resolveExpression(file, node, new Set(), true);
+        }
+        catch
+        {
+            return finiteSelectors.resolve(file, node, { ...options, templateRefs: true });
+        }
+    };
+    return api;
 }
 
 /** Registry validity is independent of acceptance; missing executions stay errors. */
@@ -2362,7 +2489,7 @@ export function scanControlLegality({ repositoryRoot, resolver, registry, testCa
                         {
                             fail('dynamic component parser failure');
                         }
-                        sourcesForDynamic = resolver.resolveExpression(file, ast.statements[0].expression.expression, new Set(), true);
+                        sourcesForDynamic = resolver.resolveTemplateExpression(file, ast.statements[0].expression.expression, { selectorOffset: offset });
                     }
                     else if (attrs.has('is'))
                     {

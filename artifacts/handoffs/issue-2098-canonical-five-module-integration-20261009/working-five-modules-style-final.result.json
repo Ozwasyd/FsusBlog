@@ -1,0 +1,83 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionAnalyzer.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionDom.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionSlotSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/frontend/support/layout/compositionTargetSource.mjs",
+    "--file",
+    "tests/tools/control-legality-ref-selectors.test.mjs",
+    "--file",
+    "tests/tools/layout-collection-source.test.mjs",
+    "--file",
+    "tests/tools/layout-composition-source.test.mjs",
+    "--file",
+    "tests/tools/layout-factory-source.test.mjs",
+    "--file",
+    "tests/tools/layout-functional-source.test.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs",
+    "--file",
+    "tests/tools/layout-object-props-source.test.mjs",
+    "--file",
+    "tests/tools/layout-render-conjunction-source.test.mjs",
+    "--file",
+    "tests/tools/layout-slot-source.test.mjs",
+    "--file",
+    "tests/tools/layout-target-source.test.mjs",
+    "--file",
+    "tools/frontend/control-legality/source-ref-selectors.mjs",
+    "--file",
+    "tools/frontend/control-legality/source.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791549286.0303001,
+  "durationSeconds": 7.149473667144775,
+  "source": {
+    "blog": {
+      "commit": "b826e0c6d5182b2d6d219aaa6d58d26520ae795e",
+      "tree": "3b971620f3536cb43ea5db2381a096fa06d802c4",
+      "status": "M docs/frontend/layout-visual-governance.md\n M package.json\n M tests/frontend/support/layout/compositionAnalyzer.mjs\n M tests/frontend/support/layout/compositionDom.mjs\n M tests/frontend/support/layout/compositionFunctionalSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/control-legality-ref-selectors.test.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-composition-source.test.mjs\n M tests/tools/layout-factory-source.test.mjs\n M tests/tools/layout-functional-source.test.mjs\n M tests/tools/layout-object-props-source.test.mjs\n M tests/tools/layout-render-conjunction-source.test.mjs\n M tests/tools/layout-slot-source.test.mjs\n M tests/tools/layout-target-source.test.mjs\n M tools/frontend/control-legality/package.json\n M tools/frontend/control-legality/source.mjs\n?? tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "acc78ad0d53af6776020944d81829b13549b7f8e8fc17a0f8dabca49dc1f62d9"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "b826e0c6d5182b2d6d219aaa6d58d26520ae795e",
+      "tree": "3b971620f3536cb43ea5db2381a096fa06d802c4",
+      "status": "M docs/frontend/layout-visual-governance.md\n M package.json\n M tests/frontend/support/layout/compositionAnalyzer.mjs\n M tests/frontend/support/layout/compositionDom.mjs\n M tests/frontend/support/layout/compositionFunctionalSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/control-legality-ref-selectors.test.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-composition-source.test.mjs\n M tests/tools/layout-factory-source.test.mjs\n M tests/tools/layout-functional-source.test.mjs\n M tests/tools/layout-object-props-source.test.mjs\n M tests/tools/layout-render-conjunction-source.test.mjs\n M tests/tools/layout-slot-source.test.mjs\n M tests/tools/layout-target-source.test.mjs\n M tools/frontend/control-legality/package.json\n M tools/frontend/control-legality/source.mjs\n?? tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "acc78ad0d53af6776020944d81829b13549b7f8e8fc17a0f8dabca49dc1f62d9"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/working-five-modules-style-final.log",
+  "logSha256": "fbf80b106a5dc4c41f6b7c7ea4ad98619da7797305c9eb065cecfc9976e96332",
+  "portableLog": "working-five-modules-style-final.txt"
+}

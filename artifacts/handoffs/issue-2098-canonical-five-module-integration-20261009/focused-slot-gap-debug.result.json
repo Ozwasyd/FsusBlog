@@ -1,0 +1,45 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^an actual unrelated Vue toRef preserves the selected object prop source$",
+    "tests/tools/layout-object-props-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-component-prop-source/FsusBlog",
+  "exitCode": 1,
+  "startedAtEpoch": 1791548600.996996,
+  "durationSeconds": 1.4570837020874023,
+  "source": {
+    "blog": {
+      "commit": "b826e0c6d5182b2d6d219aaa6d58d26520ae795e",
+      "tree": "3b971620f3536cb43ea5db2381a096fa06d802c4",
+      "status": "M package.json\n M tests/frontend/support/layout/compositionAnalyzer.mjs\n M tests/frontend/support/layout/compositionDom.mjs\n M tests/frontend/support/layout/compositionFunctionalSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/control-legality-ref-selectors.test.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-composition-source.test.mjs\n M tests/tools/layout-factory-source.test.mjs\n M tests/tools/layout-functional-source.test.mjs\n M tests/tools/layout-object-props-source.test.mjs\n M tests/tools/layout-render-conjunction-source.test.mjs\n M tests/tools/layout-slot-source.test.mjs\n M tools/frontend/control-legality/package.json\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "0bc20a731abf63be9869f3d9dab3771676344b5cbc9e04f322112552be72398d"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "b826e0c6d5182b2d6d219aaa6d58d26520ae795e",
+      "tree": "3b971620f3536cb43ea5db2381a096fa06d802c4",
+      "status": "M package.json\n M tests/frontend/support/layout/compositionAnalyzer.mjs\n M tests/frontend/support/layout/compositionDom.mjs\n M tests/frontend/support/layout/compositionFunctionalSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/control-legality-ref-selectors.test.mjs\n M tests/tools/layout-collection-source.test.mjs\n M tests/tools/layout-composition-source.test.mjs\n M tests/tools/layout-factory-source.test.mjs\n M tests/tools/layout-functional-source.test.mjs\n M tests/tools/layout-object-props-source.test.mjs\n M tests/tools/layout-render-conjunction-source.test.mjs\n M tests/tools/layout-slot-source.test.mjs\n M tools/frontend/control-legality/package.json\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "0bc20a731abf63be9869f3d9dab3771676344b5cbc9e04f322112552be72398d"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-component-prop-source/target-integration-evidence/focused-slot-gap-debug.log",
+  "logSha256": "4ea74fec48350cf8e46a204911b7c501f56d9f69d0f557aaa8c1b7ec3c1f13a6",
+  "portableLog": "focused-slot-gap-debug.log.gz"
+}

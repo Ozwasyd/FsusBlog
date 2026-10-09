@@ -3,6 +3,11 @@ import { resolve, relative, dirname, extname } from 'node:path';
 
 import { createControlSourceResolver, controlDigest } from '@fsusblog/control-legality/source';
 
+import { createCompositionCollectionSource } from './compositionCollectionSource.mjs';
+import { createCompositionFunctionalSource } from './compositionFunctionalSource.mjs';
+import { createCompositionSlotSource } from './compositionSlotSource.mjs';
+import { bindCompositionTargetInputs, resolveCompositionTargetOrigin } from './compositionTargetSource.mjs';
+
 export const compositionNodeAttribute = 'data-fsus-composition-node';
 export const compositionCallAttribute = 'data-fsus-composition-call';
 export const compositionSourceVersion = 'fsusblog.composition-source.v1';
@@ -23,6 +28,9 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     const nodes = new Map();
     const errors = [];
     const scriptRenders = new Map();
+    const targetSuppliers = new WeakMap();
+    const functional = createCompositionFunctionalSource({ resolver });
+    const collections = createCompositionCollectionSource({ resolver, nodes });
     const unwrap = (node) =>
     {
         while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)))
@@ -144,6 +152,17 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         scriptRenders.set(record.file, { call, setup, render });
         return record.file;
     }
+    function bindFunctionalRender(record, expression)
+    {
+        const binding = functional.bind(record, expression);
+        const previous = scriptRenders.get(record.file);
+        if (previous && previous.render !== binding.render)
+        {
+            fail(`multiple script component definitions ${record.file}`);
+        }
+        scriptRenders.set(record.file, binding);
+        return record.file;
+    }
     const location = (file, offset) => ({ file, offset,
         line: readFileSync(file, 'utf8').slice(0, offset).split('\n').length });
     const key = (file) => file.startsWith(upstream + '/') ? `FsusUI/${relative(upstream, file)}` : `FsusBlog/${relative(root, file)}`;
@@ -177,6 +196,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     function componentFile(source, seen = new Set())
     {
         let target = null;
+        if (source.kind === 'target-variants')
+        {
+            return null;
+        }
         if (source.kind === 'component-variants')
         {
             source.variantDefinitions = [...new Set(source.variants.map((variant) => componentFile(variant, new Set(seen))))];
@@ -236,6 +259,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 const value = record.variables.get(expression.text);
                 if (value)
                 {
+                    if (ts.isArrowFunction(unwrap(value)))
+                    {
+                        return bindFunctionalRender(record, unwrap(value));
+                    }
                     const declarations = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isVariableStatement)
                         .flatMap((statement) => statement.declarationList.declarations.filter((declaration) =>
                             ts.isIdentifier(declaration.name) && declaration.name.text === expression.text)));
@@ -282,6 +309,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 // A factory can only establish a source edge through its component argument.
                 return follow(expression.arguments[0]);
             }
+            if (ts.isArrowFunction(expression))
+            {
+                return bindFunctionalRender(record, expression);
+            }
             if (ts.isAsExpression(expression) || ts.isParenthesizedExpression(expression) || ts.isSatisfiesExpression(expression))
             {
                 return follow(expression.expression);
@@ -301,7 +332,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             {
                 fail(`unknown script component binding ${identity}`);
             }
-            unchangedBinding(record, name, declarations[0].name);
+            if (!ts.isArrowFunction(unwrap(expression)))
+            {
+                unchangedBinding(record, name, declarations[0].name);
+            }
         }
         if (!expression)
         {
@@ -321,12 +355,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     }
     function expression(source, file)
     {
-        const ast = ts.createSourceFile(file + '.expression.ts', `(${source});`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-        if (ast.parseDiagnostics.length || ast.statements.length !== 1 || !ts.isExpressionStatement(ast.statements[0]))
-        {
-            fail(`unknown expression ${file}: ${source}`);
-        }
-        return ast.statements[0].expression.expression;
+        return resolver.expression(source, file);
     }
     function routeBranch(record)
     {
@@ -851,15 +880,21 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     {
         const { setup, render, call } = binding;
         const branches = routeBranch(record);
+        value.collectionSources = [];
+        let callbackInputs = new Map();
         value.renderSource = { componentOffset: call.getStart(), componentDigest: controlDigest(call.getText()),
             setupOffset: setup.getStart(), setupDigest: controlDigest(setup.getText()),
             renderOffset: render.getStart(), renderDigest: controlDigest(render.getText()) };
+        if (binding.functional)
+        {
+            value.renderSource.functional = { ...binding.proofFacts, proofDigest: binding.proofDigest };
+        }
         const context = setup.parameters[1]?.name;
         const slotsElement = context && ts.isObjectBindingPattern(context) ? context.elements.find((element) =>
             (element.propertyName ?? element.name).getText() === 'slots') : null;
-        const slots = slotsElement && !slotsElement.initializer && !slotsElement.dotDotDotToken && ts.isIdentifier(slotsElement.name)
+        const slots = binding.functional ? binding.slots : slotsElement && !slotsElement.initializer && !slotsElement.dotDotDotToken && ts.isIdentifier(slotsElement.name)
             ? slotsElement.name.text : null;
-        if (slots)
+        if (slots && !binding.functional)
         {
             unchangedBinding(record, slots, slotsElement.name);
             function slotEscape(node)
@@ -895,7 +930,9 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 sourceDigest: controlDigest(node.getText()), ancestors, scopedBindings: [],
                 structural: origin.kind === 'framework-structure', conditional, slotInputs: { present: {}, unknown: false },
                 slot: tag === 'slot' ? { name: attributes.name ?? 'default' } : null, teleport: origin.publicName === 'Teleport',
-                sourceSyntax: syntax, renderPaths: [{ parentId, ancestors, conditional }] };
+                sourceSyntax: syntax, renderPaths: [{ parentId, ancestors, conditional,
+                    callbackInputs: [...callbackInputs].map(([name, input]) => ({ name, ...('index' in input ? { index: input.index }
+                        : { source: resolver.sourceStep(input.file, input.node) }) })) }] };
             const previous = nodes.get(id);
             if (previous)
             {
@@ -918,6 +955,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         function componentOrigin(node, jsx = false)
         {
+            if (binding.functional)
+            {
+                return functional.componentOrigin(record, node, jsx);
+            }
             if (jsx && ts.isIdentifier(node) && dom.parserOptions.isNativeTag(node.text))
             {
                 return { kind: 'native', name: node.text };
@@ -944,6 +985,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         function fields(properties)
         {
+            if (binding.functional)
+            {
+                properties = functional.fields(record, properties, binding);
+            }
             const attributes = {};
             const directives = [];
             const names = new Set();
@@ -985,6 +1030,28 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         function output(node, parentId = null, ancestors = [], conditional = [], seen = new Set())
         {
+            const candidate = unwrap(node);
+            if (candidate && ts.isIdentifier(candidate) && callbackInputs.has(candidate.text))
+            {
+                const input = callbackInputs.get(candidate.text);
+                if ('index' in input)
+                {
+                    return;
+                }
+                node = input.node;
+            }
+            if (binding.functional && node)
+            {
+                try
+                {
+                    node = functional.outputValue(record, node, binding);
+                }
+                catch (failure)
+                {
+                    error(node, failure.message);
+                    return;
+                }
+            }
             node = unwrap(node);
             if (!node || node.kind === ts.SyntaxKind.NullKeyword || node.kind === ts.SyntaxKind.TrueKeyword
                 || node.kind === ts.SyntaxKind.FalseKeyword || ts.isStringLiteral(node) || ts.isNumericLiteral(node))
@@ -995,6 +1062,14 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             {
                 if (ts.isIdentifier(node))
                 {
+                    const initializer = unwrap(record.variables.get(node.text));
+                    if (initializer && (ts.isArrayLiteralExpression(initializer)
+                        || ts.isCallExpression(initializer) && ts.isPropertyAccessExpression(initializer.expression)
+                            && ['map', 'filter'].includes(initializer.expression.name.text)))
+                    {
+                        collectionOutput(node, parentId, ancestors, conditional, seen);
+                        return;
+                    }
                     const declarations = [];
                     function find(candidate)
                     {
@@ -1045,16 +1120,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         {
                             if (child.dotDotDotToken)
                             {
-                                function finiteArray(node)
-                                {
-                                    node = unwrap(node);
-                                    return node && (ts.isArrayLiteralExpression(node) && node.elements.every((element) => !ts.isSpreadElement(element))
-                                        || ts.isConditionalExpression(node) && finiteArray(node.whenTrue) && finiteArray(node.whenFalse));
-                                }
-                                if (!finiteArray(child.expression))
-                                {
-                                    fail(`unknown JSX child spread ${record.file}:${child.getStart()}`);
-                                }
+                                collectionOutput(child.expression, current.id, [...ancestors, current.id], conditional, seen);
+                                continue;
                             }
                             output(child.expression, current.id, [...ancestors, current.id], conditional, new Set(seen));
                         }
@@ -1086,12 +1153,28 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 }
                 if (ts.isArrayLiteralExpression(node))
                 {
-                    node.elements.forEach((element) => output(element, parentId, ancestors, conditional, new Set(seen)));
+                    collectionOutput(node, parentId, ancestors, conditional, seen);
                     return;
                 }
                 if (ts.isCallExpression(node))
                 {
                     const callee = node.expression;
+                    if (ts.isPropertyAccessExpression(callee) && ['map', 'filter'].includes(callee.name.text))
+                    {
+                        collectionOutput(node, parentId, ancestors, conditional, seen);
+                        return;
+                    }
+                    if (binding.functional)
+                    {
+                        const slot = functional.slotCall(record, node, binding);
+                        if (slot)
+                        {
+                            const current = add(node, 'slot', { kind: 'framework-structure', package: 'vue', publicName: 'slot' },
+                                parentId, ancestors, conditional, { name: slot.name });
+                            current.slotSource = slot;
+                            return;
+                        }
+                    }
                     if (slots && ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression)
                         && callee.expression.text === slots && callee.name.text === 'default' && !node.arguments.length)
                     {
@@ -1127,6 +1210,25 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             catch (failure)
             {
                 error(node, failure.message);
+            }
+        }
+        function collectionOutput(node, parentId, ancestors, conditional, seen)
+        {
+            const { outputs, ...proof } = collections.collect(record.file, node);
+            value.collectionSources.push(proof);
+            const previous = callbackInputs;
+            try
+            {
+                for (const item of outputs)
+                {
+                    callbackInputs = new Map([...previous, ...item.bindings]);
+                    output(item.node, parentId, ancestors,
+                        [...conditional, ...item.conditions.map(({ name, expression }) => ({ name, expression }))], new Set(seen));
+                }
+            }
+            finally
+            {
+                callbackInputs = previous;
             }
         }
         function flow(node, conditional = [])
@@ -1169,7 +1271,21 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             error(node, `unknown script render flow ${record.file}:${node.getStart()}`);
             return false;
         }
-        if (ts.isBlock(render.body))
+        if (binding.functional)
+        {
+            for (const branch of binding.branches)
+            {
+                for (const condition of branch.conditional)
+                {
+                    if (branches.usesRouteName(expression(condition.expression, record.file)))
+                    {
+                        errors.push({ ...location(record.file, branch.node?.getStart() ?? render.getStart()), reason: 'route-name-visual-branch' });
+                    }
+                }
+                output(branch.node, null, [], branch.conditional);
+            }
+        }
+        else if (ts.isBlock(render.body))
         {
             if (!flow(render.body))
             {
@@ -1317,7 +1433,23 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     origin = ts.isIdentifier(exp) ? nativePropTargets(record, exp.text) : nativeFunctionTargets(record, exp, localNames);
                     if (!origin)
                     {
-                        const targets = resolver.resolveComponentInput(file, exp, { templateRefs: true });
+                        let targets;
+                        try
+                        {
+                            targets = resolver.resolveComponentInput(file, exp, { templateRefs: true });
+                        }
+                        catch (originalError)
+                        {
+                            try
+                            {
+                                targets = resolver.resolveFiniteRefSelector(file, exp,
+                                    { templateRefs: true, shadowedNames: localNames, selectorOffset: offset });
+                            }
+                            catch (selectorError)
+                            {
+                                fail(`${originalError.message}; ${selectorError.message}`);
+                            }
+                        }
                         if (targets.some((target) => target.selectorSource && localNames.has(target.selectorSource.name)))
                         {
                             fail(`template-shadowed returned component selector ${file}:${offset}`);
@@ -1343,7 +1475,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         }
                         else if (targets.length !== 1)
                         {
-                            fail(`ambiguous dynamic component ${file}:${offset}`);
+                            origin = resolveCompositionTargetOrigin({ resolver, componentFile, nodes }, file, exp,
+                                { scopedBindings: [...localNames] });
                         }
                         else
                         {
@@ -1460,8 +1593,9 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
         }
         entryFiles.forEach(visit);
-        const graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+        let graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
         const nativePropBindings = [];
+        const targetBindings = [];
         const nativePropErrors = [];
         const componentPropBindings = [];
         const componentPropErrors = [];
@@ -1868,12 +2002,36 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             return results.map((result) => ({ ...result, callPath: [call.id, ...result.callPath] }));
         }
+        function targetInputs(node)
+        {
+            const calls = graphNodes.filter((call) => call.definition === node.file);
+            if (!calls.length)
+            {
+                fail(`missing actual target supplier ${node.file}#${node.origin.property}`);
+            }
+            return calls.flatMap((call) =>
+            {
+                const value = staticPropValue(resolver.parse(node.file), call, node.origin.property);
+                const inputs = typeof value === 'string' && dom.parserOptions.isNativeTag(value)
+                    ? [{ target: { kind: 'native', name: value }, callPath: [call.id] }]
+                    : componentInput(call, node.origin.property);
+                if (!inputs.length)
+                {
+                    fail(`missing actual target input ${node.file}#${node.origin.property}`);
+                }
+                return inputs;
+            });
+        }
+        const supplierContext = { graph: null, digest: null, resolve: targetInputs, nodes: () => graphNodes };
+        const initialNodes = graphNodes;
+        targetSuppliers.set(initialNodes, supplierContext);
         for (const node of graphNodes.filter((node) => node.origin.kind === 'native-prop'))
         {
             const calls = graphNodes.filter((call) => call.definition === node.file);
             if (!calls.length)
             {
                 nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property });
+                continue;
             }
             for (const call of calls)
             {
@@ -1883,11 +2041,13 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     const inputs = typeof value === 'string' && dom.parserOptions.isNativeTag(value)
                         ? [{ target: { kind: 'native', name: value }, callPath: [call.id] }]
                         : componentInput(call, node.origin.property);
-                    for (const input of inputs)
+                    // Imported targets are source facts. A missing rendered
+                    // framework/component supplier remains an acceptance gap.
+                    for (const input of inputs.filter(({ target }) => target?.kind === 'native'))
                     {
                         if (input.target?.kind !== 'native' || !dom.parserOptions.isNativeTag(input.target.name))
                         {
-                            fail(`unknown native prop input ${node.file}#${node.origin.property}`);
+                            fail(`unbound rendered target supplier ${node.file}#${node.origin.property}`);
                         }
                         nativePropBindings.push({ sourceNode: node.id, callNode: call.id, tag: input.target.name,
                             callPath: input.callPath, inputDigests: input.callPath.map((id) =>
@@ -1896,11 +2056,42 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                                 return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
                             }), inputDigest: controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }) });
                     }
+                    if (inputs.some(({ target }) => target?.kind !== 'native'))
+                    {
+                        fail(`unbound rendered target supplier ${node.file}#${node.origin.property}`);
+                    }
                 }
                 catch (error)
                 {
                     nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property, callNode: call.id, message: error.message });
                 }
+            }
+            try
+            {
+                const inputs = targetInputs(node);
+                const requiresTargetProof = Boolean(resolver.componentPropDeclaration(node.file, node.origin.property))
+                    || inputs.some(({ target }) => target?.kind !== 'native');
+                if (requiresTargetProof)
+                {
+                    const bound = bindCompositionTargetInputs(api, node, inputs, graphNodes);
+                    if (bound.length !== inputs.length || bound.some((binding, index) => binding.sourceNode !== node.id
+                        || controlDigest(binding.callPath) !== controlDigest(inputs[index].callPath)
+                        || controlDigest(binding.target) !== controlDigest(inputs[index].target)))
+                    {
+                        fail(`incomplete actual target supplier set ${node.file}#${node.origin.property}`);
+                    }
+                    targetBindings.push(...bound);
+                    for (const binding of bound.filter(({ definition }) => definition))
+                    {
+                        parse(binding.definition);
+                        visit(binding.definition);
+                    }
+                }
+            }
+            catch (error)
+            {
+                nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-target-supplier-source',
+                    property: node.origin.property, message: error.message });
             }
         }
         // Bind every deferred prop to its actual calls. Names and declared types
@@ -2067,13 +2258,87 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 }
             }
         }
-        const bindings = resolver.sourceBindings();
-        errors.push(...bindings.errors);
-        return { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
+        const slotBindings = [];
+        const slotErrors = [];
+        const slotGraph = { nodes: [...nodes.values()].filter((node) => reachable.has(node.file)) };
+        const slotSource = createCompositionSlotSource({ source: { resolver, nodes, records, componentFile, expression } });
+        for (const slot of slotGraph.nodes.filter((node) => node.tag === 'slot'))
+        {
+            for (const call of slotGraph.nodes.filter((node) => node.definition === slot.file
+                && node.slotInputs.present[slot.slot?.name ?? 'default'] === true))
+            {
+                try
+                {
+                    const supplier = slotSource.bindSlot({ graph: slotGraph, callNode: call.id, name: slot.slot?.name ?? 'default' });
+                    let invocation = null;
+                    function find(node)
+                    {
+                        if (ts.isCallExpression(node) && node.getStart() === slot.offset)
+                        {
+                            invocation = node;
+                        }
+                        ts.forEachChild(node, find);
+                    }
+                    if (records.get(slot.file).renderSource)
+                    {
+                        resolver.parse(slot.file).scripts.forEach(({ ast }) => find(ast));
+                        if (!invocation)
+                        {
+                            fail(`missing actual slot invocation ${slot.file}:${slot.offset}`);
+                        }
+                        const result = slotSource.invokeSlot({ graph: slotGraph, binding: supplier, file: slot.file, invocation });
+                        slotBindings.push({ sourceNode: slot.id, supplier, result });
+                    }
+                    else
+                    {
+                        slotBindings.push({ sourceNode: slot.id, supplier, result: null });
+                    }
+                }
+                catch (error)
+                {
+                    slotErrors.push({ ...location(slot.file, slot.offset), reason: 'unbound-slot-source', sourceNode: slot.id,
+                        callNode: call.id, message: error.message });
+                }
+            }
+        }
+        const finalBindings = resolver.sourceBindings();
+        errors.push(...finalBindings.errors);
+        graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+        const graphResult = { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
             files: [...records.values()].filter((record) => reachable.has(record.file)),
-            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings,
-            objectKeyAbsenceProofs: [...new Map(objectKeyAbsenceProofs.map((proof) => [proof.proofDigest, proof])).values()], resolverInputs: bindings.files,
-            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors], sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
+            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings, targetBindings, slotBindings,
+            objectKeyAbsenceProofs: [...new Map(objectKeyAbsenceProofs.map((proof) => [proof.proofDigest, proof])).values()], resolverInputs: finalBindings.files,
+            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors, ...slotErrors],
+            sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })),
+                resolverInputs: finalBindings.files, targetBindings, slotBindings,
+                targetOrigins: slotGraph.nodes.filter((node) => node.origin.kind === 'target-variants').map((node) => ({ sourceNode: node.id, origin: node.origin })),
+                functionalSources: [...records.values()].filter((record) => reachable.has(record.file) && record.renderSource?.functional)
+                    .map((record) => ({ file: record.file, source: record.renderSource.functional })),
+                collectionSources: [...records.values()].filter((record) => reachable.has(record.file) && record.collectionSources?.length)
+                    .map((record) => ({ file: record.file, sources: record.collectionSources })) }) };
+        targetSuppliers.delete(initialNodes);
+        supplierContext.graph = graphResult;
+        supplierContext.digest = controlDigest(graphResult);
+        targetSuppliers.set(graphResult, supplierContext);
+        targetSuppliers.set(graphResult.nodes, supplierContext);
+        return graphResult;
+    }
+    function resolveTargetInputs(node, graph)
+    {
+        const context = targetSuppliers.get(graph);
+        if (!context || !context.nodes().includes(node) || nodes.get(node?.id) !== node || node.origin.kind !== 'native-prop')
+        {
+            fail('target supplier requires its actual canonical graph and source node');
+        }
+        if (context.graph && context.digest !== controlDigest(context.graph))
+        {
+            fail('canonical target supplier graph changed');
+        }
+        if (resolver.sourceBindings().errors.length)
+        {
+            fail('canonical target supplier source changed');
+        }
+        return structuredClone(context.resolve(node));
     }
     function instrument(file, code)
     {
@@ -2098,7 +2363,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         return code;
     }
-    return { resolver, parse, graph, instrument, importFile, componentFile, expression, nodes, records, errors };
+    const api = { resolver, parse, graph, instrument, importFile, componentFile, expression, nodes, records, errors, resolveTargetInputs };
+    return api;
 }
 
 /** Test-only transform. It never writes product source or replaces the actual compiler. */

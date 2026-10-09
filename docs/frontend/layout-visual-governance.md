@@ -348,6 +348,64 @@ rejection. TableV2's conjunction syntax now exposes its actual guarded renderer
 locations; unsupported renderer definitions and scoped slot objects still fail.
 Logical disjunctions and nullish render fallbacks receive no inferred source.
 
+Source submodules use the original canonical resolver records and parsers.
+`resolveSourceFunction` follows the existing actual function/import binding;
+`assertImmutableBinding` checks unique immutable binding and writes, without
+claiming callback purity or proving argument escape. `sourceStep` accepts only
+nodes in the resolver's actual script AST with matching original source bytes.
+Synthetic expressions and foreign AST nodes cannot borrow a source identity.
+These helper facts confer no component admission, caller binding or qualification;
+their source steps and complete outputs must remain in the original digest and
+source-drift closure.
+
+The public `composition-target-source` module retains authored mixed target
+alternatives and actual component-call input provenance. Its implementation is
+part of the original analyzer source closure. A framework target carries no
+inferred rendered element or slot payload. Central graph and DOM binding remain
+required, and RouterView's exposed Component remains unbound without its actual
+supplier contract. These source facts do not establish runtime qualification.
+
+The original resolver follows facade export-star edges through `resolveImport`,
+preserving the actual public entry identity and upstream alias source closure.
+`source-ref-selectors` supplies bounded ref writes and actual iterable selectors;
+the original template resolver and composition graph retain every target and its
+complete proof. Unknown template scopes and supplier effects remain errors.
+
+The public functional and collection source modules feed the original render
+visitor. Their actual branches, immutable fields, collection elements, scalar
+callback inputs and source steps remain in the original graph and digest.
+Unknown helpers, open spreads, opaque callback outputs and escaped inputs remain
+rejected. Functional lexical slot edges establish no actual callback supplier.
+
+The public slot source module binds actual template suppliers and setup slot
+invocations. Proven child identity remains the child's original source identity.
+Scoped, conditional, forwarded or script callback suppliers without a complete
+proof now retain `unbound-slot-source` errors. Pure DOM matching can join a mixed
+selector to a unique actual component definition branch; matching tag text cannot
+identify a native or framework branch. Their missing rendered supplier remains
+open, as do runtime route state, geometry and visual acceptance.
+
+The analyzer closure binds both canonical package export manifests as well as
+all actual implementation modules. Target prop proofs are checked against the
+complete actual input list for each discovered supplier; an incomplete or
+substituted output is rejected. Module unit results do not replace independent
+review: outstanding functional effects/local-proof and target escape repairs
+remain source acceptance gates until their owners publish verified corrections.
+
+Canonical component object and computed selector checks reject identity escapes
+through nested arrays, objects and callbacks, in addition to direct suppliers.
+Scalar truthiness/comparison reads retain no object identity. Owning declarations
+remain lexical source context; none of these checks proves ref/provider effects
+or replaces an actual callback supplier contract.
+
+`source.resolveTargetInputs(node, graphOrOriginalNodes)` exposes the original
+`staticPropValue`/`componentInput` calculation for every actual supplying call.
+It returns the complete ordered `{target, callPath}` set with forwarding intact.
+Only this source instance's actual node and unchanged graph or original node
+array are accepted. Unknown suppliers, omitted/substituted graph arrays and
+source drift are rejected; returned identities are isolated from resolver state.
+This is source provenance, not a rendered supplier or runtime permission proof.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

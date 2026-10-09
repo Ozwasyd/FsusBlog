@@ -19,7 +19,7 @@ function graph(output, prefix = '', imports = '')
     return createCompositionSource({ repositoryRoot, fsusUIRoot }).graph([file]);
 }
 
-test('actual TableV2 conjunction guards retain unknown renderer and slot body rejection', () =>
+test('actual TableV2 conjunction guards retain functional renderer source and unknown slot body rejection', () =>
 {
     const file = resolve(fsusUIRoot, 'vue/packages/components/table-v2/src/table-v2.tsx');
     const result = createCompositionSource({ repositoryRoot, fsusUIRoot }).graph([file]);
@@ -28,8 +28,9 @@ test('actual TableV2 conjunction guards retain unknown renderer and slot body re
         const node = result.nodes.find((node) => node.file === file && node.tag === tag);
         assert.ok(node, tag);
         assert.deepEqual(node.conditional, [{ name: 'if', expression: condition }]);
-        assert.equal(node.origin.kind, 'unknown');
-        assert.ok(result.errors.some((error) => error.file === file && error.offset === node.offset));
+        assert.equal(node.origin.kind, 'local');
+        assert.ok(node.definition.endsWith(`/renderers/${tag.toLowerCase()}.tsx`));
+        assert.ok(result.files.find((entry) => entry.file === node.definition).renderSource.functional.proofDigest);
     }
     assert.ok(result.errors.some((error) => error.message?.includes('unknown/reserved script render attribute')));
     assert.ok(result.errors.some((error) => error.message?.includes('default: slots.')));
@@ -47,7 +48,9 @@ test('render conjunction preserves the actual imported public component source',
 {
     const result = graph('productState && <ElIcon><Glyph/></ElIcon>', '',
         'import {ElIcon} from "@ozwasyd/element-plus";import {Check as Glyph} from "@ozwasyd/element-plus/icons-vue";');
-    assert.deepEqual(result.errors, []);
+    assert.equal(result.errors.length, 1);
+    assert.equal(result.errors[0].reason, 'unbound-slot-source');
+    assert.match(result.errors[0].message, /script slot supplier requires actual callback invocation binding/);
     const component = result.nodes.find((node) => node.tag === 'ElIcon');
     assert.equal(component.origin.kind, 'fsusui-public');
     assert.deepEqual(component.conditional, [{ name: 'if', expression: 'productState' }]);

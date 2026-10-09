@@ -5,6 +5,7 @@
     "type": "module",
     "exports": {
         "./source": "./source.mjs",
+        "./source-ref-selectors": "./source-ref-selectors.mjs",
         "./admission": "./admission.mjs"
     },
     "dependencies": {

@@ -40,7 +40,10 @@ test('actual Dropdown and RovingFocus factory calls bind their arguments, field 
     const entry = fixture('Public.vue', '<script setup>import {ElDropdownItem} from "@ozwasyd/element-plus";</script><template><ElDropdownItem/></template>');
     const source = createCompositionSource({ repositoryRoot, fsusUIRoot });
     const result = source.graph([entry]);
-    assert.deepEqual(result.errors, []);
+    assert.equal(result.errors.length, 3);
+    assert.ok(result.errors.every((error) => error.reason === 'unbound-slot-source'));
+    assert.deepEqual(result.errors.map((error) => error.file.split('/').at(-1)).sort(),
+        ['dropdown-item-impl.vue', 'icon.vue', 'roving-focus-item.vue']);
     const calls = result.nodes.filter((node) => node.origin.factoryComponent);
     assert.equal(calls.length, 2);
     assert.deepEqual(calls.map((node) => node.origin.factoryComponent.arguments[0]).sort(), ['Dropdown', 'RovingFocusGroup']);

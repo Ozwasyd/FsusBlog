@@ -125,7 +125,10 @@ test('slot branches, teleport and responsive directives retain concrete node loc
     fixture('<template><slot :open="true"/></template>', 'SlotOwner.vue');
     const file = fixture('<script setup>import SlotOwner from "./SlotOwner.vue"</script><template><section><SlotOwner><template #default="scope"><p v-if="scope.open">A</p><p v-else>B</p></template></SlotOwner><Teleport to="body"><aside v-show="open">X</aside></Teleport></section></template>');
     const graph = source().graph([file]);
-    assert.deepEqual(graph.errors, []);
+    assert.equal(graph.errors.length, 1);
+    assert.equal(graph.errors[0].reason, 'unbound-slot-source');
+    assert.match(graph.errors[0].message, /unbound scoped\/conditional slot supplier/);
+    assert.equal(graph.slotBindings.length, 0);
     assert.ok(graph.nodes.some((node) => node.slot));
     assert.equal(graph.nodes.filter((node) => node.file === file && node.conditional.length).length, 3);
     assert.ok(graph.nodes.some((node) => node.teleport));
