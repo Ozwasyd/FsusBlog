@@ -206,6 +206,26 @@
     "cleanup-binding-cceae3d9-focused.log": "8f697a1a7903661726fb9b3f7096f43b42f8e9e20967f43e718a5744a9423bda",
     "cleanup-binding-cceae3d9-focused.trx": "846f24ed68cccb98353ee212453969c1afe38dcf4f15ea47261112a738d5a16b",
     "cleanup-binding-cceae3d9-focused-docker-events.jsonl": "99ee1b39e8fb7d63a3e5ef02398b7ce3451d2f2e4996523297c68689c720f110",
-    "cleanup-binding-cceae3d9-focused-remaining-containers.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    "cleanup-binding-cceae3d9-focused-remaining-containers.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "README.md": "15ed676db3e6e6961978850ed80a7b5fd120f1bb7048ffc099ab3de9f76940aa",
+    "di-owner3735.patch": "478d46bc8c7bf3d709b8ee34c758ba8b77b8d4bef644ea84eeabc519cb04c306",
+    "external-naming.json": "0d73a11ec9491599369b6e1e851246953b2a35ab7228b9595d26881264026e01",
+    "issue-status.md": "325ba8298dd492d034a83b9904017a2913d4c82385c16565162f279ef70d57e9",
+    "pr-metadata-initial-failure.json": "2f48881c2df5b6351cf83cc5f5ec64bca06894dead4ef518adba20bd19946f78",
+    "pr-metadata-final.json": "80e3cd224a67cca100de0799aad299ed60d9980c563451c52679c3be0f94e9f5",
+    "pr-payload.json": "83aa78d00a5e8c9949684166dfcecd029233b413b17fff43c06468f385fc7806",
+    "pull-request-body.md": "5fbbb5e390c663b09f81eb5346ce5c89e119bfce8e0f8c21c2eb7e3335efe6bb",
+    "incremental-commit-contract.log": "796cb05676b8f33774edd7c60b46322228a2addbd80114360a78855085ff6528"
+  },
+  "offlinePrMetadata": {
+    "exitCode": 0,
+    "testedEvidenceHead": "b1e78b3df4e9e7307da626d0e5c2134a1145a9ce",
+    "path": "artifacts/article-vault/cleanup-business-binding/cceae3d9c418/pr-metadata-final.json",
+    "scope": "incremental metadata only; not remote checks or full master-diff acceptance"
+  },
+  "incrementalCommitContract": {
+    "exitCode": 0,
+    "base": "69477c07466ff159e35b26d469dcdd2fefc13601",
+    "head": "b1e78b3df4e9e7307da626d0e5c2134a1145a9ce"
   }
 }

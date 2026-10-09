@@ -1,0 +1,7 @@
+{
+  "scope": "offline full incremental metadata validation only; not remote checks, merge-ready or full master-diff acceptance",
+  "head": "b1e78b3df4e9e7307da626d0e5c2134a1145a9ce",
+  "base": "69477c07466ff159e35b26d469dcdd2fefc13601",
+  "errors": [],
+  "exitCode": 0
+}
