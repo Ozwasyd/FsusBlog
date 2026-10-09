@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/development/document-lifecycle.json",
+        "docs/testing/zap-baseline-result-outlet.md"
+    ],
+    "outputs": [
+        {
+            "path": "config/development/document-inventory.generated.json",
+            "sha256": "b98ecd8071d20b8385cfc56d848dc9881a6290492dd84a8f4201a6f792c69521"
+        },
+        {
+            "path": "docs/index.md",
+            "sha256": "725096c7728276236e65e47c7925420302f772127922424a2e92ddc2c3947050"
+        }
+    ]
+}
