@@ -26,7 +26,7 @@ function localGraph(guard, { supplied = '', script = '', prefix = '' } = {})
     return createCompositionSource({ repositoryRoot, fsusUIRoot }).graph([entry]);
 }
 
-test('actual Switch conjunctive else-if guards bind absent action icons without discarding its unknown selector', () =>
+test('actual Switch action guards remain intact when missing icon alternatives have separate call proof', () =>
 {
     const entry = fixture('Switch.vue', '<script setup>import {ElSwitch} from "@ozwasyd/element-plus";</script><template><ElSwitch/><ElSwitch/><ElSwitch/></template>');
     const graph = createCompositionSource({ repositoryRoot, fsusUIRoot }).graph([entry]);
@@ -38,8 +38,12 @@ test('actual Switch conjunctive else-if guards bind absent action icons without 
     assert.ok(bindings.every((entry) => entry.absent && entry.target === null && entry.absenceGuard.directive === 'else-if'));
     assert.ok(bindings.every((entry) => entry.absenceGuard.expressionDigest === controlDigest(entry.absenceGuard.expression)));
     assert.ok(graph.errors.every((error) => !error.file?.endsWith('/switch/src/switch.vue') || ![1591, 1718].includes(error.offset)));
-    assert.ok(graph.errors.some((error) => error.file?.endsWith('/switch/src/switch.vue') && error.offset === 1063
-        && error.reason === 'unknown-component-source'));
+    const selector = graph.nodes.find((node) => node.file.endsWith('/switch/src/switch.vue') && node.offset === 1063);
+    const selectorBindings = graph.componentPropBindings.filter((entry) => entry.sourceNode === selector.id);
+    assert.equal(selectorBindings.length, 3);
+    assert.ok(selectorBindings.every((entry) => entry.absent && entry.target === null
+        && new Set(entry.absenceGuard.properties).size === 2));
+    assert.ok(graph.errors.every((error) => !error.file?.endsWith('/switch/src/switch.vue') || error.offset !== 1063));
 });
 
 for (const guard of ['v-if="glyph && state"', 'v-if="state && (glyph)"', 'v-if="state && (other && glyph)"', 'v-else-if="glyph && state"'])

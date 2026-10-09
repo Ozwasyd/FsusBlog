@@ -6,8 +6,8 @@ import test from 'node:test';
 import { loadCompositionInputs } from '@fsusblog/layout-governance/composition-contracts';
 import { captureCompositionDom } from '@fsusblog/layout-governance/composition-dom';
 
-import { captureCompositionGeometry, probeCompositionGeometryPage } from '../frontend/support/layout/compositionGeometry.mjs';
-import { captureCompositionOrderGeometry, compareCompositionOrderGeometry } from '../frontend/support/layout/compositionOrderGeometry.mjs';
+import { captureCompositionGeometry, probeCompositionGeometryPage } from '@fsusblog/layout-governance/composition-geometry';
+import { captureCompositionOrderGeometry, compareCompositionOrderGeometry } from '@fsusblog/layout-governance/composition-order-geometry';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const inputs = loadCompositionInputs({ repositoryRoot });

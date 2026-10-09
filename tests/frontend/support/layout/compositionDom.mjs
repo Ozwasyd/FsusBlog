@@ -166,7 +166,11 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
                     {
                         visit(child.definition);
                     }
-                    if (child.origin.kind === 'component-prop' && child.file.startsWith(graph.upstreamRoot + '/'))
+                    if (child.origin.kind === 'component-variants' && child.file.startsWith(graph.upstreamRoot + '/'))
+                    {
+                        child.definitions?.forEach(visit);
+                    }
+                    if (['component-prop', 'component-prop-variants'].includes(child.origin.kind) && child.file.startsWith(graph.upstreamRoot + '/'))
                     {
                         const binding = matchCompositionComponentProp(graph, child, ancestry(node));
                         if (binding?.definition?.startsWith(graph.upstreamRoot + '/'))
@@ -194,7 +198,7 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
         }
         const chain = ancestry(node);
         const dynamic = chain.map((ancestor) => sourceNodes.get(ancestor.sourceCall))
-            .filter((candidate) => candidate?.origin.kind === 'component-prop');
+            .filter((candidate) => ['component-prop', 'component-prop-variants'].includes(candidate?.origin.kind));
         for (const prop of dynamic)
         {
             const binding = matchCompositionComponentProp(graph, prop, chain);
@@ -206,13 +210,40 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
                     return;
                 }
                 reachable.add(file);
-                graph.nodes.filter((entry) => entry.file === file && entry.definition).forEach((entry) => visit(entry.definition));
+                graph.nodes.filter((entry) => entry.file === file).forEach((entry) =>
+                {
+                    visit(entry.definition);
+                    entry.definitions?.forEach(visit);
+                });
             }
             visit(binding?.definition);
             if (!binding?.target || binding.absent || (binding.target.kind === 'native'
                 ? node.tag !== binding.target.name : !reachable.has(source.file)))
             {
                 errors.push(error('unknown-rendered-component-prop', node, { sourceNode: prop.id }));
+            }
+        }
+        for (const selector of chain.map((ancestor) => sourceNodes.get(ancestor.sourceCall))
+            .filter((candidate) => candidate?.origin.kind === 'component-variants'))
+        {
+            const reachable = new Set();
+            function visit(file)
+            {
+                if (!file || reachable.has(file))
+                {
+                    return;
+                }
+                reachable.add(file);
+                graph.nodes.filter((entry) => entry.file === file).forEach((entry) =>
+                {
+                    visit(entry.definition);
+                    entry.definitions?.forEach(visit);
+                });
+            }
+            selector.definitions?.forEach(visit);
+            if (source.id !== selector.id && !reachable.has(source.file))
+            {
+                errors.push(error('unknown-rendered-component-variant', node, { sourceNode: selector.id }));
             }
         }
         if (source.origin.kind === 'native' && source.tag !== node.tag)

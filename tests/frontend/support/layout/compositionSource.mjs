@@ -22,6 +22,127 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     const records = new Map();
     const nodes = new Map();
     const errors = [];
+    const scriptRenders = new Map();
+    const unwrap = (node) =>
+    {
+        while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)))
+        {
+            node = node.expression;
+        }
+        return node;
+    };
+    function unchangedBinding(record, name, declaration)
+    {
+        let invalid = false;
+        function rootName(node)
+        {
+            node = unwrap(node);
+            while (node && (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)))
+            {
+                node = unwrap(node.expression);
+            }
+            return node && ts.isIdentifier(node) ? node.text : null;
+        }
+        function visit(node)
+        {
+            if (ts.isIdentifier(node) && node.text === name && node !== declaration
+                && ((ts.isVariableDeclaration(node.parent) || ts.isParameter(node.parent) || ts.isBindingElement(node.parent))
+                    && node.parent.name === node))
+            {
+                invalid = true;
+            }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment && rootName(node.left) === name)
+            {
+                invalid = true;
+            }
+            if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+                && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) && rootName(node.operand) === name)
+            {
+                invalid = true;
+            }
+            if (ts.isDeleteExpression(node) && rootName(node.expression) === name)
+            {
+                invalid = true;
+            }
+            ts.forEachChild(node, visit);
+        }
+        record.scripts.forEach(({ ast }) => visit(ast));
+        if (invalid)
+        {
+            fail(`mutated/shadowed render binding ${record.file}#${name}`);
+        }
+    }
+    function vueBinding(record, node, exportedName)
+    {
+        if (!node || !ts.isIdentifier(node))
+        {
+            return false;
+        }
+        const imported = record.imports.get(node.text);
+        if (imported?.specifier !== 'vue' || imported.name !== exportedName)
+        {
+            return false;
+        }
+        const bindings = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isImportDeclaration)
+            .flatMap((statement) => statement.importClause?.namedBindings && ts.isNamedImports(statement.importClause.namedBindings)
+                ? statement.importClause.namedBindings.elements.filter((entry) => !entry.isTypeOnly && entry.name.text === node.text) : []));
+        if (bindings.length !== 1)
+        {
+            fail(`ambiguous Vue render import ${record.file}#${node.text}`);
+        }
+        unchangedBinding(record, node.text, bindings[0].name);
+        return true;
+    }
+    function bindScriptRender(record, call)
+    {
+        const options = call.arguments.length === 1 ? unwrap(call.arguments[0]) : null;
+        if (!options || !ts.isObjectLiteralExpression(options) || options.properties.some((property) => !property.name
+            || ts.isComputedPropertyName(property.name) || (!ts.isPropertyAssignment(property) && !ts.isMethodDeclaration(property))))
+        {
+            fail(`unknown script component options ${record.file}`);
+        }
+        const fields = options.properties.map((property) => property.name.text);
+        if (new Set(fields).size !== fields.length || fields.includes('render'))
+        {
+            fail(`ambiguous script component render ${record.file}`);
+        }
+        const setupField = options.properties.find((property) => property.name.text === 'setup');
+        const setup = setupField && ts.isPropertyAssignment(setupField) ? unwrap(setupField.initializer) : setupField;
+        if (!setup || !(ts.isMethodDeclaration(setup) || ts.isArrowFunction(setup) || ts.isFunctionExpression(setup))
+            || !ts.isBlock(setup.body) || setup.modifiers?.length)
+        {
+            fail(`unknown script component setup ${record.file}`);
+        }
+        const returns = setup.body.statements.filter(ts.isReturnStatement);
+        const render = returns.length === 1 && returns[0] === setup.body.statements.at(-1) ? unwrap(returns[0].expression) : null;
+        if (!render || !ts.isArrowFunction(render) || render.parameters.length || render.modifiers?.length)
+        {
+            fail(`unknown script component render function ${record.file}`);
+        }
+        // A setup branch can replace the render function even when its final
+        // statement is known. Nested callbacks do not return from setup.
+        function setupFlow(node)
+        {
+            if (ts.isFunctionLike(node))
+            {
+                return;
+            }
+            if (ts.isReturnStatement(node) && node !== returns[0])
+            {
+                fail(`conditional script setup return ${record.file}`);
+            }
+            ts.forEachChild(node, setupFlow);
+        }
+        setup.body.statements.forEach(setupFlow);
+        const previous = scriptRenders.get(record.file);
+        if (previous && previous.call !== call)
+        {
+            fail(`multiple script component definitions ${record.file}`);
+        }
+        scriptRenders.set(record.file, { call, setup, render });
+        return record.file;
+    }
     const location = (file, offset) => ({ file, offset,
         line: readFileSync(file, 'utf8').slice(0, offset).split('\n').length });
     const key = (file) => file.startsWith(upstream + '/') ? `FsusUI/${relative(upstream, file)}` : `FsusBlog/${relative(root, file)}`;
@@ -55,6 +176,15 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     function componentFile(source, seen = new Set())
     {
         let target = null;
+        if (source.kind === 'component-variants')
+        {
+            source.variantDefinitions = [...new Set(source.variants.map((variant) => componentFile(variant, new Set(seen))))];
+            if (source.variantDefinitions.some((definition) => !definition))
+            {
+                fail('unknown finite component variant render source');
+            }
+            return null;
+        }
         if (source.kind === 'local' || source.kind === 'upstream-internal')
         {
             target = source.file.endsWith('.vue') ? source.file : exportComponent(source.file, source.name, seen);
@@ -105,6 +235,15 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 const value = record.variables.get(expression.text);
                 if (value)
                 {
+                    const declarations = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isVariableStatement)
+                        .flatMap((statement) => statement.declarationList.declarations.filter((declaration) =>
+                            ts.isIdentifier(declaration.name) && declaration.name.text === expression.text)));
+                    if (declarations.length !== 1 || !(declarations[0].parent.flags & ts.NodeFlags.Const)
+                        || declarations[0].initializer !== value)
+                    {
+                        fail(`unknown script component binding ${identity}`);
+                    }
+                    unchangedBinding(record, expression.text, declarations[0].name);
                     return follow(value);
                 }
             }
@@ -135,6 +274,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             if (ts.isCallExpression(expression) && expression.arguments.length)
             {
+                if (vueBinding(record, expression.expression, 'defineComponent'))
+                {
+                    return bindScriptRender(record, expression);
+                }
                 // A factory can only establish a source edge through its component argument.
                 return follow(expression.arguments[0]);
             }
@@ -144,7 +287,21 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             fail(`unknown component factory ${identity}`);
         }
-        const expression = record.variables.get(name);
+        const defaults = name === 'default' ? record.scripts.flatMap(({ ast }) => ast.statements
+            .filter((statement) => ts.isExportAssignment(statement) && !statement.isExportEquals)) : [];
+        const expression = defaults.length === 1 ? defaults[0].expression : record.variables.get(name);
+        if (expression && !defaults.length)
+        {
+            const declarations = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isVariableStatement)
+                .flatMap((statement) => statement.declarationList.declarations.filter((declaration) =>
+                    ts.isIdentifier(declaration.name) && declaration.name.text === name)));
+            if (declarations.length !== 1 || !(declarations[0].parent.flags & ts.NodeFlags.Const)
+                || declarations[0].initializer !== expression)
+            {
+                fail(`unknown script component binding ${identity}`);
+            }
+            unchangedBinding(record, name, declarations[0].name);
+        }
         if (!expression)
         {
             const factory = resolver.resolveFactoryComponent(file, name);
@@ -644,6 +801,331 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         return { kind: 'native-variants', values: [...values], function: call.expression.text };
     }
+    function parseScriptRender(record, value, binding)
+    {
+        const { setup, render, call } = binding;
+        const branches = routeBranch(record);
+        value.renderSource = { componentOffset: call.getStart(), componentDigest: controlDigest(call.getText()),
+            setupOffset: setup.getStart(), setupDigest: controlDigest(setup.getText()),
+            renderOffset: render.getStart(), renderDigest: controlDigest(render.getText()) };
+        const context = setup.parameters[1]?.name;
+        const slotsElement = context && ts.isObjectBindingPattern(context) ? context.elements.find((element) =>
+            (element.propertyName ?? element.name).getText() === 'slots') : null;
+        const slots = slotsElement && !slotsElement.initializer && !slotsElement.dotDotDotToken && ts.isIdentifier(slotsElement.name)
+            ? slotsElement.name.text : null;
+        if (slots)
+        {
+            unchangedBinding(record, slots, slotsElement.name);
+            function slotEscape(node)
+            {
+                if (ts.isIdentifier(node) && node.text === slots && ts.isCallExpression(node.parent)
+                    && node.parent.arguments.includes(node) && !vueBinding(record, node.parent.expression, 'renderSlot'))
+                {
+                    fail(`escaped script render slots ${record.file}#${slots}`);
+                }
+                ts.forEachChild(node, slotEscape);
+            }
+            slotEscape(setup.body);
+        }
+        function error(node, message)
+        {
+            errors.push({ ...location(record.file, node.getStart()), reason: 'unknown-render-source', message });
+        }
+        function add(node, tag, origin, parentId, ancestors, conditional, attributes = {}, directives = [], syntax = null)
+        {
+            const offset = node.getStart();
+            const id = controlDigest({ file: key(record.file), offset, source: node.getText() }).slice(0, 24);
+            let definition = null;
+            try
+            {
+                definition = componentFile(origin);
+            }
+            catch (failure)
+            {
+                origin = { kind: 'unknown', message: failure.message };
+                error(node, failure.message);
+            }
+            const current = { id, ...location(record.file, offset), tag, parentId, attributes, directives, origin, definition,
+                sourceDigest: controlDigest(node.getText()), ancestors, scopedBindings: [],
+                structural: origin.kind === 'framework-structure', conditional, slotInputs: { present: {}, unknown: false },
+                slot: tag === 'slot' ? { name: attributes.name ?? 'default' } : null, teleport: origin.publicName === 'Teleport',
+                sourceSyntax: syntax, renderPaths: [{ parentId, ancestors, conditional }] };
+            const previous = nodes.get(id);
+            if (previous)
+            {
+                if (previous.parentId !== parentId || controlDigest(previous.origin) !== controlDigest(origin))
+                {
+                    fail(`ambiguous script render reuse ${record.file}:${offset}`);
+                }
+                previous.renderPaths.push(...current.renderPaths);
+                previous.conditional = [...new Map([...previous.conditional, ...conditional]
+                    .map((entry) => [controlDigest(entry), entry])).values()];
+                return previous;
+            }
+            nodes.set(id, current);
+            value.nodes.push(id);
+            if (definition && !records.has(definition))
+            {
+                parse(definition);
+            }
+            return current;
+        }
+        function componentOrigin(node, jsx = false)
+        {
+            if (jsx && ts.isIdentifier(node) && dom.parserOptions.isNativeTag(node.text))
+            {
+                return { kind: 'native', name: node.text };
+            }
+            if (ts.isIdentifier(node) && record.imports.has(node.text))
+            {
+                const identifiers = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isImportDeclaration)
+                    .flatMap((statement) => [statement.importClause?.name,
+                        ...(statement.importClause?.namedBindings && ts.isNamedImports(statement.importClause.namedBindings)
+                            ? statement.importClause.namedBindings.elements.map((entry) => entry.name) : [])])
+                    .filter((name) => name?.text === node.text));
+                if (identifiers.length !== 1)
+                {
+                    fail(`ambiguous script render import ${record.file}#${node.text}`);
+                }
+                unchangedBinding(record, node.text, identifiers[0]);
+            }
+            const origins = resolver.resolveExpression(record.file, node);
+            if (origins.length !== 1)
+            {
+                fail(`ambiguous script render target ${record.file}:${node.getStart()}`);
+            }
+            return origins[0];
+        }
+        function fields(properties)
+        {
+            const attributes = {};
+            const directives = [];
+            const names = new Set();
+            for (const property of properties)
+            {
+                const jsx = ts.isJsxAttribute(property);
+                const shorthand = ts.isShorthandPropertyAssignment(property);
+                const name = property.name?.text;
+                if (!name || (!jsx && !shorthand && !ts.isPropertyAssignment(property)) || ts.isComputedPropertyName(property.name)
+                    || names.has(name) || [compositionNodeAttribute, compositionCallAttribute].includes(name))
+                {
+                    fail(`unknown/reserved script render attribute ${record.file}:${property.getStart()}`);
+                }
+                names.add(name);
+                const initializer = shorthand ? property.name : property.initializer;
+                if (!initializer)
+                {
+                    attributes[name] = '';
+                }
+                else if (ts.isStringLiteral(initializer))
+                {
+                    attributes[name] = initializer.text;
+                }
+                else
+                {
+                    const exp = jsx && ts.isJsxExpression(initializer) ? initializer.expression : initializer;
+                    if (!exp)
+                    {
+                        fail(`unknown script render attribute value ${record.file}:${property.getStart()}`);
+                    }
+                    if (['class', 'style', 'density', 'layout', 'placement', 'surface', 'material'].includes(name) && branches.usesRouteName(exp))
+                    {
+                        errors.push({ ...location(record.file, property.getStart()), reason: 'route-name-visual-branch' });
+                    }
+                    directives.push({ name: 'bind', argument: name, argumentStatic: true, expression: exp.getText() });
+                }
+            }
+            return { attributes, directives };
+        }
+        function output(node, parentId = null, ancestors = [], conditional = [], seen = new Set())
+        {
+            node = unwrap(node);
+            if (!node || node.kind === ts.SyntaxKind.NullKeyword || node.kind === ts.SyntaxKind.TrueKeyword
+                || node.kind === ts.SyntaxKind.FalseKeyword || ts.isStringLiteral(node) || ts.isNumericLiteral(node))
+            {
+                return;
+            }
+            try
+            {
+                if (ts.isIdentifier(node))
+                {
+                    const declarations = [];
+                    function find(candidate)
+                    {
+                        if (ts.isVariableDeclaration(candidate) && ts.isIdentifier(candidate.name) && candidate.name.text === node.text)
+                        {
+                            declarations.push(candidate);
+                        }
+                        function root(value)
+                        {
+                            value = unwrap(value);
+                            while (value && (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)))
+                            {
+                                value = unwrap(value.expression);
+                            }
+                            return value && ts.isIdentifier(value) ? value.text : null;
+                        }
+                        const argumentsToCheck = ts.isCallExpression(candidate) || ts.isNewExpression(candidate) ? candidate.arguments ?? []
+                            : ts.isVariableDeclaration(candidate) && candidate.initializer ? [candidate.initializer] : [];
+                        if (argumentsToCheck.some((argument) => root(argument) === node.text)
+                            || ((ts.isCallExpression(candidate) || ts.isNewExpression(candidate)) && root(candidate.expression) === node.text))
+                        {
+                            fail(`escaped script render constant ${record.file}#${node.text}`);
+                        }
+                        ts.forEachChild(candidate, find);
+                    }
+                    record.scripts.forEach(({ ast }) => find(ast));
+                    if (seen.has(node.text) || declarations.length !== 1 || !(declarations[0].parent.flags & ts.NodeFlags.Const)
+                        || !declarations[0].initializer || record.imports.has(node.text))
+                    {
+                        fail(`unknown script render constant ${record.file}#${node.text}`);
+                    }
+                    unchangedBinding(record, node.text, declarations[0].name);
+                    output(declarations[0].initializer, parentId, ancestors, conditional, new Set([...seen, node.text]));
+                    return;
+                }
+                if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node))
+                {
+                    const opening = ts.isJsxElement(node) ? node.openingElement : node;
+                    const origin = componentOrigin(opening.tagName, true);
+                    const { attributes, directives } = fields(opening.attributes.properties);
+                    const current = add(node, opening.tagName.getText(), origin, parentId, ancestors, conditional,
+                        attributes, directives, { kind: 'jsx', markerOffset: opening.tagName.end });
+                    const children = ts.isJsxElement(node) ? node.children : [];
+                    current.slotInputs.present.default = children.some((child) => !ts.isJsxText(child) || child.text.trim());
+                    for (const child of children)
+                    {
+                        if (ts.isJsxExpression(child))
+                        {
+                            if (child.dotDotDotToken)
+                            {
+                                function finiteArray(node)
+                                {
+                                    node = unwrap(node);
+                                    return node && (ts.isArrayLiteralExpression(node) && node.elements.every((element) => !ts.isSpreadElement(element))
+                                        || ts.isConditionalExpression(node) && finiteArray(node.whenTrue) && finiteArray(node.whenFalse));
+                                }
+                                if (!finiteArray(child.expression))
+                                {
+                                    fail(`unknown JSX child spread ${record.file}:${child.getStart()}`);
+                                }
+                            }
+                            output(child.expression, current.id, [...ancestors, current.id], conditional, new Set(seen));
+                        }
+                        else if (!ts.isJsxText(child))
+                        {
+                            output(child, current.id, [...ancestors, current.id], conditional, new Set(seen));
+                        }
+                    }
+                    return;
+                }
+                if (ts.isConditionalExpression(node))
+                {
+                    if (branches.usesRouteName(node.condition))
+                    {
+                        errors.push({ ...location(record.file, node.getStart()), reason: 'route-name-visual-branch' });
+                    }
+                    output(node.whenTrue, parentId, ancestors, [...conditional, { name: 'if', expression: node.condition.getText() }], new Set(seen));
+                    output(node.whenFalse, parentId, ancestors, [...conditional, { name: 'else', expression: node.condition.getText() }], new Set(seen));
+                    return;
+                }
+                if (ts.isArrayLiteralExpression(node))
+                {
+                    node.elements.forEach((element) => output(element, parentId, ancestors, conditional, new Set(seen)));
+                    return;
+                }
+                if (ts.isCallExpression(node))
+                {
+                    const callee = node.expression;
+                    if (slots && ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression)
+                        && callee.expression.text === slots && callee.name.text === 'default' && !node.arguments.length)
+                    {
+                        add(node, 'slot', { kind: 'framework-structure', package: 'vue', publicName: 'slot' }, parentId, ancestors, conditional);
+                        return;
+                    }
+                    if (vueBinding(record, callee, 'renderSlot') && node.arguments.length === 2 && slots
+                        && ts.isIdentifier(node.arguments[0]) && node.arguments[0].text === slots && ts.isStringLiteral(node.arguments[1]))
+                    {
+                        add(node, 'slot', { kind: 'framework-structure', package: 'vue', publicName: 'slot' }, parentId, ancestors,
+                            conditional, { name: node.arguments[1].text });
+                        return;
+                    }
+                    if (vueBinding(record, callee, 'h') || vueBinding(record, callee, 'createVNode'))
+                    {
+                        const target = node.arguments[0];
+                        const props = unwrap(node.arguments[1]);
+                        if (!target || !props || !ts.isObjectLiteralExpression(props) || node.arguments.some(ts.isSpreadElement))
+                        {
+                            fail(`unknown Vue vnode construction ${record.file}:${node.getStart()}`);
+                        }
+                        const origin = ts.isStringLiteral(target) ? resolver.resolveTag(record.file, target.text) : componentOrigin(target);
+                        const { attributes, directives } = fields(props.properties);
+                        const current = add(node, target.getText().replaceAll("'", '').replaceAll('"', ''), origin, parentId,
+                            ancestors, conditional, attributes, directives, { kind: 'vue-vnode', markerOffset: props.getStart() + 1 });
+                        current.slotInputs.present.default = Boolean(node.arguments[2]);
+                        output(node.arguments[2], current.id, [...ancestors, current.id], conditional, new Set(seen));
+                        return;
+                    }
+                }
+                fail(`unknown script render output ${record.file}:${node.getStart()}: ${node.getText()}`);
+            }
+            catch (failure)
+            {
+                error(node, failure.message);
+            }
+        }
+        function flow(node, conditional = [])
+        {
+            if (ts.isReturnStatement(node))
+            {
+                if (!node.expression)
+                {
+                    error(node, 'script render return has no value');
+                }
+                else
+                {
+                    output(node.expression, null, [], conditional);
+                }
+                return true;
+            }
+            if (ts.isIfStatement(node))
+            {
+                if (branches.usesRouteName(node.expression))
+                {
+                    errors.push({ ...location(record.file, node.getStart()), reason: 'route-name-visual-branch' });
+                }
+                const yes = flow(node.thenStatement, [...conditional, { name: 'if', expression: node.expression.getText() }]);
+                const no = node.elseStatement ? flow(node.elseStatement, [...conditional, { name: 'else', expression: node.expression.getText() }]) : false;
+                return yes && no;
+            }
+            if (ts.isBlock(node))
+            {
+                let terminal = false;
+                node.statements.forEach((statement) =>
+                {
+                    terminal = flow(statement, conditional) || terminal;
+                });
+                return terminal;
+            }
+            if (ts.isVariableStatement(node) || ts.isExpressionStatement(node) || ts.isEmptyStatement(node))
+            {
+                return false;
+            }
+            error(node, `unknown script render flow ${record.file}:${node.getStart()}`);
+            return false;
+        }
+        if (ts.isBlock(render.body))
+        {
+            if (!flow(render.body))
+            {
+                error(render.body, `script render may fall through ${record.file}`);
+            }
+        }
+        else
+        {
+            output(render.body);
+        }
+    }
     function parse(file)
     {
         file = realpathSync(file);
@@ -657,7 +1139,19 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         const branches = routeBranch(record);
         if (!record.template)
         {
-            errors.push({ file, reason: 'unknown-render-source' });
+            if (!scriptRenders.has(file))
+            {
+                exportComponent(file, 'default', new Set());
+            }
+            const binding = scriptRenders.get(file);
+            if (binding)
+            {
+                parseScriptRender(record, value, binding);
+            }
+            else
+            {
+                errors.push({ file, reason: 'unknown-render-source' });
+            }
             return value;
         }
         function visit(node, parentId = null, ancestors = [], scopedNames = new Set())
@@ -768,10 +1262,25 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     origin = ts.isIdentifier(exp) ? nativePropTargets(record, exp.text) : nativeFunctionTargets(record, exp, localNames);
                     if (!origin)
                     {
-                        const targets = resolver.resolveComponentInput(file, exp);
+                        const targets = resolver.resolveComponentInput(file, exp, { templateRefs: true });
+                        if (targets.some((target) => target.kind === 'component-prop' && localNames.has(target.property)))
+                        {
+                            fail(`unbound template component prop ${file}:${offset}`);
+                        }
                         if (targets.length > 1 && targets.every((target) => target.kind === 'native'))
                         {
                             origin = { kind: 'native-variants', values: [...new Set(targets.map((target) => target.name))] };
+                        }
+                        else if (targets.length > 1 && targets.every((target) => ['local', 'fsusui-public', 'upstream-internal'].includes(target.kind)))
+                        {
+                            origin = { kind: 'component-variants', variants: targets, selectorExpression: dynamic.expression,
+                                selectorDigest: controlDigest(dynamic.expression) };
+                        }
+                        else if (targets.length > 1 && targets.every((target) => target.kind === 'component-prop' && target.file === file))
+                        {
+                            origin = { kind: 'component-prop-variants', edges: targets,
+                                declarationDigest: controlDigest(targets), selectorExpression: dynamic.expression,
+                                selectorDigest: controlDigest(dynamic.expression) };
                         }
                         else if (targets.length !== 1)
                         {
@@ -832,7 +1341,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     slotInputs.present.default = true;
                 }
             }
-            const current = { id, ...location(file, offset), tag: node.tag, parentId, attributes, directives, origin, definition, slotInputs,
+            const current = { id, ...location(file, offset), tag: node.tag, parentId, attributes, directives, origin, definition,
+                definitions: origin.variantDefinitions ?? [], slotInputs,
                 sourceDigest: controlDigest(node.loc.source), ancestors, scopedBindings: [...localNames],
                 structural: origin.kind === 'framework-structure' || origin.factoryComponent?.kind === 'factory-slot-source',
                 conditional: directives.filter(({ name }) => ['if', 'else-if', 'else', 'show', 'for'].includes(name)),
@@ -847,6 +1357,13 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             if (definition && !records.has(definition))
             {
                 parse(definition);
+            }
+            for (const variant of current.definitions)
+            {
+                if (!records.has(variant))
+                {
+                    parse(variant);
+                }
             }
         }
         visit(record.template.ast);
@@ -880,6 +1397,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 {
                     visit(definition);
                 }
+                nodes.get(id).definitions?.forEach(visit);
             }
         }
         entryFiles.forEach(visit);
@@ -1026,11 +1544,17 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             const binding = named[0];
             const spreads = call.directives.filter((entry) => entry.name === 'bind' && !entry.argument);
-            if (spreads.length > 1 || (spreads.length && (binding || attributes.length)))
+            const spreadValues = spreads.map((entry) => spreadInput(call.file, expression(entry.expression, call.file), property));
+            if ((binding || attributes.length) && spreadValues.some((value) => value !== absent))
             {
                 fail(`ambiguous component input ${key}`);
             }
-            let input = spreads.length ? spreadInput(call.file, expression(spreads[0].expression, call.file), property) : absent;
+            const suppliedSpreads = spreadValues.filter((value) => value !== absent);
+            if (suppliedSpreads.length > 1)
+            {
+                fail(`ambiguous component input ${key}`);
+            }
+            let input = suppliedSpreads[0] ?? absent;
             if (binding)
             {
                 input = { file: call.file, expression: expression(binding.expression, call.file) };
@@ -1140,7 +1664,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 {
                     for (const input of componentInput(call, node.origin.property))
                     {
-                        const target = input.target;
+                        const target = input.target ?? node.origin.fallbackSource ?? null;
                         const definition = target ? componentFile(target) : null;
                         function requiresInput(exp)
                         {
@@ -1184,10 +1708,75 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 }
             }
         }
+        for (const node of graphNodes.filter((entry) => entry.origin.kind === 'component-prop-variants'))
+        {
+            const calls = graphNodes.filter((entry) => entry.definition === node.file);
+            if (!calls.length)
+            {
+                componentPropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-component-prop-source' });
+            }
+            for (const call of calls)
+            {
+                try
+                {
+                    const inputs = node.origin.edges.map((edge) => componentInput(call, edge.property));
+                    if (inputs.some((values) => values.length !== 1 || values[0].target !== null)
+                        || !inputs.every((values) => controlDigest(values[0].callPath) === controlDigest(inputs[0][0].callPath)))
+                    {
+                        fail(`unknown component prop alternatives ${node.file}:${node.offset}`);
+                    }
+                    const properties = node.origin.edges.map((edge) => edge.property);
+                    function absentDisjunction(exp)
+                    {
+                        exp = unwrapInput(exp);
+                        if (exp && ts.isIdentifier(exp))
+                        {
+                            return [exp.text];
+                        }
+                        if (exp && ts.isBinaryExpression(exp) && exp.operatorToken.kind === ts.SyntaxKind.BarBarToken)
+                        {
+                            return [...absentDisjunction(exp.left), ...absentDisjunction(exp.right)];
+                        }
+                        return ['unknown'];
+                    }
+                    const guard = [node, ...node.ancestors.map((id) => nodes.get(id))]
+                        .filter((entry) => !properties.some((property) => entry.scopedBindings.includes(property)))
+                        .flatMap((entry) => entry.conditional.map((condition) => ({ ...condition, nodeId: entry.id })))
+                        .find((condition) =>
+                        {
+                            if (!['if', 'else-if'].includes(condition.name) || !condition.expression)
+                            {
+                                return false;
+                            }
+                            const leaves = absentDisjunction(expression(condition.expression, node.file));
+                            return leaves.length === properties.length && new Set(leaves).size === properties.length
+                                && leaves.every((property) => properties.includes(property));
+                        });
+                    if (!guard)
+                    {
+                        fail(`unguarded absent component prop alternatives ${node.file}:${node.offset}`);
+                    }
+                    const callPath = inputs[0][0].callPath;
+                    componentPropBindings.push({ sourceNode: node.id, declarationDigest: node.origin.declarationDigest,
+                        callNode: call.id, callPath, inputDigests: callPath.map((id) =>
+                        {
+                            const entry = nodes.get(id);
+                            return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
+                        }), target: null, definition: null, absent: true,
+                        absenceGuard: { sourceNode: guard.nodeId, directive: guard.name, expression: guard.expression,
+                            expressionDigest: controlDigest(guard.expression), properties } });
+                }
+                catch (failure)
+                {
+                    componentPropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-component-prop-source',
+                        callNode: call.id, message: failure.message });
+                }
+            }
+        }
         // Newly reached component definitions may contain further inputs. An
         // unbound nested edge remains an error; reaching its file is not proof.
         for (const node of [...nodes.values()].filter((entry) => reachable.has(entry.file)
-            && entry.origin.kind === 'component-prop' && !graphNodes.some((original) => original.id === entry.id)))
+            && ['component-prop', 'component-prop-variants'].includes(entry.origin.kind) && !graphNodes.some((original) => original.id === entry.id)))
         {
             componentPropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-component-prop-source', property: node.origin.property });
         }
@@ -1239,8 +1828,13 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             fail(`source changed before instrumentation ${file}`);
         }
         const edits = record.nodes.map((id) => nodes.get(id)).filter((node) => !node.structural)
-            .map((node) => ({ offset: node.offset + 1 + node.tag.length,
-                content: ` ${['native', 'native-variants', 'native-prop'].includes(node.origin.kind) ? compositionNodeAttribute : compositionCallAttribute}="${node.id}"` }))
+            .map((node) =>
+            {
+                const attribute = ['native', 'native-variants', 'native-prop'].includes(node.origin.kind) ? compositionNodeAttribute : compositionCallAttribute;
+                return { offset: node.sourceSyntax?.markerOffset ?? node.offset + 1 + node.tag.length,
+                    content: node.sourceSyntax?.kind === 'vue-vnode' ? ` '${attribute}': '${node.id}',`
+                        : ` ${attribute}="${node.id}"` };
+            })
             .sort((a, b) => b.offset - a.offset);
         for (const edit of edits)
         {
@@ -1257,7 +1851,8 @@ export function compositionProbePlugin(source)
     return { name: 'fsusblog-composition-source-probe', enforce: 'pre',
         transform(code, id)
         {
-            if (extname(id) !== '.vue' || id.includes('?'))
+            if (!['.vue', '.ts', '.tsx'].includes(extname(id)) || id.includes('?')
+                || (!source.records.has(id) && extname(id) !== '.vue'))
             {
                 return null;
             }
