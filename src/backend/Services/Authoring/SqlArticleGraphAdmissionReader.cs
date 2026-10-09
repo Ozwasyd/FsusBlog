@@ -144,7 +144,10 @@ public sealed class SqlArticleGraphAdmissionReader(
             new(request.Owner, request.RequestId, articleIds), cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         // Freeze first, then verify the ORIGINAL supplied digest over the copied values.
-        snapshot = snapshot with { Decisions = Array.AsReadOnly(snapshot.Decisions.ToArray()) };
+        snapshot = snapshot with
+        {
+            Decisions = Array.AsReadOnly(snapshot.Decisions.ToArray())
+        };
         if (snapshot.Status != AuthorArticlePinPermissionSnapshotStatus.Current || snapshot.Owner != request.Owner
             || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.PermissionRevision)
             || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.SiteRevision)
