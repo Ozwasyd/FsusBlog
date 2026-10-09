@@ -33,7 +33,7 @@ test('actual Select returned computed member binds suffixIcon through the actual
 {
     const graph = source().graph([fixture(`<script setup>import {ElSelect} from '@ozwasyd/element-plus';</script><template><ElSelect/></template>`, 'Entry.vue')]);
     const selector = graph.nodes.find((node) => node.file.endsWith('/select/src/select.vue') && node.line === 228);
-    assert.equal(selector.origin.kind, 'component-prop');
+    assert.equal(selector.origin.kind, 'component-prop', JSON.stringify(graph.errors));
     assert.equal(selector.origin.property, 'suffixIcon');
     assert.equal(selector.origin.selectorSource.name, 'iconComponent');
     assert.equal(selector.origin.selectorSource.emptyBranches, 1);

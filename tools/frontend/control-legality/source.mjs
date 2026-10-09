@@ -928,6 +928,55 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         return resolveExpression(file, expression, new Set(), templateRefs);
     };
+    function containsComponentObject(node, name)
+    {
+        node = unwrap(node);
+        if (!node)
+        {
+            return false;
+        }
+        if (ts.isIdentifier(node))
+        {
+            return node.text === name;
+        }
+        if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+        {
+            return ts.isPropertyAccessExpression(node) && node.name.text === 'value'
+                && ts.isIdentifier(unwrap(node.expression)) && unwrap(node.expression).text === name;
+        }
+        if (ts.isPropertyAssignment(node))
+        {
+            return containsComponentObject(node.initializer, name);
+        }
+        if (ts.isShorthandPropertyAssignment(node))
+        {
+            return node.name.text === name;
+        }
+        // Component objects/ref containers are truthy. A left conjunction read
+        // or strict comparison cannot hand that identity to its consumer.
+        // Nested calls are still audited separately by the caller's AST walk.
+        if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)
+        {
+            return containsComponentObject(node.right, name);
+        }
+        if (ts.isBinaryExpression(node) && [ts.SyntaxKind.EqualsEqualsEqualsToken,
+            ts.SyntaxKind.ExclamationEqualsEqualsToken].includes(node.operatorToken.kind)
+            || ts.isTypeOfExpression(node)
+            || ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken)
+        {
+            return false;
+        }
+        if (ts.isConditionalExpression(node))
+        {
+            return containsComponentObject(node.whenTrue, name) || containsComponentObject(node.whenFalse, name);
+        }
+        let found = false;
+        ts.forEachChild(node, (child) =>
+        {
+            found = containsComponentObject(child, name) || found;
+        });
+        return found;
+    }
     const finiteComponentBinding = (file, name) =>
     {
         const record = parse(file);
@@ -975,6 +1024,34 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                 || binding.initializer || binding.dotDotDotToken || (binding.propertyName && ts.isComputedPropertyName(binding.propertyName)))))
         {
             fail(`${file}: unbound finite component binding ${name}`);
+        }
+        const value = unwrap(record.variables.get(name));
+        const imported = value && ts.isCallExpression(value) && ts.isIdentifier(value.expression)
+            ? record.imports.get(value.expression.text) : null;
+        if (imported?.specifier === 'vue' && imported.name === 'computed')
+        {
+            function ownsDeclaration(node)
+            {
+                for (let parent = binding; parent; parent = parent.parent)
+                {
+                    if (parent === node)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            function escape(node)
+            {
+                const supplied = ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments ?? []
+                    : ts.isVariableDeclaration(node) && node !== binding && node.initializer ? [node.initializer] : [];
+                if (supplied.some((argument) => !ownsDeclaration(argument) && containsComponentObject(argument, name)))
+                {
+                    fail(`${file}: escaped finite component binding ${name}`);
+                }
+                ts.forEachChild(node, escape);
+            }
+            record.scripts.forEach(({ ast }) => escape(ast));
         }
     };
     const finiteComputedReturns = (file, fn, seen) =>
@@ -1555,10 +1632,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                     : ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer ? [node.initializer] : [];
                 if (argumentsToCheck.some((argument) =>
                 {
-                    argument = unwrap(argument);
-                    return (ts.isIdentifier(argument) && argument.text === object.text)
-                        || (ts.isPropertyAccessExpression(argument) && ts.isIdentifier(argument.expression)
-                            && argument.expression.text === object.text && argument.name.text === 'value');
+                    return containsComponentObject(argument, object.text);
                 }) || ((ts.isCallExpression(node) || ts.isNewExpression(node)) && root(node.expression) === object.text))
                 {
                     fail(`escaped component member object ${identity}`);

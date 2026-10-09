@@ -380,6 +380,12 @@ substituted output is rejected. Module unit results do not replace independent
 review: outstanding functional effects/local-proof and target escape repairs
 remain source acceptance gates until their owners publish verified corrections.
 
+Canonical component object and computed selector checks reject identity escapes
+through nested arrays, objects and callbacks, in addition to direct suppliers.
+Scalar truthiness/comparison reads retain no object identity. Owning declarations
+remain lexical source context; none of these checks proves ref/provider effects
+or replaces an actual callback supplier contract.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;
