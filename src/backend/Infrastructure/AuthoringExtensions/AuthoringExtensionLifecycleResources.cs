@@ -22,7 +22,8 @@ public interface IAuthoringLifecycleHostResourceAuthority
 }
 
 public sealed class AuthoringExtensionLifecycleResources(
-    IAuthoringLifecycleHostResourceAuthority hostResources) : IAuthoringLifecycleResourceAuthority
+    IAuthoringLifecycleHostResourceAuthority hostResources,
+    AuthoringFilterRegistryAuthority? filterRegistry = null) : IAuthoringLifecycleResourceAuthority
 {
     private readonly Lock _lock = new();
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
@@ -70,7 +71,15 @@ public sealed class AuthoringExtensionLifecycleResources(
                 }
             }
 
+            if (filterRegistry is null && package.Contract.Manifest.Contributions.Any(static contribution =>
+                contribution.Kind == AuthoringContributionKind.ArticleLibraryFilter))
+            {
+                throw new AuthoringFilterContractException("filter_registry_unavailable");
+            }
+            filterRegistry?.ValidateActivation(package, targets);
             await hostResources.ActivateAtomicallyAsync(package, targets, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            filterRegistry?.ActivateAtomically(package, targets);
             lock (_lock)
             {
                 _targetHistory[historyKey] = [.. targets];
@@ -213,6 +222,7 @@ public sealed class AuthoringExtensionLifecycleResources(
                 }
             }
 
+            filterRegistry?.Remove(extensionId);
             AuthoringLifecycleHostResourceReport host = await hostResources.RevokeAllAsync(
                 extensionId,
                 CancellationToken.None);
