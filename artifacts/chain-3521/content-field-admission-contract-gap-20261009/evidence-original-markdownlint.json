@@ -1,0 +1,18 @@
+{
+  "key": "evidence-original-markdownlint",
+  "sourceCommit": "647a13ad34ed0c7f5a436a72dbccadca436dba90",
+  "cwd": "/workspace/FsusBlog-content-field-admission",
+  "command": [
+    "/workspace/chain-3521-evidence/source-docs-toolchain/node_modules/.bin/markdownlint-cli2",
+    "artifacts/chain-3521/content-field-admission-contract-gap-20261009/README.md"
+  ],
+  "startedUtc": "2026-10-09T08:12:25.157537+00:00",
+  "completedUtc": "2026-10-09T08:12:31.271286+00:00",
+  "elapsedSeconds": 6.114,
+  "exitCode": 1,
+  "pid": 82506,
+  "logSha256": "dafe0a5678d62923deeab7362c76e9057e9dc7de20965d69417f98943e5cd86e",
+  "logBytes": 83484,
+  "rawLogArchive": "evidence-original-markdownlint.log.gz",
+  "qualification": false
+}

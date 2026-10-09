@@ -22,6 +22,8 @@ No existing generated-only form truthfully admits the tuple:
 
 Executed here: exact candidate identity/input/output accounting, original unchanged producer syntax check and original registry syntax check; all exited 0. The five consumer controls and SDK/runtime execution were reported by the coordinating parent and were not rerun or converted into this review's runtime evidence. The exact portable Group3 evidence commit/body was requested but not supplied at recording time, so this review does not claim independently reproduced public PR metadata diagnostics. Static source binds the reported missing-output diagnostic to the original checker.
 
+The evidence increment commit-range check passed. An additional original Markdownlint CLI invocation exited 1: repository configuration appended its whole-repository glob and ignored `artifacts/**`, so it scanned 367 existing files and reported 740 issues in 38 files. This is preserved as a failure, not a targeted artifact pass; none of the reported diagnostics is in this artifact subtree. No unrelated documents or Markdownlint policy were changed.
+
 The original producer was not executed or resealed here. Full standard SOURCE, historical replay/mutation callbacks, receipt/cohort/Gitref/race and held audits were NOT_RUN. No policy/checker/schema/allowlist, output or runtime source changed. GitHub content remains with the coordinating root.
 
 Command records include exact execution source, UTC run identity, argv, PID, exit status and raw-log byte count/SHA-256; gzip archives preserve the original bytes. Qualification is false. The file index binds every other bundle file by bytes, SHA-256 and Git blob.

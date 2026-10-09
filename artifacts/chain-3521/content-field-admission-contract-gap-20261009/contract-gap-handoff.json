@@ -70,5 +70,34 @@
   "historicalReplayOrMutationProbes": "NOT_RUN",
   "heldAudits": "NOT_RUN",
   "fullStandardSOURCE": "NOT_RUN",
-  "qualification": false
+  "qualification": false,
+  "verification": {
+    "exactGitAndJsonIdentityAccounting": {
+      "exit": 0,
+      "record": "exact-candidate-identity-inspection.json"
+    },
+    "originalProducerSyntax": {
+      "exit": 0,
+      "record": "original-producer-syntax.json"
+    },
+    "originalRegistrySyntax": {
+      "exit": 0,
+      "record": "original-registry-syntax.json"
+    },
+    "initialEvidenceIncrementRange": {
+      "exit": 0,
+      "testedCommit": "647a13ad34ed0c7f5a436a72dbccadca436dba90",
+      "record": "evidence-increment-original-range.json"
+    },
+    "originalMarkdownlint": {
+      "exit": 1,
+      "record": "evidence-original-markdownlint.json",
+      "filesScanned": 367,
+      "issueCount": 740,
+      "filesWithIssues": 38,
+      "artifactSubtreeIgnoredByOriginalConfiguration": true,
+      "diagnosticsInNewArtifactSubtree": 0,
+      "notPromotedToPass": true
+    }
+  }
 }
