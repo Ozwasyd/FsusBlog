@@ -338,3 +338,122 @@ describe('Article attachment anchored provider lifecycle (#2256) actual public d
         expect(editor.adapter.lifecycleReceipts).toEqual([]);
     });
 });
+
+describe('Article attachment owned-handle currentness reader (#2256)', () =>
+{
+    it('borrows the exact pending handle and actual map instead of cloned handles or receipts', () =>
+    {
+        const editor = lifecycle();
+        const { captured, handles } = editor.insert();
+        const handle = handles[0]!;
+        const observed = editor.adapter.readOwnedIntent(handle, editor.binding());
+        expect(observed?.snapshot).toBe(handle.snapshot);
+        expect(observed).toMatchObject({ current: true, sourceReferenced: true, disposition: 'current',
+            intentRef: handle.snapshot.intent.task.taskRef, nodeId: handle.snapshot.anchor.nodeId,
+            transactionRef: handle.snapshot.transactionRef, providerRef: 'article-assets', providerVersion: 'version:1',
+            contextDigest: editor.owner.context.contextDigest, sourceOrder: 0, sourceUrl: null });
+        expect(Object.isFrozen(observed)).toBe(true);
+        expect(editor.adapter.readOwnedIntent({ ...handle }, editor.binding())).toBeNull();
+        expect(editor.adapter.readOwnedIntent({ ...handle, snapshot: editor.adapter.lifecycleReceipts.at(-1)! }, editor.binding())).toBeNull();
+        expect(editor.adapter.readOwnedIntent(captured.handles[0] as unknown as ArticleAttachmentPendingHandle, editor.binding())).toBeNull();
+        expect(lifecycle().adapter.readOwnedIntent(handle, editor.binding())).toBeNull();
+    });
+
+    it('denies foreign context, identity, bytes and absent public syntax without claiming deletion', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        const binding = editor.binding();
+        const foreign = lifecycle();
+        const invalid = [foreign.binding(), { ...binding, map: createMarkdownAnchorMap({ identity: { id: 'foreign', epoch: 1 }, source: editor.source() }) },
+            { ...binding, map: createMarkdownAnchorMap({ identity: editor.owner.documentIdentity, source: 'different' }) },
+            { ...binding, map: { ...binding.map, syntax: [] } }];
+        for (const other of invalid)
+        {
+            expect(editor.adapter.readOwnedIntent(handle, other)).toMatchObject({ current: false, sourceReferenced: null, disposition: 'stale' });
+        }
+        expect(editor.adapter.readOwnedIntent(handle, binding)?.current).toBe(true);
+    });
+
+    it('separates cancelled ownership from a placeholder still present in the current public map', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        handle.cancel();
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())).toMatchObject({ current: false,
+            sourceReferenced: true, disposition: 'cancelled', sourceUrl: null });
+        const retry = editor.adapter.retry(handle);
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())?.current).toBe(false);
+        expect(editor.adapter.readOwnedIntent(retry, editor.binding())?.current).toBe(true);
+    });
+
+    it('reads rebased pending leases and fails closed during a missing-map revision window', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        const previous = editor.adapter.readOwnedIntent(handle, editor.binding())!;
+        editor.commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'prefix\n' }], history: 'separate' });
+        const observed = editor.adapter.readOwnedIntent(handle, editor.binding())!;
+        expect(observed.current).toBe(true);
+        expect(observed.snapshot).not.toBe(previous.snapshot);
+        expect(observed.contextDigest).toBe(editor.owner.context.contextDigest);
+        expect(observed.transactionRef).not.toBe(previous.transactionRef);
+        editor.owner.updateSource('external');
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())).toMatchObject({ current: false, sourceReferenced: null });
+    });
+
+    it('attests a real completed successor lease only at its exact commit revision', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        const snapshot = editor.adapter.complete(handle, editor.resolved(handle, '/actual.png'), editor.port);
+        expect(handle.signal.aborted).toBe(true);
+        expect(editor.adapter.currentTaskLeases).toEqual([]);
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())).toMatchObject({ snapshot, current: true,
+            sourceReferenced: true, sourceUrl: '/actual.png', disposition: 'current' });
+        expect(snapshot.task.status).toBe('completed');
+        editor.commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'prefix\n' }], history: 'separate' });
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())).toMatchObject({ current: false,
+            sourceReferenced: null, disposition: 'stale', sourceUrl: null });
+        editor.commands.undo();
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())?.current).toBe(false);
+    });
+
+    it('observes actual removal tombstones and never revives them on undo or redo', () =>
+    {
+        const editor = lifecycle();
+        const handle = editor.insert().handles[0]!;
+        editor.adapter.remove(handle, editor.port);
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())).toMatchObject({ current: false,
+            sourceReferenced: false, disposition: 'removed', sourceUrl: null });
+        editor.commands.undo();
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())).toMatchObject({ current: false,
+            sourceReferenced: null, disposition: 'removed' });
+        editor.commands.redo();
+        expect(editor.adapter.readOwnedIntent(handle, editor.binding())?.current).toBe(false);
+        const deleted = lifecycle();
+        const removed = deleted.insert().handles[0]!;
+        deleted.commands.undo();
+        expect(deleted.adapter.readOwnedIntent(removed, deleted.binding())).toMatchObject({ current: false,
+            sourceReferenced: false, disposition: 'removed' });
+    });
+
+    it('denies failed leases, partial deletions, epoch switches and disposed owners without fabricated facts', () =>
+    {
+        const failed = lifecycle();
+        const failure = failed.insert().handles[0]!;
+        failed.adapter.complete(failure, failed.resolved(failure, 'javascript:alert(1)'), failed.port);
+        expect(failed.adapter.readOwnedIntent(failure, failed.binding())).toMatchObject({ current: false,
+            sourceReferenced: true, disposition: 'failed' });
+        const partial = lifecycle();
+        const handle = partial.insert().handles[0]!;
+        partial.commands.dispatchTransaction({ changes: [{ from: 2, to: 3, insert: '' }], history: 'separate' });
+        expect(partial.adapter.readOwnedIntent(handle, partial.binding())).toMatchObject({ current: false, sourceReferenced: null, disposition: 'stale' });
+        const epoch = lifecycle();
+        const old = epoch.insert().handles[0]!;
+        epoch.owner.switchDocument({ articleId: 2, draftId: 'article:2', content: epoch.source() });
+        expect(epoch.adapter.readOwnedIntent(old, epoch.binding())).toMatchObject({ current: false, sourceReferenced: null, disposition: 'cancelled' });
+        epoch.adapter.dispose();
+        expect(epoch.adapter.readOwnedIntent(old, epoch.binding())).toBeNull();
+    });
+});

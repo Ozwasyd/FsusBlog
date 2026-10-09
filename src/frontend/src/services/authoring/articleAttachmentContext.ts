@@ -26,6 +26,7 @@ import {
 import {
     createArticleDocumentContext,
     validateArticleDocumentTaskEnvelope,
+    type ArticleDocumentContext,
     type ArticleDocumentContextAdapter,
     type ArticleDocumentTaskEnvelope,
     type ArticleDocumentTaskLease
@@ -82,6 +83,23 @@ export interface ArticleAttachmentPendingHandle {
     cancel(): void;
 }
 
+/** Local intent/node/transaction observation only; grants no asset, reference or cleanup authority. */
+export interface ArticleAttachmentOwnedIntentObservation {
+    readonly snapshot: ArticleAttachmentLifecycleSnapshot;
+    readonly current: boolean;
+    readonly intentRef: string;
+    readonly nodeId: string | null;
+    readonly transactionRef: string | null;
+    readonly providerRef: string;
+    readonly providerVersion: string;
+    readonly contextDigest: string;
+    readonly sourceOrder: number;
+    /** null means the current source relation is unproved, not that the node is absent. */
+    readonly sourceReferenced: boolean | null;
+    readonly disposition: 'current' | 'cancelled' | 'removed' | 'stale' | 'failed';
+    readonly sourceUrl: string | null;
+}
+
 export interface ArticleAttachmentTransactionPort {
     dispatch(transaction: MarkdownEditorTransaction): MarkdownEditorDispatchResult;
     commitSource(result: MarkdownEditorDispatchResult): void;
@@ -110,6 +128,9 @@ interface PendingInput {
     lease: ArticleDocumentTaskLease;
     snapshot: ArticleAttachmentLifecycleSnapshot;
     awaitingMap: boolean;
+    completedLease?: ArticleDocumentTaskLease;
+    sourceUrl?: string;
+    removedContext?: ArticleDocumentContext;
 }
 
 const lifecycleKeys = ['schema', 'intent', 'anchor', 'task', 'predecessorTaskRef', 'state', 'attempt', 'reason', 'transactionRef', 'providerResultDigest', 'contentDigest'];
@@ -363,6 +384,83 @@ export class ArticleAttachmentContextAdapter
         return Object.freeze([...this.pending.values()].filter(entry => !entry.awaitingMap && entry.lease.isCurrent()).map(entry => entry.lease));
     }
 
+    /** Borrow the original commitCreated/retry handle. Cloned receipts are never capabilities.
+     * Completed nodes are attested only at their exact commit revision; later edits fail closed.
+     * Terminal handles remain weakly owned observations, never current source/cleanup proof.
+     */
+    public readOwnedIntent(handle: ArticleAttachmentPendingHandle,
+        binding: ArticlePositionMapBinding): ArticleAttachmentOwnedIntentObservation | null
+    {
+        const entry = this.pendingHandles.get(handle);
+        if (this.disposed || !entry)
+        {
+            return null;
+        }
+        const snapshot = entry.snapshot;
+        const pending = snapshot.state === 'provider-pending' || snapshot.state === 'anchored';
+        const completed = snapshot.state === 'transaction-committed';
+        let sourceReferenced: boolean | null = null;
+        let current = !entry.awaitingMap && !this.ownedOperations.has(entry.intent.task.taskRef)
+            && snapshot.intent === entry.intent && handle.snapshot === snapshot
+            && handle.request === entry.request && handle.signal === entry.controller.signal
+            && entry.intent.provider === this.provider && entry.intent.providerVersion === this.providerVersion
+            && this.owner.isCurrentContext(snapshot.anchor.document)
+            && this.owner.isCurrentContext(binding.document)
+            && (pending
+                ? this.pending.get(entry.intent.task.taskRef) === entry && entry.lease.isCurrent()
+                    && !entry.controller.signal.aborted && entry.lease.envelope === snapshot.task
+                : completed && entry.completedLease?.envelope === snapshot.task
+                    && snapshot.task.status === 'completed'
+                    && snapshot.task.completedRevision === binding.document.sourceRevision
+                    && this.pending.get(entry.intent.task.taskRef) === undefined);
+        if (this.owner.isCurrentContext(binding.document))
+        {
+            try
+            {
+                createArticleDocumentContext({ ...binding.document, content: binding.map.source });
+                const identityCurrent = binding.map.documentIdentity.id === binding.document.documentId
+                    && binding.map.documentIdentity.epoch === binding.document.documentEpoch;
+                const range = snapshot.anchor.range;
+                const mapCurrent = identityCurrent
+                    && this.owner.isCurrentContext(snapshot.anchor.document);
+                let present = false;
+                if (mapCurrent && range.start < range.end && range.end <= binding.map.source.length)
+                {
+                    const visual = binding.map.sourceSelectionToVisual({ anchor: range.start, focus: range.end });
+                    const mapped = binding.map.visualAnchorToSourceSelection(visual);
+                    const point = binding.map.sourcePositionToVisual({ offset: range.end, affinity: snapshot.anchor.affinity });
+                    present = Math.min(mapped.anchor, mapped.focus) === range.start
+                        && Math.max(mapped.anchor, mapped.focus) === range.end
+                        && point.anchorId === snapshot.anchor.nodeId
+                        && binding.map.syntax.some(node => node.id === snapshot.anchor.nodeId)
+                        && snapshot.transactionRef !== null;
+                    sourceReferenced = present ? true : null;
+                }
+                else if (snapshot.state === 'removed' && entry.removedContext
+                    && this.owner.isCurrentContext(entry.removedContext) && identityCurrent)
+                {
+                    sourceReferenced = false;
+                }
+                current = current && present;
+            }
+            catch
+            {
+                current = false;
+            }
+        }
+        else
+        {
+            current = false;
+        }
+        const disposition = current ? 'current' : (['cancelled', 'removed', 'failed'].includes(snapshot.state)
+            ? snapshot.state as 'cancelled' | 'removed' | 'failed' : 'stale');
+        return Object.freeze({ snapshot, current, intentRef: entry.intent.task.taskRef,
+            nodeId: snapshot.anchor.nodeId, transactionRef: snapshot.transactionRef,
+            providerRef: entry.intent.provider, providerVersion: entry.intent.providerVersion,
+            contextDigest: snapshot.anchor.document.contextDigest, sourceOrder: entry.intent.order,
+            sourceReferenced, disposition, sourceUrl: current && completed ? entry.sourceUrl ?? null : null });
+    }
+
     /** Admission consumes the exact local capture capability and a real public dispatch. */
     public commitCreated(capture: ArticleAttachmentCapture, port: ArticleAttachmentTransactionPort): readonly ArticleAttachmentPendingHandle[]
     {
@@ -542,6 +640,7 @@ export class ArticleAttachmentContextAdapter
             }
             if (mapped.deleted)
             {
+                entry.removedContext = binding.document;
                 this.finish(entry, 'removed', 'attachment-node-deleted');
             }
             else if (typeof mapped.deleted !== 'boolean' || typeof mapped.partiallyDeleted !== 'boolean'
@@ -639,6 +738,9 @@ export class ArticleAttachmentContextAdapter
         const lease = this.owner.beginTask('attachment', `attachment-commit:${++this.sequence}`, this.providerVersion);
         const proof = { transactionRef: this.transactionRef(dispatched), providerResultDigest: calculateOpenArticleDocumentDigest(result) };
         lease.accept(proof);
+        entry.completedLease = lease;
+        entry.sourceUrl = result.payload.href;
+        entry.awaitingMap = false;
         entry.snapshot = this.sealLifecycle({ ...entry.snapshot, anchor, task: lease.envelope,
             predecessorTaskRef: predecessor, state: 'transaction-committed', reason: null, ...proof });
         this.pending.delete(entry.intent.task.taskRef);
@@ -691,6 +793,10 @@ export class ArticleAttachmentContextAdapter
             return this.finish(entry, 'stale', 'attachment-remove-binding-invalid');
         }
         const snapshot = this.finish(entry, 'removed', 'attachment-node-removed');
+        if (result.positionMap?.mapRange(entry.snapshot.anchor.range).deleted)
+        {
+            entry.removedContext = port.binding().document;
+        }
         this.observeTransaction(result, port.binding());
         return snapshot;
     }
