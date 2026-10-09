@@ -17,7 +17,7 @@ import {
 const { resolveLocalFsusUiRepositoryRoot } = await import(new URL('../../src/frontend/scripts/fsusui-root.mjs', import.meta.url));
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const fsusUIRoot = resolveLocalFsusUiRepositoryRoot({ repositoryRoot });
+const fsusUIRoot = resolveLocalFsusUiRepositoryRoot({ repositoryRoot, override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT });
 const emptyRegistry = () => ({ schema: controlLegalityVersion, entries: [] });
 
 function fixture(t, files)
