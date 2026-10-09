@@ -11,12 +11,13 @@ const { buildSettledPhaseJoinEvidence, executeWeightedStepDag, StepDagExecutionE
 
 export class AtomicProducerExecutionError extends Error
 {
-    constructor(vector, cause, publicationError = null)
+    constructor(vector, cause, publicationError = null, diagnosticPublicationErrors = [])
     {
         super('atomic producer DAG reached a non-success terminal state', { cause });
         this.name = 'AtomicProducerExecutionError';
         this.terminalVector = vector;
         this.publicationError = publicationError;
+        this.diagnosticPublicationErrors = Object.freeze(diagnosticPublicationErrors.map((entry) => Object.freeze({ ...entry })));
     }
 }
 
@@ -188,6 +189,7 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
     }
     const attempts = new Map();
     const results = new Map();
+    const diagnosticPublicationErrors = [];
     const directory = path.join(context.evidenceRoot, context.schedulerRunId, 'atomic-dag', verified.contentDigest.slice(7));
     fs.mkdirSync(path.dirname(directory), { recursive: true, mode: 0o700 });
     fs.mkdirSync(directory, { recursive: false, mode: 0o700 });
@@ -230,8 +232,18 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
                         ...evidence,
                         reason: error,
                         primaryFailureRefs: [step.id],
-                        evidenceRef: writeEvidence(step.id, evidence)
+                        evidenceRef: null
                     };
+                    try
+                    {
+                        result.evidenceRef = writeEvidence(step.id, evidence);
+                    }
+                    catch (diagnosticError)
+                    {
+                        // A diagnostic write cannot replace the runner's exact
+                        // failure or claim a persisted evidence reference.
+                        diagnosticPublicationErrors.push({ producerId: step.id, error: diagnosticError });
+                    }
                 }
             }
             else if (step.alwaysRunFinalizer === true)
@@ -287,13 +299,13 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
     {
         if (failure)
         {
-            throw new AtomicProducerExecutionError(vector, failure, publicationError);
+            throw new AtomicProducerExecutionError(vector, failure, publicationError, diagnosticPublicationErrors);
         }
         throw publicationError;
     }
     if (failure)
     {
-        throw new AtomicProducerExecutionError(vector, failure);
+        throw new AtomicProducerExecutionError(vector, failure, null, diagnosticPublicationErrors);
     }
     return vector;
 }

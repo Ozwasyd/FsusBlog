@@ -502,3 +502,58 @@ test('terminal publication failure without an earlier execution failure rejects 
     assert.equal(error, publication);
     assert.equal(cleanupCount, 1);
 }));
+
+
+test('attempt runner Error remains primary when its diagnostic write also fails', async (t) => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture();
+    const runnerError = new Error('ordinary attempt runner failed after preflight');
+    const writeError = new Error('ordinary alpha diagnostic write failed');
+    let cleanupCount = 0;
+    let diagnosticWriteCount = 0;
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+    } });
+    options.capacity = { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 };
+    const verifyAuthority = options.producerContexts['alpha-check'].verifyAuthority;
+    let verificationCalls = 0;
+    options.producerContexts['alpha-check'].verifyAuthority = (reference) =>
+    {
+        verificationCalls += 1;
+        if (verificationCalls > 3)
+        {
+            throw runnerError;
+        }
+        return verifyAuthority(reference);
+    };
+    const writeFile = fs.writeFileSync;
+    t.mock.method(fs, 'writeFileSync', (file, ...args) =>
+    {
+        if (typeof file === 'string' && path.basename(file) === 'alpha-check.json')
+        {
+            diagnosticWriteCount += 1;
+            throw writeError;
+        }
+        return writeFile(file, ...args);
+    });
+    const compiled = compileAtomicProducerDag(fixture.matrix, fixture.authorities);
+    const error = await executeCompiledAtomicProducerDag(compiled, options).then(() => null, (failure) => failure);
+    assert.ok(error instanceof AtomicProducerExecutionError);
+    assert.equal(error.cause.cause, runnerError);
+    assert.deepEqual(error.diagnosticPublicationErrors, [{ producerId: 'alpha-check', error: writeError }]);
+    assert.equal(error.publicationError, null);
+    const receipts = byProducer(error.terminalVector);
+    assert.equal(receipts['alpha-check'].terminalState, 'internal-error');
+    assert.equal(receipts['alpha-check'].attemptRef, null);
+    assert.equal(receipts['alpha-check'].aggregateAttemptRef, null);
+    assert.deepEqual(receipts['alpha-check'].evidenceRefs, []);
+    assert.equal(fs.existsSync(path.join(directory, options.context.schedulerRunId, 'atomic-dag', compiled.contentDigest.slice(7), 'alpha-check.json')), false);
+    assert.equal(receipts['dependent-check'].terminalState, 'blocked');
+    assert.equal(receipts['beta-check'].terminalState, 'success');
+    assert.equal(receipts['cleanup-inventory'].terminalState, 'success');
+    assert.equal(error.terminalVector.status, 'failed');
+    assert.equal(error.terminalVector.qualificationEligible, false);
+    assert.equal(diagnosticWriteCount, 1);
+    assert.equal(cleanupCount, 1);
+}));
