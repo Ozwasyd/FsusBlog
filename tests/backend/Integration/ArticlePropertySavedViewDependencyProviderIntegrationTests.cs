@@ -103,7 +103,24 @@ public sealed class ArticlePropertySavedViewDependencyProviderIntegrationTests(P
             changed.OwnerRevision, changed.SchemaRevision));
         Assert.Equal(AuthorSavedViewDependencyStatus.Retired,
             (await provider.ResolveProjectionAsync(ProviderTests.Owner, field))!.Status);
-        await store.DeleteAsync(new(s_actor, owner, actual.DefinitionId, Guid.NewGuid(), retired.OwnerRevision, retired.SchemaRevision));
+        // Seed an existing deleted read fixture, not a successful delete command:
+        // the original unavailable impact authority must keep DeleteAsync closed.
+        actual = (await store.GetAsync(s_actor, owner, actual.DefinitionId))!;
+        ArticlePropertyDefinition deleted = actual with
+        {
+            Status = ArticlePropertyDefinitionStatus.Deleted,
+            SchemaRevision = retired.SchemaRevision + 1
+        };
+        deleted = deleted with { ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(deleted) };
+        ArticlePropertyDefinitionContract.ValidateDefinition(deleted);
+        Assert.Equal(1, await db.Ado.ExecuteCommandAsync(
+            "UPDATE article_property_definition SET status = @Status, schema_revision = @Revision, content_digest = @Digest "
+                + "WHERE definition_id = @Id AND owner_user_id = @Owner AND site_scope = @Site "
+                + "AND schema_revision = @BeforeRevision AND content_digest = @BeforeDigest;",
+            new SugarParameter("@Status", (short)deleted.Status), new SugarParameter("@Revision", deleted.SchemaRevision),
+            new SugarParameter("@Digest", deleted.ContentDigest), new SugarParameter("@Id", deleted.DefinitionId),
+            new SugarParameter("@Owner", owner.UserId ?? 0), new SugarParameter("@Site", owner.SiteScope),
+            new SugarParameter("@BeforeRevision", actual.SchemaRevision), new SugarParameter("@BeforeDigest", actual.ContentDigest)));
         Assert.Null(await store.GetAsync(s_actor, owner, actual.DefinitionId));
         Assert.Equal(AuthorSavedViewDependencyStatus.Unknown,
             (await provider.ResolveProjectionAsync(ProviderTests.Owner, field))!.Status);
