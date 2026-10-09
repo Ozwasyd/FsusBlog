@@ -35,7 +35,11 @@ using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-/// <summary>Original-project controls; controlled Current observations do not qualify canonical storage or registration.</summary>
+/// <summary>
+/// Original-project controls; controlled Current observations do not qualify canonical storage or registration.
+/// Body-dependent endpoint assertions are retained unchanged as UNRUN/unqualified future integration controls
+/// while the closed pair is inactive. Direct-handler positives do not establish HTTP binding admission.
+/// </summary>
 [Trait("Category", "Unit")]
 public sealed class ArticlePackageCandidateReviewWireValidationTests
 {
@@ -253,8 +257,7 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
     }
 
     /// <summary>
-    /// Original inactive admission expectation. The owned direct frame path currently does
-    /// not consult the central resolver; this regression remains pending Shared's contract.
+    /// Original inactive admission expectation, now enforced by the owned route's central resolver guard.
     /// It is not skipped, given an alternate pair, or credited as an executed passing control.
     /// </summary>
     [Fact]

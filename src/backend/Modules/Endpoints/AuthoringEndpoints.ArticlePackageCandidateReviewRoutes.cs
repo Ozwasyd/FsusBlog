@@ -47,9 +47,16 @@ public static partial class AuthoringEndpoints
             {
                 return GuardArticlePackageCandidateReviewResponse(AedsJsonResults.BadRequest(aeds, "authoring_binary_body_too_large"));
             }
+            if (!TryResolveRoute(context.Request.Method, ResolveRemainingPath(context), out AuthoringAedsRoute route)
+                || route.RequestFrame is null
+                || route.RequestFrame != (AedsFrameType)ArticlePackageCandidateReviewWireValidation.ReservedRequestFrame
+                || route.ResponseFrame != (AedsFrameType)ArticlePackageCandidateReviewWireValidation.ReservedResponseFrame)
+            {
+                return GuardArticlePackageCandidateReviewResponse(AedsJsonResults.BadRequest(aeds, "authoring_binary_body_not_allowed"));
+            }
             var requestContext = context.RequestServices.GetRequiredService<IBinaryEndpointRequestContext>();
             using BinaryRequestPayload payload = await requestContext.ReadFrameAsync(context, aeds,
-                (AedsFrameType)ArticlePackageCandidateReviewWireValidation.ReservedRequestFrame, token,
+                route.RequestFrame.Value, token,
                 ArticlePackageCandidateReviewReadLimits.MaxRequestBytes).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             if (!payload.IsSuccess)
@@ -105,7 +112,7 @@ public static partial class AuthoringEndpoints
             }
             token.ThrowIfCancellationRequested();
             return GuardArticlePackageCandidateReviewResponse(BinaryResults.FrameRaw(aeds,
-                (AedsFrameType)ArticlePackageCandidateReviewWireValidation.ReservedResponseFrame, responseBytes));
+                route.ResponseFrame, responseBytes));
         }
         catch (OperationCanceledException)
         {
