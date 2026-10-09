@@ -109,19 +109,59 @@ public sealed class ArticlePackageCurrentPropertyReader(IArticlePropertyValueAut
         }
         ArticlePackageCurrentPropertyProjection before = first.Projection!;
         ArticlePackageCurrentPropertyProjection after = second.Projection!;
-        if (before.Source.SnapshotId != after.Source.SnapshotId
-            || before.Source.FactsetId != after.Source.FactsetId
-            || before.Source.AuditReference != after.Source.AuditReference
-            || before.Source.AuditChainId != after.Source.AuditChainId
-            || before.Source.AuditRecordHash != after.Source.AuditRecordHash
-            || before.Component.ComponentDigest != after.Component.ComponentDigest
-            || !before.Reconciliation.SequenceEqual(after.Reconciliation)
-            || !before.Definitions.SequenceEqual(after.Definitions))
+        if (!SameObservation(before, after))
         {
             return Refuse("article_package_property_read_drift");
         }
         return new(true, null, after);
     }
+
+    /// <summary>
+    /// Reauthorizes one held observation after the planner has read all members. This detects
+    /// movement observed at that final read, not an atomic group snapshot or export admission.
+    /// </summary>
+    internal async Task<ArticlePackageCurrentPropertyReadResult> RecheckObservedAsync(
+        long actorAdminPrincipalId,
+        ArticlePackagePropertyMappingBindings bindings,
+        ArticlePackageCurrentPropertyProjection projection,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(bindings);
+        ArgumentNullException.ThrowIfNull(projection);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (actorAdminPrincipalId <= 0 || projection.ActorAdminPrincipalId != actorAdminPrincipalId
+            || projection.Source.Snapshot.Coordinates != bindings.SourceCoordinates)
+        {
+            return Refuse("article_package_property_read_coordinates_invalid");
+        }
+        ArticlePropertySnapshotCoordinates expected = bindings.SourceCoordinates;
+        var owner = new ArticlePropertyDefinitionOwner(expected.DefinitionOwnerUserId, expected.SiteScope);
+        ArticlePropertyValueReadModel current = await authority.ReadAsync(actorAdminPrincipalId, owner,
+            expected.ArticleId, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        ArticlePackageCurrentPropertyReadResult read = MapObserved(current, actorAdminPrincipalId, owner,
+            expected, bindings, projection.Component);
+        if (!read.IsValid)
+        {
+            return read;
+        }
+        return SameObservation(projection, read.Projection!)
+            ? read
+            : Refuse("article_package_property_group_read_drift");
+    }
+
+    private static bool SameObservation(
+        ArticlePackageCurrentPropertyProjection before,
+        ArticlePackageCurrentPropertyProjection after)
+        => before.ActorAdminPrincipalId == after.ActorAdminPrincipalId
+            && before.Source.SnapshotId == after.Source.SnapshotId
+            && before.Source.FactsetId == after.Source.FactsetId
+            && before.Source.AuditReference == after.Source.AuditReference
+            && before.Source.AuditChainId == after.Source.AuditChainId
+            && before.Source.AuditRecordHash == after.Source.AuditRecordHash
+            && before.Component.ComponentDigest == after.Component.ComponentDigest
+            && before.Reconciliation.SequenceEqual(after.Reconciliation)
+            && before.Definitions.SequenceEqual(after.Definitions);
 
     private static ArticlePackageCurrentPropertyReadResult MapObserved(
         ArticlePropertyValueReadModel observed,

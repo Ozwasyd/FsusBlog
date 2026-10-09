@@ -14,7 +14,8 @@ public static partial class ArticlePackageManifestCandidatePlanner
     /// <summary>
     /// Replaces asserted property snapshots with actual authorized reads before using the sole
     /// finite planner. Other supplied metadata/bytes remain candidates, not persisted facts.
-    /// Per-article repeat reads are not a group transaction or an atomic export fence.
+    /// A final authorized pass rechecks held observations after all initial member reads.
+    /// Neither pass is a group transaction or an atomic export fence.
     /// </summary>
     public static async Task<ArticlePackageCurrentPropertyPlanResult> ReadCurrentPropertiesAndCreateCandidatePlanAsync(
         long actorAdminPrincipalId,
@@ -70,8 +71,22 @@ public static partial class ArticlePackageManifestCandidatePlanner
         }
         cancellationToken.ThrowIfCancellationRequested();
         ArticlePackageManifestCandidateResult result = TryCreateCandidatePlan(rebound, out var plan);
-        return result.IsValid
-            ? new(true, null, plan, Array.AsReadOnly(sources))
-            : new(false, result.ReasonCode, null, null);
+        if (!result.IsValid)
+        {
+            return new(false, result.ReasonCode, null, null);
+        }
+        for (int index = 0; index < count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArticlePackageCurrentPropertyReadResult rechecked = await properties.RecheckObservedAsync(actorAdminPrincipalId,
+                held[index].PropertyBindings, sources[index], cancellationToken).ConfigureAwait(false);
+            if (!rechecked.IsValid)
+            {
+                return new(false, rechecked.ReasonCode, null, null);
+            }
+            sources[index] = rechecked.Projection!;
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return new(true, null, plan, Array.AsReadOnly(sources));
     }
 }

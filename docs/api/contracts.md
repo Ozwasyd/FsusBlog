@@ -3531,7 +3531,13 @@ connects this source stage to the existing finite planner. Its property snapshot
 inputs are replaced by actual reader results before existing projection and
 aggregate checks; caller `BindSnapshot` values cannot establish persisted
 facts. The article set and raw-byte budget are checked before reads, and the
-existing aggregate preflight runs on each observed prefix. A refusal exposes
+existing aggregate preflight runs on each observed prefix. Before returning a
+valid plan, a final authorized read of every member rebinds its held component
+and compares snapshot/factset/audit identity, current definitions and
+reconciliation with its initial observations. Movement observed after reading
+later articles refuses the complete plan; revocation and cancellation propagate.
+These sequential checks do not establish an atomic group snapshot or prevent
+changes after a member's final read. A refusal exposes
 neither a partial plan nor partial source projections. Other supplied article
 metadata/bytes remain candidates. Neither per-article rechecks nor this finite
 plan establish atomic group/export or full package admission.
