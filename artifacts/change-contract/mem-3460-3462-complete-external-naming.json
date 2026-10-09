@@ -1,0 +1,72 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/csharp-style-baseline.json",
+                "config/development/csharp-style-policy.json"
+            ],
+            "reason": "Preserve the original policy/baseline JSON fields while adding only the singular Access directory entry and rebinding its policy digest through the pinned original owner operation."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/csharp-style-enforcement.md"
+            ],
+            "reason": "Preserve existing .editorconfig and command spellings in the current mother-style contract; only document the separate Access semantic and digest binding operation."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Accounting/FrozenDiskPhysicalAllocationPolicy.cs",
+                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityControlPolicy.cs",
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityGpuAllocationPolicy.cs",
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+                "src/backend/Infrastructure/Memory/Control/MemoryGovernorPolicy.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuAllocation.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuDriver.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuMemoryDevice.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuPeerCapabilities.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuPeerDeviceOperation.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuPeerMapping.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuPeerTransfer.cs",
+                "src/backend/Infrastructure/Memory/Devices/GpuTransferOperation.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskBudgetAdmission.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskFileFootprint.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskFileSystemException.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskPhysicalAllocationPolicy.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSegmentFormat.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSegmentLease.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSegmentStore.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSpillEligibility.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSpillInventoryObservation.cs",
+                "src/backend/Infrastructure/Memory/Disk/OwnedSpillRoot.cs",
+                "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+                "src/backend/Infrastructure/Memory/Host/FlatArtifactIndexLayout.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaPolicy.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+                "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuMetalAllocationObservation.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuMetalDiscovery.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuMetalSession.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuNativeDiscovery.cs",
+                "src/backend/Infrastructure/Memory/Platform/GpuNativeSession.cs",
+                "src/backend/Infrastructure/Memory/Platform/LinuxOwnedSpillDirectory.cs",
+                "tools/dotnet/check-csharp-style.mjs"
+            ],
+            "reason": "Preserve existing process environment names and actual native ABI string spelling across the unchanged checker and complete immutable Memory provider source. This existing external-boundary declaration does not exempt any CSharp identifier, delegate name or baseline finding."
+        }
+    ]
+}
