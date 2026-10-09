@@ -299,6 +299,10 @@ public sealed class ArticleSourceGenerationAuthorityIntegrationTests(PostgresSch
         using SqlSugarClient interrupter = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
         await interrupter.Ado.GetScalarAsync("SELECT pg_terminate_backend(@Pid);", new SugarParameter("@Pid", pid));
         await Assert.ThrowsAnyAsync<Exception>(() => ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        // The server terminated and rolled back the native transaction. SqlSugar retains
+        // its disposed handle; assert that refusal, then release only this failed client handle.
+        Assert.Throws<ObjectDisposedException>(() => db.Ado.RollbackTran());
+        db.Ado.Transaction = null;
         using SqlSugarClient restarted = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
         Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(restarted));
         Assert.Equal(0, await CountAsync(restarted, "article_mutation_outbox"));
@@ -403,7 +407,7 @@ public sealed class ArticleSourceGenerationAuthorityIntegrationTests(PostgresSch
         Assert.Equal(new ArticleSourceCursor(articleId, 9, 9),
             await ArticleSourceGenerationAuthority.ReadArticleCursorAsync(db, articleId));
         Assert.Equal(current.Version.RevisionId,
-            await db.Ado.GetLongAsync("SELECT current_revision_id FROM article WHERE id = @Id;", new SugarParameter("@Id", articleId)));
+            await db.Ado.GetLongAsync("SELECT current_revision_id FROM article WHERE id = @Id;", new SugarParameter[] { new("@Id", articleId) }));
         Assert.Equal(9, await CountAsync(db, "article_source_mutation"));
         Assert.Equal(9, await CountAsync(db, "article_mutation_outbox"));
     }
@@ -428,7 +432,7 @@ public sealed class ArticleSourceGenerationAuthorityIntegrationTests(PostgresSch
             await ArticleSourceGenerationAuthority.RecordMutationAsync(db, historical.EventId));
         db.Ado.CommitTran();
         Assert.Equal(current.Version.RevisionId,
-            await db.Ado.GetLongAsync("SELECT current_revision_id FROM article WHERE id = @Id;", new SugarParameter("@Id", initial.ArticleId)));
+            await db.Ado.GetLongAsync("SELECT current_revision_id FROM article WHERE id = @Id;", new SugarParameter[] { new("@Id", initial.ArticleId) }));
         Assert.Equal(3, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
     }
 
@@ -444,7 +448,7 @@ public sealed class ArticleSourceGenerationAuthorityIntegrationTests(PostgresSch
         db.Ado.CommitTran();
         db.Ado.BeginTran();
         await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db);
-        await Assert.ThrowsAnyAsync<Exception>(() => ArticleLifecycleTransitionWriter.UpdateAsync(db, Configuration(),
+        await Assert.ThrowsAsync<ArticleRevisionConflictException>(() => ArticleLifecycleTransitionWriter.UpdateAsync(db, Configuration(),
             RevisionRequest(initial, adminId, ArticleStatus.Draft) with
             {
                 ExpectedRevisionId = initial.Version.RevisionId + 1000
