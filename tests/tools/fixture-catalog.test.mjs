@@ -76,7 +76,7 @@ test("fixture catalogs are valid and profiles expand deterministically", () =>
     assert.deepEqual(expandFixtureProfile("none").capabilities, []);
     assert.deepEqual(expandFixtureProfile("runtime-cache-pagination").capabilities, [
         "public.article.pagination-deep",
-        "public.article.published",
+        "public.article.published"
     ]);
 });
 
@@ -89,12 +89,12 @@ test("fixture variant catalog resolves typed plans and fails closed on sentinel 
     assert.deepEqual(
         resolveFixtureVariants(
             ["public.article.pagination-deep", "public.article.published"],
-            "runtime",
+            "runtime"
         ),
         [
             "canonical.public.article.pagination-deep",
-            "canonical.public.article.published",
-        ],
+            "canonical.public.article.published"
+        ]
     );
     assert.deepEqual(
         resolveFixtureVariants(["scale.article-comment.xs"], "load"),

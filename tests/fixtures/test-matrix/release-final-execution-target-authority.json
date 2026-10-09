@@ -5630,8 +5630,8 @@
         },
         {
             "path": "tools/testing/fixture-catalog.mjs",
-            "contentDigest": "sha256:b54565db68145ceea2252de853eacf8d44a8612808f313f2185a7c497da18ca3",
-            "indexDigest": "sha256:b54565db68145ceea2252de853eacf8d44a8612808f313f2185a7c497da18ca3"
+            "contentDigest": "sha256:644e10f14b48fc441495bc9ea6c37cfbb40d03b045b4e0f7696bd9782c3f076c",
+            "indexDigest": "sha256:644e10f14b48fc441495bc9ea6c37cfbb40d03b045b4e0f7696bd9782c3f076c"
         },
         {
             "path": "tools/ux/release-preview-readiness.mjs",

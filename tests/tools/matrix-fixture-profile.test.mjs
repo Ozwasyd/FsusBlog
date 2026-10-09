@@ -5,21 +5,14 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    buildFixtureProfileMatrixInventory,
-    classifyTierExecutionClass,
-    expectedFixtureProfileReason,
-    FIXTURE_EXECUTION_CLASSES,
-    validateFixtureProfileMatrix
-} from '../../tools/test-matrix/fixture-profile-contract.mjs';
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
-import { validateFixtureCatalogs } from '../../tools/testing/fixture-catalog.mjs';
+const {buildFixtureProfileMatrixInventory, classifyTierExecutionClass, expectedFixtureProfileReason, FIXTURE_EXECUTION_CLASSES, validateFixtureProfileMatrix} = await import(new URL('../../tools/test-matrix/fixture-profile-contract.mjs', import.meta.url));
+const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
+const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
+const {validateFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const schema = JSON.parse(readFileSync(path.join(root, 'tests/matrix.schema.json'), 'utf8'));
 const catalog = JSON.parse(readFileSync(path.join(root, 'config/testing/fixture-profile-catalog.json'), 'utf8'));
-const profileIds = new Set(catalog.profiles.map((item) => item.id));
 
 function profileTier(id, fixtureProfile, executionClass)
 {

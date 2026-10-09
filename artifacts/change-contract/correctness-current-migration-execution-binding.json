@@ -5,19 +5,15 @@
         "config/schemas/test-execution-envelope-applicability.schema.json",
         "tools/test/run-matrix-governance-once.sh",
         "tests/tools/execution-envelope-policy.test.mjs",
-        "tools/testing/generate-test-execution-envelope-applicability.mjs",
-        "tools/test/generate-correctness-attempt-producers.mjs",
-        "tools/test-matrix/generate-release-final-execution-authority.mjs",
         "tools/testing/fixture-catalog.mjs",
         "tools/test-matrix/fixture-profile-contract.mjs",
         "tests/tools/fixture-catalog.test.mjs",
-        "tests/tools/matrix-fixture-profile.test.mjs",
-        "tools/testing/generate-fixture-catalog-artifacts.mjs"
+        "tests/tools/matrix-fixture-profile.test.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "97b671dc0fd8f415d9d325e043c93134cc7676ebad07f41cc06b786d6cebdce5"
+            "sha256": "108070510936b8a9d96702ad725d5e9ef7af6eb39ff56c42bdfc69e7d421d671"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
