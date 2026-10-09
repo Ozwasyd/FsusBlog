@@ -1,0 +1,52 @@
+{
+  "classification": "authorized original production-library compile only; not managed test or strict SDK gate",
+  "sourceHead": "2de89a7656b4a9a1e0982629b44b45f5999d37a6",
+  "sourceTenPathsStable": true,
+  "sdk": "/tmp/chain-3735-tooling/dotnet/dotnet 10.0.401",
+  "project": "src/core/FsusBlog.Core.csproj",
+  "restore": {
+    "argv": [
+      "dotnet",
+      "restore",
+      "src/core/FsusBlog.Core.csproj",
+      "--locked-mode",
+      "--artifacts-path",
+      ".tmp/vault-current-review-wire/production-library"
+    ],
+    "exit": 0
+  },
+  "build": {
+    "argv": [
+      "dotnet",
+      "build",
+      "src/core/FsusBlog.Core.csproj",
+      "--no-restore",
+      "-v",
+      "minimal",
+      "-c",
+      "Release",
+      "--artifacts-path",
+      ".tmp/vault-current-review-wire/production-library"
+    ],
+    "exit": 0,
+    "errors": 0,
+    "warnings": 188
+  },
+  "environment": {
+    "FSUSBLOG_DATA_ROOT": "/workspace/FsusBlog-vault-current-review-wire/.tmp/vault-current-review-wire/production-data",
+    "FSUSBLOG_DOTNET_DEPENDENCY_CACHE_ROOT": "/tmp/shared-authority-integration-cache"
+  },
+  "outputs": {
+    "FsusBlog.Core": {
+      "path": "/workspace/FsusBlog-vault-current-review-wire/.tmp/vault-current-review-wire/production-library/bin/FsusBlog.Core/release/FsusBlog.Core.dll",
+      "sha256": "887410a0fc0341d54a15b84debfa4c15499a6201d9e5c6e4ac45d8d02ff416cb"
+    },
+    "FsusBlog.Shared": {
+      "path": "/workspace/FsusBlog-vault-current-review-wire/.tmp/vault-current-review-wire/production-library/bin/FsusBlog.Core/release/FsusBlog.Shared.dll",
+      "sha256": "ae56aa5cac19bec860c883dc99610db05cabc1429855f68b7bc723365aefb854"
+    }
+  },
+  "managedTestsExecuted": false,
+  "qualifiedManagedTests": 0,
+  "originalBackendStrictTestGate": "still held; not executed or replaced"
+}

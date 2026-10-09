@@ -1,0 +1,51 @@
+{
+  "classification": "excluded unauthorized alternate managed harness",
+  "qualifiedManagedTests": 0,
+  "originalBackendProject": "tests/backend/FsusBlog.Server.Tests.csproj",
+  "originalStrictWarnAsErrorGate": "not executed by worker; parent reports failed/held; no pass receipt supplied",
+  "alternateProject": "/workspace/FsusBlog-vault-current-review-wire/.tmp/vault-current-review-wire/unit.csproj",
+  "alternateProjectSha256": "fa37fb1d8e92d08db9de35cc3d63b886b3c64765e80811b67267380727129a51",
+  "sdk": "/tmp/chain-3735-tooling/dotnet/dotnet 10.0.401",
+  "argv": [
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "test",
+    ".tmp/vault-current-review-wire/unit.csproj",
+    "-c",
+    "Release",
+    "--logger",
+    "trx;LogFileName=request-unit.trx",
+    "--results-directory",
+    ".tmp/vault-current-review-wire/evidence"
+  ],
+  "environment": {
+    "FSUSBLOG_DATA_ROOT": "/workspace/FsusBlog-vault-current-review-wire/.tmp/vault-current-review-wire/data",
+    "FSUSBLOG_DOTNET_DEPENDENCY_CACHE_ROOT": "/tmp/shared-authority-integration-cache"
+  },
+  "observations": [
+    {
+      "log": "managed-initial-fixture-failed.log",
+      "trx": "managed-initial-fixture-failed.trx",
+      "passed": 1,
+      "failed": 30,
+      "reason": "fixture lookup incorrectly assumed VSTest current directory is repo root",
+      "accepted": false
+    },
+    {
+      "log": "managed.log",
+      "trx": "request-unit.trx",
+      "passed": 31,
+      "failed": 0,
+      "accepted": false,
+      "notBoundToFinalSource": "subsequent documentation/formatting and Unit Trait source changes; no final managed rerun"
+    }
+  ],
+  "laterFormatOnly": {
+    "command": "dotnet format whitespace .tmp/vault-current-review-wire/unit.csproj --no-restore --include owned three CSharp files",
+    "log": "format.log",
+    "exit": 0,
+    "qualification": false
+  },
+  "stopped": "no further managed test execution, discovery or alternate rebuild after parent instruction; final verification limited to allowed Node/native",
+  "scope": "no HTTP, content API, PG, current input acquisition, native filesystem or qualification receipts"
+}
