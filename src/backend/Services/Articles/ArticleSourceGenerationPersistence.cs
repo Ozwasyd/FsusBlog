@@ -227,7 +227,8 @@ internal static class ArticleSourceGenerationPersistence
                   AND (@ResponsibilityId IS NULL OR EXISTS (
                       SELECT 1 FROM article_responsibility_snapshot responsibility
                       WHERE responsibility.id = @ResponsibilityId AND responsibility.article_id = @ArticleId
-                        AND responsibility.responsibility_version = @ResponsibilityVersion
+                        AND (@ResponsibilityVersion IS NULL
+                            OR responsibility.responsibility_version = @ResponsibilityVersion)
                         AND EXISTS (SELECT 1 FROM article_revision responsibility_revision
                             WHERE responsibility_revision.id = responsibility.article_revision_id
                               AND responsibility_revision.article_id = @ArticleId)))
