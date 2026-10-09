@@ -6,6 +6,8 @@
         "./test-convergence/audit": "./test-convergence/audit.mjs",
         "./test-convergence/post-baseline-history": "./test-convergence/post-baseline-history.mjs",
         "./test-retention/audit": "./test-retention/audit.mjs",
-        "./test-matrix/parse-matrix": "./test-matrix/parse-matrix.mjs"
+        "./test-matrix/parse-matrix": "./test-matrix/parse-matrix.mjs",
+        "./yaml/parse-document": "./yaml/parse-document.mjs",
+        "./yaml/workflow-structure": "./yaml/workflow-structure.mjs"
     }
 }

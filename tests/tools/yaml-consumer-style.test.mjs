@@ -7,9 +7,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix, parseMatrixValue } from '@fsusblog/governance-tools/test-matrix/parse-matrix';
-
-import { parseYamlDocument } from '../../tools/yaml/parse-document.mjs';
-import { parseWorkflowJobNeeds } from '../../tools/yaml/workflow-structure.mjs';
+import { parseYamlDocument } from '@fsusblog/governance-tools/yaml/parse-document';
+import { parseWorkflowJobNeeds } from '@fsusblog/governance-tools/yaml/workflow-structure';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 
