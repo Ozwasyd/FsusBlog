@@ -1,0 +1,23 @@
+#2325 canonical protocol import/style successor — WIP / issue OPEN
+
+Branch: codex/issue-2325-transport-followup-20261009
+Exact tested source: 373bcaa74f37aed9b07504040ec7ddca8bf293d9
+Predecessor delivery: 410e2ded34600c0bf307c2769d84d3c042c75e70
+Separate consumed mechanical commit: 9f4af3a81e7f8acd8635345bf027ed780c78a898, source offer6324264ab60fbf6b196f14c09a447eca58402bbe
+Consumed semantic source offer: c07ecec8f5a4d2349e09bd67464108198586414b
+Frozen original audit head: 7b374e71f89433cf04e5e315fdd1d43816728f85
+Pinned original master base: 537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea
+
+Only two source paths changed from410: tests/tools/aeds-protocol-generation.test.mjs and tools/package.json. Consumer test396ebcd and package723791a exactly matched owner preimages. Imported exact independent632 mechanical source, then applied only the two c07 semantic hunks: public import @fsusblog/governance-tools/frontend/aeds-protocol and one export ./frontend/aeds-protocol -> ./frontend/generate-aeds-protocol.mjs. All other package exports preserved. Final two postimages exactly matchc07. No whole evidence/153-path source branch consumed, no generator/authority/schema/golden/config/host implementation or assertions rewritten locally. No new independent review or GitHub content action.
+
+Node resolution uses the unchanged tests/tools/package.json and package-lock existing file:../../tools dependency, with an ignored task-local link to this worktree's actual tools package. Public subpath resolves directly to the unchanged original producer; no wrapper/loader/config exception/package install/new dependency/lock mutation.
+
+Own exact-source Node24.16 results, after positive nonempty36-name/count/no-hooks preflight: original protocol36PASS/0FAIL/0SKIP, original21 negative controls and both five-fixed-hash historical golden controls pass. Five original producer outputs --check PASS. Original scoped style check against410:files1/eslint1/stylelint0/violations0/new0. PackageJSON lies outside product style roots; package semantic preservation and actual resolution were independently checked. No supplier pass inherited.
+
+Formal mechanical qualification remains BLOCKED: trusted fixed-parser installation absent; no complete canonical AST/raw-token/comment proof. Exact postimage/provenance hashes, source review, ordinary36 tests and zero lint are NOT mechanical equivalence qualification. No hand hash/whitespace comparison, exemption, threshold or protection bypass. Actual publication/change contract remains INCOMPLETE/NOT PASSED. Ordinary authorized source Git push does not qualify publication/package/release or readiness/merge.
+
+Original117 changed source/test paths remain retained; one necessary tools/package.json export dependency brings total to118 versus pinned537. Complete121 source offer/baseTestOwner rows and all118 changed source paths reverified;15 unchanged base inputs include existing test package+lock. Newly tested code is only two paths plus the separate mechanical diff. The parent can reuse the same original review and compare410 to this successor; no new review requested.
+
+All prior immutable source/failure records remain in history/artifacts: old protocol35-case30PASS/5FAIL, original aggregate91-case86PASS/5FAIL and failed SOURCE; previous150 protocol36PASS;0cf transport34PASS and scoped style0; b8 frontend419PASS/type202 diagnostics. These receipts are not rebound to373. Current fullfrontend/typecheck/SOURCE/managed/backend/native/runtime/device/product/independent acceptance UNRUN. Fixed parser, original broader SOURCE/type/generated-binding failures and complete backend/typed commands/validation/reference/URL/definition management acceptance remain unresolved.
+
+PropertyList offer still pending actual host-dependency source. Original2246's4b already mounts ArticleMetadataRead; this candidate does not carry that host, final production admission incomplete. Save disabled, issue2325 OPEN. No schema/authority migration/query, FsusUI library edit/package publication, contentAPI, merge/ready/default-branch push/deploy/credential/Library action. Monitor owns GitHub content; root owns readiness/merge.
