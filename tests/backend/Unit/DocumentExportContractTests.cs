@@ -301,6 +301,7 @@ public sealed class DocumentExportContractTests
             "zh-CN",
             ImmutableCollectionsMarshal.AsImmutableArray(assets),
             DocumentExportReadingStyleAuthority.AuthorityDigest,
+            FrozenEmbeds: null,
             string.Empty);
 
         DocumentExportFrozenInput frozen = DocumentExportContractValidator.Seal(unsealed);
@@ -1014,6 +1015,7 @@ public sealed class DocumentExportContractTests
             "zh-Hant",
             assets.ToImmutableArray(),
             DocumentExportReadingStyleAuthority.AuthorityDigest,
+            FrozenEmbeds: null,
             string.Empty);
         return DocumentExportContractValidator.Seal(input);
     }
