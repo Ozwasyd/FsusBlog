@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json"
+            ],
+            "reason": "Preserve the registered JSON wire keys and all 226 complete producer records while updating only the canonical source and content digests."
+        }
+    ]
+}
