@@ -1,0 +1,5 @@
+  Determining projects to restore...
+  Restored /workspace/FsusBlog-3464-ordinary-source-composition/src/shared/FsusBlog.Shared.csproj (in 173 ms).
+  Restored /workspace/FsusBlog-3464-ordinary-source-composition/src/core/FsusBlog.Core.csproj (in 1.99 sec).
+  Restored /workspace/FsusBlog-3464-ordinary-source-composition/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 2 sec).
+  Restored /workspace/FsusBlog-3464-ordinary-source-composition/src/backend/FsusBlog.Server.csproj (in 2.02 sec).

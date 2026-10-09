@@ -1,0 +1,17 @@
+✔ ordinary metadata uses real original history and only a consumer-validated receipt admits the exact path (1702.529962ms)
+✔ original repository owner refuses duplicate SHA (1410.498713ms)
+✔ original repository owner refuses invalid uppercase SHA (1673.514762ms)
+✔ original repository owner refuses unknown SHA (1937.520045ms)
+✔ original repository owner refuses removed mandatory legacy (693.954183ms)
+✔ original repository owner refuses non-style commit (1987.794987ms)
+✔ an existing style revision outside actual HEAD ancestry is refused (1512.214593ms)
+✔ original owner refuses a real root commit (2654.265433ms)
+✔ original owner refuses a real merge commit (2028.445113ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17305.337419

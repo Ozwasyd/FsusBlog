@@ -1,0 +1,12 @@
+WARNING: The directory '/home/agent/.cache/pip' or its parent directory is not owned or is not writable by the current user. The cache has been disabled. Check the permissions and owner of that directory. If executing pip with sudo, you should use sudo's -H flag.
+Collecting clang-format==19.1.7
+  Downloading clang_format-19.1.7-py2.py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.7 kB)
+Collecting clang-tidy==19.1.0.1
+  Downloading clang_tidy-19.1.0.1-py2.py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (3.7 kB)
+Downloading clang_format-19.1.7-py2.py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (1.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.7/1.7 MB 9.2 MB/s  0:00:00
+Downloading clang_tidy-19.1.0.1-py2.py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (37.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 37.7/37.7 MB 14.1 MB/s  0:00:02
+Installing collected packages: clang-tidy, clang-format
+
+Successfully installed clang-format-19.1.7 clang-tidy-19.1.0.1

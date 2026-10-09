@@ -1,0 +1,13 @@
+✔ actual CMake C++23 context checks both changed translation unit and included header with real compiler dependencies (859.936295ms)
+✔ missing actual compile database and unrelated header contexts are strict refusals (247.381519ms)
+✔ missing dependency input and actual compiler syntax errors are strict refusals (388.92125ms)
+✔ ordinary unsupported or incomplete compile arguments are refused before compiler execution (179.336203ms)
+✔ missing compiler and incomplete CMake context retain strict refusal (479.925909ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2228.999466
