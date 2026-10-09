@@ -17,11 +17,11 @@
     "originalUserBusExists": false,
     "nativeControlExecuted": false
   },
-  "readyIndependentUnimplementedModules": 0,
+  "readyIndependentUnimplementedModules": 2,
   "moduleDependencyLimits": [
-    "No exact full persisted revision/draft/publication metadata/property/assets/font/renderer reader API",
-    "No real authenticated catalog/source projection wire/API",
-    "No original worker session/site/current permission authority"
+    "Modules may code immediately on compileddec33; shared existing-file DI/route/migration hunks remain with root3653",
+    "Complete freezer properties/assets/font/renderer acceptance remains separate",
+    "Original29 lane repair/review and native capability remain blocked"
   ],
   "issues": [
     {
@@ -100,5 +100,19 @@
     "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
     "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
     "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs"
-  ]
+  ],
+  "releasedModuleScopes": "released-production-modules.md",
+  "ordinarySourceComposition": {
+    "testedSource": "43457fb1da3c13218c87e1e083f83587af7a9e15",
+    "publishedHead": "5674cf93b8815bd9de96c0e2fc5634ca452064b8",
+    "sourceStyleFiles": 31,
+    "sourceStyleExitCode": 0,
+    "officialWhitespaceExitCode": 0,
+    "serverRestoreExitCode": 0,
+    "serverBuildExitCode": 1,
+    "serverErrors": 39,
+    "serverWarnings": 326,
+    "remainingContractOwner": 2434,
+    "rootOwnedConflictsResolved": 2
+  }
 }
