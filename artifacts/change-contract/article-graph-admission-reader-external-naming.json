@@ -8,7 +8,6 @@
                 "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs",
                 "src/backend/Services/Authoring/SqlArticleGraphAdmissionReader.cs",
                 "src/migration/Definitions/ArticleRelationSourceCoordinateMigrationDefinitions.cs",
-                "tools/check-backend-test-governance.mjs",
                 "tools/mutation/stryker-caller-governance-contract.mjs"
             ],
             "reason": "Preserve registered C# adapter surfaces, canonical database identifiers and the original process-environment spellings in the independently qualified canonical mutation source. Internal admission names follow repository conventions."
@@ -21,6 +20,13 @@
                 "config/testing/correctness-attempt-producers.json"
             ],
             "reason": "Preserve canonical PostgreSQL collection identifiers and generated backend/correctness inventory JSON keys while using the unchanged original producers. Together with the C# and tooling entry, these paths exactly cover the complete registered naming-surface union against the master base."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/check-backend-test-governance.mjs"
+            ],
+            "reason": "Preserve the existing governance checker external authority names and adjacent checks while consuming the independently qualified canonical mutation caller validator source."
         }
     ]
 }
