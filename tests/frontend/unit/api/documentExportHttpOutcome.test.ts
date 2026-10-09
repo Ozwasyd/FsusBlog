@@ -28,6 +28,11 @@ async function actualFailure(status: number): Promise<unknown> {
 beforeEach(() => { privateRequestRuntime.resetForTests(); http.mockReset(); });
 afterEach(() => { privateRequestRuntime.resetForTests(); });
 
+it('keeps the actual normalized HTTP 503 write outcome uncertain', () => {
+    expect(classifyDocumentExportFailure(new BinaryTransportError({
+        kind: 'public_artifact_not_ready', status: 503, message: 'unconfirmed'
+    }))).toBe('uncertain');
+});
 it.each([500, 502, 503, 504])('preserves uncertainty for actual normalized HTTP %s without a successful job', async status => {
     const failure = await actualFailure(status);
     expect(failure).toBeInstanceOf(BinaryTransportError);
