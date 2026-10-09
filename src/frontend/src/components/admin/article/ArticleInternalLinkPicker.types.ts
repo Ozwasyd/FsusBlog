@@ -92,4 +92,3 @@ export interface InternalLinkPickerEmits {
     /** Notification only; the public dialog owns DOM focus return, the host owns editor focus. */
     closed: [];
 }
-
