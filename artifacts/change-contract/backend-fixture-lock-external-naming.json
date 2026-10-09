@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Preserve NuGet serialized version, dependencies, requested, resolved and contentHash keys and third-party package identities in the original backend consumer lock; internal business names cannot replace the locked-restore schema."
+        }
+    ]
+}
