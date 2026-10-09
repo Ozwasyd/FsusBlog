@@ -7,7 +7,7 @@ import { staticAtomicAuthorityVerifier } from './producer.mjs';
 
 const { digestCanonical, sealContentDigest } = await import(new URL('../attempt-provenance.mjs', import.meta.url));
 const { compileAtomicProducerDag, verifyCompiledAtomicProducerDag } = await import(new URL('../../test-matrix/atomic-producers/compiler.mjs', import.meta.url));
-const { resolveAtomicReference, resolveAtomicReplayPlan } = await import(new URL('../../test-matrix/atomic-producers/contract.mjs', import.meta.url));
+const { isAtomicExecutable, resolveAtomicReference, resolveAtomicReplayPlan } = await import(new URL('../../test-matrix/atomic-producers/contract.mjs', import.meta.url));
 const { executeCompiledAtomicProducerDag } = await import(new URL('../../test-matrix/atomic-producers/execution.mjs', import.meta.url));
 
 function same(left, right, label)
@@ -114,8 +114,8 @@ export function verifyStaticAtomicCompilation(compilation, options)
     return expected;
 }
 
-/** Use the canonical executor once; its original error and full terminal vector are preserved. */
-export async function executeStaticAtomicCompilation(compilation, options)
+/** Prepare private executable contexts without dispatching or invoking their authority callbacks. */
+export function prepareStaticAtomicCompilation(compilation, options)
 {
     const verified = verifyStaticAtomicCompilation(compilation, options);
     const declarations = staticAtomicDeclarations(options.repositoryRoot);
@@ -153,9 +153,24 @@ export async function executeStaticAtomicCompilation(compilation, options)
             }
         }) };
     }
-    return executeCompiledAtomicProducerDag(verified.compiled, {
+    const producerIds = verified.compiled.steps.filter(isAtomicExecutable).map(step => step.id).sort();
+    return {
+        compiled: verified.compiled,
+        sourceBindingDigest: verified.binding.contentDigest,
+        producerIds,
+        producerContexts: Object.fromEntries(producerIds.map(id => [id, producerContexts[id]])),
+        context: options.context,
+        qualificationEligible: false
+    };
+}
+
+/** Use the canonical executor once; its original error and full terminal vector are preserved. */
+export async function executeStaticAtomicCompilation(compilation, options)
+{
+    const prepared = prepareStaticAtomicCompilation(compilation, options);
+    return executeCompiledAtomicProducerDag(prepared.compiled, {
         matrix: options.matrix, authorities: options.authorities,
-        context: options.context, capacity: options.capacity, producerContexts,
+        context: prepared.context, capacity: options.capacity, producerContexts: prepared.producerContexts,
         finalizerOperations: options.finalizerOperations
     });
 }
