@@ -1,0 +1,302 @@
+{
+  "schema": "fsusblog.upload-facts-exact-body-repair.v1",
+  "sourceCommit": "036ffff6fec688d630df2c3c8b4434fad9c08874",
+  "branch": "codex/shared-upload-facts-exact-body-20261009",
+  "base": "61a11c53cc471a0852bcd3c1df75655aab4331aa",
+  "originalFactsSource": "df6e81a18e1c4f20f35764e17d1d5f51e2f83ea9",
+  "independentReviewer": "01a12105",
+  "completeFactsSourceBaseline": "8ff02b213a60551a31e687463f6084028bac563b",
+  "completePathCount": 33,
+  "sourceRosterExcludesArtifactRecords": true,
+  "completeSourcePaths": [
+    {
+      "path": "docs/api/contracts.md",
+      "original1975BaseBlob": "06f4bce2ecc0b0e5761181bc135ac2507735ba84",
+      "originalFactsBlob": "5285d2346ad1cab8a049d33f158361413027987e",
+      "currentSourceBlob": "a191b713a6382f36b46e935755d2b083306d14d2",
+      "eofRepairPath": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Binary/BinaryEndpointRequestContext.cs",
+      "original1975BaseBlob": "b105664e79d6e8d0deab590ed5bc41e834d1f00b",
+      "originalFactsBlob": "b105664e79d6e8d0deab590ed5bc41e834d1f00b",
+      "currentSourceBlob": "dcf9ab042a46a5351b477045b83759acf1def815",
+      "eofRepairPath": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Binary/BinaryRequestBinder.cs",
+      "original1975BaseBlob": "3dc1b645b73959c227c67695786ef83f19ef809c",
+      "originalFactsBlob": "3dc1b645b73959c227c67695786ef83f19ef809c",
+      "currentSourceBlob": "e07fc2766d5978b9c911a42e7b0e7510eabdef8a",
+      "eofRepairPath": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "original1975BaseBlob": null,
+      "originalFactsBlob": "5fc20128d595d3374d8c3c2d9623009a1fe2ab3c",
+      "currentSourceBlob": "48e1336e38b585f093bbcb3b51498c8605a68879",
+      "eofRepairPath": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "original1975BaseBlob": "353164a50e6a84359859f68d0b4a005072a4f637",
+      "originalFactsBlob": "78030e466fde3fcafbdf51f9d17c58b6eaa93192",
+      "currentSourceBlob": "78030e466fde3fcafbdf51f9d17c58b6eaa93192",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/core/Algorithms/AedsFrameType.cs",
+      "original1975BaseBlob": "26d208d8fd5683f13d8c39f1b9af4ee8a68c4567",
+      "originalFactsBlob": "ca9fc1904531f435b285b9f675cdfc2c3a247e52",
+      "currentSourceBlob": "ca9fc1904531f435b285b9f675cdfc2c3a247e52",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+      "original1975BaseBlob": "8c0c0e5b3b9f89afff706d9bb4c11c1aa5557c26",
+      "originalFactsBlob": "a76d4e8aa327e2bf4cab692fe46dd8a5179111c8",
+      "currentSourceBlob": "a76d4e8aa327e2bf4cab692fe46dd8a5179111c8",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "original1975BaseBlob": "463741f5f376c73738cf5f06a7b39163a7358de1",
+      "originalFactsBlob": "981e816ba993c9e0e9ec4111d829b8c6445937af",
+      "currentSourceBlob": "981e816ba993c9e0e9ec4111d829b8c6445937af",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "original1975BaseBlob": null,
+      "originalFactsBlob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+      "currentSourceBlob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "original1975BaseBlob": "a67186a08eee7a9a8295a80138cc7f2de2b08b8c",
+      "originalFactsBlob": "fe5cd0da30829f6c892203bbfe594b2580cf5fbd",
+      "currentSourceBlob": "fe5cd0da30829f6c892203bbfe594b2580cf5fbd",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "original1975BaseBlob": "7d314a7730688e7562383feefcaacf75e53b9a4b",
+      "originalFactsBlob": "2c3f7ae2e39fe620496aefa21648e06652895a83",
+      "currentSourceBlob": "2c3f7ae2e39fe620496aefa21648e06652895a83",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "original1975BaseBlob": "651d727ae385189d7e2b74d75bc6af1d43db4d96",
+      "originalFactsBlob": "1abcba10cef55637091f244b5b2887845abb338c",
+      "currentSourceBlob": "1abcba10cef55637091f244b5b2887845abb338c",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+      "original1975BaseBlob": "24fcd9b31a714e6a5f8b088dbd7b14d4cc78b992",
+      "originalFactsBlob": "6bac8af2e708351c756ab6808ce9b113cff7a31d",
+      "currentSourceBlob": "6bac8af2e708351c756ab6808ce9b113cff7a31d",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+      "original1975BaseBlob": "40c5e948fe1423fcaefcd5aaa9d5a4496d3999ab",
+      "originalFactsBlob": "498785b71b900dfb1a5e1af94391c015ccb87be6",
+      "currentSourceBlob": "498785b71b900dfb1a5e1af94391c015ccb87be6",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+      "original1975BaseBlob": "6c68f7759cd8efabff25b5d2d685db3dc9507d55",
+      "originalFactsBlob": "ede77a09a2ddda855026ffcf38e720a7e20dda33",
+      "currentSourceBlob": "ede77a09a2ddda855026ffcf38e720a7e20dda33",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+      "original1975BaseBlob": "1a26f1b4fe3b7359c7d2c880c34f08fc60481965",
+      "originalFactsBlob": "8775938b817ced585623219ea8fb51dc6651bbc1",
+      "currentSourceBlob": "8775938b817ced585623219ea8fb51dc6651bbc1",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "original1975BaseBlob": "323a6a2af1b964a1abe82ea5624f2d191150583e",
+      "originalFactsBlob": "77708856b5051c94c1cca66e862e64e248a7b283",
+      "currentSourceBlob": "77708856b5051c94c1cca66e862e64e248a7b283",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/shared/AedsFrameHeader.cs",
+      "original1975BaseBlob": "48d8b6ae68af918272f1195006a96858b61a01ab",
+      "originalFactsBlob": "9c504d9ae24ec0febacd2ea308fda196fe780816",
+      "currentSourceBlob": "9c504d9ae24ec0febacd2ea308fda196fe780816",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+      "original1975BaseBlob": null,
+      "originalFactsBlob": "03344a7af4536ee2c783cc396cab4cb751e13dcb",
+      "currentSourceBlob": "03344a7af4536ee2c783cc396cab4cb751e13dcb",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+      "original1975BaseBlob": "6b65864cf809b2f911ca6faf30f6f4642d7044cc",
+      "originalFactsBlob": "bb5edc77d811404654cf62d73d61727dac231b1d",
+      "currentSourceBlob": "bb5edc77d811404654cf62d73d61727dac231b1d",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+      "original1975BaseBlob": "e878b73d14ffce96bcd56b829ba6a591c964eb24",
+      "originalFactsBlob": "a9431afd5817d99f85081eb43d0716129532e807",
+      "currentSourceBlob": "a9431afd5817d99f85081eb43d0716129532e807",
+      "eofRepairPath": false
+    },
+    {
+      "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+      "original1975BaseBlob": "55b7ca1e7aca1cc00a3b607f1bc30e651952e387",
+      "originalFactsBlob": "5205ff9aac9506ceb8897881b2d7f84f48ec5300",
+      "currentSourceBlob": "5205ff9aac9506ceb8897881b2d7f84f48ec5300",
+      "eofRepairPath": false
+    },
+    {
+      "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+      "original1975BaseBlob": "98ee4321499c9e1214e34d6117ed46540f1fce6a",
+      "originalFactsBlob": "38da6b69892c5ddb7caf0ecac37ef43875890775",
+      "currentSourceBlob": "38da6b69892c5ddb7caf0ecac37ef43875890775",
+      "eofRepairPath": false
+    },
+    {
+      "path": "tests/backend/Unit/UploadAssetFactsCodecTests.cs",
+      "original1975BaseBlob": null,
+      "originalFactsBlob": "26eaedd5dd5b7d1eb21d21e4f0019b8706e06fa5",
+      "currentSourceBlob": "26eaedd5dd5b7d1eb21d21e4f0019b8706e06fa5",
+      "eofRepairPath": false
+    },
+    {
+      "path": "tests/backend/Unit/UploadAssetFactsEndpointBodyTests.cs",
+      "original1975BaseBlob": null,
+      "originalFactsBlob": null,
+      "currentSourceBlob": "3cae6879c98a72a58f36b3093e9ae4f682b2f60e",
+      "eofRepairPath": true
+    },
+    {
+      "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+      "original1975BaseBlob": "1d108fc21a05e5321ef06a41ff5a61dac0f6eef1",
+      "originalFactsBlob": "a694ac8f63a36f102cfb596e9decddd943a409c4",
+      "currentSourceBlob": "a694ac8f63a36f102cfb596e9decddd943a409c4",
+      "eofRepairPath": false
+    },
+    {
+      "path": "tests/frontend/fixtures/cross-stack-contract-matrix.json",
+      "original1975BaseBlob": "19abb1540e241f531a831bcd86a524e76046354b",
+      "originalFactsBlob": "34ab42a3b1ce18308c60aab7c6c48b817c4ca3bc",
+      "currentSourceBlob": "34ab42a3b1ce18308c60aab7c6c48b817c4ca3bc",
+      "eofRepairPath": false
+    },
+    {
+      "path": "tests/frontend/unit/adapters/binary/uploadAssetFacts.test.ts",
+      "original1975BaseBlob": null,
+      "originalFactsBlob": "741d4d9f356bac2b8cd5663fb313a716b778ba40",
+      "currentSourceBlob": "741d4d9f356bac2b8cd5663fb313a716b778ba40",
+      "eofRepairPath": false
+    },
+    {
+      "path": "tests/native/UploadAssetFactsProtocolTests.cpp",
+      "original1975BaseBlob": null,
+      "originalFactsBlob": "8955293a4e6fc0c33603fb12ca6878e72a1747e1",
+      "currentSourceBlob": "8955293a4e6fc0c33603fb12ca6878e72a1747e1",
+      "eofRepairPath": false
+    },
+    {
+      "path": "tests/tools/aeds-protocol-generation.test.mjs",
+      "original1975BaseBlob": "2157a5cb12ce384a5dff4d43b7801a79e1ce46ed",
+      "originalFactsBlob": "8a279ccc555340e3fc16cc0bdf43b1f3cc6f8ee5",
+      "currentSourceBlob": "8a279ccc555340e3fc16cc0bdf43b1f3cc6f8ee5",
+      "eofRepairPath": false
+    },
+    {
+      "path": "tests/tools/upload-asset-facts-native.test.mjs",
+      "original1975BaseBlob": null,
+      "originalFactsBlob": "c76e5e1d1e5a21a78a0cffdbcc5f42e0b45698e5",
+      "currentSourceBlob": "c76e5e1d1e5a21a78a0cffdbcc5f42e0b45698e5",
+      "eofRepairPath": false
+    },
+    {
+      "path": "tools/frontend/generate-aeds-protocol.mjs",
+      "original1975BaseBlob": "bc17ea2e95a8699c3c32ffd9f9ea4496b8bb052b",
+      "originalFactsBlob": "6e7a0969c0f4a34d23a9301f04074a62934f3f19",
+      "currentSourceBlob": "6e7a0969c0f4a34d23a9301f04074a62934f3f19",
+      "eofRepairPath": false
+    },
+    {
+      "path": "tools/package.json",
+      "original1975BaseBlob": "723791a9b54fec7e5dcf4d304a74e010f8ca66fd",
+      "originalFactsBlob": "5b476bcbf809f63b0e8b3b42a0a589ffe6a91e8c",
+      "currentSourceBlob": "5b476bcbf809f63b0e8b3b42a0a589ffe6a91e8c",
+      "eofRepairPath": false
+    }
+  ],
+  "incrementalChangedPaths": [
+    "docs/api/contracts.md",
+    "src/backend/Infrastructure/Binary/BinaryEndpointRequestContext.cs",
+    "src/backend/Infrastructure/Binary/BinaryRequestBinder.cs",
+    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+    "tests/backend/Unit/UploadAssetFactsEndpointBodyTests.cs"
+  ],
+  "contract": "Opt-in IBinaryEndpointRequestContext.ReadExactFrameAsync reuses the original bounded frame parser and requires EOF. Reject the first unexpected byte without draining an unbounded body; dispose the payload on EOF refusal/cancellation/fault before returning. Facts handler links argument and RequestAborted cancellation before reading, retains complete-frame limit80, and calls the existing observer only after EOF and original SHA validation.",
+  "protectedOriginalSource": {
+    "authNoStorePrefixByteIdentical": true,
+    "originalBinaryFrameParserAllBytesUnchangedExceptNewEofHelper": true,
+    "allOriginalFactsProductionPathsExceptHandlerAndDocsByteIdentical": true,
+    "existingReadFrameSignaturesUnchanged": true,
+    "noFrameAbiRegistryOrPoWChanges": true,
+    "sourceDiffWhitespace": "PASS"
+  },
+  "originalProjectRegressions": {
+    "project": "tests/backend/FsusBlog.Server.Tests.csproj",
+    "class": "FsusBlog.Server.Tests.Unit.UploadAssetFactsEndpointBodyTests",
+    "newCases": 10,
+    "methods": [
+      "UnknownLengthNonSeekableBody_OnlyExactFrameReachesObserver",
+      "CancellationWhileAwaitingEof_DisposesPayloadWithoutObserving",
+      "IdentityRefusal_DoesNotReadBodyOrObserve",
+      "ExistingFrameRead_RemainsOptInAndDoesNotConsumeTrailingBody"
+    ],
+    "coverage": "Five nonseekable unknown-length exact/tail1/tail4096/truncatedpayload/truncatedheader cases; two EOF cancellation origins with drained operation and returned leases; two401/403 zero body/observer controls; unchanged legacy frame read opt-in control. Calls actual original handler/context/binder/encoder with controlled IFileService observer, no alternate HTTP test host.",
+    "discovery": "UNRUN",
+    "bodies": "UNRUN",
+    "runtimeHttpReproduction": "UNRUN"
+  },
+  "originalPreflightAttempts": [
+    {
+      "sourceCommit": "64a130e0f2997b42edcd0036d2f9b043a5e2998c",
+      "argv": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "cwd": "/workspace/FsusBlog-upload-facts-exact-body",
+      "startedAtUtc": "2026-10-09T14:42:56.324672+00:00",
+      "endedAtUtc": "2026-10-09T14:46:14.191019+00:00",
+      "exitCode": 1,
+      "seconds": 197.866,
+      "runtimeQualification": false,
+      "stdoutArtifactLocalOnly": "/workspace/FsusBlog-upload-facts-exact-body/.tmp/upload-facts-exact-body/evidence/mandatory-preflight.log",
+      "failureReason": "release-final static boundary rejected execution target authority owner/content/dependency closure drift",
+      "expectedAuthoritySha256": "204b765f0ea8110d8f623e122a7bf1984e7a864d6cc4d168e4eff98c3bb0760a",
+      "actualAuthoritySha256": "0c8e170fc50a3eb4f578e2f41ed3c692ff836f140b9c51be0135b3c3df9267f8"
+    }
+  ],
+  "currentCandidateAdmission": "NOT GRANTED; original source/authority gate must pass before dependent SDK/discovery/bodies",
+  "parentReportedPreviousIndependentControls": "52Node,31native+22supplemental,5generators passed against original df6 complete30 paths; no HTTP boundary reproduction and no current-source rebind or whole acceptance.",
+  "requiredFollowup": "Return this complete33-path exact source to the SAME independent reviewer after original admission; no new wire writer or review owner.",
+  "initialSourceRosterDriverFailure": "First assertion counted all116 changed paths including artifact records. Corrected only explicit source roster projection:33 actual source/document/control paths,83 artifact paths; all original source and gate checks remain unchanged.",
+  "qualification": false,
+  "rawLogsPublished": false,
+  "createdAtUtc": "2026-10-09T14:56:34.534314+00:00"
+}
