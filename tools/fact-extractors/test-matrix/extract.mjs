@@ -127,6 +127,22 @@ function readBoundArtifact(repositoryRoot, relative, label)
   return { absolute, bytes: readFileSync(absolute) }
 }
 
+// The validated minimal receipt supplies the original producer's protected cache root.
+// Keep synchronous replay scratch there: the compiled host rejects external temp paths.
+export function withRuntimeRoleReplayDirectory(repositoryRoot, buildRoot, replay)
+{
+    const buildDirectory = resolveContainedPath(repositoryRoot, buildRoot, 'directory');
+    const replayDirectory = mkdtempSync(path.join(buildDirectory, 'runtime-role-replay-'));
+    try
+    {
+        return replay(path.join(replayDirectory, 'runtime-role-observation.json'));
+    }
+    finally
+    {
+        rmSync(replayDirectory, { recursive: true, force: true });
+    }
+}
+
 const verifiedRuntimeAttestations = new Map()
 
 function verifyRuntimeReproducibleBuild(repositoryRoot, runtimeBinding, minimalReceipt)
@@ -1454,35 +1470,34 @@ export function extract(context)
   {
     return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
   }
-    const replayDirectory = mkdtempSync(path.join(
-        os.tmpdir(),
-        'runtime-role-replay-'
-    ));
-  try
-  {
-    const replayOutput = path.join(replayDirectory, 'runtime-role-observation.json')
-    const replay = spawnSync('dotnet', [
-      assemblyAbsolute,
-      '--deployment-observation', deploymentAbsolute,
-      '--output', replayOutput
-    ], {
-      cwd: context.repositoryRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 5 * 60_000
-    })
-    if (replay.status !== 0 || !existsSync(replayOutput)
-      || sha256(readFileSync(replayOutput)) !== runtimeArtifactDigest)
+    const replayFailure = withRuntimeRoleReplayDirectory(
+        context.repositoryRoot,
+        minimalReceipt.buildRoot,
+        (replayOutput) =>
     {
-      return failResult([
-        `runtime-role compiled producer replay mismatch: ${String(replay.stderr ?? replay.stdout ?? '').trim()}`
-      ])
+        const replay = spawnSync('dotnet', [
+            assemblyAbsolute,
+            '--deployment-observation', deploymentAbsolute,
+            '--output', replayOutput
+        ], {
+            cwd: context.repositoryRoot,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: 5 * 60_000
+        });
+        if (replay.status !== 0 || !existsSync(replayOutput)
+            || sha256(readFileSync(replayOutput)) !== runtimeArtifactDigest)
+        {
+            return failResult([
+                `runtime-role compiled producer replay mismatch: ${String(replay.stderr ?? replay.stdout ?? '').trim()}`
+            ]);
+        }
+        return null;
+    });
+    if (replayFailure !== null)
+    {
+        return replayFailure;
     }
-  }
-  finally
-  {
-    rmSync(replayDirectory, { recursive: true, force: true })
-  }
   const expectedDeploymentSources = {
     policy: 'tests/governance/monolithic-distributed-architecture.json',
     project: 'src/backend/FsusBlog.Server.csproj',
