@@ -1,0 +1,11 @@
+{
+  "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+  "command": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/document-export-source-options-wire.test.mjs"
+  ],
+  "startedUtc": "2026-10-09T11:28:14.909467+00:00",
+  "exitCode": 0,
+  "artifact": "final-source-options-wire.log"
+}

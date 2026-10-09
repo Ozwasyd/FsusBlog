@@ -1,0 +1,22 @@
+(node:197179) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ managed literal golden parity: request-revision (10.959121ms)
+✔ managed literal golden parity: task-request (1.111253ms)
+✔ managed literal golden parity: queued-job-response (17.488032ms)
+✔ managed literal golden parity: empty-page-response (0.544315ms)
+✔ managed literal golden parity: single-page-response (8.512777ms)
+✔ closed root allocation and sole response decoder mappings (0.937977ms)
+✔ full Int64 and timestamp bounds remain exact decimal strings (1.219005ms)
+✔ Unicode scalars, UTF16 limits and exact whitespace rules (3.27337ms)
+✔ closed coordinates, format, status, digest and presence tags (1.648811ms)
+✔ bounded attempts, pages, duplicate identities and maximum valid payloads (135.897061ms)
+✔ hostile structured fields refuse in TypeScript and real native without encoder sanitization (16.441758ms)
+✔ production native dispatcher preserves guards, per-root budgets, error18 and CRC order (3327.337564ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3717.639833

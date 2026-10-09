@@ -1,0 +1,12 @@
+{
+  "sourceCommit": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+  "command": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "9d72a1c93b297f719d8695a642cdfb1615cf1d51"
+  ],
+  "exitCode": 1
+}

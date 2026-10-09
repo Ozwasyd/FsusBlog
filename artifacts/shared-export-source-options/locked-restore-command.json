@@ -1,0 +1,14 @@
+{
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "restore",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--locked-mode",
+    "-v",
+    "minimal"
+  ],
+  "exitCode": 0,
+  "sourceState": "uncommitted current-master candidate; not qualification"
+}

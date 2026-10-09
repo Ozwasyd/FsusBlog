@@ -1,0 +1,9 @@
+{
+  "sourceCommit": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+  "distinctErrors": 1292,
+  "ownedPathDiagnostics": [
+    "/workspace/FsusBlog-export-source-options-current/tests/backend/Unit/DocumentExportSourceOptionsWireTests.cs(37,35): error CS9174: Cannot initialize type 'ReadOnlyMemory<byte>' with a collection expression because the type is not constructible. [/workspace/FsusBlog-export-source-options-current/tests/backend/FsusBlog.Server.Tests.csproj]"
+  ],
+  "backend11": "UNRUN",
+  "discovery": "UNRUN"
+}

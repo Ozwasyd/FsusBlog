@@ -1,0 +1,288 @@
+{
+  "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+  "baseCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "branch": "codex/shared-export-source-options-current-base-20261009",
+  "runIdentity": "export-source-options:10b33204607627d167e34f7ad69bcfccaee03b2c:2026-10-09T11:28:14.909467+00:00",
+  "currentSourcePaths": [
+    "docs/api/document-export-source-options.md",
+    "src/core/Algorithms/AedsFrameType.cs",
+    "src/core/Cache/PodBinaryCodec.DocumentExportSourceOptions.cs",
+    "src/frontend/src/codecs/binary/documentExportSourceOptionsWire.generated.ts",
+    "src/frontend/src/codecs/binary/documentExportWire.generated.ts",
+    "src/frontend/src/composition/binaryDecoderRegistry.ts",
+    "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+    "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+    "src/frontend/wasm/aeds/include/document_export_source_options_wire.generated.hpp",
+    "src/frontend/wasm/aeds/include/document_export_wire.generated.hpp",
+    "src/frontend/wasm/aeds/include/document_export_wire_primitives.hpp",
+    "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+    "src/frontend/wasm/web/protocol/frame.ts",
+    "src/shared/AedsFrameHeader.cs",
+    "src/shared/Contracts/DocumentExport/DocumentExportSourceOptionsContracts.cs",
+    "src/shared/Contracts/Validation/aeds-protocol.json",
+    "src/shared/Contracts/Validation/document-export-source-options-wire.json",
+    "src/shared/Contracts/Validation/document-export-wire.json",
+    "tests/backend/Fixtures/aeds-golden-catalog.json",
+    "tests/backend/Fixtures/document-export-source-options-payload-goldens-v1.json",
+    "tests/backend/Unit/DocumentExportSourceOptionsWireTests.cs",
+    "tests/fixtures/protocol/document-export-wire-native.cpp",
+    "tests/tools/aeds-protocol-generation.test.mjs",
+    "tests/tools/document-export-source-options-wire.test.mjs",
+    "tests/tools/document-export-wire.test.mjs",
+    "tools/contracts/document-export-source-options-wire-templates/wire.hpp.inc",
+    "tools/contracts/document-export-source-options-wire-templates/wire.ts.inc",
+    "tools/contracts/document-export-wire-templates/wire.hpp.inc",
+    "tools/contracts/document-export-wire-templates/wire.ts.inc",
+    "tools/contracts/format-generated-property-value-read-typescript.mjs",
+    "tools/contracts/generate-document-export-source-options-wire.mjs",
+    "tools/contracts/generate-document-export-wire.mjs",
+    "tools/frontend/generate-aeds-protocol.mjs",
+    "tools/package.json"
+  ],
+  "sourcePathCount": 34,
+  "commands": [
+    {
+      "path": "final-existing-export-wire-command.json",
+      "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/document-export-wire.test.mjs"
+      ],
+      "startedUtc": "2026-10-09T11:28:14.910100+00:00",
+      "exitCode": 0,
+      "artifact": "final-existing-export-wire.log"
+    },
+    {
+      "path": "final-export-producer-check-command.json",
+      "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/contracts/generate-document-export-wire.mjs",
+        "--check"
+      ],
+      "startedUtc": "2026-10-09T11:28:14.914164+00:00",
+      "exitCode": 0,
+      "artifact": "final-export-producer-check.log"
+    },
+    {
+      "path": "final-protocol-controls-command.json",
+      "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/aeds-protocol-generation.test.mjs"
+      ],
+      "startedUtc": "2026-10-09T11:28:14.910029+00:00",
+      "exitCode": 0,
+      "artifact": "final-protocol-controls.log"
+    },
+    {
+      "path": "final-protocol-producer-check-command.json",
+      "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/generate-aeds-protocol.mjs",
+        "--check"
+      ],
+      "startedUtc": "2026-10-09T11:28:14.911678+00:00",
+      "exitCode": 0,
+      "artifact": "final-protocol-producer-check.log"
+    },
+    {
+      "path": "final-source-options-producer-check-command.json",
+      "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/contracts/generate-document-export-source-options-wire.mjs",
+        "--check"
+      ],
+      "startedUtc": "2026-10-09T11:28:14.914525+00:00",
+      "exitCode": 0,
+      "artifact": "final-source-options-producer-check.log"
+    },
+    {
+      "path": "final-source-options-wire-command.json",
+      "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/document-export-source-options-wire.test.mjs"
+      ],
+      "startedUtc": "2026-10-09T11:28:14.909467+00:00",
+      "exitCode": 0,
+      "artifact": "final-source-options-wire.log"
+    },
+    {
+      "path": "final-strict-test-build-command.json",
+      "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+      "command": [
+        "bash",
+        "tools/build-with-data-env.sh",
+        "/tmp/chain-3735-tooling/dotnet/dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "-warnaserror",
+        "-v",
+        "minimal"
+      ],
+      "startedUtc": "2026-10-09T11:28:15.501067+00:00",
+      "exitCode": 1,
+      "artifact": "final-strict-test-build.log"
+    },
+    {
+      "path": "final-style-check-command.json",
+      "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--base",
+        "9d72a1c93b297f719d8695a642cdfb1615cf1d51"
+      ],
+      "startedUtc": "2026-10-09T11:28:15.002122+00:00",
+      "exitCode": 0,
+      "artifact": "final-style-check.log"
+    }
+  ],
+  "nodeControls": {
+    "expected": 57,
+    "pass": 57,
+    "fail": 0,
+    "skip": 0,
+    "originalProtocolControls": 34,
+    "originalProtocolNegativeControls": 21,
+    "existingExportControls": 12,
+    "newSourceOptionsControls": 11,
+    "selection": "final-selection-preflight.json"
+  },
+  "nativeHostDispatcher": {
+    "newSourceOptionsRows": 236,
+    "existingExportRows": 940,
+    "total": 1176,
+    "compileExit": 0,
+    "executionExit": 0,
+    "wrongExpectedCountNegativeExit": 4,
+    "source": "tests/fixtures/protocol/document-export-wire-native.cpp",
+    "actualLogs": [
+      "final-source-native/native-run.log",
+      "final-existing-native/native-run.log"
+    ],
+    "cleanup": "original test finally blocks deleted only their task-exclusive mkdtemp roots; existence assertions passed",
+    "wasmQualification": "UNRUN"
+  },
+  "producers": {
+    "originalAedsProducts": 5,
+    "existingExportProducts": 2,
+    "sourceOptionsProducts": 2,
+    "checkExit": [
+      0,
+      0,
+      0
+    ],
+    "freshOutputNotOldCopiedWholeRegistry": true
+  },
+  "style": {
+    "files": 11,
+    "violations": 0,
+    "exitCode": 0
+  },
+  "coreAndTargetedTypes": {
+    "testedSourceCommit": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+    "coreBuildExit": 0,
+    "coreWarnings": 188,
+    "newPathDiagnostics": 0,
+    "twoGeneratedModulesStrictTypeCheckExit": 0,
+    "actualTypeScript": "6.0.2",
+    "declaredTypeScript": "6.0.3",
+    "finalProductionBytesEqual": true,
+    "proof": "final-production-byte-preservation.json",
+    "noRebinding": true
+  },
+  "strictSdkGate": {
+    "exitCode": 1,
+    "distinctErrors": 1479,
+    "changedPathDiagnostics": 0,
+    "initialNewErrorCorrected": "CS9174",
+    "backend11Bodies": "UNRUN",
+    "executableDiscovery": "UNRUN",
+    "noRelaxedAlternateBodyPath": true
+  },
+  "runtimeAndProductAcceptance": {
+    "actualHTTP": "UNRUN",
+    "catalogPostgres": "UNRUN",
+    "actorSiteSessionPoW": "UNRUN",
+    "fullFrontendTypes": "UNRUN onthisminimalExportcandidate",
+    "renderedUX": "UNRUN",
+    "providerDeviceQualification": "UNRUN",
+    "acceptance": false
+  },
+  "sharedAllocation": {
+    "existing": [
+      278,
+      279,
+      280,
+      281
+    ],
+    "new": [
+      282,
+      283,
+      284
+    ],
+    "currentGoldenOrder": [
+      244,
+      245,
+      246,
+      247,
+      248,
+      249,
+      250
+    ],
+    "frozenGoldenOrder": [
+      269,
+      270,
+      271,
+      272,
+      273,
+      274,
+      275
+    ],
+    "oldMaster244FrameRecordsPreserved": true,
+    "oldFiveRendererHashesPreserved": true,
+    "oldDefaultEvidenceAndRetirementPreserved": true
+  },
+  "catalogBoundary": {
+    "actualSourceCommit": "871b8e4f7474000dd5d3d79162d9e81fe0abf6b6",
+    "maximumChoices": 50,
+    "privateMaximumBindingsPerScope": 512,
+    "publicFields": [
+      "ChoiceId",
+      "Label",
+      "Coordinate"
+    ],
+    "captureWorstPayloadBytes": 15158,
+    "choicesWorstPayloadBytes": 57758,
+    "revisionCanonicalPayloadBytes": 8,
+    "caps": {
+      "captureFrame": 65536,
+      "revisionFrame": 1024,
+      "choicesPayload": 131072
+    },
+    "endpointOwner": 3653,
+    "actualEndpointRequired": "two original authorized write/PoW POST, not ordinaryGET"
+  },
+  "draftPr": {
+    "createdByThisTask": false,
+    "actualReadOnlyLookup": [],
+    "parentSoleApiWriter": true,
+    "proposal": "draft-pr-proposal.md"
+  },
+  "canonicalGeneratedBinding": {
+    "status": "BLOCKED pending original supported registration/binding process",
+    "runManifestIsQualificationSeal": false
+  },
+  "heldOrDeniedRetry": false,
+  "mergeDeployIssueClose": false
+}

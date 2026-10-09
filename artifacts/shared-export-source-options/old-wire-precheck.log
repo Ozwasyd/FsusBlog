@@ -1,0 +1,49 @@
+(node:193732) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ managed literal golden parity: request-revision (8.762485ms)
+✔ managed literal golden parity: task-request (4.271899ms)
+✔ managed literal golden parity: queued-job-response (13.456993ms)
+✔ managed literal golden parity: empty-page-response (0.570513ms)
+✔ managed literal golden parity: single-page-response (8.383499ms)
+✔ closed root allocation and sole response decoder mappings (0.850511ms)
+✔ full Int64 and timestamp bounds remain exact decimal strings (1.453851ms)
+✔ Unicode scalars, UTF16 limits and exact whitespace rules (1.905946ms)
+✔ closed coordinates, format, status, digest and presence tags (2.024559ms)
+✔ bounded attempts, pages, duplicate identities and maximum valid payloads (133.210178ms)
+✔ hostile structured fields refuse in TypeScript and real native without encoder sanitization (11.527553ms)
+✖ production native dispatcher preserves guards, per-root budgets, error18 and CRC order (1395.189948ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1795.869519
+
+✖ failing tests:
+
+test at tests/tools/document-export-wire.test.mjs:287:1
+✖ production native dispatcher preserves guards, per-root budgets, error18 and CRC order (1395.189948ms)
+  AssertionError [ERR_ASSERTION]: /workspace/FsusBlog-export-source-options-current/tests/fixtures/protocol/writing-aid-preference-wire-native.cpp:2:10: fatal error: writing_aid_preference_wire.generated.hpp: No such file or directory
+      2 | #include "writing_aid_preference_wire.generated.hpp"
+        |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  compilation terminated.
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/FsusBlog-export-source-options-current/tests/tools/document-export-wire.test.mjs:332:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

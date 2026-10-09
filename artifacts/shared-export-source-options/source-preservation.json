@@ -1,0 +1,89 @@
+{
+  "sourceCommit": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+  "baseCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "changedPaths": [
+    "docs/api/document-export-source-options.md",
+    "src/core/Algorithms/AedsFrameType.cs",
+    "src/core/Cache/PodBinaryCodec.DocumentExportSourceOptions.cs",
+    "src/frontend/src/codecs/binary/documentExportSourceOptionsWire.generated.ts",
+    "src/frontend/src/codecs/binary/documentExportWire.generated.ts",
+    "src/frontend/src/composition/binaryDecoderRegistry.ts",
+    "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+    "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+    "src/frontend/wasm/aeds/include/document_export_source_options_wire.generated.hpp",
+    "src/frontend/wasm/aeds/include/document_export_wire.generated.hpp",
+    "src/frontend/wasm/aeds/include/document_export_wire_primitives.hpp",
+    "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+    "src/frontend/wasm/web/protocol/frame.ts",
+    "src/shared/AedsFrameHeader.cs",
+    "src/shared/Contracts/DocumentExport/DocumentExportSourceOptionsContracts.cs",
+    "src/shared/Contracts/Validation/aeds-protocol.json",
+    "src/shared/Contracts/Validation/document-export-source-options-wire.json",
+    "src/shared/Contracts/Validation/document-export-wire.json",
+    "tests/backend/Fixtures/aeds-golden-catalog.json",
+    "tests/backend/Fixtures/document-export-source-options-payload-goldens-v1.json",
+    "tests/backend/Unit/DocumentExportSourceOptionsWireTests.cs",
+    "tests/fixtures/protocol/document-export-wire-native.cpp",
+    "tests/tools/document-export-source-options-wire.test.mjs",
+    "tests/tools/document-export-wire.test.mjs",
+    "tools/contracts/document-export-source-options-wire-templates/wire.hpp.inc",
+    "tools/contracts/document-export-source-options-wire-templates/wire.ts.inc",
+    "tools/contracts/document-export-wire-templates/wire.hpp.inc",
+    "tools/contracts/document-export-wire-templates/wire.ts.inc",
+    "tools/contracts/format-generated-property-value-read-typescript.mjs",
+    "tools/contracts/generate-document-export-source-options-wire.mjs",
+    "tools/contracts/generate-document-export-wire.mjs"
+  ],
+  "changedPathCount": 31,
+  "master244FrameRecordsPreserved": true,
+  "existingModelAndManagedCodecPreserved": {
+    "src/core/Mapping/Models/DocumentExportModels.cs": "3d311922d3a4e3b972392903435132265ca10c3b6762e2d4dd8046bdf41699b4",
+    "src/core/Cache/PodBinaryCodec.DocumentExport.cs": "ecf08d2478f09f1c9a7aceb54966e485826fc9d6821ef2f88d6f642124d7bf53"
+  },
+  "goldenOrderIntegrationDifference": {
+    "currentMasterDenseAppend": [
+      244,
+      245,
+      246,
+      247,
+      248,
+      249,
+      250
+    ],
+    "frozenFullRegistry": [
+      269,
+      270,
+      271,
+      272,
+      273,
+      274,
+      275
+    ],
+    "wireIDsPreserved": [
+      278,
+      279,
+      280,
+      281,
+      282,
+      283,
+      284
+    ]
+  },
+  "primitiveProvenance": "Exact unchanged Scalars/Whitespace/Digest bodies extracted from b304 original WritingAid header, without importing unrelated production family",
+  "analysis": {
+    "targeted-core-build.log": {
+      "ownedPathDiagnostics": [],
+      "summary": [
+        "/workspace/FsusBlog-export-source-options-current/src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs(512,47): warning IDE1006: Naming rule violation: These words must begin with upper case characters: allowedChanges (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/style-rules/ide1006) [/workspace/FsusBlog-export-source-options-current/src/shared/FsusBlog.Shared.csproj]",
+        "    188 Warning(s)",
+        "    0 Error(s)",
+        "",
+        "Time Elapsed 00:00:21.46"
+      ]
+    },
+    "targeted-ts-check.log": {
+      "ownedPathDiagnostics": [],
+      "summary": []
+    }
+  }
+}

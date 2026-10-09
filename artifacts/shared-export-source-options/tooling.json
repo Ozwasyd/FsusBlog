@@ -1,0 +1,13 @@
+{
+  "sourceCommit": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+  "nodeSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+  "nodeVersion": "v24.16.0",
+  "sdkVersion": "10.0.401",
+  "nativeCompiler": "g++ (Debian 14.2.0-19) 14.2.0",
+  "typescriptActualVersion": "6.0.2",
+  "typescriptDeclaredVersion": "6.0.3",
+  "targetedTypeCheckOnly": true,
+  "fullFrontendTypes": "UNRUN on this minimal Export source; prior failed whole app source remains separately bound",
+  "newInstall": false,
+  "runtimeAcceptance": false
+}

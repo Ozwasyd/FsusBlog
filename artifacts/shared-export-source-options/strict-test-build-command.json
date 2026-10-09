@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "build",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "-warnaserror",
+    "-v",
+    "minimal"
+  ],
+  "startedUtc": "2026-10-09T11:20:02.965488+00:00",
+  "exitCode": 1,
+  "backendBodiesExecuted": 0,
+  "executableDiscovery": "UNRUN if strict gate fails",
+  "noRelaxedGate": true
+}

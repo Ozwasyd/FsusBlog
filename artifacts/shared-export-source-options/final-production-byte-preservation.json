@@ -1,0 +1,49 @@
+{
+  "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+  "separateCoreAndTargetedTypesEvidenceSource": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+  "noEvidenceRebind": true,
+  "rows": [
+    {
+      "path": "src/core/Cache/PodBinaryCodec.DocumentExportSourceOptions.cs",
+      "testedAt7caBlob": "6ad0abff7db1a0f7076aa12c5e3141e1d708f86a",
+      "current10bBlob": "6ad0abff7db1a0f7076aa12c5e3141e1d708f86a",
+      "byteEqual": true
+    },
+    {
+      "path": "src/shared/Contracts/DocumentExport/DocumentExportSourceOptionsContracts.cs",
+      "testedAt7caBlob": "a0fdfb64b0ced247b097a44ae011b8a71f3aa907",
+      "current10bBlob": "a0fdfb64b0ced247b097a44ae011b8a71f3aa907",
+      "byteEqual": true
+    },
+    {
+      "path": "src/core/Algorithms/AedsFrameType.cs",
+      "testedAt7caBlob": "15e4b43a9213b721ec903f7075383ea9e420c232",
+      "current10bBlob": "15e4b43a9213b721ec903f7075383ea9e420c232",
+      "byteEqual": true
+    },
+    {
+      "path": "src/shared/AedsFrameHeader.cs",
+      "testedAt7caBlob": "9692a71ef196b2df65258e142f5102e9dfdcc2f2",
+      "current10bBlob": "9692a71ef196b2df65258e142f5102e9dfdcc2f2",
+      "byteEqual": true
+    },
+    {
+      "path": "src/frontend/src/codecs/binary/documentExportSourceOptionsWire.generated.ts",
+      "testedAt7caBlob": "dcae633007fb14dd18fdf2d2e6c3a7e5f690d921",
+      "current10bBlob": "dcae633007fb14dd18fdf2d2e6c3a7e5f690d921",
+      "byteEqual": true
+    },
+    {
+      "path": "src/frontend/src/codecs/binary/documentExportWire.generated.ts",
+      "testedAt7caBlob": "2b215d78764ae3c63267355f8954745a07d6e4e8",
+      "current10bBlob": "2b215d78764ae3c63267355f8954745a07d6e4e8",
+      "byteEqual": true
+    },
+    {
+      "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "testedAt7caBlob": "6c7a365230fb8d1e85ceabd93c61e8bd42b1cbd7",
+      "current10bBlob": "6c7a365230fb8d1e85ceabd93c61e8bd42b1cbd7",
+      "byteEqual": true
+    }
+  ]
+}

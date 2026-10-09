@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "build",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "-warnaserror",
+    "-v",
+    "minimal"
+  ],
+  "startedUtc": "2026-10-09T11:28:15.501067+00:00",
+  "exitCode": 1,
+  "artifact": "final-strict-test-build.log"
+}

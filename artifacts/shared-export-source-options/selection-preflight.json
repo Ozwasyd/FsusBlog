@@ -1,0 +1,65 @@
+{
+  "sourceCommit": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+  "nodeSelections": [
+    {
+      "file": "tests/tools/document-export-wire.test.mjs",
+      "expectedPositive": 12,
+      "names": [
+        "managed literal golden parity: request-revision",
+        "managed literal golden parity: task-request",
+        "managed literal golden parity: queued-job-response",
+        "managed literal golden parity: empty-page-response",
+        "managed literal golden parity: single-page-response",
+        "closed root allocation and sole response decoder mappings",
+        "full Int64 and timestamp bounds remain exact decimal strings",
+        "Unicode scalars, UTF16 limits and exact whitespace rules",
+        "closed coordinates, format, status, digest and presence tags",
+        "bounded attempts, pages, duplicate identities and maximum valid payloads",
+        "hostile structured fields refuse in TypeScript and real native without encoder sanitization",
+        "production native dispatcher preserves guards, per-root budgets, error18 and CRC order"
+      ],
+      "sha256": "a82bfe2701ad47398d4a86fc93e96cb8c26e022d9bb7f9fbccbbf66bbfee44ab"
+    },
+    {
+      "file": "tests/tools/document-export-source-options-wire.test.mjs",
+      "expectedPositive": 11,
+      "names": [
+        "literal POD golden parity: capture-revision",
+        "literal POD golden parity: revision-choices",
+        "literal POD golden parity: empty-choices",
+        "literal POD golden parity: exact-version-choices",
+        "formal source roots retain existing identities and one response decoder",
+        "all source kinds preserve independent full Int64 coordinates",
+        "actual persisted string bounds and dotnet trim rules retain Unicode",
+        "closed fields refuse forged actors versions sources and duplicate identities",
+        "fifty choice budgets bound real fields without truncating source content",
+        "hostile UTF8 lengths tags and exact selector patterns refuse in both decoders",
+        "production dispatcher preserves source error19 budgets CRC guards and cleans native resources"
+      ],
+      "sha256": "bcb625a9bdf9f8b7ea58f9495426fc3785366c7cb50044c71c1713e7c09b227b"
+    }
+  ],
+  "backend": {
+    "file": "tests/backend/Unit/DocumentExportSourceOptionsWireTests.cs",
+    "methods": [
+      "LiteralGoldens_AllRootsRefuseTruncationAndTrailingBytes",
+      "Selector_PreservesOnlyTheKindSpecificUnboundIntent",
+      "Choices_PreserveIndependentFullInt64SourceVersion",
+      "Writers_RefuseMixedCoordinatesDuplicatesAndOverFifty",
+      "DisplayProjection_HasNoPrivateBindingsOrSourceContent",
+      "PersistedStringBounds_RefuseUnpairedSurrogatesWithoutTruncation"
+    ],
+    "inlineDataRows": 7,
+    "facts": 4,
+    "expectedPositive": 11,
+    "execution": "UNRUN until strict SDK gate passes"
+  },
+  "originalNativeHarness": "tests/fixtures/protocol/document-export-wire-native.cpp",
+  "nativeRows": [
+    940,
+    236
+  ],
+  "hooksAndResourcesReviewed": "Node source scans/literalgoldens/strict TS strip; g++ actual production aeds_decode/aeds_crc/pod_parser. Task-exclusive mkdtemp inputs/executable removed in finally, exact count and count+1 negativecontrol. No DB/browser/credential/production access. SDK uses documented wrapper/task root/cache; failed strict gate stops backend discovery/bodies.",
+  "positiveNonempty": true,
+  "bodyExecutionDuringSelection": 0
+}

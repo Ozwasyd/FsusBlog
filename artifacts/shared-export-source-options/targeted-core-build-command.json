@@ -1,0 +1,16 @@
+{
+  "sourceCommit": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "build",
+    "src/core/FsusBlog.Core.csproj",
+    "--no-restore",
+    "-v",
+    "minimal"
+  ],
+  "startedUtc": "2026-10-09T11:19:07.056132+00:00",
+  "exitCode": 0,
+  "artifact": "targeted-core-build.log"
+}

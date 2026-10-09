@@ -1,0 +1,11 @@
+{
+  "sourceCommit": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+  "command": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/contracts/generate-document-export-source-options-wire.mjs",
+    "--check"
+  ],
+  "startedUtc": "2026-10-09T11:19:06.986317+00:00",
+  "exitCode": 0,
+  "artifact": "source-options-producer-check.log"
+}

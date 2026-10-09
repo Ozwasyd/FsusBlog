@@ -1,0 +1,119 @@
+{
+  "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+  "nodeSelections": [
+    {
+      "file": "tests/tools/document-export-wire.test.mjs",
+      "expectedPositive": 12,
+      "names": [
+        "managed literal golden parity: request-revision",
+        "managed literal golden parity: task-request",
+        "managed literal golden parity: queued-job-response",
+        "managed literal golden parity: empty-page-response",
+        "managed literal golden parity: single-page-response",
+        "closed root allocation and sole response decoder mappings",
+        "full Int64 and timestamp bounds remain exact decimal strings",
+        "Unicode scalars, UTF16 limits and exact whitespace rules",
+        "closed coordinates, format, status, digest and presence tags",
+        "bounded attempts, pages, duplicate identities and maximum valid payloads",
+        "hostile structured fields refuse in TypeScript and real native without encoder sanitization",
+        "production native dispatcher preserves guards, per-root budgets, error18 and CRC order"
+      ],
+      "sha256": "a82bfe2701ad47398d4a86fc93e96cb8c26e022d9bb7f9fbccbbf66bbfee44ab"
+    },
+    {
+      "file": "tests/tools/document-export-source-options-wire.test.mjs",
+      "expectedPositive": 11,
+      "names": [
+        "literal POD golden parity: capture-revision",
+        "literal POD golden parity: revision-choices",
+        "literal POD golden parity: empty-choices",
+        "literal POD golden parity: exact-version-choices",
+        "formal source roots retain existing identities and one response decoder",
+        "all source kinds preserve independent full Int64 coordinates",
+        "actual persisted string bounds and dotnet trim rules retain Unicode",
+        "closed fields refuse forged actors versions sources and duplicate identities",
+        "fifty choice budgets bound real fields without truncating source content",
+        "hostile UTF8 lengths tags and exact selector patterns refuse in both decoders",
+        "production dispatcher preserves source error19 budgets CRC guards and cleans native resources"
+      ],
+      "sha256": "bcb625a9bdf9f8b7ea58f9495426fc3785366c7cb50044c71c1713e7c09b227b"
+    },
+    {
+      "file": "tests/tools/aeds-protocol-generation.test.mjs",
+      "expectedPositive": 34,
+      "names": [
+        "the original producer owns five products with manifest-derived identities and explicit metadata",
+        "the original 236 golden records, evidence and retirement remain unchanged",
+        "the original four renderer outputs and complete golden bytes are preserved for the retained source",
+        "every frame, including future registrations, must explicitly provide complete golden metadata",
+        "source values and explicit metadata, not old output values, determine the complete catalog",
+        "the FontRegistryList golden identity comes from the same protocol frame used by every language",
+        "the FontRegistryDetail golden identity comes from the same protocol frame used by every language",
+        "the FontActivationList golden identity comes from the same protocol frame used by every language",
+        "the ThemeRegistryList golden identity comes from the same protocol frame used by every language",
+        "the ThemeRegistryDetail golden identity comes from the same protocol frame used by every language",
+        "the ThemeActivationList golden identity comes from the same protocol frame used by every language",
+        "the ThemeActivation golden identity comes from the same protocol frame used by every language",
+        "the ThemeActivationHistory golden identity comes from the same protocol frame used by every language",
+        "the original renderer refuses missing golden metadata before any output",
+        "the original renderer refuses unknown golden metadata field before any output",
+        "the original renderer refuses unknown catalog version before any output",
+        "the original renderer refuses empty evidence before any output",
+        "the original renderer refuses duplicate evidence before any output",
+        "the original renderer refuses outside evidence before any output",
+        "the original renderer refuses traversing evidence before any output",
+        "the original renderer refuses evidence with terminal LF before any output",
+        "the original renderer refuses missing family before any output",
+        "the original renderer refuses empty family before any output",
+        "the original renderer refuses family with terminal LF before any output",
+        "the original renderer refuses missing order before any output",
+        "the original renderer refuses duplicate order before any output",
+        "the original renderer refuses negative order before any output",
+        "the original renderer refuses out of range order before any output",
+        "the original renderer refuses fractional order before any output",
+        "the original renderer refuses unannotated registered frame before any output",
+        "the original renderer refuses removed registered frame leaving a metadata gap before any output",
+        "the original renderer refuses duplicate frame identity before any output",
+        "the original renderer refuses retired frame reused as active before any output",
+        "the original renderer refuses empty frame collection before any output"
+      ],
+      "negativeControls": 21,
+      "retainedFiveOraclesUnchanged": true,
+      "sha256": "d239ea28b886dbd7ed69546011afda87b81c54074adc688576292724c57014e2"
+    }
+  ],
+  "backend": {
+    "file": "tests/backend/Unit/DocumentExportSourceOptionsWireTests.cs",
+    "methods": [
+      "LiteralGoldens_AllRootsRefuseTruncationAndTrailingBytes",
+      "Selector_PreservesOnlyTheKindSpecificUnboundIntent",
+      "Choices_PreserveIndependentFullInt64SourceVersion",
+      "Writers_RefuseMixedCoordinatesDuplicatesAndOverFifty",
+      "DisplayProjection_HasNoPrivateBindingsOrSourceContent",
+      "PersistedStringBounds_RefuseUnpairedSurrogatesWithoutTruncation"
+    ],
+    "inlineDataRows": 7,
+    "facts": 4,
+    "expectedPositive": 11,
+    "execution": "UNRUN until strict SDK gate passes",
+    "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c"
+  },
+  "originalNativeHarness": "tests/fixtures/protocol/document-export-wire-native.cpp",
+  "nativeRows": [
+    940,
+    236
+  ],
+  "hooksAndResourcesReviewed": "Node source scans/literalgoldens/strict TS strip; g++ actual production aeds_decode/aeds_crc/pod_parser. Task-exclusive mkdtemp inputs/executable removed in finally, exact count and count+1 negativecontrol. No DB/browser/credential/production access. SDK uses documented wrapper/task root/cache; failed strict gate stops backend discovery/bodies.",
+  "positiveNonempty": true,
+  "bodyExecutionDuringSelection": 0,
+  "totalNodePositive": 57,
+  "initialStrictGate": {
+    "sourceCommit": "7ca689434e764b1c1d49e04f94adb424c1f72191",
+    "distinctErrors": 1292,
+    "introducedTestError": "CS9174; corrected in dd646d674"
+  },
+  "consumedMinimalSourceDeltas": [
+    "c07ecec8f5a4d2349e09bd67464108198586414b",
+    "6324264ab60fbf6b196f14c09a447eca58402bbe"
+  ]
+}

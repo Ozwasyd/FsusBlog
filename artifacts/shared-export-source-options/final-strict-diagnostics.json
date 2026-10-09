@@ -1,0 +1,15 @@
+{
+  "sourceCommit": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+  "distinctErrors": 1479,
+  "ownedPathDiagnostics": [],
+  "introducedCS9174Corrected": true,
+  "auditErrors": [
+    "/workspace/FsusBlog-export-source-options-current/src/migration/FsusBlog.Migration.csproj : error NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q",
+    "/workspace/FsusBlog-export-source-options-current/tests/backend/FsusBlog.Server.Tests.csproj : error NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q"
+  ],
+  "strictGate": "FAILED",
+  "backend11Bodies": "UNRUN",
+  "executableDiscovery": "UNRUN",
+  "defaultCoreEvidence": "separate normal Core build at7ca only, before failed strict build; no default fullTest rebuild or emitted binaries used",
+  "initial1292ToFinal1479": "initial strict output excluded188 alreadybuilt Shared warnings; current original strict compilation includes those188 and removes the one corrected new CS9174. Current actual count1479 is reported without relabeling the earlier result."
+}

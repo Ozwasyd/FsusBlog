@@ -1,0 +1,42 @@
+✔ the original producer owns five products with manifest-derived identities and explicit metadata (21.212996ms)
+✔ the original 236 golden records, evidence and retirement remain unchanged (2.563349ms)
+✔ the original four renderer outputs and complete golden bytes are preserved for the retained source (1.00387ms)
+✔ the FontRegistryList golden identity comes from the same protocol frame used by every language (6.736623ms)
+✔ the FontRegistryDetail golden identity comes from the same protocol frame used by every language (3.121282ms)
+✔ the FontActivationList golden identity comes from the same protocol frame used by every language (25.986985ms)
+✔ the ThemeRegistryList golden identity comes from the same protocol frame used by every language (1.32927ms)
+✔ the ThemeRegistryDetail golden identity comes from the same protocol frame used by every language (1.940234ms)
+✔ the ThemeActivationList golden identity comes from the same protocol frame used by every language (1.556056ms)
+✔ the ThemeActivation golden identity comes from the same protocol frame used by every language (5.800993ms)
+✔ the ThemeActivationHistory golden identity comes from the same protocol frame used by every language (1.568599ms)
+✔ the original renderer refuses missing golden metadata before any output (3.642551ms)
+✔ the original renderer refuses unknown golden metadata field before any output (0.695804ms)
+✔ the original renderer refuses unknown catalog version before any output (0.40077ms)
+✔ the original renderer refuses empty evidence before any output (3.572649ms)
+✔ the original renderer refuses duplicate evidence before any output (0.428646ms)
+✔ the original renderer refuses outside evidence before any output (0.437014ms)
+✔ the original renderer refuses traversing evidence before any output (0.5065ms)
+✔ the original renderer refuses evidence with terminal LF before any output (0.554703ms)
+✔ the original renderer refuses missing family before any output (0.415744ms)
+✔ the original renderer refuses empty family before any output (3.888633ms)
+✔ the original renderer refuses family with terminal LF before any output (0.574223ms)
+✔ the original renderer refuses missing order before any output (0.396109ms)
+✔ the original renderer refuses duplicate order before any output (0.523414ms)
+✔ the original renderer refuses negative order before any output (0.371261ms)
+✔ the original renderer refuses out of range order before any output (0.449386ms)
+✔ the original renderer refuses fractional order before any output (5.451925ms)
+✔ the original renderer refuses unannotated registered frame before any output (0.570658ms)
+✔ the original renderer refuses removed registered frame leaving a metadata gap before any output (0.466206ms)
+✔ the original renderer refuses duplicate frame identity before any output (2.285702ms)
+✔ the original renderer refuses retired frame reused as active before any output (0.47603ms)
+✔ the original renderer refuses empty frame collection before any output (3.657897ms)
+✔ every frame, including future registrations, must explicitly provide complete golden metadata (3.285665ms)
+✔ source values and explicit metadata, not old output values, determine the complete catalog (5.003306ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 457.247423

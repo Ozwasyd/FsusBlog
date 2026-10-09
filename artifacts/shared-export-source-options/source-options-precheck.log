@@ -1,0 +1,21 @@
+(node:195652) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ literal POD golden parity: capture-revision (6.13478ms)
+✔ literal POD golden parity: revision-choices (0.421845ms)
+✔ literal POD golden parity: empty-choices (0.41162ms)
+✔ literal POD golden parity: exact-version-choices (4.777439ms)
+✔ formal source roots retain existing identities and one response decoder (1.127086ms)
+✔ all source kinds preserve independent full Int64 coordinates (1.226196ms)
+✔ actual persisted string bounds and dotnet trim rules retain Unicode (2.306718ms)
+✔ closed fields refuse forged actors versions sources and duplicate identities (0.77891ms)
+✔ fifty choice budgets bound real fields without truncating source content (13.446018ms)
+✔ hostile UTF8 lengths tags and exact selector patterns refuse in both decoders (1.221342ms)
+✔ production dispatcher preserves source error19 budgets CRC guards and cleans native resources (2328.425256ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2519.259151
