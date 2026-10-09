@@ -674,6 +674,15 @@ export class OpenArticleDocumentRegistry
         if (existingTabId)
         {
             const entry = this.entriesByTabId.get(existingTabId)!;
+            if (entry.status.permission === 'denied' || entry.status.permission === 'revoked')
+            {
+                return makeRejectedResult(command, 'rejected-state', this.revision, 'permission-blocked', commandDigest);
+            }
+            if (entry.status.lifecycle !== 'current')
+            {
+                return makeRejectedResult(command, 'rejected-state', this.revision, 'lifecycle-blocked', commandDigest);
+            }
+
             const entryBefore = cloneValue(entry);
             this.deactivateAll();
             const updated = this.updateEntry(entry, {

@@ -1,0 +1,575 @@
+{
+  "schemaVersion": 2,
+  "root": "ArticlePropertyValueReadResponse",
+  "reservedFrame": 269,
+  "byteOrder": "little-endian",
+  "guidByteOrder": "network",
+  "int64Presentation": "canonical-decimal-string",
+  "decimalPresentation": "96-bit-low-mid-high-scale-sign",
+  "datePresentation": "UTC-100ns-ticks",
+  "maxPayloadBytes": 8388608,
+  "maxAggregateItems": 40000,
+  "enumOwners": [
+    "src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs",
+    "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs"
+  ],
+  "typedValueOwner": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+  "records": {
+    "ArticlePropertyReadLocalizedName": {
+      "fields": [
+        {
+          "name": "Locale",
+          "type": "string",
+          "maxChars": 32,
+          "digest": false
+        },
+        {
+          "name": "Value",
+          "type": "string",
+          "maxChars": 256,
+          "digest": false
+        }
+      ]
+    },
+    "ArticlePropertyReadOption": {
+      "fields": [
+        {
+          "name": "OptionId",
+          "type": "guid"
+        },
+        {
+          "name": "Label",
+          "type": "string",
+          "maxChars": 256,
+          "digest": false
+        },
+        {
+          "name": "Order",
+          "type": "int32",
+          "min": 0
+        },
+        {
+          "name": "Status",
+          "type": "byte",
+          "enum": "ArticlePropertyOptionStatus"
+        },
+        {
+          "name": "LocalizedLabels",
+          "type": "ArticlePropertyReadLocalizedName",
+          "array": true,
+          "maxCount": 16
+        }
+      ]
+    },
+    "ArticlePropertyReadPresencePolicy": {
+      "fields": [
+        {
+          "name": "Missing",
+          "type": "byte",
+          "enum": "ArticlePropertyMissingBehavior"
+        },
+        {
+          "name": "Null",
+          "type": "byte",
+          "enum": "ArticlePropertyNullBehavior"
+        },
+        {
+          "name": "Empty",
+          "type": "byte",
+          "enum": "ArticlePropertyEmptyBehavior"
+        }
+      ]
+    },
+    "ArticlePropertyReadDefaultValue": {
+      "fields": [
+        {
+          "name": "Kind",
+          "type": "byte",
+          "enum": "ArticlePropertyDefaultKind"
+        },
+        {
+          "name": "Value",
+          "type": "typedValue",
+          "nullable": true
+        }
+      ]
+    },
+    "ArticlePropertyReadConstraints": {
+      "fields": [
+        {
+          "name": "MinLength",
+          "type": "int32",
+          "min": 0,
+          "max": 16384,
+          "nullable": true
+        },
+        {
+          "name": "MaxLength",
+          "type": "int32",
+          "min": 0,
+          "max": 16384,
+          "nullable": true
+        },
+        {
+          "name": "MinNumber",
+          "type": "decimal",
+          "nullable": true
+        },
+        {
+          "name": "MaxNumber",
+          "type": "decimal",
+          "nullable": true
+        },
+        {
+          "name": "MinDateUtc",
+          "type": "utcTicks",
+          "nullable": true
+        },
+        {
+          "name": "MaxDateUtc",
+          "type": "utcTicks",
+          "nullable": true
+        },
+        {
+          "name": "MinItems",
+          "type": "int32",
+          "min": 0,
+          "max": 1000,
+          "nullable": true
+        },
+        {
+          "name": "MaxItems",
+          "type": "int32",
+          "min": 0,
+          "max": 1000,
+          "nullable": true
+        }
+      ]
+    },
+    "ArticlePropertyReadReferencePolicy": {
+      "fields": [
+        {
+          "name": "Cardinality",
+          "type": "byte",
+          "enum": "ArticlePropertyCardinality"
+        },
+        {
+          "name": "Permission",
+          "type": "byte",
+          "enum": "ArticlePropertyReferencePermission"
+        },
+        {
+          "name": "AllowCrossSite",
+          "type": "bool"
+        },
+        {
+          "name": "AllowDeleted",
+          "type": "bool"
+        },
+        {
+          "name": "AllowArchived",
+          "type": "bool"
+        },
+        {
+          "name": "AllowSelfReference",
+          "type": "bool"
+        },
+        {
+          "name": "AllowCycles",
+          "type": "bool"
+        }
+      ]
+    },
+    "ArticlePropertyReadUrlPolicy": {
+      "fields": [
+        {
+          "name": "AllowedSchemes",
+          "type": "scheme",
+          "array": true,
+          "maxCount": 8
+        },
+        {
+          "name": "AllowRelative",
+          "type": "bool"
+        },
+        {
+          "name": "AllowAbsolute",
+          "type": "bool"
+        },
+        {
+          "name": "MaxLength",
+          "type": "int32",
+          "min": 1,
+          "max": 2048
+        },
+        {
+          "name": "Normalization",
+          "type": "byte",
+          "enum": "ArticlePropertyUrlNormalization"
+        }
+      ]
+    },
+    "ArticlePropertyDefinitionReadDescriptor": {
+      "fields": [
+        {
+          "name": "SchemaVersion",
+          "type": "int32",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "name": "DefinitionId",
+          "type": "guid"
+        },
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "MachineKey",
+          "type": "string",
+          "maxChars": 64,
+          "digest": false
+        },
+        {
+          "name": "DisplayNames",
+          "type": "ArticlePropertyReadLocalizedName",
+          "array": true,
+          "maxCount": 16
+        },
+        {
+          "name": "ValueType",
+          "type": "byte",
+          "enum": "ArticlePropertyValueType"
+        },
+        {
+          "name": "Cardinality",
+          "type": "byte",
+          "enum": "ArticlePropertyCardinality"
+        },
+        {
+          "name": "Required",
+          "type": "bool"
+        },
+        {
+          "name": "Presence",
+          "type": "ArticlePropertyReadPresencePolicy"
+        },
+        {
+          "name": "DefaultValue",
+          "type": "ArticlePropertyReadDefaultValue",
+          "nullable": true
+        },
+        {
+          "name": "Constraints",
+          "type": "ArticlePropertyReadConstraints"
+        },
+        {
+          "name": "Options",
+          "type": "ArticlePropertyReadOption",
+          "array": true,
+          "maxCount": 1000
+        },
+        {
+          "name": "ReferencePolicy",
+          "type": "ArticlePropertyReadReferencePolicy",
+          "nullable": true
+        },
+        {
+          "name": "UrlPolicy",
+          "type": "ArticlePropertyReadUrlPolicy",
+          "nullable": true
+        },
+        {
+          "name": "SearchEligible",
+          "type": "bool"
+        },
+        {
+          "name": "Filterable",
+          "type": "bool"
+        },
+        {
+          "name": "Sortable",
+          "type": "bool"
+        },
+        {
+          "name": "DisplayPlacement",
+          "type": "byte",
+          "enum": "ArticlePropertyDisplayPlacement"
+        },
+        {
+          "name": "VisibilityScope",
+          "type": "byte",
+          "enum": "ArticlePropertyVisibilityScope"
+        },
+        {
+          "name": "Status",
+          "type": "byte",
+          "enum": "ArticlePropertyDefinitionStatus"
+        },
+        {
+          "name": "SchemaRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "CreatedAtUtc",
+          "type": "utcTicks"
+        },
+        {
+          "name": "UpdatedAtUtc",
+          "type": "utcTicks"
+        },
+        {
+          "name": "ContentDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        }
+      ]
+    },
+    "ArticlePropertyValueReconciliationRead": {
+      "fields": [
+        {
+          "name": "DefinitionId",
+          "type": "guid"
+        },
+        {
+          "name": "Status",
+          "type": "byte",
+          "enum": "ArticlePropertyValueReconciliationStatus"
+        },
+        {
+          "name": "ReasonCode",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        }
+      ]
+    },
+    "ArticlePropertyValueEntry": {
+      "fields": [
+        {
+          "name": "DefinitionId",
+          "type": "guid"
+        },
+        {
+          "name": "DefinitionSchemaRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "DefinitionDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "Presence",
+          "type": "byte",
+          "enum": "ArticlePropertyValuePresence"
+        },
+        {
+          "name": "Value",
+          "type": "typedValue",
+          "nullable": true
+        },
+        {
+          "name": "ValueDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "DefaultApplied",
+          "type": "bool"
+        }
+      ]
+    },
+    "ArticlePropertySnapshotCoordinates": {
+      "fields": [
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "ArticleId",
+          "type": "int32",
+          "min": 1
+        },
+        {
+          "name": "PropertyRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "ArticleRevisionId",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "DraftId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "DraftServerRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "PublicationId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        }
+      ]
+    },
+    "ArticlePropertyValueSnapshot": {
+      "fields": [
+        {
+          "name": "SchemaVersion",
+          "type": "int32",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "name": "Coordinates",
+          "type": "ArticlePropertySnapshotCoordinates"
+        },
+        {
+          "name": "Values",
+          "type": "ArticlePropertyValueEntry",
+          "array": true,
+          "maxCount": 1000
+        },
+        {
+          "name": "ContentDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        }
+      ]
+    },
+    "ArticlePropertyValuePersistedSnapshot": {
+      "fields": [
+        {
+          "name": "SnapshotId",
+          "type": "guid"
+        },
+        {
+          "name": "FactsetId",
+          "type": "guid"
+        },
+        {
+          "name": "Snapshot",
+          "type": "ArticlePropertyValueSnapshot"
+        },
+        {
+          "name": "AuditReference",
+          "type": "guid"
+        },
+        {
+          "name": "AuditChainId",
+          "type": "string",
+          "maxChars": 32,
+          "digest": false
+        },
+        {
+          "name": "AuditRecordHash",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        }
+      ]
+    },
+    "ArticlePropertyValueReadResponse": {
+      "fields": [
+        {
+          "name": "ArticleId",
+          "type": "int32",
+          "min": 1
+        },
+        {
+          "name": "CurrentArticleRevisionId",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "PropertyRevision",
+          "type": "int64",
+          "min": 0,
+          "nullable": false
+        },
+        {
+          "name": "Current",
+          "type": "ArticlePropertyValuePersistedSnapshot",
+          "nullable": true
+        },
+        {
+          "name": "Definitions",
+          "type": "ArticlePropertyDefinitionReadDescriptor",
+          "array": true,
+          "maxCount": 1000
+        },
+        {
+          "name": "Reconciliation",
+          "type": "ArticlePropertyValueReconciliationRead",
+          "array": true,
+          "maxCount": 1000
+        },
+        {
+          "name": "Scope",
+          "type": "ArticlePropertyValueReadScope"
+        }
+      ]
+    },
+    "ArticlePropertyValueReadScope": {
+      "fields": [
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "DefinitionSchemaVersion",
+          "type": "int32",
+          "min": 1,
+          "max": 1
+        }
+      ]
+    }
+  },
+  "definitionContractOwner": "src/backend/Services/Authoring/ArticlePropertyDefinitionContracts.cs"
+}
