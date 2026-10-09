@@ -1,6 +1,8 @@
+using System.Reflection;
 using System.Text.Json;
 
 using FsusBlog.Core.Services.Articles;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
@@ -144,6 +146,95 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         Assert.Equal(RevisionComparePackageReadStatus.Available, result.Status);
         Assert.Equal(11, result.Package!.RevisionId);
         await authority.DidNotReceiveWithAnyArgs().GetCurrentRevisionIdAsync(default, default);
+    }
+
+    [Theory]
+    [InlineData(" https://historical.example/articles/Original%2fPath?version=1#Section ")]
+    [InlineData(null)]
+    public void ToRevisionDetailResponse_ProjectsStoredCanonicalUrlVerbatim(string? canonicalUrl)
+    {
+        ArticleRevisionDetailResponse revision = MapRevision(11, canonicalUrl);
+
+        ArticleRevisionRightsSnapshotResponse rights = Assert.IsType<ArticleRevisionRightsSnapshotResponse>(revision.Rights);
+        Assert.Equal(canonicalUrl, rights.CanonicalUrl);
+        Assert.Equal("stored-policy-hash", rights.PolicyHash);
+        Assert.Equal("stored-content-hash", rights.ContentCanonicalHash);
+        Assert.True(revision.PackageComplete);
+    }
+
+    [Theory]
+    [InlineData(" https://historical.example/articles/Original%2fPath?version=1#Section ")]
+    [InlineData(null)]
+    public async Task ReadAuthorizedAsync_ExposesStoredHistoricalCanonicalUrl(string? canonicalUrl)
+    {
+        IAuthoringRevisionCompareAuthority authority = Authority(currentRevisionId: 99);
+        authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>())
+            .Returns(MapRevision(11, canonicalUrl));
+        var reader = Reader(authority);
+
+        RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(Context(), 7, HistoricalSelector());
+
+        Assert.Equal(RevisionComparePackageReadStatus.Available, result.Status);
+        RevisionCompareSnapshot snapshot = result.Package!.Snapshots.Single(
+            static snapshot => snapshot.Kind == RevisionCompareSnapshotKind.Rights);
+        Assert.Equal(RevisionCompareSnapshotState.Present, snapshot.State);
+        Assert.Equal("rights:21", snapshot.Reference);
+        using JsonDocument payload = JsonDocument.Parse(snapshot.Payload.ToArray());
+        JsonElement url = payload.RootElement.GetProperty("CanonicalUrl");
+        Assert.Equal(canonicalUrl is null ? JsonValueKind.Null : JsonValueKind.String, url.ValueKind);
+        Assert.Equal(canonicalUrl, url.GetString());
+        ArticleRevisionRightsSnapshotResponse rights = Assert.IsType<ArticleRevisionRightsSnapshotResponse>(
+            JsonSerializer.Deserialize<ArticleRevisionRightsSnapshotResponse>(snapshot.Payload.AsSpan()));
+        Assert.Equal(canonicalUrl, rights.CanonicalUrl);
+        Assert.Equal("stored-policy-hash", rights.PolicyHash);
+        Assert.Equal("stored-content-hash", rights.ContentCanonicalHash);
+    }
+
+    [Fact]
+    public async Task ReadAuthorizedAsync_KeepsMissingRightsDistinctFromStoredNullCanonicalUrl()
+    {
+        ArticleRevisionDetailResponse revision = MapRevision(11, null, missingRights: true);
+        Assert.Null(revision.Rights);
+        Assert.False(revision.PackageComplete);
+        IAuthoringRevisionCompareAuthority authority = Authority();
+        authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>()).Returns(revision);
+        var reader = Reader(authority);
+
+        RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(Context(), 7, HistoricalSelector());
+
+        Assert.Equal(RevisionComparePackageReadStatus.Available, result.Status);
+        RevisionCompareSnapshot snapshot = result.Package!.Snapshots.Single(
+            static snapshot => snapshot.Kind == RevisionCompareSnapshotKind.Rights);
+        Assert.Equal(RevisionCompareSnapshotState.Missing, snapshot.State);
+        Assert.Null(snapshot.Reference);
+        Assert.Empty(snapshot.Payload);
+    }
+
+    [Fact]
+    public async Task ReadAuthorizedAsync_PreservesEachSelectedRevisionsCanonicalUrl()
+    {
+        const string FirstUrl = "https://historical.example/first";
+        const string SecondUrl = "https://historical.example/second";
+        IAuthoringRevisionCompareAuthority authority = Authority(currentRevisionId: 99);
+        authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>()).Returns(MapRevision(11, FirstUrl));
+        authority.GetRevisionAsync(7, 12, Arg.Any<CancellationToken>()).Returns(MapRevision(12, SecondUrl));
+        var reader = Reader(authority);
+
+        foreach ((long revisionId, string canonicalUrl) in new[] { (11L, FirstUrl), (12L, SecondUrl) })
+        {
+            RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(
+                Context(),
+                7,
+                new RevisionCompareSourceSelector(RevisionCompareSourceKind.HistoricalRevision, RevisionId: revisionId));
+
+            Assert.Equal(RevisionComparePackageReadStatus.Available, result.Status);
+            Assert.Equal(revisionId, result.Package!.RevisionId);
+            RevisionCompareSnapshot snapshot = result.Package.Snapshots.Single(
+                static snapshot => snapshot.Kind == RevisionCompareSnapshotKind.Rights);
+            ArticleRevisionRightsSnapshotResponse rights = Assert.IsType<ArticleRevisionRightsSnapshotResponse>(
+                JsonSerializer.Deserialize<ArticleRevisionRightsSnapshotResponse>(snapshot.Payload.AsSpan()));
+            Assert.Equal(canonicalUrl, rights.CanonicalUrl);
+        }
     }
 
     [Fact]
@@ -628,6 +719,40 @@ public sealed class AuthoringRevisionComparePackageReaderTests
             null,
             null);
 
+    private static ArticleRevisionDetailResponse MapRevision(
+        long revisionId,
+        string? canonicalUrl,
+        bool missingRights = false)
+    {
+        MethodInfo? mapper = typeof(AuthoringDraftLifecycleService).GetMethod(
+            "ToRevisionDetailResponse",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(mapper);
+        var revision = new ArticleRevision
+        {
+            Id = revisionId,
+            ArticleId = 7,
+            RevisionNo = 1,
+            Title = "Revision title",
+            MarkdownContent = "raw\nmarkdown\n"
+        };
+        ArticleRightsSnapshot? rights = missingRights ? null : new ArticleRightsSnapshot
+        {
+            Id = 21,
+            ArticleId = 7,
+            ArticleRevisionId = revisionId,
+            CanonicalUrl = canonicalUrl,
+            PolicyHash = "stored-policy-hash",
+            ContentCanonicalHash = "stored-content-hash"
+        };
+        var responsibility = new ArticleResponsibilitySnapshot
+        {
+            ArticleId = 7,
+            ArticleRevisionId = revisionId
+        };
+        return Assert.IsType<ArticleRevisionDetailResponse>(mapper.Invoke(null, [revision, rights, responsibility, null]));
+    }
+
     private static ArticleRevisionRightsSnapshotResponse Rights()
         => new(
             "21",
@@ -642,6 +767,7 @@ public sealed class AuthoringRevisionComparePackageReaderTests
             true,
             true,
             true,
+            null,
             "policy-hash",
             "content-hash",
             DateTime.UtcNow);
