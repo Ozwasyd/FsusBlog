@@ -1,0 +1,29 @@
+{
+  "file": "tests/tools/csharp-using-format-equivalence.test.mjs",
+  "sourceSha256": "908d8c46706f44903501843e83a7c06478437d97af346cadba518bc903faface",
+  "expectedExecutedTests": 18,
+  "names": [
+    "CSharp using equivalence accepts ordinary compilation unit import permutations",
+    "CSharp using equivalence accepts qualified name whitespace and line endings",
+    "CSharp using equivalence retains unchanged header and member comments",
+    "CSharp using equivalence preserves duplicate import multiplicity",
+    "CSharp using equivalence rejects changed import membership and spelling",
+    "CSharp using equivalence rejects alias identity target and order changes",
+    "CSharp using equivalence refuses reordering beside unsupported import declarations",
+    "CSharp using equivalence rejects conditional guards and import relocation",
+    "CSharp using equivalence rejects changed preprocessor line boundaries",
+    "CSharp using equivalence keeps directive bearing files conservative",
+    "CSharp using equivalence rejects namespace identity and boundary changes",
+    "CSharp using equivalence does not reorder namespace scoped imports",
+    "CSharp using equivalence preserves executable tokens and resource statement order",
+    "CSharp using equivalence preserves SQL and quoted literal bytes",
+    "CSharp using equivalence preserves comments as import barriers",
+    "CSharp using equivalence refuses malformed and unsupported namespace names",
+    "CSharp using equivalence reaches the original format only diff gate",
+    "CSharp using equivalence retains original semantic and other language diff refusals"
+  ],
+  "pattern": "^(?:CSharp\\ using\\ equivalence\\ accepts\\ ordinary\\ compilation\\ unit\\ import\\ permutations|CSharp\\ using\\ equivalence\\ accepts\\ qualified\\ name\\ whitespace\\ and\\ line\\ endings|CSharp\\ using\\ equivalence\\ retains\\ unchanged\\ header\\ and\\ member\\ comments|CSharp\\ using\\ equivalence\\ preserves\\ duplicate\\ import\\ multiplicity|CSharp\\ using\\ equivalence\\ rejects\\ changed\\ import\\ membership\\ and\\ spelling|CSharp\\ using\\ equivalence\\ rejects\\ alias\\ identity\\ target\\ and\\ order\\ changes|CSharp\\ using\\ equivalence\\ refuses\\ reordering\\ beside\\ unsupported\\ import\\ declarations|CSharp\\ using\\ equivalence\\ rejects\\ conditional\\ guards\\ and\\ import\\ relocation|CSharp\\ using\\ equivalence\\ rejects\\ changed\\ preprocessor\\ line\\ boundaries|CSharp\\ using\\ equivalence\\ keeps\\ directive\\ bearing\\ files\\ conservative|CSharp\\ using\\ equivalence\\ rejects\\ namespace\\ identity\\ and\\ boundary\\ changes|CSharp\\ using\\ equivalence\\ does\\ not\\ reorder\\ namespace\\ scoped\\ imports|CSharp\\ using\\ equivalence\\ preserves\\ executable\\ tokens\\ and\\ resource\\ statement\\ order|CSharp\\ using\\ equivalence\\ preserves\\ SQL\\ and\\ quoted\\ literal\\ bytes|CSharp\\ using\\ equivalence\\ preserves\\ comments\\ as\\ import\\ barriers|CSharp\\ using\\ equivalence\\ refuses\\ malformed\\ and\\ unsupported\\ namespace\\ names|CSharp\\ using\\ equivalence\\ reaches\\ the\\ original\\ format\\ only\\ diff\\ gate|CSharp\\ using\\ equivalence\\ retains\\ original\\ semantic\\ and\\ other\\ language\\ diff\\ refusals)$",
+  "import": "literal dynamic import of original tools/governance/change-contract.mjs",
+  "hooks": "no before/after hooks; setup and cleanup only inside two ordinary isolated diff callbacks",
+  "heldSuites": "none selected; no replacement refs, grafts, adversarial history adapters or held callbacks"
+}

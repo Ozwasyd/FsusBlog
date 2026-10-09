@@ -1,0 +1,34 @@
+{
+  "base": "020274069153c92725c7c9e5231c88b3415ff6ee",
+  "head": "afae0e36e48955e560a24b8653fde93f861da577",
+  "files": [
+    {
+      "path": "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs",
+      "beforeRegularBlob": "f9e36726ff7c2a934cf520a7cbfa1f74f3dd8099",
+      "afterRegularBlob": "abcfeaf6bf761127c9bb44df2585482630f74b98",
+      "plainPrefixUsingMultisetUnchanged": true,
+      "bodyBytesUnchanged": true,
+      "bodySha256": "4edeeb34b725fa34a6c830aea312ccb22d055556d124ad7c5ed63f9333f53413",
+      "preprocessorLinesPresent": false
+    },
+    {
+      "path": "tests/backend/Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs",
+      "beforeRegularBlob": "61cdb1e95ac68a46e7c230d0b629364645e18721",
+      "afterRegularBlob": "7b4650b892acffcfba1faf83d1db23c0128863c4",
+      "plainPrefixUsingMultisetUnchanged": true,
+      "bodyBytesUnchanged": true,
+      "bodySha256": "cef059d7361ed326ae2d284765a00adc16e8318a76de8cfa5621bc13706527ef",
+      "preprocessorLinesPresent": false
+    },
+    {
+      "path": "tests/backend/Unit/ArticleRelationSourceCoordinateAuthorityTests.cs",
+      "beforeRegularBlob": "56e15c2c63400b696a1726a49eb34e1392148f16",
+      "afterRegularBlob": "aee88b4e756a67b2254fa87625e4bf7b069c974b",
+      "plainPrefixUsingMultisetUnchanged": true,
+      "bodyBytesUnchanged": true,
+      "bodySha256": "1a950cf887289f676c2830f6fea05319ab7fa849ebbc873eb7886aefb6ad5fbd",
+      "preprocessorLinesPresent": false
+    }
+  ],
+  "runtimeAcceptanceGranted": false
+}

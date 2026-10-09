@@ -1,0 +1,18 @@
+{
+  "key": "graph-original-policy-counterproof",
+  "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "cwd": "/workspace/FsusBlog-csharp-using-format-equivalence",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/chain-3521-evidence/csharp-using-format-equivalence-20261009/graph-original-policy-counterproof.mjs"
+  ],
+  "startedUtc": "2026-10-09T11:27:14.146799+00:00",
+  "completedUtc": "2026-10-09T11:27:14.512764+00:00",
+  "elapsedSeconds": 0.366,
+  "exitCode": 1,
+  "pid": 180147,
+  "logSha256": "2fdc4a4db33ac62f928a78f8faa260a5b5173c03be0fa165d792f1c2cd5fa016",
+  "logBytes": 736,
+  "rawLogArchive": "graph-original-policy-counterproof.log.gz",
+  "qualification": false
+}

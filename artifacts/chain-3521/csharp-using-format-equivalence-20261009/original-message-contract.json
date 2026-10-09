@@ -1,0 +1,20 @@
+{
+  "key": "original-message-contract",
+  "sourceCommit": "efef9a42a1ea3f7cbbf898511687d52a6941f8fd",
+  "cwd": "/workspace/FsusBlog-csharp-using-format-equivalence",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--message-file",
+    "/workspace/chain-3521-evidence/csharp-using-format-equivalence-20261009/source-commit-message.txt"
+  ],
+  "startedUtc": "2026-10-09T11:29:26.173678+00:00",
+  "completedUtc": "2026-10-09T11:29:26.393777+00:00",
+  "elapsedSeconds": 0.22,
+  "exitCode": 0,
+  "pid": 181339,
+  "logSha256": "d0f4f591aee85999e4bd6eea79833551a1710eccee9d1bced11e3ae6f07759ba",
+  "logBytes": 36,
+  "rawLogArchive": "original-message-contract.log.gz",
+  "qualification": false
+}

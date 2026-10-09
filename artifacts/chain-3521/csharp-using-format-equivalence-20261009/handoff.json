@@ -1,0 +1,83 @@
+{
+  "scope": "root-authorized bounded ordinary C# format-equivalence correction; source proposal for independent review",
+  "sourceCommit": "efef9a42a1ea3f7cbbf898511687d52a6941f8fd",
+  "sourceBranch": "codex/chain-3521-csharp-using-format-equivalence",
+  "verifiedStartingMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "changedSourceFiles": [
+    "tools/governance/change-contract.mjs",
+    "tests/tools/csharp-using-format-equivalence.test.mjs",
+    "docs/development/change-contract.md"
+  ],
+  "ownership": "parent confirmed all three other groups have no active writer/unpublished hunk for this file; sole writer assigned to this session; prior exact-file worktree scan found no uncommitted changes",
+  "policyReferences": [
+    "docs/development/change-contract.md:80 (language tokens, structural semantics or formatter equivalence)",
+    "docs/development/change-contract.md:82 (two real formatter runs and original idempotence evidence)",
+    "docs/development/change-contract.md:96 (each real reachable format-only parent diff)",
+    "docs/development/coding-conventions.md:28 (stable import groups)",
+    "docs/development/coding-conventions.md:55 (C# common file-level using region)",
+    "tools/dotnet/check-csharp-style.mjs:709 (original parseUsingDirective)",
+    "tools/dotnet/check-csharp-style.mjs:780 (original normalizer)",
+    "tools/governance/change-contract.mjs:4471 (original diff API)",
+    "tools/governance/change-contract.mjs:4663 (bounded C# fingerprint)",
+    "tools/governance/change-contract.mjs:4741 (C# routing only)"
+  ],
+  "implementation": "Parse only leading ordinary ASCII namespace using syntax from original lexical tokens; compare complete directive token multiset while preserving duplicates, header comments and remaining token order. All directive-bearing files retain ordered lexical and directive-line comparison. Unsupported prefix forms and comment barriers fail back to ordered comparison. No file/symbol exemptions or changes to style normalizer, classification, idempotence, history, receipt, publisher or registry rules.",
+  "graph": {
+    "candidate": "9e01a041b67a7bb7abc9c860444e2e32e3e5e3b8",
+    "before": "020274069153c92725c7c9e5231c88b3415ff6ee",
+    "mechanicalCommit": "afae0e36e48955e560a24b8653fde93f861da577",
+    "actualChangedFiles": 3,
+    "oldOriginalApiExit": 1,
+    "oldRefusedFiles": 3,
+    "candidateCommittedApiExit": 0,
+    "candidateErrors": [],
+    "providedFormatterIdentity": "65ca74461666c641c47bc8793f5f60728dcef326",
+    "providedRepeatedTreeDigest": "e64024f5b5894dd22553d93395f49d95341a127c926515c01979043cdfdc1d1e",
+    "formatterEvidenceOwnership": "Original Graph author; not regenerated or copied as this session acceptance evidence"
+  },
+  "verification": {
+    "node": "v24.16.0",
+    "nodeExecutableSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+    "allowlistedExecutedTests": 18,
+    "passed": 18,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "negativeCoverage": [
+      "membership/spelling/multiplicity",
+      "alias identity/target/order",
+      "static/global/extern adjacency",
+      "conditional guards/import relocation",
+      "directive line folding",
+      "directive-bearing conservative order",
+      "namespace identity/boundaries/scoped imports",
+      "executable/resource statement order",
+      "SQL and raw/verbatim/interpolated literal bytes",
+      "comment barriers",
+      "malformed/unsupported qualified names",
+      "original gate routing and unchanged JSON/C++ refusals"
+    ],
+    "finalTwoSourceEslintExit": 0,
+    "targetedDocumentMarkdownlintExit": 0,
+    "targetedDocumentLintScope": "existing markdownlint engine with unchanged repository config, frontMatter and noInlineConfig, only changed document; not a broad docs scan",
+    "originalCommitMessageContractExit": 0,
+    "sourceRangeCheckExit": 0
+  },
+  "notRun": [
+    "original coupled broad change-contract.test.mjs",
+    "held Git replacement/graft/history or receipt/race suites",
+    "Graph product build, C# runtime or database tests",
+    "formatter replays (original author evidence remains independent)",
+    "GitHub PR/push full gates or trusted-policy promotion",
+    "generated-output/authority/index/inventory regeneration"
+  ],
+  "limits": [
+    "bounded compilation-unit plain ASCII namespace imports only; alias/static/global/extern, namespace-scoped or directive-bearing reorderings remain conservative",
+    "remaining source retains existing ordered lexical comparison; no claim of complete C# compiler/AST semantic equivalence",
+    "candidate source self-check is not trusted-policy promotion or current Graph PR acceptance; parent independent review and original consumer gates remain required",
+    "no API writes, PR metadata, merge or deployment performed",
+    "retained #3521 canonical Linux replay/promotion and #3520 prerequisite gates remain unresolved; no chain-completion claim"
+  ],
+  "acceptanceGranted": false,
+  "publication": "Independent source branch only, per latest root instruction; focused evidence added in a separate commit after the verified source commit. No PR/API writes."
+}

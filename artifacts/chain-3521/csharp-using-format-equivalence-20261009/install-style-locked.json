@@ -1,0 +1,26 @@
+{
+  "key": "install-style-locked",
+  "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "cwd": "/workspace/FsusBlog-csharp-using-format-equivalence",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+    "ci",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    "--cache",
+    "/workspace/chain-3521-evidence/csharp-using-format-equivalence-20261009/npm-style-cache",
+    "--prefix",
+    "tools/frontend/style-toolchain"
+  ],
+  "startedUtc": "2026-10-09T11:23:23.882799+00:00",
+  "completedUtc": "2026-10-09T11:23:29.793088+00:00",
+  "elapsedSeconds": 5.91,
+  "exitCode": 0,
+  "pid": 178101,
+  "logSha256": "d27256ac4ce91d7ae33c18013fb2f80fd6668c6fda0a3b2d7a04dd3e9ca4ae93",
+  "logBytes": 235,
+  "rawLogArchive": "install-style-locked.log.gz",
+  "qualification": false
+}

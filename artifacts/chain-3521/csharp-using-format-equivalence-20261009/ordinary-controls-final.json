@@ -1,0 +1,20 @@
+{
+  "key": "ordinary-controls-final",
+  "sourceCommit": "efef9a42a1ea3f7cbbf898511687d52a6941f8fd",
+  "cwd": "/workspace/FsusBlog-csharp-using-format-equivalence",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "--test-name-pattern=^(?:CSharp\\ using\\ equivalence\\ accepts\\ ordinary\\ compilation\\ unit\\ import\\ permutations|CSharp\\ using\\ equivalence\\ accepts\\ qualified\\ name\\ whitespace\\ and\\ line\\ endings|CSharp\\ using\\ equivalence\\ retains\\ unchanged\\ header\\ and\\ member\\ comments|CSharp\\ using\\ equivalence\\ preserves\\ duplicate\\ import\\ multiplicity|CSharp\\ using\\ equivalence\\ rejects\\ changed\\ import\\ membership\\ and\\ spelling|CSharp\\ using\\ equivalence\\ rejects\\ alias\\ identity\\ target\\ and\\ order\\ changes|CSharp\\ using\\ equivalence\\ refuses\\ reordering\\ beside\\ unsupported\\ import\\ declarations|CSharp\\ using\\ equivalence\\ rejects\\ conditional\\ guards\\ and\\ import\\ relocation|CSharp\\ using\\ equivalence\\ rejects\\ changed\\ preprocessor\\ line\\ boundaries|CSharp\\ using\\ equivalence\\ keeps\\ directive\\ bearing\\ files\\ conservative|CSharp\\ using\\ equivalence\\ rejects\\ namespace\\ identity\\ and\\ boundary\\ changes|CSharp\\ using\\ equivalence\\ does\\ not\\ reorder\\ namespace\\ scoped\\ imports|CSharp\\ using\\ equivalence\\ preserves\\ executable\\ tokens\\ and\\ resource\\ statement\\ order|CSharp\\ using\\ equivalence\\ preserves\\ SQL\\ and\\ quoted\\ literal\\ bytes|CSharp\\ using\\ equivalence\\ preserves\\ comments\\ as\\ import\\ barriers|CSharp\\ using\\ equivalence\\ refuses\\ malformed\\ and\\ unsupported\\ namespace\\ names|CSharp\\ using\\ equivalence\\ reaches\\ the\\ original\\ format\\ only\\ diff\\ gate|CSharp\\ using\\ equivalence\\ retains\\ original\\ semantic\\ and\\ other\\ language\\ diff\\ refusals)$",
+    "tests/tools/csharp-using-format-equivalence.test.mjs"
+  ],
+  "startedUtc": "2026-10-09T11:29:26.156274+00:00",
+  "completedUtc": "2026-10-09T11:29:26.931060+00:00",
+  "elapsedSeconds": 0.775,
+  "exitCode": 0,
+  "pid": 181337,
+  "logSha256": "ef44da5490fa8b282f9e01d88bef244b26d45b3849fdf7bdf933abe25ce21ff7",
+  "logBytes": 1732,
+  "rawLogArchive": "ordinary-controls-final.log.gz",
+  "qualification": false
+}

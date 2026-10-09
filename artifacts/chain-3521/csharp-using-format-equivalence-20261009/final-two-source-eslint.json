@@ -1,0 +1,20 @@
+{
+  "key": "final-two-source-eslint",
+  "sourceCommit": "efef9a42a1ea3f7cbbf898511687d52a6941f8fd",
+  "cwd": "/workspace/FsusBlog-csharp-using-format-equivalence",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js",
+    "tools/governance/change-contract.mjs",
+    "tests/tools/csharp-using-format-equivalence.test.mjs"
+  ],
+  "startedUtc": "2026-10-09T11:29:26.116456+00:00",
+  "completedUtc": "2026-10-09T11:29:29.881390+00:00",
+  "elapsedSeconds": 3.765,
+  "exitCode": 0,
+  "pid": 181335,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "final-two-source-eslint.log.gz",
+  "qualification": false
+}

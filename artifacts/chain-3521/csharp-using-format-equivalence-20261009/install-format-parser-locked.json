@@ -1,0 +1,26 @@
+{
+  "key": "install-format-parser-locked",
+  "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "cwd": "/workspace/FsusBlog-csharp-using-format-equivalence",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+    "ci",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    "--cache",
+    "/workspace/chain-3521-evidence/csharp-using-format-equivalence-20261009/npm-parser-cache",
+    "--prefix",
+    "tools/governance/javascript-format-parser"
+  ],
+  "startedUtc": "2026-10-09T11:23:25.198025+00:00",
+  "completedUtc": "2026-10-09T11:23:26.672322+00:00",
+  "elapsedSeconds": 1.474,
+  "exitCode": 0,
+  "pid": 178121,
+  "logSha256": "b960330436a6e00d724b55baba6bd40b8edc1e1ec35ed89e73ba7b71506715ec",
+  "logBytes": 233,
+  "rawLogArchive": "install-format-parser-locked.log.gz",
+  "qualification": false
+}

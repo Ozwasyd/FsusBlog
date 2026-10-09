@@ -1,0 +1,17 @@
+{
+  "initialAttempts": [
+    {
+      "toolSession": 22520,
+      "exitCode": 254,
+      "commandSuffix": "ci --ignore-scripts --no-audit --no-fund --prefix tools/frontend/style-toolchain"
+    },
+    {
+      "toolSession": 84139,
+      "exitCode": 254,
+      "commandSuffix": "ci --ignore-scripts --no-audit --no-fund --prefix tools/governance/javascript-format-parser"
+    }
+  ],
+  "error": "ENOENT mkdir /home/agent/.npm/_cacache",
+  "initialRawArchive": "not retained locally; original tool transcript contains the failures",
+  "resolution": "same official pinned npm ci, script-free, with task-scoped writable --cache; both installs passed; source and locks unchanged"
+}

@@ -1,0 +1,18 @@
+{
+  "key": "targeted-document-markdownlint",
+  "sourceCommit": "efef9a42a1ea3f7cbbf898511687d52a6941f8fd",
+  "cwd": "/workspace/FsusBlog-csharp-using-format-equivalence",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/chain-3521-evidence/csharp-using-format-equivalence-20261009/targeted-document-markdownlint.mjs"
+  ],
+  "startedUtc": "2026-10-09T11:31:51.403790+00:00",
+  "completedUtc": "2026-10-09T11:31:52.025210+00:00",
+  "elapsedSeconds": 0.621,
+  "exitCode": 0,
+  "pid": 182716,
+  "logSha256": "998e4ffde6e2ea4dd539588a0386b14f30d34aea16fc679f6580f96f7893cc99",
+  "logBytes": 188,
+  "rawLogArchive": "targeted-document-markdownlint.log.gz",
+  "qualification": false
+}

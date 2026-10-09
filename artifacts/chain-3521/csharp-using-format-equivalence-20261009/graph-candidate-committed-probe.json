@@ -1,0 +1,18 @@
+{
+  "key": "graph-candidate-committed-probe",
+  "sourceCommit": "efef9a42a1ea3f7cbbf898511687d52a6941f8fd",
+  "cwd": "/workspace/FsusBlog-csharp-using-format-equivalence",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/chain-3521-evidence/csharp-using-format-equivalence-20261009/graph-candidate-policy-probe.mjs"
+  ],
+  "startedUtc": "2026-10-09T11:29:26.990181+00:00",
+  "completedUtc": "2026-10-09T11:29:27.255774+00:00",
+  "elapsedSeconds": 0.266,
+  "exitCode": 0,
+  "pid": 181465,
+  "logSha256": "1bf46bd228e4a0f75bd173a27891b45c2f8c1b67e0e2e43d0a0c58e6882d4a13",
+  "logBytes": 440,
+  "rawLogArchive": "graph-candidate-committed-probe.log.gz",
+  "qualification": false
+}

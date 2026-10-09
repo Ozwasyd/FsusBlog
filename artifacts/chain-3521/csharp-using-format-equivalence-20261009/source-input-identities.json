@@ -1,0 +1,70 @@
+{
+  "sourceCommit": "efef9a42a1ea3f7cbbf898511687d52a6941f8fd",
+  "files": [
+    {
+      "path": "tools/governance/change-contract.mjs",
+      "sha256": "7465300fa76cb984b59bd28edd6459ecfdf79e0f9ed5d8733ae6cfcf5c136c89",
+      "gitBlob": "4d0855eacd9cbd78fd452381967064ca38faad44"
+    },
+    {
+      "path": "tests/tools/csharp-using-format-equivalence.test.mjs",
+      "sha256": "908d8c46706f44903501843e83a7c06478437d97af346cadba518bc903faface",
+      "gitBlob": "772619f420b47e1ff7637aa719c7a19116a35621"
+    },
+    {
+      "path": "docs/development/change-contract.md",
+      "sha256": "cc7b68aa0fca28cd74cd5a505af88f1d9846d34ffc987da1421e4f1dcfa27cde",
+      "gitBlob": "6123b84c32d1b2d5a3780790625b24def43ff5a8"
+    },
+    {
+      "path": "tools/governance/change-contract-registry.mjs",
+      "sha256": "019a39477af6b874eb8321b29cf54f08049509829255e896f0d69ccdc490c1df",
+      "gitBlob": "01f4638626218b6c324f94db534c731fa1a5c471"
+    },
+    {
+      "path": "tools/governance/generated-output-digest-repair-repository.mjs",
+      "sha256": "40073b27573b088924b6c8a8ff14e6c9747da3db9748346de3d15f61a093a9f0",
+      "gitBlob": "664519330ffc0d3d4b5778512b437e170fb0a554"
+    },
+    {
+      "path": "tools/governance/generated-output-digest-repair-v2.mjs",
+      "sha256": "5208b1d34acf213fcceabe3b0d4f1e2dc6eac90368a23d6cf51b8fbe9c06efb7",
+      "gitBlob": "5c23b816e97a7642c785f7c93f8414cee0278e42"
+    },
+    {
+      "path": "tools/governance/generated-output-history-repair-v3.mjs",
+      "sha256": "3242e0e6e3b8586f5acf9e869cd329919214edac2110c0f4052c61259ac46e7a",
+      "gitBlob": "529741256af1f12a0ce8ad54bfa12fba9ddaf0f5"
+    },
+    {
+      "path": "tools/governance/javascript-format-equivalence.mjs",
+      "sha256": "91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+      "gitBlob": "86c55ceb9d1e336838ece004dbdd27744f73f1d0"
+    },
+    {
+      "path": "tools/governance/javascript-format-parser/package-lock.json",
+      "sha256": "d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9",
+      "gitBlob": "ff99582d27b6a034261cc9ad12e3b781c8156f80"
+    },
+    {
+      "path": "commitlint.config.mjs",
+      "sha256": "32ab46c67fda654e375327f973c6d73f60f44830230836fda6704e8d6f216070",
+      "gitBlob": "332cc6496aaa2dfee4ad518e2b6c00493ab85216"
+    },
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "sha256": "754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+      "gitBlob": "7a716357c0734cc4be39439348f23379c52554e5"
+    },
+    {
+      "path": ".markdownlint-cli2.jsonc",
+      "sha256": "3e1c46bc2ba6674623ab3bf35f7cadfb1b1e5703e3ff83d006da6dd1020e3140",
+      "gitBlob": "c1acd022b71e4d9762688c87706002cb2e8334e0"
+    },
+    {
+      "path": "tools/frontend/style-toolchain/package-lock.json",
+      "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+      "gitBlob": "cda087663517c681f64ea2a6facdeae13e3df98d"
+    }
+  ]
+}
