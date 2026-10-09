@@ -175,9 +175,27 @@ describe('actual Writer preview current authority binding', () =>
         expect(f.commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'Changed source\n' }],
             history: 'separate' }).accepted).toBe(true);
         expect(await pending).toBe(false);
-        const observation = reader.readOwnedIntent(node.intentRef, f.owner.authoringDocumentContextAdapter.context);
-        expect(observation).toMatchObject({ current: false, sourceReferenced: null, disposition: 'stale' });
-        expect(await reader.verifyIntent(node, f.owner.authoringDocumentContextAdapter.context)).toBe(false);
+        const rebasedContext = f.owner.authoringDocumentContextAdapter.context;
+        const rebased = reader.readOwnedIntent(node.intentRef, rebasedContext)!;
+        expect(rebased).toMatchObject({ current: true, sourceReferenced: true, disposition: 'current',
+            contextDigest: rebasedContext.contextDigest });
+        expect(rebased.contextDigest).not.toBe(node.contextDigest);
+        expect(await reader.verifyIntent(node, rebasedContext)).toBe(false);
+        expect(await reader.verifyIntent(rebased, rebasedContext)).toBe(true);
+        attachments.complete(handle, { status: 'resolved', ...handle.request,
+            payload: { markdownKind: 'image', href: '/actual-business.png', alt: 'business-stale.png',
+                mimeType: 'image/png' } });
+        await Promise.resolve();
+        const completedContext = f.owner.authoringDocumentContextAdapter.context;
+        const completed = reader.readOwnedIntent(node.intentRef, completedContext)!;
+        expect(completed.sourceUrl).toBe('/actual-business.png');
+        expect(await reader.verifyIntent(completed, completedContext)).toBe(true);
+        expect(f.commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'Later edit\n' }],
+            history: 'separate' }).accepted).toBe(true);
+        const editedContext = f.owner.authoringDocumentContextAdapter.context;
+        expect(reader.readOwnedIntent(node.intentRef, editedContext))
+            .toMatchObject({ current: false, sourceReferenced: null, disposition: 'stale' });
+        expect(await reader.verifyIntent(completed, editedContext)).toBe(false);
         expect(api.preview).not.toHaveBeenCalled();
     });
 
