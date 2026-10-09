@@ -5,7 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { renderAedsProtocolOutputs } from '../../tools/frontend/generate-aeds-protocol.mjs';
+import { renderAedsProtocolOutputs } from '@fsusblog/governance-tools/frontend/aeds-protocol';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const manifest = JSON.parse(readFileSync(path.join(root, 'src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'));
