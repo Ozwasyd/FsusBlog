@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleGraphClientProjectionMapper.cs"
+            ],
+            "reason": "The internal Graph client projection mapper is covered by the registered src/**/*.cs boundary. It introduces no process environment keys or environment adapters; its internal C# identifiers follow the mother standard, and existing external environment spellings remain unchanged."
+        }
+    ]
+}
