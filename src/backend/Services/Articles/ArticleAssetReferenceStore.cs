@@ -18,6 +18,39 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
 
     internal static TimeSpan CleanupDelay => s_cleanupDelay;
 
+    /// <summary>
+    /// The original authorized upload caller invokes this inside its open database transaction.
+    /// Reuses canonical asset locks, reference absence and delayed scheduling; returns no receipt.
+    /// </summary>
+    public async Task ScheduleUnreferencedOwnedAssetsAsync(
+        long ownerAdminPrincipalId,
+        IReadOnlyCollection<AssetId> candidateAssetIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(candidateAssetIds);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (ownerAdminPrincipalId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ownerAdminPrincipalId));
+        }
+        if (db.Ado.Transaction is null)
+        {
+            throw new InvalidOperationException("content_asset_cleanup_transaction_required");
+        }
+        AssetId[] candidates = ParseAssetIds(candidateAssetIds.Select(static id => id.Value));
+        await AcquireAssetLocksAsync(candidates, cancellationToken).ConfigureAwait(false);
+        Guid[] ids = [.. candidates.Select(static id => id.Value)];
+        List<Guid> owned = await db.Queryable<ContentAsset>()
+            .Where(asset => ids.Contains(asset.AssetId) && asset.OwnerAdminPrincipalId == ownerAdminPrincipalId)
+            .Select(asset => asset.AssetId)
+            .ToListAsync(cancellationToken);
+        if (owned.Count != candidates.Length)
+        {
+            throw new InvalidOperationException("content_asset_cleanup_owner_or_asset_changed");
+        }
+        await ScheduleIfUnreferencedAsync(candidates, cancellationToken).ConfigureAwait(false);
+    }
+
     public Task ReplaceCurrentArticleAsync(
         int articleId,
         IReadOnlyCollection<ArticleAssetReferenceWrite> references,

@@ -1822,3 +1822,22 @@ The20MiB server input does not enlarge the public275 frame. Plan/current resourc
 rights remain controlled fixtures, and the canonical2900 consistency verifier is
 not replayed or replaced in this supplier suite. Its original root must supply
 fresh selected dependency inputs and grant admission separately.
+
+
+## Current draft/reference and responsibility integration controls
+
+The focused ordinary selectors are the exact classes
+`FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests`,
+`FsusBlog.Server.Tests.Unit.CurrentAuthoringResponsibilityReaderTests`,
+`FsusBlog.Server.Tests.Unit.CurrentUploadAssetReferenceBindingTests` and
+`FsusBlog.Server.Tests.Unit.CurrentUploadCleanupSchedulingTests`.
+First discover nonempty positive FQNs and inspect their hooks/resource requirements;
+stop on a failing run rather than widening the selector. The first three use
+controlled original-provider/authority responses and prove composition and
+currentness refusals, not native acquisition or product resource qualification.
+The last uses the existing task-owned PostgreSQL fixture only, with new isolated
+canonical tables; it checks repeated delayed scheduling, retained references,
+restoration cancellation, owner/missing-candidate refusal and outer transaction
+rollback. It performs no native deletion, private policy, receipt or held audit
+replay. Bind source/run identity and verify owned container teardown separately.
+No prior branch's51 or22 controls become acceptance of the combined source.

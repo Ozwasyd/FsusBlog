@@ -3075,3 +3075,46 @@ bundle, dependency plan/request and fresh dependency inputs. Those root inputs
 are not minted here. A matching existing revision reference is current ledger
 fact, not an explicit resource reuse decision. All observation `Can*` flags remain
 false; no production Vault consumer is activated by these methods.
+
+
+The supplied current responsibility reader is integrated from exact source
+`76473e9dd3feb7e06e73fe085053373d6dbf45ae`. Its
+`ReadAuthorizedAsync(RevisionCompareReadContext, articleId, expectedCurrentRevisionId, ct)`
+uses `IAuthoringRevisionCompareAuthority` and
+`IArticleResponsibilityAuthoringService`, returns Current/Absent/Stale/Unavailable,
+and exposes responsibility only for the current authorized revision and confirmed
+latest existing history version. It does not write responsibility or use a
+publication-pinned package as current authority.
+
+`CurrentDraftUploadAssetBindingReader` consumes the supplied reader source
+`53bba36b436502c3dd3e4b4d48b229a1c348d28b`. Its
+`ObserveSavedDraftAsync(reference, principal, session, sha256, readCurrentContext, ct)`
+returns original owner-scoped saved draft and exact canonical draft reference
+facts. `ReadSavedDraftInputAsync` takes the same arguments and returns
+`(CurrentDraftUploadAssetReadResult Read, ReadOnlyMemory<byte> Bytes)` through
+that same algorithm. Bytes are returned only for Available. Native/session/media
+validation is still the original FileService implementation; no draft save, new
+upload initialization or reuse/reference receipt is introduced.
+
+Both current-revision and saved-draft readers use the single internal
+`CurrentUploadAssetReferenceBinding` for exact owner/session/AssetId/digest and
+exact-one canonical source-edge checks. The edge's article/count must match;
+observation reference arrays are frozen before awaiting another read. Draft
+coordinates retain the original request ID/context/document/epoch, the distinct
+opaque draft ID, actual server draft key and saved `server:N` ACK. Editor revision,
+draft server revision, article revision, canonical JSON content digest and raw
+source SHA remain distinct. Unsaved/source-changed/ledger-changed contexts expose
+no confirmed input and no bytes.
+
+The existing internal `ArticleAssetReferenceStore` now exposes
+`ScheduleUnreferencedOwnedAssetsAsync(long ownerAdminPrincipalId,
+IReadOnlyCollection<AssetId> candidateAssetIds, CancellationToken ct)` for the
+released original upload cleanup implementation. The authorized upload caller
+must invoke it inside its own open database transaction. It reacquires sorted
+canonical asset locks, rejects missing/foreign-owner candidates before any
+scheduling and reuses the original all-reference absence check and24h grace.
+Existing references prevent scheduling; original reference restoration cancels
+queued cleanup. This entry returns no cleanup receipt and performs no native
+deletion. The caller must observe actual durable queue/state after commit before
+claiming recorded cleanup; AbortUploadAsync's bool cannot substitute. No transport
+or DI registration is changed here. Those remain with the sole runtime owner.

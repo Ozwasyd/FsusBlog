@@ -165,17 +165,12 @@ public sealed class CurrentArticleUploadAssetBindingReader(
 
         UploadAssetObservation ValidateUpload(UploadAssetObservation upload)
         {
-            if (upload.Schema != "fsusblog.upload-asset-observation.v1"
-                || upload.UploadId != session.UploadId || upload.Asset.Id != reference.AssetId
-                || upload.Asset.OwnerAdminPrincipalId != adminId || upload.Asset.State != ContentAssetState.Active
-                || upload.Asset.Sha256 != sha256 || !Digest(upload.AssetVersionSha256) || !Digest(upload.ReferenceLedgerSha256)
-                || !upload.References.Any(value => value.AssetId == reference.AssetId
-                    && value.SourceKind == ContentAssetSourceKinds.Revision && value.ArticleId == reference.ArticleId
-                    && value.SourceKey == reference.SourceRevision.ToString(CultureInfo.InvariantCulture) && value.ReferenceCount > 0))
+            if (CurrentUploadAssetReferenceBinding.FindReference(upload, session, reference.AssetId, sha256,
+                ContentAssetSourceKinds.Revision, reference.SourceRevision.ToString(CultureInfo.InvariantCulture), reference.ArticleId) is null)
             {
                 throw Rejected("upload_or_revision_reference_unavailable");
             }
-            return upload;
+            return CurrentUploadAssetReferenceBinding.Freeze(upload);
         }
 
         void RequireCurrent()
