@@ -1064,3 +1064,6 @@ export interface UploadAssetPreviewViewModel {
     referenceRowCount: number;
     bytes: Uint8Array;
 }
+
+/** Current session-authorized facts without image bytes; grants no reference operation receipt. */
+export type UploadAssetFactsViewModel = Omit<UploadAssetPreviewViewModel, 'schema' | 'bytes'> & { schema: 'fsusblog.upload-asset-facts.v1'; };

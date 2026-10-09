@@ -2,6 +2,7 @@ import { readFixedUtf8, readInt32, readInt64Number } from '@/codecs/binary/reade
 import type {
     UploadCompleteViewModel,
     UploadAssetPreviewViewModel,
+    UploadAssetFactsViewModel,
     UploadInitViewModel,
     UploadPartAckViewModel,
     UploadPartMapViewModel,
@@ -106,8 +107,6 @@ function readIsoDate(payload: Uint8Array, offset: number): string
 {
     return new Date(readInt64Number(payload, offset)).toISOString().replace('.000Z', 'Z');
 }
-
-export type UploadAssetFactsViewModel = Omit<UploadAssetPreviewViewModel, 'schema' | 'bytes'> & { schema: 'fsusblog.upload-asset-facts.v1'; };
 
 export function mapUploadAssetFactsFromPayload(payload: Uint8Array): UploadAssetFactsViewModel
 {

@@ -1,5 +1,5 @@
-import type { UploadAssetFactsViewModel } from '@/adapters/binary/uploadAdapter';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
+import type { UploadAssetFactsViewModel } from '@/contracts/binaryApi';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
 import { FrameType } from '@wasm/protocol/frame';
