@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="936bd9ef-dcd7-4703-babc-34d5163b0623" name="@053f59c5d37b 2026-10-09 09:04:34" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-09T09:04:34.5562187+00:00" queuing="2026-10-09T09:04:34.5562188+00:00" start="2026-10-09T09:04:30.6832822+00:00" finish="2026-10-09T09:04:36.5930805+00:00" />
+  <TestSettings name="default" id="86d769d7-ceb5-47bc-ad25-7273ad3a403d">
+    <Deployment runDeploymentRoot="_053f59c5d37b_2026-10-09_09_04_34" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="74afa107-438a-4237-9e3f-3ff6e090faf8" testId="2869828f-e694-f8f7-4955-303f3a238e7e" testName="FsusBlog.Server.Tests.Unit.CurrentUploadCleanupSchedulingTests.Schedule_PreservesReferencesDelayAndRestoredDraftAcrossRepeatedCalls" computerName="053f59c5d37b" duration="00:00:00.6793050" startTime="2026-10-09T09:04:35.6432743+00:00" endTime="2026-10-09T09:04:36.3235810+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="74afa107-438a-4237-9e3f-3ff6e090faf8" />
+    <UnitTestResult executionId="6a682043-5850-40eb-aea7-852c064ca05e" testId="4a05e3b5-39cd-4201-3163-078e2cc5f2ea" testName="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests.InputRead_ForwardsOriginalBytesWithTheSameCurrentDraftFacts" computerName="053f59c5d37b" duration="00:00:00.0028886" startTime="2026-10-09T09:04:33.1196782+00:00" endTime="2026-10-09T09:04:33.1224106+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6a682043-5850-40eb-aea7-852c064ca05e" />
+    <UnitTestResult executionId="4382f842-a204-4c3a-9c04-39697e637a05" testId="9cf5c263-c6b1-b088-ff4b-7d3bad2cea9a" testName="FsusBlog.Server.Tests.Unit.CurrentUploadAssetReferenceBindingTests.ExistingReference_BindsOnlyOneExactCanonicalSourceEdge(kind: &quot;draft&quot;, key: &quot;7:draft-key&quot;, articleId: null)" computerName="053f59c5d37b" duration="00:00:00.0003400" startTime="2026-10-09T09:04:33.0492911+00:00" endTime="2026-10-09T09:04:33.0493621+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4382f842-a204-4c3a-9c04-39697e637a05" />
+    <UnitTestResult executionId="b569c4b3-719b-4743-a8a6-7d27d5460c25" testId="80ec2883-6d95-9a05-8d43-ea3049eaced2" testName="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests.SavedDraft_ReadsOriginalOwnerAndExactLedgerWithoutWrites(articleId: 42, source: &quot;source\n&quot;)" computerName="053f59c5d37b" duration="00:00:00.0034431" startTime="2026-10-09T09:04:33.1160005+00:00" endTime="2026-10-09T09:04:33.1191129+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b569c4b3-719b-4743-a8a6-7d27d5460c25" />
+    <UnitTestResult executionId="302cac08-c7ca-4cb4-9a19-13a8159b8204" testId="dcbae12d-0557-261f-29bb-375959cfbdf9" testName="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests.SavedDraft_ReadsOriginalOwnerAndExactLedgerWithoutWrites(articleId: null, source: &quot;﻿# draft\r\n正文\ud83d\ude00  \r\n \t&quot;)" computerName="053f59c5d37b" duration="00:00:00.0003300" startTime="2026-10-09T09:04:33.1193234+00:00" endTime="2026-10-09T09:04:33.1194356+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="302cac08-c7ca-4cb4-9a19-13a8159b8204" />
+    <UnitTestResult executionId="cd4877d1-045c-4800-8923-948dbcf02714" testId="50422c89-390b-632c-6e39-b6b7e036def4" testName="FsusBlog.Server.Tests.Unit.CurrentAuthoringResponsibilityReaderTests.ReadAuthorizedAsync_ReturnsLatestExistingHistoryWithExactCoordinates" computerName="053f59c5d37b" duration="00:00:00.1041100" startTime="2026-10-09T09:04:33.0320174+00:00" endTime="2026-10-09T09:04:33.1110919+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cd4877d1-045c-4800-8923-948dbcf02714" />
+    <UnitTestResult executionId="0c63f2dc-471d-48dc-adfb-ea3560358b8b" testId="1c45e9e9-fc75-f8fe-e158-715c93bea844" testName="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests.SavedDraft_ReadsOriginalOwnerAndExactLedgerWithoutWrites(articleId: null, source: &quot;&quot;)" computerName="053f59c5d37b" duration="00:00:00.1106158" startTime="2026-10-09T09:04:33.0390815+00:00" endTime="2026-10-09T09:04:33.1155132+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0c63f2dc-471d-48dc-adfb-ea3560358b8b" />
+    <UnitTestResult executionId="4bd8ebd5-ed76-4529-94a4-53058c3d1f9c" testId="612f7a55-b560-e110-99a6-2430cc5e74e6" testName="FsusBlog.Server.Tests.Unit.CurrentUploadAssetReferenceBindingTests.ExistingReference_BindsOnlyOneExactCanonicalSourceEdge(kind: &quot;revision&quot;, key: &quot;4&quot;, articleId: 42)" computerName="053f59c5d37b" duration="00:00:00.0122027" startTime="2026-10-09T09:04:33.0391429+00:00" endTime="2026-10-09T09:04:33.0403553+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4bd8ebd5-ed76-4529-94a4-53058c3d1f9c" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.CurrentUploadCleanupSchedulingTests.Schedule_PreservesReferencesDelayAndRestoredDraftAcrossRepeatedCalls" storage="/workspace/chain1975-current-draft-integration/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="2869828f-e694-f8f7-4955-303f3a238e7e">
+      <Execution id="74afa107-438a-4237-9e3f-3ff6e090faf8" />
+      <TestMethod codeBase="/workspace/chain1975-current-draft-integration/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.CurrentUploadCleanupSchedulingTests" name="Schedule_PreservesReferencesDelayAndRestoredDraftAcrossRepeatedCalls" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests.SavedDraft_ReadsOriginalOwnerAndExactLedgerWithoutWrites(articleId: null, source: &quot;﻿# draft\r\n正文\ud83d\ude00  \r\n \t&quot;)" storage="/workspace/chain1975-current-draft-integration/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="dcbae12d-0557-261f-29bb-375959cfbdf9">
+      <Execution id="302cac08-c7ca-4cb4-9a19-13a8159b8204" />
+      <TestMethod codeBase="/workspace/chain1975-current-draft-integration/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests" name="SavedDraft_ReadsOriginalOwnerAndExactLedgerWithoutWrites" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.CurrentUploadAssetReferenceBindingTests.ExistingReference_BindsOnlyOneExactCanonicalSourceEdge(kind: &quot;revision&quot;, key: &quot;4&quot;, articleId: 42)" storage="/workspace/chain1975-current-draft-integration/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="612f7a55-b560-e110-99a6-2430cc5e74e6">
+      <Execution id="4bd8ebd5-ed76-4529-94a4-53058c3d1f9c" />
+      <TestMethod codeBase="/workspace/chain1975-current-draft-integration/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.CurrentUploadAssetReferenceBindingTests" name="ExistingReference_BindsOnlyOneExactCanonicalSourceEdge" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests.SavedDraft_ReadsOriginalOwnerAndExactLedgerWithoutWrites(articleId: 42, source: &quot;source\n&quot;)" storage="/workspace/chain1975-current-draft-integration/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="80ec2883-6d95-9a05-8d43-ea3049eaced2">
+      <Execution id="b569c4b3-719b-4743-a8a6-7d27d5460c25" />
+      <TestMethod codeBase="/workspace/chain1975-current-draft-integration/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests" name="SavedDraft_ReadsOriginalOwnerAndExactLedgerWithoutWrites" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.CurrentUploadAssetReferenceBindingTests.ExistingReference_BindsOnlyOneExactCanonicalSourceEdge(kind: &quot;draft&quot;, key: &quot;7:draft-key&quot;, articleId: null)" storage="/workspace/chain1975-current-draft-integration/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="9cf5c263-c6b1-b088-ff4b-7d3bad2cea9a">
+      <Execution id="4382f842-a204-4c3a-9c04-39697e637a05" />
+      <TestMethod codeBase="/workspace/chain1975-current-draft-integration/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.CurrentUploadAssetReferenceBindingTests" name="ExistingReference_BindsOnlyOneExactCanonicalSourceEdge" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests.InputRead_ForwardsOriginalBytesWithTheSameCurrentDraftFacts" storage="/workspace/chain1975-current-draft-integration/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="4a05e3b5-39cd-4201-3163-078e2cc5f2ea">
+      <Execution id="6a682043-5850-40eb-aea7-852c064ca05e" />
+      <TestMethod codeBase="/workspace/chain1975-current-draft-integration/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests" name="InputRead_ForwardsOriginalBytesWithTheSameCurrentDraftFacts" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests.SavedDraft_ReadsOriginalOwnerAndExactLedgerWithoutWrites(articleId: null, source: &quot;&quot;)" storage="/workspace/chain1975-current-draft-integration/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="1c45e9e9-fc75-f8fe-e158-715c93bea844">
+      <Execution id="0c63f2dc-471d-48dc-adfb-ea3560358b8b" />
+      <TestMethod codeBase="/workspace/chain1975-current-draft-integration/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.CurrentDraftUploadAssetBindingReaderTests" name="SavedDraft_ReadsOriginalOwnerAndExactLedgerWithoutWrites" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.CurrentAuthoringResponsibilityReaderTests.ReadAuthorizedAsync_ReturnsLatestExistingHistoryWithExactCoordinates" storage="/workspace/chain1975-current-draft-integration/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="50422c89-390b-632c-6e39-b6b7e036def4">
+      <Execution id="cd4877d1-045c-4800-8923-948dbcf02714" />
+      <TestMethod codeBase="/workspace/chain1975-current-draft-integration/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.CurrentAuthoringResponsibilityReaderTests" name="ReadAuthorizedAsync_ReturnsLatestExistingHistoryWithExactCoordinates" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="2869828f-e694-f8f7-4955-303f3a238e7e" executionId="74afa107-438a-4237-9e3f-3ff6e090faf8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4a05e3b5-39cd-4201-3163-078e2cc5f2ea" executionId="6a682043-5850-40eb-aea7-852c064ca05e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9cf5c263-c6b1-b088-ff4b-7d3bad2cea9a" executionId="4382f842-a204-4c3a-9c04-39697e637a05" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="80ec2883-6d95-9a05-8d43-ea3049eaced2" executionId="b569c4b3-719b-4743-a8a6-7d27d5460c25" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dcbae12d-0557-261f-29bb-375959cfbdf9" executionId="302cac08-c7ca-4cb4-9a19-13a8159b8204" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="50422c89-390b-632c-6e39-b6b7e036def4" executionId="cd4877d1-045c-4800-8923-948dbcf02714" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1c45e9e9-fc75-f8fe-e158-715c93bea844" executionId="0c63f2dc-471d-48dc-adfb-ea3560358b8b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="612f7a55-b560-e110-99a6-2430cc5e74e6" executionId="4bd8ebd5-ed76-4529-94a4-53058c3d1f9c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="8" executed="8" passed="8" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.38]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:01.85]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:01.90]   Starting:    FsusBlog.Server.Tests
+[xUnit.net 00:00:05.46]   Finished:    FsusBlog.Server.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>
