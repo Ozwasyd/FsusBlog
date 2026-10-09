@@ -202,7 +202,11 @@ component imports, or zero-argument expression defaults that reach an actual
 component source. A string name cannot borrow an imported component identity. It binds each result to the exact call chain and input digests;
 unknown overrides, mutable aliases, template shadows, dynamic keys and ambiguous
 spreads remain errors. An absent input is allowed only behind its actual prop
-condition and cannot authorize a rendered component. Vue setup prop forwarding
+condition and cannot authorize a rendered component. The absence proof also
+recognizes a prop required by a conjunction in an actual `v-if` or
+`v-else-if`; negation, disjunction, aliases and shadowed bindings cannot prove
+that an absent prop prevents rendering. The absence proof records that exact
+guard. This supplies no product branch state or runtime acceptance. Vue setup prop forwarding
 may exclude attrs only for a prop declared by that same component; arbitrary
 spreads and arbitrary function results remain unknown. The DOM join checks the
 proven call chain, declaration and inputs before accepting its rendered source.

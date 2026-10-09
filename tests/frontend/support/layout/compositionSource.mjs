@@ -1142,8 +1142,22 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     {
                         const target = input.target;
                         const definition = target ? componentFile(target) : null;
-                        const guards = [node, ...node.ancestors.map((id) => nodes.get(id))].flatMap((entry) => entry.conditional);
-                        const guardedAbsent = !target && guards.some((guard) => guard.name === 'if' && guard.expression === node.origin.property);
+                        function requiresInput(exp)
+                        {
+                            exp = unwrapInput(exp);
+                            if (exp && ts.isIdentifier(exp))
+                            {
+                                return exp.text === node.origin.property;
+                            }
+                            return exp && ts.isBinaryExpression(exp) && exp.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+                                && (requiresInput(exp.left) || requiresInput(exp.right));
+                        }
+                        const guard = !target && [node, ...node.ancestors.map((id) => nodes.get(id))]
+                            .filter((entry) => !entry.scopedBindings.includes(node.origin.property))
+                            .flatMap((entry) => entry.conditional.map((condition) => ({ ...condition, nodeId: entry.id })))
+                            .find((condition) => ['if', 'else-if'].includes(condition.name) && condition.expression
+                                && requiresInput(expression(condition.expression, node.file)));
+                        const guardedAbsent = Boolean(guard);
                         if ((!target && !guardedAbsent) || (target && target.kind !== 'native' && !definition))
                         {
                             fail(`unknown rendered component input ${node.file}#${node.origin.property}`);
@@ -1158,7 +1172,9 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                             {
                                 const entry = nodes.get(id);
                                 return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
-                            }), target, definition, absent: guardedAbsent });
+                            }), target, definition, absent: guardedAbsent,
+                            absenceGuard: guard ? { sourceNode: guard.nodeId, directive: guard.name, expression: guard.expression,
+                                expressionDigest: controlDigest(guard.expression) } : null });
                     }
                 }
                 catch (error)
@@ -1212,7 +1228,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         return { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
             files: [...records.values()].filter((record) => reachable.has(record.file)),
             nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings, resolverInputs: bindings.files,
-            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors, ...bindings.errors], sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
+            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors], sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
     }
     function instrument(file, code)
     {

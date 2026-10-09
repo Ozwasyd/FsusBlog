@@ -110,6 +110,7 @@ for (const [label, content] of [
     ['unknown result value', factory.replace('{leaf: Item}', '{leaf: missing}')],
     ['non-Vue constructor', factory.replace("from 'vue'", "from 'fake-vue'")],
     ['shadowed Vue import', factory.replace('export const construct', 'const define = missing; export const construct')],
+    ['reassigned Vue import', factory + 'define = replacement;'],
     ['dynamic component options', factory.replace('define({name,', 'define({...options, name,')],
     ['render override', factory.replace('inheritAttrs: false,', 'inheritAttrs: false, render: arbitrary,')],
     ['automatic attrs fallthrough', factory.replace('inheritAttrs: false', 'inheritAttrs: true')],
@@ -137,5 +138,5 @@ test('factory source drift during the same scan remains a graph error', () =>
     assert.deepEqual(result.errors, []);
     writeFileSync(file, factory.replace('slots.default?.()', 'arbitrary()'));
     const changed = source.graph([entry]);
-    assert.ok(changed.errors.some((error) => error.path === file && error.reason === 'parsed-source-changed-during-scan'));
+    assert.equal(changed.errors.filter((error) => error.path === file && error.reason === 'parsed-source-changed-during-scan').length, 1);
 });

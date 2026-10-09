@@ -649,10 +649,15 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         function vueCall(node, api)
         {
-            return ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+            const actual = ts.isCallExpression(node) && ts.isIdentifier(node.expression)
                 && factory.record.imports.get(node.expression.text)?.specifier === 'vue'
                 && factory.record.imports.get(node.expression.text)?.name === api && !factory.record.variables.has(node.expression.text)
                 && !locals.has(node.expression.text) && !values.has(node.expression.text);
+            if (actual)
+            {
+                readonlyBinding(factory.file, node.expression.text);
+            }
+            return actual;
         }
         for (const statement of statements)
         {
