@@ -1,0 +1,87 @@
+{
+    "schema": "fsusblog.memory-checkpoint-files.v1",
+    "testedSource": "80558c678bff1201934c499a1225b18e432f94d2",
+    "registrationHead": "a4be834f9e4e796f4a636cad3bd21ca289eba513",
+    "files": [
+        {
+            "path": "change-contract-final.log",
+            "bytes": 81,
+            "sha256": "5a8633af1f72aac29305640583c383d22fa8d77bb94efa12af40ae649817a223"
+        },
+        {
+            "path": "checkpoint.json",
+            "bytes": 51688,
+            "sha256": "e67e9130f865ffeb32564e38b7f046ee79837c7ddef8ba6cf7e20792deb67def"
+        },
+        {
+            "path": "checkpoint.md",
+            "bytes": 6048,
+            "sha256": "c093fa71abd17e0833a7f32c1294831ac2f313a05be1fa08c4a57fcdb99d5456"
+        },
+        {
+            "path": "composition-final.log",
+            "bytes": 445921,
+            "sha256": "68e9901942ee4a19a3eef5adfa1a3b61b8998faa1e6d8f50f02c9689d46665c4"
+        },
+        {
+            "path": "composition-final.trx",
+            "bytes": 623743,
+            "sha256": "1d6657c5cf8f228cb9a77b452edce14f5286a3176ea6880888b5fdfdf9fdac59"
+        },
+        {
+            "path": "composition-format.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "path": "contract-registration-command.txt",
+            "bytes": 1033,
+            "sha256": "1a39db561f80d893b2d8c50a5a11a1be19a1461ff294ea12a7d9c4a922693c13"
+        },
+        {
+            "path": "contract-registration.log",
+            "bytes": 96,
+            "sha256": "b3dfa8b87eb5ec9afa37bd7c9ecb893f4f9eda4c20de4879b06b231420b30ffd"
+        },
+        {
+            "path": "document-lifecycle-final.log",
+            "bytes": 38,
+            "sha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6"
+        },
+        {
+            "path": "format-final.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "path": "format-first-failed.log",
+            "bytes": 2825,
+            "sha256": "b0176523f0133f55cf2322441cad0b250dd4ed28310a747ca3af191e52380283"
+        },
+        {
+            "path": "pressure-regression.trx",
+            "bytes": 198929,
+            "sha256": "904cc9cf23afd4e0cef217d09a1f439116777dd0a7ff433e3008c1c86a8ac472"
+        },
+        {
+            "path": "regression.log",
+            "bytes": 447975,
+            "sha256": "cee9beb0c240f61c2229a6ec49f23945584aaf5dfe8c97c3e2ac5eb7ced00538"
+        },
+        {
+            "path": "restore.log",
+            "bytes": 653,
+            "sha256": "05fb5567f8714da67481d28c7e078f361ee6de2a32a0aa232d0465fc0ecf4b5b"
+        },
+        {
+            "path": "test.log",
+            "bytes": 446483,
+            "sha256": "ff5a6f8b90c6f87d934349d01245e0bedeb4b42faff260a18e0ce396173fe4eb"
+        },
+        {
+            "path": "timed-counter.trx",
+            "bytes": 47498,
+            "sha256": "9a94fe5277092eaed1bac13742b8dc866d98d2167000bcba71d9c505796f91ab"
+        }
+    ]
+}
