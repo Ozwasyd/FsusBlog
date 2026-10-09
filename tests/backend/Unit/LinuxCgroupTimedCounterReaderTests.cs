@@ -97,6 +97,38 @@ public sealed class LinuxCgroupTimedCounterReaderTests
         Assert.All(scratch, value => Assert.Equal((byte)0, value));
     }
 
+    [Fact]
+    public void RepeatedNativeReadsExposeActualSystemClockIntervalsAndKeepTheBorrowedOwnerUsable()
+    {
+        using LinuxCgroupDirectoryReader reader = OpenReader(out string path);
+        byte[] scratch = new byte[8192];
+        string? source = null;
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            Array.Fill(scratch, (byte)0xcc);
+            DateTimeOffset outerStartedAt = TimeProvider.System.GetUtcNow();
+            long outerStarted = TimeProvider.System.GetTimestamp();
+            LinuxCgroupTimedCounterCapture actual = LinuxCgroupTimedCounterReader.Capture(
+                reader, LinuxCgroupCounter.AnonymousBytes, TimeProvider.System, TimeSpan.FromSeconds(1), scratch);
+            long outerCompleted = TimeProvider.System.GetTimestamp();
+            DateTimeOffset outerCompletedAt = TimeProvider.System.GetUtcNow();
+            Assert.Equal(MemoryObservationState.Available, actual.State);
+            Assert.True(actual.Value >= 0);
+            Assert.InRange(actual.StartedAt!.Value, outerStartedAt, outerCompletedAt);
+            Assert.InRange(actual.CompletedAt!.Value, actual.StartedAt.Value, outerCompletedAt);
+            Assert.InRange(actual.Timestamp!.Value, outerStarted, outerCompleted);
+            Assert.InRange(actual.CompletedTimestamp!.Value, actual.Timestamp.Value, outerCompleted);
+            Assert.Equal(TimeProvider.System.TimestampFrequency, actual.TimestampFrequency);
+            source ??= actual.Source;
+            Assert.Equal(source, actual.Source);
+            Assert.Equal(reader.Identity, actual.Identity);
+            Assert.Equal(MemoryQualification.NotVerified, actual.Qualification);
+            Assert.All(scratch, value => Assert.Equal((byte)0, value));
+            _output.WriteLine(JsonSerializer.Serialize(new { Attempt = attempt, Path = path, Capture = actual }));
+        }
+        Assert.Equal(MemoryObservationState.Available, reader.CaptureCounter(LinuxCgroupCounter.AnonymousBytes, scratch).State);
+    }
+
     [Theory]
     [InlineData(MemoryCapabilityMode.Disabled, 1, 1000L, MemoryObservationState.Unknown)]
     [InlineData((MemoryCapabilityMode)999, 1, 1000L, MemoryObservationState.Malformed)]
