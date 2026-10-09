@@ -15,10 +15,11 @@ const requireFrontend = createRequire(resolve(repositoryRoot, 'src/frontend/pack
 
 // These numeric observations and narrowed contracts exercise bounded logic only.
 // They do not supply admitted source ownership, state binding or product evidence.
-function fixture()
+function fixture(sourceArchetype = feed, completeOrder = false)
 {
-    const archetype = structuredClone(feed);
-    archetype.compositionContract.contentOrder = feed.compositionContract.contentOrder.slice(0, 2);
+    const archetype = structuredClone(sourceArchetype);
+    archetype.compositionContract.contentOrder = completeOrder
+        ? [...sourceArchetype.compositionContract.contentOrder] : sourceArchetype.compositionContract.contentOrder.slice(0, 2);
     const contract = archetype.compositionContract;
     const regions = [contract.primaryRegion, ...contract.allowedSecondaryRegions];
     const layout = { writingMode: 'horizontal-tb', direction: 'ltr', transform: 'none', translate: 'none', rotate: 'none',
@@ -36,8 +37,7 @@ function fixture()
         orderObservation: { ...structuredClone(page), scroll: { x: 0, y: 0 }, rootLayouts: [structuredClone(layout), structuredClone(layout)],
             nodes: nodes.map((node) => ({ ...node, layout: structuredClone(layout),
                 computedVisibility: { display: 'block', visibility: 'visible', opacity: '1', contentVisibility: 'visible' } })) } };
-    setRect(observation, 0, 0, 0, 20, 20);
-    setRect(observation, 1, 0, 20, 20, 20);
+    nodes.forEach((node) => setRect(observation, node.index, 0, node.index * 20, 20, 20));
     return observation;
 }
 
@@ -305,6 +305,75 @@ test('order geometry numeric declared nesting is not flattened into sibling orde
     rejected(observation, 'declared-region-ancestry-mismatch');
 });
 
+test('order geometry numeric nested root and ancestor mixed modes remain unresolved', () =>
+{
+    const nested = inputs.matrix.archetypes.find((entry) => entry.kind === 'filter-search');
+    for (const location of ['html', 'body', 'search-filter', 'content-results', 'unmarked-ancestor'])
+    {
+        const observation = fixture(nested, true);
+        setRect(observation, 1, 0, 20, 20, 60);
+        setRect(observation, 3, 0, 80, 20, 20);
+        for (const capture of [observation.domObservation, observation.geometryObservation, observation.orderObservation])
+        {
+            for (const node of capture.nodes)
+            {
+                const pair = nested.compositionContract.allowedSurfaceNesting.pairs.find((entry) => entry.childRegionId === node.region);
+                node.parent = pair ? capture.nodes.find((entry) => entry.region === pair.parentRegionId).index : null;
+            }
+            const ancestor = { ...structuredClone(capture.nodes[0]), index: 0, parent: null, tag: 'main',
+                sourceNode: 'numeric-unmarked-ancestor', owner: null, region: null, inheritedOwner: null, inheritedRegion: null };
+            capture.nodes = [ancestor, ...capture.nodes.map((node) => ({ ...node,
+                index: node.index + 1, parent: node.parent === null ? 0 : node.parent + 1 }))];
+        }
+        setRect(observation, 0, 0, 0, 20, 100);
+        const baseline = compareCompositionOrderGeometry(observation);
+        assert.equal(baseline.observationsPassed, true, location);
+        assert.ok(baseline.relationships.some((relation) => relation.childRegionId === 'search-filter' && relation.passed));
+        const layout = location === 'html' ? observation.orderObservation.rootLayouts[0]
+            : location === 'body' ? observation.orderObservation.rootLayouts[1]
+                : observation.orderObservation.nodes.find((node) => location === 'unmarked-ancestor' ? node.tag === 'main' : node.region === location).layout;
+        layout.writingMode = 'vertical-rl';
+        const result = rejected(observation, 'unsupported-flow-arrangement');
+        assert.deepEqual(result.relationships, [], location);
+    }
+});
+
+test('order geometry null and sparse evidence returns malformed diagnostics', () =>
+{
+    rejected(null, 'missing-or-malformed-content-order-contract');
+    for (const hole of ['all', 0, 1])
+    {
+        const observation = fixture();
+        if (hole === 'all')
+        {
+            observation.orderObservation.rootLayouts = new Array(2);
+        }
+        else
+        {
+            delete observation.orderObservation.rootLayouts[hole];
+        }
+        rejected(observation, 'missing-or-malformed-observations');
+    }
+    for (const capture of ['domObservation', 'geometryObservation', 'orderObservation'])
+    {
+        const nullCapture = fixture();
+        nullCapture[capture] = null;
+        rejected(nullCapture, 'missing-or-malformed-observations');
+        const sparseNodes = fixture();
+        delete sparseNodes[capture].nodes[1];
+        rejected(sparseNodes, 'missing-or-malformed-observations');
+    }
+    for (const field of ['contentOrder', 'firstFoldInvariants', 'allowedSecondaryRegions'])
+    {
+        const observation = fixture();
+        delete observation.archetype.compositionContract[field][0];
+        rejected(observation, 'missing-or-malformed-content-order-contract');
+    }
+    const sparsePairs = fixture();
+    sparsePairs.archetype.compositionContract.allowedSurfaceNesting.pairs = new Array(1);
+    rejected(sparsePairs, 'missing-or-malformed-content-order-contract');
+});
+
 test('order geometry pending runtime guard still refuses before browser evaluation', async () =>
 {
     const states = inputs.matrix.archetypes.flatMap((entry) => entry.compositionContract.requiredStateFixtures);
@@ -383,6 +452,12 @@ test('order geometry real Chromium fixtures observe responsive flow and explicit
     assert.equal(nestedResult.observationsPassed, true);
     assert.ok(nestedResult.relationships.some((relation) => relation.kind === 'declared-ancestry'));
     assert.ok(!nestedResult.relationships.some((relation) => relation.beforeRegionId === 'search-filter' || relation.afterRegionId === 'search-filter'));
+    for (const css of ['html{writing-mode:vertical-rl!important}body{writing-mode:horizontal-tb}',
+        'body{writing-mode:vertical-rl}', 'main{writing-mode:vertical-rl}',
+        '[data-fsus-region="content-results"]{writing-mode:vertical-rl}', '[data-fsus-region="search-filter"]{writing-mode:vertical-rl}'])
+    {
+        rejected(await observe(markup(nested, css), nested), 'unsupported-flow-arrangement');
+    }
     rejected(await observe(markup(nested, '', 'horizontal-tb', 'ltr', true), nested), 'declared-region-ancestry-mismatch');
     for (const css of ['main{transform:translateX(1px)}', 'main{columns:2}', 'main{column-width:80px}', 'html{rotate:0deg}'])
     {

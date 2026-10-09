@@ -57,6 +57,22 @@ function nonempty(value)
     return typeof value === 'string' && value.trim().length > 0;
 }
 
+function denseArray(value)
+{
+    if (!Array.isArray(value))
+    {
+        return false;
+    }
+    for (let index = 0; index < value.length; index += 1)
+    {
+        if (!Object.hasOwn(value, index))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 function validNode(node, index)
 {
     return node && correspondenceFields.every((field) => Object.hasOwn(node, field))
@@ -101,8 +117,9 @@ function validVisibility(node)
  * Offscreen flow content is retained; first-fold intersection, clipping, occlusion,
  * inline reading/focus order and complete responsive/a11y qualification are not checked.
  */
-export function compareCompositionOrderGeometry({ archetype, domObservation, geometryObservation, orderObservation } = {})
+export function compareCompositionOrderGeometry(observation = {})
 {
+    const { archetype, domObservation, geometryObservation, orderObservation } = observation ?? {};
     const errors = [];
     const unresolved = [];
     const relationships = [];
@@ -112,19 +129,20 @@ export function compareCompositionOrderGeometry({ archetype, domObservation, geo
         observationsPassed: checkedPredicates.length === 1 && errors.length === 0 && unresolved.length === 0,
         qualification: 'diagnostic-only', fullGeometryVerified: false, fullVisualVerified: false,
         pendingGates: ['source-dom-admission', 'full-occlusion', 'focus', 'surface', 'a11y', 'native-zoom', 'required-current-state-matrix'] });
-    const invariants = Array.isArray(contract?.firstFoldInvariants)
+    const invariants = denseArray(contract?.firstFoldInvariants)
         ? contract.firstFoldInvariants.filter((item) => item?.predicate === 'content-order-preserved') : null;
     const order = contract?.contentOrder;
     const regions = [contract?.primaryRegion, ...(Array.isArray(contract?.allowedSecondaryRegions) ? contract.allowedSecondaryRegions : [])];
     const nesting = contract?.allowedSurfaceNesting;
     if (!Array.isArray(invariants) || invariants.length !== 1 || !nonempty(invariants[0].id)
         || invariants[0].regionId !== contract?.primaryRegion?.id
-        || !Array.isArray(order) || order.length < 2 || order.some((id) => !nonempty(id)) || new Set(order).size !== order.length
+        || !denseArray(contract?.allowedSecondaryRegions)
+        || !denseArray(order) || order.length < 2 || order.some((id) => !nonempty(id)) || new Set(order).size !== order.length
         || regions.some((region) => !nonempty(region?.id) || !nonempty(region?.ownerId))
         || new Set(regions.map((region) => region.id)).size !== regions.length
         || new Set(regions.map((region) => region.ownerId)).size !== regions.length
         || order.some((id) => !regions.some((region) => region.id === id)) || !order.includes(contract.primaryRegion.id)
-        || nesting?.mode !== 'explicit-region-pairs' || !Array.isArray(nesting.pairs))
+        || nesting?.mode !== 'explicit-region-pairs' || !denseArray(nesting.pairs))
     {
         errors.push({ reason: 'missing-or-malformed-content-order-contract' });
         return result();
@@ -159,11 +177,11 @@ export function compareCompositionOrderGeometry({ archetype, domObservation, geo
         return result();
     }
     const captures = [domObservation, geometryObservation, orderObservation];
-    if (captures.some((capture) => !nonempty(capture?.url) || !Array.isArray(capture.nodes) || !capture.nodes.length
+    if (captures.some((capture) => !nonempty(capture?.url) || !denseArray(capture.nodes) || !capture.nodes.length
         || !Number.isFinite(capture.viewport?.width) || capture.viewport.width <= 0
         || !Number.isFinite(capture.viewport?.height) || capture.viewport.height <= 0)
         || [geometryObservation, orderObservation].some((capture) => !Number.isFinite(capture?.scroll?.x) || !Number.isFinite(capture?.scroll?.y))
-        || !Array.isArray(orderObservation?.rootLayouts) || orderObservation.rootLayouts.length !== 2
+        || !denseArray(orderObservation?.rootLayouts) || orderObservation.rootLayouts.length !== 2
         || !orderObservation.rootLayouts.every(validLayout))
     {
         unresolved.push({ reason: 'missing-or-malformed-observations' });
@@ -238,11 +256,14 @@ export function compareCompositionOrderGeometry({ archetype, domObservation, geo
     }
     for (const id of relevant)
     {
+        // Qualify the whole ancestor chain even when this region has no peers.
+        // Nested children must not silently escape mixed-mode refusal.
         const layouts = [...orderObservation.rootLayouts, ...ancestry(selected.get(id)).map((index) => orderObservation.nodes[index].layout)];
         if (layouts.some((layout) => layout.transform !== 'none' || layout.translate !== 'none' || layout.rotate !== 'none'
             || layout.scale !== 'none' || layout.perspective !== 'none' || layout.columnCount !== 'auto' || layout.columnWidth !== 'auto'
             || layout.fragmentCount > 1 || !['ltr', 'rtl'].includes(layout.direction)
-            || !['horizontal-tb', 'vertical-rl', 'vertical-lr'].includes(layout.writingMode)))
+            || !['horizontal-tb', 'vertical-rl', 'vertical-lr'].includes(layout.writingMode)
+            || layout.writingMode !== orderObservation.rootLayouts[0].writingMode))
         {
             unresolved.push({ reason: 'unsupported-flow-arrangement', regionId: id, node: selected.get(id).index,
                 viewport: domObservation.viewport, layouts });
