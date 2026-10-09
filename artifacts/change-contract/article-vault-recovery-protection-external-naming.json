@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/ArticleVault/ArticleVaultRecoveryBackupProtectionAuthority.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryBackupEnvelope.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultRecoveryStageComposition.cs"
+            ],
+            "reason": "Preserve exact registered src/**/*.cs process and recovery-domain protocol spellings while consuming compatible supplier bytes and composing the existing sole writer. No new environment keys, key-store fallback or naming authority."
+        }
+    ]
+}
