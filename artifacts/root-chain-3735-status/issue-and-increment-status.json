@@ -195,7 +195,7 @@
     "artifacts": "artifacts/shared-graph-validated-reader",
     "evidenceHead": "f3fee7dd59e576fa148de57fffdd3bcdd3d742b3"
   },
-  "updatedAtUtc": "2026-10-09T14:06:08.214208+00:00",
+  "updatedAtUtc": "2026-10-09T14:27:26.997860+00:00",
   "newFontThemeBorrowComment": {
     "source": "e1f2a4a7b94d1274744284b944cff591aefee413",
     "branch": "codex/shared-font-theme-borrow-comment-20261009",
@@ -224,5 +224,68 @@
     "artifacts": "artifacts/shared-savedview-provider-registration",
     "evidenceHead": "f900f6014036ebaa2b2d2bd170472ba6dd195fd5"
   },
-  "originalPlanningSnapshot": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8"
+  "originalPlanningSnapshot": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "newPackagePrototypeConflict": {
+    "schema": "fsusblog.package-prototype-reconciliation-prerequisites.v1",
+    "checkedAtUtc": "2026-10-09T14:27:26.991544+00:00",
+    "checkedRootHead": "61b728e1529444330ad9de72d7abdf4bb22c1861",
+    "parentExactWireOffer": "2e145e34dfc246920d21e6e0109a9a8f348ab849",
+    "newHandler": {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+      "blob": "a72974bff6cd41fc81649b1611822dfba9a5a9a5",
+      "sha256": "f51b57926643f65bccda318f5ffc600dd905b44aeb62f083202e5928bf3fd596",
+      "observations": {
+        "mapDefinitions": 1,
+        "handlerDefinitions": 1,
+        "missingAuthImport": true,
+        "frameReadOccursBeforeServiceRead": true,
+        "originalIdentityStatusMappingNotExplicitAtHandler": true
+      }
+    },
+    "exactKnownTrees": [
+      {
+        "source": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "61b728e1529444330ad9de72d7abdf4bb22c1861",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "76f900f3266560af64e05f6936d4096f76577361",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "3335910dee5e67e446167ec3b3d875912a908709",
+        "oldPrototypePresent": false,
+        "newModulePresent": false
+      },
+      {
+        "source": "2e145e34dfc246920d21e6e0109a9a8f348ab849",
+        "oldPrototypePresent": false,
+        "newModulePresent": true
+      }
+    ],
+    "parentEstablishedConflict": "Original3663 dormant prototype and new wire module define the same partial mapping/handler signatures; merely leaving unmounted does not prevent duplicate definition compilation failure. Originalprototype full source and specific test paths not yet supplied to this worktree.",
+    "oldPrototypePath": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs",
+    "readiness": "BLOCKED prerequisite verification; no source removal or replacement activation performed",
+    "neededSourceHandoffs": [
+      "Parent-supplied full exact original prototype commit and prototype-specific test paths/negative controls",
+      "Same wire owner corrected exact source preserving identity-before-body and401/403/409/cancellation/private failure semantics",
+      "Applicable original source/admission evidence before dependent central compilation/activation"
+    ],
+    "authorizedNextStep": "On a separate integration branch based on supplied dependency closure, select corrected new module, omit/remove old prototype and only its specific tests, preserve original read service/frontendhost/frozen old source, verify one mapping/handler pair and reversible source delta.",
+    "frozenBranchWrites": 0,
+    "newWireWriterEdits": 0,
+    "sourceDeletionHunksApplied": 0,
+    "active288289": false,
+    "siteIdentityAliasActivated": false,
+    "routeActivated": false,
+    "runtimeQualification": false,
+    "testsRerun": 0,
+    "rawLogsPublished": false
+  }
 }
