@@ -1,0 +1,16 @@
+{
+    "source": "1767ca27ae78782ea3cf0d599a8149007b501683",
+    "node": "v24.16.0",
+    "expectedTests": 2,
+    "execution": "original node:test file; validators and crossed-owner assertions only; no attempt/physical/backend/browser/measurement/qualification callback invoked",
+    "files": {
+        "tests/tools/correctness-attempt-migration.test.mjs": "d8a2bc6e0d66f24addb821b48c11b69229fc55a3bd929e6e9d550e5515a49980",
+        "tools/test/correctness-attempt-migration.mjs": "1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
+        "tools/test/correctness-attempt-producers.mjs": "05d79d2bdc0f709e6d1888c6a4ea1de66eeefba7aff7dfef264db5dc18b27d9e",
+        "tools/test/attempt-provenance.mjs": "588d132a5e30a772f1990a3ed3d3f0e9e774d7743d2a41f43b5149edbca8bf1e",
+        "config/testing/replay-qualification-producers.json": "5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
+        "config/testing/test-execution-envelope-applicability.json": "56187457f27a922333626fca45f50424d7a4c388ede1e176ed6515952387791c"
+    },
+    "heldPolicyInputsUnchanged": true,
+    "qualificationClaim": false
+}

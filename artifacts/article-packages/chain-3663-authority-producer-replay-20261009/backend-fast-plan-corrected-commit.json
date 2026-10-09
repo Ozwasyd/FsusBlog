@@ -1,0 +1,17 @@
+{
+    "command": [
+        "bash",
+        "tools/test.sh",
+        "ci-tier",
+        "backend-fast",
+        "--plan-only"
+    ],
+    "testedSha": "1767ca27ae78782ea3cf0d599a8149007b501683",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T10:44:37.487575+00:00",
+    "endUtc": "2026-10-09T10:46:21.106661+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/authority-producer-replay-20261009/backend-fast-plan-corrected-commit.log"
+}

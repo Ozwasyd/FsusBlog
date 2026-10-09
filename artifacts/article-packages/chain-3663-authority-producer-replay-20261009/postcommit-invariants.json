@@ -1,0 +1,8 @@
+{
+    "testedSha": "cb6124e5a039b4a3457161db02bb8c4aba44bebd",
+    "postcommitTwoProducerFixedPoint": true,
+    "clean": true,
+    "protectedInputsUnchanged": 1399,
+    "independentIndexUnchanged": true,
+    "qualificationClaim": false
+}

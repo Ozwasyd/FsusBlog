@@ -1,0 +1,247 @@
+{
+    "schema": "fsusblog.chain-3663.authority-producer-replay.v1",
+    "capturedUtc": "2026-10-09T10:51:06.199758+00:00",
+    "generatedSourceSha": "1767ca27ae78782ea3cf0d599a8149007b501683",
+    "branch": "codex/chain-3663-group-property-recheck",
+    "latestMasterReadOnly": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "masterNotIncorporated": true,
+    "masterChangesSincePreviousFetch": [
+        "SavedViewQueryBuilder.vue",
+        "SavedViewSurface.vue",
+        "fsusui/classicSelect.ts",
+        "fsusui/input.ts"
+    ],
+    "originalImplementation": {
+        "pr": "https://github.com/Ozwasyd/FsusBlog/pull/3664",
+        "mergeSha": "7ea66addb46439ae309669eb4b569aee32678948",
+        "mergedAt": "2026-10-05T11:37:54Z",
+        "ancestorOfCurrentCandidateAndMaster": true,
+        "newTrustCoding": false
+    },
+    "rootIssueBodyLimit": "Current issue body still records older8b4bf source boundary and historical31 not-run statement; actual current original execution evidence is separately bound to74c. Criteria and issue body were not rewritten.",
+    "producerReplay": {
+        "testedSha": "1767ca27ae78782ea3cf0d599a8149007b501683",
+        "postcommitTwoProducerFixedPoint": true,
+        "clean": true,
+        "protectedInputsUnchanged": 1399,
+        "independentIndexUnchanged": true,
+        "qualificationClaim": false,
+        "metadataCorrection": {
+            "supersededCommit": "cb6124e5a039b4a3457161db02bb8c4aba44bebd",
+            "reason": "invalid test-matrix commit scope, corrected to test",
+            "treesEqual": true
+        }
+    },
+    "runtimeReceiptsNotRelabelled": {
+        "source": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+        "requiredRootCases": 31,
+        "selectedBackendCases": 813,
+        "selectedFrontendCases": 20,
+        "evidence": "../chain-3663-original-controls-recovery-20261009",
+        "rerunThisStep": false,
+        "fullCIClaim": false
+    },
+    "checks": {
+        "generatorReplay": "PASS: both original entrypoints, twice beforecommit and postcommit; current corrected SHA fixed point",
+        "trustedChangeContract": "PASS on79053..1767ca27; original invalid scope failure retained",
+        "normalBackendFastPlan": "FAIL exit1: original migration must cover exactly225 producers, got226",
+        "originalMigrationTests": {
+            "exitCode": 1,
+            "tests": 2,
+            "pass": 1,
+            "fail": 1,
+            "skipped": 0,
+            "failure": "original225 count gate",
+            "negativeControl": "crossed execution owner refused; PASS"
+        },
+        "matrixRuntime": "NOT RUN: parse/admission stops at migration gate",
+        "publicationBinding": "NOT REACHED; no legal write route supplied; not hand-filled",
+        "productAuthNativeBrowserRuntime": "NOT RUN for new producer/transport; no product implementation fabricated",
+        "sourceDiffCheck": "PASS exit0: two generated output diff and complete staged new evidence directory",
+        "markdownEvidence": "PASS exit0: original markdownlint-cli2 configuration, README and module handoff"
+    },
+    "heldPolicyInputsModified": false,
+    "readonlyModule": {
+        "source": "1767ca27ae78782ea3cf0d599a8149007b501683",
+        "capturedUtc": "2026-10-09T10:50:09.000260+00:00",
+        "files": {
+            "src/backend/Infrastructure/Helpers/ClaimsPrincipalExtensions.cs": {
+                "sha256": "557537868c482284559f12a1bb18d25c23df6b9749f22bef542a80940a713faa",
+                "gitBlob": "c3dee3c9fca6fc396a77aeca26b407c71b9035db"
+            },
+            "src/backend/Infrastructure/Auth/AdminPermissions.cs": {
+                "sha256": "6f4a0e610597a2351c3c7faedd917026b931703e7a3a38d81e8e1c871ff738d5",
+                "gitBlob": "7af02597d32ff704729b24dd06d139ea5c1003f6"
+            },
+            "src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs": {
+                "sha256": "e0d53016208e88aaa5d7a3c343ab340712d8093d240b59120f439589872edd75",
+                "gitBlob": "e1b0157139779c1a8a58a4c702f8709cd5579e21"
+            },
+            "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs": {
+                "sha256": "2b2c6f16bd0a72fc01424d16e11d73b8a05e5fe6a3112595beab449d0df90524",
+                "gitBlob": "e67a4e0823b1d9a6cf6c72e4cf72c4720a1167b4"
+            },
+            "src/backend/Services/Authoring/AuthorRecentArticleHistoryApplicationFacade.cs": {
+                "sha256": "e22debc209250c7955ae8084c3c06037d7eef37a53c03b66c848b9d204235378",
+                "gitBlob": "09772c6423a18b97f11a489cb434f8a191a0cc62"
+            },
+            "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs": {
+                "sha256": "658d39efd5d43f1b88b9be7569a9816508e1b4303947ebbd8c90fcbd0c4ee6ab",
+                "gitBlob": "837b11c183d886cb69d748301b4cdc63544955fd"
+            },
+            "src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs": {
+                "sha256": "8ecca740767586e1586de15ff47914da7503abe1b668e783ec25f74cfd26014b",
+                "gitBlob": "e0c95cecbbbd061cfa98c770013cb668d32f4d88"
+            },
+            "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs": {
+                "sha256": "2280792b9e35d4e1e96be5afc8d7060473ec826fd04485c8bb496e152e3e1604",
+                "gitBlob": "703501fe781def4f7818bff75fb7943b24ae2406"
+            },
+            "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs": {
+                "sha256": "9a7359237cea0a63cba12f5c0d7c52dfeeb759087208cab4aa72b6716045e33a",
+                "gitBlob": "e4545ed0c9ecebf2a103b94711ae10efa182bf0a"
+            },
+            "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs": {
+                "sha256": "c5b90c4bee8e7dfaacbbb5345dde4f6cd146278af28821c71049ddbeba246799",
+                "gitBlob": "64712805fcc89d0b5d77341437883553a7fa3ed3"
+            },
+            "src/shared/Contracts/Validation/aeds-protocol.json": {
+                "sha256": "cf2980aa00c2dee72c5ea0b59fb29767bbc8f72374e7420f1a5ba65dbf2407ce",
+                "gitBlob": "983a35bd57ff8da6a0718bc2282ea9b764432402"
+            },
+            "src/backend/Modules/Endpoints/AuthoringEndpoints.cs": {
+                "sha256": "586060a81ff349f42f300f431db3ea8e88d132cf9b7fe23d4bb35a16952f9452",
+                "gitBlob": "aa7c0c69ca6910cd864e4e3f904a45e24401952e"
+            },
+            "config/application/backend-configuration-contract.json": {
+                "sha256": "a6360cad2cc964babc85c3a7b3354a23cad5e3c8743d21ac16ba5acefbd4ffd2",
+                "gitBlob": "fd4f41ab05e500cfc43f16d1055a458914aaf24e"
+            },
+            "tools/test/correctness-attempt-migration.mjs": {
+                "sha256": "1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
+                "gitBlob": "03cc98b74786d6a2d4c80337b57dd093f74ebb39"
+            },
+            "tests/tools/correctness-attempt-migration.test.mjs": {
+                "sha256": "d8a2bc6e0d66f24addb821b48c11b69229fc55a3bd929e6e9d550e5515a49980",
+                "gitBlob": "470d1c518eb69e2e370570d6393b66ad00969afd"
+            }
+        },
+        "existingAuthInputs": [
+            "authenticated admin principal",
+            "positive admin_id",
+            "identity_kind=admin_principal",
+            "nonempty admin_sid",
+            "article.write permission claim"
+        ],
+        "missingReadonlyProducerInput": "Canonical server stable SiteIdentity accepted by original ArticleRelationActorContext, with actual authenticated site binding. Existing SITE_BASEURL is URL SiteScope, not this identity; no original backend actor factory or mapping found.",
+        "permissionContextDigest": "Original planner accepts caller assertion, not observed target permission. Keep this label; full per-target execution authority is separately unavailable.",
+        "missingTransportInputs": [
+            "specific original AEDS request/response frame allocations and parity source changes through canonical owner",
+            "actual stateless authenticated producer; retained owner-bound source if later read-by-reference route is chosen",
+            "honest byte envelope/source lifetime matching actual authoring request limit"
+        ],
+        "productImplementationWritten": false,
+        "noFakeInputs": true,
+        "fullSchemaNativeNotBlanketPrerequisiteForReadonlyModule": true,
+        "findingType": "Current source/API input gap; not a runtime permission or site qualification receipt"
+    },
+    "minimalRequests": [
+        "Canonical migration owner exact commit/evidence for preserved226 complete producer set; no entry removal/gate edit here",
+        "Canonical server stable SiteIdentity owner/API/exact supplied commit and actual authenticated site binding; no invented URL hash/default",
+        "Canonical AEDS frame/registration owner allocation and actual source API; later retained read-by-ref source if that design is selected",
+        "Coordinator sole PR/issue-body publication; original independent current-master and standard gates remain"
+    ],
+    "issueStates": {
+        "3663": {
+            "accepted": false,
+            "state": "open",
+            "status": "Required original31 PASS31/31 on74c, SDK10.0.302 original project/testhost. Original canonical generator replay/fixed point PASS on1767ca27. Normal backend-fast matrix plan FAIL unchanged migration gate225 versus226; original migration test1PASS/1FAIL. Publication-binding/later matrix/full CI not reached or not run; independent current-master/PR/merge gates unaccepted. No new trust coding."
+        },
+        "2398": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: sole finite codec, version registry, property/metadata/taxonomy/asset components implemented; accepted complete V1 root and legitimate source admission remain."
+        },
+        "2408": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same finite components and selected historical DTO bridge; complete manifests/provenance/privacy/version acceptance remain."
+        },
+        "2400": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: finite frozen export writer/property planner; complete canonical source, assets, frozen/permission/runtime gate remain."
+        },
+        "2410": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same finite export source; original frozen plan and accepted schema/export runtime remain."
+        },
+        "2402": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: finite intake/bytes/ZIP source exists; accepted export/schema and formal complete preflight remain."
+        },
+        "2411": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: finite intake exists; original full schema/rights/plan preflight unaccepted."
+        },
+        "2404": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted preflight and real resolution/definition/permission inputs missing."
+        },
+        "2413": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted preflight and canonical resolution/replan authority missing."
+        },
+        "2405": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted plan and canonical atomic executor/rollback/recovery/outbox/audit gates missing."
+        },
+        "2415": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted plan and original execution/recovery/permission authority missing."
+        },
+        "2406": {
+            "accepted": false,
+            "state": "open",
+            "status": "Readonly six-file review integrated unchanged; original backend18/18 within813 and frontend20/20 PASS on74c. Actual stateless authenticated producer needs canonical server stable SiteIdentity; existing URL SiteScope is rejected by original ActorContext. Caller permission-context digest may remain an assertion. AEDS frame/route/source bindings absent. Full schema/native qualification is not blanket prerequisite for developing readonly module. Whole UX/resolution/execution/production-fixture independent acceptance remains unaccepted."
+        },
+        "2418": {
+            "accepted": false,
+            "state": "open",
+            "status": "Readonly six-file review integrated unchanged; original backend18/18 within813 and frontend20/20 PASS on74c. Actual stateless authenticated producer needs canonical server stable SiteIdentity; existing URL SiteScope is rejected by original ActorContext. Caller permission-context digest may remain an assertion. AEDS frame/route/source bindings absent. Full schema/native qualification is not blanket prerequisite for developing readonly module. Whole UX/resolution/execution/production-fixture independent acceptance remains unaccepted."
+        },
+        "2407": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted replacement and migration acceptance absent; no legacy retirement."
+        },
+        "2409": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: terminal whole-chain/native/mutation/performance/caption acceptance."
+        },
+        "2420": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: terminal whole-chain qualification and independent runtime acceptance."
+        }
+    },
+    "trackingIssues": [],
+    "allAccepted": false,
+    "publication": "Published original two-output source1767ca27; supersededcb6124 metadata-only correction retained in receipts. Parent sole PR/issue-body writer; no outward PR/issue edit here. Evidence-only commit follows.",
+    "prohibitionsPreserved": [
+        "no master push/merge/auto-merge/deploy/issue close",
+        "no production resources/credentials/destructive migration",
+        "no frozen six-file UI/contracts/assertion changes",
+        "no dependency locks/audit suppression or gate-constant edits",
+        "no invented site/permission/receipt/upstream API",
+        "no guessed sibling consumption or cross-chain conflict resolution"
+    ]
+}

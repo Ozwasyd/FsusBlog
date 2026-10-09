@@ -1,0 +1,18 @@
+{
+    "command": [
+        "markdownlint-cli2",
+        "--config",
+        ".markdownlint-cli2.jsonc",
+        "--no-globs",
+        ":artifacts/article-packages/chain-3663-authority-producer-replay-20261009/README.md",
+        ":artifacts/article-packages/chain-3663-authority-producer-replay-20261009/module-handoff.md"
+    ],
+    "testedSha": "1767ca27ae78782ea3cf0d599a8149007b501683",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T10:51:06.256647+00:00",
+    "endUtc": "2026-10-09T10:51:06.458461+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/authority-producer-replay-20261009/markdown-evidence.log"
+}

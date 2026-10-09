@@ -1,0 +1,22 @@
+✖ all 225 correctness producers bind canonical attempt and external authorities (47.300401ms)
+✔ matrix and physical producers fail closed on a crossed execution owner (6.837381ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 118.881664
+
+✖ failing tests:
+
+test at tests/tools/correctness-attempt-migration.test.mjs:10:1
+✖ all 225 correctness producers bind canonical attempt and external authorities (47.300401ms)
+  Error: correctness attempt migration must cover exactly 225 producers, got 226
+      at validateCorrectnessAttemptMigration (file:///workspace/FsusBlog-group-property-recheck-3663/tools/test/correctness-attempt-migration.mjs:42:15)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog-group-property-recheck-3663/tests/tools/correctness-attempt-migration.test.mjs:12:26)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.start (node:internal/test_runner/test:1177:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17)

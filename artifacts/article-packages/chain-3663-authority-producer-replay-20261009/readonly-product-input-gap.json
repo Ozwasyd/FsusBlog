@@ -1,0 +1,84 @@
+{
+    "source": "1767ca27ae78782ea3cf0d599a8149007b501683",
+    "capturedUtc": "2026-10-09T10:50:09.000260+00:00",
+    "files": {
+        "src/backend/Infrastructure/Helpers/ClaimsPrincipalExtensions.cs": {
+            "sha256": "557537868c482284559f12a1bb18d25c23df6b9749f22bef542a80940a713faa",
+            "gitBlob": "c3dee3c9fca6fc396a77aeca26b407c71b9035db"
+        },
+        "src/backend/Infrastructure/Auth/AdminPermissions.cs": {
+            "sha256": "6f4a0e610597a2351c3c7faedd917026b931703e7a3a38d81e8e1c871ff738d5",
+            "gitBlob": "7af02597d32ff704729b24dd06d139ea5c1003f6"
+        },
+        "src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs": {
+            "sha256": "e0d53016208e88aaa5d7a3c343ab340712d8093d240b59120f439589872edd75",
+            "gitBlob": "e1b0157139779c1a8a58a4c702f8709cd5579e21"
+        },
+        "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.cs": {
+            "sha256": "2b2c6f16bd0a72fc01424d16e11d73b8a05e5fe6a3112595beab449d0df90524",
+            "gitBlob": "e67a4e0823b1d9a6cf6c72e4cf72c4720a1167b4"
+        },
+        "src/backend/Services/Authoring/AuthorRecentArticleHistoryApplicationFacade.cs": {
+            "sha256": "e22debc209250c7955ae8084c3c06037d7eef37a53c03b66c848b9d204235378",
+            "gitBlob": "09772c6423a18b97f11a489cb434f8a191a0cc62"
+        },
+        "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs": {
+            "sha256": "658d39efd5d43f1b88b9be7569a9816508e1b4303947ebbd8c90fcbd0c4ee6ab",
+            "gitBlob": "837b11c183d886cb69d748301b4cdc63544955fd"
+        },
+        "src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs": {
+            "sha256": "8ecca740767586e1586de15ff47914da7503abe1b668e783ec25f74cfd26014b",
+            "gitBlob": "e0c95cecbbbd061cfa98c770013cb668d32f4d88"
+        },
+        "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs": {
+            "sha256": "2280792b9e35d4e1e96be5afc8d7060473ec826fd04485c8bb496e152e3e1604",
+            "gitBlob": "703501fe781def4f7818bff75fb7943b24ae2406"
+        },
+        "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs": {
+            "sha256": "9a7359237cea0a63cba12f5c0d7c52dfeeb759087208cab4aa72b6716045e33a",
+            "gitBlob": "e4545ed0c9ecebf2a103b94711ae10efa182bf0a"
+        },
+        "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs": {
+            "sha256": "c5b90c4bee8e7dfaacbbb5345dde4f6cd146278af28821c71049ddbeba246799",
+            "gitBlob": "64712805fcc89d0b5d77341437883553a7fa3ed3"
+        },
+        "src/shared/Contracts/Validation/aeds-protocol.json": {
+            "sha256": "cf2980aa00c2dee72c5ea0b59fb29767bbc8f72374e7420f1a5ba65dbf2407ce",
+            "gitBlob": "983a35bd57ff8da6a0718bc2282ea9b764432402"
+        },
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.cs": {
+            "sha256": "586060a81ff349f42f300f431db3ea8e88d132cf9b7fe23d4bb35a16952f9452",
+            "gitBlob": "aa7c0c69ca6910cd864e4e3f904a45e24401952e"
+        },
+        "config/application/backend-configuration-contract.json": {
+            "sha256": "a6360cad2cc964babc85c3a7b3354a23cad5e3c8743d21ac16ba5acefbd4ffd2",
+            "gitBlob": "fd4f41ab05e500cfc43f16d1055a458914aaf24e"
+        },
+        "tools/test/correctness-attempt-migration.mjs": {
+            "sha256": "1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
+            "gitBlob": "03cc98b74786d6a2d4c80337b57dd093f74ebb39"
+        },
+        "tests/tools/correctness-attempt-migration.test.mjs": {
+            "sha256": "d8a2bc6e0d66f24addb821b48c11b69229fc55a3bd929e6e9d550e5515a49980",
+            "gitBlob": "470d1c518eb69e2e370570d6393b66ad00969afd"
+        }
+    },
+    "existingAuthInputs": [
+        "authenticated admin principal",
+        "positive admin_id",
+        "identity_kind=admin_principal",
+        "nonempty admin_sid",
+        "article.write permission claim"
+    ],
+    "missingReadonlyProducerInput": "Canonical server stable SiteIdentity accepted by original ArticleRelationActorContext, with actual authenticated site binding. Existing SITE_BASEURL is URL SiteScope, not this identity; no original backend actor factory or mapping found.",
+    "permissionContextDigest": "Original planner accepts caller assertion, not observed target permission. Keep this label; full per-target execution authority is separately unavailable.",
+    "missingTransportInputs": [
+        "specific original AEDS request/response frame allocations and parity source changes through canonical owner",
+        "actual stateless authenticated producer; retained owner-bound source if later read-by-reference route is chosen",
+        "honest byte envelope/source lifetime matching actual authoring request limit"
+    ],
+    "productImplementationWritten": false,
+    "noFakeInputs": true,
+    "fullSchemaNativeNotBlanketPrerequisiteForReadonlyModule": true,
+    "findingType": "Current source/API input gap; not a runtime permission or site qualification receipt"
+}

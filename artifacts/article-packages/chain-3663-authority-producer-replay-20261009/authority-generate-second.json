@@ -1,0 +1,14 @@
+{
+    "command": [
+        "node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "testedSha": "79053a820606f7bb16b914b685b08650a39b94f5",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T10:36:27.278834+00:00",
+    "endUtc": "2026-10-09T10:38:01.590780+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/authority-producer-replay-20261009/authority-generate-second.log"
+}

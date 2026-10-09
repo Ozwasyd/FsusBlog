@@ -1,0 +1,15 @@
+{
+    "command": [
+        "node",
+        "--test",
+        "tests/tools/correctness-attempt-migration.test.mjs"
+    ],
+    "testedSha": "1767ca27ae78782ea3cf0d599a8149007b501683",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T10:44:46.815822+00:00",
+    "endUtc": "2026-10-09T10:44:46.988433+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/authority-producer-replay-20261009/correctness-migration-original-test.log"
+}

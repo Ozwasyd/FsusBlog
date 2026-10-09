@@ -1,0 +1,15 @@
+{
+    "command": [
+        "node",
+        "tools/test/generate-correctness-attempt-producers.mjs",
+        "--write"
+    ],
+    "testedSha": "79053a820606f7bb16b914b685b08650a39b94f5",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T10:36:17.007560+00:00",
+    "endUtc": "2026-10-09T10:36:17.125554+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/authority-producer-replay-20261009/inventory-generate-first.log"
+}

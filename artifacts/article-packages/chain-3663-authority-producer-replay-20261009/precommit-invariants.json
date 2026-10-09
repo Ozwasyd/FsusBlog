@@ -1,0 +1,18 @@
+{
+    "source": "79053a820606f7bb16b914b685b08650a39b94f5",
+    "protectedInputsUnchanged": 1399,
+    "independentIndexUnchanged": true,
+    "entriesCount": 226,
+    "entriesIdsOrderSemanticsUnchanged": true,
+    "sevenNonMatrixSourceDigestsUnchanged": true,
+    "changedSourceDigests": [
+        "tests/matrix.yml"
+    ],
+    "matrixSha256": "db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03",
+    "twoProducerReplayFixedPoint": true,
+    "outputs": {
+        "config/testing/correctness-attempt-producers.json": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json": "61b6e3450377e71428e9f58f4471360a96efd5e944dbb69454973f7ba256cd78"
+    },
+    "qualificationClaim": false
+}

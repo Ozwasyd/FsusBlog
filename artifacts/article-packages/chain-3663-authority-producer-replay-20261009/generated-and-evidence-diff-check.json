@@ -1,0 +1,16 @@
+{
+    "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+    ],
+    "testedSha": "1767ca27ae78782ea3cf0d599a8149007b501683",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T10:51:38.784456+00:00",
+    "endUtc": "2026-10-09T10:51:38.837677+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/authority-producer-replay-20261009/generated-and-evidence-diff-check.log"
+}
