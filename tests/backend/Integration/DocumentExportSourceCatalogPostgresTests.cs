@@ -1,8 +1,11 @@
 using System.Security.Claims;
 using System.Text.Json;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport;
@@ -11,6 +14,8 @@ using FsusBlog.Server.Services.DocumentExport.Sources;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
 
@@ -248,6 +253,159 @@ public sealed class DocumentExportSourceCatalogPostgresTests(PostgresSchemaMigra
         Assert.Equal(512, await db.Ado.GetIntAsync("SELECT count(*) FROM document_export_source_catalog WHERE owner_admin_principal_id = 7 AND site_scope = @Site;",
             new SugarParameter("@Site", Site)));
     }
+
+    [Fact]
+    public async Task MissingContentBlock_KnownFailureDeniesWithoutBindingWrite()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var (revisionId, _, _) = await SeedPublicationAsync(db);
+        ArticleRevision revision = await db.Queryable<ArticleRevision>()
+            .Where(row => row.Id == revisionId).SingleAsync();
+        await db.Ado.ExecuteCommandAsync("DELETE FROM article_revision_content_block WHERE id = @Id;",
+            new SugarParameter("@Id", revision.ContentBlockId));
+        InvalidOperationException missing = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ArticleRevisionContentBlockStore.LoadAsync(db, revision.ContentBlockId, default));
+        Assert.Equal($"article_revision_content_block_missing:{revision.ContentBlockId}", missing.Message);
+        Assert.Null(missing.InnerException);
+        var request = new DocumentExportSourceRequest(DocumentExportCoordinateKind.Revision, ArticleId, RevisionId: revisionId);
+        DocumentExportSourceDeniedException refusal = await Assert.ThrowsAsync<DocumentExportSourceDeniedException>(() =>
+            Catalog(db).CaptureAsync(s_actor, [request]));
+        Assert.Equal("document_export_source_unavailable", refusal.Message);
+        Assert.Null(db.Ado.Transaction);
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Assert.Equal(0, await CountAsync(observer));
+    }
+
+    [Fact]
+    public async Task UnexpectedContentQueryFailure_PropagatesWithPrivateSafeOuterError()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var (revisionId, _, _) = await SeedPublicationAsync(db);
+        ArticleRevision revision = await db.Queryable<ArticleRevision>()
+            .Where(row => row.Id == revisionId).SingleAsync();
+        string contentQuery = await ObserveContentQueryAsync(db, revision.ContentBlockId);
+        var request = new DocumentExportSourceRequest(DocumentExportCoordinateKind.Revision, ArticleId, RevisionId: revisionId);
+        InvalidOperationException[] failures =
+        [
+            new("private-query-detail: SELECT private_source; /srv/private/source; Internal.QueryFailure"),
+            new($"article_revision_content_block_missing:{revision.ContentBlockId}:private-query-detail"),
+            new($"article_revision_content_block_missing:{revision.ContentBlockId}", new Exception("private-query-detail")),
+            new PrivateContentQueryException($"article_revision_content_block_missing:{revision.ContentBlockId}")
+        ];
+        foreach (InvalidOperationException failure in failures)
+        {
+            int queryHits = 0;
+            db.Aop.OnLogExecuting = (sql, _) =>
+            {
+                if (string.Equals(sql, contentQuery, StringComparison.Ordinal))
+                {
+                    queryHits++;
+                    throw failure;
+                }
+            };
+            try
+            {
+                Exception propagated = await Assert.ThrowsAnyAsync<InvalidOperationException>(() =>
+                    Catalog(db).CaptureAsync(s_actor, [request]));
+                Assert.Same(failure, propagated);
+                Assert.Equal(1, queryHits);
+                Assert.Null(db.Ado.Transaction);
+                await AssertPrivateOuterErrorAsync(propagated);
+            }
+            finally
+            {
+                db.Aop.OnLogExecuting = null;
+            }
+            using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+            Assert.Equal(0, await CountAsync(observer));
+        }
+    }
+
+    [Fact]
+    public async Task ContentQueryCancellation_RollsBackAndRestoresAdoToken()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var (revisionId, _, _) = await SeedPublicationAsync(db);
+        ArticleRevision revision = await db.Queryable<ArticleRevision>()
+            .Where(row => row.Id == revisionId).SingleAsync();
+        string contentQuery = await ObserveContentQueryAsync(db, revision.ContentBlockId);
+        CancellationToken? previous = db.Ado.CancellationToken;
+        using var cancellation = new CancellationTokenSource();
+        int queryHits = 0;
+        db.Aop.OnLogExecuting = (sql, _) =>
+        {
+            if (string.Equals(sql, contentQuery, StringComparison.Ordinal))
+            {
+                queryHits++;
+                cancellation.Cancel();
+                throw new OperationCanceledException("private-query-detail", cancellation.Token);
+            }
+        };
+        try
+        {
+            var revisionRequest = new DocumentExportSourceRequest(DocumentExportCoordinateKind.Revision, ArticleId, RevisionId: revisionId);
+            OperationCanceledException failure = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                Catalog(db).CaptureAsync(s_actor, [s_draft, revisionRequest], cancellation.Token));
+            Assert.Equal(cancellation.Token, failure.CancellationToken);
+            Assert.Equal(1, queryHits);
+            Assert.Null(db.Ado.Transaction);
+            Assert.Equal(previous, db.Ado.CancellationToken);
+            IHostEnvironment environment = Substitute.For<IHostEnvironment>();
+            environment.EnvironmentName.Returns(Environments.Production);
+            var middleware = new GlobalExceptionMiddleware(_ => Task.FromException(failure),
+                NullLogger<GlobalExceptionMiddleware>.Instance, environment);
+            var context = new DefaultHttpContext();
+            using var body = new MemoryStream();
+            context.Response.Body = body;
+            await middleware.InvokeAsync(context);
+            Assert.Equal(0, body.Length);
+        }
+        finally
+        {
+            db.Aop.OnLogExecuting = null;
+        }
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Assert.Equal(0, await CountAsync(observer));
+    }
+
+    private static async Task<string> ObserveContentQueryAsync(SqlSugarClient db, long contentBlockId)
+    {
+        var statements = new List<string>();
+        db.Aop.OnLogExecuting = (sql, _) => statements.Add(sql);
+        try
+        {
+            await ArticleRevisionContentBlockStore.LoadAsync(db, contentBlockId, default);
+            // Bind fault injection to the exact original query, never a guessed SQL substring.
+            return Assert.Single(statements);
+        }
+        finally
+        {
+            db.Aop.OnLogExecuting = null;
+        }
+    }
+
+    private static async Task AssertPrivateOuterErrorAsync(Exception failure)
+    {
+        IHostEnvironment environment = Substitute.For<IHostEnvironment>();
+        environment.EnvironmentName.Returns(Environments.Production);
+        var middleware = new GlobalExceptionMiddleware(_ => Task.FromException(failure),
+            NullLogger<GlobalExceptionMiddleware>.Instance, environment);
+        var context = new DefaultHttpContext();
+        using var body = new MemoryStream();
+        context.Response.Body = body;
+        await middleware.InvokeAsync(context);
+        Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
+        var decoded = new AedsEncoder().TryDecode(body.ToArray());
+        Assert.True(decoded.IsSuccess);
+        Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var error));
+        string message = PodUtf8Codec.FromFixed256(error.Message);
+        Assert.Equal("服务器内部错误，请稍后重试", message);
+        Assert.DoesNotContain(failure.Message, message, StringComparison.Ordinal);
+        Assert.DoesNotContain("private-query-detail", message, StringComparison.Ordinal);
+    }
+
+    private sealed class PrivateContentQueryException(string message) : InvalidOperationException(message);
 
     private static async Task<DocumentExportSourceChoice[]> CaptureDraftAsync(DocumentExportSourceCatalog catalog)
         => [.. await catalog.CaptureAsync(s_actor, [s_draft])];

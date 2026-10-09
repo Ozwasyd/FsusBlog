@@ -181,7 +181,11 @@ public sealed class DocumentExportSourceCatalog(
                 revision.MarkdownContent = await ArticleRevisionContentBlockStore
                     .LoadAsync(db, revision.ContentBlockId, cancellationToken).ConfigureAwait(false);
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException exception) when (
+                exception.GetType() == typeof(InvalidOperationException)
+                && exception.InnerException is null
+                && string.Equals(exception.Message,
+                    $"article_revision_content_block_missing:{revision.ContentBlockId}", StringComparison.Ordinal))
             {
                 throw new DocumentExportSourceDeniedException();
             }
