@@ -1,0 +1,10 @@
+native cases=31, expected-count negative exit=4
+✔ production native decoder admits fixed facts and preserves every refusal and count control (3637.620687ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3728.618094

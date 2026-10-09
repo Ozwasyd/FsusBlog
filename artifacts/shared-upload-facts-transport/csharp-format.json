@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "format",
+    "whitespace",
+    "src/backend/FsusBlog.Server.csproj",
+    "--no-restore",
+    "--include",
+    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+    "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+    "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T12:49:33.672191+00:00",
+  "endedAtUtc": "2026-10-09T12:49:38.962393+00:00",
+  "exitCode": 0,
+  "seconds": 5.29,
+  "stdoutArtifact": "csharp-format.log"
+}

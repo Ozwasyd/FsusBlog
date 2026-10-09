@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "src/frontend/node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "src/frontend/vitest.adapters-binary.config.ts",
+    "tests/frontend/unit/adapters/binary/uploadAssetFacts.test.ts",
+    "tests/frontend/unit/adapters/binary/uploadAssetPreview.test.ts"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T12:51:55.611383+00:00",
+  "endedAtUtc": "2026-10-09T12:51:56.465234+00:00",
+  "exitCode": 1,
+  "seconds": 0.854,
+  "stdoutArtifact": "frontend-adapter-controls.log"
+}

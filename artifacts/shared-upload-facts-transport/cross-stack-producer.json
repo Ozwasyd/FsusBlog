@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/contracts/generate-cross-stack-contract.mjs"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T12:53:33.241983+00:00",
+  "endedAtUtc": "2026-10-09T12:53:33.473608+00:00",
+  "exitCode": 1,
+  "seconds": 0.232,
+  "stdoutArtifact": "cross-stack-producer.log"
+}

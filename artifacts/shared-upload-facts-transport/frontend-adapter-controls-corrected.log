@@ -1,0 +1,22 @@
+failed to load config from /workspace/FsusBlog-upload-facts-transport/src/frontend/src/frontend/vitest.adapters-binary.config.ts
+
+⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯
+Error: Build failed with 1 error:
+
+[31m[UNRESOLVED_ENTRY] [0mCannot resolve entry module src/frontend/src/frontend/vitest.adapters-binary.config.ts.
+
+    at aggregateBindingErrorsIntoJsError (file:///tmp/chain-3735-tooling/front-test-env/node_modules/rolldown/dist/shared/error-Dsqzw0Oa.mjs:49:18)
+    at unwrapBindingResult (file:///tmp/chain-3735-tooling/front-test-env/node_modules/rolldown/dist/shared/error-Dsqzw0Oa.mjs:19:128)
+    at #build (file:///tmp/chain-3735-tooling/front-test-env/node_modules/rolldown/dist/shared/rolldown-D_vNlorD.mjs:133:34)
+    at async bundleConfigFile (file:///tmp/chain-3735-tooling/front-test-env/node_modules/vite/dist/node/chunks/node.js:38081:12)
+    at async bundleAndLoadConfigFile (file:///tmp/chain-3735-tooling/front-test-env/node_modules/vite/dist/node/chunks/node.js:37977:18)
+    at async loadConfigFromFile (file:///tmp/chain-3735-tooling/front-test-env/node_modules/vite/dist/node/chunks/node.js:37938:42)
+    at async resolveConfig (file:///tmp/chain-3735-tooling/front-test-env/node_modules/vite/dist/node/chunks/node.js:37540:22)
+    at async _createServer (file:///tmp/chain-3735-tooling/front-test-env/node_modules/vite/dist/node/chunks/node.js:24830:65)
+    at async createViteServer (file:///tmp/chain-3735-tooling/front-test-env/node_modules/vitest/dist/chunks/cli-api.CnMVyzaz.js:8902:17)
+    at async createVitest (file:///tmp/chain-3735-tooling/front-test-env/node_modules/vitest/dist/chunks/cli-api.CnMVyzaz.js:14288:18) {
+  errors: [Getter/Setter]
+}
+
+
+

@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/generate-aeds-protocol.mjs",
+    "--check"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T13:11:24.314415+00:00",
+  "endedAtUtc": "2026-10-09T13:11:24.415025+00:00",
+  "exitCode": 0,
+  "seconds": 0.101,
+  "stdoutArtifact": "final-protocol-products.log"
+}

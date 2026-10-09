@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/upload-asset-facts-native.test.mjs"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T12:58:48.827355+00:00",
+  "endedAtUtc": "2026-10-09T12:58:52.622320+00:00",
+  "exitCode": 0,
+  "seconds": 3.795,
+  "stdoutArtifact": "native-facts-controls.log"
+}

@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "restore",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--locked-mode"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T13:05:00.197277+00:00",
+  "endedAtUtc": "2026-10-09T13:05:03.705289+00:00",
+  "exitCode": 0,
+  "seconds": 3.508,
+  "stdoutArtifact": "locked-test-restore.log"
+}

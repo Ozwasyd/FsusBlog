@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "8ff02b213a60551a31e687463f6084028bac563b"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T12:58:52.685061+00:00",
+  "endedAtUtc": "2026-10-09T12:58:58.053104+00:00",
+  "exitCode": 1,
+  "seconds": 5.368,
+  "stdoutArtifact": "source-style.log"
+}

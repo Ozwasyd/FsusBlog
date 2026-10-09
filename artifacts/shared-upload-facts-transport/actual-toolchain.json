@@ -1,0 +1,23 @@
+{
+  "nodePath": "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+  "nodeVersion": "v24.16.0",
+  "nodeSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+  "sdkPath": "/tmp/chain-3735-tooling/dotnet/dotnet",
+  "sdkVersion": "10.0.401",
+  "gxxVersion": "g++ (Debian 14.2.0-19) 14.2.0",
+  "types": {
+    "typescript": "6.0.2",
+    "vue-tsc": "3.2.6",
+    "vitest": "4.1.11",
+    "@noble/hashes": "2.2.0"
+  },
+  "repoDeclaredTypes": {
+    "typescript": "^6.0.3",
+    "vue-tsc": "^3.2.7"
+  },
+  "localFsusUi": {
+    "root": "/workspace/FsusUI",
+    "source": "f2b3bb89ffe5f749da26c388f058efdbb6aee864"
+  },
+  "externalFileFactsOrDatabaseRuntimeReceipt": false
+}

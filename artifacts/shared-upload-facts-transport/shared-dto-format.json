@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "format",
+    "whitespace",
+    "src/shared/FsusBlog.Shared.csproj",
+    "--no-restore",
+    "--include",
+    "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T13:19:52.957070+00:00",
+  "endedAtUtc": "2026-10-09T13:19:59.103745+00:00",
+  "exitCode": 0,
+  "seconds": 6.147,
+  "stdoutArtifact": "shared-dto-format.log"
+}

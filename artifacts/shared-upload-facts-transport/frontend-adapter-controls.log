@@ -1,0 +1,11 @@
+
+ RUN  v4.1.11 /workspace/FsusBlog-upload-facts-transport
+
+No test files found, exiting with code 1
+
+filter: tests/frontend/unit/adapters/binary/uploadAssetFacts.test.ts, tests/frontend/unit/adapters/binary/uploadAssetPreview.test.ts
+include: ../../tests/frontend/unit/adapters/binary/**/*.test.ts, ../../tests/frontend/unit/protocol/**/*.test.ts
+exclude:  **/node_modules/**, **/.git/**
+
+JSON report written to /workspace/FsusBlog-upload-facts-transport/.tmp/test-results/vitest/adapters-binary/unsharded.json
+JUNIT report written to /workspace/FsusBlog-upload-facts-transport/.tmp/test-results/vitest/adapters-binary/unsharded.xml

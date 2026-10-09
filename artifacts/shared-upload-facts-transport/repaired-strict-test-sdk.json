@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "build",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "-warnaserror",
+    "-v",
+    "minimal"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T13:21:12.835833+00:00",
+  "endedAtUtc": "2026-10-09T13:25:38.038666+00:00",
+  "exitCode": 1,
+  "seconds": 265.203,
+  "stdoutArtifact": "repaired-strict-test-sdk.log"
+}

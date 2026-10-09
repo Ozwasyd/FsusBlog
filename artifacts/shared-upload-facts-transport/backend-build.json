@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "build",
+    "src/backend/FsusBlog.Server.csproj",
+    "--no-restore",
+    "-v",
+    "minimal"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T12:44:29.119587+00:00",
+  "endedAtUtc": "2026-10-09T12:46:18.880428+00:00",
+  "exitCode": 1,
+  "seconds": 109.761,
+  "stdoutArtifact": "backend-build.log"
+}

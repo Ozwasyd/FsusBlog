@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "--application"
+  ],
+  "cwd": "/workspace/FsusBlog-upload-facts-transport",
+  "startedAtUtc": "2026-10-09T13:14:17.697145+00:00",
+  "endedAtUtc": "2026-10-09T13:18:12.920056+00:00",
+  "exitCode": 2,
+  "seconds": 235.223,
+  "stdoutArtifact": "final-full-frontend-types.log"
+}

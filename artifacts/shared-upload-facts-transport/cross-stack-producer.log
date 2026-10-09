@@ -1,0 +1,11 @@
+file:///workspace/FsusBlog-upload-facts-transport/tools/contracts/lib/openapi-contracts.mjs:176
+        throw new Error(`OpenAPI/generated matrix route drift\nmissing=${missing.join(', ')}\nextra=${extra.join(', ')}`);
+              ^
+
+Error: OpenAPI/generated matrix route drift
+missing=POST /upload/{uploadId}/facts, POST /upload/{uploadId}/preview
+extra=
+    at generatedMatrixFromOpenApi (file:///workspace/FsusBlog-upload-facts-transport/tools/contracts/lib/openapi-contracts.mjs:176:15)
+    at file:///workspace/FsusBlog-upload-facts-transport/tools/contracts/generate-cross-stack-contract.mjs:37:19
+
+Node.js v24.16.0

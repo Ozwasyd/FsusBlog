@@ -1,0 +1,185 @@
+{
+  "sourceCommit": "6edc4e20cc1ce4054c5c5356902dbc3fb9828025",
+  "priorTestedSource": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "originalParentSource": "8ff02b213a60551a31e687463f6084028bac563b",
+  "formatOnlySourceDelta": {
+    "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+    "byteIdenticalAfterWhitespaceRemoval": true
+  },
+  "paths": [
+    {
+      "path": "docs/api/contracts.md",
+      "blob": "5285d2346ad1cab8a049d33f158361413027987e",
+      "sha256": "31ab71457048909aa12a381738b78c473e5e784e6b83819015e36a7a78568695",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "blob": "5fc20128d595d3374d8c3c2d9623009a1fe2ab3c",
+      "sha256": "39c5984bd01463b3e2deb6316608dffe84842e0eb772694e9f8e22ebfafbfd16",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "blob": "78030e466fde3fcafbdf51f9d17c58b6eaa93192",
+      "sha256": "5f5b6ae7b575ad3d1d1118c3f8e5d60f5b881859b394547fbdced5f922421ab6",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/core/Algorithms/AedsFrameType.cs",
+      "blob": "ca9fc1904531f435b285b9f675cdfc2c3a247e52",
+      "sha256": "2e3df9dae8bfa4aebf425494629d024b1d4cae93d1bc281e4dde50a5baec856b",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+      "blob": "a76d4e8aa327e2bf4cab692fe46dd8a5179111c8",
+      "sha256": "5fcec4dbcd394698d06a9be30f33d66b0a512ea871bb4c8bfe1738bb29fd3800",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "blob": "1b56396b6b7902453170bdf6bdc6eca287a531a9",
+      "sha256": "26916a61e37e29158e7e0cfd0a8dc85d6e71da324286ec1a6620922296e54775",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "blob": "0c16998759e5ee5329a034b9bfea88459b69bf81",
+      "sha256": "daeb28bf7fa2b02c8b0e73f608551cb0463a700f973c399a9b1d13a9ab8c84e9",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "blob": "fe5cd0da30829f6c892203bbfe594b2580cf5fbd",
+      "sha256": "fce7553b56023494a3b01b169950e6df506ca510fed2a67ee15f750dde6ab3cf",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "blob": "1abcba10cef55637091f244b5b2887845abb338c",
+      "sha256": "74bae10315b765dd0434c47070463887781711a300fef1d3a34768e327d29411",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+      "blob": "6bac8af2e708351c756ab6808ce9b113cff7a31d",
+      "sha256": "650295e7975d654348ba1a1137ae740989683ac64437a067c3ea2db36a92113c",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+      "blob": "498785b71b900dfb1a5e1af94391c015ccb87be6",
+      "sha256": "63bef2fde09a36c03cacad2d158684c124c11513eef040e242f35a72959c9656",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+      "blob": "ede77a09a2ddda855026ffcf38e720a7e20dda33",
+      "sha256": "f6108a331c46b39da4988ef35f9e0a083c02cd46c2500064a92702887f89de1e",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+      "blob": "8775938b817ced585623219ea8fb51dc6651bbc1",
+      "sha256": "324f658e2be9600136489e6c447f865e7e6f357337bba1f08c814a0a49ef94db",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "blob": "77708856b5051c94c1cca66e862e64e248a7b283",
+      "sha256": "be0650802a33f2540a0336acc48837e3517f2eacb6bc5d8c7e594aca5ed45b98",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/shared/AedsFrameHeader.cs",
+      "blob": "9c504d9ae24ec0febacd2ea308fda196fe780816",
+      "sha256": "8dfd0e69c0eb9cd7a8c206b3b541b86cc1bc07e840d4f4fc77252873db11da6e",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+      "blob": "03344a7af4536ee2c783cc396cab4cb751e13dcb",
+      "sha256": "6141ec4683a5202e15bb6643353b5b23368e895e52200eb70d664ffb4198303a",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": false
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+      "blob": "bb5edc77d811404654cf62d73d61727dac231b1d",
+      "sha256": "56707f604bd5cbf90a1b892556dfa219fa1cb9d2052d704452b25b600ad2c915",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/aeds-protocol.json",
+      "blob": "a9431afd5817d99f85081eb43d0716129532e807",
+      "sha256": "2a57f59ba06f5b1344b6ae5ab33b1e2005b9e042f7a7e7ef11a7a461a6d05908",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+      "blob": "5205ff9aac9506ceb8897881b2d7f84f48ec5300",
+      "sha256": "d0e3ef752eb50d3e83bd82589be67fb3e870463752a8dc9e5729bde22acb6cfd",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+      "blob": "38da6b69892c5ddb7caf0ecac37ef43875890775",
+      "sha256": "5f988b251974c14069e0a9ea20d4f736379a2745be2069565b0a2846b5a2c4e1",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "tests/backend/Unit/UploadAssetFactsCodecTests.cs",
+      "blob": "26eaedd5dd5b7d1eb21d21e4f0019b8706e06fa5",
+      "sha256": "3e24e2b0083c3fb1eb6872c8f313904cb2d9e153730dbac18d02492a7e5e969e",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+      "blob": "a694ac8f63a36f102cfb596e9decddd943a409c4",
+      "sha256": "609562e6d6222bf3dd60d4b4c9985595687aa0b22b032f75dec0480a19b238d8",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "tests/frontend/fixtures/cross-stack-contract-matrix.json",
+      "blob": "34ab42a3b1ce18308c60aab7c6c48b817c4ca3bc",
+      "sha256": "6cefd6446cca2e995ae9db76939ef48ed7f77b84ead750f0491dc2c0dc1b9070",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "tests/frontend/unit/adapters/binary/uploadAssetFacts.test.ts",
+      "blob": "741d4d9f356bac2b8cd5663fb313a716b778ba40",
+      "sha256": "f07bbbfc8adb3fb0a8c893a9627c7a05300d828d5328a560ec6c55214e9f30b5",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "tests/native/UploadAssetFactsProtocolTests.cpp",
+      "blob": "8955293a4e6fc0c33603fb12ca6878e72a1747e1",
+      "sha256": "3dd97e77204a23e44d36955bdf6eedad1a020cf95e1e47e6be6e988b9ff11028",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "tests/tools/aeds-protocol-generation.test.mjs",
+      "blob": "8a279ccc555340e3fc16cc0bdf43b1f3cc6f8ee5",
+      "sha256": "618e43d826d904d01fe783a92b8080714e514f84dc6a0235a75703f6fdb50ff1",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "tests/tools/upload-asset-facts-native.test.mjs",
+      "blob": "c76e5e1d1e5a21a78a0cffdbcc5f42e0b45698e5",
+      "sha256": "32e2510feb3efd3d8445fbf63b1bc67610c2ba50a4b4a2b290da5e51afb41cc4",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "tools/frontend/generate-aeds-protocol.mjs",
+      "blob": "6e7a0969c0f4a34d23a9301f04074a62934f3f19",
+      "sha256": "d521bce1853d67298f72fa7cdd725470c22f5b73fd38a9850b7a3f93a58a164e",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    },
+    {
+      "path": "tools/package.json",
+      "blob": "5b476bcbf809f63b0e8b3b42a0a589ffe6a91e8c",
+      "sha256": "94df77bf817a41b051e24c28f12f1cdc4e8da3b16b7bcebba0faffe15806f094",
+      "unchangedFromProtocolAndFrontendTestedSource4cf": true
+    }
+  ]
+}

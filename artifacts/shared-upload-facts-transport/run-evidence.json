@@ -1,0 +1,133 @@
+{
+  "sourceCommit": "6edc4e20cc1ce4054c5c5356902dbc3fb9828025",
+  "priorProtocolFrontendNativeSource": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "branch": "codex/shared-upload-facts-transport-20261009",
+  "originalSuppliedParentSource": "8ff02b213a60551a31e687463f6084028bac563b",
+  "latestFetchedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "scope": "sole original upload group transport; no business/domain observation or image algorithm change",
+  "endpoint": "POST /api/binary/upload/{uploadId}/facts",
+  "frontendPort": "readCommittedUploadFacts(uploadId, uploadToken, sha256, signal?)",
+  "backendActualPort": "IFileService.ObserveCommittedUploadAsync(UploadSessionAccess access, string sha256, CancellationToken token)",
+  "backendActualStore": "original ReadCommittedUploadObservationAsync and actual session-owned PG/native file facts, not a new receipt store",
+  "frameType": {
+    "name": "UploadAssetFacts",
+    "value": 285,
+    "nativeError": 20,
+    "errorName": "upload_asset_facts_payload_invalid",
+    "denseStandaloneGoldenOrder": 267,
+    "canonicalFrames": 268
+  },
+  "limits": {
+    "fullRequestFrame": 80,
+    "requestPayloadSha256": 64,
+    "responsePayload": 760,
+    "responseWholeFrame": 776,
+    "assetMaximum": 20971520,
+    "oldPreviewWholeFrameCap": 8388608,
+    "oldPreviewImagePayloadCap": 8387832
+  },
+  "security": [
+    "authenticated admin principal and original ArticleWrite/PoW upload group",
+    "original owner/session access with private upload token header; no token in response",
+    "private, no-store response",
+    "original BinaryRequestPayload frame reader; original unified ApiError",
+    "original cancellation before/after async read; no response after cancelled observation"
+  ],
+  "publicFields": [
+    "schema",
+    "uploadId",
+    "assetId",
+    "publicUrl",
+    "mimeType",
+    "extension",
+    "sizeBytes",
+    "width",
+    "height",
+    "sha256",
+    "assetVersionSha256",
+    "referenceLedgerSha256",
+    "referenceRowCount"
+  ],
+  "noTransferredBytesOrPrivateRows": true,
+  "exactServiceStillReadsNativeBytesInternally": true,
+  "testsAt4cf": {
+    "originalProtocolControls": {
+      "exitCode": 0,
+      "passed": 52,
+      "skipped": 0
+    },
+    "native": {
+      "exitCode": 0,
+      "cases": 31,
+      "wrongExpectedCountExit": 4,
+      "taskCleanupVerified": true,
+      "qualification": "production ordinary native decoder tests only, no HTTP/PG/file-runtime/Wasm receipt"
+    },
+    "frontendAdapters": {
+      "exitCode": 0,
+      "passed": 27,
+      "facts": 11,
+      "originalPreview": 16,
+      "nativePreviewFrameEnvCases": "NOT COLLECTED: original actual frame input absent"
+    },
+    "sourceStyle": {
+      "exitCode": 0,
+      "files": 7,
+      "violations": 0
+    },
+    "protocolProducts": {
+      "exitCode": 0,
+      "products": 5
+    },
+    "openapiSourceObservation": {
+      "exitCode": 0,
+      "operations": 292,
+      "mode": "original cold metadata source observation, no HTTP listener",
+      "acceptedRuntimeReceipt": false
+    },
+    "routeConsumers": {
+      "exitCode": 0,
+      "operations": 292
+    }
+  },
+  "repairedStrictSdkAt6ed": {
+    "exitCode": 1,
+    "summaryErrors": 1529,
+    "distinctLocatedErrors": 1507,
+    "changedFileDiagnostics": [],
+    "bodiesExecuted": 0,
+    "executableDiscovery": "NOT RUN",
+    "newManagedMethods": 3,
+    "newManagedCases": 9,
+    "alternateTestHarnessOrLooserTestBuild": false
+  },
+  "fullFrontendAt4cf": {
+    "exitCode": 2,
+    "diagnostics": 290,
+    "actualFsusUiSource": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "fsusUiDiagnostics": 48,
+    "blogDiagnostics": 242,
+    "changedApiAdapterRegistryDiagnostics": [],
+    "actualTypescript": "6.0.2",
+    "declaredTypescript": "6.0.3",
+    "actualVueTsc": "3.2.6",
+    "declaredVueTsc": "3.2.7",
+    "fullTypesAccepted": false
+  },
+  "remainingOwnerWork": [
+    "original1975 provider must consume readCommittedUploadFacts above old preview budget instead of upload_facts_only_transport_missing",
+    "original ledger/transaction owner must supply the actual eight-field observeReference receipt producer; ledger digest cannot be turned into receiptRef",
+    "HTTP/Postgres/native-file/session/cancel cleanup integration and full frontend types/Wasm qualification/rendered UX remain UNRUN or failed as described",
+    "original generated-output binding writer remains separate; source observations do not produce acceptance receipts"
+  ],
+  "forbiddenWrites": {
+    "contentApi": 0,
+    "productionDbOrCredentials": 0,
+    "masterPush": 0,
+    "merge": 0,
+    "issueClose": 0,
+    "deploy": 0
+  },
+  "newDraftPr": "NOT CREATED: coordinating parent retains sole GitHub content/API writer under HOLD",
+  "createdAtUtc": "2026-10-09T13:28:11.306340+00:00"
+}
