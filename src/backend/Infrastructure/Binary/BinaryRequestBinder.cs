@@ -228,6 +228,38 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
         return true;
     }
 
+    internal static async Task<bool> HasReachedEndOfBodyAsync(
+        PipeReader reader,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ReadResult result = await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                if (result.IsCanceled)
+                {
+                    throw new OperationCanceledException(cancellationToken);
+                }
+                if (!result.Buffer.IsEmpty)
+                {
+                    return false;
+                }
+                if (result.IsCompleted)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return true;
+                }
+            }
+            finally
+            {
+                // Leave unexpected bytes to the request owner; do not drain an unbounded body.
+                reader.AdvanceTo(result.Buffer.Start, result.Buffer.End);
+            }
+        }
+    }
+
     private static bool TryReadHeader(
         ref SequenceReader<byte> reader,
         out uint magic,

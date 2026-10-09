@@ -1,4 +1,5 @@
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 
@@ -8,6 +9,38 @@ internal interface IBinaryEndpointRequestContext
 {
     Task<BinaryRequestPayload> ReadFrameAsync(HttpContext httpContext, IAedsEncoder aeds, AedsFrameType expectedFrameType, CancellationToken cancellationToken, int? maxFrameBytes = null);
     Task<BinaryRequestPayload> ReadFrameAsync(HttpContext httpContext, IAedsEncoder aeds, IReadOnlyCollection<AedsFrameType> expectedFrameTypes, CancellationToken cancellationToken, int? maxFrameBytes = null);
+
+    /// <summary>Reads one bounded frame and requires body completion before transferring its payload.</summary>
+    async Task<BinaryRequestPayload> ReadExactFrameAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        AedsFrameType expectedFrameType,
+        CancellationToken cancellationToken,
+        int? maxFrameBytes = null)
+    {
+        BinaryRequestPayload payload = await ReadFrameAsync(
+            httpContext, aeds, expectedFrameType, cancellationToken, maxFrameBytes).ConfigureAwait(false);
+        if (!payload.IsSuccess)
+        {
+            return payload;
+        }
+        try
+        {
+            if (await BinaryRequestBinder.HasReachedEndOfBodyAsync(
+                httpContext.Request.BodyReader, cancellationToken).ConfigureAwait(false))
+            {
+                return payload;
+            }
+            payload.Dispose();
+            return BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS payload length mismatch"));
+        }
+        catch (Exception)
+        {
+            payload.Dispose();
+            throw;
+        }
+    }
+
     Task<NameMutationPayload> ReadNameMutationAsync(HttpContext httpContext, IAedsEncoder aeds, AedsFrameType expectedFrameType, CancellationToken cancellationToken);
     string BuildArticleViewerIdentity(HttpContext context, int articleId);
     ValueTask<long> GetArticleListCacheVersionAsync(ICacheStringReader cache);

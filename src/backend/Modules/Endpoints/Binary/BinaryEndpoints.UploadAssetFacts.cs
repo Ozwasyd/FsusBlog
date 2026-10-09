@@ -3,6 +3,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
@@ -42,8 +43,12 @@ public static partial class BinaryEndpoints
         {
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "FORBIDDEN"), aeds);
         }
-        using var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds,
-            AedsFrameType.UploadCompleteRequest, cancellationToken, AedsFrameHeader.Size + 64);
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, httpContext.RequestAborted);
+        cancellationToken = linkedCancellation.Token;
+        var requestContext = httpContext.RequestServices.GetRequiredService<IBinaryEndpointRequestContext>();
+        using var payload = await requestContext.ReadExactFrameAsync(httpContext, aeds,
+            AedsFrameType.UploadCompleteRequest, cancellationToken, AedsFrameHeader.Size + 64).ConfigureAwait(false);
         if (!payload.IsSuccess)
         {
             return BinaryResults.FromError(payload.Error, aeds);
