@@ -47,6 +47,8 @@
 
   <ItemGroup>
     <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Frozen prototype controls target the superseded partial, not the canonical wire module. -->
+    <Compile Remove="Unit/ArticlePackageCandidateReadEndpointTests.cs" />
     <Compile Remove="Fixtures\security-source-analysis\*.cs" />
     <None Include="Fixtures\security-source-analysis\*.cs" />
     <Compile Remove="Integration\SchemaMigrationIntegrationTests.cs" />
