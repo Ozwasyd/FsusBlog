@@ -32,8 +32,9 @@ public sealed class ArticleRelationSourceCoordinateException(string reasonCode) 
 /// Shared revision owner: dispose SaveAsync's RETURNING reader, then call ProvisionRevisionAsync
 /// with the actual article/revision IDs before outer commit. This covers create/update/fixture
 /// and revision-producing rollback. Non-revision lifecycle owners read the selected exact binding.
-/// Import owner: call ProvisionImportedRevisionAsync only with identity supplied by its authorized
-/// contract; no imported revision identity is inferred. DI and migration owners register this
+/// Import owner: after actual article insert, call ProvisionImportedArticleAsync with the identity
+/// supplied by its authorized contract before the first shared revision hook. Existing exact sources
+/// use ProvisionImportedRevisionAsync; no imported revision identity is inferred. DI and migration owners register this
 /// authority and its NEW definition through their existing producers. Until those hooks land,
 /// legacy and unprovisioned sources remain unavailable; draft support is not claimed.
 /// </remarks>
@@ -108,6 +109,25 @@ public sealed class ArticleRelationSourceCoordinateAuthority
         CancellationToken cancellationToken = default)
         => ProvisionAsync(db, articleId, revisionId, ParseArticleIdentity(suppliedPortableArticleIdentity), cancellationToken);
 
+    /// <summary>
+    /// Bind an authorized import's supplied article identity after its real article insert, before
+    /// the first shared revision hook. No revision/source binding is fabricated before a revision exists.
+    /// </summary>
+    public async Task<ArticleRelationArticleCoordinate> ProvisionImportedArticleAsync(
+        ISqlSugarClient db,
+        int articleId,
+        string suppliedPortableArticleIdentity,
+        CancellationToken cancellationToken = default)
+    {
+        Guid importedIdentity = ParseArticleIdentity(suppliedPortableArticleIdentity);
+        Require(articleId > 0, "article_relation_source_coordinate_invalid");
+        NativeSession session = Borrow(db, requireTransaction: true, cancellationToken);
+        await LockArticleAsync(session, articleId, cancellationToken).ConfigureAwait(false);
+        Guid savedIdentity = await EnsureArticleBindingAsync(session, articleId, importedIdentity, cancellationToken)
+            .ConfigureAwait(false);
+        return new(articleId, ArticleIdentity(savedIdentity));
+    }
+
     private static async Task<ArticleRelationRevisionCoordinate> ProvisionAsync(
         ISqlSugarClient db,
         int articleId,
@@ -119,10 +139,7 @@ public sealed class ArticleRelationSourceCoordinateAuthority
         NativeSession session = Borrow(db, requireTransaction: true, cancellationToken);
         // Serialize all provisioning for this article, including concurrent retries and different revisions.
         // Lock actual source rows before any binding writes; deleted/restored articles keep their coordinates.
-        object? article = await ScalarAsync(session,
-            "SELECT id FROM article WHERE id = @articleId FOR UPDATE;",
-            articleId, revisionId, cancellationToken).ConfigureAwait(false);
-        Require(article is int, "article_relation_article_missing");
+        await LockArticleAsync(session, articleId, cancellationToken).ConfigureAwait(false);
         object? revision = await ScalarAsync(session,
             "SELECT revision_no FROM article_revision WHERE article_id = @articleId AND id = @revisionId FOR KEY SHARE;",
             articleId, revisionId, cancellationToken).ConfigureAwait(false);
@@ -137,24 +154,9 @@ public sealed class ArticleRelationSourceCoordinateAuthority
             return existing;
         }
 
-        object? storedArticleIdentity = await ScalarAsync(session,
-            "SELECT portable_identity FROM article_relation_article_binding WHERE article_id = @articleId;",
-            articleId, revisionId, cancellationToken).ConfigureAwait(false);
-        if (storedArticleIdentity is Guid savedIdentity)
-        {
-            Require(savedIdentity != Guid.Empty, "article_relation_binding_invalid");
-            Require(!importedArticleIdentity.HasValue || importedArticleIdentity == savedIdentity,
-                "article_relation_article_remap_refused");
-        }
-
+        await EnsureArticleBindingAsync(session, articleId, importedArticleIdentity, cancellationToken).ConfigureAwait(false);
         try
         {
-            if (storedArticleIdentity is null)
-            {
-                await InsertAsync(session,
-                    "INSERT INTO article_relation_article_binding(article_id, portable_identity) VALUES (@articleId, @identity);",
-                    articleId, revisionId, importedArticleIdentity ?? Guid.NewGuid(), null, cancellationToken).ConfigureAwait(false);
-            }
             await InsertAsync(session,
                 """
                 INSERT INTO article_relation_source_coordinate(article_id, revision_id, revision_identity, source_epoch)
@@ -170,6 +172,41 @@ public sealed class ArticleRelationSourceCoordinateAuthority
 
         return await ReadRevisionAsync(session, articleId, revisionId, cancellationToken).ConfigureAwait(false)
             ?? throw new ArticleRelationSourceCoordinateException("article_relation_binding_unavailable");
+    }
+
+    private static async Task LockArticleAsync(NativeSession session, int articleId, CancellationToken cancellationToken)
+    {
+        object? article = await ScalarAsync(session,
+            "SELECT id FROM article WHERE id = @articleId FOR UPDATE;",
+            articleId, null, cancellationToken).ConfigureAwait(false);
+        Require(article is int, "article_relation_article_missing");
+    }
+
+    private static async Task<Guid> EnsureArticleBindingAsync(
+        NativeSession session, int articleId, Guid? importedIdentity, CancellationToken cancellationToken)
+    {
+        const string readSql = "SELECT portable_identity FROM article_relation_article_binding WHERE article_id = @articleId;";
+        object? stored = await ScalarAsync(session, readSql, articleId, null, cancellationToken).ConfigureAwait(false);
+        if (stored is Guid savedIdentity)
+        {
+            Require(savedIdentity != Guid.Empty, "article_relation_binding_invalid");
+            Require(!importedIdentity.HasValue || importedIdentity == savedIdentity, "article_relation_article_remap_refused");
+            return savedIdentity;
+        }
+        Require(stored is null, "article_relation_binding_invalid");
+        try
+        {
+            await InsertAsync(session,
+                "INSERT INTO article_relation_article_binding(article_id, portable_identity) VALUES (@articleId, @identity);",
+                articleId, null, importedIdentity ?? Guid.NewGuid(), null, cancellationToken).ConfigureAwait(false);
+        }
+        catch (PostgresException exception) when (exception.SqlState is "23505" or "23503" or "23514")
+        {
+            throw new ArticleRelationSourceCoordinateException("article_relation_binding_conflict");
+        }
+        stored = await ScalarAsync(session, readSql, articleId, null, cancellationToken).ConfigureAwait(false);
+        Require(stored is Guid identity && identity != Guid.Empty, "article_relation_binding_unavailable");
+        return (Guid)stored!;
     }
 
     private static async Task<ArticleRelationRevisionCoordinate?> ReadRevisionAsync(
@@ -199,7 +236,7 @@ public sealed class ArticleRelationSourceCoordinateAuthority
     }
 
     private static async Task<object?> ScalarAsync(
-        NativeSession session, string sql, int articleId, long revisionId, CancellationToken cancellationToken)
+        NativeSession session, string sql, int articleId, long? revisionId, CancellationToken cancellationToken)
     {
         object? result;
         await using (NpgsqlCommand command = session.CreateCommand(sql, cancellationToken))
@@ -212,7 +249,7 @@ public sealed class ArticleRelationSourceCoordinateAuthority
     }
 
     private static async Task InsertAsync(
-        NativeSession session, string sql, int articleId, long revisionId, Guid identity, Guid? epoch,
+        NativeSession session, string sql, int articleId, long? revisionId, Guid identity, Guid? epoch,
         CancellationToken cancellationToken)
     {
         await using (NpgsqlCommand command = session.CreateCommand(sql, cancellationToken))
@@ -229,10 +266,13 @@ public sealed class ArticleRelationSourceCoordinateAuthority
         session.Validate(cancellationToken);
     }
 
-    private static void AddCoordinates(NpgsqlCommand command, int articleId, long revisionId)
+    private static void AddCoordinates(NpgsqlCommand command, int articleId, long? revisionId)
     {
         command.Parameters.AddWithValue("articleId", articleId);
-        command.Parameters.AddWithValue("revisionId", revisionId);
+        if (revisionId.HasValue)
+        {
+            command.Parameters.AddWithValue("revisionId", revisionId.Value);
+        }
     }
 
     private static string ArticleIdentity(Guid identity) => $"article:{identity:D}";
