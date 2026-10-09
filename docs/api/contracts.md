@@ -3013,6 +3013,8 @@ wire endpoint or executable import plan.
 
 ## Closed article-package manifest candidate
 
+`ArticlePackageHistoricalMetadataMapper` projects the original selected `ArticleRevisionDetailResponse` through the sole metadata component codec. It checks the exact article/revision coordinates and title/summary, distinguishes missing rights/responsibility snapshots from a present rights snapshot whose `CanonicalUrl` is null, and preserves the stored URL, policy hash and content hash verbatim. Canonical policy binding and public evidence filtering remain in the original codec. The projection retains snapshot references for backend review, without granting source/export/import authority. The DTO does not supply historical route, status or scheduled-at facts; the mapper does not infer them or recompute canonical article bytes from incomplete inputs.
+
 `ArticlePackageManifestCandidateCodec` owns the finite candidate envelope used by
 issues #2398 and #2408 while the complete package authorities remain unavailable. This
 is a pure intermediate contract, not an accepted `manifest.json`, a replacement
