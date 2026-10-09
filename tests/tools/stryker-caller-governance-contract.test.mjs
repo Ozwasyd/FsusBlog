@@ -279,3 +279,51 @@ test('ordinary mutation definition context accepts closed unrelated top level de
         assert.deepEqual(verify({ laneSource: `${prefix}${caller}` }), [], prefix);
     }
 });
+
+test('ordinary mutation heredoc delimiter accepts supported literal and quoted identifiers', () =>
+{
+    for (const delimiter of ['SOURCE_EXAMPLE', "'SOURCE_EXAMPLE'", '"SOURCE_EXAMPLE"'])
+    {
+        const prefix = `cat <<${delimiter}\n${caller}\nSOURCE_EXAMPLE\n`;
+        assert.deepEqual(verify({ laneSource: `${prefix}${caller}` }), [], delimiter);
+        assert.notDeepEqual(verify({ laneSource: prefix }), [], delimiter);
+    }
+    assert.deepEqual(verify({ laneSource: `cat <<-'SOURCE_EXAMPLE'\n${caller}\n\tSOURCE_EXAMPLE\n${caller}` }), []);
+});
+
+test('ordinary mutation heredoc delimiter refuses escaped and concatenated unsupported spellings', () =>
+{
+    for (const delimiter of ["'E\\OF'", '"E\\OF"', 'E\\OF', '\\EOF', 'E"O"F', "E'OF'", '"E\\$OF"'])
+    {
+        assert.match(verify({ laneSource: `cat <<${delimiter}\nEOF\n${caller}` }).join('\n'), /unsupported Shell heredoc delimiter/u, delimiter);
+    }
+});
+
+test('ordinary mutation heredoc delimiter refuses early fake terminators hiding caller declarations', () =>
+{
+    // All examples are strings. No shell or old non-advancing path executes.
+    for (const suffix of ['', 'E\\OF\n'])
+    {
+        const hidden = `cat <<'E\\OF'\nEOF\n${caller}\n${suffix}`;
+        assert.notDeepEqual(verify({ laneSource: hidden }), [], suffix);
+    }
+    for (const delimiter of ['EOF', "'EOF'", '"EOF"'])
+    {
+        const hidden = `cat <<${delimiter}\nE\\OF\n${caller}\nEOF\n`;
+        assert.notDeepEqual(verify({ laneSource: hidden }), [], delimiter);
+        assert.deepEqual(verify({ laneSource: `${hidden}${caller}` }), [], delimiter);
+    }
+});
+
+test('ordinary mutation literal declaration names refuse unsupported quoted escape and concatenation aliases', () =>
+{
+    for (const name of ["'RunBackendMutationWithConfi\\g'", '"RunBackendMutationWithConfi\\g"',
+        'RunBackendMutationWithConfi\\g', "RunBackendMutationWithConfi'g'"])
+    {
+        assert.notDeepEqual(verify({ laneSource: caller.replace('RunBackendMutationWithConfig()', `${name}()`) }), [], name);
+    }
+    for (const name of ["'RunBackendMutationWithConfig'", '"RunBackendMutationWithConfig"'])
+    {
+        assert.deepEqual(verify({ laneSource: caller.replace('RunBackendMutationWithConfig()', `${name}()`) }), [], name);
+    }
+});
