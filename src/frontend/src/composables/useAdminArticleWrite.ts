@@ -80,6 +80,7 @@ import { validateArticleEditorSurfacePreference, type ArticleEditorSurfacePrefer
 import { ArticleEditorSurfaceRuntime } from '@/services/authoring/articleEditorSurfaceRuntime';
 import { ArticleLiveCapabilitySession } from '@/services/authoring/articleLiveCapability';
 import type { ArticlePreviewAttachmentPort } from '@/services/authoring/articlePreviewAttachments';
+import { createArticlePreviewCurrentAuthorities } from '@/services/authoring/articlePreviewCurrentAuthorities';
 import { ArticlePreviewSourceAdmission, type ArticlePreviewSourceInput } from '@/services/authoring/articlePreviewSourceAdmission';
 import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
@@ -975,6 +976,7 @@ export function useAdminArticleWrite()
                 {
                     previewOwners.value = null;
                     previewTask.cancel();
+                    previewCurrentAuthorities.cancel();
                 }
                 searchRuntime.dispose();
                 surfaceRuntime?.dispose();
@@ -1023,6 +1025,7 @@ export function useAdminArticleWrite()
                     {
                         previewOwners.value = null;
                         previewTask.cancel();
+                        previewCurrentAuthorities.cancel();
                     }
                 };
             };
@@ -1228,6 +1231,26 @@ export function useAdminArticleWrite()
         buildDraftSnapshot('', 'server')
     );
 
+    const previewCurrentAuthorities = createArticlePreviewCurrentAuthorities({
+        documentContext: articleDocumentContextAdapter,
+        readHost: () => ({
+            context: articleDocumentContextAdapter.context,
+            source: articleForm.content,
+            revisionId: currentRevisionId.value,
+            attachmentLifecycleHistory: authoringAttachments.lifecycleReceipts,
+            authoringInputDigest: calculateOpenArticleDocumentDigest(currentPrepublishIdentity())
+        }),
+        readEditingResponsibility: () =>
+        {
+            const owners = previewOwners.value;
+            // No editable responsibility fields exist in ArticleParams. Only a real live owner can supply them.
+            // Explicitly missing current input never falls back to saved-revision history.
+            return owners && editorRuntimeBinding === owners.binding
+                ? owners.readAttribution().responsibility : null;
+        },
+        readCurrentSiteAuthor: () => siteConfig.value?.author
+    });
+
     const articlePreviewGeneration = useArticlePreviewGeneration({
         target: privatePreview,
         documentContext: articleDocumentContextAdapter,
@@ -1239,14 +1262,7 @@ export function useAdminArticleWrite()
             {
                 throw new Error('article-preview-owner-unavailable');
             }
-            return ArticlePreviewSourceAdmission.attachRuntime(owners.binding, () => ({
-                context: articleDocumentContextAdapter.context,
-                source: articleForm.content,
-                ...owners.readAttribution(),
-                // Bounded lifecycle history invalidates requests; the business owner supplies current inventory.
-                attachmentLifecycleHistory: authoringAttachments.lifecycleReceipts,
-                authoringInputDigest: calculateOpenArticleDocumentDigest(currentPrepublishIdentity())
-            }));
+            return ArticlePreviewSourceAdmission.attachRuntime(owners.binding, previewCurrentAuthorities.read);
         },
         readRequest: () => buildServerDraftRequest(
             buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
@@ -2275,6 +2291,7 @@ export function useAdminArticleWrite()
         {
             await previewTask.run(async (signal) =>
             {
+                await previewCurrentAuthorities.refresh(signal);
                 const preview = await articlePreviewGeneration.generate(signal);
                 if (!preview)
                 {
@@ -3268,6 +3285,7 @@ export function useAdminArticleWrite()
         disposeArticleRecoveryLifecycle?.();
         disposeArticleRecoveryLifecycle = null;
         recoveryCoordinator.dispose();
+        previewCurrentAuthorities.dispose();
         releaseEditorRuntime?.();
         attachmentEditor = null;
         authoringAttachments.dispose();
@@ -3333,6 +3351,7 @@ export function useAdminArticleWrite()
         privatePreviewLoading,
         privatePreviewStatusText,
         privatePreviewAttachmentState: articlePreviewGeneration.attachmentState,
+        privatePreviewCurrentAuthorities: previewCurrentAuthorities,
         canGeneratePrivatePreview,
         aiAssist,
         aiAssistLoading,
