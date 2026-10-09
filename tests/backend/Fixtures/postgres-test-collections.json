@@ -189,7 +189,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 576,
+      "estimatedFacts": 581,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -547,6 +547,10 @@
         {
           "path": "Unit/BlacklistServiceMutationTests.cs",
           "class": "BlacklistServiceMutationTests"
+        },
+        {
+          "path": "Unit/AdminFixtureSessionIssuanceTests.cs",
+          "class": "TypedAdminSessionWriterDatabaseTests"
         }
       ]
     }
