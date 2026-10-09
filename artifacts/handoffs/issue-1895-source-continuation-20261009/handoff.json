@@ -1,6 +1,6 @@
 {
   "schema": "fsusblog.chain-1895-source-continuation-handoff.v1",
-  "generatedAtUtc": "2026-10-09T10:53:42.835760+00:00",
+  "generatedAtUtc": "2026-10-09T10:55:46.499503+00:00",
   "scope": "ordinary canonical AST source implementation and exact selected source regressions; no production inventory/receipt or qualification run",
   "qualificationEligible": false,
   "fullVisualVerified": false,
@@ -35,7 +35,7 @@
       "ordinarySourceVerificationOnly": true,
       "qualificationEligible": false,
       "receipt": "object-key-positive-committed.result.json",
-      "log": "object-key-positive-committed.log",
+      "log": "object-key-positive-committed.txt",
       "logSha256": "772b7671c0c26f05a33cafecddbb1b18ce640a7ddf88aa852ebd04814ae40599"
     },
     {
@@ -48,7 +48,7 @@
       "ordinarySourceVerificationOnly": true,
       "qualificationEligible": false,
       "receipt": "object-props-positive-committed.result.json",
-      "log": "object-props-positive-committed.log",
+      "log": "object-props-positive-committed.txt",
       "logSha256": "2525ab120213a4531427ff82391db624fb830c6c9a2a76779afc12abf6f6a8f7"
     },
     {
@@ -61,7 +61,7 @@
       "ordinarySourceVerificationOnly": true,
       "qualificationEligible": false,
       "receipt": "returned-props-positive-committed.result.json",
-      "log": "returned-props-positive-committed.log",
+      "log": "returned-props-positive-committed.txt",
       "logSha256": "b84a990bde24f687b843d990bbaf1f96b5f3c8eebdbe837496259527c0a6e4e3"
     },
     {
@@ -74,7 +74,7 @@
       "ordinarySourceVerificationOnly": true,
       "qualificationEligible": false,
       "receipt": "render-declarations-positive-committed.result.json",
-      "log": "render-declarations-positive-committed.log",
+      "log": "render-declarations-positive-committed.txt",
       "logSha256": "c6e6b64a8c8a54672742dd492388e7554411aab1af655415cfb8c7b7131b1cc0"
     },
     {
@@ -87,7 +87,7 @@
       "ordinarySourceVerificationOnly": true,
       "qualificationEligible": false,
       "receipt": "standalone-props-positive-committed.result.json",
-      "log": "standalone-props-positive-committed.log",
+      "log": "standalone-props-positive-committed.txt",
       "logSha256": "ad544a70c86f8605936908c89bd5fad5e61bc599c5bd2c9e2b55924cbcac89cf"
     },
     {
@@ -100,7 +100,7 @@
       "ordinarySourceVerificationOnly": true,
       "qualificationEligible": false,
       "receipt": "render-conjunction-positive-committed.result.json",
-      "log": "render-conjunction-positive-committed.log",
+      "log": "render-conjunction-positive-committed.txt",
       "logSha256": "c159589fd46be49e7af4262768d788f86ba090737a341e07da249542dfcebcf2"
     }
   ],
@@ -108,11 +108,17 @@
     {
       "attempt": "object-key-failed-first.result.json",
       "exitCode": 1,
+      "portableLog": "object-key-failed-first.txt.gz",
+      "logEncoding": "gzip",
+      "originalLogSha256": "0d91efd1bc3890c75e14a68619cec4dab183bce05f9031e9f0f7af3a87c9520a",
       "status": "retained failed ordinary attempt; corrected before the clean committed passing run; never qualification evidence"
     },
     {
       "attempt": "render-declarations-failed-first.result.json",
       "exitCode": 1,
+      "portableLog": "render-declarations-failed-first.txt.gz",
+      "logEncoding": "gzip",
+      "originalLogSha256": "3876db199186e63fa6d9761c688f68b40469d770de065a7140bdb7cadd92d299",
       "status": "retained failed ordinary attempt; corrected before the clean committed passing run; never qualification evidence"
     },
     {
