@@ -138,6 +138,11 @@ claim qualification. The returned callbacks are private capabilities, not portab
 JSON evidence. The original framework prerequisite is
 `2eda290cc6098971b685b3fb1465d7193bd3dde2`; later sole-owner input-admission and
 publication corrections already consumed in this stack remain unchanged.
+Original source binding `f39efa540fa257250c52f4b59d972ccb7db315fd` now verifies
+this consumer's complete five-file `39466f9a3a4714b5b58cd4c75a8baa69588e9c9e`
+combination, while retaining the original complete `2eda290c` combination.
+It chooses by exact execution bytes and checks all five files against that same
+commit; no per-file fallback or arbitrary execution source is admitted.
 Source availability does not establish runtime acceptance. Genuine owner inputs
 for both preparation calls remain unavailable here, so their dynamic identity,
 context and no-dispatch controls are explicitly UNRUN. No synthetic authority
