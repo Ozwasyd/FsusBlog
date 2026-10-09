@@ -1,0 +1,15 @@
+{
+    "command": [
+        "markdownlint-cli2",
+        "artifacts/article-packages/chain-3663-site-reader-consumer-20261009/README.md",
+        "artifacts/article-packages/chain-3663-site-reader-consumer-20261009/authenticated-read-handoff.md"
+    ],
+    "testedSha": "d49a430828354760ec42463d98739babdbec9312",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T12:59:17.204202+00:00",
+    "endUtc": "2026-10-09T12:59:21.014165+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/markdown-new-evidence.log"
+}

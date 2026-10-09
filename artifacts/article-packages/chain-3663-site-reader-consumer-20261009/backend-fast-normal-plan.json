@@ -1,0 +1,17 @@
+{
+    "command": [
+        "bash",
+        "tools/test.sh",
+        "ci-tier",
+        "backend-fast",
+        "--plan-only"
+    ],
+    "testedSha": "3c236f9f716de3b893cb55f7689df2fe47a371aa",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T12:48:26.456183+00:00",
+    "endUtc": "2026-10-09T12:51:19.261703+00:00",
+    "exitCode": 1,
+    "shaUnchanged": false,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/backend-fast-normal-plan.log"
+}

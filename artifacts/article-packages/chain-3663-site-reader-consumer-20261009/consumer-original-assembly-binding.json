@@ -1,0 +1,12 @@
+{
+    "current": "d49a430828354760ec42463d98739babdbec9312",
+    "builtSourceCandidate": "b3ca61d85167246cd6f40a49d4d0e2b2ba55f73a",
+    "onlyChangesAfterBuild": "authority generation and commit footers; all C# inputs unchanged",
+    "assemblies": {
+        "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "e2e8962e1e6a0f5f8f9cf60f7f0a11c5b83bb97cc376ebd69601635df0f86bb5",
+        "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "72bb3680db4e8ddc6a8db1b3fc9e9e0143c4118ac34d7903f2d03378e9b2e632",
+        "src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll": "a065af712e8e9cd6dcb63d751ab3d69dc3bc7760b4dc9303eb257555ae035f06"
+    },
+    "methodCount": 9,
+    "expectedCaseCount": 21
+}

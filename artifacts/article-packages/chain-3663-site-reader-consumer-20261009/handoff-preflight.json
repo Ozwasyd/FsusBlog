@@ -1,0 +1,42 @@
+{
+    "capturedUtc": "2026-10-09T12:37:38.241849+00:00",
+    "base": "31e069e28571cf12ec98e7545e90a9e917569845",
+    "masterReadOnly": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "canonicalSupplier": "467857b3cc88aaa2916159552c24088f6f9910b8",
+    "selectedDeclarationsOnly": [
+        {
+            "path": "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+            "preimage": "absent",
+            "supplierBlob": "63e994b7d0ffaae47f7cfc4ed6b364bf8a3a863a",
+            "sha256": "ee6371258149f8fc98b5540b7092a8751cde8adca73e22d405d7fc4c411159c6"
+        },
+        {
+            "path": "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+            "preimage": "absent",
+            "supplierBlob": "9d7eec38f591428b45637994785b61bf227ce13a",
+            "sha256": "dfee059d43725064e6fc345e6a57cd73520005b4dc60ed0234244181bc2b1ba8"
+        }
+    ],
+    "implementationLifecycleOwnerTestsAndDocsNotConsumed": true,
+    "canonicalQualificationPending": true,
+    "noDIOrRouteRegistration": true,
+    "frontendSupplier": "3335910dee5e67e446167ec3b3d875912a908709",
+    "frontendNewTwoNotConsumed": true,
+    "frontendExistingModuleMismatch": [
+        {
+            "path": "src/frontend/src/api/types/articlePackageCandidateReview.ts",
+            "ownBlob": "545fce7f5c8ba019ad9cf8f2211d19e30b64d082",
+            "controllerExpectedBlob": "904f677f36eb288c1c03d394100da4fcd357943e"
+        },
+        {
+            "path": "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue",
+            "ownBlob": "c80fe791006c040c0d7eb49d1587868fd21c9d23",
+            "controllerExpectedBlob": "2fdd8ce34e1c4f1c4ea4658b0ef639d37a59d807"
+        },
+        {
+            "path": "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts",
+            "ownBlob": "99256efb3998dfe123eb9dcc95da97f90b63d0ef",
+            "controllerExpectedBlob": "1abc4fbe31a9b380e53061731cf6c60f6d04e091"
+        }
+    ]
+}

@@ -1,0 +1,20 @@
+{
+    "command": [
+        "dotnet",
+        "format",
+        "whitespace",
+        "--folder",
+        "--include",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewReadContracts.cs",
+        "src/backend/Services/Authoring/ArticlePackageCandidateReviewReadService.cs",
+        "tests/backend/Unit/ArticlePackageCandidateReviewReadServiceTests.cs"
+    ],
+    "testedSha": "51c1f793e3dc0149a1d05bfc79e1c6432a9b0ac8",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T12:44:03.950573+00:00",
+    "endUtc": "2026-10-09T12:44:05.875332+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/consumer-format.log"
+}

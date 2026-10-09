@@ -1,0 +1,11 @@
+--- a/src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs
++++ b/src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs
+@@ -149,6 +149,8 @@
+     private static IServiceCollection AddGeneralDomainServices(this IServiceCollection services)
+     {
+         services.AddScoped<SystemService>();
++        services.AddScoped<ISystemSiteIdentityReader>(sp => sp.GetRequiredService<SystemService>());
++        services.AddScoped<ArticlePackageCandidateReviewReadService>();
+         services.AddSingleton<IReadAnalyticsPrivacyPolicy, ReadAnalyticsPrivacyPolicy>();
+         services.AddScoped<StatsService>();
+         services.AddScoped<AuthoringAnalyticsReadService>();

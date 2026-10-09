@@ -1,0 +1,30 @@
+{
+    "currentSource": "d49a430828354760ec42463d98739babdbec9312",
+    "master": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "SDK": "10.0.302",
+    "sdkBinarySha256": "55117d7d1f27537ee6e7a81b8b9f84f0b50c8cbd2d1d1e21684c31db1518230a",
+    "priorEvidencePathsUnchanged": true,
+    "oldRunsNotRetargeted": true,
+    "publication": "source branch only; parent owns PR metadata",
+    "canonicalReaderQualification": false,
+    "newBoundedConsumerControlledQualificationOnly": true,
+    "fullMatrixRuntime": "not run",
+    "activation": "no endpoint or DI registered",
+    "confirmedFrozenSixBlobs": {
+        "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateReviewContracts.cs": "e36842251889f60ca1d59b26d566444ca5b245d3",
+        "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProjection.cs": "64712805fcc89d0b5d77341437883553a7fa3ed3",
+        "tests/backend/Unit/ArticlePackageImportCandidateReviewProjectionTests.cs": "5a6e12b5ab55bff67378674df76d64c865df2588",
+        "src/frontend/src/api/types/articlePackageCandidateReview.ts": "545fce7f5c8ba019ad9cf8f2211d19e30b64d082",
+        "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue": "c80fe791006c040c0d7eb49d1587868fd21c9d23",
+        "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts": "99256efb3998dfe123eb9dcc95da97f90b63d0ef"
+    },
+    "inventorySha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+    "inventoryTopKeys": [
+        "schema",
+        "generatedBy",
+        "sourceDigests",
+        "entries",
+        "contentDigest"
+    ],
+    "inventoryUnchanged": true
+}

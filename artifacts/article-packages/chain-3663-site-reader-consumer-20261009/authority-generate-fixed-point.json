@@ -1,0 +1,14 @@
+{
+    "command": [
+        "node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "testedSha": "d49a430828354760ec42463d98739babdbec9312",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T12:54:29.205121+00:00",
+    "endUtc": "2026-10-09T12:56:05.457323+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/authority-generate-fixed-point.log"
+}

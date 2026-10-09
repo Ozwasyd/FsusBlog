@@ -1,0 +1,22 @@
+{
+    "onlyUnpublishedMetadataChanged": true,
+    "base": "51c1f793e3dc0149a1d05bfc79e1c6432a9b0ac8",
+    "rows": [
+        {
+            "supersededUnpublished": "3c236f9f716de3b893cb55f7689df2fe47a371aa",
+            "replacement": "baecbfae9a3c223e1817867ec78a91842a9c39db",
+            "identicalTree": "10f6af7151211ad5b965ceddf47d4582cef1a5da"
+        },
+        {
+            "supersededUnpublished": "b3ca61d85167246cd6f40a49d4d0e2b2ba55f73a",
+            "replacement": "40f163e5e121a3005b0aec73fb85be3ead2b6cd5",
+            "identicalTree": "0fcfc23c3f9f10df09bc8b747e761410bd4e0ef1"
+        },
+        {
+            "supersededUnpublished": "b38c5017d80e7ca130a7457ce082cb8e3c4b45b7",
+            "replacement": "d49a430828354760ec42463d98739babdbec9312",
+            "identicalTree": "4e75f655290b5243537348f6310b50428ff619b7"
+        }
+    ],
+    "oldRuntimeReceiptsRemainBoundToOldHashes": true
+}

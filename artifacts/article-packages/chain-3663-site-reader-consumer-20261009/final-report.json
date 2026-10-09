@@ -1,0 +1,293 @@
+{
+    "capturedUtc": "2026-10-09T12:58:27.310428+00:00",
+    "sourceCandidate": "d49a430828354760ec42463d98739babdbec9312",
+    "branch": "codex/chain-3663-group-property-recheck",
+    "verifiedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "publishedSourceRemoteSha": "d49a430828354760ec42463d98739babdbec9312",
+    "issueStates": {
+        "3663": {
+            "accepted": false,
+            "state": "open",
+            "status": "Original31 PASS31/31 remains bound to74c without rerun. PR3664 merge7ea66add is current-master ancestor. Canonical inherited-cgroup source consumed, own authority generator fixed point and226 inventory unchanged. Original memory sample PASS on d49; normal matrix plan PASS on current d49 (plan-only; no full runtime matrix). Full required matrix, independent exact delivery/current-master review, required PR gates and master acceptance remain unaccepted."
+        },
+        "2398": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: sole finite codec, version registry, property/metadata/taxonomy/asset components implemented; accepted complete V1 root and legitimate source admission remain."
+        },
+        "2408": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same finite components and selected historical DTO bridge; complete manifests/provenance/privacy/version acceptance remain."
+        },
+        "2400": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: finite frozen export writer/property planner; complete canonical source, assets, frozen/permission/runtime gate remain."
+        },
+        "2410": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same finite export source; original frozen plan and accepted schema/export runtime remain."
+        },
+        "2402": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: finite intake/bytes/ZIP source exists; accepted export/schema and formal complete preflight remain."
+        },
+        "2411": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: finite intake exists; original full schema/rights/plan preflight unaccepted."
+        },
+        "2404": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted preflight and real resolution/definition/permission inputs missing."
+        },
+        "2413": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted preflight and canonical resolution/replan authority missing."
+        },
+        "2405": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted plan and canonical atomic executor/rollback/recovery/outbox/audit gates missing."
+        },
+        "2415": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted plan and original execution/recovery/permission authority missing."
+        },
+        "2406": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: exact canonical reader declarations consumed from467857b3; owner implementation/storage/lifecycle/qualification not imported. Separately identified inactive typed consumer/source adaptation requires actual Current, exact configured approved scope and unchanged generation/mapping/scope revisions, calls original producer, preserves refusal/execution-disabled semantics. Original project build0errors/1511warnings, exact9methods21cases PASS21/21 on d49. This is controlled consumer coverage only. No endpoint/DI/frame allocation, canonical storage qualification or real UI activation. Two-line shared DI proposal handed only to3735. Frontend333 new controller requires three revised exact dependency sources; current frozen six preserved. Original26/31/813/20 receipts remain at their actual SHAs. Complete preflight/resolution/execution/UX acceptance remains."
+        },
+        "2418": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: exact canonical reader declarations consumed from467857b3; owner implementation/storage/lifecycle/qualification not imported. Separately identified inactive typed consumer/source adaptation requires actual Current, exact configured approved scope and unchanged generation/mapping/scope revisions, calls original producer, preserves refusal/execution-disabled semantics. Original project build0errors/1511warnings, exact9methods21cases PASS21/21 on d49. This is controlled consumer coverage only. No endpoint/DI/frame allocation, canonical storage qualification or real UI activation. Two-line shared DI proposal handed only to3735. Frontend333 new controller requires three revised exact dependency sources; current frozen six preserved. Original26/31/813/20 receipts remain at their actual SHAs. Complete preflight/resolution/execution/UX acceptance remains."
+        },
+        "2407": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted replacement and migration acceptance absent; no legacy retirement."
+        },
+        "2409": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: terminal whole-chain/native/mutation/performance/caption acceptance."
+        },
+        "2420": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: terminal whole-chain qualification and independent runtime acceptance."
+        }
+    },
+    "trackingIssues": [],
+    "allAccepted": false,
+    "canonicalSiteReadOwner": "01a12083-5888-74c3-bd48-2d091c82b02d",
+    "externalRequests": [
+        "Canonical source467857b3 independent security/compatibility review and real PostgreSQL collection qualification",
+        "Frontend333 source supplier must provide exact revised three dependencies and original full8-module evidence",
+        "Root3735 must review shared-only DI proposal and allocate closed AEDS frame pair through actual ABI owners"
+    ],
+    "publicationMetadataWrites": false,
+    "finalReviewMergeStage": false,
+    "oldReceiptsRetargeted": false,
+    "noNativeDatabaseRuntimeClaim": true,
+    "checks": {
+        "consumer-original-project-build": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "--no-restore",
+                "--no-incremental"
+            ],
+            "testedSha": "b3ca61d85167246cd6f40a49d4d0e2b2ba55f73a",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T12:49:05.130948+00:00",
+            "endUtc": "2026-10-09T12:51:45.273234+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/consumer-original-project-build.log"
+        },
+        "consumer-style": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+                "--root",
+                "/workspace/FsusBlog-group-property-recheck-3663",
+                "--mode",
+                "strict-full",
+                "--file",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewReadContracts.cs",
+                "--file",
+                "src/backend/Services/Authoring/ArticlePackageCandidateReviewReadService.cs",
+                "--file",
+                "tests/backend/Unit/ArticlePackageCandidateReviewReadServiceTests.cs"
+            ],
+            "testedSha": "3c236f9f716de3b893cb55f7689df2fe47a371aa",
+            "cleanBefore": false,
+            "startUtc": "2026-10-09T12:48:26.456245+00:00",
+            "endUtc": "2026-10-09T12:48:33.142633+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": false,
+            "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/consumer-style.log"
+        },
+        "current-memory-original": {
+            "command": [
+                "node",
+                "--input-type=module",
+                "-e",
+                "import {sampleLinuxCgroupV2HeadroomBytes} from './tools/test/system-memory.mjs'; console.log(JSON.stringify({headroomBytes:sampleLinuxCgroupV2HeadroomBytes()}));"
+            ],
+            "testedSha": "d49a430828354760ec42463d98739babdbec9312",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T12:54:28.923761+00:00",
+            "endUtc": "2026-10-09T12:54:28.989965+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/current-memory-original.log"
+        },
+        "consumer-original-discovery": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "test",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "--no-build",
+                "--no-restore",
+                "--list-tests",
+                "--filter",
+                "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CurrentExactScope_UsesOriginalProducerAndPreservesObservedCoordinates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.FinalRevisionDrift_IsRefusedEvenWhenIdentityIsUnchanged|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.StatelessReplay_RequiresSamePlanAndContextRatherThanRefreshingThem|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.PermissionDenialAndOversizeEnvelope_DoNotCallReader|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.ScopeChangeAfterProjection_IsRefusedWithoutUrlNormalization|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.UpdateHint_Int64StaysExactAndExecutionStillHasNoAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CancelAndOwnerFailure_NeverFabricateBindingOrDefaultIdentity"
+            ],
+            "testedSha": "d49a430828354760ec42463d98739babdbec9312",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T12:54:44.680339+00:00",
+            "endUtc": "2026-10-09T12:54:48.052892+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/consumer-original-discovery.log"
+        },
+        "consumer-original21": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "test",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "--no-build",
+                "--no-restore",
+                "--filter",
+                "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CurrentExactScope_UsesOriginalProducerAndPreservesObservedCoordinates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.IncompleteOrAmbiguousCurrentBinding_IsRefused|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.FinalRevisionDrift_IsRefusedEvenWhenIdentityIsUnchanged|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.StatelessReplay_RequiresSamePlanAndContextRatherThanRefreshingThem|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.PermissionDenialAndOversizeEnvelope_DoNotCallReader|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.ScopeChangeAfterProjection_IsRefusedWithoutUrlNormalization|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.UpdateHint_Int64StaysExactAndExecutionStillHasNoAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests.CancelAndOwnerFailure_NeverFabricateBindingOrDefaultIdentity",
+                "--logger",
+                "trx;LogFileName=consumer-original21.trx",
+                "--results-directory",
+                "/workspace/chain-3663-evidence/site-reader-consumer-20261009/trx"
+            ],
+            "testedSha": "d49a430828354760ec42463d98739babdbec9312",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T12:55:16.886303+00:00",
+            "endUtc": "2026-10-09T12:55:20.373466+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/consumer-original21.log"
+        },
+        "authority-generate-fixed-point": {
+            "command": [
+                "node",
+                "tools/test-matrix/generate-release-final-execution-authority.mjs"
+            ],
+            "testedSha": "d49a430828354760ec42463d98739babdbec9312",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T12:54:29.205121+00:00",
+            "endUtc": "2026-10-09T12:56:05.457323+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/authority-generate-fixed-point.log"
+        },
+        "inventory-original-current": {
+            "command": [
+                "node",
+                "tools/test/generate-correctness-attempt-producers.mjs",
+                "--write"
+            ],
+            "testedSha": "b38c5017d80e7ca130a7457ce082cb8e3c4b45b7",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T12:52:25.079320+00:00",
+            "endUtc": "2026-10-09T12:52:25.196391+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/inventory-original-current.log"
+        },
+        "backend-fast-plan-footer-candidate": {
+            "command": [
+                "bash",
+                "tools/test.sh",
+                "ci-tier",
+                "backend-fast",
+                "--plan-only"
+            ],
+            "testedSha": "d49a430828354760ec42463d98739babdbec9312",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T12:56:31.941990+00:00",
+            "endUtc": "2026-10-09T12:58:10.148714+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/backend-fast-plan-footer-candidate.log"
+        },
+        "source-change-contract-corrected": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-source-pr-handoff-3663/tools/governance/check-change-contract.mjs",
+                "--root",
+                "/workspace/FsusBlog-group-property-recheck-3663",
+                "--range",
+                "31e069e28571cf12ec98e7545e90a9e917569845..HEAD"
+            ],
+            "testedSha": "d49a430828354760ec42463d98739babdbec9312",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T12:54:45.852606+00:00",
+            "endUtc": "2026-10-09T12:54:47.413315+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/source-change-contract-corrected.log"
+        },
+        "markdown-new-evidence-scoped": {
+            "command": [
+                "markdownlint-cli2",
+                "--config",
+                ".markdownlint-cli2.jsonc",
+                "--no-globs",
+                ":artifacts/article-packages/chain-3663-site-reader-consumer-20261009/README.md",
+                ":artifacts/article-packages/chain-3663-site-reader-consumer-20261009/authenticated-read-handoff.md"
+            ],
+            "testedSha": "d49a430828354760ec42463d98739babdbec9312",
+            "cleanBefore": false,
+            "startUtc": "2026-10-09T12:59:57.153562+00:00",
+            "endUtc": "2026-10-09T12:59:57.378864+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": false,
+            "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/markdown-new-evidence-scoped.log"
+        }
+    },
+    "oldNegativesRetained": [
+        "backend-fast-normal-plan: original stale authority drift; HEAD changed during run, no candidate acceptance",
+        "source-change-contract: missing required Refs footers; corrected metadata only, identical corresponding trees",
+        "markdown-new-evidence: default inherited repo globs linted364 files and reported741 unrelated issues; original --no-globs exact2 authored markdown scoped entry passes; full-repo lint remains unwaived"
+    ]
+}

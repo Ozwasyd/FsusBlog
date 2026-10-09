@@ -1,0 +1,26 @@
+{
+    "candidate": "b3ca61d85167246cd6f40a49d4d0e2b2ba55f73a",
+    "files": {
+        "tests/backend/FsusBlog.Server.Tests.csproj": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c",
+        "tests/backend/xunit.runner.json": "8c79472a6d99eb1a7b26c4f748ab2d4ba5b27e748eba2ccf3301164c04d4fafa",
+        "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b",
+        "tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs": "3ef41868a0c41c1784ec9f3a51b16aa67c17a18be76ca3f36e4e9d4571d8fcb9",
+        "tests/backend/Unit/ArticlePackageCandidateReviewReadServiceTests.cs": "753a378530602ba9281dcb1a55f4153bb996161d8346105fe14e7f180a5d26cd",
+        "src/backend/Services/Authoring/ArticlePackageCandidateReviewReadService.cs": "cd13a3ff651968e26199055ce21212fe35a16f329834b4f1c090484ee1ad1163",
+        "src/shared/Contracts/ArticlePackages/ArticlePackageCandidateReviewReadContracts.cs": "c4d13a13d572fcd061cdbee6409c4767ab9c470d0f418beaceea124e2b80ddad",
+        "tools/test/system-memory.mjs": "7e377cfcd57840bf14b331550ed5f6708fde4267d06cfe0f2c6dacf06ece3a0f",
+        "tools/test/linux-cgroup-membership-locator.mjs": "3259491565c99b67f92ef1ac30f4661eb1ba72139e26583bb7871c593d219857"
+    },
+    "originalProject": true,
+    "moduleInitializer": {
+        "file": "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs",
+        "optInPresent": false,
+        "default": "returns without subscribing"
+    },
+    "startupObject": "PublicAotCrashWorkerProgram is not invoked by original vstest; no worker command requested",
+    "selectedClass": "FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewReadServiceTests",
+    "facts": 6,
+    "theoryMethods": 3,
+    "expectedDiscoveryCases": 21,
+    "testResources": "Controlled canonical declaration reader, memory ZIP, claims and configuration only. No PostgreSQL, Redis, native provider, HTTP server, store, initializer or registration."
+}

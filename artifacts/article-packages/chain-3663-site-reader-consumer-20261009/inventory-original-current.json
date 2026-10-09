@@ -1,0 +1,15 @@
+{
+    "command": [
+        "node",
+        "tools/test/generate-correctness-attempt-producers.mjs",
+        "--write"
+    ],
+    "testedSha": "b38c5017d80e7ca130a7457ce082cb8e3c4b45b7",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T12:52:25.079320+00:00",
+    "endUtc": "2026-10-09T12:52:25.196391+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/inventory-original-current.log"
+}

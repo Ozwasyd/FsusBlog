@@ -1,0 +1,14 @@
+{
+    "applied": false,
+    "baseBlob": "6138f3b208d98d1392d6511abfff1985630a5f88",
+    "sourceCandidate": "b38c5017d80e7ca130a7457ce082cb8e3c4b45b7",
+    "owner": "root #3735 shared DI and AEDS registry",
+    "activationGates": [
+        "canonical site reader source implementation and independent PostgreSQL collection acceptance",
+        "existing SystemService implements supplied ISystemSiteIdentityReader in the owner branch",
+        "owner allocation and complete ABI registration of dedicated closed request and response frames",
+        "authenticated original authoring endpoint, typed body and response parity tests",
+        "original frontend transport and real rendered review acceptance"
+    ],
+    "frameRegistration": "Request DTO ArticlePackageCandidateReviewReadRequest; response DTO ArticlePackageCandidateReviewReadResponse. No numeric frame value or route is allocated here. Dedicated pair must be assigned by sole registry owner; ContentImportRequest/Response are not substitutes."
+}

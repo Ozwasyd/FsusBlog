@@ -1,0 +1,31 @@
+{
+    "supplier": "8fa5b44107194afe2cdb75caa805219442641270",
+    "exactSourceBlobs": [
+        {
+            "path": "tools/test/system-memory.mjs",
+            "exactSupplierBlob": "93c9f3ee3bb9f1cc2714916c6fdfc2cc0eaa00bd"
+        },
+        {
+            "path": "tools/test/linux-cgroup-membership-locator.mjs",
+            "exactSupplierBlob": "f2aff1f003f3399794735cbd94691dd24917e8c0"
+        },
+        {
+            "path": "tools/test/lanes/static-governance.sh",
+            "exactSupplierBlob": "2ee5e3269c3d0523c5e8ba2de5676b08b1bafb6e"
+        },
+        {
+            "path": "tests/tools/linux-cgroup-membership-locator.test.mjs",
+            "exactSupplierBlob": "15bf17270b303c37eb1165429568fc92757ce100"
+        },
+        {
+            "path": "artifacts/change-contract/issue-2899-locator-external-naming.json",
+            "exactSupplierBlob": "d356eb3cf580d20940a81eb6d79d6244f6c1415b"
+        }
+    ],
+    "registryOnlyChange": "one supplied sole-owner locator entry; unrelated duplicate/classification edits excluded",
+    "independentIndexUnchanged": true,
+    "authorityOwnOriginalProducerFixedPoint": true,
+    "oldSupplierGeneratedAuthorityNotConsumed": true,
+    "sourceOnlyNoHeldQualificationInherited": true,
+    "observedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51"
+}

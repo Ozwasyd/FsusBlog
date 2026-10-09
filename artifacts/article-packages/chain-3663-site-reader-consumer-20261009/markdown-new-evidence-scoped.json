@@ -1,0 +1,18 @@
+{
+    "command": [
+        "markdownlint-cli2",
+        "--config",
+        ".markdownlint-cli2.jsonc",
+        "--no-globs",
+        ":artifacts/article-packages/chain-3663-site-reader-consumer-20261009/README.md",
+        ":artifacts/article-packages/chain-3663-site-reader-consumer-20261009/authenticated-read-handoff.md"
+    ],
+    "testedSha": "d49a430828354760ec42463d98739babdbec9312",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T12:59:57.153562+00:00",
+    "endUtc": "2026-10-09T12:59:57.378864+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/site-reader-consumer-20261009/markdown-new-evidence-scoped.log"
+}

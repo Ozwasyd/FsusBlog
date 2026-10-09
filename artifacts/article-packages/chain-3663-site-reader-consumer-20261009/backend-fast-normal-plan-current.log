@@ -1,0 +1,24 @@
+1. validate-declarations [job=validate-declarations phase=0 resource=cpu cost=low timeout=5m risk=critical]
+   node tools/run-test-matrix.mjs validate-declarations
+2. behavior-doc-static-admission [job=behavior-doc-static-admission phase=1 resource=cpu cost=high timeout=20m risk=critical] executionDeps=validate-declarations
+   node tools/docs/behavior-doc-static-admission.mjs
+3. backend-build-governance [job=fast-backend phase=1 resource=cpu cost=high timeout=35m risk=high] executionDeps=behavior-doc-static-admission
+   tools/test/lanes/backend-build-governance.sh
+4. backend-unit [job=fast-backend phase=1 resource=cpu cost=high timeout=30m risk=high] executionDeps=backend-build-governance
+   tools/test/lanes/backend-unit.sh
+5. distributed-contract-fast [job=fast-backend phase=1 resource=cpu cost=medium timeout=10m risk=high] executionDeps=backend-build-governance
+   tools/test/lanes/distributed-contract-fast.sh
+6. backend-api-integration [job=fast-backend phase=1 resource=cpu cost=high timeout=20m risk=critical] executionDeps=backend-build-governance
+   tools/test/lanes/backend-api-integration.sh
+7. backend-auth-state-machine [job=fast-backend phase=1 resource=cpu cost=high timeout=15m risk=critical] executionDeps=backend-build-governance
+   tools/test/lanes/backend-auth-state-machine.sh
+8. backend-concurrency [job=fast-backend phase=1 resource=cpu cost=medium timeout=15m risk=high] executionDeps=backend-build-governance
+   tools/test/lanes/backend-concurrency.sh
+9. backend-property [job=fast-backend phase=1 resource=cpu cost=medium timeout=15m risk=high] executionDeps=backend-build-governance
+   tools/test/lanes/backend-property.sh
+10. backend-golden [job=fast-backend phase=1 resource=cpu cost=medium timeout=15m risk=high] executionDeps=backend-build-governance
+   tools/test/lanes/backend-golden.sh
+11. backend-fast [job=fast-backend phase=1 resource=io cost=low timeout=5m risk=high] executionDeps=backend-build-governance,backend-unit,distributed-contract-fast,backend-api-integration,backend-auth-state-machine,backend-concurrency,backend-property,backend-golden
+   tools/test/lanes/backend-fast.sh
+(node:263552) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
