@@ -1203,7 +1203,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     origin = ts.isIdentifier(exp) ? nativePropTargets(record, exp.text) : nativeFunctionTargets(record, exp, localNames);
                     if (!origin)
                     {
-                        const targets = resolver.resolveComponentInput(file, exp);
+                        const targets = resolver.resolveComponentInput(file, exp, { templateRefs: true });
                         if (targets.length > 1 && targets.every((target) => target.kind === 'native'))
                         {
                             origin = { kind: 'native-variants', values: [...new Set(targets.map((target) => target.name))] };

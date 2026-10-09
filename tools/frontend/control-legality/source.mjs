@@ -847,7 +847,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         };
         return props ? find(props.node, file) : null;
     };
-    const resolveComponentInput = (file, expression) =>
+    const resolveComponentInput = (file, expression, { templateRefs = false } = {}) =>
     {
         const value = unwrap(expression);
         const record = parse(file);
@@ -860,7 +860,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                     declarationDigest: declaration.declarationDigest }];
             }
         }
-        return resolveExpression(file, expression);
+        return resolveExpression(file, expression, new Set(), templateRefs);
     };
     const finiteComponentBinding = (file, name) =>
     {
@@ -879,7 +879,8 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         function visit(node)
         {
             if (ts.isIdentifier(node) && node.text === name && [ts.SyntaxKind.VariableDeclaration,
-                ts.SyntaxKind.Parameter, ts.SyntaxKind.BindingElement, ts.SyntaxKind.ImportSpecifier, ts.SyntaxKind.ImportClause].includes(node.parent.kind)
+                ts.SyntaxKind.Parameter, ts.SyntaxKind.BindingElement, ts.SyntaxKind.ImportSpecifier, ts.SyntaxKind.ImportClause,
+                ts.SyntaxKind.FunctionDeclaration].includes(node.parent.kind)
                 && node.parent.name === node)
             {
                 bindings.push(node.parent);
@@ -987,7 +988,254 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         return [...new Map(targets.map((target) => [controlDigest(target), target])).values()];
     };
-    const resolveExpression = (file, expression, seen = new Set()) =>
+    const componentFunction = (file, callee, seen = new Set()) =>
+    {
+        if (!ts.isIdentifier(callee))
+        {
+            fail(`${file}: unknown component source function`);
+        }
+        const name = callee.text;
+        const identity = `${file}#${name}`;
+        if (seen.has(identity))
+        {
+            fail(`cyclic component source function ${identity}`);
+        }
+        const next = new Set([...seen, identity]);
+        finiteComponentBinding(file, name);
+        const record = parse(file);
+        const imported = record.imports.get(name);
+        if (imported)
+        {
+            const target = modulePath(imported.specifier, file, mode === 'local' && file.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
+            const exported = typeof target === 'string' ? exportsOf(target).get(imported.name) : null;
+            if (!exported?.file || exported.ambiguous || exported.unresolved)
+            {
+                fail(`unknown component source function import ${identity}`);
+            }
+            const originRecord = parse(exported.file);
+            const identifier = ts.factory.createIdentifier(exported.name);
+            // Use the actual export identity; no function name establishes behavior.
+            return componentFunction(originRecord.file, identifier, next);
+        }
+        const functions = record.scripts.flatMap(({ ast }) => ast.statements.filter((statement) =>
+            ts.isFunctionDeclaration(statement) && statement.name?.text === name));
+        const fn = functions.length === 1 ? functions[0] : unwrap(record.variables.get(name));
+        if (!fn || !(ts.isFunctionDeclaration(fn) || ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))
+            || fn.asteriskToken || fn.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword))
+        {
+            fail(`unknown component source function body ${identity}`);
+        }
+        return { file, fn, name };
+    };
+    const componentSourceStep = (file, node) =>
+    {
+        const script = parse(file).scripts.find(({ ast }) => ast === node.getSourceFile());
+        return { file, offset: script ? script.offset + node.getStart() : null,
+            kind: script ? 'script-source' : 'selector-expression', digest: controlDigest(node.getText()) };
+    };
+    const componentMember = (file, object, property, seen = new Set(), templateRefs = false) =>
+    {
+        object = unwrap(object);
+        const identity = `${file}:${object?.getText() ?? 'missing'}#${property}`;
+        if (!object || seen.has(identity))
+        {
+            fail(`cyclic/unknown component member ${identity}`);
+        }
+        const next = new Set([...seen, identity]);
+        const record = parse(file);
+        const step = componentSourceStep(file, object);
+        if (ts.isIdentifier(object))
+        {
+            finiteComponentBinding(file, object.text);
+            function escaped(node)
+            {
+                const argumentsToCheck = ts.isCallExpression(node) || ts.isNewExpression(node) ? node.arguments ?? []
+                    : ts.isVariableDeclaration(node) && node.initializer ? [node.initializer] : [];
+                if (argumentsToCheck.some((argument) =>
+                {
+                    argument = unwrap(argument);
+                    return (ts.isIdentifier(argument) && argument.text === object.text)
+                        || (ts.isPropertyAccessExpression(argument) && ts.isIdentifier(argument.expression)
+                            && argument.expression.text === object.text && argument.name.text === 'value');
+                }))
+                {
+                    fail(`escaped component member object ${identity}`);
+                }
+                ts.forEachChild(node, escaped);
+            }
+            record.scripts.forEach(({ ast }) => escaped(ast));
+            const imported = record.imports.get(object.text);
+            if (imported)
+            {
+                const target = modulePath(imported.specifier, file, mode === 'local' && file.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
+                const exported = typeof target === 'string' ? exportsOf(target).get(imported.name) : null;
+                if (!exported?.file || exported.ambiguous || exported.unresolved)
+                {
+                    fail(`unknown component member import ${identity}`);
+                }
+                const found = componentMember(exported.file, parse(exported.file).variables.get(exported.name), property, next, templateRefs);
+                return { ...found, steps: [step, ...found.steps] };
+            }
+            const found = componentMember(file, record.variables.get(object.text), property, next, templateRefs);
+            return { ...found, steps: [step, ...found.steps] };
+        }
+        if (ts.isCallExpression(object) && ts.isIdentifier(object.expression))
+        {
+            const imported = record.imports.get(object.expression.text);
+            if (imported?.specifier === 'vue' && imported.name === 'computed')
+            {
+                if (!templateRefs)
+                {
+                    fail(`computed member requires actual template ref unwrapping ${identity}`);
+                }
+                finiteComponentBinding(file, object.expression.text);
+                const fn = object.arguments.length === 1 ? object.arguments[0] : null;
+                if (!fn || !ts.isArrowFunction(fn) || fn.parameters.length || fn.modifiers?.length || ts.isBlock(fn.body))
+                {
+                    fail(`unknown computed component member ${identity}`);
+                }
+                const found = componentMember(file, fn.body, property, next, false);
+                return { ...found, steps: [step, ...found.steps] };
+            }
+            const { file: owner, fn } = componentFunction(file, object.expression);
+            if (object.arguments.length || fn.parameters.length || !ts.isBlock(fn.body) || fn.body.statements.length !== 1
+                || !ts.isReturnStatement(fn.body.statements[0]) || !fn.body.statements[0].expression)
+            {
+                fail(`unknown component object return ${identity}`);
+            }
+            const found = componentMember(owner, fn.body.statements[0].expression, property, next, false);
+            return { ...found, steps: [step, componentSourceStep(owner, fn), ...found.steps] };
+        }
+        if (ts.isObjectLiteralExpression(object) && object.properties.every((field) => ts.isPropertyAssignment(field)
+            && !ts.isComputedPropertyName(field.name) && field.name.text !== '__proto__')
+            && new Set(object.properties.map((field) => field.name.text)).size === object.properties.length)
+        {
+            const selected = object.properties.find((field) => field.name.text === property);
+            if (selected)
+            {
+                return { file, node: selected.initializer, property, steps: [step, componentSourceStep(file, selected)] };
+            }
+        }
+        fail(`unknown component member source ${identity}`);
+    };
+    const componentIdentityReturn = (file, call, seen) =>
+    {
+        const { file: owner, fn } = componentFunction(file, call.expression);
+        const parameter = fn.parameters[0];
+        if (!parameter || !ts.isIdentifier(parameter.name) || parameter.initializer || parameter.dotDotDotToken
+            || call.arguments.length !== fn.parameters.length || call.arguments.some(ts.isSpreadElement) || !ts.isBlock(fn.body))
+        {
+            fail(`${file}: unknown component identity arguments`);
+        }
+        if (call.arguments.slice(1).some((argument) =>
+        {
+            argument = unwrap(argument);
+            return !ts.isStringLiteral(argument) && !ts.isNumericLiteral(argument)
+                && ![ts.SyntaxKind.TrueKeyword, ts.SyntaxKind.FalseKeyword, ts.SyntaxKind.NullKeyword].includes(argument.kind);
+        }))
+        {
+            fail(`${file}: dynamic component identity argument`);
+        }
+        function argumentSource(node, visiting = new Set())
+        {
+            node = unwrap(node);
+            if (!node || !ts.isIdentifier(node) || visiting.has(node.text))
+            {
+                fail(`${file}: unknown component identity input`);
+            }
+            finiteComponentBinding(file, node.text);
+            const record = parse(file);
+            if (record.imports.has(node.text))
+            {
+                return;
+            }
+            argumentSource(record.variables.get(node.text), new Set([...visiting, node.text]));
+        }
+        argumentSource(call.arguments[0]);
+        let returns = 0;
+        function flow(node)
+        {
+            if (ts.isReturnStatement(node))
+            {
+                const returned = unwrap(node.expression);
+                if (!returned || !ts.isIdentifier(returned) || returned.text !== parameter.name.text)
+                {
+                    fail(`${owner}: component identity return changed its argument`);
+                }
+                returns++;
+                return true;
+            }
+            if (ts.isThrowStatement(node))
+            {
+                return true;
+            }
+            if (ts.isIfStatement(node))
+            {
+                const yes = flow(node.thenStatement);
+                const no = node.elseStatement ? flow(node.elseStatement) : false;
+                return yes && no;
+            }
+            if (ts.isBlock(node))
+            {
+                let terminal = false;
+                for (const child of node.statements)
+                {
+                    terminal = flow(child) || terminal;
+                }
+                return terminal;
+            }
+            fail(`${owner}: unknown component identity function flow`);
+        }
+        function unchanged(node)
+        {
+            function root(value)
+            {
+                value = unwrap(value);
+                while (value && (ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value)))
+                {
+                    value = unwrap(value.expression);
+                }
+                return value && ts.isIdentifier(value) ? value.text : null;
+            }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment && root(node.left) === parameter.name.text)
+            {
+                fail(`${owner}: mutated component identity argument`);
+            }
+            if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+                && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) && root(node.operand) === parameter.name.text)
+            {
+                fail(`${owner}: mutated component identity argument`);
+            }
+            if (ts.isDeleteExpression(node) && root(node.expression) === parameter.name.text)
+            {
+                fail(`${owner}: mutated component identity argument`);
+            }
+            if (ts.isFunctionLike(node))
+            {
+                fail(`${owner}: nested component identity argument flow`);
+            }
+            if ((ts.isCallExpression(node) || ts.isNewExpression(node))
+                && node.arguments?.some((argument) => root(argument) === parameter.name.text))
+            {
+                fail(`${owner}: escaped component identity argument`);
+            }
+            ts.forEachChild(node, unchanged);
+        }
+        unchanged(fn.body);
+        if (!flow(fn.body) || !returns)
+        {
+            fail(`${owner}: component identity function may fall through`);
+        }
+        const targets = resolveExpression(file, call.arguments[0], seen);
+        if (targets.some((target) => !['local', 'fsusui-public', 'upstream-internal'].includes(target.kind)))
+        {
+            fail(`${file}: component identity input has no actual component source`);
+        }
+        return targets.map((target) => ({ ...target, identityFunction: { ...componentSourceStep(owner, fn),
+            parameter: parameter.name.text, call: componentSourceStep(file, call) } }));
+    };
+    const resolveExpression = (file, expression, seen = new Set(), templateRefs = false) =>
     {
         const record = parse(file);
         if (!expression)
@@ -996,7 +1244,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         if (ts.isParenthesizedExpression(expression) || ts.isAsExpression(expression) || ts.isSatisfiesExpression(expression))
         {
-            return resolveExpression(file, expression.expression, seen);
+            return resolveExpression(file, expression.expression, seen, templateRefs);
         }
         if (ts.isIdentifier(expression))
         {
@@ -1020,7 +1268,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                 {
                     return [{ kind: 'local', file, name }];
                 }
-                return resolveExpression(file, record.variables.get(name), new Set([...seen, name]));
+                return resolveExpression(file, record.variables.get(name), new Set([...seen, name]), templateRefs);
             }
         }
         if (ts.isStringLiteral(expression))
@@ -1029,7 +1277,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         if (ts.isConditionalExpression(expression))
         {
-            return [...resolveExpression(file, expression.whenTrue, seen), ...resolveExpression(file, expression.whenFalse, seen)];
+            return [...resolveExpression(file, expression.whenTrue, seen, templateRefs), ...resolveExpression(file, expression.whenFalse, seen, templateRefs)];
         }
         if (ts.isPropertyAccessExpression(expression) && ts.isIdentifier(expression.expression))
         {
@@ -1038,6 +1286,38 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             {
                 return [resolveImport(file, { ...imported, name: expression.name.text }, seen)];
             }
+            const selected = componentMember(file, expression.expression, expression.name.text, new Set(), templateRefs);
+            function protectMember(node, visiting = new Set())
+            {
+                node = unwrap(node);
+                if (ts.isIdentifier(node))
+                {
+                    if (visiting.has(node.text))
+                    {
+                        fail(`${selected.file}: cyclic component member value`);
+                    }
+                    finiteComponentBinding(selected.file, node.text);
+                    const value = parse(selected.file).variables.get(node.text);
+                    if (value)
+                    {
+                        protectMember(value, new Set([...visiting, node.text]));
+                    }
+                }
+                else if (ts.isConditionalExpression(node))
+                {
+                    protectMember(node.whenTrue, new Set(visiting));
+                    protectMember(node.whenFalse, new Set(visiting));
+                }
+                else if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+                    && parse(selected.file).imports.get(node.expression.text)?.specifier === 'vue'
+                    && parse(selected.file).imports.get(node.expression.text)?.name === 'computed')
+                {
+                    fail(`${selected.file}: nested computed member is not a component value`);
+                }
+            }
+            protectMember(selected.node);
+            return resolveExpression(selected.file, selected.node, seen).map((target) => ({ ...target,
+                memberSource: { property: selected.property, steps: selected.steps } }));
         }
         if (ts.isCallExpression(expression) && ts.isIdentifier(expression.expression)
             && record.imports.get(expression.expression.text)?.specifier === 'vue'
@@ -1068,6 +1348,10 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             {
                 return [{ kind: 'local', file, name: 'inline@' + expression.pos }];
             }
+        }
+        if (ts.isCallExpression(expression) && ts.isIdentifier(expression.expression))
+        {
+            return componentIdentityReturn(file, expression, seen);
         }
         fail(`${file}: unresolved component expression ${expression.getText()}`);
     };
@@ -1585,7 +1869,7 @@ export function scanControlLegality({ repositoryRoot, resolver, registry, testCa
                         {
                             fail('dynamic component parser failure');
                         }
-                        sourcesForDynamic = resolver.resolveExpression(file, ast.statements[0].expression.expression);
+                        sourcesForDynamic = resolver.resolveExpression(file, ast.statements[0].expression.expression, new Set(), true);
                     }
                     else if (attrs.has('is'))
                     {

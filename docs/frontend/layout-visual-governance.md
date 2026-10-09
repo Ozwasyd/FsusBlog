@@ -255,6 +255,18 @@ local alternatives remain local. Source traversal follows that finite closure
 and rejects rendered sources outside it. It does not pick a branch or establish
 product state, visibility, legality admission or qualification.
 
+A selected component member may follow a closed immutable object and an actual
+imported zero-argument getter with one object return. A source identity guard
+must return its unchanged actual component input on every non-throwing path;
+its other arguments must be literal values. Proofs retain the actual member,
+getter and guard source steps/digests. Unknown functions, getters, spreads,
+prototype keys, mutations, escapes, changed arguments and nested component refs
+remain errors. Computed object ref unwrapping is permitted only by the explicit
+Vue template-input path, not ordinary script expressions. Synthetic selector
+expressions have a null source offset; actual script steps bind their original
+file offsets. This does not register the resulting product component or grant
+its children public identity, runtime behavior or qualification.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;
