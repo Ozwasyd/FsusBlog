@@ -6,7 +6,7 @@ diff --git a/.github/workflows/quality-gate.yml b/.github/workflows/quality-gate
      FSUSBLOG_CI_STAGE: ${{ github.event_name == 'pull_request' && (vars.FSUSBLOG_CI_STAGE || 'qualification') || 'qualification' }}
      FSUSBLOG_TEST_RUN_ID: quality-gate-${{ github.run_id }}-${{ github.run_attempt }}
 -    GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
- 
+
  jobs:
      validate-declarations:
 @@ -727,7 +726,6 @@
@@ -55,7 +55,7 @@ diff --git a/ops/docker/FsusBlog.Server.Dockerfile b/ops/docker/FsusBlog.Server.
 @@ -329,8 +329,7 @@
  COPY tools/security/comment-privacy-build-contract.mjs /tools/security/comment-privacy-build-contract.mjs
  COPY tools/test-matrix/ /tools/test-matrix/
- 
+
 -RUN --mount=type=secret,id=github_packages_token \
 -    /bin/sh -lc 'set -eu; \
 +RUN /bin/sh -lc 'set -eu; \
@@ -95,5 +95,5 @@ diff --git a/tools/build-final-image.sh b/tools/build-final-image.sh
      -t "$IMAGE_TAG" \
 -    --secret id=github_packages_token,env=GITHUB_PACKAGES_TOKEN \
      "$ROOT_DIR"
- 
+
  image_inspect_json="$(docker image inspect "$IMAGE_TAG")" || Fail "unable to inspect built image $IMAGE_TAG"

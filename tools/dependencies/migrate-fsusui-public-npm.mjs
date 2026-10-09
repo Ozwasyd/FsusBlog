@@ -35,7 +35,7 @@ const renovatePath = 'renovate.json5';
 export const FSUSUI_PUBLIC_NPM_MIGRATION_PATCH = 'config/dependencies/fsusui-public-npm-migration.patch.gz';
 export const FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256 = '7cc634569551a238c331469bd042ee1aab964b8a4c794503a3e56fb80c05956c';
 const migrationContextPatch = 'config/dependencies/fsusui-public-npm-migration-context.patch';
-const migrationContextPatchSha256 = 'e026001f53a9e714d2c5530ff40ca2a737161235a4d3fb6a54e167f1bc6c9e89';
+const migrationContextPatchSha256 = '5440a0bff2c66c5ab1f9b625d29c686ed58a8d52d2ecd0086486ce3d4f236ed1';
 const migrationContextSources = Object.freeze({
     '.github/workflows/quality-gate.yml': 'e734a6275a2134aa10864ad9d903bea5e2f5596a8b9abaa894d3610a4d939390',
     'ops/docker/FsusBlog.Server.Dockerfile': '9e83d5321fd50655bc51686872245740bf59f750d64496624eea341d342990f1',
