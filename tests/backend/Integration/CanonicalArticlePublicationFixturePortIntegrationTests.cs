@@ -1,3 +1,4 @@
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
@@ -415,7 +416,10 @@ public sealed class CanonicalArticlePublicationFixturePortIntegrationTests(Postg
             typeof(ArticleRightsSnapshot),
             typeof(ArticleResponsibilitySnapshot),
             typeof(ArticleMutationOutboxEvent),
-            typeof(ArticleMutationCommand));
+            typeof(ArticleMutationCommand),
+            typeof(ArticleSourceGeneration),
+            typeof(ArticleSourceSequence),
+            typeof(ArticleSourceMutation));
         // InitTables may map Length=36 as uuid; production column is varchar(36).
         await db.Ado.ExecuteCommandAsync(
             """
@@ -423,6 +427,8 @@ public sealed class CanonicalArticlePublicationFixturePortIntegrationTests(Postg
             ALTER COLUMN client_mutation_id TYPE varchar(36)
             USING client_mutation_id::text;
             """);
+        await fixture.ExecuteAsync(db.CurrentConnectionConfig.ConnectionString,
+            ArticleRelationSourceCoordinateMigrationDefinitions.Sql);
         return db;
     }
 

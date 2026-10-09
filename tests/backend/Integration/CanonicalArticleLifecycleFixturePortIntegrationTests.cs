@@ -1,3 +1,4 @@
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
@@ -694,27 +695,37 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
 
         // The public port uses a scenario-owned chain.  A stale expected revision is rejected
         // by the shared writer before its revision persistence seam can insert anything.
-        ArticleRevisionConflictException exception = await Assert.ThrowsAsync<ArticleRevisionConflictException>(() =>
-            ArticleLifecycleTransitionWriter.UpdateAsync(
-                db,
-                Configuration(),
-                new ArticleLifecycleTransitionWriter.RevisionRequest(
-                    created.Receipt.ArticleId,
-                    created.Receipt.CurrentRevisionId + 1,
-                    "stale update",
-                    "stale update body",
-                    "summary",
-                    null,
-                    categoryId,
-                    [tagId],
-                    ArticleStatus.Published,
-                    null,
-                    s_now.AddMinutes(1),
-                    adminId,
-                    null,
-                    Responsibility(),
-                    ArticlePublicationTransitionKinds.ImmediatePublish,
-                    "stale-base")));
+        ArticleRevisionConflictException exception;
+        await db.Ado.BeginTranAsync();
+        try
+        {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db);
+            exception = await Assert.ThrowsAsync<ArticleRevisionConflictException>(() =>
+                ArticleLifecycleTransitionWriter.UpdateAsync(
+                    db,
+                    Configuration(),
+                    new ArticleLifecycleTransitionWriter.RevisionRequest(
+                        created.Receipt.ArticleId,
+                        created.Receipt.CurrentRevisionId + 1,
+                        "stale update",
+                        "stale update body",
+                        "summary",
+                        null,
+                        categoryId,
+                        [tagId],
+                        ArticleStatus.Published,
+                        null,
+                        s_now.AddMinutes(1),
+                        adminId,
+                        null,
+                        Responsibility(),
+                        ArticlePublicationTransitionKinds.ImmediatePublish,
+                        "stale-base")));
+        }
+        finally
+        {
+            await db.Ado.RollbackTranAsync();
+        }
         Assert.Equal("article_revision_conflict", exception.Message);
         Assert.Equal(1, await CountAsync(db, "article_revision"));
         Assert.Equal(1, await CountAsync(db, "article_publication"));
@@ -777,7 +788,12 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
             typeof(ArticleRightsSnapshot),
             typeof(ArticleResponsibilitySnapshot),
             typeof(ArticleMutationOutboxEvent),
-            typeof(ArticleMutationCommand));
+            typeof(ArticleMutationCommand),
+            typeof(ArticleSourceGeneration),
+            typeof(ArticleSourceSequence),
+            typeof(ArticleSourceMutation));
+        await fixture.ExecuteAsync(db.CurrentConnectionConfig.ConnectionString,
+            ArticleRelationSourceCoordinateMigrationDefinitions.Sql);
         return db;
     }
 
