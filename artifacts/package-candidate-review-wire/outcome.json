@@ -20,8 +20,14 @@
   "nativeTests": "UNRUN",
   "supplierExecutionCredit": false,
   "staticChecks": {
-    "whitespace": "PASS",
-    "proposalPatchContext": "PASS"
+    "whitespace": "PASS_SRC_AND_TESTS_ONLY",
+    "proposalPatchContext": "PASS",
+    "whitespaceCommand": "git diff --check 9d72a1c93b297f719d8695a642cdfb1615cf1d51 HEAD -- src tests",
+    "artifactDiffWhitespace": {
+      "sourceCommit": "ca662412aec9648f94b26f0f67ae72789a2259b8",
+      "status": "FAIL",
+      "reason": "literal unified patch blank context lines and retained raw help-log terminal blank lines; artifact bytes retained"
+    }
   },
   "blockers": [
     "Original release-final Node parser identity and authority closure admission",
