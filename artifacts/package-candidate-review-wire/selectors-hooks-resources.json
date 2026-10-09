@@ -1,8 +1,8 @@
 {
   "sourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
   "status": "DECLARED_ONLY_ADMISSION_REJECTED",
-  "mandatoryPreflight": "UNRUN_AT_FINAL_SOURCE; original attempt at 934211fa851a4a2d4353d60af0fe8daecaad096a timed out",
-  "actualSelection": "FAIL_DIRTY_EVIDENCE_WORKTREE_AT_FINAL_SOURCE",
+  "mandatoryPreflight": "FAIL_RELEASE_FINAL_STATIC_BOUNDARY_AT_CLEAN_COMMITTED_CANDIDATE",
+  "actualSelection": "FAIL_INDEPENDENT_NODE_PARSER_IDENTITY_DRIFT_AT_CLEAN_COMMITTED_CANDIDATE",
   "testBodies": "UNRUN",
   "managedDiscovery": "UNRUN",
   "sdkGate": "UNRUN_NO_ADMITTED_MANAGED_SELECTION",
@@ -352,5 +352,10 @@
   "priorSelectionFailure": {
     "sourceCommit": "934211fa851a4a2d4353d60af0fe8daecaad096a",
     "reason": "independent release-final Node parser identity drifted; applicable execution authority schema, source index or parser identity drifted"
+  },
+  "admissionCandidateCommit": "4c0ce525795367bb3c3c1f26e421cb11a7fe6a93",
+  "firstFinalSourceSelectionFailure": {
+    "sourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+    "reason": "PR impact requires a clean committed source candidate; uncommitted evidence files"
   }
 }

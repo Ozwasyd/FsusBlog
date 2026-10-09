@@ -1,0 +1,25 @@
+Usage:
+  node tools/run-test-matrix.mjs validate
+  node tools/run-test-matrix.mjs preflight
+  node tools/run-test-matrix.mjs list
+  node tools/run-test-matrix.mjs plan <tier>
+  node tools/run-test-matrix.mjs run <tier> [--plan-only] [--no-deps] [--shard i/n] [--fresh|--resume] [--max-parallel n]
+  node tools/run-test-matrix.mjs ci-tier <tier> [--plan-only] [--no-deps] [--shard i/n] [--fresh|--resume] [--max-parallel n]
+  node tools/run-test-matrix.mjs ci-job <job> [--plan-only] [--shard i/n] [--fresh|--resume] [--max-parallel n]
+  node tools/run-test-matrix.mjs ci-job-matrix <job> [--out file] [--github-output file] [--pr-plan file]
+  node tools/run-test-matrix.mjs aggregate <job> [--dry-run] [--out file] [--github-needs json]
+  node tools/run-test-matrix.mjs ci-fast [--plan-only] [--fresh|--resume] [--max-parallel n]
+  node tools/run-test-matrix.mjs ci-production [--plan-only] [--fresh|--resume] [--max-parallel n]
+  node tools/run-test-matrix.mjs ci-release-final [--plan-only] [--fresh|--resume] [--max-parallel n]
+  node tools/run-test-matrix.mjs ci-pr-plan [--changed-files file] [--base-ref ref] [--out .tmp/pr-plan.json] [--github-output file]
+  node tools/run-test-matrix.mjs ci-pr-smart [--changed-files file] [--base-ref ref] [--stage qualification|source-integration] [--full] [--plan-only]
+  node tools/run-test-matrix.mjs ci-plan [--format github-actions] [--out .tmp/ci-plan.json]
+  node tools/run-test-matrix.mjs evidence-plan [--out .tmp/release-evidence/test-plan.json]
+
+Compatibility:
+  ./tools/test.sh <tier> delegates to "run <tier>".
+  "./tools/test.sh production --plan-only" prints the DAG without executing it.
+  "./tools/test.sh production" is the production-ci-gate: release evidence may be schema-valid collected-blocked.
+  "./tools/test.sh release-closeout" is the release-closeout-gate: it requires check-release-evidence-manifest.mjs --require-ok.
+  "./tools/test.sh release-final" is the final publish credential: no skip, no collected-blocked, strict coverage, strict shards, artifact-bound evidence.
+

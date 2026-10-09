@@ -1,0 +1,33 @@
+{
+  "schema": "package-candidate-review-transport-outcome-v1",
+  "implementationCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "admissionCandidateCommit": "4c0ce525795367bb3c3c1f26e421cb11a7fe6a93",
+  "branch": "codex/package-candidate-review-wire-2406-2418-20261009",
+  "ownedProductionPaths": 4,
+  "ownedTestPaths": 3,
+  "productionSourceComplete": true,
+  "routeMapped": false,
+  "framePairActive": false,
+  "siteIdentityAliasActive": false,
+  "executeDisabled": true,
+  "qualification": false,
+  "mandatoryPreflight": "FAIL",
+  "sourceSelection": "FAIL",
+  "sdkGate": "UNRUN",
+  "managedDiscovery": "UNRUN",
+  "managedTests": "UNRUN",
+  "nodeTests": "UNRUN",
+  "nativeTests": "UNRUN",
+  "supplierExecutionCredit": false,
+  "staticChecks": {
+    "whitespace": "PASS",
+    "proposalPatchContext": "PASS"
+  },
+  "blockers": [
+    "Original release-final Node parser identity and authority closure admission",
+    "Original SDK gate and exact selector discovery/matching/hooks/resources before dependent execution",
+    "Original native target/catalog/matrix registration",
+    "Canonical SiteIdentity lifecycle/scope/revision review and original reader implementation",
+    "Sole central owner integration/ABI/generated products admission"
+  ]
+}

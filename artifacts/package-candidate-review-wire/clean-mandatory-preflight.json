@@ -1,0 +1,13 @@
+{
+  "name": "clean-mandatory-preflight",
+  "argv": [
+    "node",
+    "tools/run-test-matrix.mjs",
+    "preflight"
+  ],
+  "sourceCommit": "4c0ce525795367bb3c3c1f26e421cb11a7fe6a93",
+  "exitCode": 1,
+  "seconds": 96.76,
+  "testBodies": "UNRUN",
+  "qualification": false
+}

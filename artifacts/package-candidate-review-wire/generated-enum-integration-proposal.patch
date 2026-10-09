@@ -1,0 +1,65 @@
+--- a/src/core/Algorithms/AedsFrameType.cs
++++ b/src/core/Algorithms/AedsFrameType.cs
+@@ -248,5 +248,7 @@
+     ThemeActivationList = 249,
+     ThemeActivation = 250,
+     ApiError = 251,
+-    ThemeActivationHistory = 252
++    ThemeActivationHistory = 252,
++    ArticlePackageCandidateReviewReadRequest = 288,
++    ArticlePackageCandidateReviewReadResponse = 289
+ }
+--- a/src/shared/AedsFrameHeader.cs
++++ b/src/shared/AedsFrameHeader.cs
+@@ -286,5 +286,7 @@
+     ThemeActivationList = 249,
+     ThemeActivation = 250,
+     ApiError = 251,
+-    ThemeActivationHistory = 252
++    ThemeActivationHistory = 252,
++    ArticlePackageCandidateReviewReadRequest = 288,
++    ArticlePackageCandidateReviewReadResponse = 289
+ }
+--- a/src/frontend/wasm/web/protocol/frame.ts
++++ b/src/frontend/wasm/web/protocol/frame.ts
+@@ -245,6 +245,8 @@
+   ThemeActivation: 250,
+   ApiError: 251,
+   ThemeActivationHistory: 252,
++  ArticlePackageCandidateReviewReadRequest: 288,
++  ArticlePackageCandidateReviewReadResponse: 289,
+ } as const;
+ 
+ export type FrameType = typeof FrameType[keyof typeof FrameType];
+--- a/src/frontend/wasm/aeds/include/aeds_frame.hpp
++++ b/src/frontend/wasm/aeds/include/aeds_frame.hpp
+@@ -284,6 +284,8 @@
+     ThemeActivation = 250,
+     ApiError = 251,
+     ThemeActivationHistory = 252,
++    ArticlePackageCandidateReviewReadRequest = 288,
++    ArticlePackageCandidateReviewReadResponse = 289,
+ };
+ 
+ [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
+@@ -553,6 +555,8 @@
+         case FrameType::ThemeActivation:
+         case FrameType::ApiError:
+         case FrameType::ThemeActivationHistory:
++        case FrameType::ArticlePackageCandidateReviewReadRequest:
++        case FrameType::ArticlePackageCandidateReviewReadResponse:
+             return true;
+         default:
+             return false;
+--- a/tests/backend/Fixtures/aeds-golden-catalog.json
++++ b/tests/backend/Fixtures/aeds-golden-catalog.json
+@@ -259,6 +259,8 @@
+     { "name": "ThemeRegistryDetail", "value": 248, "family": "theme-registry-response" },
+     { "name": "ThemeActivationList", "value": 249, "family": "theme-activation-response" },
+     { "name": "ThemeActivation", "value": 250, "family": "theme-activation-response" },
+-    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" }
++    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" },
++    { "name": "ArticlePackageCandidateReviewReadRequest", "value": 288, "family": "authoring-request" },
++    { "name": "ArticlePackageCandidateReviewReadResponse", "value": 289, "family": "authoring-response" }
+   ]
+ }
