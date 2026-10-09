@@ -1,0 +1,133 @@
+{
+  "actualCount": 940,
+  "exactNameMultiset": true,
+  "exactGlobalOrder": false,
+  "perFile": [
+    {
+      "file": "tests/tools/layout-module-integration-source.test.mjs",
+      "expectedCount": 107,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/control-legality-ref-selectors.test.mjs",
+      "expectedCount": 42,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-collection-source.test.mjs",
+      "expectedCount": 217,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-slot-source.test.mjs",
+      "expectedCount": 50,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-functional-source.test.mjs",
+      "expectedCount": 89,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-target-source.test.mjs",
+      "expectedCount": 58,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-router-view-source.test.mjs",
+      "expectedCount": 20,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "expectedCount": 13,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-canonical-context-source.test.mjs",
+      "expectedCount": 6,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-render-conjunction-source.test.mjs",
+      "expectedCount": 12,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-standalone-props-source.test.mjs",
+      "expectedCount": 20,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-render-declarations-source.test.mjs",
+      "expectedCount": 8,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-returned-props-source.test.mjs",
+      "expectedCount": 21,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-object-props-source.test.mjs",
+      "expectedCount": 21,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-object-key-source.test.mjs",
+      "expectedCount": 25,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-component-alternatives-source.test.mjs",
+      "expectedCount": 16,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-script-constants-source.test.mjs",
+      "expectedCount": 17,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-component-member-source.test.mjs",
+      "expectedCount": 45,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-finite-component-source.test.mjs",
+      "expectedCount": 23,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-script-render-source.test.mjs",
+      "expectedCount": 33,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-factory-source.test.mjs",
+      "expectedCount": 36,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-component-props-source.test.mjs",
+      "expectedCount": 21,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-component-guards-source.test.mjs",
+      "expectedCount": 10,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/layout-composition-source.test.mjs",
+      "expectedCount": 24,
+      "exactInternalOrder": true
+    },
+    {
+      "file": "tests/tools/control-legality.test.mjs",
+      "expectedCount": 6,
+      "exactInternalOrder": true
+    }
+  ],
+  "heldObserved": []
+}

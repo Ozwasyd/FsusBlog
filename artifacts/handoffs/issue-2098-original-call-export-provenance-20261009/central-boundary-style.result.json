@@ -1,0 +1,50 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs",
+    "--file",
+    "tools/frontend/control-legality/source.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 1,
+  "startedAtEpoch": 1791564618.031025,
+  "durationSeconds": 5.425431251525879,
+  "source": {
+    "blog": {
+      "commit": "7fe9a73b396bdebc2a0f382d32c96ef16ceb2ba9",
+      "tree": "c5a1861cfc325889201d8d856bee8a7521103fff",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "182504f0b1bfbd1fc98b056b14f21769fffadf7012de99441cd317eee16bfef7"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "7fe9a73b396bdebc2a0f382d32c96ef16ceb2ba9",
+      "tree": "c5a1861cfc325889201d8d856bee8a7521103fff",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "182504f0b1bfbd1fc98b056b14f21769fffadf7012de99441cd317eee16bfef7"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/central-boundary-style.log",
+  "logSha256": "e28b7c6634f6f25e4b37b264e7fe70135d92b60c508623073a439d03fecf334b"
+}

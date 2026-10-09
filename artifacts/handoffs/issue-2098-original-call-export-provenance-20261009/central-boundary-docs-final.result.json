@@ -1,0 +1,50 @@
+{
+  "command": [
+    "node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--domain",
+    "docs",
+    "--operation",
+    "lint",
+    "--mode",
+    "full",
+    "--file",
+    "docs/frontend/layout-visual-governance.md"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791564666.160705,
+  "durationSeconds": 0.621185302734375,
+  "source": {
+    "blog": {
+      "commit": "7fe9a73b396bdebc2a0f382d32c96ef16ceb2ba9",
+      "tree": "c5a1861cfc325889201d8d856bee8a7521103fff",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "bceccd54083a6514a86a6940df8b9927326b54499094c2d9e1811333ec5a90ff"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "7fe9a73b396bdebc2a0f382d32c96ef16ceb2ba9",
+      "tree": "c5a1861cfc325889201d8d856bee8a7521103fff",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs\n M tools/frontend/control-legality/source.mjs",
+      "diffDigest": "bceccd54083a6514a86a6940df8b9927326b54499094c2d9e1811333ec5a90ff"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/central-boundary-docs-final.log",
+  "logSha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e"
+}
