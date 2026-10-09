@@ -25,7 +25,7 @@
     "src/frontend/vitest.shared.mjs": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
     "tests/frontend/support/unit/setup.ts": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a"
   },
-  "hooks": "Original setup: task HappyDOM/animation frames disposed afterAll, locale graph beforeAll; original AEDS/PoW/search unit mocks. Controlled requestBinaryOnly and intent/reference/cleanup callbacks; new async controls finish all deferred requests. No actual HTTP/owner/PoW/WASM/native/browser receipt qualification; no DB, Docker, server, held/security/receipt/integrity suites. Exact4-file selection only.",
+  "hooks": "Original setup: task HappyDOM globals; animation frames disposed afterAll and all worker processes exit, locale graph beforeAll; original AEDS/PoW/search unit mocks. Controlled requestBinaryOnly and intent/reference/cleanup callbacks; new async controls finish all deferred requests. No actual HTTP/owner/PoW/WASM/native/browser receipt qualification; no DB, Docker, server, held/security/receipt/integrity suites. Exact4-file selection only.",
   "resourceObservation": {
     "actualAvailableParallelism": 4,
     "observedMemoryBytes": 18882699264,
