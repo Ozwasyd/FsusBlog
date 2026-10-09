@@ -47,6 +47,30 @@ function error(reason, node, details = {})
         owner: node?.owner ?? node?.inheritedOwner ?? null, ...details };
 }
 
+/** Join a proven component input to this exact rendered call chain, never an icon name. */
+export function matchCompositionComponentProp(graph, source, ancestors)
+{
+    const markers = ancestors.map((node) => node.sourceCall).filter(Boolean);
+    const bindings = (graph.componentPropBindings ?? []).filter((binding) =>
+    {
+        if (!Array.isArray(binding.callPath) || !binding.callPath.length || !Array.isArray(binding.inputDigests)
+            || binding.sourceNode !== source.id || binding.declarationDigest !== source.origin.declarationDigest
+            || binding.callNode !== binding.callPath[0] || binding.inputDigests.length !== binding.callPath.length)
+        {
+            return false;
+        }
+        let cursor = -1;
+        return binding.callPath.every((id, index) =>
+        {
+            cursor = markers.indexOf(id, cursor + 1);
+            const call = graph.nodes.find((node) => node.id === id);
+            return cursor >= 0 && call && binding.inputDigests[index] === compositionDigest({
+                attributes: call.attributes, directives: call.directives, slots: call.slotInputs });
+        });
+    });
+    return bindings.length === 1 ? bindings[0] : null;
+}
+
 /** Source/DOM observations only; this function cannot issue a geometry or visual verdict. */
 export function analyzeCompositionDom({ archetype, graph, observation, identity, currentIdentity, runId, state = null, runBinding })
 {
@@ -142,6 +166,14 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
                     {
                         visit(child.definition);
                     }
+                    if (child.origin.kind === 'component-prop' && child.file.startsWith(graph.upstreamRoot + '/'))
+                    {
+                        const binding = matchCompositionComponentProp(graph, child, ancestry(node));
+                        if (binding?.definition?.startsWith(graph.upstreamRoot + '/'))
+                        {
+                            visit(binding.definition);
+                        }
+                    }
                 }
             }
             visit(call.definition);
@@ -159,6 +191,29 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
         {
             errors.push(error('unknown-rendered-source', node));
             return;
+        }
+        const chain = ancestry(node);
+        const dynamic = chain.map((ancestor) => sourceNodes.get(ancestor.sourceCall))
+            .filter((candidate) => candidate?.origin.kind === 'component-prop');
+        for (const prop of dynamic)
+        {
+            const binding = matchCompositionComponentProp(graph, prop, chain);
+            const reachable = new Set();
+            function visit(file)
+            {
+                if (!file || reachable.has(file))
+                {
+                    return;
+                }
+                reachable.add(file);
+                graph.nodes.filter((entry) => entry.file === file && entry.definition).forEach((entry) => visit(entry.definition));
+            }
+            visit(binding?.definition);
+            if (!binding?.target || binding.absent || (binding.target.kind === 'native'
+                ? node.tag !== binding.target.name : !reachable.has(source.file)))
+            {
+                errors.push(error('unknown-rendered-component-prop', node, { sourceNode: prop.id }));
+            }
         }
         if (source.origin.kind === 'native' && source.tag !== node.tag)
         {

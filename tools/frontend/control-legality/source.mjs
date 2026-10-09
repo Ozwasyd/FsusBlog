@@ -7,7 +7,7 @@ import path from 'node:path';
 export const controlRegistryPath = 'config/frontend/control-legality.json';
 export const controlLegalityVersion = 'fsusblog.control-legality.v1';
 const packageId = '@ozwasyd/element-plus';
-const sourceExtensions = ['.vue', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.d.ts', '.mts', '.d.mts'];
+const sourceExtensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.vue', '.d.ts', '.mts', '.d.mts'];
 const nativeControls = new Set(['button', 'input', 'textarea', 'select', 'option', 'details', 'summary', 'a', 'audio', 'video']);
 const interactiveRoles = new Set(['button', 'checkbox', 'radio', 'switch', 'tab', 'menuitem', 'menuitemradio', 'menuitemcheckbox', 'option', 'slider', 'spinbutton', 'dialog', 'listbox', 'treeitem', 'combobox', 'textbox']);
 const genericApi = new Set(['items', 'modelValue', 'disabled', 'size', 'type', 'loading', 'icon', 'selected', 'open']);
@@ -447,7 +447,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         {
             return publicIdentity(imported.specifier, imported.name);
         }
-        const target = modulePath(imported.specifier, file);
+        const target = modulePath(imported.specifier, file, mode === 'local' && file.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
         if (imported.specifier === 'vue' && ['Transition', 'TransitionGroup', 'Teleport', 'KeepAlive', 'Suspense', 'Fragment'].includes(imported.name)
             && Object.hasOwn(vueRuntime, imported.name))
         {
@@ -455,6 +455,128 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         return typeof target === 'string' ? resolveExport(target, imported.name, seen)
             : { kind: 'external', package: target.package, publicName: imported.name };
+    };
+    // A declared prop is an input edge, never a component identity by itself.
+    const unwrap = (node) =>
+    {
+        while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node)))
+        {
+            node = node.expression;
+        }
+        return node;
+    };
+    const objectProperty = (node, name) =>
+    {
+        node = unwrap(node);
+        if (!node || !ts.isObjectLiteralExpression(node))
+        {
+            return null;
+        }
+        for (const property of [...node.properties].reverse())
+        {
+            if (!property.name || ts.isComputedPropertyName(property.name))
+            {
+                return null;
+            }
+            if (property.name.getText().replaceAll("'", '').replaceAll('"', '') === name)
+            {
+                return ts.isPropertyAssignment(property) ? property.initializer : property;
+            }
+        }
+        return null;
+    };
+    const componentProps = (file) =>
+    {
+        const record = parse(file);
+        if (!record.imports.has('defineProps') && !record.variables.has('defineProps'))
+        {
+            const declarations = [...record.variables].filter(([, value]) => ts.isCallExpression(value)
+                && ts.isIdentifier(value.expression) && value.expression.text === 'defineProps');
+            if (declarations.length === 1 && declarations[0][1].arguments.length === 1)
+            {
+                return { node: declarations[0][1].arguments[0], file, propsName: declarations[0][0], attrsName: '$attrs' };
+            }
+        }
+        for (const { ast } of record.scripts)
+        {
+            for (const statement of ast.statements.filter(ts.isExportAssignment))
+            {
+                const value = unwrap(statement.expression);
+                const imported = value && ts.isCallExpression(value) && ts.isIdentifier(value.expression)
+                    ? record.imports.get(value.expression.text) : null;
+                if (imported?.specifier !== 'vue' || imported.name !== 'defineComponent' || value.arguments.length !== 1)
+                {
+                    continue;
+                }
+                const node = objectProperty(value.arguments[0], 'props');
+                const setup = objectProperty(value.arguments[0], 'setup');
+                const propsName = setup?.parameters?.[0]?.name;
+                const context = setup?.parameters?.[1]?.name;
+                const attrs = context && ts.isObjectBindingPattern(context) ? context.elements.find((entry) =>
+                    (entry.propertyName ?? entry.name).getText() === 'attrs' && ts.isIdentifier(entry.name)) : null;
+                if (node)
+                {
+                    return { node, file, propsName: propsName && ts.isIdentifier(propsName) ? propsName.text : null,
+                        attrsName: attrs?.name.text ?? null };
+                }
+            }
+        }
+        return null;
+    };
+    const componentPropDeclaration = (file, name) =>
+    {
+        const props = componentProps(file);
+        const find = (node, owner, seen = new Set()) =>
+        {
+            node = unwrap(node);
+            if (!node)
+            {
+                return null;
+            }
+            if (ts.isIdentifier(node))
+            {
+                const key = `${owner}#${node.text}`;
+                if (seen.has(key))
+                {
+                    return null;
+                }
+                const next = new Set([...seen, key]);
+                const record = parse(owner);
+                const imported = record.imports.get(node.text);
+                if (imported)
+                {
+                    const target = modulePath(imported.specifier, owner, mode === 'local' && owner.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
+                    const origin = typeof target === 'string' ? exportsOf(target).get(imported.name) : null;
+                    return origin?.file ? find(parse(origin.file).variables.get(origin.name), origin.file, next) : null;
+                }
+                return find(record.variables.get(node.text), owner, next);
+            }
+            if (ts.isCallExpression(node) && ts.isIdentifier(node.expression))
+            {
+                const imported = parse(owner).imports.get(node.expression.text);
+                return imported?.specifier === '@element-plus/utils' && imported.name === 'buildProps'
+                    ? find(node.arguments[0], owner, seen) : null;
+            }
+            const config = objectProperty(node, name);
+            return config ? { file: owner, property: name, node: config,
+                defaultNode: objectProperty(config, 'default'), declarationDigest: controlDigest(config.getText()) } : null;
+        };
+        return props ? find(props.node, file) : null;
+    };
+    const resolveComponentInput = (file, expression) =>
+    {
+        const value = unwrap(expression);
+        const record = parse(file);
+        if (value && ts.isIdentifier(value) && !record.imports.has(value.text) && !record.variables.has(value.text))
+        {
+            const declaration = componentPropDeclaration(file, value.text);
+            if (declaration)
+            {
+                return [{ kind: 'component-prop', file, property: value.text, declarationFile: declaration.file,
+                    declarationDigest: declaration.declarationDigest }];
+            }
+        }
+        return resolveExpression(file, expression);
     };
     const resolveExpression = (file, expression, seen = new Set()) =>
     {
@@ -743,7 +865,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         return inspect(source.definition, source.exportName);
     };
     return { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations,
-        modulePath, exportsOf,
+        modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput,
         isInteractive,
         identity: { mode, package: packageId, publicRoot, packageDigest: controlDigest(metadata),
             upstream: initialUpstreamIdentity, resolutionInputs, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,
