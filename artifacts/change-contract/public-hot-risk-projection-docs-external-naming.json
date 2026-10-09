@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs"
+            ],
+            "reason": "Preserve registered process-environment names on the existing projection owner while clarifying only XML replacement ordering and clock-relative expiry. Current-base/candidate Roslyn token, AST, signature and XML-stripped-byte equivalence confirms that executable source and external names are unchanged."
+        }
+    ]
+}
