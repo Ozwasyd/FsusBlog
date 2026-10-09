@@ -26,4 +26,6 @@ Every nonempty source branch has a complete draft template in [public-pr-proposa
 | codex/chain-3653-site-scope-20261008 | c576838198b8a1a2034119cb3171f379b10302f7 | 83 | none found | source branch; unique source variants remain |
 | codex/chain-3653-site-scope-contracts-20261008 | 33e6e41d99cdb54bba707d8bc6eefb43da645772 | 97 | none found | source branch; unique source variants remain |
 | codex/chain-3653-wall-20261008 | 7d12a4a66e184cddb25fcff99d9b63098cb6bd5e | 82 | none found | source branch; exactly absorbed by codex/chain-3653-budget-20261008 |
-| codex/chain-3653-shared-registration-integration-20261009 | 0c725ee10282945053c2bc283fc991b59d81a318 | 164 | none found | source branch; unique source variants remain |
+| codex/chain-3653-shared-registration-integration-20261009 | cceeb55819ae2bbf02100b7a30081d488aeb7fa3 | 165 | none found | source branch; unique source variants remain |
+
+The separate public-branch-inventory branch is artifact-only. Latest Shared consumer head appends source-bound receipts; tested product source remains0c725ee10282945053c2bc283fc991b59d81a318. Full application typecheck failed; no complete acceptance is claimed.

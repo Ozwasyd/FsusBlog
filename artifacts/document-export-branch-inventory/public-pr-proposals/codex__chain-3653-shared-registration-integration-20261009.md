@@ -1,7 +1,7 @@
 Title: feat(frontend): stage export consumer with real Shared registration
 Base: master (537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea)
 Head: codex/chain-3653-shared-registration-integration-20261009
-Exact remote SHA: 0c725ee10282945053c2bc283fc991b59d81a318
+Exact remote SHA: cceeb55819ae2bbf02100b7a30081d488aeb7fa3
 Draft: yes
 Existing PRs: none found by read-only query
 
@@ -11,8 +11,8 @@ Refs #2436
 
 ## Scope Summary
 
-- Complete PR diff includes 164 paths at merge base be7c53d99b64342925ca63d061bacde34d22ba4c. It includes all inherited source/config/generated/tests/docs paths, not merely the latest increment. source branch. unique source variants remain.
-- Complete immutable PR diff: https://github.com/Ozwasyd/FsusBlog/compare/537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea...0c725ee10282945053c2bc283fc991b59d81a318 . Every name/status/path is also in the sibling public inventory.json branch record.
+- Complete PR diff includes 165 paths at merge base be7c53d99b64342925ca63d061bacde34d22ba4c. It includes all inherited source/config/generated/tests/docs paths, not merely the latest increment. source branch. unique source variants remain.
+- Complete immutable PR diff: https://github.com/Ozwasyd/FsusBlog/compare/537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea...cceeb55819ae2bbf02100b7a30081d488aeb7fa3 . Every name/status/path is also in the sibling public inventory.json branch record.
 - This is retained source WIP; no narrow repair, scoped review, prior merged prerequisite or compiler receipt approves the complete inherited diff.
 
 ## Change Classification
@@ -34,7 +34,7 @@ No InputSchema/TaskSchema declaration change was found in this branch’s comple
 - [ ] Targeted frontend checks: whole application and product/browser acceptance remain unqualified.
 - [x] Other: read-only exact remote-head/full-diff inventory only; no tests dispatched for inventory.
 
-Actual candidate-bound PASS/FAIL/UNRUN: PASS exact0c: original local-source helper verify0 with606preserved public lock records and actual Vitest4.1.11/Vue3.5.33; original unchanged config/hooks DOM10/10 executed and exact positive multiset passed. This is DOM delivery only. Original SDK10.0.302 audited locked Server restore and Release build both exited0; final build summary is326warnings/0errors; no output/HTTP/browser/native acceptance. Supplied711 owner374/940 results remain source-specific reports, not root acceptance. Full backend root import conflicts at three files and is unapplied.
+Actual candidate-bound PASS/FAIL/UNRUN: Published head appends only source-bound artifacts; actual tested product source is0c725ee10282945053c2bc283fc991b59d81a318. PASS exact0c: original local-source helper verify0 with606preserved public lock records and actual Vitest4.1.11/Vue3.5.33; original unchanged config/hooks DOM10/10 executed and exact positive multiset passed. This is DOM delivery only. Original SDK10.0.302 audited locked Server restore and Release build both exited0; final build summary is326warnings/0errors; no output/HTTP/browser/native acceptance. Supplied711 owner374/940 results remain source-specific reports, not root acceptance. Focused seven-source-file strict style exited0. FAIL original local-source full application typecheck exit2,240diagnostics (51FsusUI,0Export), no baseline-only attribution. Full backend root import conflicts at three files and is unapplied.
 
 ## UI Evidence
 

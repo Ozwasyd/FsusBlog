@@ -1,6 +1,6 @@
 {
   "schema": "chain3653.public-remote-source-inventory.v1",
-  "recordedAt": "2026-10-09T06:23:48.326331+00:00",
+  "recordedAt": "2026-10-09T06:37:05.516541+00:00",
   "intendedBaseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
   "branches": [
     {
@@ -28882,7 +28882,7 @@
     },
     {
       "branch": "codex/chain-3653-shared-registration-integration-20261009",
-      "remoteHead": "0c725ee10282945053c2bc283fc991b59d81a318",
+      "remoteHead": "cceeb55819ae2bbf02100b7a30081d488aeb7fa3",
       "intendedBase": "master",
       "intendedBaseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
       "mergeBase": "be7c53d99b64342925ca63d061bacde34d22ba4c",
@@ -28891,6 +28891,12 @@
           "status": "A",
           "paths": [
             "artifacts/document-export-integration/shared-registration-consumer-handoff.md"
+          ]
+        },
+        {
+          "status": "A",
+          "paths": [
+            "artifacts/document-export-integration/shared-registration-consumer-verification.json"
           ]
         },
         {
@@ -29875,10 +29881,11 @@
           ]
         }
       ],
-      "completePrDiffPaths": 164,
+      "completePrDiffPaths": 168,
       "tipToTipPaths": [
         "artifacts/change-contract/query-producer-intake-external-naming.json",
         "artifacts/document-export-integration/shared-registration-consumer-handoff.md",
+        "artifacts/document-export-integration/shared-registration-consumer-verification.json",
         "artifacts/shared-registration-current/handoff.md",
         "artifacts/shared-registration-current/ordinary-managed/GlobalUsings.cs",
         "artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj",
@@ -30065,24 +30072,17 @@
       ],
       "lastCommitChangedPaths": [
         "artifacts/document-export-integration/shared-registration-consumer-handoff.md",
-        "src/frontend/src/api/documentExport.ts",
-        "src/frontend/src/components/document-export/documentExportCall.ts",
-        "src/frontend/src/components/document-export/documentExportUiPort.ts",
-        "src/frontend/src/components/document-export/documentExportWireUiPort.ts",
-        "src/frontend/src/composables/useDocumentExport.ts",
-        "src/frontend/src/composition/documentExport.ts",
-        "src/frontend/src/services/documentExportPrivateDelivery.ts",
-        "tests/frontend/unit/services/documentExportPrivateDelivery.test.ts"
+        "artifacts/document-export-integration/shared-registration-consumer-verification.json"
       ],
-      "lastIncrementArtifactOnly": false,
+      "lastIncrementArtifactOnly": true,
       "wholePrArtifactOnly": false,
       "noDiff": false,
       "existingPrs": {
         "exitCode": 0,
         "prs": []
       },
-      "compareUrl": "https://github.com/Ozwasyd/FsusBlog/compare/537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea...0c725ee10282945053c2bc283fc991b59d81a318",
-      "latestIncrementClassification": "source branch",
+      "compareUrl": "https://github.com/Ozwasyd/FsusBlog/compare/537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea...cceeb55819ae2bbf02100b7a30081d488aeb7fa3",
+      "latestIncrementClassification": "artifact-only increment over source branch",
       "unmergedSourceVariantsVsCurrentMaster": [
         "src/backend/GlobalUsings.cs",
         "src/backend/Services/Authoring/AuthoringWorkspaceSnapshotStore.cs",
@@ -30418,10 +30418,22 @@
         "tools/contracts/document-export-registration.mjs": "5b6fb003d17e1cb741a5ced2afcd559bf0f8e834"
       },
       "sourceDisposition": "unique source variants remain",
-      "frozenSchemaChanged": false
+      "frozenSchemaChanged": false,
+      "priorSnapshotHead": "0c725ee10282945053c2bc283fc991b59d81a318",
+      "sourceUnchangedSince": "0c725ee10282945053c2bc283fc991b59d81a318",
+      "currentVerification": {
+        "testedSource": "0c725ee10282945053c2bc283fc991b59d81a318",
+        "dom10": "PASS10/10 ordinary DOM only; original Vitest4.1.11",
+        "serverSdk": "PASS audited locked restore/build;326warnings0errors",
+        "frontendSourceStyle": "PASS7sourcefiles",
+        "localApplicationTypecheck": "FAILexit2;240diagnostics,51FsusUI,0Export;baseline comparison NOT_RUN",
+        "csharp29": "NOT_RUN",
+        "backendImport": "BLOCKED3actualconflictingpaths"
+      }
     }
   ],
   "noGitHubContentWrites": true,
   "noTestsExecutedForInventory": true,
-  "comparisonNote": "Complete PR diff is immutable master...head, including inherited paths. Unmerged and absorbed checks compare full path/blob states against current master and every complete peer tree (including deletions). These facts do not grant owner review/acceptance. Last artifact-only increment may still inherit a broad source branch."
+  "comparisonNote": "Complete PR diff is immutable master...head, including inherited paths. Unmerged and absorbed checks compare full path/blob states against current master and every complete peer tree (including deletions). These facts do not grant owner review/acceptance. Last artifact-only increment may still inherit a broad source branch.",
+  "materialBranchClassification": "This inventory branch contains only public handoff artifacts; it is not an additional source implementation branch."
 }
