@@ -34,6 +34,7 @@ public sealed class CommentFixtureTimelineSequenceAdapterTests
         Assert.Equal(["mutation-0", "delivery-0", "mutation-1", "delivery-1"], order);
         Assert.Equal(2, observation.Steps.Count);
         Assert.Equal(3, observation.Steps[^1].Mutation.After.CurrentVersion);
+        Assert.Equal(30, Assert.Single(observation.Steps[^1].Mutation.After.ModerationEvents).Id);
         Assert.Equal("pending", Assert.Single(observation.Steps[^1].Delivery.Outbox).Status);
         Assert.Equal(["cache"], Assert.Single(observation.Steps[^1].Delivery.Outbox).MissingConsumers);
         Assert.False(observation.QualificationEligible);
@@ -79,7 +80,7 @@ public sealed class CommentFixtureTimelineSequenceAdapterTests
         for (int index = 0; index < plans.Length; index++)
         {
             var command = new CommentFixtureEdit($"content-{index}");
-            plans[index] = new(binding, "root", identity, index + 1, CommentModerationStatus.Approved, 0, now.AddSeconds(index),
+            plans[index] = new(binding, "root", identity, index + 1, CommentModerationStatus.Approved, 30, now.AddSeconds(index),
                 Digest, Digest, Digest, CommentThreadFixturePort.ComputeCommandDigest(command), command);
             results[index] = new(binding, "root", identity, plans[index].BusinessTimeUtc, Digest, Digest, Digest,
                 plans[index].CommandDigest, State(index + 1), State(index + 2), null, null);
@@ -88,7 +89,9 @@ public sealed class CommentFixtureTimelineSequenceAdapterTests
     }
 
     private static CommentFixtureMutationObservation State(int version)
-        => new(version, CommentModerationStatus.Approved, false, Digest, [], [], [$"event-{version}"]);
+        => new(version, CommentModerationStatus.Approved, false, Digest, [],
+            [new(30, "create", null, CommentModerationStatus.Approved, "system", null, null, null,
+                "ordinary-port-model", null, null, new DateTime(2026, 10, 8, 0, 0, 0, DateTimeKind.Utc))], [$"event-{version}"]);
 
     private static CommentFixtureDeliveryObservation Delivery(CommentFixtureMutationResult authority)
         => new(authority, Digest, new("hidden", null, null, [], null, [], false, false), new([], [], false),

@@ -73,6 +73,7 @@ public sealed class CommentFixtureTimelineSequenceAdapter(ICommentThreadFixtureP
                 RequireExact(pending.PolicyDigest, plan.PolicyDigest, "policy");
                 RequireExact(pending.CommandDigest, plan.CommandDigest, "command");
                 RequireBefore(plan, pending.Before);
+                RequireContinuous(pending.After);
                 if (completed.Count > 0)
                 {
                     RequireExact(pending.Before, completed[^1].Mutation.After, "timeline continuity");
@@ -94,9 +95,18 @@ public sealed class CommentFixtureTimelineSequenceAdapter(ICommentThreadFixtureP
 
     private static void RequireBefore(CommentFixtureMutationPlan plan, CommentFixtureMutationObservation before)
     {
+        RequireContinuous(before);
         RequireExact(before.CurrentVersion, plan.ExpectedVersion, "expected revision");
         RequireExact(before.ModerationStatus, plan.ExpectedStatus, "expected status");
         RequireExact(before.ModerationEvents.LastOrDefault()?.Id ?? 0, plan.ExpectedLastModerationEventId, "expected timeline head");
+    }
+
+    private static void RequireContinuous(CommentFixtureMutationObservation observation)
+    {
+        if (!CommentFixtureTimelineVerifier.IsContinuous(observation.ModerationEvents, observation.ModerationStatus))
+        {
+            throw new InvalidOperationException("Comment fixture timeline is not continuous against its observed current status.");
+        }
     }
 
     private static void RequireExact<T>(T actual, T expected, string label)

@@ -102,22 +102,39 @@ producer into canonical matrix/inventory. This increment does not edit those fil
 ## Available runtime port consumers
 
 The owned `fixture-switch-scheduler-adapter.mjs` consumes the canonical checkpoint
-read API and current correctness receipt read API introduced in
-`2eda290cc6098971b685b3fb1465d7193bd3dde2`. Callers must supply exact run, source,
-build, attempt, checkpoint digest and journal sequence references. Reads disable
-projection repair, check unchanged canonical readback and optionally require the
+read API and, when explicitly requested, the current correctness receipt reader.
+It also consumes version 1 `verifyCommittedSchedulerEvidence` from exact published
+source `442cc6bd979c88b6af4a3fbe63583af61f4768bd`. Callers must supply exact run, source,
+build, attempt, checkpoint digest and journal sequence references. Reads use the
+strict read-only canonical API, check unchanged canonical readback and optionally require the
 completed scheduler owner's current terminal receipt. No CAS, finalizer, new
 receipt writer, history lookup or runner is introduced. The source-evidence binding
 recomputes the existing switch materials and links their run/source/build to this
 snapshot. It does not assert that caller-supplied lifecycle events were admitted
 by the scheduler; the missing compiled phase authority stays explicit.
+Committed readback requires the independently expected post-commit revision,
+current-run context, registry and explicit registry entry, repository root and
+payload schema. The adapter captures caller identities before its first await and
+uses the same absolute checkpoint path for both readers. It preserves the actual
+committed revision, wrapper reference and serialized wrapper digest separately
+from the payload digest; an evidence attempt is not relabeled as an aggregate
+target attempt. A running checkpoint does not become terminal through readback.
+Both canonical raw-hex and current-run prefixed SHA-256 source fingerprints map
+to the switch contract's prefixed form, while the original scheduler binding is
+retained unchanged. This prevents a second prefix on current-run identities.
 
 `CommentFixtureTimelineSequenceAdapter` consumes the mutation port from
 `6656a73e5588f09e11f1320c43ca3f8fd153c7e3` and delivery observation port from
-`b570346e5e374ae2f53807e9666cc41c42fa2afd`. It invokes each caller-supplied command
+`86b02bc431251901d3ebba0306a371903b1d0bf7`. It invokes each caller-supplied command
 once, immediately reads its delivery observations once, and requires exact identity,
 references, business time, expected revision/status/timeline head and continuity
-between the previous after-state and next before-state. Plans and their command
+between the previous after-state and next before-state.
+The before/after moderation events are checked by that source's canonical
+`CommentFixtureTimelineVerifier.IsContinuous(events, currentStatus)` rather than
+reconstructing moderation rules locally. The delivery port now owns full bounded
+queue and reply-page traversal; its serialized `AdminQueueFirstPage` name stays
+unchanged. This adapter adds no paging implementation or reader.
+Plans and their command
 tokens are excluded from returned evidence. A failure retains completed steps,
 the pending successful mutation and its primary exception for scheduler-owned
 cleanup; no cleanup, retry, query implementation or delivery drain is added.
@@ -126,9 +143,13 @@ delivery acceptance remain gaps even if all returned queue rows are processed.
 
 These dependency sources are not yet on this partition's source base. Integration
 requires their exact APIs; absence is a dependency failure, never a skipped pass.
-Node controls use real canonical stores/owners/finalizers with controlled domain
-inputs. Backend controls use the actual typed port interface with read models.
-Both are ordinary source verification and cannot establish runtime acceptance.
+The new bounded Node controls use existing controlled current-run publication and
+canonical read APIs. They do not invoke the terminal finalizer, phase, recovery,
+cleanup or cohort controls. The optional current terminal reader still requires
+its separate matched terminal-owner source; it is not supplied by the committed
+readback increment and is not exercised in this continuation. Backend controls
+use the actual typed port interface with read models. Both are ordinary source
+verification and cannot establish runtime acceptance.
 
 ## Remaining owner handoffs
 
