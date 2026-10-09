@@ -435,13 +435,25 @@ export function projectXunitCompileContext(root, project, context, configuration
     const intermediate = context.Properties?.IntermediateOutputPath;
     const projectDirectory = path.dirname(path.resolve(root, project.project));
     const resolvedIntermediate = typeof intermediate === 'string' && intermediate.trim()
-        ? path.resolve(projectDirectory, intermediate) : null;
+        ? path.resolve(projectDirectory, intermediate.replaceAll('\\', path.sep)) : null;
+    const relativeIntermediate = resolvedIntermediate ? path.relative(path.resolve(root), resolvedIntermediate) : null;
+    if (resolvedIntermediate && (relativeIntermediate === '..'
+        || relativeIntermediate.startsWith(`..${path.sep}`) || path.isAbsolute(relativeIntermediate)
+        || (path.sep === '/' && /^[A-Za-z]:/u.test(intermediate))))
+    {
+        throw new Error(`xunit intermediate context is outside its canonical repository boundary for ${project.project}`);
+    }
     if (typeof output !== 'string' || !path.isAbsolute(output)
         || !existsSync(output) || !statSync(output).isFile()
         || !resolvedIntermediate || !existsSync(path.join(resolvedIntermediate, path.basename(output)))
         || !statSync(path.join(resolvedIntermediate, path.basename(output))).isFile())
     {
         throw new Error(`xunit project ${configuration} build output or intermediate context is missing for ${project.project}`);
+    }
+    if (realpathSync(path.join(resolvedIntermediate, path.basename(output)))
+        !== path.join(resolvedIntermediate, path.basename(output)))
+    {
+        throw new Error(`xunit intermediate context cannot use a path alias for ${project.project}`);
     }
     if (!Array.isArray(context.Items?.Compile) || context.Items.Compile.length === 0)
     {
