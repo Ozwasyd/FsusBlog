@@ -1,0 +1,15 @@
+{
+  "name": "final-complete-static-boundary",
+  "command": [
+    "node",
+    "tools/test-matrix/release-final-static-boundary.mjs",
+    "--check"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/renderer-composition",
+  "testedCommit": "d219c182f5087293b15a50b330f54478c0d4695c",
+  "startedAt": "2026-10-09T05:38:45.606395+00:00",
+  "finishedAt": "2026-10-09T05:41:34.045709+00:00",
+  "durationSeconds": 168.43932783600007,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/renderer-composition/final-complete-static-boundary.log"
+}

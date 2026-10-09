@@ -1,0 +1,151 @@
+{
+  "base": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "head": "d219c182f5087293b15a50b330f54478c0d4695c",
+  "docs": [
+    {
+      "path": "docs/api.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "api.operations"
+      ],
+      "unchangedRegions": []
+    },
+    {
+      "path": "docs/api/aeds-only-policy.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "api.protocol-states"
+      ],
+      "unchangedRegions": [
+        "api.protocol"
+      ]
+    },
+    {
+      "path": "docs/api/quick-reference.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "api.operation-keys"
+      ],
+      "unchangedRegions": []
+    },
+    {
+      "path": "docs/api/schemas-and-errors.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "api.error-transport-mappings",
+        "api.operation-count"
+      ],
+      "unchangedRegions": [
+        "api.domain-errors-active",
+        "api.domain-errors-retired",
+        "api.domain-errors-migration-only",
+        "api.error-authority-reference",
+        "api.public-error-codes"
+      ]
+    },
+    {
+      "path": "docs/api/stability.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "api.observation-digest"
+      ],
+      "unchangedRegions": []
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "content.comment.child-limit"
+      ],
+      "unchangedRegions": [
+        "content.comment.thread-invariants",
+        "content.comment.edit-delete-version"
+      ]
+    },
+    {
+      "path": "docs/architecture/comment-query-boundary.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "content.comment.max-depth"
+      ],
+      "unchangedRegions": []
+    },
+    {
+      "path": "docs/architecture/monolithic-distributed-boundary.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "deployment.runtime-roles"
+      ],
+      "unchangedRegions": [
+        "testing.execution-classes"
+      ]
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "testing.dependency-edges"
+      ],
+      "unchangedRegions": []
+    },
+    {
+      "path": "docs/releases/blue-green-deployment-runbook.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "release.production-bundle-order",
+        "deployment.blue-green-contract"
+      ],
+      "unchangedRegions": []
+    },
+    {
+      "path": "docs/releases/release-identity.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "release.aggregate-contract"
+      ],
+      "unchangedRegions": [
+        "release.final-input-schemas"
+      ]
+    },
+    {
+      "path": "docs/testing.md",
+      "markerIdsPreserved": true,
+      "authoredBytesPreserved": true,
+      "changedRegions": [
+        "testing.coverage-entry-count",
+        "testing.tiers"
+      ],
+      "unchangedRegions": [
+        "release.finalizer-authority"
+      ]
+    }
+  ],
+  "documentCount": 12,
+  "changedRegionCount": 15,
+  "renderer": [
+    {
+      "path": "tools/docs/generated-fact-sections/renderers.mjs",
+      "reviewedBlob": "11f0ff7200fe3123eb0cfb416501540365fcab82",
+      "currentBlob": "11f0ff7200fe3123eb0cfb416501540365fcab82",
+      "byteIdentical": true
+    },
+    {
+      "path": "tests/tools/generated-fact-sections.test.mjs",
+      "reviewedBlob": "2e24cf7b3e6bdbd3522c78c6ddf7d205b1642cbf",
+      "currentBlob": "2e24cf7b3e6bdbd3522c78c6ddf7d205b1642cbf",
+      "byteIdentical": true
+    }
+  ],
+  "errors": []
+}

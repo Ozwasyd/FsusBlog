@@ -1,0 +1,68 @@
+{
+  "candidateCommit": "d219c182f5087293b15a50b330f54478c0d4695c",
+  "candidateTree": "c39ee5c725939877d9f0f344d88d12004b2b8bfc",
+  "candidateBase": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "sourceIdentity": {
+    "sourceCommit": "d219c182f5087293b15a50b330f54478c0d4695c",
+    "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+  },
+  "sourceCommitUrl": "https://github.com/Ozwasyd/FsusBlog/commit/d219c182f5087293b15a50b330f54478c0d4695c",
+  "sourceFiles": [
+    {
+      "path": "AGENTS.md",
+      "gitBlob": "1445755f3eceb7c05fec62ae9feea4badd7b30fc",
+      "sha256": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d"
+    },
+    {
+      "path": "config/contracts/behavior-fact-extractors.json",
+      "gitBlob": "ea0d7dac98756dac202ac0a6b7eba83fde066eda",
+      "sha256": "f62a9f77fd94aa149d37d0bd646d95709709c20be12d7339d954febe5ea3a0e9"
+    },
+    {
+      "path": "config/contracts/behavior-contracts.json",
+      "gitBlob": "11b7b655f96493b495ab7971addbab99c95f07df",
+      "sha256": "2a176e55c40198a55b5c63b38b76f7aa3483aa27bc6e3375d84d090b28a97f93"
+    },
+    {
+      "path": "tools/fact-extractors/runner.mjs",
+      "gitBlob": "871d4ff9316e9f9c1ce8e01a03784f9e81fd5183",
+      "sha256": "a379b789959b603fe2440a94e292a65470138058a0565122085609258ed78598"
+    },
+    {
+      "path": "tools/fact-extractors/registry.mjs",
+      "gitBlob": "f0c7bb5762db6e623b82a3bf90b603b889beb268",
+      "sha256": "c7540a6c8876add884bc14af8b064e29aaa9e3799455db0d85a0bbb873f4b4dc"
+    },
+    {
+      "path": "tools/fact-extractors/identity.mjs",
+      "gitBlob": "cdf7f56d4125ceefd326c426e4946b8618642dd8",
+      "sha256": "f5a45ff84b254e2e55b5a49ed3aa3d5b3d7b48ea3b54ad344b2b6e0733a0a1fe"
+    },
+    {
+      "path": "tools/docs/behavior-doc-minimal-contract-build.mjs",
+      "gitBlob": "8ca9da4c252bd5acad5927ca9e3571052795883c",
+      "sha256": "061e979c766a3fbb6434bc9ad4445f4b17a73662bf2bbc1089463ecabe545a45"
+    },
+    {
+      "path": "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+      "gitBlob": "b7c7a3c240785df846839583e972fce4267665a1",
+      "sha256": "2040f32153b8c7a6610d0334cca881384129b7be5207d11c1883dd9c0e70f24d"
+    },
+    {
+      "path": "tools/docs/generate-fact-sections.mjs",
+      "gitBlob": "3aa28855b52487a82d70ebe22d71e6aa54c98fc8",
+      "sha256": "3d9beefcb82e004f2eecfe66de597f5469b8045163b45a161affae27d2edfbcb"
+    },
+    {
+      "path": "tools/docs/generated-fact-sections/markers.mjs",
+      "gitBlob": "bc307c89f0ba0ed2edbdd402b729b5f49856bcec",
+      "sha256": "def8315b163df15189aa353e6e05b35c01dcc71a30165792c1f17e4262640023"
+    },
+    {
+      "path": "tools/docs/generated-fact-sections/renderers.mjs",
+      "gitBlob": "11f0ff7200fe3123eb0cfb416501540365fcab82",
+      "sha256": "4380d20a6e22de09589c227a0d367c1faa150c13d3e6bd323b0422fe8b5fd5b9"
+    }
+  ],
+  "scope": "Original candidate identity and read-only source object index; not a newly generated runtime receipt."
+}

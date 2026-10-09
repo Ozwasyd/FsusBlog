@@ -1,0 +1,14 @@
+{
+  "name": "final-current-observations",
+  "command": [
+    "node",
+    "/workspace/3556-evidence/renderer-composition/produce-current-observations.mjs"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/renderer-composition",
+  "testedCommit": "d219c182f5087293b15a50b330f54478c0d4695c",
+  "startedAt": "2026-10-09T05:36:38.908177+00:00",
+  "finishedAt": "2026-10-09T05:42:20.230958+00:00",
+  "durationSeconds": 341.322883597,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/renderer-composition/final-current-observations.log"
+}

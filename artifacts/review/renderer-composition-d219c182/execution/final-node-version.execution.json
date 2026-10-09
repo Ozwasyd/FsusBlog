@@ -1,0 +1,14 @@
+{
+  "name": "final-node-version",
+  "command": [
+    "node",
+    "--version"
+  ],
+  "cwd": "/workspace/.task-toolchains/3556/renderer-composition",
+  "testedCommit": "d219c182f5087293b15a50b330f54478c0d4695c",
+  "startedAt": "2026-10-09T05:41:37.759136+00:00",
+  "finishedAt": "2026-10-09T05:41:37.787188+00:00",
+  "durationSeconds": 0.028052985999920566,
+  "exitCode": 0,
+  "log": "/workspace/3556-evidence/renderer-composition/final-node-version.log"
+}
