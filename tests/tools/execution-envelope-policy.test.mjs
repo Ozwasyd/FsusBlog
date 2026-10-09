@@ -36,6 +36,29 @@ test('canonical execution envelope covers every correctness producer exactly onc
         entry.producerId === 'cross-stack-openapi-sync'), false);
 });
 
+test('canonical mysql applicability binds the registered service and rejects unknown providers', () =>
+{
+    const tier = matrix.tiers.find((entry) => entry.id === 'backend-unit');
+    const producer = catalog.producers.find((entry) => entry.producerId === tier.id);
+    const serviceCatalog = JSON.parse(fs.readFileSync(new URL(
+        '../../config/testing/test-execution-service-catalog.json', import.meta.url
+    ), 'utf8'));
+    assert.deepEqual(tier.services, ['mysql']);
+    assert.deepEqual(producer.requiredServices, tier.services);
+    assert.equal(producer.fieldApplicability.services.status, 'required');
+    assert.equal(serviceCatalog.services.mysql.kind, 'container');
+    assert.equal(serviceCatalog.services.mysql.hostNativeAllowed, false);
+    assert.match(serviceCatalog.services.mysql.imageReference, /^mysql@sha256:[a-f0-9]{64}$/u);
+    assert.ok(serviceCatalog.services.mysql.requiredIdentityFields.includes('ownership'));
+    assert.deepEqual(validateExecutionEnvelopeContracts({ matrix, policy, catalog }), []);
+
+    const unknown = valid();
+    unknown.matrix.tiers.find((entry) => entry.id === tier.id).services.push('unknown-service');
+    unknown.catalog.producers.find((entry) => entry.producerId === tier.id).requiredServices.push('unknown-service');
+    assert.match(validateExecutionEnvelopeContracts(unknown).join('\n'),
+        /applicability schema .*requiredServices.*is not an allowed value/u);
+});
+
 test('only matrix governance and validation admit the pinned content-field host input', () =>
 {
     const admitted = catalog.producers.filter((entry) =>
