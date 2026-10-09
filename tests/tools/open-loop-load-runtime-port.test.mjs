@@ -574,12 +574,19 @@ test('canonical generator saturation and slow-server route failure preserve sepa
     assert.equal(slow.probe.status, 'failed');
 });
 
-test('canonical collector vocabulary gap and interruption retain requests and cleanup while failing qualification', async (t) =>
+test('canonical collector preserves real error events and interruption without qualifying server failures', async (t) =>
 {
     const reset = await actualGeneratorProbe(t, { mode: 'reset' });
-    assert.equal(reset.probe.generatorEvidence.status, 'probe-failed');
-    assert.equal(reset.probe.generatorEvidence.validation.failureKind, 'infra.load-generator-collector-unavailable');
-    assert.match(reset.probe.generatorEvidence.reason, /vocabulary/u);
+    assert.equal(reset.probe.generatorEvidence.status, 'observed', reset.probe.generatorEvidence.reason);
+    assert.equal(reset.probe.generatorEvidence.validation.generatorPassed, true, reset.probe.generatorEvidence.validation.reason);
+    assert.equal(reset.probe.generatorEvidence.validation.failureKind, null);
+    assert.equal(reset.probe.serverProbeStatus, 'failed');
+    assert.equal(reset.probe.status, 'failed');
+    assert.deepEqual(reset.probe.generatorEvidence.observations.events, reset.probe.transportEvidence.observations);
+    const errors = reset.probe.transportEvidence.observations.filter((event) => event.type === 'request-error');
+    assert.equal(errors.length, reset.schedule.plannedCount);
+    assert.ok(errors.every((event) => event.failureFacts.error.code === 'ECONNRESET'));
+    assert.equal(reset.probe.qualificationEligible, false);
     assert.equal(reset.probe.loadRequestObservations.sampleCount, reset.schedule.plannedCount);
     assert.equal(reset.probe.loadRequestObservations.errorRate, 1);
     assert.equal(reset.probe.transportEvidence.finalSnapshot.activeRequests, 0);
@@ -590,6 +597,8 @@ test('canonical collector vocabulary gap and interruption retain requests and cl
     const interrupted = await actualGeneratorProbe(t, { mode: 'slow', signal: controller.signal });
     assert.equal(interrupted.probe.status, 'failed');
     assert.equal(interrupted.probe.generatorEvidence.validation.passed, false);
+    assert.doesNotMatch(interrupted.probe.generatorEvidence.reason ?? '', /vocabulary/u);
+    assert.equal(interrupted.probe.qualificationEligible, false);
     assert.ok(interrupted.probe.openLoop.timeline.observedActiveWindowMs < interrupted.schedule.policy.durationMs);
     assert.equal(interrupted.probe.transportEvidence.finalSnapshot.closed, true);
 });
