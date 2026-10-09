@@ -1,0 +1,17 @@
+{
+    "command": [
+        "markdownlint-cli2",
+        "--config",
+        ".markdownlint-cli2.jsonc",
+        "--no-globs",
+        ":artifacts/article-packages/chain-3663-original-controls-recovery-20261009/README.md"
+    ],
+    "testedSha": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T10:16:31.562575+00:00",
+    "endUtc": "2026-10-09T10:16:31.785987+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/original-controls-recovery-20261009/evidence-readme-lint.log"
+}

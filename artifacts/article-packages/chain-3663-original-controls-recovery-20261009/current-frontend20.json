@@ -1,0 +1,19 @@
+{
+    "command": [
+        "node_modules/.bin/vitest",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts",
+        "--reporter=json",
+        "--outputFile=/workspace/chain-3663-evidence/original-controls-recovery-20261009/frontend20-results.json"
+    ],
+    "testedSha": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T10:01:20.411622+00:00",
+    "endUtc": "2026-10-09T10:01:29.484508+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/original-controls-recovery-20261009/current-frontend20.log"
+}

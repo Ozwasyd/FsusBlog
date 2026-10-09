@@ -1,0 +1,32 @@
+{
+  "testedSource": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+  "discoveryExit": 0,
+  "expectedCases": 813,
+  "actualCases": 813,
+  "expectedMethods": 264,
+  "actualMethods": 264,
+  "classCount": 15,
+  "counts": {
+    "FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests": 60,
+    "FsusBlog.Server.Tests.Unit.ArticlePackageImportCandidateReviewProjectionTests": 18,
+    "FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests": 87,
+    "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests": 91,
+    "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests": 54,
+    "FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests": 43,
+    "FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests": 69,
+    "FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests": 43,
+    "FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests": 97,
+    "FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests": 30,
+    "FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests": 57,
+    "FsusBlog.Tests.Unit.ArticlePackageHistoricalMetadataMapperTests": 27,
+    "FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests": 64,
+    "FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests": 38,
+    "FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests": 35
+  },
+  "projectionCases": 18,
+  "nonemptyExactEquality": true,
+  "hooks": "source-hook-preflight-current.json",
+  "noUnrelatedBootstrapReceiptExportTests": true,
+  "noHeldScopes": true,
+  "entry": "original backend project and original VSTest host; no source harness"
+}

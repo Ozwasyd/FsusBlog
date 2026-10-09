@@ -1,0 +1,20 @@
+{
+  "currentPreimage": "a96b45ae2fc84e83d0064f26a6d07f221f434244",
+  "formalSources": [
+    {
+      "publishedSource": "2db52b419bdb510540243d5e6367020a639f4f5b",
+      "file": "tests/backend/Unit/DocumentExportContractTests.cs",
+      "selectedHunks": 3,
+      "scope": "published constructor bindings only; no assertion/schema/case/resource changes"
+    },
+    {
+      "publishedSource": "b09f9abbaa2abadd81b2cac46b445114724b7050",
+      "file": "tests/backend/Unit/DocumentExportContractTests.cs",
+      "selectedHunks": 2,
+      "scope": "published constructor bindings only; no assertion/schema/case/resource changes"
+    }
+  ],
+  "actualFrozenInputSourceUnchanged": "SiteScope and nullableFrozenEmbeds remain; no latest-master source overwrite",
+  "currentMaster": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "masterDifference": "masterDocumentExportContracts lacks FrozenEmbeds; do not resolve or silently drop retained source at this phase"
+}

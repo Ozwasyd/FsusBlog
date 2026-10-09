@@ -1,0 +1,18 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-incremental"
+    ],
+    "testedSha": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T09:53:11.430859+00:00",
+    "endUtc": "2026-10-09T09:54:19.432780+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/original-controls-recovery-20261009/original-test-project-build-frozen-bindings.log"
+}

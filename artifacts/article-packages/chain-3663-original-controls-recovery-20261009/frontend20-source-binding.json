@@ -1,0 +1,41 @@
+{
+  "currentSource": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+  "sourceAndOriginalSetupConfigUnchanged": [
+    {
+      "path": "src/frontend/vitest.config.ts",
+      "sha256": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+      "unchangedSinceExact20Preflight": true
+    },
+    {
+      "path": "src/frontend/vitest.shared.mjs",
+      "sha256": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
+      "unchangedSinceExact20Preflight": true
+    },
+    {
+      "path": "tests/frontend/support/unit/setup.ts",
+      "sha256": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a",
+      "unchangedSinceExact20Preflight": true
+    },
+    {
+      "path": "src/frontend/src/api/types/articlePackageCandidateReview.ts",
+      "sha256": "8c26e943daeda687dd4bba2d618002aa7707d83f22a0a557ab87aeff3470a06d",
+      "unchangedSinceExact20Preflight": true
+    },
+    {
+      "path": "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue",
+      "sha256": "f9c088f191f14b88c4e6e199e4e7cfc9df6babbb299f907e7f4ef607ec201f95",
+      "unchangedSinceExact20Preflight": true
+    },
+    {
+      "path": "tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts",
+      "sha256": "577960ac3f3a6127fcff2dc3c28d30e808674fd575ec910be17fb5021a8ce314",
+      "unchangedSinceExact20Preflight": true
+    }
+  ],
+  "previousExact20Discovery": "ec70100f genuine original config discovery; same selected code/config/setup/dependencies now rerun as ordinary current-source regression",
+  "fsusuiTaskClone": "/workspace/FsusUI-review-module-3663",
+  "baseline": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "sourceEnvironment": "FSUSBLOG_LOCAL_FSUSUI_ROOT points to task clone; same original public dependency install",
+  "workingDirectory": "/workspace/FsusBlog-group-property-recheck-3663/src/frontend",
+  "productUxAcceptance": false
+}

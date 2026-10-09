@@ -1,0 +1,10 @@
+{
+  "source": "1ec04f0fef46b4c66337c2c95295e4b6c090d99c",
+  "directParent": "6baf73bbe6f3a05b198dad4d25c882fec7ece79d",
+  "scope": "two FrozenEmbeds:null constructor arguments only",
+  "sourceConsumedHere": false,
+  "reason": "same two actual nullable parameter slots already consumed positionally from publishedb09 at74, current originalbuild0errors1511warnings and31/813testsPASS; supplier names parameter explicitly. Supplier preimagea3b differs from retained source, no repeated/changing frozen fixture or wholesale6baf import",
+  "actualRetainedFileBlob": "7025b5e9a19c5e2a0d6840b90e34c44bc5d4c9f1",
+  "supplierBuildResultInherited": false,
+  "supplier18TestsNotReexecuted": "no separate18rerun afterhandoff; root813included18once at ownsource before this latermessage"
+}

@@ -1,0 +1,17 @@
+{
+  "testedSource": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+  "command": "tools/test.sh ci-tier backend-fast --plan-only",
+  "exitCode": 1,
+  "stage": "release-final static boundary matrix parse",
+  "error": "execution target authority owner, content, or dependency closure drifted",
+  "expected": "sha256:b83baf5e09f5c6477820a811ce2894f75fcebfc08a5b90cb73d2e4ca3ba27cd0",
+  "actual": "sha256:50b8c6981af9087c025117ff14f546a2442fc75c0fef932a82289cdba891cbb7",
+  "matrixExecution": "NOT STARTED",
+  "authorityCheckerAltered": false,
+  "gateBypassOrDigestRefresh": false,
+  "ordinaryOriginalTests": "813 and original root31 ran before failed matrix plan and remain separate bounded original-project evidence; not matrix qualification",
+  "nextAction": "Coordinating parent obtains exact trusted canonical execution-target authority/closure qualification from sole owner for retained source; do not self-approve candidate digest",
+  "additionalCurrentPackage20": "NOT RUN on this candidate; original31 retained exactly, broader matrix/current51 selection not claimed green after boundary rejection",
+  "authorityFixture": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "checker": "tools/test-matrix/release-final-static-boundary.mjs:2501"
+}

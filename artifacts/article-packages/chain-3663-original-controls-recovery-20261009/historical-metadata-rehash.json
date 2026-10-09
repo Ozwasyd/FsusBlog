@@ -1,0 +1,10 @@
+{
+  "historicalTestedSource": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+  "oldPublishedManifest": "a1b24e7337063879ad3f1fc2c76f269db2ae340a",
+  "metadataUpdateCommit": "5d2100c7395b94711b06a7f8da566a5725091815",
+  "mismatch": [
+    "ui-module-release.json"
+  ],
+  "cause": "actual six-file delivered UI release metadata was updated at5d while previous historical hash list retained a1postimage; actual raw run artifacts unchanged",
+  "repair": "same original publisher hashing step recomputes artifact-sha256.json only; no historical result retarget or raw evidence changes"
+}

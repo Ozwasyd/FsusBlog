@@ -1,0 +1,5 @@
+Test run for /workspace/FsusBlog-group-property-recheck-3663/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/chain-3663-evidence/original-controls-recovery-20261009/trx/original-selected813.trx
+
+Passed!  - Failed:     0, Passed:   813, Skipped:     0, Total:   813, Duration: 7 s - FsusBlog.Server.Tests.dll (net10.0)

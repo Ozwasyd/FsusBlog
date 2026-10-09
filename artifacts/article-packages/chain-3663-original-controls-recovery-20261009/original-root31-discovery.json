@@ -1,0 +1,21 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--list-tests",
+        "--filter",
+        "FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.Install_RealArchiveAndStores_RecoversFromFreshInstances|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.LocalComposition_EcdsaApprovedSourceInstallAndUninstall_AreReceiptBound|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.EcdsaTrustVerifier_UnknownRevokedExpiredAndBadSignature_FailClosed|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.EcdsaTrustVerifier_TrustedIntervalDoesNotOutliveKnownRevocation|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.EcdsaTrustVerifier_RevocationCutoffPreservesExactTicksAndKeysetIdentity|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.EcdsaTrustVerifier_KeysetIdentityBindsCompletePublisherKeyset|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.PackageStaticGovernance_HasNoRemoteSelfUpdateOrSecondStoreComposition|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.Recover_UncommittedSwitch_RestoresExactPreviousPackageAndRecordsRollback|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.Recover_EarlierExtensionAfterAnotherCommit_UsesItsOwnLatestReceipt|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.Recover_TamperedStoredArchive_FailsClosedAndDeactivatesInitialInstall|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.Recover_TamperedExtractedContent_FailsClosedAndDeactivatesInitialInstall|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.Verifier_TamperedSignature_FailsClosed|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.ReceiptStore_FreshInstanceDetectsTamperedAppend|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.ReceiptStore_MissingDefaultEnumField_FailsClosed|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.Store_DuplicateMetadataOrMissingDefaultTrustField_FailsClosed|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.ArchiveReader_NonCanonicalPaths_AreRejected|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.ArchiveReader_DuplicateLinkPostInstallAndMalformedArchives_AreRejected|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.Verifier_PostInstallArchiveEntry_IsRejectedBeforePersistence|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.ArchiveEncodingChanges_ProduceDistinctArchiveBoundPackageIdentities|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.Store_CreatesUserOwnedDirectoriesAndReadOnlyContent_OnUnix|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.Store_FreshInstanceRejectsUnknownPackageArtifact|FullyQualifiedName=FsusBlog.Server.Tests.AuthoringExtensionPackagePersistenceTests.ProductionActivation_SeparateRecoveryStoreAuthority_IsRejected"
+    ],
+    "testedSha": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T10:00:37.736207+00:00",
+    "endUtc": "2026-10-09T10:00:40.980701+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/original-controls-recovery-20261009/original-root31-discovery.log"
+}

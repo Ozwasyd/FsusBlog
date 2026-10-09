@@ -1,0 +1,35 @@
+{
+  "schema": "fsusblog.article-package.remaining-owner-scope-proposal.v1",
+  "currentSource": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+  "owner": "root retained originalplanner/DI/HTTP/host/AEDS integration; no worker release claimed",
+  "existingOriginalOwners": [
+    "ArticlePackageImportZipCandidateReader.TryReadCandidate: classicfiniteZIP,128MiB max, rejects assets withoutauthority",
+    "ArticlePackageImportCandidatePlanner.TryCreatePlan: immutable finiteplan,callerassertions,alwaysfalseexecutionauthority",
+    "ArticlePackageImportCandidateReviewProjection.TryProject: copiesactualplan,1..50page,originaldigests,unresolvedhints,executiondisabled"
+  ],
+  "proposedExclusiveModules": [
+    {
+      "scope": "bounded finite candidate review producer orchestration",
+      "suggestedPath": "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewProducer.cs",
+      "codeWritten": false,
+      "allowed": "onlycallsoleexistingreader/planner/projection; nosecondparser/hash/planner or complete-admission claim",
+      "requiredActualInputs": "original bounded archive bytes and originalrequest assertions; real authenticated actor/site context must come through original owner; missing permission facts remain unavailable"
+    },
+    {
+      "scope": "actor/site bound candidate read access and lifetime",
+      "suggestedPath": "src/backend/Services/Authoring/ArticlePackageImportCandidateReviewAccess.cs",
+      "codeWritten": false,
+      "allowed": "original auth/operation/resource identity and bounded candidate lifetime; no fake actor/allowedpermission fromcaller assertions",
+      "blocker": "no original canonical authenticated candidate producer/readroute or permission-bearing plan qualification supplied"
+    },
+    {
+      "scope": "original AEDS read route and existing frontend host composition",
+      "suggestedPath": "no guessed endpoint/wire path; preserve existing endpoint/protocol owners",
+      "codeWritten": false,
+      "allowed": "sole original AEDS binary contract owner acrossCSharp/POD/C++/TS plus real host; no JSON fallback or private preview route",
+      "blocker": "typedread DTO is not wirebinding; productionfixture and live actor/site route must be provided; ContentTools islegacyintake, notcandidateproducer"
+    }
+  ],
+  "activeOrUnpublishedOverlapRelease": "not asserted; coordinating parent must assign actual exclusive paths before worker editing",
+  "acceptance": "all proposals, no product/runtime receipt; formal schema/preflight/resolution prerequisites remain"
+}

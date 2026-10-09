@@ -1,0 +1,44 @@
+{
+  "sourceCandidate": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+  "latestMasterReadOnly": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "formalOrdinaryFixes": [
+    {
+      "source": "a95de1defd39a46f34992bed9eee3c150d990456",
+      "files": [
+        "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs"
+      ],
+      "scope": "only published ordinary compilation bindings; original tests/held resources not executed",
+      "delta": "4\t4\ttests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs"
+    },
+    {
+      "source": "e724251e44222c1c36388984f71f88e901a02c48",
+      "files": [
+        "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs"
+      ],
+      "scope": "only published ordinary compilation bindings; original tests/held resources not executed",
+      "delta": "2\t2\ttests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs"
+    },
+    {
+      "source": "b174bf1bf629ed3ec9e1f7d63bcbb50321190ccd",
+      "files": [
+        "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs"
+      ],
+      "scope": "only published ordinary compilation bindings; original tests/held resources not executed",
+      "delta": "1\t1\ttests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs"
+    },
+    {
+      "source": "cc60ae057e00bb914306aa2ab968532c167a3520",
+      "files": [
+        "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+        "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+        "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+        "tests/backend/Unit/TaxonomyExactMetadataTests.cs"
+      ],
+      "scope": "only published ordinary compilation bindings; original tests/held resources not executed",
+      "delta": "2\t0\ttests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs\n4\t4\ttests/backend/Unit/RealConcurrencyHarnessTests.cs\n2\t0\ttests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs\n1\t0\ttests/backend/Unit/TaxonomyExactMetadataTests.cs"
+    }
+  ],
+  "frozenInput": "five selected published hunks from2db52b419 andb09f9abba, constructorbindings only; all assertions/declarations/data rows unchanged",
+  "runtimeSupplierResultsInherited": false,
+  "noWholeAncestorCherryPick": true
+}

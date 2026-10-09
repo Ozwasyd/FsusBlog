@@ -1,0 +1,21 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--force",
+        "--locked-mode",
+        "-p:NuGetAudit=true",
+        "-p:NuGetAuditMode=all",
+        "-p:NuGetAuditLevel=low"
+    ],
+    "testedSha": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T09:57:54.528389+00:00",
+    "endUtc": "2026-10-09T09:57:56.313893+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/original-controls-recovery-20261009/fresh-audited-restore-current.log"
+}

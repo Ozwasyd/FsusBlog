@@ -1,0 +1,144 @@
+{
+  "schema": "fsusblog.article-package.original-controls-recovery.v1",
+  "capturedUtc": "2026-10-09T10:14:32.112402+00:00",
+  "testedSourceSha": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+  "branch": "codex/chain-3663-group-property-recheck",
+  "sdk": "10.0.302",
+  "node": "24.16.0",
+  "npm": "11.13.0",
+  "recovery": "same saved environment resumed; clean5d verified; original published ordinary preimages matched; no recreation/reset/force",
+  "masterBaselineBeforeFirstWork": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "latestMasterReadOnlyFetchedThisTurn": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "parentHandoff": "a95 fourconstant InlineData/e724 twoexisting poll bindings; current-master published b174 andcc60 ordinary compiler fixes consumed normally; exact five matching published constructor hunks from2db/b09 only",
+  "sourceBinding": "ordinary-fix-source-bindings.json",
+  "frozenSourceDifference": "current master lacks retained DocumentExportFrozenInput.FrozenEmbeds; retained product contract unchanged. Exact existing published constructor bindings used; no broader overwrite, source removal or cross-chain conflict resolution",
+  "checks": {
+    "freshAuditedOriginalLockedRestore": "PASS exit0 at793 before compile; same53package/config inputs; current74 fresh audited restore alsoPASS exit0, NuGetAudit true/all/low, NU1903 visible",
+    "originalTestProjectCompile": "PASS exit0 at74;0errors1511warnings, no suppression; preceding4,16,3error failures retained",
+    "originalComponentDiscovery": "PASS813/813cases,264/264exactmethods,15classes, exact original VSTest DLL; source/hooks/count preflight before execution",
+    "originalComponentRuntime": "PASS813/813,0failed/skipped; includes18review projection controls. Ordinary original project evidence, not full runtime/product acceptance",
+    "originalRootRequired31Discovery": "PASS31/31,22exactmethods preserved from original7ea, sameallInlineData; currentclass51 deliberately not full-class-selected",
+    "originalRootRequired31Runtime": "PASS31/31,0failed/skipped, real original ECDSA and private original package/store/activation resources;0ownedpackage temp roots aftercleanup",
+    "currentFrontendRuntime": "PASS20/20,0failed/pending, originalconfig/setup and realFsUI; selectedsource/setup/config/dependencies exactly unchanged since admitted20discovery",
+    "sourceChangeContract": "PASS5d..74viaunchangedtrustedchecker",
+    "sourceDiffCheck": "PASS5d..74",
+    "matrixBackendFastPlanOnly": "FAILexit1; original release-final static boundary rejects execution-target owner/content/dependency closure digest; no tests launched by matrix; no gate alteration",
+    "currentPackageAdditional20": "NOTRUN; broadercurrent51 package/current-matrix controls not represented as green; existing negativecontrols preserved",
+    "fullOriginalMatrixNativeDbRuntimeIndependent": "NOTRUN/HOLD; no source-only/ordinary evidence promoted",
+    "fullInheritedPrStyleNamingDocsGates": "UNACCEPTED;1511warnings, original documented26inheriteddocs diagnostics and retained raw EOF evidence remain unwaived",
+    "productionRenderedUi": "NOTRUN/BLOCKED: noauthenticatedplan producer/readroute/AEDS hostbinding/productionfixture",
+    "evidenceReadme": "PASS exactREADME markdownlint exit0",
+    "evidenceDiffCheck": "FAILexit2 solely retained unified-patch blank context marker atpublished-constructor-bindings.patch:42; raw patch context not normalized or checker suppressed. Product/source diff-checkPASS; fullPRgate unaccepted."
+  },
+  "trxResults": [
+    "trx-summary.json",
+    "root31-trx-summary.json"
+  ],
+  "sourceAndHooks": [
+    "source-hook-preflight-current.json",
+    "root31-source-preflight.json",
+    "root31-runtime-preflight.json",
+    "runtime-case-preflight.json"
+  ],
+  "matrixBlocker": "matrix-static-blocker.json",
+  "currentMinimalNextAction": "Parent obtains exact trusted canonical execution-target authority closure/fixture from sole owner for current retained source; never refresh candidate digest here as approval. Then actual supported matrix and required CI can be considered through original resource/hook gates. Current-master independent review and final merge remain phase-barrier work.",
+  "historicalMetadataHashRepair": "previous5d changed six-file release metadata without updating historicalhashlist; onlythatmetadata hash differed. Same original publisher hashing step refreshed own artifact-sha256; all historical raw receipts stayed byte-identical and bound tof392.",
+  "originalTrustImplementation": "root-trust-source-binding.json; no new trustwindowcoding",
+  "currentHostIntegration": "blocked on genuine authenticatedcandidateproducer/readroute/AEDStransport plus productionfixture; no guessed upstream API, fabricated permission-allowed target, legacyintake or JSONfallback. Exclusive module proposals separate, not implementations/acceptance.",
+  "priorDiagnostic795": "remains actualf392 isolated source-host record. Fresh original813 separate has actual current795+18; no old receipt rebranding.",
+  "issueStates": {
+    "3663": {
+      "accepted": false,
+      "state": "open",
+      "status": "Original required31 PASS31/31 on74c via original project/testhost after real audited locked restore and compile. Full CI/matrix parse blocked on execution-target authority closure; independent current-master review/standard PR/merge gates remain; not accepted."
+    },
+    "2398": {
+      "accepted": false,
+      "state": "open",
+      "status": "WIP: sole finite codec, version registry, property/metadata/taxonomy/asset components implemented; accepted complete V1 root and legitimate source admission remain."
+    },
+    "2408": {
+      "accepted": false,
+      "state": "open",
+      "status": "WIP: same finite components and selected historical DTO bridge; complete manifests/provenance/privacy/version acceptance remain."
+    },
+    "2400": {
+      "accepted": false,
+      "state": "open",
+      "status": "WIP: finite frozen export writer/property planner; complete canonical source, assets, frozen/permission/runtime gate remain."
+    },
+    "2410": {
+      "accepted": false,
+      "state": "open",
+      "status": "WIP: same finite export source; original frozen plan and accepted schema/export runtime remain."
+    },
+    "2402": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: finite intake/bytes/ZIP source exists; accepted export/schema and formal complete preflight remain."
+    },
+    "2411": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: finite intake exists; original full schema/rights/plan preflight unaccepted."
+    },
+    "2404": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: accepted preflight and real resolution/definition/permission inputs missing."
+    },
+    "2413": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: accepted preflight and canonical resolution/replan authority missing."
+    },
+    "2405": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: accepted plan and canonical atomic executor/rollback/recovery/outbox/audit gates missing."
+    },
+    "2415": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: accepted plan and original execution/recovery/permission authority missing."
+    },
+    "2406": {
+      "accepted": false,
+      "state": "open",
+      "status": "Six-file read-only review integrated unchanged. Current original backend18/18 within813 and frontend20/20 PASS on74c. Authenticated candidate producer/readroute/AEDS transport, original formal complete schema/resolution and production-fixture independent UX acceptance missing; execution remains refused."
+    },
+    "2418": {
+      "accepted": false,
+      "state": "open",
+      "status": "Six-file read-only review integrated unchanged. Current original backend18/18 within813 and frontend20/20 PASS on74c. Authenticated candidate producer/readroute/AEDS transport, original formal complete schema/resolution and production-fixture independent UX acceptance missing; execution remains refused."
+    },
+    "2407": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: accepted replacement and migration acceptance absent; no legacy retirement."
+    },
+    "2409": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: terminal whole-chain/native/mutation/performance/caption acceptance."
+    },
+    "2420": {
+      "accepted": false,
+      "state": "open",
+      "status": "HOLD: terminal whole-chain qualification and independent runtime acceptance."
+    }
+  },
+  "trackingIssues": [],
+  "publication": "Parent sole PR/issue-body writer; updated full-scope draft included. No PR/issue writes here.",
+  "prohibitionsPreserved": [
+    "no production data/credentials",
+    "no shared lock regeneration",
+    "no audit suppression",
+    "no checker/trustedpolicy/fixture refresh for approval",
+    "no full/emptyselectorfallback",
+    "no masterpush/merge/close/automergedeploy",
+    "no guessed siblings or wholef53ancestor consumption",
+    "no cross-chain conflict resolution"
+  ],
+  "laterCanonical3653Handoff": "later-3653-handoff.json:1ec named FrozenEmbeds:null slots already supplied positionally by originalb09; preimages differ; no sourceedit/wide6bafimport/testrepetition"
+}

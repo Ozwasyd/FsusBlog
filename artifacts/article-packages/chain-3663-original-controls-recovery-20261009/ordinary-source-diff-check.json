@@ -1,0 +1,16 @@
+{
+    "command": [
+        "git",
+        "diff",
+        "--check",
+        "5d2100c7395b94711b06a7f8da566a5725091815..74c0bdb904a1ec320cade56367da8a17e2b7b0c1"
+    ],
+    "testedSha": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T10:03:46.521138+00:00",
+    "endUtc": "2026-10-09T10:03:46.546721+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/original-controls-recovery-20261009/ordinary-source-diff-check.log"
+}

@@ -1,0 +1,18 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-incremental"
+    ],
+    "testedSha": "793e9a740beb2916d9df08c6b0bfb8ec54b6dcc0",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T09:45:50.240616+00:00",
+    "endUtc": "2026-10-09T09:47:40.795303+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/original-controls-recovery-20261009/original-test-project-build.log"
+}

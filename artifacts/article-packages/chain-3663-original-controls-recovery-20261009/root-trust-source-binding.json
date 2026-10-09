@@ -1,0 +1,38 @@
+{
+  "testedSource": "74c0bdb904a1ec320cade56367da8a17e2b7b0c1",
+  "originalMergedDelivery": "7ea66add",
+  "latestMasterReadOnly": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "files": [
+    {
+      "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionPackages.cs",
+      "blobs": {
+        "7ea66add": "ace8d13e6513b87b30f390ea8c90a8db17c27cb3",
+        "74c0bdb904a1ec320cade56367da8a17e2b7b0c1": "44a4f35e4a3b094c0e8028e84e7c5d3c9f29aad3",
+        "57886f75213bd22c0dd3a8e2586073bdbdd97778": "44a4f35e4a3b094c0e8028e84e7c5d3c9f29aad3"
+      },
+      "currentWorkingBytesSha256": "bd1a71c676553d114a33e4e9f15dcbb21e73e947b4656671148dac3e5a9fec1a"
+    },
+    {
+      "path": "tests/backend/Unit/AuthoringExtensionPackagePersistenceTests.cs",
+      "blobs": {
+        "7ea66add": "95bdb43ed5bdec115ed603a9ee18007d865b0a6f",
+        "74c0bdb904a1ec320cade56367da8a17e2b7b0c1": "4e5b73c85dd990c65d5a21f64bab72f37020f1aa",
+        "57886f75213bd22c0dd3a8e2586073bdbdd97778": "4e5b73c85dd990c65d5a21f64bab72f37020f1aa"
+      },
+      "currentWorkingBytesSha256": "0747ee5144842e730a2228b132b6c996e175ef1d00bb20962ba04ad94fb4b9bf"
+    },
+    {
+      "path": "artifacts/change-contract/authoring-package-trust-cutoff-external-naming.json",
+      "blobs": {
+        "7ea66add": "d9b7505accc267d905536a761ce9216f8e05f919",
+        "74c0bdb904a1ec320cade56367da8a17e2b7b0c1": "d9b7505accc267d905536a761ce9216f8e05f919",
+        "57886f75213bd22c0dd3a8e2586073bdbdd97778": "d9b7505accc267d905536a761ce9216f8e05f919"
+      },
+      "currentWorkingBytesSha256": "93f4b700ee2ae7144411d14c63f7ee90cb1a4e9e4d05e82558fcf56825c9236c"
+    }
+  ],
+  "noNewTrustWindowImplementation": true,
+  "runtimeResultNotRetargetedToMaster": true,
+  "currentOriginal31MethodsAndRowsRetained": "root31-source-preflight.json",
+  "remaining": "current-master independent review, standard PR and matrix gates; global conflict/merge phase outside this task"
+}
