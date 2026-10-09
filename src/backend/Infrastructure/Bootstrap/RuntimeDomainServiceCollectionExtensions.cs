@@ -1,3 +1,4 @@
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 using FsusBlog.Server.Infrastructure.CoreBridge.Caching;
@@ -47,6 +48,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>();
         services.AddHostedService<ArticleViewFlushWorker>();
         services.AddScoped<ArticleService>();
+        services.AddScoped<FsusBlog.Server.Services.Articles.IArticleCanvasLinkWriter>(
+            serviceProvider => serviceProvider.GetRequiredService<ArticleService>());
         services.AddScoped<PostgresArticleVaultExecutionStore>();
         services.AddScoped<IArticleVaultExecutionStore>(
             serviceProvider => serviceProvider.GetRequiredService<PostgresArticleVaultExecutionStore>());
@@ -148,6 +151,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
 
     private static IServiceCollection AddGeneralDomainServices(this IServiceCollection services)
     {
+        services.AddAuthoringWorkspaceSnapshotServices();
         services.AddScoped<SystemService>();
         services.AddSingleton<IReadAnalyticsPrivacyPolicy, ReadAnalyticsPrivacyPolicy>();
         services.AddScoped<StatsService>();
@@ -181,6 +185,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringCanvasOperationTransaction, PostgresAuthoringCanvasOperationTransaction>();
         services.AddScoped<AuthoringCanvasOperationEngine>();
         services.AddScoped<AuthoringCanvasOperationDatabaseVerifier>();
+        services.AddScoped<AuthoringCanvasTransport>();
         services.AddScoped<IAuthorSavedViewDependencyProvider, PostgresAuthorSavedViewDependencyProvider>();
         services.AddScoped<IAuthorSavedViewDependencyCatalog, AuthorSavedViewDependencyCatalog>();
         services.AddScoped<IAuthorSavedViewQueryValidator, AuthorSavedViewQueryValidator>();
@@ -220,8 +225,12 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticlePropertyDefinitionPersistence, PostgresArticlePropertyDefinitionPersistence>();
         services.AddScoped<IArticlePropertyDefinitionStore, ArticlePropertyDefinitionStore>();
         services.AddScoped<IArticlePropertyDefinitionPermissionAuthority, ArticlePropertyDefinitionPermissionAuthority>();
-        services.AddScoped<IArticlePropertyDefinitionImpactAuthority, UnavailableArticlePropertyDefinitionImpactAuthority>();
+        services.AddScoped<IArticlePropertyDefinitionImpactAuthority, PostgresArticlePropertyDefinitionValueImpactAuthority>();
         services.AddScoped<ArticlePropertyDefinitionVerifier>();
+        services.AddScoped<ArticlePropertyValuePersistence>();
+        services.AddScoped<IArticlePropertyReferenceValueAuthority, UnavailableArticlePropertyReferenceValueAuthority>();
+        services.AddScoped<ArticlePropertyValueValidator>();
+        services.AddScoped<IArticlePropertyValueAuthority>(sp => sp.GetRequiredService<ArticleService>());
         services.AddScoped<IArticleCreatePersistence, PostgresArticleCreatePersistence>();
         services.AddScoped<IArticleCreateStore, ArticleCreateStore>();
         services.AddScoped<AuthoringContentTransferService>();

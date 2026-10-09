@@ -1,3 +1,4 @@
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Server.Services.Authoring;
 
 using NSubstitute;

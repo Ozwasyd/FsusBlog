@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Services.Authoring;

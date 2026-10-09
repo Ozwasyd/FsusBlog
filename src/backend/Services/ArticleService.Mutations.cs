@@ -468,6 +468,8 @@ public partial class ArticleService
                             ? ArticleStatusTransitionOperation.Rollback
                             : ArticleStatusTransitionOperation.Update));
                 captureExecution?.Invoke(new ArticleUpdateExecution(version, ArticleMutationOutcome.Applied));
+                await CarryForwardPropertyValuesAsync(id, revision.Id, version.PublicationId,
+                    rollback?.SourceRevisionId, ct).ConfigureAwait(false);
                 await RecordArticleMutationOutboxAsync(
                     id,
                     ArticleMutationEventTypes.Updated,

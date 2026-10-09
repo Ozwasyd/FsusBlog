@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 

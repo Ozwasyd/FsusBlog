@@ -35,6 +35,7 @@ public static class ArticleRelationContractValidator
         ArgumentNullException.ThrowIfNull(set);
         ArticleRelationSet unsigned = set with
         {
+            Relations = CaptureCollection(set.Relations, MaxRelationsPerSet),
             SetDigest = string.Empty
         };
         return unsigned with
@@ -61,6 +62,7 @@ public static class ArticleRelationContractValidator
         ArgumentNullException.ThrowIfNull(candidate);
         ArticleRelationUnlinkedMentionCandidate unsigned = candidate with
         {
+            CandidateTargets = CaptureCollection(candidate.CandidateTargets, MaxCandidatesPerSource),
             CandidateIdentity = string.Empty,
             CandidateDigest = string.Empty
         };
@@ -99,6 +101,8 @@ public static class ArticleRelationContractValidator
         ArgumentNullException.ThrowIfNull(receipt);
         ArticleRelationReceipt unsigned = receipt with
         {
+            RelationDigests = CaptureCollection(receipt.RelationDigests, MaxRelationsPerSet),
+            CandidateDigests = CaptureCollection(receipt.CandidateDigests, MaxCandidatesPerSource),
             ReceiptIdentity = string.Empty,
             ReceiptDigest = string.Empty
         };
@@ -115,6 +119,37 @@ public static class ArticleRelationContractValidator
 
     public static ArticleRelationValidationResult ValidateCatalog()
         => ArticleRelationCatalog.Validate();
+
+    private static IReadOnlyList<T> CaptureCollection<T>(IReadOnlyList<T> source, int maximumCount)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        int count = source.Count;
+        if (count < 0 || count > maximumCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(source), "article_relation_collection_budget_exceeded");
+        }
+
+        // Detach once before hashing; Count cannot authorize an unbounded or changing enumeration.
+        T[] captured = new T[count];
+        using IEnumerator<T> enumerator = source.GetEnumerator();
+        int index = 0;
+        while (enumerator.MoveNext())
+        {
+            if (index >= count)
+            {
+                throw new ArgumentException("article_relation_collection_count_changed", nameof(source));
+            }
+
+            captured[index++] = enumerator.Current;
+        }
+
+        if (index != count)
+        {
+            throw new ArgumentException("article_relation_collection_count_changed", nameof(source));
+        }
+
+        return Array.AsReadOnly(captured);
+    }
 
     public static ArticleRelationValidationResult Validate(ArticleRelationContractCoordinate? coordinate)
     {

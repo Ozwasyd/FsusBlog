@@ -948,6 +948,8 @@ authority；本 slice 不实现 Markdown parser、relation producer/rebuild、in
 或 UI 行为。后续实现必须消费这些 closed contracts，并在上游 source/editor 与 relation lifecycle
 依赖完成且取得对应真实运行时证据后分别验收。
 
+`Seal` 在摘要计算前对 relation set、candidate targets 与 receipt 的 digest collections 做有界脱离复制：先读取一次 Count 并检查现有 100,000 / 10,000 上限，再以有界枚举确认实际数量；越界或数量漂移拒绝，枚举器始终释放。封存后的只读集合不再引用调用方可变 list。合法输入顺序和原摘要编码保持一致；此步骤不是 semantic acceptance，unknown state、actor mismatch、unknown lifecycle bits 等仍可重新 seal 后由 `Validate` 拒绝。
+
 ### `ArticleListItemResponse`
 
 ```json
@@ -2891,3 +2893,71 @@ render: key-value-table
 | UserCommentCursorVersion | {"class":"blog","domain":"blog","id":"UserCommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-version","securityCritical":false} |
 | VisitLock | {"class":"security-critical","domain":"sec","id":"VisitLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"visit-lock","securityCritical":true} |
 <!-- FSUSBLOG-GENERATED:END api.security-cache-policies -->
+
+## Private authoring canvas contracts
+
+`GET /api/binary/author/workspace/default` reads the single authenticated
+administrator's reference-only workspace using `AuthoringWorkspaceSnapshotResponse`
+(271). The matching POST accepts `AuthoringWorkspaceSnapshotRequest` (270),
+requires `ArticleWrite`, the existing admin session and PoW, and preserves
+private/no-store and unified `ApiError` behavior. Payloads never select user/site:
+the current single-site Server binds the authenticated administrator to its
+existing `primary-site` namespace. The request source digest must match the
+actual compiled Server/Shared artifacts before CAS writes. There is no JSON
+transport or local authority. Current snapshot defaults conflict with #1805's
+collapsed outline policy; reset fails with `default_layout_unqualified` until
+the original owner provides a consistent default. Real permission/draft/session
+restore, legacy preference retirement and authenticated HTTP acceptance remain
+separate gates, described in `docs/architecture/authoring-workspace-snapshot-boundary.md`.
+
+The AEDS-only `/api/binary/author/canvases` routes use the existing
+`IAuthoringCanvasDocumentStore`, operation engine and reference resolver.
+The shared contract owner is `src/shared/Contracts/AuthoringCanvas`.
+The administrator session supplies the owner and actor; request payloads carry
+neither. Every route requires `ArticleWrite`; mutation and resolution POSTs
+retain PoW. Responses use private/no-store caching and the unified `ApiError`.
+
+Frames 253–265 use the closed generated POD/C++/TypeScript payload codecs from
+`src/shared/Contracts/Validation/authoring-canvas-wire.json`. Reads include list,
+header, node/edge pages and history. Writes include create, prepare, operations,
+undo/redo and delete. Resolution accepts persisted node IDs under the current
+owner and revision. The prepare POST returns the typed intention in frame 258;
+it does not commit or issue an operation receipt. Apply revalidates references,
+seals facts and checks document/content/history CAS through the sole engine.
+
+The binary binder caps the complete request frame at 8 MiB. Pages hold at most
+256 records; int64 values remain decimal strings in TypeScript. The client uses
+the existing administrator request lease, binary transport and decoder. No JSON
+fallback, browser document authority or public Canvas route is introduced. See the [document boundary](../architecture/authoring-canvas-document-boundary.md).
+Source and codec verification do not establish HTTP/PostgreSQL or rendered UX acceptance.
+
+## Canvas edge conversion through the article owner
+
+`POST /api/binary/author/articles/{articleId:int}/canvas-links` consumes typed
+`ArticleCanvasLinkRequest` (266) and returns `ArticleCanvasLinkReceipt` (267).
+`GET /api/binary/author/articles/{articleId:int}/canvas-links/history` returns
+`ArticleCanvasLinkHistoryResponse` (268). Both routes retain the authenticated
+administrator, primary-site `ArticleWrite`, private/no-store response policy and
+unified `ApiError`; the mutation retains PoW. The server rechecks the active
+principal, source and target access, article revision and Canvas header/content
+CAS, and persisted edge/node/coordinate facts. Link text and public route/anchor
+are derived by the server.
+
+`IArticleCanvasLinkWriter` resolves to the existing scoped `ArticleService`.
+Conversion enters its canonical transaction and invokes `UpdateAsync`, preserving
+publication, assets, rights, outbox and public mutation fences. Article revisions,
+the append-only receipt journal and bounded undo/redo head commit together.
+Undo/redo creates a new canonical revision from the original revision source;
+a later unrelated article edit invalidates the old undo branch. Exact request
+replay recovers the committed receipt without a second write, even after the
+historical Canvas/target disappears. Source access remains required. Permanent
+article deletion removes the mutable history head and retains scalar audit
+receipts and immutable revisions.
+
+The frontend provider binds the administrator generation and owner, validates
+request/receipt/history digests and int64 strings, and retains the exact UUID and
+bytes after an uncertain result. Retrying a pending write cannot invent a new
+request or acknowledge a stale private response. Typed payloads are bounded at
+128 KiB and use the same closed scalar substrate as Canvas. Source and codec
+checks do not certify real HTTP, PostgreSQL transaction or rendered interaction
+acceptance.
