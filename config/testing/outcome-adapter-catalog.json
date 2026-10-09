@@ -34,7 +34,71 @@
             "membershipSchema": "#/$defs/frontend",
             "normalizationStatus": "data-only-schema",
             "owner": "outcome-contract",
-            "proofTestId": "outcome:domain-profiles"
+            "proofTestId": "outcome:domain-profiles",
+            "producerSources": [
+                {
+                    "role": "held-native-bridge",
+                    "path": "tools/test/frontend-vitest-outcome-bridge.mjs",
+                    "sourceCommit": "34f7b7517c5d3511b3d07328c379beba5c4d74f6",
+                    "sourceDigest": "sha256:1df44dde72aae8b85a458f06d8bf934746bf14033c94d8eab6d74ead40633d53",
+                    "exports": [
+                        "prepareFrontendVitestOutcomeRun",
+                        "captureFrontendVitestNativeMaterial",
+                        "harvestFrontendVitestNativeMaterial",
+                        "runFrontendVitestOutcomeAttempts",
+                        "bindFrontendVitestHeldOutcome"
+                    ],
+                    "methods": [],
+                    "documentSchemas": [
+                        "fsusblog.frontend-vitest-held-run.v1",
+                        "fsusblog.frontend-vitest-native-material.v1"
+                    ],
+                    "contractPath": "tools/test/frontend-vitest-outcome-bridge.CONTRACT.md",
+                    "admissionStatus": "ordinary-source-only",
+                    "grantsQualification": false
+                },
+                {
+                    "role": "native-reporter",
+                    "path": "tools/test/frontend-vitest-outcome-reporter.mjs",
+                    "sourceCommit": "34f7b7517c5d3511b3d07328c379beba5c4d74f6",
+                    "sourceDigest": "sha256:6e6ea38ed52b99d0eb644035fb63ba51da266e52482c1dbb965cf84c65f68da0",
+                    "exports": [
+                        "default",
+                        "nativeModule"
+                    ],
+                    "methods": [
+                        "onTestModuleCollected",
+                        "onTestCaseReady",
+                        "onTestCaseResult",
+                        "onTestRunEnd"
+                    ],
+                    "documentSchemas": [
+                        "fsusblog.frontend-vitest-native-event.v1"
+                    ],
+                    "contractPath": "tools/test/frontend-vitest-outcome-bridge.CONTRACT.md",
+                    "admissionStatus": "ordinary-source-only",
+                    "grantsQualification": false
+                },
+                {
+                    "role": "native-runner",
+                    "path": "tools/test/frontend-vitest-outcome-runner.mjs",
+                    "sourceCommit": "34f7b7517c5d3511b3d07328c379beba5c4d74f6",
+                    "sourceDigest": "sha256:e7aa460741d0daf10c1203103e23939a1b6185c840c72968ec0f5dd06e818f2a",
+                    "exports": [
+                        "default"
+                    ],
+                    "methods": [
+                        "onBeforeTryTask",
+                        "onTaskFinished",
+                        "onAfterRetryTask",
+                        "onAfterRunTask"
+                    ],
+                    "documentSchemas": [],
+                    "contractPath": "tools/test/frontend-vitest-outcome-bridge.CONTRACT.md",
+                    "admissionStatus": "ordinary-source-only",
+                    "grantsQualification": false
+                }
+            ]
         },
         {
             "family": "browser",
@@ -44,12 +108,57 @@
             "authorityId": "tools/test-matrix/outcomes/browser-contract-adapter.mjs",
             "adapterExport": "adaptBrowserContractSemanticOutcome",
             "verifierExport": null,
-            "sourceCommit": "36bcb99ef10c1db7b07ac3717cfd8e178766699a",
-            "sourceDigest": "sha256:92503892f10e022bea7ad10d947afd0bcf9a23be0cf21617049c70aa01bdc567",
+            "sourceCommit": "b1065e1af0fea8aece57ec3e53c35a2ad13611ba",
+            "sourceDigest": "sha256:8786c5c61377965a0b65c9f4fcb9b398bd4e092404b3cbb33c23e04357c33def",
             "membershipSchema": "#/$defs/browser",
             "normalizationStatus": "data-only-schema",
             "owner": "outcome-contract",
-            "proofTestId": "outcome:domain-profiles"
+            "proofTestId": "outcome:domain-profiles",
+            "producerSources": [
+                {
+                    "role": "assertion-report",
+                    "path": "tools/test-matrix/outcomes/browser-contract-assertion-report.mjs",
+                    "sourceCommit": "b1065e1af0fea8aece57ec3e53c35a2ad13611ba",
+                    "sourceDigest": "sha256:611fc0163aef7732595b58cc34f0a70abecc34dcdb00f449b26f2366ebf3e5c2",
+                    "exports": [
+                        "createBrowserContractAssertionReport"
+                    ],
+                    "methods": [
+                        "runAssertion",
+                        "skipAssertion",
+                        "interrupt",
+                        "finalize"
+                    ],
+                    "documentSchemas": [
+                        "fsusblog.browser-contract-outcome-catalog.v1",
+                        "fsusblog.browser-contract-outcome-plan.v1",
+                        "fsusblog.browser-contract-outcome-report.v1"
+                    ],
+                    "contractPath": "tools/test-matrix/outcomes/browser-contract-adapter.contract.md",
+                    "admissionStatus": "ordinary-source-only",
+                    "grantsQualification": false
+                },
+                {
+                    "role": "runner-binding",
+                    "path": "tools/test-matrix/outcomes/browser-contract-runner-binding.mjs",
+                    "sourceCommit": "b1065e1af0fea8aece57ec3e53c35a2ad13611ba",
+                    "sourceDigest": "sha256:13c3ee8b8c7336b7e449b439c18b28f1a44aea5895d6edac2fa586a5e01015e6",
+                    "exports": [
+                        "readBrowserContractOutcomeRunnerBinding",
+                        "adaptBrowserContractRunnerSemanticOutcome",
+                        "verifyBrowserContractOutcomeInputCustody",
+                        "adaptBrowserContractRunnerSemanticOutcomeWithCustody"
+                    ],
+                    "methods": [],
+                    "documentSchemas": [
+                        "fsusblog.browser-contract-receipt.v2",
+                        "fsusblog.producer-semantic-outcome-candidate.v1"
+                    ],
+                    "contractPath": "tools/test-matrix/outcomes/browser-contract-adapter.contract.md",
+                    "admissionStatus": "ordinary-source-only",
+                    "grantsQualification": false
+                }
+            ]
         },
         {
             "family": "reliability",
