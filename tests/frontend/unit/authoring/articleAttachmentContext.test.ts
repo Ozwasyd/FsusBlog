@@ -465,7 +465,8 @@ describe('Article attachment owned-handle currentness reader (#2256)', () =>
         const port: ArticleAttachmentTransactionPort = { ...editor.port, binding: () =>
         {
             bindingReads++;
-            if (bindingReads > 1) throw new Error('unexpected-binding-reread');
+            // The original public removal plan reads once before dispatch, then binds its commit.
+            if (bindingReads > 2) throw new Error('unexpected-binding-reread');
             return editor.binding();
         }, dispatch: transaction =>
         {
@@ -477,7 +478,7 @@ describe('Article attachment owned-handle currentness reader (#2256)', () =>
             } } };
         } };
         expect(editor.adapter.remove(handle, port).state).toBe('removed');
-        expect(bindingReads).toBe(1);
+        expect(bindingReads).toBe(2);
         expect(editor.source()).toBe('paragraph');
         expect(editor.adapter.readOwnedIntent(handle, editor.binding())).toMatchObject({ current: false,
             sourceReferenced: null, disposition: 'removed' });
