@@ -416,7 +416,7 @@ export function sourceRegressionArguments(entry)
         throw new Error(`unknown source regression entry: ${entry}`);
     }
     return entry === 'tests/tools/native-tooling-style.test.mjs'
-        ? ['--test', '--test-name-pattern=^(?:native fragment mock span transport|original Markdown adapter package boundary)', entry]
+        ? ['--test', '--test-name-pattern=^(?:native fragment mock span transport|original Markdown adapter package boundary|native tooling style governance (?:preserves registered C ABI spelling but rejects leakage into internal C\\+\\+|does not classify direct-initialized C\\+\\+ locals as functions|portable C\\+\\+ fallback accepts formatter continuations but rejects block indentation debt|accepts header objects initialized from visible values|rejects incorrectly named real C\\+\\+ declarations|keeps ambiguous C\\+\\+ parameter syntax strict|header classification retains required external tools|rejects unnamed C\\+\\+ parameter type facts|records typedef and imported type shadows|recognizes commented preprocessor boundaries|preserves quoted constructor argument tokens)$)', entry]
         : ['--test', entry];
 }
 

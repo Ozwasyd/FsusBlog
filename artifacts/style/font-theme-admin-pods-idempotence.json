@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "352688fc0c9e5cdf72ed69246030fd024355dfd6",
+    "formatter": {
+        "identity": "clang-format",
+        "version": "19.1.7",
+        "command": "clang-format --style=file --fallback-style=none -i src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp"
+    },
+    "paths": [
+        "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp"
+    ],
+    "firstPassTreeSha256": "da798c7dc4987e835663fe4ebb7e1297b1c860ae9ab7b52b6ddba835a9487a6c",
+    "secondPassTreeSha256": "da798c7dc4987e835663fe4ebb7e1297b1c860ae9ab7b52b6ddba835a9487a6c",
+    "idempotent": true
+}

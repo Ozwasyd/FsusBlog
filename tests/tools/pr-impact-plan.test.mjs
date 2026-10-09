@@ -371,11 +371,21 @@ test('C++ suffixes remain unsupported until their actual compiler context succee
     const files = ['src/Example.cpp', 'src/Value.hpp', 'src/Other.hpp', 'src/Unsupported.c'];
     assert.deepEqual(unsupportedSourceStageFiles(files), files);
     assert.deepEqual(unsupportedSourceStageFiles(files, [], [], null, ['src/Example.cpp', 'src/Value.hpp']), files.slice(2));
-    const { sourceGovernanceChildEntries, selectSourceRegressionTargets } =
+    const { sourceGovernanceChildEntries, selectSourceRegressionTargets, sourceRegressionArguments } =
         await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
     assert.equal(sourceGovernanceChildEntries.cpp, 'tools/configuration/check-cpp-source.mjs');
     assert.deepEqual(selectSourceRegressionTargets(['src/Value.hpp']), ['tools/configuration/cpp-source.test.mjs']);
     assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.cpp]).includes('tools/configuration/cpp-source.test.mjs'));
+    const nativeArguments = sourceRegressionArguments('tests/tools/native-tooling-style.test.mjs');
+    const selectedNativeControl = new RegExp(nativeArguments[1].slice('--test-name-pattern='.length));
+    for (const control of ['rejects unnamed C++ parameter type facts', 'records typedef and imported type shadows',
+        'recognizes commented preprocessor boundaries', 'preserves quoted constructor argument tokens',
+        'rejects incorrectly named real C++ declarations', 'keeps ambiguous C++ parameter syntax strict',
+        'header classification retains required external tools'])
+    {
+        assert.ok(selectedNativeControl.test(`native tooling style governance ${control}`));
+    }
+    assert.equal(selectedNativeControl.test('unregistered native checker audit'), false);
 });
 
 test('flat solution checker and its refusal controls are explicit source execution ports', async () =>

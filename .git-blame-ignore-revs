@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Consumed font/theme POD mechanical formatting for #2575.
+352688fc0c9e5cdf72ed69246030fd024355dfd6
