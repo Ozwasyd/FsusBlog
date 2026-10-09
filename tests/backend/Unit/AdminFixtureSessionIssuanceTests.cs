@@ -128,8 +128,9 @@ public sealed class AdminFixtureSessionIssuanceTests
 
 // Real PostgreSQL production-writer contracts with controlled publication/audit
 // failures. These are not Kestrel/Redis fixture or runtime-cache qualification.
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class TypedAdminSessionWriterDatabaseTests(PostgresSchemaMigrationFixture postgres)
-    : IClassFixture<PostgresSchemaMigrationFixture>
 {
     [Theory]
     [InlineData("prepare")]

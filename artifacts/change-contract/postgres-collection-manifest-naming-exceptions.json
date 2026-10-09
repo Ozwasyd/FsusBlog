@@ -6,7 +6,7 @@
             "paths": [
                 "tests/backend/Fixtures/postgres-test-collections.json"
             ],
-            "reason": "preserve the caller-visible PostgreSQL collection IDs and manifest JSON keys while registering the #3214 fixture-backed classes and source-derived case totals"
+            "reason": "preserve the caller-visible PostgreSQL collection IDs and manifest JSON keys while registering the current Vault consumer fixture-backed classes, including original source-generation enrollment, and source-derived case totals"
         }
     ]
 }
