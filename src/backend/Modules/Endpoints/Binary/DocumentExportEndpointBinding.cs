@@ -72,6 +72,22 @@ internal sealed class DocumentExportEndpointBinding(
         return Task.FromResult(new DocumentExportJobActor(principal.AdminPrincipalId, siteScope, sessionId));
     }
 
+    /// <summary>
+    /// Authenticated declaration projection for the future canonical catalog
+    /// transport. This does not allocate a wire frame or activate a provider.
+    /// </summary>
+    internal async Task<DocumentExportCatalogMetadata> ReadCatalogMetadataAsync(
+        HttpContext context, CancellationToken cancellationToken)
+    {
+        await ResolveActorAsync(context, cancellationToken);
+        if (!context.User.HasClaim(AdminPermissions.PermissionClaimType, AdminPermissions.ArticleWrite))
+        {
+            throw new DocumentExportJobDeniedException();
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return DocumentExportCatalogMetadataProjection.Read();
+    }
+
     public async Task<(DocumentExportTask Task, DocumentExportFrozenInput Input)> FreezeRequestAsync(
         HttpContext context, DocumentExportJobActor actor, CancellationToken cancellationToken)
     {
