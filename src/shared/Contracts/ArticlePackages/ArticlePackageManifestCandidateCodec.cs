@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 
 using FsusBlog.Contracts.Articles;
-using FsusBlog.Shared.Contracts.ArticleProperties;
 
 namespace FsusBlog.Shared.Contracts.ArticlePackages;
 
@@ -39,7 +38,8 @@ public static partial class ArticlePackageManifestCandidateCodec
         {
             return Invalid("article_package_manifest_article_budget_exceeded");
         }
-        if (!SupportedVersions(1, 1, 1))
+        ArticlePackageManifestVersions versions = ArticlePackageManifestVersionRegistry.Current.Versions;
+        if (!SupportedVersions(versions.SchemaVersion, versions.CanonicalHashVersion, versions.PropertySchemaVersion))
         {
             return Invalid("article_package_manifest_version_unsupported");
         }
@@ -455,9 +455,9 @@ public static partial class ArticlePackageManifestCandidateCodec
     }
 
     private static bool SupportedVersions(int schema, int canonical, int property)
-        => schema == 1 && canonical == 1 && property == 1
-            && canonical == ArticleCanonicalHashV1.HashVersion
-            && property == ArticlePropertyValueSnapshot.CurrentSchemaVersion;
+        => ArticlePackageManifestVersionRegistry.GetDisposition(
+            new(schema, canonical, property), ArticlePackageManifestVersionRegistry.Current.Versions)
+            == ArticlePackageManifestMigrationDisposition.Identity;
 
     private static bool BoundedCount(int count) => count is >= 0 and <= ArticlePackageSourceBytes.MaximumByteLength;
 
@@ -530,9 +530,10 @@ public static partial class ArticlePackageManifestCandidateCodec
         using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var writer = new DigestWriter(hash);
         writer.Add(DigestDomain);
-        writer.Add(1);
-        writer.Add(1);
-        writer.Add(1);
+        ArticlePackageManifestVersions versions = ArticlePackageManifestVersionRegistry.Current.Versions;
+        writer.Add(versions.SchemaVersion);
+        writer.Add(versions.CanonicalHashVersion);
+        writer.Add(versions.PropertySchemaVersion);
         writer.Add(articles.Count);
         foreach (ArticlePackageManifestArticle article in articles)
         {
@@ -574,9 +575,10 @@ public static partial class ArticlePackageManifestCandidateCodec
     private static void WriteDocument(Utf8JsonWriter writer, IReadOnlyList<ArticlePackageManifestArticle> articles, string digest)
     {
         writer.WriteStartObject();
-        writer.WriteNumber("schemaVersion", 1);
-        writer.WriteNumber("canonicalHashVersion", 1);
-        writer.WriteNumber("propertySchemaVersion", 1);
+        ArticlePackageManifestVersions versions = ArticlePackageManifestVersionRegistry.Current.Versions;
+        writer.WriteNumber("schemaVersion", versions.SchemaVersion);
+        writer.WriteNumber("canonicalHashVersion", versions.CanonicalHashVersion);
+        writer.WriteNumber("propertySchemaVersion", versions.PropertySchemaVersion);
         writer.WriteStartArray("articles");
         foreach (ArticlePackageManifestArticle article in articles)
         {

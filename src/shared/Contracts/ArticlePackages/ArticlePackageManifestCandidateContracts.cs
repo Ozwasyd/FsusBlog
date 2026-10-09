@@ -48,9 +48,9 @@ public sealed class ArticlePackageManifestCandidate
         SemanticDigest = semanticDigest;
     }
 
-    public int SchemaVersion => 1;
-    public int CanonicalHashVersion => 1;
-    public int PropertySchemaVersion => 1;
+    public int SchemaVersion => ArticlePackageManifestVersionRegistry.Current.Versions.SchemaVersion;
+    public int CanonicalHashVersion => ArticlePackageManifestVersionRegistry.Current.Versions.CanonicalHashVersion;
+    public int PropertySchemaVersion => ArticlePackageManifestVersionRegistry.Current.Versions.PropertySchemaVersion;
 
     public IReadOnlyList<ArticlePackageManifestArticle> Articles
     {
