@@ -6,7 +6,12 @@
         "tools/test/correctness-attempt-migration.mjs",
         "tests/tools/matrix-fixture-profile.test.mjs",
         "tests/tools/fixture-catalog.test.mjs",
-        "tests/tools/correctness-attempt-migration.test.mjs"
+        "tests/tools/correctness-attempt-migration.test.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/test-matrix/release-final-evidence-contract.mjs",
+        "tools/test-matrix/required-evidence-dependencies.mjs",
+        "tests/tools/required-evidence-dependencies.test.mjs",
+        "docs/testing.md"
     ],
     "outputs": [
         {
@@ -19,7 +24,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "aa85e35c40c833349f8255462f7eb0f7de3078fcad6394a1c14feb859aec9fc4"
+            "sha256": "015235fbfb48ee5cdfe830241fa55514145f21c7b76ef42453ea0b6f721eebd8"
         }
     ]
 }
