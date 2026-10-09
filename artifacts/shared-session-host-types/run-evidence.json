@@ -1,0 +1,38 @@
+{
+  "sourceCommit": "13b35b7350c25796bd231c1b8193044a579d2d34",
+  "sourceTree": "9f614d59367c8a8144f0b46054e27205dec1da1d",
+  "baseMaster": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "originalTypecheckAndCollectionCommit": "d8662bb6c3cb012076bbdfa7dd24ab3b92eaf3dd",
+  "originalSourceTree": "9f614d59367c8a8144f0b46054e27205dec1da1d",
+  "treeIdentityVerified": true,
+  "branch": "codex/shared-session-host-types-ready-20261009",
+  "targetFile": "src/frontend/src/services/authoring/authoringSessionHost.ts",
+  "targetPreimageBlob": "3a59ddfd6763130b3e637eddc91b3f614def65b0",
+  "targetLastWriter": "74f9189d530acfcb775d080790576a63dbcc5b47",
+  "targetCurrentBlob": "222454163175d0d700434fb9f8f9e40f365b327e",
+  "targetSha256": "6902592448013cf8a051739943063a408db64e7591bda95b53ddbe512e9fbdd3",
+  "style": {
+    "status": "passed",
+    "exitCode": 0,
+    "testedCommit": "13b35b7350c25796bd231c1b8193044a579d2d34",
+    "commandRecord": "source-style-original-toolchain-command.json"
+  },
+  "applicationTypecheck": {
+    "status": "failed",
+    "exitCode": 2,
+    "testedCommit": "d8662bb6c3cb012076bbdfa7dd24ab3b92eaf3dd",
+    "diagnostics": 232,
+    "targetFileDiagnostics": 0,
+    "runner": "TypeScript6.0.2/vue-tsc3.2.6/Node24.16.0; installed environment, not declared6.0.3/3.2.7"
+  },
+  "units": {
+    "status": "blocked-before-body",
+    "expectedCount": 21,
+    "bodiesExecuted": 0,
+    "collectionExitCode": 1,
+    "reason": "@noble/hashes/sha2.js missing from existing dependency environment"
+  },
+  "qualification": false,
+  "deniedWorkspaceRaceAudit": "untouched",
+  "remoteSourceSha": "13b35b7350c25796bd231c1b8193044a579d2d34"
+}

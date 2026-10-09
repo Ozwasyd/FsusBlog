@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+    "--file",
+    "src/frontend/src/services/authoring/authoringSessionHost.ts"
+  ],
+  "startedUtc": "2026-10-09T09:06:56.334387+00:00",
+  "sourceCommit": "d8662bb6c3cb012076bbdfa7dd24ab3b92eaf3dd",
+  "exitCode": 1,
+  "qualification": false
+}

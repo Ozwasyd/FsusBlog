@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--base",
+    "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+    "--file",
+    "src/frontend/src/services/authoring/authoringSessionHost.ts"
+  ],
+  "startedUtc": "2026-10-09T09:11:07.333573+00:00",
+  "sourceCommit": "13b35b7350c25796bd231c1b8193044a579d2d34",
+  "exitCode": 0,
+  "setup": "task ignored directory with symlinks to existing original locked style toolchain; no install/config change",
+  "qualification": false
+}

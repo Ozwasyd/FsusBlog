@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "/tmp/chain-3735-tooling/front-test-env/node_modules/vitest/vitest.mjs",
+    "list",
+    "../../tests/frontend/unit/authoring/authoringSessionHost.test.ts",
+    "--config",
+    "vitest.config.ts",
+    "--json"
+  ],
+  "sourceCommit": "d8662bb6c3cb012076bbdfa7dd24ab3b92eaf3dd",
+  "startedUtc": "2026-10-09T09:05:53.766278+00:00",
+  "exitCode": 1,
+  "mode": "collection only, no test body/hook execution"
+}

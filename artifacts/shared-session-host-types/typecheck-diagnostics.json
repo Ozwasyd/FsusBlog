@@ -1,0 +1,7 @@
+{
+  "sourceCommit": "d8662bb6c3cb012076bbdfa7dd24ab3b92eaf3dd",
+  "allDiagnosticsCount": 232,
+  "targetFileDiagnostics": [],
+  "typecheckPass": false,
+  "logs": "application-typecheck.log"
+}
