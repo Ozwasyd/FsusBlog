@@ -517,6 +517,7 @@
                             :preview="privatePreview"
                             :loading="privatePreviewLoading"
                             :status-text="privatePreviewStatusText"
+                            :attachment-state="privatePreviewAttachmentState"
                             :can-preview="canGeneratePrivatePreview"
                             @preview="generatePrivatePreview"
                         />
@@ -872,6 +873,7 @@ const {
     privatePreview,
     privatePreviewLoading,
     privatePreviewStatusText,
+    privatePreviewAttachmentState,
     canGeneratePrivatePreview,
     aiAssist,
     aiAssistLoading,
