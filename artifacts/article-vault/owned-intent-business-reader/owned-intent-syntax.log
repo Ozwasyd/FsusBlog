@@ -1,0 +1,14 @@
+{
+    "kind": "syntax-diagnostic-only-not-build-runtime-or-style-qualification",
+    "typescript": "6.0.3",
+    "results": [
+        {
+            "file": "src/frontend/src/services/authoring/articleAttachmentBusinessIntentReader.ts",
+            "parseDiagnostics": []
+        },
+        {
+            "file": "tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts",
+            "parseDiagnostics": []
+        }
+    ]
+}

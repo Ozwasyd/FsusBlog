@@ -1,0 +1,78 @@
+{
+    "sourceCommit": "ffacd1f062968a151ba4504b855eb65013a16c54",
+    "branch": "codex/chain-1975-owned-intent-business-reader",
+    "base": "37143050f01346bde533686e383ba93f0dd053d8",
+    "dependencyRefUnchanged": true,
+    "previewHostReadOnly": "5a6e895a1468b3640a3bd25391d0404803e2bd57",
+    "runtimeAcceptance": false,
+    "qualification": false,
+    "implementation": "New own business consumer factory invokes actual original readOwnedIntent before/after promise boundary over the same borrowed handle/snapshot; no second WeakMap/store/receipt grant, no original owner/host file edited. Original unknown and false observations preserved.",
+    "factory": "createArticleAttachmentBusinessIntentReader({ attachments: ArticleAttachmentContextAdapter, handle(this:void,intentRef:string): ArticleAttachmentPendingHandle|null, binding(this:void): ArticlePositionMapBinding }) -> ArticleAttachmentBusinessIntentReader",
+    "methods": [
+        "readOwnedIntent(intentRef:string,context:ArticleDocumentContext,signal?:AbortSignal):ArticleAttachmentOwnedIntentObservation|null",
+        "verifyIntent(node:ArticleAttachmentBusinessIntentNode,context:ArticleDocumentContext,signal?:AbortSignal):Promise<boolean>"
+    ],
+    "integration": "verifyIntent structurally supplies the8ff AttachmentBusinessAuthority.verifyIntent port. Original host supplies real handle lookup/current binding and retains unique handle/store ownership. Current-only verification does not grant terminal cleanup; read method preserves actual terminal/null relation for original separate owners.",
+    "referenceAdapterBoundary": {
+        "proposedRootAssignableModule": "src/frontend/src/services/authoring/articleAttachmentBusinessReferenceReader.ts",
+        "authorityNeeded": "Exact original authorized receipt-producing reference/resource owner and actual transport identity.3a supplier contains version/ledger/edge facts but no receiptRef or permission grant. Do not invent route/frame/receipt or copy lifecycle logs.",
+        "callPlan": "Borrow current original intent, invoke only original authorized resource/reference callback, reobserve context/handle/asset-version/ledger after await; return only actual receipt matching original business fields. Missing authority stays unconfirmed/recovery-required."
+    },
+    "sourceHashes": {
+        "src/frontend/src/services/authoring/articleAttachmentBusinessIntentReader.ts": "412d55aedb838ba27b35c978894b1be390a7cc46be2c950fd68d0a696ab1fd8e",
+        "tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts": "06430a21d4f473fd7e033dcdc6f0f754c7b9485f82d2971891c6ab9928aa84ea"
+    },
+    "checks": {
+        "syntax": {
+            "exit": 0,
+            "result": "two TS files0 parse diagnostics, syntax only",
+            "typescript": "6.0.3"
+        },
+        "commitContract": {
+            "exit": 0,
+            "range": "37143050f01346bde533686e383ba93f0dd053d8..ffacd1f062968a151ba4504b855eb65013a16c54"
+        },
+        "diffCheck": {
+            "exit": 0
+        },
+        "canonicalStyle": {
+            "exit": 1,
+            "result": "blocked: original typed parser requires @vue/tsconfig/tsconfig.dom.json absent after locked dependency restoration denial. Not waived or counted passed."
+        }
+    },
+    "runtimeStage": {
+        "declaredControlCases": 21,
+        "positiveDeclaredCases": 2,
+        "discoveredCount": null,
+        "testsRun": 0,
+        "status": "NOT RUN: locked restoration failed before nonempty positive admission; no inherited35/37 proof or old dependency test counted as acceptance",
+        "lockedVitest": "4.1.11",
+        "sharedOldVitestObserved": "4.1.5",
+        "fsusuiSourceObserved": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "fixturePlan": "existing original unit setup/HappyDOM, actual FsusUI editor dispatch/maps; selected file only, task-owned wrappers disposed in afterEach, no server/database/browser/held audit"
+    },
+    "dependencyAttempts": [
+        {
+            "command": "npm ci --prefix src/frontend --ignore-scripts --offline --no-audit --no-fund",
+            "exit": 1,
+            "error": "ENOTCACHED @ozwasyd/element-plus1.5.1 private package tarball"
+        },
+        {
+            "command": "npm ci --prefix src/frontend --ignore-scripts --no-audit --no-fund",
+            "exit": 1,
+            "status": 401,
+            "error": "E401 Unauthorized; GitHub Packages cannot authenticate current task token for @ozwasyd/element-plus1.5.1",
+            "rawHeaders": "not emitted by npm CLI",
+            "nextAction": "Coordinator provides task package-read capability or exact original-lock-integrity matching cache, then official locked restore and selected positive discovery/admission/21 controls. No retry, identity/endpoint change or denial bypass."
+        }
+    ],
+    "sourcePublication": "ordinary independent branch only; no content API/PR/comment/label/close/merge or held tests",
+    "artifactHashes": {
+        "artifacts/article-vault/owned-intent-business-reader/owned-intent-deps-restore.log": "5ac5c3791402bb73886d10e92a67eccb8aa1259e00f50eb93377e4da5e745129",
+        "artifacts/article-vault/owned-intent-business-reader/owned-intent-deps-restore-current.log": "4b3135973803c9d67faadba1b8ac404dbab9e6eb9c8e19d923a29e539798b42d",
+        "artifacts/article-vault/owned-intent-business-reader/owned-intent-style-restore.log": "aa493d736270da31159e17afa6204bc74dffac9d361fc0b322fcaa232515fd8e",
+        "artifacts/article-vault/owned-intent-business-reader/owned-intent-style-current.log": "f2f4193e39e6b14978f64454e17becc7c8339c5d072a8205cec4d264cd7e548a",
+        "artifacts/article-vault/owned-intent-business-reader/owned-intent-syntax.log": "9442f65ff47b81eed3da8ff238a81b6ec6812a88804776ea371c759a27ea3a82",
+        "artifacts/article-vault/owned-intent-business-reader/owned-intent-change-contract.log": "77c9fc0cddd7482322534dca50888744dc62428384e44fb74c343740943609d0"
+    }
+}
