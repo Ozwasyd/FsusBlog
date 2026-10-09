@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { parseMatrix, parseMatrixValue } from '../../tools/test-matrix/parse-matrix.mjs';
+import { parseMatrix, parseMatrixValue } from '@fsusblog/governance-tools/test-matrix/parse-matrix';
+
 import { parseYamlDocument } from '../../tools/yaml/parse-document.mjs';
 import { parseWorkflowJobNeeds } from '../../tools/yaml/workflow-structure.mjs';
 
