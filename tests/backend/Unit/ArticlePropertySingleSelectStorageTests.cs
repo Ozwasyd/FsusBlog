@@ -53,7 +53,10 @@ public sealed class ArticlePropertySingleSelectStorageTests
     }
 
     private static Dictionary<Guid, ArticlePropertyValueType> Types()
-        => new() { [s_definition] = ArticlePropertyValueType.SingleSelect };
+        => new()
+        {
+            [s_definition] = ArticlePropertyValueType.SingleSelect
+        };
 
     private static ArticlePropertyValueEntry Entry(Guid optionId, bool defaultApplied = false)
     {
