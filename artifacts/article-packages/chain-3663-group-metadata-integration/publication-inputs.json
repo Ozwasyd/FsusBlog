@@ -1,0 +1,9 @@
+{
+    "testedSourceSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+    "branch": "codex/chain-3663-group-property-recheck",
+    "parentIsSolePrWriter": true,
+    "requestedDraftTitle": "feat(backend): integrate historical metadata and package components",
+    "prUrl": null,
+    "existingFrozenPr": "https://github.com/Ozwasyd/FsusBlog/pull/4012",
+    "note": "Do not overwrite frozen PR source or imply draft acceptance; parent must verify remote evidence head and full-scope naming gates."
+}

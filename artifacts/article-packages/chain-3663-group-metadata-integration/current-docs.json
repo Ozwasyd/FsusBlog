@@ -1,0 +1,17 @@
+{
+    "command": [
+        "markdownlint-cli2",
+        "--config",
+        ".markdownlint-cli2.jsonc",
+        "--no-globs",
+        ":docs/api/contracts.md"
+    ],
+    "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T07:33:15.639475+00:00",
+    "endUtc": "2026-10-09T07:33:16.343474+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-docs.log"
+}

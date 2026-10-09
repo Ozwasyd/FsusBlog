@@ -1,0 +1,21 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "test",
+        "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+        "--no-build",
+        "--no-restore",
+        "--list-tests",
+        "--filter",
+        "FullyQualifiedName~ArticlePackageManifestPropertyCodecTests|FullyQualifiedName~ArticlePackagePropertyMapperTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~ArticlePackageAssetMetadataMapperTests|FullyQualifiedName~ArticlePackageManifestTaxonomyCodecTests|FullyQualifiedName~ArticlePackageInventoryTests|FullyQualifiedName~ArticlePackageManifestMetadataCodecTests|FullyQualifiedName~ArticlePackageManifestCandidateCodecTests|FullyQualifiedName~ArticlePackageManifestCandidatePlannerTests|FullyQualifiedName~ArticlePackageFrozenExportCandidateWriterTests|FullyQualifiedName~ArticlePackageCurrentPropertyReaderTests|FullyQualifiedName~ArticlePackageManifestVersionRegistryTests|FullyQualifiedName~ArticlePackageAssetCollectionTests|FullyQualifiedName~ArticlePackageHistoricalMetadataMapperTests"
+    ],
+    "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T07:31:06.858373+00:00",
+    "endUtc": "2026-10-09T07:31:08.567387+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-case-discovery.log"
+}

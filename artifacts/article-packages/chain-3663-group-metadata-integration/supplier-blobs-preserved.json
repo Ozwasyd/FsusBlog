@@ -1,0 +1,77 @@
+{
+    "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+    "files": [
+        {
+            "module": "version-registry",
+            "supplierCommit": "5fbb78fce4238ebc65f25f9426f1e770be21b695",
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+            "blob": "c7cc09a894ea454beb7304bd03b0b9197e1d45f6",
+            "unchanged": true
+        },
+        {
+            "module": "version-registry",
+            "supplierCommit": "5fbb78fce4238ebc65f25f9426f1e770be21b695",
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+            "blob": "56cb3abdac3dbf68abff92dbf79edff41a0fcc89",
+            "unchanged": true
+        },
+        {
+            "module": "version-registry",
+            "supplierCommit": "5fbb78fce4238ebc65f25f9426f1e770be21b695",
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestVersionRegistry.cs",
+            "blob": "6722da44ef71c8550a5e42d2c18e138488b8771e",
+            "unchanged": true
+        },
+        {
+            "module": "version-registry",
+            "supplierCommit": "5fbb78fce4238ebc65f25f9426f1e770be21b695",
+            "path": "tests/backend/Unit/ArticlePackageManifestVersionRegistryTests.cs",
+            "blob": "3ad8f7be2e22b3e7e553f1e5523d23ffff5355ec",
+            "unchanged": true
+        },
+        {
+            "module": "asset-collection",
+            "supplierCommit": "901f1f82c492cdd65887e84f8895e0abca42f24f",
+            "path": "src/backend/Services/Authoring/ArticlePackageAssetCollectionMapper.cs",
+            "blob": "cb14d63103fcf46d7eba2474c622f6c3ce459b6e",
+            "unchanged": true
+        },
+        {
+            "module": "asset-collection",
+            "supplierCommit": "901f1f82c492cdd65887e84f8895e0abca42f24f",
+            "path": "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetCollection.cs",
+            "blob": "891fe8ed60f486cb6d09386f2c04d3c77b070906",
+            "unchanged": true
+        },
+        {
+            "module": "asset-collection",
+            "supplierCommit": "901f1f82c492cdd65887e84f8895e0abca42f24f",
+            "path": "tests/backend/Unit/ArticlePackageAssetCollectionTests.cs",
+            "blob": "331095bb8a54a4fe87fee745a0e2ef007c3f13cc",
+            "unchanged": true
+        },
+        {
+            "module": "historical-canonical-url",
+            "supplierCommit": "da5d862e575674595327b38388fb7417d256cfec",
+            "path": "src/backend/Models/Dtos/AuthoringDtos.cs",
+            "blob": "111ae08d38103b64b62de26b8875065cc867dd3c",
+            "unchanged": true
+        },
+        {
+            "module": "historical-canonical-url",
+            "supplierCommit": "da5d862e575674595327b38388fb7417d256cfec",
+            "path": "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+            "blob": "acac38354e7325af0953aa406545f8937c0cd6c2",
+            "unchanged": true
+        },
+        {
+            "module": "historical-canonical-url",
+            "supplierCommit": "da5d862e575674595327b38388fb7417d256cfec",
+            "path": "tests/backend/Unit/AuthoringRevisionComparePackageReaderTests.cs",
+            "blob": "6a7b13eb4e77dff12febd9c3670893b7fd91d106",
+            "unchanged": true
+        }
+    ],
+    "actualThreeAssetPathsAcknowledged": true,
+    "activeOrUnpublishedOverlap": false
+}

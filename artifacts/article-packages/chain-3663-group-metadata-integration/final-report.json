@@ -1,0 +1,428 @@
+{
+    "schema": "fsusblog.article-package.component-integration-evidence.v1",
+    "capturedUtc": "2026-10-09T07:38:04.618216+00:00",
+    "testedSourceSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+    "originalVerifiedMasterBeforeSourceWork": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+    "latestFetchedMasterBeforeGroupWork": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "publishedBranch": "codex/chain-3663-group-property-recheck",
+    "publishedSourceSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+    "sdk": "10.0.302",
+    "wholeSourceCount": 131,
+    "testCases": 795,
+    "failed": 0,
+    "skipped": 0,
+    "selectedClasses": 14,
+    "newAssetCollectionCases": 97,
+    "newHistoricalMetadataCases": 27,
+    "checks": {
+        "current-tests": {
+            "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:32:15.172742+00:00",
+            "endUtc": "2026-10-09T07:32:25.082112+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-tests.log",
+            "commandReference": "approved-tests-command.json"
+        },
+        "current-style": {
+            "command": [
+                "/workspace/toolchains/chain-3663/node/node-v24.16.0-linux-x64/bin/node",
+                "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+                "--root",
+                "/workspace/FsusBlog-group-property-recheck-3663",
+                "--mode",
+                "strict-full",
+                "--file",
+                "src/backend/Services/Authoring/ArticlePackageHistoricalMetadataMapper.cs",
+                "--file",
+                "tests/backend/Unit/ArticlePackageHistoricalMetadataMapperTests.cs"
+            ],
+            "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:33:15.646398+00:00",
+            "endUtc": "2026-10-09T07:33:22.215158+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-style.log"
+        },
+        "preliminary-build-2": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--no-incremental",
+                "-warnaserror"
+            ],
+            "testedSha": "08787f22f038569e893d6d1a4923aebc5b6bbe0f",
+            "cleanBefore": false,
+            "startUtc": "2026-10-09T07:27:13.414368+00:00",
+            "endUtc": "2026-10-09T07:27:14.636780+00:00",
+            "exitCode": 1,
+            "shaUnchanged": true,
+            "cleanAfter": false,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/preliminary-build-2.log"
+        },
+        "current-docs": {
+            "command": [
+                "markdownlint-cli2",
+                "--config",
+                ".markdownlint-cli2.jsonc",
+                "--no-globs",
+                ":docs/api/contracts.md"
+            ],
+            "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:33:15.639475+00:00",
+            "endUtc": "2026-10-09T07:33:16.343474+00:00",
+            "exitCode": 1,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-docs.log"
+        },
+        "preliminary-build": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--no-incremental",
+                "-warnaserror"
+            ],
+            "testedSha": "08787f22f038569e893d6d1a4923aebc5b6bbe0f",
+            "cleanBefore": false,
+            "startUtc": "2026-10-09T07:26:37.150199+00:00",
+            "endUtc": "2026-10-09T07:26:38.768233+00:00",
+            "exitCode": 1,
+            "shaUnchanged": true,
+            "cleanAfter": false,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/preliminary-build.log"
+        },
+        "current-commit-range-corrected": {
+            "command": [
+                "/workspace/toolchains/chain-3663/node/node-v24.16.0-linux-x64/bin/node",
+                "/workspace/FsusBlog-source-pr-handoff-3663/tools/governance/check-change-contract.mjs",
+                "--root",
+                "/workspace/FsusBlog-group-property-recheck-3663",
+                "--range",
+                "08787f22f038569e893d6d1a4923aebc5b6bbe0f..HEAD"
+            ],
+            "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:34:08.657484+00:00",
+            "endUtc": "2026-10-09T07:34:09.851252+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-commit-range-corrected.log"
+        },
+        "current-strict-build-2": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--no-incremental",
+                "-warnaserror"
+            ],
+            "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:30:45.475606+00:00",
+            "endUtc": "2026-10-09T07:30:49.590737+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-strict-build-2.log"
+        },
+        "current-sdk": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "--info"
+            ],
+            "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:34:36.582732+00:00",
+            "endUtc": "2026-10-09T07:34:36.758567+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-sdk.log"
+        },
+        "preliminary-build-4": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--no-incremental",
+                "-warnaserror"
+            ],
+            "testedSha": "08787f22f038569e893d6d1a4923aebc5b6bbe0f",
+            "cleanBefore": false,
+            "startUtc": "2026-10-09T07:28:23.376257+00:00",
+            "endUtc": "2026-10-09T07:28:27.219950+00:00",
+            "exitCode": 1,
+            "shaUnchanged": true,
+            "cleanAfter": false,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/preliminary-build-4.log"
+        },
+        "preliminary-format": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "format",
+                "whitespace",
+                "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--include",
+                "/workspace/FsusBlog-group-property-recheck-3663/src/backend/Services/Authoring/ArticlePackageHistoricalMetadataMapper.cs",
+                "/workspace/FsusBlog-group-property-recheck-3663/tests/backend/Unit/ArticlePackageHistoricalMetadataMapperTests.cs"
+            ],
+            "testedSha": "08787f22f038569e893d6d1a4923aebc5b6bbe0f",
+            "cleanBefore": false,
+            "startUtc": "2026-10-09T07:28:01.205837+00:00",
+            "endUtc": "2026-10-09T07:28:03.142950+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": false,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/preliminary-format.log"
+        },
+        "current-strict-build": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--no-incremental",
+                "-warnaserror"
+            ],
+            "testedSha": "01184f1d3b5ffb6f4cff5f72a3cb2e516d4069d5",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:30:06.581082+00:00",
+            "endUtc": "2026-10-09T07:30:10.085972+00:00",
+            "exitCode": 1,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-strict-build.log"
+        },
+        "exact-case-discovery": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "test",
+                "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+                "--no-build",
+                "--no-restore",
+                "--list-tests",
+                "--filter",
+                "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_CanonicalNormalizationEqualityCannotSubstituteForFrozenRawByteEquality|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_CompleteWholeSetIsOrderedStoredFixedTimeAndContainsNoPresentationFontEntries|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_ForeignCollectionFailuresRemainFixedInputErrorsWithoutEscapingExceptions|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_FreezesActualAliasedMarkdownAndFontBuffersAndRefusesTheirLaterDrift|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_FreezesFontRowsAtBudgetAdmissionAndRejectsLaterRestorationOfUnbudgetedBytes|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_GlobalFontByteBudgetRejectsIndividuallyValidatedInputsWithoutReturningSubset|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_LateFailureAndIndexFailureNeverYieldPartialArchiveAndLaterAttemptIsStable|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_NullFrozenEmbedSlotNeverProvesAbsenceOfDependenciesInRawMarkdown|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_OwnsArchiveAndReadonlyBindingsAfterCallerCollectionsAndReturnedCopiesChange|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_PrecancelAndCancellationDuringBoundedCopyReturnNoPartialCandidate|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_PreservesOriginalTypedDocumentBindingsWithoutEquatingSourceDomains|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_ReadsCallerCountOnceAndNeverEnumerates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_RealDocumentValidatorRejectsResealedInvalidPresentationFontBytes|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_RejectsActuallyValidNonfontAssetsInsteadOfSilentlyDroppingThem|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_RejectsAnyNonnullFrozenEmbedSlotBeforeRepresentingUnavailableDependencySchema|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_RejectsAssetCountBeforeSealingOrReadingAssetBytes|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_RejectsIncompleteAliasedAndInvalidInputBijections|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_RejectsInputCountBeforeAccessingAnyRow|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_RejectsMalformedOrUnsealedFrozenInputsInsteadOfRepairingTheirClaims|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_RejectsOtherActualFrozenCoordinateKindsWithoutInventingRevisionMapping|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_RejectsSelfConsistentFrozenSourceDriftAgainstThePlan|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_ReorderingAndRepeatedCallsProduceIdenticalArchiveBytes|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_ReusesActualTypedPropertyProjectionWithoutTreatingDocumentPropertyHashAsThatDomain|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests.Writer_UsesRealFrozenValidatorAndPreservesExactOriginalMarkdown|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Identity_PreservesExplicitPortableNamespaceAndFilenameToken|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Identity_RejectsSourceOrNoncanonicalIdentityWithoutNormalization|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Identity_RejectsUnknownKind|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_AcceptsOneThousandAndOneDistinctArticlesWithoutTruncation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_AcceptsSingleArticleAndLargeAssetRegardlessOfInputOrder|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_DoesNotDiscloseRejectedPathInReason|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_EnforcesCompressedTotalByteBudgetSeparately|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_EnforcesCompressionRatioExactlyWithoutDivisionRounding|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_EnforcesDistinctArticleAndAssetCountBudgets|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_EnforcesEachRoleByteBudget|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_EnforcesTotalByteBudgetAtTheExactBoundary|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_EnforcesTotalEntryCountBeforeInspectingContent|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_FreezesOneBoundedIndexCopyWithoutReadingCountAgainOrEnumerating|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsAllNonregularEntryKinds|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsAssetIdentityRepeatedWithAnotherExtension|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsDuplicatePaths|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsIndexedCopyFailureWithoutThrowing|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsInvalidCountBeforeAnyIndexRead|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsInvalidDeclaredSizes|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsMissingManifestChecksumsOrArticle|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsNullEntryAndNullPath|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsPathAndFilenameLengthBudgets|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsUnknownClosedLayoutPath|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests.Inventory_RejectsUnsafeOrAliasedPaths|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.CandidateAndParse_RejectInvalidUnicodeAtAllStringBoundaries|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_AcceptsExactUtcTicksAndRejectsLocalOrUndefinedLifecycle|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_AcceptsOneThousandFrozenArticlesAndRepeatedRoundTrips|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_FreezesInputByBoundedIndexesAndSortsOrdinalPortableIdentities|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_PreservesHistoricalLifecycleWithoutWriteTargetValidation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_RejectsInvalidDraftPairAndMixedPublicationCoordinates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_RejectsNegativeAndOverBudgetByteMetadataCounts|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_RejectsNonpositiveSourceCoordinates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_RejectsNullEmptyAndOverBudgetSetsBeforeIndexing|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_RejectsPerTextAndAggregateTextAndEncodedByteBudgets|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_RejectsPortableAndSourceArticleCollisions|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_RejectsUnknownFinalNewlineBeforeByteEnumConversion|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_RetainsRawTextAndDistinguishesNullEmptyAndNormalizationVariants|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Candidate_RoundTripsFixedClosedKeysAndIndependentGoldenDigest|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_EnforcesBoundedReadDepthBeyondRejectedEmptyAuthorityContainers|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RefusesFutureUnknownAndMistypedVersions|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RejectsDeclaredUnavailableAuthoritiesEvenWhenEmptyOrNull|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RejectsDuplicateFieldsAtEveryObjectLevel|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RejectsEscapedDuplicateNames|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RejectsEscapedLoneSurrogates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RejectsMalformedAndNonclosedRootFormsWithoutThrowing|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RejectsNoncanonicalDigestFields|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RejectsNonexactUtcTimestampForms|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RejectsUnknownFieldsAtEveryObjectLevel|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RejectsValidLookingSemanticDigestAndFieldTamper|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RejectsWrongFieldTypesAndNumericOverflowWithoutThrowing|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests.Parse_RequiresAllKeysIncludingNullableFacts|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Binder_RejectsSelfConsistentAlteredManifestAgainstOriginalInputs|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_CallerIndexFailureHasNoEnumerationFallbackOrPartialResult|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_FailedAndRepeatedAttemptsNeverReturnPartialPlanOrPoisonLaterValidRun|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_HoldsBoundedInputCountAndNeverEnumeratesCallerCollection|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_InputOrderDoesNotChangeSemanticDigestOrCodecBinding|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_OneThousandArticleBoundaryRemainsOrderedAndNeverQualified|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_OwnsInputBytesAndReturnsDetachedPlanCopies|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_PreservesExactSourceBytesAndNullSummary|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RefusesChangedCallerTagsAfterFreezingAndCanRetryRestoredInput|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsAggregatePropertyBudgetBeforePublishingAnySubset|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsAggregateTextBudgetEvenWhenEachInputFitsItsMapperBudget|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsConstructorSourceByteOverflowWithoutChangingValidInput|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsCrossArticleDefinitionAliasesAndEpochDrift|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsCrossArticleOptionAliasesWhileRespectingDefinitionScope|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsDifferentRawBytesEvenWhenCanonicalHashIsIdentical|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsEmptyAndNonemptyReferencesWithoutActualReferenceAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsIndividuallyConsistentInputsFromDifferentOwnerScopes|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsInvalidInputCountBeforeReadingItems|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsPropertyCoordinatesOrDigestDriftAgainstOriginalBindings|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsSelfConsistentDraftOrPublicationWithoutExactCrossOwnerSourceProof|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_RejectsSelfConsistentPropertySnapshotForAnotherCanonicalArticleRevision|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_ReusesRealPropertyMapperForEmptyOrPrimitiveCandidates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests.Planner_UsesBoundedTagCopyWithoutEnumeratingOrRereadingCallerCount|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Codec_UsesRegisteredVersionsAndPreservesExactMetadataAcrossRepeatedIdentityRoundTrips|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Parser_RefusesMalformedJson|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Parser_RefusesUnknownFieldsInsteadOfDowngrading|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Parser_RejectsLiteralAndEscapedDuplicateVersionFields|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Parser_RejectsModifiedByteMetadataWithOriginalSemanticDigest|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Parser_RejectsOverflowFractionalAndMistypedVersions|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Parser_RequiresEveryVersionField|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.RegistryAndParser_RefuseEveryUnregisteredSourceAndTarget|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Registry_IsImmutableAndTupleCopiesCannotRegisterVersions|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Registry_RefusesLossyRequestsEvenForImplementedIdentity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Registry_RegistersOnlyActualV1Identity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageManifestVersionRegistryTests.Serializer_RechecksNullMalformedAndModifiedCandidates|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Contracts_HoldImmutableCopiesAgainstCallerMutation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Contracts_RejectZeroBindingsWrongKindsAndOwnedCopyBudgetOverflow|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_BindingOrderDoesNotChangePortableOrMappingDigests|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_DefinitionAndProjectedIdentityBudgetsAllowBoundaryAndRejectOverflow|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_DifferentSourceCoordinatesRetainPortableValueButChangeMappingDigest|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_PreservesAbsenceFalseZeroEmptyAndDefaultProvenance|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_ProjectsEightTypesThroughExplicitPortableBindings|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_RejectsCorruptSnapshotAndMissingInputsWithoutCandidate|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_RejectsDuplicateSourcesAndPortableAliases|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_RejectsEverySourceCoordinateAndSnapshotDigestDrift|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_RejectsIncompleteOrDriftedDefinitionClosure|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_RejectsIncompleteOrMisboundOptionClosure|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_RejectsMalformedSourceSetsEvenWithFreshlyRecomputedSourceDigest|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_RejectsMalformedUtf16InsteadOfDigestingReplacementBytes|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_RejectsPerValueCollectionBudgetOverflow|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_RejectsUnsortedOrDuplicateDefinitionSourceSnapshots|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_RejectsUnusableReferenceBindingsAndMalformedCanonicalFacts|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_SelfConsistentUnobservedInputRemainsOnlyACandidate|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Mapper_SourceSetPermutationPreservesPortableSemanticsAndRetainsSourceDigestDifference|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Validator_BindsCanonicalReferenceFactsIncludingRevisionAndPermission|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests.Validator_RecomputesCandidateInsteadOfTrustingTamperedRowsOrDigests|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ExplicitEmptyReferencesRemainEmptyWithoutTargetValidation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_NonemptyReferencesRefuseWithoutCanonicalSourceIdentity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.NewArticleInputs_ValidatePrimitiveValuesWithoutAllocatingOrInventingAnArticleIdentity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.SnapshotCandidate_RejectsUnknownSchemaAndTamperedDigests|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Snapshot_FreezesMutableCallerViewBeforeCheckingAndHashing|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Snapshot_ImmutableAndBindsObservedCoordinatesDefinitionAndTypedValues|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_AcceptsOneThousandCurrentDefinitionsWithoutWritingToTheirOwner|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_CanonicalizesUnicodeUrlAndUnorderedOptionSets|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_DefaultAppliesOnlyToMissingAndUsesDefinitionNormalization|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_PermissionCancellationAndBoundRejectBeforeAnyDefinitionRead|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_PreservesMissingNullZeroFalseAndExplicitEmpty|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_ReferenceAuthorityUnavailableAndSelfReferenceFailClosed|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsConstraintsUnknownOptionsDuplicatesAndUnsafeUrls|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsPayloadOfAnotherRegisteredType|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RejectsStaleOrWrongDefinitionBinding|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_RequiredRejectsMissingAndNull|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests.Validator_UsesCurrentDefinitionsForAllEightTypedCases|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.ActualByteAggregateAndIndividualBudgetsAreCheckedBeforeProjection|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.AggregateArchiveBytesPreserveTheOriginalExactInventoryBoundary|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.CollectionOwnsListsAndBytesAndReadsOnlyOneBoundedIndexSnapshot|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.CollectionRoundTripBindsEveryEntryAndSharedReferenceWithIndependentDigest|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.CompleteInventoryCannotDriftFromCollection|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.DuplicateIdentitiesAndContradictoryMappingsNeverYieldPartialResults|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.EmptyAssetCollectionIsValidOnlyWithoutAssetEntriesOrReferences|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.IdenticalByteDigestsCannotCarryContradictoryContentMetadata|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.IndependentlyValidSingleComponentsCannotHideCompleteCollectionDigestDrift|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.IndexedCopyFailureCannotExposeAPrefix|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.InputAndJsonOrderingCanonicalizeToIdenticalBytes|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.InvalidAssetCountIsRefusedBeforeIndexOrByteAccess|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.InvalidJsonEncodingDuplicateKeysAndBudgetsCannotProduceAResult|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.MalformedCollectionAndOriginalChildShapesFailClosed|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.MaximumDistinctAssetsAndReferenceCountsAreBoundedAlongWithSerializedBytes|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.NullInputsAndNullRowsAreRejectedWithoutPartialResults|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.OriginalByteMediaAndPrivacyChecksAreAppliedToEveryEntry|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.OriginalEnvelopeStillRefusesCollectionAsPackageAuthority|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.RebindingRecomputesBytesAndCompleteDigestRatherThanTrustingACopiedDigest|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.SharedEdgesRejectDuplicatesDanglingIdentitiesAndOrphanMetadata|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetCollectionTests.UnknownPrivateAndAuthorityFieldsAreRefusedAtEveryObjectDepth|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests.ClosedComponentDigest_CoversEachContentMetadataField|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests.CopiedDigestAndChangedActualBytesCannotRebindAnOldCandidate|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests.Decoder_RejectsMissingDuplicateWrongTypePathAliasIdentityAndBudgets|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests.Decoder_RejectsUnknownPrivateOrAuthorityFields|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests.FinitePackageEnvelope_StillRefusesAssetsAndFullAssetAdmission|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests.Mapper_RejectsUnsupportedMediaRatherThanInventingAnInspectionFallback|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests.Mapping_RefusesByteMediaOrCanonicalRecordDrift|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests.Mapping_UsesActualRecordByteDigestAndCanonicalMediaHeaderWithoutPrivateFieldsOrAuthority|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests.MissingRightsPrivateStorageAndDeletionNeverBecomeExportPermission|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ActualDefinitionsAndTypedStorageCannotBeReplacedByBindings|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.CanonicalAccessDenialAndInterruptedReadsPropagateWithoutProjection|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.CurrentDefinitionEpochMovementIsDetectedEvenWhenImmutableValuesAreUnchanged|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.CurrentInactiveDefinitionObservationsDoNotRewriteHistoricalValueEpoch|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExactObservedCoordinatesRejectEveryDrift|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ExistingPlannerUsesObservedRowsInsteadOfAssertedPropertySnapshot|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerCancellationDuringFinalReadCannotReturnPlan|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerReauthorizesEarlyArticleAfterLaterRead|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.GroupPlannerRejectsEarlyArticleMovementDuringLaterArticleRead|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.HistoricalInactiveOptionAndReconciliationArePreservedWithoutNewValueAdmission|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingNullEmptyAndDefaultOriginAreNotRenormalized|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.MissingPersistedHeadNeverBecomesEmptySnapshot|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.NonemptyReferenceRequiresRealOperationAuthority|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PermissionRevokedOnSecondReadCannotReturnFirstProjection|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PersistedProvenanceMustBeStructurallyComplete|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PlannerRefusalCannotExposePartialPlanOrObservedSources|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.PlannerRejectsOversizedArticleSetBeforeAnyPropertyRead|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.RepeatedReadDetectsResealedIdentityOrAuthorityObservationDrift|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.ResealedPayloadStillMustMatchActualDefinitionType|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.SourcePortMapsEightExactTypesAndRebindsDecodedV1|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.StableGroupRechecksEveryArticleWithoutGrantingAuthorityOrWriting|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageCurrentPropertyReaderTests.UnsupportedDraftIsRefusedBeforeCurrentRead|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageHistoricalMetadataMapperTests.CrossedSelection_RejectsWithoutProjection|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageHistoricalMetadataMapperTests.EvenSelfConsistentStoredPolicy_DoesNotBypassPublicUrlRules|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageHistoricalMetadataMapperTests.MissingSnapshot_IsDistinctFromPresentSnapshotWithNullUrl|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageHistoricalMetadataMapperTests.ResponsibilityProjection_IsFrozenAndPrivateEvidenceStillRefuses|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageHistoricalMetadataMapperTests.SelectedSnapshot_PreservesNullableUrlAndStoredHashesWithoutGrantingAuthority|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageHistoricalMetadataMapperTests.StoredPolicyMismatch_UsesOriginalCodecAndDoesNotRepairHashes|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Binding_RequiresEveryCurrentFieldDespiteCopiedComponentDigest|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Budgets_RefuseOverCountOversizeOutputAndInvalidTextWithoutTruncation|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Candidate_OwnsIndexedCollectionsAndReturnedSerializationBytes|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.CanonicalPolicyBinding_RejectsFieldDriftEvenWhenPolicyHashIsRecomputed|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.CanonicalPolicyBinding_RejectsMissingOrCopiedPolicyDigest|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Decoder_RejectsInvalidUtf8EscapesAndNonCanonicalUtcSpelling|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Decoder_RejectsMalformedOrWrongTypedInputWithoutCandidate|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Decoder_RejectsUnknownSecretMissingAndDuplicateFieldsAtEveryComponentLevel|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Digest_BindsEachAuthorAndReviewerField|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Digest_BindsEachEvidenceField|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Digest_BindsEveryResponsibilityScalar|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Digest_BindsFlagsAbsentFromTheCanonicalRightsPayload|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.FinitePackageEnvelope_StillRefusesComponentAsMissingFullV1Authority|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.ForeignCollections_CountOrIndexFailureIsFixedAndNeverLeaksContent|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.NullEmptyAndHistoricalFalseRemainDistinctWithoutCurrentDefaults|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Privacy_RefusesWholePrivateSourceInsteadOfDroppingOrRelabelingIt|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.PublicShape_UsesActualOwnerUrlRulesWithoutFetchingOrInferringPrivacy|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests.Roundtrip_PreservesAllExplicitPolicyAndHistoricalResponsibilityFields|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.AllSuppliedCoordinateDriftsRefuseRebinding|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.CanonicalExactDecimalUtcUnicodeAndNullableOwnerArePreserved|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.ClosedObjectsRejectUnknownSecretAndStorageExtensions|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.CopiedDigestRejectsEveryRowFieldAndResealingCannotBypassCanonicalBinding|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.DecimalDecoderNeverRoundsUnderflowsOrConvertsThroughDouble|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.DuplicateDefinitionsOptionsAndWrongPortableKindsNeverAutoMap|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.EightActualTypesRoundTripAndRebindThroughExistingMapper|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.MissingDuplicateWrongTypedUnknownVersionAndInvalidUtf8RefuseWithoutCandidate|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.MissingNullFalseZeroEmptyAndDefaultOriginStayDistinct|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.ProjectedIdentityBudgetAndOwnedListsCannotBeBypassed|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.PublicationCoordinatesAndDefinitionTargetEpochsMustMatchExactly|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.RootStillRefusesPropertiesAndRepeatedBindingDoesNotIssueAuthority|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests.ThousandRowsAreBoundedAndAggregateOverflowRefusesWholeComponent|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.Binding_RejectsNormalizedHashAliasViaActualByteAndExactMarkdownChecks|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.Budgets_RejectCountTextUnicodeAndOversizeJsonWithoutTruncation|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.Decoder_RejectsUnknownSecretMissingDuplicateOrWrongTypedFields|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.Digest_RejectsCopiedDigestAfterEntryDrift|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.ExactBinding_RejectsChangedCanonicalFieldEvenIfOtherCoordinatesMatch|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.FiniteEnvelope_StillRefusesTaxonomyComponentWithoutFullV1Authority|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.ForeignCollectionFailure_ProducesContentFreeReasonWithoutEnumeration|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.Mapping_RejectsMissingExtraDuplicateAliasWrongKindAndSourceDrift|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.NoTags_IsAnExplicitEmptySetAndDoesNotInventTaxonomyAuthority|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.Ordering_IsDeterministicAndSourceIdsRemainIndependentOfPortableOrder|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.Ownership_CopiesAllCallerCollectionsAndDoesNotExposeWritableRowAliases|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.RawBinding_PreservesUtf8BomRatherThanNormalizingItAway|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.Roundtrip_BindsExplicitPortablePairsAndExactRawSourceWithoutAuthority|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.TaxonomyIdentity_RequiresExplicitClosedNamespaceNotNamesIdsRoutesOrOtherKinds|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.WholeSet_Accepts1000ArticlesWithSharedTaxonomyAndOwnsCallerArray|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.WholeSet_EnforcesActualAggregateEncodedBudgetWithoutTruncatingSuccess|FullyQualifiedName=FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests.WholeSet_RequiresSharedSiteAndGlobalSourcePortableDisplayBijections"
+            ],
+            "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:32:13.487187+00:00",
+            "endUtc": "2026-10-09T07:32:15.121739+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/exact-case-discovery.log"
+        },
+        "preliminary-build-3": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--no-incremental",
+                "-warnaserror"
+            ],
+            "testedSha": "08787f22f038569e893d6d1a4923aebc5b6bbe0f",
+            "cleanBefore": false,
+            "startUtc": "2026-10-09T07:27:37.135880+00:00",
+            "endUtc": "2026-10-09T07:27:41.547414+00:00",
+            "exitCode": 1,
+            "shaUnchanged": true,
+            "cleanAfter": false,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/preliminary-build-3.log"
+        },
+        "current-case-discovery": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "test",
+                "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+                "--no-build",
+                "--no-restore",
+                "--list-tests",
+                "--filter",
+                "FullyQualifiedName~ArticlePackageManifestPropertyCodecTests|FullyQualifiedName~ArticlePackagePropertyMapperTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~ArticlePackageAssetMetadataMapperTests|FullyQualifiedName~ArticlePackageManifestTaxonomyCodecTests|FullyQualifiedName~ArticlePackageInventoryTests|FullyQualifiedName~ArticlePackageManifestMetadataCodecTests|FullyQualifiedName~ArticlePackageManifestCandidateCodecTests|FullyQualifiedName~ArticlePackageManifestCandidatePlannerTests|FullyQualifiedName~ArticlePackageFrozenExportCandidateWriterTests|FullyQualifiedName~ArticlePackageCurrentPropertyReaderTests|FullyQualifiedName~ArticlePackageManifestVersionRegistryTests|FullyQualifiedName~ArticlePackageAssetCollectionTests|FullyQualifiedName~ArticlePackageHistoricalMetadataMapperTests"
+            ],
+            "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:31:06.858373+00:00",
+            "endUtc": "2026-10-09T07:31:08.567387+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-case-discovery.log"
+        },
+        "current-locked-restore": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "restore",
+                "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+                "--locked-mode",
+                "-warnaserror",
+                "-p:NuGetAudit=true",
+                "-p:NuGetAuditMode=all",
+                "-p:NuGetAuditLevel=low"
+            ],
+            "testedSha": "b3a2c6a71f35f7420136a2e0f0023e5864457140",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:29:37.759285+00:00",
+            "endUtc": "2026-10-09T07:29:39.143316+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-locked-restore.log"
+        },
+        "current-commit-range": {
+            "command": [
+                "/workspace/toolchains/chain-3663/node/node-v24.16.0-linux-x64/bin/node",
+                "/workspace/FsusBlog-source-pr-handoff-3663/tools/governance/check-change-contract.mjs",
+                "--root",
+                "/workspace/FsusBlog-group-property-recheck-3663",
+                "--base",
+                "08787f22f038569e893d6d1a4923aebc5b6bbe0f",
+                "--head",
+                "HEAD"
+            ],
+            "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+            "cleanBefore": true,
+            "startUtc": "2026-10-09T07:33:15.638818+00:00",
+            "endUtc": "2026-10-09T07:33:15.736018+00:00",
+            "exitCode": 1,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-commit-range.log"
+        }
+    },
+    "supplierBlobEvidence": "supplier-blobs-preserved.json",
+    "preflight": "case-preflight.json",
+    "testReceipt": "trx-summary.json",
+    "qualification": "finite managed component only; not original runtime/product acceptance",
+    "restoreBinding": "b3a2c6a71f35f7420136a2e0f0023e5864457140; identical dependency/configuration/lock surface to tested source; later commits change only source/docs",
+    "docs": "FAIL: exactly26 prior diagnostics, same locations/messages; no suppression",
+    "historicalProvider": "Exact da5 source consumed; provider originally built0errors/323warnings. Its six original tests remain UNRUN, excluded from this component selection. Lifecycle service is outside this131-file compile closure.",
+    "wholeBackendAndShared": "UNRUN on combined source. Supplier full-test restore reportedNU1004 and fullShared187 diagnostics; not inherited as a pass. Lock dependency owner remains sole #3568.",
+    "heldGates": [
+        "original trust31 controls",
+        "original full matrices",
+        "native/cgroup/provider/DB/HTTP acceptance",
+        "mutation/performance/caption round-trip",
+        "independent verifier"
+    ],
+    "issueStates": {
+        "3663": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: original trust31 controls/full matrices/native/provider and independent runtime qualification; no rerun authorized."
+        },
+        "2398": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: sole finite codec, version registry, property/metadata/taxonomy/asset components implemented; accepted complete V1 root and legitimate source admission remain."
+        },
+        "2408": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same finite components and selected historical DTO bridge; complete manifests/provenance/privacy/version acceptance remain."
+        },
+        "2400": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: finite frozen export writer/property planner; complete canonical source, assets, frozen/permission/runtime gate remain."
+        },
+        "2410": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same finite export source; original frozen plan and accepted schema/export runtime remain."
+        },
+        "2402": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: finite intake/bytes/ZIP source exists; accepted export/schema and formal complete preflight remain."
+        },
+        "2411": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: finite intake exists; original full schema/rights/plan preflight unaccepted."
+        },
+        "2404": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted preflight and real resolution/definition/permission inputs missing."
+        },
+        "2413": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted preflight and canonical resolution/replan authority missing."
+        },
+        "2405": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted plan and canonical atomic executor/rollback/recovery/outbox/audit gates missing."
+        },
+        "2415": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted plan and original execution/recovery/permission authority missing."
+        },
+        "2406": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: bounded read-only review module released to parent; no source delivery or UI acceptance yet; execution remains refused."
+        },
+        "2418": {
+            "accepted": false,
+            "state": "open",
+            "status": "WIP: same released read-only review surface; product resolution/results/execution authority and #1853 evidence missing."
+        },
+        "2407": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: accepted replacement and migration acceptance absent; no legacy retirement."
+        },
+        "2409": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: terminal whole-chain/native/mutation/performance/caption acceptance."
+        },
+        "2420": {
+            "accepted": false,
+            "state": "open",
+            "status": "HOLD: terminal whole-chain qualification and independent runtime acceptance."
+        }
+    },
+    "trackingIssues": [],
+    "sourceFailuresPreserved": [
+        "preliminary-build: missing real dependency files",
+        "preliminary-build-2: missing real RegionModerationDecision file",
+        "preliminary-build-3/4: dependency closure and fixture IDE0055 formatting",
+        "current-strict-build at01184f1: wrong byte verifier method name",
+        "current-commit-range: invalid CLI arguments; corrected command passes"
+    ],
+    "noOriginalAcceptanceGateChanged": true,
+    "noSharedLockRegeneration": true,
+    "noMergeClosureDeployOrDirectMasterPush": true
+}

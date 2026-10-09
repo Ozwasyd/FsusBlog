@@ -1,0 +1,19 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "build",
+        "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+        "--no-restore",
+        "--no-incremental",
+        "-warnaserror"
+    ],
+    "testedSha": "08787f22f038569e893d6d1a4923aebc5b6bbe0f",
+    "cleanBefore": false,
+    "startUtc": "2026-10-09T07:27:13.414368+00:00",
+    "endUtc": "2026-10-09T07:27:14.636780+00:00",
+    "exitCode": 1,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/group-metadata-integration/preliminary-build-2.log"
+}

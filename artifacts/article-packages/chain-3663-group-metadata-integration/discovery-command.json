@@ -1,0 +1,11 @@
+[
+    "tools/build-with-data-env.sh",
+    "dotnet",
+    "test",
+    "/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj",
+    "--no-build",
+    "--no-restore",
+    "--list-tests",
+    "--filter",
+    "FullyQualifiedName~ArticlePackageManifestPropertyCodecTests|FullyQualifiedName~ArticlePackagePropertyMapperTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~ArticlePackageAssetMetadataMapperTests|FullyQualifiedName~ArticlePackageManifestTaxonomyCodecTests|FullyQualifiedName~ArticlePackageInventoryTests|FullyQualifiedName~ArticlePackageManifestMetadataCodecTests|FullyQualifiedName~ArticlePackageManifestCandidateCodecTests|FullyQualifiedName~ArticlePackageManifestCandidatePlannerTests|FullyQualifiedName~ArticlePackageFrozenExportCandidateWriterTests|FullyQualifiedName~ArticlePackageCurrentPropertyReaderTests|FullyQualifiedName~ArticlePackageManifestVersionRegistryTests|FullyQualifiedName~ArticlePackageAssetCollectionTests|FullyQualifiedName~ArticlePackageHistoricalMetadataMapperTests"
+]

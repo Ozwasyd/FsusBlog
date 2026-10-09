@@ -1,0 +1,22 @@
+{
+    "command": [
+        "/workspace/toolchains/chain-3663/node/node-v24.16.0-linux-x64/bin/node",
+        "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+        "--root",
+        "/workspace/FsusBlog-group-property-recheck-3663",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/backend/Services/Authoring/ArticlePackageHistoricalMetadataMapper.cs",
+        "--file",
+        "tests/backend/Unit/ArticlePackageHistoricalMetadataMapperTests.cs"
+    ],
+    "testedSha": "f3928561aec01b728fc5eae09e568f97481f8ed1",
+    "cleanBefore": true,
+    "startUtc": "2026-10-09T07:33:15.646398+00:00",
+    "endUtc": "2026-10-09T07:33:22.215158+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/group-metadata-integration/current-style.log"
+}
