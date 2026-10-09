@@ -874,9 +874,11 @@ export async function cleanupSecurityFixtures(context, producerResult, signal)
         throw new Error('security cleanup requires the exact current operation plan');
     }
     const adapters = familyAdapters(context);
+    const observations = [];
     for (const family of [...selectedFamilies(plan)].reverse())
     {
         const fragment = fragmentForFamily(plan, family);
-        await cleanupFamily(adapters[family], plan, fragment, signal);
+        observations.push(await cleanupFamily(adapters[family], plan, fragment, signal));
     }
+    return Object.freeze(observations);
 }

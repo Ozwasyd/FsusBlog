@@ -335,7 +335,7 @@ export function createSecurityStatePort(catalogs = readFixtureCatalogs())
         async cleanup(context, producerResult, signal)
         {
             const { cleanupSecurityFixtures } = await import('./security-fixture-producer.mjs');
-            await cleanupSecurityFixtures(context, producerResult, signal);
+            return await cleanupSecurityFixtures(context, producerResult, signal);
         }
     });
 }
