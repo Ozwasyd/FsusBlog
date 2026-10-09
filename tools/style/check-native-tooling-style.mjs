@@ -1027,6 +1027,7 @@ function CppDeclarationLines(content)
 
 function CppDeclarationStatements(lines)
 {
+    // Preserve lexical channels while consuming declarations in source order, not physical line order.
     const statements = [];
     let declaration = '';
     let values = '';

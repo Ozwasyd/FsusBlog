@@ -705,7 +705,9 @@ test('native tooling style governance processes same-line local type declaration
             { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build()\n{\n    using Other = int; typedef int Input;\n    Reader bad_name(Input);\n}\n", accepted: false },
             { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build()\n{\n    typedef int Other; using Input = int;\n    Reader bad_name(Input);\n}\n", accepted: false },
             { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    using Other = int; using Input = int;\n    const int view = argument;\n    Reader fromLocal(view);\n    Reader fromArgument(argument);\n}\n", accepted: true },
-            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build()\n{\n    using Other = int; using Alias = int;\n    Reader fromOuter(Input);\n}\n", accepted: true }
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build()\n{\n    using Other = int; using Alias = int;\n    Reader fromOuter(Input);\n}\n", accepted: true },
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build()\n{\n    using Other = int; using Input = int; Reader bad_name(Input);\n}\n", accepted: false },
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    const int view = argument; Reader fromLocal(view);\n}\n", accepted: true }
         ];
         for (const extension of ['hpp', 'cpp'])
         {
@@ -741,7 +743,9 @@ test('native tooling style governance records complete multiline local type decl
             { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build()\n{\n    using\n    Input = int;\n    Reader bad_name(Input);\n}\n", accepted: false },
             { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build()\n{\n    typedef\n    int Input;\n    Reader bad_name(Input);\n}\n", accepted: false },
             { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    {\n        struct\n        Input\n        {\n            int Value;\n        };\n        Reader fromArgument(argument);\n    }\n    Reader fromOuter(Input);\n}\n", accepted: true },
-            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    struct\n    Input\n    {\n        int Value;\n    };\n    const int view = argument;\n    Reader fromLocal(view);\n    Reader fromArgument(argument);\n}\n", accepted: true }
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    struct\n    Input\n    {\n        int Value;\n    };\n    const int view = argument;\n    Reader fromLocal(view);\n    Reader fromArgument(argument);\n}\n", accepted: true },
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build()\n{\n    int\n    bad_name(int);\n}\n", accepted: false },
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    const int\n    view = argument;\n    Reader fromLocal(view);\n}\n", accepted: true }
         ];
         for (const extension of ['hpp', 'cpp'])
         {
