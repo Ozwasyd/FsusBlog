@@ -784,7 +784,8 @@ test('native tooling style governance preserves declarations following statement
             { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    switch (argument)\n    {\n        case 0:\n            using Input = int;\n            Reader bad_name(Input);\n        break;\n    }\n}\n", accepted: false },
             { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    Retry:\n        typedef int Input;\n        Reader bad_name(Input);\n}\n", accepted: false },
             { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    switch (argument)\n    {\n        case 0:\n            const int view = argument;\n            Reader fromLocal(view);\n            Reader fromArgument(argument);\n        break;\n    }\n}\n", accepted: true },
-            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    Retry:\n        using Other = int;\n        Reader fromOuter(Input);\n}\n", accepted: true }
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    Retry:\n        using Other = int;\n        Reader fromOuter(Input);\n}\n", accepted: true },
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nvoid Build(int argument)\n{\n    switch (argument)\n    {\n        case []()\n        {\n            return 0;\n        }():\n            int bad_name(int value);\n        break;\n    }\n}\n", accepted: false }
         ];
         for (const extension of ['hpp', 'cpp'])
         {
@@ -824,7 +825,8 @@ test('native tooling style governance balances template declaration headers with
             { source: "template<typename U>\nstruct Wrapper\n{\n    U Value;\n};\nstruct Host\n{\n    template<typename T = Wrapper<int>>\n    int bad_name(T value);\n};\n", accepted: false },
             { source: "template<typename T>\nint Build(T value);\ntemplate<>\nint Build(int value);\n", accepted: true },
             { source: "template<typename U>\nstruct Wrapper\n{\n    U Value;\n};\nstruct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\ntemplate<typename T = Wrapper<int>>\nvoid Build(T argument)\n{\n    const T& view = argument;\n    Reader fromLocal(view);\n    Reader fromArgument(argument);\n}\n", accepted: true },
-            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int T = 1;\nReader reader(T);\n", accepted: true }
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int T = 1;\nReader reader(T);\n", accepted: true },
+            { source: "constexpr int Limit = 2;\ntemplate<bool Flag = Limit < 2>\nint bad_name(int value);\n", accepted: false, rule: "cpp-declaration:" }
         ];
         for (const extension of ['hpp', 'cpp'])
         {
@@ -841,7 +843,7 @@ test('native tooling style governance balances template declaration headers with
                 else
                 {
                     assert.notEqual(result.status, 0, Output(result));
-                    assert.match(Output(result), /cpp-function-name: bad_name/u);
+                    assert.match(Output(result), new RegExp(fixture.rule ?? 'cpp-function-name: bad_name', 'u'));
                 }
             }
         }

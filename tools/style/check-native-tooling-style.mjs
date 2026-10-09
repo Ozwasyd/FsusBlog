@@ -1149,7 +1149,7 @@ function CppDeclarationPrefix(line)
             const end = CppDelimitedEnd(line, cursor);
             if (!end)
             {
-                break;
+                return { end: cursor, templates, incomplete: true };
             }
             cursor = end;
             continue;
@@ -1161,7 +1161,7 @@ function CppDeclarationPrefix(line)
             const end = caseLabel ? CppCaseLabelEnd(line, cursor + caseLabel[0].length) : cursor + label[0].length;
             if (!end)
             {
-                break;
+                return { end: cursor, templates, incomplete: true };
             }
             cursor = end;
             continue;
@@ -1243,6 +1243,11 @@ function CppDeclarationStatements(lines)
         declaration += '\n';
         values += '\n';
         code += '\n';
+    }
+    if (declaration.trim())
+    {
+        statements.push({ declaration, values, code, index: lines.length - 1, cursor: 0,
+            startLine: startLine ?? lines.length - 1, character: '', boundary: false, unterminated: true });
     }
     return statements;
 }
@@ -1437,6 +1442,12 @@ function CheckCpp(file, content, argumentsValue)
         const { index, cursor, character } = parsedLine;
         const line = parsedLine.code;
         const prefix = CppDeclarationPrefix(parsedLine.declaration);
+        if (parsedLine.unterminated || prefix.incomplete)
+        {
+            RevokeCppValues(valueScopes);
+            AddDiagnostic(file, parsedLine.startLine + 1, 'cpp-declaration', 'unable to delimit a complete C++ declaration; value evidence is not admitted');
+            continue;
+        }
         const declarationLine = parsedLine.declaration.slice(prefix.end);
         if (prefix.templates.length > 0)
         {
