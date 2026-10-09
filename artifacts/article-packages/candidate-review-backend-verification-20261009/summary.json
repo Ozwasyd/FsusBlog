@@ -1,7 +1,7 @@
 {
     "evidenceKind": "ordinary-sdk-compilation-diagnostic",
     "publishedModuleSource": "7d23fc30865a206de0b31df527a6b6e59cd7c932",
-    "verificationSource": "2eedcfd11d6d61fbe97b073ee4d945bb27fa32d3",
+    "verificationSource": "2215f1f3fd7988ab4be2b8560b60f8d0496aea56",
     "canonicalLockRepair": "bd3dbde7939dc95c81cef4ab6b50f883459ee85d",
     "canonicalLockPreimageMatchedInputs": 49,
     "canonicalLockPreimageInputCount": 49,
@@ -22,38 +22,12 @@
         "status": "FAIL",
         "exitCode": 1,
         "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --list-tests --filter FullyQualifiedName~ArticlePackageImportCandidateReviewProjectionTests&Category=Unit&Fixture!=LocalRedis",
-        "errorCount": 16,
-        "errorFileCount": 7,
+        "errorCount": 2,
+        "errorFileCount": 1,
         "errorsByFile": {
-            "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs": [
-                "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs(505,17): error CS0246: The type or namespace name 'CanonicalAuthoringFilePathVerifier' could not be found (are you missing a using directive or an assembly reference?) [tests/backend/FsusBlog.Server.Tests.csproj]"
-            ],
-            "tests/backend/Unit/TaxonomyExactMetadataTests.cs": [
-                "tests/backend/Unit/TaxonomyExactMetadataTests.cs(200,22): error CS0103: The name 'ErrorCode' does not exist in the current context [tests/backend/FsusBlog.Server.Tests.csproj]"
-            ],
-            "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs": [
-                "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs(1006,14): error CS1061: 'ConfigurationBuilder' does not contain a definition for 'AddInMemoryCollection' and no accessible extension method 'AddInMemoryCollection' accepting a first argument of type 'ConfigurationBuilder' could be found (are you missing a using directive or an assembly reference?) [tests/backend/FsusBlog.Server.Tests.csproj]"
-            ],
-            "tests/backend/Unit/RealConcurrencyHarnessTests.cs": [
-                "tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [tests/backend/FsusBlog.Server.Tests.csproj]",
-                "tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [tests/backend/FsusBlog.Server.Tests.csproj]",
-                "tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error CS0619: 'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.' [tests/backend/FsusBlog.Server.Tests.csproj]",
-                "tests/backend/Unit/RealConcurrencyHarnessTests.cs(14,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [tests/backend/FsusBlog.Server.Tests.csproj]",
-                "tests/backend/Unit/RealConcurrencyHarnessTests.cs(15,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [tests/backend/FsusBlog.Server.Tests.csproj]",
-                "tests/backend/Unit/RealConcurrencyHarnessTests.cs(16,9): error xUnit2014: Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014) [tests/backend/FsusBlog.Server.Tests.csproj]"
-            ],
             "tests/backend/Unit/DocumentExportContractTests.cs": [
                 "tests/backend/Unit/DocumentExportContractTests.cs(284,28): error CS7036: There is no argument given that corresponds to the required parameter 'ContentDigest' of 'DocumentExportFrozenInput.DocumentExportFrozenInput(string, string, long, string, DocumentExportArticleCoordinate, ImmutableArray<byte>, string, string, string, string, string, string, string, string, string, string, string, ImmutableArray<DocumentExportAsset>, string, DocumentExportFrozenEmbeds?, string)' [tests/backend/FsusBlog.Server.Tests.csproj]",
-                "tests/backend/Unit/DocumentExportContractTests.cs(991,25): error CS7036: There is no argument given that corresponds to the required parameter 'ContentDigest' of 'DocumentExportFrozenInput.DocumentExportFrozenInput(string, string, long, string, DocumentExportArticleCoordinate, ImmutableArray<byte>, string, string, string, string, string, string, string, string, string, string, string, ImmutableArray<DocumentExportAsset>, string, DocumentExportFrozenEmbeds?, string)' [tests/backend/FsusBlog.Server.Tests.csproj]",
-                "tests/backend/Unit/DocumentExportContractTests.cs(1059,19): error CS1061: 'DocumentExportFrozenInput' does not contain a definition for 'SiteId' and no accessible extension method 'SiteId' accepting a first argument of type 'DocumentExportFrozenInput' could be found (are you missing a using directive or an assembly reference?) [tests/backend/FsusBlog.Server.Tests.csproj]"
-            ],
-            "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs": [
-                "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs(121,28): error CS0246: The type or namespace name 'IArticlePublicationValidator' could not be found (are you missing a using directive or an assembly reference?) [tests/backend/FsusBlog.Server.Tests.csproj]",
-                "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs(130,33): error CS0246: The type or namespace name 'ArticleWriteValidationException' could not be found (are you missing a using directive or an assembly reference?) [tests/backend/FsusBlog.Server.Tests.csproj]"
-            ],
-            "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs": [
-                "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs(566,52): error CS0117: 'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval' [tests/backend/FsusBlog.Server.Tests.csproj]",
-                "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs(568,52): error CS0117: 'PublicContentFixtureSeeder' does not contain a definition for 'ProjectionConvergencePollInterval' [tests/backend/FsusBlog.Server.Tests.csproj]"
+                "tests/backend/Unit/DocumentExportContractTests.cs(991,25): error CS7036: There is no argument given that corresponds to the required parameter 'ContentDigest' of 'DocumentExportFrozenInput.DocumentExportFrozenInput(string, string, long, string, DocumentExportArticleCoordinate, ImmutableArray<byte>, string, string, string, string, string, string, string, string, string, string, string, ImmutableArray<DocumentExportAsset>, string, DocumentExportFrozenEmbeds?, string)' [tests/backend/FsusBlog.Server.Tests.csproj]"
             ]
         }
     },
@@ -69,5 +43,13 @@
     "moduleSourceChanged": false,
     "sharedLockRegenerated": false,
     "alternateHarnessUsed": false,
-    "remainingInput": "Exact original-owner compiler prerequisites for the seven diagnosed files, followed by real positive 18-case discovery and bounded execution."
+    "remainingInput": "Exact original-owner minimal hunk or explicit narrow authorization for FrozenEmbeds argument in DocumentExportContractTests constructors at lines 284/991; master signature and tests omit this current parameter. See document-export-blocker.json for current contract and preimages.",
+    "previousDiscoveryDiagnosticCount": 16,
+    "previousDiscoveryDiagnosticFileCount": 7,
+    "canonicalMasterSource": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+    "canonicalProjectionPollSource": "e724251e44222c1c36388984f71f88e901a02c48",
+    "masterConsumption": "Seven diagnosed files: exact original two-line poll repair plus six minimal existing master compiler hunks only; no new master assertions/tests or unrelated formatting/runtime code.",
+    "unchangedFrontendRerun": false,
+    "sourceDeclarationPreflight": "8 facts + 10 inline cases = 18; not live discovery or test execution.",
+    "minimalCommitContractCheck": "PASS 564d8e410158e89a4d694cf4e97b434715384bc9..2215f1f3fd7988ab4be2b8560b60f8d0496aea56"
 }

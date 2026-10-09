@@ -1,0 +1,101 @@
+{
+  "master": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "files": [
+    {
+      "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+      "preimage": "138d80eff65c921dce392bfb0223bcb1f8913305",
+      "canonicalMasterBlob": "b6a233e7a152f7403990b1f3bae740fe29eb2c82",
+      "changes": [
+        [
+          "new CanonicalAuthoringFilePathVerifier()",
+          "new LinuxAuthoringFilePathVerifier()"
+        ]
+      ],
+      "result": "2d1e27b9d98cd35fb60f43499d4e04894b4108c8"
+    },
+    {
+      "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+      "preimage": "13d6080a3dddc728dee6dfe061b97773912f1097",
+      "canonicalMasterBlob": "6a3f275549039c8b2022500cef0710216d492eb1",
+      "changes": [
+        [
+          "using FsusBlog.Core.Cache;\n",
+          "using FsusBlog.Core.Cache;\nusing FsusBlog.Core.Common;\n"
+        ]
+      ],
+      "result": "f65b401745fe6405e5eb7d0f0bc88864b5eeac39"
+    },
+    {
+      "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+      "preimage": "83f31686bd38f8f573de5c4b4a4fda405a2599d4",
+      "canonicalMasterBlob": "c8208fbb2587a25eb5c4146f1467eae47aa95262",
+      "changes": [
+        [
+          "using ConfigurationBuilder =",
+          "using Microsoft.Extensions.Configuration;\n\nusing ConfigurationBuilder ="
+        ]
+      ],
+      "result": "c8208fbb2587a25eb5c4146f1467eae47aa95262"
+    },
+    {
+      "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "preimage": "c2944327c23e7962d04279e51ff7e186c2098de0",
+      "canonicalMasterBlob": "7f1b9073618a5905a13490fb9996061ae1c1d55c",
+      "changes": [
+        [
+          "public void RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny()",
+          "public async Task RunAsync_RejectsTooFewOrMissingWorkersBeforeStartingAny()"
+        ],
+        [
+          "Assert.Throws<ArgumentException>(() => RealConcurrencyHarness.RunAsync(",
+          "await Assert.ThrowsAsync<ArgumentException>(() => RealConcurrencyHarness.RunAsync("
+        ],
+        [
+          "Assert.Throws<ArgumentException>(() => RealConcurrencyHarness.RunAsync<int>(",
+          "await Assert.ThrowsAsync<ArgumentException>(() => RealConcurrencyHarness.RunAsync<int>("
+        ]
+      ],
+      "result": "7f1b9073618a5905a13490fb9996061ae1c1d55c"
+    },
+    {
+      "path": "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+      "preimage": "b4b75d123280e843d563e3cdeb17dfc0444c4ca5",
+      "canonicalMasterBlob": "75947dd73871bab169cc9f5ed6828bbf35783a15",
+      "changes": [
+        [
+          "using FsusBlog.Core.Services.Articles;",
+          "using FsusBlog.Contracts.Articles;\nusing FsusBlog.Core.Services.Articles;"
+        ],
+        [
+          "using FsusBlog.Server.Services;\n",
+          "using FsusBlog.Server.Services;\nusing FsusBlog.Server.Services.Articles;\n"
+        ]
+      ],
+      "result": "75947dd73871bab169cc9f5ed6828bbf35783a15"
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportContractTests.cs",
+      "preimage": "a96b45ae2fc84e83d0064f26a6d07f221f434244",
+      "canonicalMasterBlob": "1f1deb7baea2f77db372b53babedc064a53c5a86",
+      "changes": [
+        [
+          "            7,\n            11,\n",
+          "            7,\n            \"https://example.test\",\n"
+        ],
+        [
+          "            input.SiteId,",
+          "            input.SiteScope,"
+        ]
+      ],
+      "result": "a3b5b7d503409b830c96f9710ba06801a80d1c57"
+    }
+  ],
+  "remainingNonMatchingContract": "Current frozen input requires DocumentExportFrozenEmbeds? FrozenEmbeds before ContentDigest; master does not have this parameter and has no corresponding constructor fix.",
+  "verificationSource": "2215f1f3fd7988ab4be2b8560b60f8d0496aea56",
+  "publishedModuleSource": "7d23fc30865a206de0b31df527a6b6e59cd7c932",
+  "projectionCanonicalSource": "e724251e44222c1c36388984f71f88e901a02c48",
+  "projectionPreimage": "4908b5ffc5527f045c7661244284a977cddd1684",
+  "projectionResult": "5a6cfb1c24caa11f3cc2aa3125c559d45476622d",
+  "unselectedPrerequisiteTestsExecuted": false,
+  "modulePathsChanged": false
+}

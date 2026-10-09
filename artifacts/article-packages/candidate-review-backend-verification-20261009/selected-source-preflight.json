@@ -1,0 +1,14 @@
+{
+  "sourceExpectedFacts": 8,
+  "sourceTheories": 2,
+  "sourceInlineCases": 10,
+  "sourceExpectedTotal": 18,
+  "filter": "FullyQualifiedName~ArticlePackageImportCandidateReviewProjectionTests&Category=Unit&Fixture!=LocalRedis",
+  "originalProject": "tests/backend/FsusBlog.Server.Tests.csproj",
+  "testEntryPointModified": false,
+  "listTestsMustPassBeforeExecution": true,
+  "liveDiscoveredCount": 0,
+  "fixtures": "No IClassFixture, ICollectionFixture or external-resource dependency in selected class.",
+  "liveDiscoveryStatus": "FAIL compilation",
+  "executedCount": 0
+}
