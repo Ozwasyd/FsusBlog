@@ -458,7 +458,16 @@ step instead of borrowing a module function. Composition calls are checked
 against private observations captured from the original parser and source bytes
 before publication. Rebuilding a graph or reading calls through the public node
 interface refuses overwritten call facts and membership; a mutable published
-node cannot establish a new RouterView owner path.
+node cannot establish a new RouterView owner path. The private snapshot covers
+every original call data field, including target properties, defaults, slots,
+render paths and structural flags. Only the original parser can finish and seal
+that snapshot; accessor or prototype substitutions refuse before consumption.
+Public export maps and their entries, public component identities and registered
+component identities are detached observations. The export resolver retains its
+own cache and traversal state, so observation writes cannot remove export-star
+ambiguity or change a subsequent source identity.
+Identity metadata and source input lists are also detached; changing an observed
+digest cannot reset the resolver's original source drift baseline.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state

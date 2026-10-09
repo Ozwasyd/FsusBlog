@@ -33,14 +33,43 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     const originalCalls = new Map();
     const functional = createCompositionFunctionalSource({ resolver });
     const collections = createCompositionCollectionSource({ resolver, nodes });
-    function callFacts(node)
+    function callFacts(value, ancestors = new Set(), objects = null, capture = false, path = '$')
     {
-        return { id: node.id, file: node.file, offset: node.offset, tag: node.tag,
-            definition: node.definition, definitions: node.definitions ?? [], parentId: node.parentId,
-            ancestors: node.ancestors, attributes: node.attributes, directives: node.directives,
-            scopedBindings: node.scopedBindings, sourceDigest: node.sourceDigest,
-            origin: Object.fromEntries(['kind', 'package', 'publicName', 'file', 'name', 'definition', 'exportName']
-                .filter((name) => Object.hasOwn(node.origin, name)).map((name) => [name, node.origin[name]])) };
+        if (value === null || typeof value !== 'object')
+        {
+            if (['function', 'symbol'].includes(typeof value))
+            {
+                fail('supplier graph changed: executable source call facts');
+            }
+            return [typeof value, value];
+        }
+        if (objects)
+        {
+            if (capture)
+            {
+                objects.set(path, value);
+            }
+            else if (objects.get(path) !== value)
+            {
+                fail('supplier graph changed: original source call object identity');
+            }
+        }
+        const array = Array.isArray(value);
+        if (Object.getPrototypeOf(value) !== (array ? Array.prototype : Object.prototype) || ancestors.has(value))
+        {
+            fail('supplier graph changed: non-data source call facts');
+        }
+        const next = new Set([...ancestors, value]);
+        return [array ? 'array' : 'object', Reflect.ownKeys(value).map((name) =>
+        {
+            const property = Object.getOwnPropertyDescriptor(value, name);
+            if (typeof name !== 'string' || !Object.hasOwn(property, 'value'))
+            {
+                fail('supplier graph changed: accessor source call facts');
+            }
+            return [name, property.enumerable, property.configurable, property.writable,
+                callFacts(property.value, next, objects, capture, `${path}/${JSON.stringify(name)}`)];
+        })];
     }
     function observeCall(node, record, syntax)
     {
@@ -50,7 +79,21 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         const offset = syntax.loc ? record.template.offset + syntax.loc.start.offset
             : resolver.sourceStep(record.file, syntax).offset;
         originalCalls.set(node.id, { node, file: record.file, offset, source,
-            fileDigest: controlDigest(record.content), factsDigest: controlDigest(callFacts(node)) });
+            fileDigest: controlDigest(record.content), factsDigest: controlDigest(callFacts(node)), sealed: false });
+    }
+    function sealOriginalCalls(file)
+    {
+        // Original parsing may add slot facts or combine render paths. Seal the
+        // entire data observation once that parser finishes, before publication.
+        for (const original of originalCalls.values())
+        {
+            if (original.file === file && !original.sealed)
+            {
+                original.objects = new Map();
+                original.factsDigest = controlDigest(callFacts(original.node, new Set(), original.objects, true));
+                original.sealed = true;
+            }
+        }
     }
     function assertOriginalCalls(checkBytes = false)
     {
@@ -62,7 +105,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         for (const [id, original] of originalCalls)
         {
             const node = nodes.get(id);
-            if (node !== original.node || controlDigest(callFacts(node)) !== original.factsDigest)
+            if (!original.sealed || node !== original.node
+                || controlDigest(callFacts(node, new Set(), original.objects)) !== original.factsDigest)
             {
                 fail(`supplier graph changed: original source call ${id}`);
             }
@@ -1389,6 +1433,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             {
                 errors.push({ file, reason: 'unknown-render-source' });
             }
+            sealOriginalCalls(file);
             return value;
         }
         function visit(node, parentId = null, ancestors = [], scopedNames = new Set())
@@ -1626,6 +1671,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
         }
         visit(record.template.ast);
+        sealOriginalCalls(file);
         return value;
     }
     function graph(entryFiles, { routes = null } = {})

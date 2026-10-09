@@ -417,7 +417,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             publicNames.set(key, { kind: 'fsusui-public', package: packageId, entry: specifier,
                 publicName: name, definition: origin.file, exportName: origin.name });
         }
-        return publicNames.get(key);
+        return structuredClone(publicNames.get(key));
     };
     const resolveExport = (file, name, seen = new Set()) =>
     {
@@ -2591,7 +2591,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             }
             if (globalRegistrations.has(name))
             {
-                return globalRegistrations.get(name);
+                return structuredClone(globalRegistrations.get(name));
             }
         }
         if (file.endsWith('.vue') && candidates.includes(path.basename(file, '.vue')))
@@ -2698,15 +2698,20 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         return ast.statements[0].expression.expression;
     }
     const api = { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations, expression,
-        modulePath, exportsOf, componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent, resolveObjectKeyAbsence,
+        modulePath, exportsOf: (file) => new Map([...exportsOf(file)].map(([name, origin]) => [name, structuredClone(origin)])),
+        componentProps, componentPropDeclaration, resolveComponentInput, resolveFactoryComponent, resolveObjectKeyAbsence,
         sourceStep, resolveSourceFunction: componentFunction, resolveFrameworkExport, assertImmutableBinding: finiteComponentBinding,
         isInteractive,
-        identity: { mode, package: packageId, publicRoot, packageDigest: controlDigest(metadata),
-            upstream: initialUpstreamIdentity, resolutionInputs, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,
-                vueDom: require('@vue/compiler-dom/package.json').version } },
+        get identity()
+        {
+            return structuredClone({ mode, package: packageId, publicRoot, packageDigest: controlDigest(metadata),
+                upstream: initialUpstreamIdentity, resolutionInputs, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,
+                    vueDom: require('@vue/compiler-dom/package.json').version } });
+        },
         sourceBindings: () =>
         {
-            const files = [...resolutionInputs, ...[...parsed.values()].map((record) => ({ path: record.file, digest: controlDigest(record.content) }))];
+            const files = [...resolutionInputs.map((input) => ({ ...input })),
+                ...[...parsed.values()].map((record) => ({ path: record.file, digest: controlDigest(record.content) }))];
             const errors = files.filter((file) => !fs.existsSync(file.path) || file.digest !== controlDigest(fs.readFileSync(file.path, 'utf8')))
                 .map((file) => ({ path: file.path, reason: 'parsed-source-changed-during-scan' }));
             if (controlDigest(initialUpstreamIdentity) !== controlDigest(upstreamIdentity()))

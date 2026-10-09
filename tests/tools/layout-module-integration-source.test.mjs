@@ -31,6 +31,26 @@ function fixture(text, extension = 'vue')
     writeFileSync(file, text);
     return file;
 }
+function nativePropertyGraph(tag = 'unknown')
+{
+    const owner = fixture('<script setup>const props=defineProps({tag:{type:[String,Object],default:"button"},other:{type:[String,Object],default:"aside"}});</script><template><component :is="tag"/></template>');
+    const entry = fixture(`<script setup>import Owner from './${owner.split('/').at(-1)}';</script><template><Owner :tag="${tag}" other="a"/></template>`);
+    const s = source();
+    const graph = s.graph([entry]);
+    const target = graph.nodes.find((node) => node.file === owner && node.origin.kind === 'native-prop');
+    assert.ok(target);
+    return { s, graph, target, entry };
+}
+function exportStarGraph(competing = true)
+{
+    const actual = fixture("export {Check as Glyph} from '@ozwasyd/element-plus/icons-vue';", 'ts');
+    const other = fixture('<template><button/></template>');
+    const second = fixture(competing ? `export {default as Glyph} from './${other.split('/').at(-1)}';`
+        : `export {Glyph} from './${actual.split('/').at(-1)}';`, 'ts');
+    const ambiguous = fixture(`export * from './${actual.split('/').at(-1)}';export * from './${second.split('/').at(-1)}';`, 'ts');
+    const entry = fixture(`<script setup>import {Glyph} from './${ambiguous.split('/').at(-1)}';</script><template><Glyph/></template>`);
+    return { s: source(), actual, ambiguous, second, entry };
+}
 function functionPackage(exports = { '.': { import: './public.mjs', require: './index.cjs' } }, text = 'export const predicate=(value)=>typeof value === "string";')
 {
     const name = `actual-functions-${randomUUID()}`;
@@ -1007,3 +1027,235 @@ for (const [label, text] of [
         assert.ok(graph.errors.length > 0, label);
     });
 }
+
+
+test('central original native target property cannot borrow another actual prop supplier', () =>
+{
+    const { s, graph, target, entry } = nativePropertyGraph();
+    assert.equal(target.origin.property, 'tag');
+    assert.ok(graph.errors.some((error) => error.reason === 'unbound-native-prop-source'));
+    assert.throws(() => s.resolveTargetInputs(target, graph), /mutable\/unknown component input/);
+    target.origin.property = 'other';
+    assert.throws(() => s.graph([entry]), /supplier graph changed: original source call/);
+    assert.throws(() => s.nodes, /supplier graph changed: original source call/);
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('central original native property retains its real supplier across repeated graphs', () =>
+{
+    const { s, graph, target, entry } = nativePropertyGraph("'a'");
+    assert.deepEqual(graph.errors, []);
+    const inputs = s.resolveTargetInputs(target, graph);
+    assert.deepEqual(inputs.map((input) => input.target), [{ kind: 'native', name: 'a' }]);
+    const repeated = s.graph([entry]);
+    assert.deepEqual(repeated.errors, []);
+    assert.deepEqual(s.resolveTargetInputs(target, repeated), inputs);
+    assert.equal(target.origin.property, 'tag');
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+for (const [label, field, value] of [
+    ['origin default', 'origin', { kind: 'native-prop', property: 'tag', default: 'a' }],
+    ['origin additional values', 'origin', { kind: 'native-prop', property: 'tag', default: 'button', values: ['a'] }],
+    ['slot input membership', 'slotInputs', { present: { default: true }, unknown: false }],
+    ['conditional paths', 'conditional', [{ name: 'if', expression: 'accepted' }]],
+    ['slot identity', 'slot', { name: 'forged' }],
+    ['structural flag', 'structural', true],
+    ['teleport flag', 'teleport', true],
+    ['source syntax', 'sourceSyntax', { kind: 'vue-vnode', markerOffset: 1 }],
+    ['render paths', 'renderPaths', [{ parentId: null, ancestors: [], conditional: [] }]],
+    ['slot source', 'slotSource', { name: 'forged', steps: [] }],
+    ['location line', 'line', -1],
+    ['future original observation field', 'futureFact', { accepted: true }]
+])
+{
+    test(`central original complete call snapshot refuses changed ${label}`, () =>
+    {
+        const { s, target, entry } = nativePropertyGraph("'a'");
+        target[field] = value;
+        assert.throws(() => s.graph([entry]), /supplier graph changed: original source call/);
+        assert.deepEqual(s.resolver.sourceBindings().errors, []);
+    });
+}
+
+test('central original call snapshot refuses accessors without invoking caller code', () =>
+{
+    const { s, target, entry } = nativePropertyGraph("'a'");
+    let invoked = 0;
+    Object.defineProperty(target.origin, 'property', { enumerable: true, get: () =>
+    {
+        invoked++;
+        return 'tag';
+    } });
+    assert.throws(() => s.graph([entry]), /supplier graph changed: accessor source call facts/);
+    assert.equal(invoked, 0);
+});
+
+test('central original call snapshot refuses inherited facts without borrowing a prototype', () =>
+{
+    const { s, target, entry } = nativePropertyGraph("'a'");
+    Object.setPrototypeOf(target.origin, { property: 'other' });
+    assert.throws(() => s.graph([entry]), /supplier graph changed: non-data source call facts/);
+});
+
+test('central public export map replacement cannot remove actual export star ambiguity', () =>
+{
+    const { s, actual, ambiguous, entry } = exportStarGraph();
+    const observation = s.resolver.exportsOf(ambiguous);
+    assert.equal(observation.get('Glyph').ambiguous, true);
+    observation.set('Glyph', s.resolver.exportsOf(actual).get('Glyph'));
+    assert.equal(s.resolver.exportsOf(ambiguous).get('Glyph').ambiguous, true);
+    for (let repeat = 0; repeat < 2; repeat++)
+    {
+        const graph = s.graph([entry]);
+        assert.ok(graph.errors.some((error) => error.reason === 'unknown-component-source' && /ambiguous\/unresolved/.test(error.message)));
+        assert.equal(graph.nodes.find((node) => node.file === entry).origin.kind, 'unknown');
+    }
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('central public export entry writes cannot alter canonical ambiguity or shared origins', () =>
+{
+    const { s, actual, ambiguous, entry } = exportStarGraph();
+    Object.assign(s.resolver.exportsOf(ambiguous).get('Glyph'), s.resolver.exportsOf(actual).get('Glyph'), { ambiguous: false });
+    const actualOrigin = s.resolver.exportsOf(actual).get('Glyph');
+    actualOrigin.file = ambiguous;
+    actualOrigin.name = 'invented';
+    assert.equal(s.resolver.exportsOf(ambiguous).get('Glyph').ambiguous, true);
+    assert.notEqual(s.resolver.exportsOf(actual).get('Glyph').file, ambiguous);
+    assert.ok(s.graph([entry]).errors.some((error) => error.reason === 'unknown-component-source'));
+});
+
+test('central public export observations cannot supply traversal state to poison an initial cache', () =>
+{
+    const { s, ambiguous, second, entry } = exportStarGraph();
+    const observation = s.resolver.exportsOf(ambiguous, new Set([second]));
+    assert.equal(observation.get('Glyph').ambiguous, true);
+    observation.clear();
+    assert.equal(s.resolver.exportsOf(ambiguous).get('Glyph').ambiguous, true);
+    assert.ok(s.graph([entry]).errors.some((error) => error.reason === 'unknown-component-source'));
+});
+
+test('central public export observers preserve the actual shared unambiguous declaration', () =>
+{
+    const { s, actual, ambiguous, entry } = exportStarGraph(false);
+    const original = s.resolver.exportsOf(actual).get('Glyph');
+    assert.deepEqual(s.resolver.exportsOf(ambiguous).get('Glyph'), original);
+    const observation = s.resolver.exportsOf(ambiguous);
+    observation.delete('Glyph');
+    original.file = entry;
+    original.name = 'invented';
+    for (let repeat = 0; repeat < 2; repeat++)
+    {
+        const graph = s.graph([entry]);
+        assert.deepEqual(graph.errors, []);
+        const node = graph.nodes.find((node) => node.file === entry);
+        assert.equal(node.origin.kind, 'fsusui-public');
+        assert.equal(node.origin.publicName, 'Check');
+        assert.equal(node.origin.definition, resolve(fsusUIRoot, 'vue/packages/icons-vue/src/components/check.vue'));
+    }
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('central public identity observations cannot overwrite a subsequent actual export identity', () =>
+{
+    const s = source();
+    const original = s.resolver.publicIdentity('@ozwasyd/element-plus/icons-vue', 'Check');
+    const expected = structuredClone(original);
+    original.definition = fixture('<template><a/></template>');
+    original.publicName = 'Invented';
+    original.exportName = 'invented';
+    assert.deepEqual(s.resolver.publicIdentity('@ozwasyd/element-plus/icons-vue', 'Check'), expected);
+    const entry = fixture('<script setup>import {Check} from "@ozwasyd/element-plus/icons-vue";</script><template><Check/></template>');
+    const graph = s.graph([entry]);
+    assert.deepEqual(graph.errors, []);
+    assert.deepEqual(graph.nodes.find((node) => node.file === entry).origin, expected);
+});
+
+test('central registered identity observations cannot overwrite the original app registration', () =>
+{
+    const temporary = resolve(repositoryRoot, 'src/frontend/src', `module-integration-${randomUUID()}`);
+    mkdirSync(temporary);
+    try
+    {
+        const registration = resolve(temporary, 'main.ts');
+        writeFileSync(registration, 'import {Check} from "@ozwasyd/element-plus/icons-vue";app.component("ActualGlyph",Check);');
+        const entry = fixture('<template><ActualGlyph/></template>');
+        const s = source();
+        s.resolver.addRegistrations(registration);
+        const observation = s.resolver.resolveTag(entry, 'ActualGlyph');
+        const expected = structuredClone(observation);
+        observation.definition = entry;
+        observation.publicName = 'Invented';
+        assert.deepEqual(s.resolver.resolveTag(entry, 'ActualGlyph'), expected);
+        const graph = s.graph([entry]);
+        assert.deepEqual(graph.errors, []);
+        assert.deepEqual(graph.nodes.find((node) => node.file === entry).origin, expected);
+        assert.deepEqual(s.resolver.sourceBindings().errors, []);
+    }
+    finally
+    {
+        rmSync(temporary, { recursive: true, force: true });
+    }
+});
+
+test('central resolver identity and source input observations cannot rewrite private metadata baselines', () =>
+{
+    const s = source();
+    const expected = s.resolver.identity;
+    assert.ok(expected.resolutionInputs.length > 0);
+    const observation = s.resolver.identity;
+    observation.resolutionInputs[0].digest = 'forged';
+    observation.resolutionInputs.length = 0;
+    observation.upstream.commit = 'forged';
+    assert.deepEqual(s.resolver.identity, expected);
+    const inputs = s.resolver.sourceBindings();
+    const original = structuredClone(inputs);
+    inputs.files[0].digest = 'forged';
+    inputs.files.length = 0;
+    assert.deepEqual(s.resolver.sourceBindings(), original);
+    assert.deepEqual(s.graph([fixture('<template><button/></template>')]).errors, []);
+});
+
+test('central detached public package metadata observations cannot hide real source drift', () =>
+{
+    const state = functionPackage();
+    state.resolve();
+    const metadataFile = resolve(state.root, 'package.json');
+    const changed = JSON.stringify({ name: state.root.split('/').at(-1), exports: { '.': './foreign.mjs' } });
+    const observation = state.s.resolver.sourceBindings();
+    assert.ok(observation.files.some((input) => input.path === metadataFile));
+    writeFileSync(metadataFile, changed);
+    observation.files.find((input) => input.path === metadataFile).digest = controlDigest(changed);
+    const identity = state.s.resolver.identity;
+    identity.resolutionInputs.find((input) => input.path === metadataFile).digest = controlDigest(changed);
+    assert.ok(state.s.resolver.sourceBindings().errors.some((error) => error.path === metadataFile));
+});
+
+test('central original call facts refuse byte identical nested object replacements', () =>
+{
+    const { s, target, entry } = nativePropertyGraph("'a'");
+    target.origin = structuredClone(target.origin);
+    assert.throws(() => s.graph([entry]), /supplier graph changed: original source call object identity/);
+});
+
+test('central original call facts refuse a proxy replacement before invoking caller traps', () =>
+{
+    const { s, target, entry } = nativePropertyGraph("'a'");
+    let invoked = 0;
+    target.origin = new Proxy(target.origin, { get: () =>
+    {
+        invoked++;
+        return 'other';
+    }, ownKeys: () =>
+    {
+        invoked++;
+        return [];
+    }, getPrototypeOf: () =>
+    {
+        invoked++;
+        return Object.prototype;
+    } });
+    assert.throws(() => s.graph([entry]), /supplier graph changed: original source call object identity/);
+    assert.equal(invoked, 0);
+});
