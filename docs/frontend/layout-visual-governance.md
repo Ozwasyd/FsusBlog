@@ -246,6 +246,15 @@ errors. A proven native target does not authorize opaque children. Route-name
 visual branches remain errors in script render sources as well. This source
 proof supplies no product state, receipt or runtime qualification.
 
+A Vue computed component selector may prove a finite return set through actual
+imports and immutable bindings. Every block path must return, and every return
+including unreachable ones is checked. Unknown flow, fallthrough, async or
+parameterized callbacks, mutable/shadowed imports and unknown returns fail.
+The graph retains all component alternatives and their actual definition files;
+local alternatives remain local. Source traversal follows that finite closure
+and rejects rendered sources outside it. It does not pick a branch or establish
+product state, visibility, legality admission or qualification.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

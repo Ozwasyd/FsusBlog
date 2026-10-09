@@ -862,6 +862,131 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         return resolveExpression(file, expression);
     };
+    const finiteComponentBinding = (file, name) =>
+    {
+        const record = parse(file);
+        const bindings = [];
+        let written = false;
+        function root(node)
+        {
+            node = unwrap(node);
+            while (node && (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)))
+            {
+                node = unwrap(node.expression);
+            }
+            return node && ts.isIdentifier(node) ? node.text : null;
+        }
+        function visit(node)
+        {
+            if (ts.isIdentifier(node) && node.text === name && [ts.SyntaxKind.VariableDeclaration,
+                ts.SyntaxKind.Parameter, ts.SyntaxKind.BindingElement, ts.SyntaxKind.ImportSpecifier, ts.SyntaxKind.ImportClause].includes(node.parent.kind)
+                && node.parent.name === node)
+            {
+                bindings.push(node.parent);
+            }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment && root(node.left) === name)
+            {
+                written = true;
+            }
+            if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+                && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) && root(node.operand) === name)
+            {
+                written = true;
+            }
+            if (ts.isDeleteExpression(node) && root(node.expression) === name)
+            {
+                written = true;
+            }
+            ts.forEachChild(node, visit);
+        }
+        record.scripts.forEach(({ ast }) => visit(ast));
+        const binding = bindings[0];
+        if (written || bindings.length !== 1 || (ts.isVariableDeclaration(binding) && !(binding.parent.flags & ts.NodeFlags.Const))
+            || ts.isParameter(binding) || ts.isBindingElement(binding))
+        {
+            fail(`${file}: unbound finite component binding ${name}`);
+        }
+    };
+    const finiteComputedReturns = (file, fn, seen) =>
+    {
+        if (fn.parameters.length || fn.modifiers?.length)
+        {
+            fail(`${file}: unknown computed component function`);
+        }
+        const targets = [];
+        function returned(node)
+        {
+            if (!node)
+            {
+                fail(`${file}: empty computed component return`);
+            }
+            function protect(value, visiting = new Set())
+            {
+                value = unwrap(value);
+                if (ts.isIdentifier(value))
+                {
+                    if (visiting.has(value.text))
+                    {
+                        fail(`${file}: cyclic finite component binding ${value.text}`);
+                    }
+                    finiteComponentBinding(file, value.text);
+                    const initializer = parse(file).variables.get(value.text);
+                    if (initializer)
+                    {
+                        protect(initializer, new Set([...visiting, value.text]));
+                    }
+                }
+                else if (ts.isConditionalExpression(value))
+                {
+                    protect(value.whenTrue, new Set(visiting));
+                    protect(value.whenFalse, new Set(visiting));
+                }
+            }
+            protect(node);
+            targets.push(...resolveExpression(file, node, new Set(seen)));
+        }
+        function flow(node)
+        {
+            if (ts.isReturnStatement(node))
+            {
+                returned(node.expression);
+                return true;
+            }
+            if (ts.isBlock(node))
+            {
+                let terminal = false;
+                for (const child of node.statements)
+                {
+                    terminal = flow(child) || terminal;
+                }
+                return terminal;
+            }
+            if (ts.isIfStatement(node))
+            {
+                const yes = flow(node.thenStatement);
+                const no = node.elseStatement ? flow(node.elseStatement) : false;
+                return yes && no;
+            }
+            fail(`${file}: unknown computed component flow ${node.getText()}`);
+        }
+        if (ts.isBlock(fn.body))
+        {
+            if (!flow(fn.body))
+            {
+                fail(`${file}: computed component may fall through`);
+            }
+        }
+        else
+        {
+            returned(fn.body);
+        }
+        if (!targets.length)
+        {
+            fail(`${file}: computed component has no finite returns`);
+        }
+        return [...new Map(targets.map((target) => [controlDigest(target), target])).values()];
+    };
     const resolveExpression = (file, expression, seen = new Set()) =>
     {
         const record = parse(file);
@@ -883,6 +1008,12 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             if (record.variables.has(name) && !seen.has(name))
             {
                 const value = record.variables.get(name);
+                if (ts.isCallExpression(value) && ts.isIdentifier(value.expression)
+                    && record.imports.get(value.expression.text)?.specifier === 'vue'
+                    && record.imports.get(value.expression.text)?.name === 'computed')
+                {
+                    finiteComponentBinding(file, name);
+                }
                 if (ts.isCallExpression(value) && ts.isIdentifier(value.expression)
                     && record.imports.get(value.expression.text)?.specifier === 'vue'
                     && record.imports.get(value.expression.text)?.name === 'defineComponent')
@@ -924,10 +1055,10 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
             && record.imports.get(expression.expression.text)?.specifier === 'vue')
         {
             const imported = record.imports.get(expression.expression.text).name;
-            if (imported === 'computed' && expression.arguments[0] && ts.isArrowFunction(expression.arguments[0])
-                && !ts.isBlock(expression.arguments[0].body))
+            if (imported === 'computed' && expression.arguments.length === 1 && ts.isArrowFunction(expression.arguments[0]))
             {
-                return resolveExpression(file, expression.arguments[0].body, seen);
+                finiteComponentBinding(file, expression.expression.text);
+                return finiteComputedReturns(file, expression.arguments[0], seen);
             }
             if (imported === 'resolveComponent' && expression.arguments[0] && ts.isStringLiteral(expression.arguments[0]))
             {

@@ -176,6 +176,15 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     function componentFile(source, seen = new Set())
     {
         let target = null;
+        if (source.kind === 'component-variants')
+        {
+            source.variantDefinitions = [...new Set(source.variants.map((variant) => componentFile(variant, new Set(seen))))];
+            if (source.variantDefinitions.some((definition) => !definition))
+            {
+                fail('unknown finite component variant render source');
+            }
+            return null;
+        }
         if (source.kind === 'local' || source.kind === 'upstream-internal')
         {
             target = source.file.endsWith('.vue') ? source.file : exportComponent(source.file, source.name, seen);
@@ -1199,6 +1208,11 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         {
                             origin = { kind: 'native-variants', values: [...new Set(targets.map((target) => target.name))] };
                         }
+                        else if (targets.length > 1 && targets.every((target) => ['local', 'fsusui-public', 'upstream-internal'].includes(target.kind)))
+                        {
+                            origin = { kind: 'component-variants', variants: targets, selectorExpression: dynamic.expression,
+                                selectorDigest: controlDigest(dynamic.expression) };
+                        }
                         else if (targets.length !== 1)
                         {
                             fail(`ambiguous dynamic component ${file}:${offset}`);
@@ -1258,7 +1272,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     slotInputs.present.default = true;
                 }
             }
-            const current = { id, ...location(file, offset), tag: node.tag, parentId, attributes, directives, origin, definition, slotInputs,
+            const current = { id, ...location(file, offset), tag: node.tag, parentId, attributes, directives, origin, definition,
+                definitions: origin.variantDefinitions ?? [], slotInputs,
                 sourceDigest: controlDigest(node.loc.source), ancestors, scopedBindings: [...localNames],
                 structural: origin.kind === 'framework-structure' || origin.factoryComponent?.kind === 'factory-slot-source',
                 conditional: directives.filter(({ name }) => ['if', 'else-if', 'else', 'show', 'for'].includes(name)),
@@ -1273,6 +1288,13 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             if (definition && !records.has(definition))
             {
                 parse(definition);
+            }
+            for (const variant of current.definitions)
+            {
+                if (!records.has(variant))
+                {
+                    parse(variant);
+                }
             }
         }
         visit(record.template.ast);
@@ -1306,6 +1328,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 {
                     visit(definition);
                 }
+                nodes.get(id).definitions?.forEach(visit);
             }
         }
         entryFiles.forEach(visit);
