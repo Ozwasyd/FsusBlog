@@ -4,7 +4,7 @@ import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { ArticlePackageCandidateReview } from '@/api/types/articlePackageCandidateReview';
+import type { ArticlePackageCandidateReview, ArticlePackageCandidateReviewPageRequest } from '@/api/types/articlePackageCandidateReview';
 import ArticlePackageCandidateReviewView from '@/components/admin/article-packages/ArticlePackageCandidateReview.vue';
 
 function review(total = 1, pageIndex = 0, pageSize = 25): ArticlePackageCandidateReview
@@ -49,6 +49,13 @@ function mountReview(props: Record<string, unknown> = {})
     const wrapper = mount(ArticlePackageCandidateReviewView, { props, attachTo: document.body });
     mounted.push(wrapper);
     return wrapper;
+}
+
+function requested(wrapper: ReturnType<typeof mount>, index = 0): ArticlePackageCandidateReviewPageRequest
+{
+    const request = wrapper.emitted('request-page')?.[index]?.[0];
+    expect(request).toBeDefined();
+    return request as ArticlePackageCandidateReviewPageRequest;
 }
 
 afterEach(() =>
@@ -161,18 +168,18 @@ describe('ArticlePackageCandidateReview ordinary component controls', () =>
         await nextTick();
         expect(document.activeElement).toBe(wrapper.get('h3').element);
         expect(wrapper.attributes('aria-busy')).toBe('true');
-        expect(wrapper.emitted('request-page')).toEqual([[{ planDigest: 'e'.repeat(64), pageIndex: 1, pageSize: 50 }]]);
+        expect(wrapper.emitted('request-page')).toEqual([[{ requestId: expect.any(String), planDigest: 'e'.repeat(64), pageIndex: 1, pageSize: 50 }]]);
         await next.trigger('click');
         expect(wrapper.emitted('request-page')).toHaveLength(1);
         await wrapper.setProps({ state: 'loading' });
         expect(wrapper.get('nav button:last-of-type').attributes('disabled')).toBeDefined();
-        await wrapper.setProps({ state: 'ready', review: review(1000, 1, 50) });
+        await wrapper.setProps({ state: 'ready', review: review(1000, 1, 50), pageCompletion: { request: requested(wrapper), status: 'ready', review: review(1000, 1, 50) } });
         await nextTick();
         expect(document.activeElement).toBe(wrapper.get('h3').element);
         expect(wrapper.get('ol').attributes('start')).toBe('51');
         expect(wrapper.findAll('.package-review__targets > li')).toHaveLength(50);
         await wrapper.findAll('nav button')[0].trigger('click');
-        expect(wrapper.emitted('request-page')?.[1]).toEqual([{ planDigest: 'e'.repeat(64), pageIndex: 0, pageSize: 50 }]);
+        expect(wrapper.emitted('request-page')?.[1]).toEqual([{ requestId: expect.any(String), planDigest: 'e'.repeat(64), pageIndex: 0, pageSize: 50 }]);
     });
 
     it('returns focus to the review heading after a failed page read', async () =>
@@ -181,7 +188,7 @@ describe('ArticlePackageCandidateReview ordinary component controls', () =>
         const next = wrapper.findAll('nav button')[1];
         (next.element as HTMLElement).focus();
         await next.trigger('click');
-        await wrapper.setProps({ state: 'error' });
+        await wrapper.setProps({ state: 'error', pageCompletion: { request: requested(wrapper), status: 'error' } });
         await nextTick();
         expect(document.activeElement).toBe(wrapper.get('h2').element);
         expect(wrapper.find('nav').exists()).toBe(false);
@@ -222,5 +229,192 @@ describe('ArticlePackageCandidateReview ordinary component controls', () =>
         expect(wrapper.find('dl').exists()).toBe(false);
         expect(wrapper.get('button').attributes('disabled')).toBeDefined();
         expect(wrapper.emitted('execute')).toBeUndefined();
+    });
+
+    it('keeps a size-50 request pending when the same digest and page arrives with size 25', async () =>
+    {
+        const wrapper = mountReview({ review: review(1000, 0, 50) });
+        await wrapper.findAll('nav button')[1].trigger('click');
+        await wrapper.setProps({ state: 'loading' });
+        await wrapper.setProps({ state: 'ready', review: review(1000, 1, 25), pageCompletion: { request: requested(wrapper), status: 'ready', review: review(1000, 1, 25) } });
+        expect(wrapper.attributes('aria-busy')).toBe('true');
+        expect(wrapper.findAll('.package-review__targets > li')).toHaveLength(50);
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
+        expect(wrapper.findAll('nav button')[1].attributes('disabled')).toBeDefined();
+        expect(wrapper.emitted('execute')).toBeUndefined();
+        await wrapper.setProps({ pageCompletion: { request: requested(wrapper), status: 'ready', review: review(1000, 1, 50) } });
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+        expect(wrapper.get('ol').attributes('start')).toBe('51');
+    });
+
+    it('finishes a cancelled loading-to-ready read while retaining the original page', async () =>
+    {
+        const original = review(1000, 0, 50);
+        const wrapper = mountReview({ review: original });
+        await wrapper.findAll('nav button')[1].trigger('click');
+        await wrapper.setProps({ state: 'loading' });
+        await wrapper.setProps({ state: 'ready', review: original, pageCompletion: { request: requested(wrapper), status: 'cancelled' } });
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
+        expect(wrapper.findAll('nav button')[1].attributes('disabled')).toBeUndefined();
+        expect(wrapper.emitted('execute')).toBeUndefined();
+    });
+
+    it('does not infer cancellation or accept a response from an uncorrelated ready transition', async () =>
+    {
+        const original = review(1000, 0, 50);
+        const wrapper = mountReview({ review: original });
+        await wrapper.findAll('nav button')[1].trigger('click');
+        await wrapper.setProps({ state: 'loading' });
+        await wrapper.setProps({ state: 'ready', review: original });
+        expect(wrapper.attributes('aria-busy')).toBe('true');
+        await wrapper.setProps({ review: review(1000, 1, 50) });
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
+        expect(wrapper.attributes('aria-busy')).toBe('true');
+        await wrapper.setProps({ pageCompletion: { request: requested(wrapper), status: 'cancelled' } });
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
+    });
+
+    it('ignores late success, error and duplicate cancellation after retrying the same page', async () =>
+    {
+        const original = review(1000, 0, 50);
+        const wrapper = mountReview({ review: original });
+        const next = wrapper.findAll('nav button')[1];
+        (next.element as HTMLElement).focus();
+        await next.trigger('click');
+        const cancelled = requested(wrapper);
+        expect(Object.isFrozen(cancelled)).toBe(true);
+        await wrapper.setProps({ state: 'loading' });
+        await wrapper.setProps({ state: 'ready', pageCompletion: { request: cancelled, status: 'cancelled' } });
+        expect(document.activeElement).toBe(wrapper.get('h3').element);
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+        await next.trigger('click');
+        const active = requested(wrapper, 1);
+        expect(active.requestId).not.toBe(cancelled.requestId);
+        expect(active.pageIndex).toBe(cancelled.pageIndex);
+        expect(active.pageSize).toBe(cancelled.pageSize);
+        await wrapper.setProps({ state: 'ready', review: review(1000, 1, 50), pageCompletion: { request: cancelled, status: 'ready', review: review(1000, 1, 50) } });
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
+        expect(wrapper.attributes('aria-busy')).toBe('true');
+        await wrapper.setProps({ state: 'error', pageCompletion: { request: cancelled, status: 'error' } });
+        expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+        expect(wrapper.attributes('aria-busy')).toBe('true');
+        await wrapper.setProps({ state: 'ready', pageCompletion: { request: cancelled, status: 'cancelled' } });
+        expect(wrapper.findAll('nav button')[1].attributes('disabled')).toBeDefined();
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
+        await wrapper.setProps({ pageCompletion: { request: active, status: 'ready', review: review(1000, 1, 50) } });
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+        expect(wrapper.get('ol').attributes('start')).toBe('51');
+        await wrapper.setProps({ pageCompletion: { request: active, status: 'cancelled' } });
+        expect(wrapper.get('ol').attributes('start')).toBe('51');
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+        expect(wrapper.emitted('execute')).toBeUndefined();
+    });
+
+    it.each([
+        { requestId: 'unrelated-read' },
+        { planDigest: 'f'.repeat(64) },
+        { pageIndex: 2 },
+        { pageSize: 25 }
+    ])('ignores cancellation with mismatched request identity %#', async fault =>
+    {
+        const wrapper = mountReview({ review: review(1000, 0, 50) });
+        await wrapper.findAll('nav button')[1].trigger('click');
+        const request = requested(wrapper);
+        await wrapper.setProps({ pageCompletion: { request: { ...request, ...fault }, status: 'cancelled' } });
+        expect(wrapper.attributes('aria-busy')).toBe('true');
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
+        await wrapper.setProps({ pageCompletion: { request, status: 'cancelled' } });
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+    });
+
+    it('ignores unsolicited and duplicate success while a different page is pending', async () =>
+    {
+        const wrapper = mountReview({ review: review(1000, 0, 50) });
+        await wrapper.setProps({ review: review(1000, 1, 50), pageCompletion: { request: { requestId: 'unsolicited', planDigest: 'e'.repeat(64), pageIndex: 1, pageSize: 50 }, status: 'ready', review: review(1000, 1, 50) } });
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
+        await wrapper.findAll('nav button')[1].trigger('click');
+        const first = requested(wrapper);
+        await wrapper.setProps({ pageCompletion: { request: first, status: 'ready', review: review(1000, 1, 50) } });
+        expect(wrapper.get('ol').attributes('start')).toBe('51');
+        await wrapper.setProps({ pageCompletion: { request: first, status: 'ready', review: review(1000, 0, 50) } });
+        expect(wrapper.get('ol').attributes('start')).toBe('51');
+        await wrapper.findAll('nav button')[0].trigger('click');
+        const second = requested(wrapper, 1);
+        await wrapper.setProps({ pageCompletion: { request: first, status: 'ready', review: review(1000, 1, 50) } });
+        expect(wrapper.attributes('aria-busy')).toBe('true');
+        expect(wrapper.get('ol').attributes('start')).toBe('51');
+        await wrapper.setProps({ pageCompletion: { request: second, status: 'ready', review: review(1000, 0, 50) } });
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
+    });
+
+    it('invalidates an outstanding completion when the host replaces the candidate context', async () =>
+    {
+        const wrapper = mountReview({ review: review(1000, 0, 50) });
+        const next = wrapper.findAll('nav button')[1];
+        (next.element as HTMLElement).focus();
+        await next.trigger('click');
+        const old = requested(wrapper);
+        await wrapper.setProps({ state: 'ready', review: { ...review(), planDigest: 'f'.repeat(64) } });
+        await nextTick();
+        expect(document.activeElement).toBe(wrapper.get('h2').element);
+        await wrapper.setProps({ review: review(1000, 1, 50), pageCompletion: { request: old, status: 'ready', review: review(1000, 1, 50) } });
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+        expect(wrapper.text()).toContain('f'.repeat(64));
+        expect(wrapper.text()).not.toContain('e'.repeat(64));
+        expect(wrapper.findAll('.package-review__targets > li')).toHaveLength(1);
+    });
+
+    it('clears the completion slot for a new context and rejects an old response mirrored into review', async () =>
+    {
+        const wrapper = mountReview({ review: review(1000, 0, 50) });
+        await wrapper.findAll('nav button')[1].trigger('click');
+        const old = requested(wrapper);
+        await wrapper.setProps({ pageCompletion: { request: old, status: 'ready', review: review(1000, 1, 50) } });
+        expect(wrapper.get('ol').attributes('start')).toBe('51');
+        await wrapper.setProps({ pageCompletion: null, state: 'ready', review: { ...review(), planDigest: 'f'.repeat(64) } });
+        expect(wrapper.text()).toContain('f'.repeat(64));
+        await wrapper.setProps({ review: review(1000, 1, 50), pageCompletion: { request: old, status: 'ready', review: review(1000, 1, 50) } });
+        expect(wrapper.text()).toContain('f'.repeat(64));
+        expect(wrapper.text()).not.toContain('e'.repeat(64));
+        expect(wrapper.findAll('.package-review__targets > li')).toHaveLength(1);
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+    });
+
+    it('recovers an identified error through an empty context without accepting its late duplicate', async () =>
+    {
+        const original = review(1000, 0, 50);
+        const wrapper = mountReview({ review: original });
+        await wrapper.findAll('nav button')[1].trigger('click');
+        const failed = requested(wrapper);
+        await wrapper.setProps({ state: 'error', pageCompletion: { request: failed, status: 'error' } });
+        expect(wrapper.get('[role="alert"]').exists()).toBe(true);
+        expect(wrapper.find('nav').exists()).toBe(false);
+        await wrapper.setProps({ review: null, state: 'ready', pageCompletion: null });
+        expect(wrapper.text()).toContain('尚未提供候选审阅');
+        await wrapper.setProps({ state: 'error', pageCompletion: { request: failed, status: 'error' } });
+        expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+        await wrapper.setProps({ review: original, state: 'ready', pageCompletion: null });
+        await wrapper.findAll('nav button')[1].trigger('click');
+        const retry = requested(wrapper, 1);
+        expect(retry.requestId).not.toBe(failed.requestId);
+        await wrapper.setProps({ pageCompletion: { request: retry, status: 'cancelled' } });
+        expect(wrapper.attributes('aria-busy')).toBe('false');
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
+        expect(wrapper.get('button[data-reason-code]').attributes('disabled')).toBeDefined();
+        expect(wrapper.emitted('execute')).toBeUndefined();
+    });
+
+    it.each(['digest', 'page'])('ignores an exact request echo with a mismatched projected %s', async fault =>
+    {
+        const wrapper = mountReview({ review: review(1000, 0, 50) });
+        await wrapper.findAll('nav button')[1].trigger('click');
+        const response = fault === 'digest' ? { ...review(1000, 1, 50), planDigest: 'f'.repeat(64) } : review(1000, 0, 50);
+        await wrapper.setProps({ pageCompletion: { request: requested(wrapper), status: 'ready', review: response } });
+        expect(wrapper.attributes('aria-busy')).toBe('true');
+        expect(wrapper.get('ol').attributes('start')).toBe('1');
     });
 });

@@ -3,7 +3,7 @@
         ref="rootRef"
         class="package-review"
         :aria-labelledby="`${id}-title`"
-        :aria-busy="state === 'loading' || pagePending"
+        :aria-busy="displayState === 'loading' || pagePending"
     >
         <h2
             :id="`${id}-title`"
@@ -12,11 +12,11 @@
         >文章包候选审阅（只读）</h2>
         <p>这是有限字节候选及调用方请求的投影。结构有效、提示齐全或时间区间内均不授予导入执行权限。</p>
         <p
-            v-if="state === 'loading'"
+            v-if="displayState === 'loading'"
             role="status"
         >正在读取候选审阅。</p>
         <p
-            v-else-if="state === 'error' || invalidReview"
+            v-else-if="displayState === 'error' || invalidReview"
             role="alert"
             data-reason-code="article_package_candidate_review_invalid"
         >
@@ -26,7 +26,7 @@
             v-else-if="!boundedReview"
             role="status"
         >尚未提供候选审阅。</p>
-        <template v-if="boundedReview && state !== 'error'">
+        <template v-if="boundedReview && displayState !== 'error'">
             <p
                 v-if="stale || boundedReview.intervalStatus !== 'caller_interval_current'"
                 role="status"
@@ -115,16 +115,17 @@
 
 <script setup lang="ts">
 import { ElButton } from '@ozwasyd/element-plus';
-import { computed, nextTick, ref, useId, watch } from 'vue';
+import { computed, nextTick, ref, shallowRef, useId, watch } from 'vue';
 
-import type { ArticlePackageCandidateReview, ArticlePackageCandidateReviewPageRequest, ArticlePackageCandidateReviewTarget } from '@/api/types/articlePackageCandidateReview';
+import type { ArticlePackageCandidateReview, ArticlePackageCandidateReviewPageCompletion, ArticlePackageCandidateReviewPageRequest, ArticlePackageCandidateReviewTarget } from '@/api/types/articlePackageCandidateReview';
 
 defineOptions({ name: 'ArticlePackageCandidateReview', inheritAttrs: false });
 const props = withDefaults(defineProps<{
     review?: ArticlePackageCandidateReview | null;
     state?: 'ready' | 'loading' | 'error';
     stale?: boolean;
-}>(), { review: null, state: 'ready', stale: false });
+    pageCompletion?: ArticlePackageCandidateReviewPageCompletion | null;
+}>(), { review: null, state: 'ready', stale: false, pageCompletion: null });
 const emit = defineEmits<{
     'request-page': [request: ArticlePackageCandidateReviewPageRequest];
 }>();
@@ -133,6 +134,11 @@ const rootRef = ref<HTMLElement>();
 const titleRef = ref<HTMLElement>();
 const targetsRef = ref<HTMLElement>();
 const requestedPage = ref<ArticlePackageCandidateReviewPageRequest | null>(null);
+// review/state seed or replace the context with pageCompletion cleared; page outcomes use pageCompletion.
+// Keep the accepted page visible while waiting; uncorrelated props cannot replace it.
+const displayedReview = shallowRef<ArticlePackageCandidateReview | null>(props.review);
+const displayState = ref(props.state);
+const hasRequestedPage = ref(false);
 const executionRefusal = 'article_package_import_authority_unavailable';
 
 // Display-budget checks only. The original backend owns candidate parsing and authority.
@@ -167,10 +173,10 @@ function isBounded(review: ArticlePackageCandidateReview): boolean
         && review.requiredAuthorities.every(value => text(value, 128));
 }
 
-const boundedReview = computed(() => props.review && isBounded(props.review) ? props.review : null);
-const invalidReview = computed(() => props.review !== null && !boundedReview.value);
+const boundedReview = computed(() => displayedReview.value && isBounded(displayedReview.value) ? displayedReview.value : null);
+const invalidReview = computed(() => displayedReview.value !== null && !boundedReview.value);
 const pageCount = computed(() => boundedReview.value ? Math.ceil(boundedReview.value.totalTargets / boundedReview.value.pageSize) : 0);
-const pagePending = computed(() => requestedPage.value !== null || props.state === 'loading');
+const pagePending = computed(() => requestedPage.value !== null || displayState.value === 'loading');
 
 function requestPage(pageIndex: number): void
 {
@@ -179,7 +185,9 @@ function requestPage(pageIndex: number): void
     {
         return;
     }
-    requestedPage.value = { planDigest: review.planDigest, pageIndex, pageSize: review.pageSize };
+    requestedPage.value = Object.freeze({ requestId: crypto.randomUUID(), planDigest: review.planDigest, pageIndex, pageSize: review.pageSize });
+    hasRequestedPage.value = true;
+    displayState.value = 'loading';
     // Keep focus in a persistent region before the triggering button becomes disabled.
     // This also avoids losing it when the host shows a loading state for the requested page.
     if (rootRef.value?.contains(document.activeElement))
@@ -189,21 +197,69 @@ function requestPage(pageIndex: number): void
     emit('request-page', requestedPage.value);
 }
 
-watch(() => [props.review, props.state] as const, async ([review, state], [previous]) =>
+function matchesRequest(request: ArticlePackageCandidateReviewPageRequest, response: ArticlePackageCandidateReviewPageRequest | undefined): boolean
 {
-    const ownedFocus = rootRef.value?.contains(document.activeElement);
-    const request = requestedPage.value;
-    const arrived = state === 'ready' && review?.planDigest === request?.planDigest && review?.pageIndex === request?.pageIndex;
+    return response?.requestId === request.requestId
+        && response.planDigest === request.planDigest
+        && response.pageIndex === request.pageIndex
+        && response.pageSize === request.pageSize;
+}
+
+watch(() => [props.review, props.state, props.pageCompletion] as const, async ([review, state, completion], [previous]) =>
+{
     const replaced = review?.planDigest !== previous?.planDigest;
-    const failed = state === 'error' || invalidReview.value || !review;
-    if (arrived || replaced || failed)
+    const cleared = !review && !!previous;
+    if ((completion && !cleared) || (hasRequestedPage.value && !replaced))
     {
-        requestedPage.value = null;
-        await nextTick();
-        if (ownedFocus)
+        return;
+    }
+    const ownedFocus = rootRef.value?.contains(document.activeElement);
+    requestedPage.value = null;
+    hasRequestedPage.value = false;
+    displayedReview.value = review;
+    displayState.value = state;
+    await nextTick();
+    if (ownedFocus && !requestedPage.value && displayedReview.value === review && displayState.value === state
+        && (replaced || state === 'error' || invalidReview.value || !review))
+    {
+        titleRef.value?.focus();
+    }
+});
+
+watch(() => props.pageCompletion, async completion =>
+{
+    const request = requestedPage.value;
+    if (!completion || !request || !matchesRequest(request, completion.request))
+    {
+        return;
+    }
+    if (completion.status === 'ready')
+    {
+        const review = completion.review;
+        if (review?.planDigest !== request.planDigest || review.pageIndex !== request.pageIndex
+            || review.pageSize !== request.pageSize || !isBounded(review))
         {
-            (arrived && boundedReview.value ? targetsRef.value : titleRef.value)?.focus();
+            return;
         }
+        displayedReview.value = review;
+        displayState.value = 'ready';
+    }
+    else if (completion.status === 'cancelled' || completion.status === 'error')
+    {
+        displayState.value = completion.status === 'cancelled' ? 'ready' : 'error';
+    }
+    else
+    {
+        return;
+    }
+    const ownedFocus = rootRef.value?.contains(document.activeElement);
+    const settledReview = displayedReview.value;
+    const settledState = displayState.value;
+    requestedPage.value = null;
+    await nextTick();
+    if (ownedFocus && !requestedPage.value && displayedReview.value === settledReview && displayState.value === settledState)
+    {
+        (settledState === 'ready' && boundedReview.value ? targetsRef.value : titleRef.value)?.focus();
     }
 });
 </script>
