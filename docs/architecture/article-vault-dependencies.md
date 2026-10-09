@@ -179,8 +179,22 @@ three-way source admission owner. A Blocked original plan stays Blocked; no
 writer, package codec, source winner or native admission is introduced.
 
 This fills the current-server source-read integration, not complete metadata or
-decision admission. Existing revision fields and definition-store APIs must be
-distinguished from the absent persisted article-value/current-manifest bridge.
+decision admission. The canonical `ArticlePackageCurrentPropertyReader.ReadAndMapAsync`
+now consumes `IArticlePropertyValueAuthority.ReadAsync`, retains signed historical
+values separately from current definition observations, and repeats the authorized
+read to detect observed movement. `ArticleVaultCurrentPropertyInputReader` binds
+that component to the exact sealed current-server revision, actor and group, reading
+the original source/permission guards before and after the property reads. The host
+explicitly supplies the property site scope independently of the Vault identity.
+`AddFsusArticleVaultCurrentPropertyInputs` requires both original readers/authorities
+and installs scoped composition without a fallback provider or persistence path.
+It is not automatically enabled in the runtime without the production article authority.
+
+Drafts, missing persisted heads and nonempty references without actual target
+operation permission/revision facts remain refused by the canonical property reader.
+Component self-consistency, audit-shaped provenance and repeat reads are not DB/HTTP
+provider acceptance, an atomic export fence or the three complete V1 manifests.
+The full current-manifest bridge and executable decision integration remain blocked.
 The package owner supplies portable slug/taxonomy/property mappings under its
 original unresolved-definition policy; the value owner supplies actual persisted
 revision/property coordinates and current definition/permission binding. Source

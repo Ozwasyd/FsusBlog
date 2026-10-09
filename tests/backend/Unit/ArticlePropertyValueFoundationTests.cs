@@ -321,6 +321,7 @@ public sealed class ArticlePropertyValueFoundationTests
         IArticlePropertyDefinitionStore store = Substitute.For<IArticlePropertyDefinitionStore>();
         store.GetAsync(s_actor, s_owner, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => byId[call.Arg<Guid>()]);
+        ConfigureBatchFixture(store);
         var validator = new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(),
             new UnavailableArticlePropertyReferenceValueAuthority());
 
@@ -438,8 +439,31 @@ public sealed class ArticlePropertyValueFoundationTests
         IArticlePropertyDefinitionStore store = Substitute.For<IArticlePropertyDefinitionStore>();
         store.GetAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
             Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(definition);
+        ConfigureBatchFixture(store);
         IArticlePropertyReferenceValueAuthority references = Substitute.For<IArticlePropertyReferenceValueAuthority>();
         return (new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(), references), store, references);
+    }
+
+    private static void ConfigureBatchFixture(IArticlePropertyDefinitionStore store)
+    {
+        // Keep per-case GetAsync overrides effective through the canonical batch port.
+        store.GetManyAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
+            Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns<Task<IReadOnlyList<ArticlePropertyDefinition>>>(async call =>
+        {
+            var result = new List<ArticlePropertyDefinition>();
+            foreach (Guid id in ArticlePropertyDefinitionBatchRead.HoldIds(call.ArgAt<IReadOnlyList<Guid>>(2)))
+            {
+                CancellationToken cancellation = call.ArgAt<CancellationToken>(3);
+                cancellation.ThrowIfCancellationRequested();
+                ArticlePropertyDefinition? found = await store.GetAsync(call.ArgAt<ArticlePropertyDefinitionActor>(0),
+                    call.ArgAt<ArticlePropertyDefinitionOwner>(1), id, cancellation);
+                if (found is not null)
+                {
+                    result.Add(found);
+                }
+            }
+            return result.AsReadOnly();
+        });
     }
 
     private static ArticlePropertyValueInput Input(ArticlePropertyDefinition definition, ArticlePropertyTypedValue value)

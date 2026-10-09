@@ -121,7 +121,7 @@ public sealed class ArticlePackageManifestCandidatePlan
 /// Reuses the canonical text and eight-type mappers, verifies raw Markdown bytes, and freezes
 /// a bounded candidate set. This component reads no stores or archives and performs no writes.
 /// </summary>
-public static class ArticlePackageManifestCandidatePlanner
+public static partial class ArticlePackageManifestCandidatePlanner
 {
     public const long MaxTotalSourceBytes = 64L * 1024 * 1024;
     public const long MaxTotalTextCodeUnits = 16L * 1024 * 1024;

@@ -11,6 +11,29 @@ namespace FsusBlog.Server.Infrastructure.Bootstrap;
 /// <summary>Composes the existing read authorities with an explicit server-owned Vault site binding.</summary>
 public static class ArticleVaultRecoveryServiceCollectionExtensions
 {
+    /// <summary>Requires the original property authority; installs no fallback provider or persistence.</summary>
+    public static IServiceCollection AddFsusArticleVaultCurrentPropertyInputs(
+        this IServiceCollection services, string trustedPropertySiteScope)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(trustedPropertySiteScope);
+        if (services.Any(static descriptor => descriptor.ServiceType == typeof(ArticlePackageCurrentPropertyReader)
+            || descriptor.ServiceType == typeof(ArticleVaultCurrentPropertyInputReader)))
+        {
+            throw new InvalidOperationException("article_vault_current_property_input_already_registered");
+        }
+        Type[] owners = [typeof(IArticlePropertyValueAuthority), typeof(ArticleVaultCurrentSourceReader)];
+        if (owners.Any(owner => !services.Any(descriptor => descriptor.ServiceType == owner)))
+        {
+            throw new InvalidOperationException("article_vault_current_property_input_owner_missing");
+        }
+        services.AddScoped<ArticlePackageCurrentPropertyReader>();
+        services.AddScoped(provider => new ArticleVaultCurrentPropertyInputReader(
+            provider.GetRequiredService<ArticleVaultCurrentSourceReader>(),
+            provider.GetRequiredService<ArticlePackageCurrentPropertyReader>(), trustedPropertySiteScope));
+        return services;
+    }
+
     /// <summary>
     /// Uses existing authenticated source/upload owners and one explicit host site binding.
     /// Missing owners fail before registration; no fallback source, store or grant is installed.

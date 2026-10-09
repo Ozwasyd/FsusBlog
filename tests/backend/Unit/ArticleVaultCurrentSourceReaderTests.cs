@@ -13,7 +13,7 @@ using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Unit")]
-public sealed class ArticleVaultCurrentSourceReaderTests
+public sealed partial class ArticleVaultCurrentSourceReaderTests
 {
     [Theory]
     [MemberData(nameof(ArticleVaultMaterializationPreflightTests.Sources), MemberType = typeof(ArticleVaultMaterializationPreflightTests))]

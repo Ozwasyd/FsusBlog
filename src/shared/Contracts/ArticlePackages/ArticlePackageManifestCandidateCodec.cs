@@ -13,7 +13,7 @@ namespace FsusBlog.Shared.Contracts.ArticlePackages;
 /// Closed v1 candidate codec. It validates source shape and finite semantic self-consistency only;
 /// actual source binding and all missing package authorities remain independent acceptance gates.
 /// </summary>
-public static class ArticlePackageManifestCandidateCodec
+public static partial class ArticlePackageManifestCandidateCodec
 {
     public const int MaxArticles = 1000;
     public const int MaxJsonBytes = 16 * 1024 * 1024;
@@ -337,6 +337,9 @@ public static class ArticlePackageManifestCandidateCodec
     }
 
     private static ArticlePackageManifestCandidateResult CheckKeys(JsonElement value, params string[] names)
+        => CheckClosedKeys(value, names, true);
+
+    private static ArticlePackageManifestCandidateResult CheckClosedKeys(JsonElement value, string[] names, bool denyUnavailableAuthorities)
     {
         if (value.ValueKind != JsonValueKind.Object)
         {
@@ -357,7 +360,7 @@ public static class ArticlePackageManifestCandidateCodec
                 "sourceMetadata" => "article_package_manifest_source_metadata_authority_unavailable",
                 _ => null
             };
-            if (unavailable is not null)
+            if (unavailable is not null && denyUnavailableAuthorities)
             {
                 return Invalid(unavailable);
             }
@@ -577,45 +580,50 @@ public static class ArticlePackageManifestCandidateCodec
         writer.WriteStartArray("articles");
         foreach (ArticlePackageManifestArticle article in articles)
         {
-            writer.WriteStartObject();
-            writer.WriteString("portableArticle", article.PortableArticle.Value);
-            writer.WriteStartObject("source");
-            writer.WriteNumber("articleId", article.Source.ArticleId);
-            writer.WriteNumber("articleRevisionId", article.Source.ArticleRevisionId);
-            writer.WriteNumber("revisionNo", article.Source.RevisionNo);
-            writer.WriteString("canonicalHash", article.Source.CanonicalHash);
-            writer.WriteString("siteScope", article.Source.SiteScope);
-            writer.WriteNumber("propertyRevision", article.Source.PropertyRevision);
-            WriteNullableLong(writer, "draftId", article.Source.DraftId);
-            WriteNullableLong(writer, "draftServerRevision", article.Source.DraftServerRevision);
-            WriteNullableLong(writer, "publicationId", article.Source.PublicationId);
-            writer.WriteEndObject();
-            writer.WriteString("title", article.Title);
-            writer.WriteString("summary", article.Summary);
-            writer.WriteString("titleSummaryDigest", article.TitleSummaryDigest);
-            writer.WriteString("propertySnapshotDigest", article.PropertySnapshotDigest);
-            writer.WriteString("propertyMappingDigest", article.PropertyMappingDigest);
-            writer.WriteStartObject("sourceBytes");
-            writer.WriteNumber("byteLength", article.SourceBytes.ByteLength);
-            writer.WriteString("sha256", article.SourceBytes.Sha256);
-            writer.WriteBoolean("hasUtf8Bom", article.SourceBytes.HasUtf8Bom);
-            writer.WriteNumber("lfCount", article.SourceBytes.LfCount);
-            writer.WriteNumber("crLfCount", article.SourceBytes.CrLfCount);
-            writer.WriteNumber("bareCrCount", article.SourceBytes.BareCrCount);
-            writer.WriteNumber("finalNewline", (int)article.SourceBytes.FinalNewline);
-            writer.WriteNumber("trailingSpaceCount", article.SourceBytes.TrailingSpaceCount);
-            writer.WriteNumber("trailingTabCount", article.SourceBytes.TrailingTabCount);
-            writer.WriteEndObject();
-            writer.WriteStartObject("lifecycle");
-            writer.WriteNumber("status", article.Lifecycle.Status);
-            writer.WriteString("publishedAt", FormatDate(article.Lifecycle.PublishedAt));
-            writer.WriteString("scheduledPublishAt", FormatDate(article.Lifecycle.ScheduledPublishAt));
-            writer.WriteEndObject();
-            writer.WriteEndObject();
+            WriteArticle(writer, article);
             writer.Flush();
         }
         writer.WriteEndArray();
         writer.WriteString("semanticDigest", digest);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteArticle(Utf8JsonWriter writer, ArticlePackageManifestArticle article)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("portableArticle", article.PortableArticle.Value);
+        writer.WriteStartObject("source");
+        writer.WriteNumber("articleId", article.Source.ArticleId);
+        writer.WriteNumber("articleRevisionId", article.Source.ArticleRevisionId);
+        writer.WriteNumber("revisionNo", article.Source.RevisionNo);
+        writer.WriteString("canonicalHash", article.Source.CanonicalHash);
+        writer.WriteString("siteScope", article.Source.SiteScope);
+        writer.WriteNumber("propertyRevision", article.Source.PropertyRevision);
+        WriteNullableLong(writer, "draftId", article.Source.DraftId);
+        WriteNullableLong(writer, "draftServerRevision", article.Source.DraftServerRevision);
+        WriteNullableLong(writer, "publicationId", article.Source.PublicationId);
+        writer.WriteEndObject();
+        writer.WriteString("title", article.Title);
+        writer.WriteString("summary", article.Summary);
+        writer.WriteString("titleSummaryDigest", article.TitleSummaryDigest);
+        writer.WriteString("propertySnapshotDigest", article.PropertySnapshotDigest);
+        writer.WriteString("propertyMappingDigest", article.PropertyMappingDigest);
+        writer.WriteStartObject("sourceBytes");
+        writer.WriteNumber("byteLength", article.SourceBytes.ByteLength);
+        writer.WriteString("sha256", article.SourceBytes.Sha256);
+        writer.WriteBoolean("hasUtf8Bom", article.SourceBytes.HasUtf8Bom);
+        writer.WriteNumber("lfCount", article.SourceBytes.LfCount);
+        writer.WriteNumber("crLfCount", article.SourceBytes.CrLfCount);
+        writer.WriteNumber("bareCrCount", article.SourceBytes.BareCrCount);
+        writer.WriteNumber("finalNewline", (int)article.SourceBytes.FinalNewline);
+        writer.WriteNumber("trailingSpaceCount", article.SourceBytes.TrailingSpaceCount);
+        writer.WriteNumber("trailingTabCount", article.SourceBytes.TrailingTabCount);
+        writer.WriteEndObject();
+        writer.WriteStartObject("lifecycle");
+        writer.WriteNumber("status", article.Lifecycle.Status);
+        writer.WriteString("publishedAt", FormatDate(article.Lifecycle.PublishedAt));
+        writer.WriteString("scheduledPublishAt", FormatDate(article.Lifecycle.ScheduledPublishAt));
+        writer.WriteEndObject();
         writer.WriteEndObject();
     }
 
