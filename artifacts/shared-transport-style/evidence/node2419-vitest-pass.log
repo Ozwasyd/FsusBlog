@@ -1,0 +1,16 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./scripts/fsusui-local" without a file extension (vitest.config.ts:5:61). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.11 /workspace/FsusBlog-transport-style/src/frontend
+
+ ✓ ../../tests/frontend/unit/api/binaryApiClient.test.ts (24 tests) 1134ms
+ ✓ ../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts (6 tests) 454ms
+
+ Test Files  2 passed (2)
+      Tests  30 passed (30)
+   Start at  06:19:01
+   Duration  3.22s (transform 1.14s, setup 945ms, import 229ms, tests 1.59s, environment 1ms)
+
+JSON report written to /workspace/FsusBlog-transport-style/.tmp/test-results/vitest/unit/shared-transport-dea86a509.json
+JUNIT report written to /workspace/FsusBlog-transport-style/.tmp/test-results/vitest/unit/shared-transport-dea86a509.xml

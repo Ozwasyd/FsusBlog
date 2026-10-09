@@ -1,0 +1,2 @@
+[frontend-style] missing configured frontend style path tools/frontend/style-toolchain/node_modules/.bin/eslint
+[frontend-style] missing configured frontend style path tools/frontend/style-toolchain/node_modules/.bin/stylelint

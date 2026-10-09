@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="30" failures="0" errors="0" time="1.587869391">
+    <testsuite name="../../tests/frontend/unit/api/binaryApiClient.test.ts" timestamp="2026-10-09T06:19:04.713Z" hostname="0e33985bbc57" tests="24" failures="0" errors="0" skipped="0" time="1.133975816">
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient credentials handling &gt; strips auth-bearing headers when credentials are omitted" time="0.006997293">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient credentials handling &gt; adds csrf token from document metadata for credentialed mutations" time="0.004971479">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient credentials handling &gt; exposes a cloned response-header snapshot to contract-aware callers" time="0.001570634">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient credentials handling &gt; does not merge requests whose callers each require response metadata" time="0.00131665">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient pow abort handling &gt; buildBinaryPowHeaders passes signal to pow challenge fetch" time="0.002138693">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient pow abort handling &gt; buildBinaryPowHeaders gives browser pow enough time for release acceptance difficulty" time="0.000666804">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient pow abort handling &gt; buildBinaryPowHeaders aborts before calculate when signal is aborted after challenge" time="0.009256054">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient pow abort handling &gt; aborted pow header construction rejects as AbortError" time="0.003559244">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient pow abort handling &gt; binary request does not send business request after pow abort" time="0.002233312">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient one-time pow headers &gt; uses fresh one-time pow headers for concurrent builds with same scope" time="0.053848208">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient one-time pow headers &gt; builds independent pow headers for different pow scopes" time="0.00077752">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient one-time pow headers &gt; single abort only cancels its own pow build" time="0.053536827">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient one-time pow headers &gt; builds a fresh pow header after success" time="0.000585256">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient one-time pow headers &gt; builds a fresh pow header after failure" time="0.001115754">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient binary request in-flight dedupe &gt; dedupes concurrent identical binary GET requests" time="0.053239493">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient binary request in-flight dedupe &gt; does not dedupe different binary request bodies" time="0.002135202">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient risk challenge proof transport &gt; attaches the three typed proof headers and commits an accepted response" time="0.002964502">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient risk challenge proof transport &gt; restores a reservation when cancellation happens before fetch" time="0.001737818">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient risk challenge proof transport &gt; marks an in-flight network failure terminal instead of restoring it" time="0.004459538">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient risk challenge proof transport &gt; settles server proof outcome expired as expired" time="0.001882076">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient risk challenge proof transport &gt; settles server proof outcome replayed_or_missing as replayed" time="0.001186864">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient risk challenge proof transport &gt; settles server proof outcome binding_mismatch as binding_mismatch" time="0.001009911">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient risk challenge proof transport &gt; settles server proof outcome revoked as revoked" time="0.001046308">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="binaryApiClient risk challenge proof transport &gt; settles server proof outcome rejected as rejected" time="0.000959958">
+        </testcase>
+    </testsuite>
+    <testsuite name="../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts" timestamp="2026-10-09T06:19:04.722Z" hostname="0e33985bbc57" tests="6" failures="0" errors="0" skipped="0" time="0.453893575">
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts" name="binaryApiClient transport rejection and option preservation &gt; preserves the original shared rejection value TypeError: Failed to fetch and cleans every waiter" time="0.063134932">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts" name="binaryApiClient transport rejection and option preservation &gt; preserves the original shared rejection value AbortError: The operation was aborted. and cleans every waiter" time="0.052695247">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts" name="binaryApiClient transport rejection and option preservation &gt; preserves the original shared rejection value external rejection value and cleans every waiter" time="0.052025619">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts" name="binaryApiClient transport rejection and option preservation &gt; cancels one waiter without cancelling its peer and removes the listener before rejection" time="0.053361385">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts" name="binaryApiClient transport rejection and option preservation &gt; cancels the shared fetch after the final waiter is cleaned and ignores its late rejection" time="0.052418002">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts" name="binaryApiClient transport rejection and option preservation &gt; strips proof and observer without mutating input or changing proof settlement and fetch options" time="0.004445291">
+        </testcase>
+    </testsuite>
+</testsuites>

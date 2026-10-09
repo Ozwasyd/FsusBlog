@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="2" failures="2" errors="0" time="0">
+    <testsuite name="../../tests/frontend/unit/api/binaryApiClient.test.ts" timestamp="2026-10-09T06:22:57.720Z" hostname="0e33985bbc57" tests="1" failures="1" errors="0" skipped="0" time="0">
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClient.test.ts" name="../../tests/frontend/unit/api/binaryApiClient.test.ts" time="0">
+            <failure message="Cannot find package &apos;happy-dom&apos; imported from /workspace/FsusBlog-transport-style/tests/frontend/support/unit/setup.ts" type="Error">
+Error: Cannot find package &apos;happy-dom&apos; imported from /workspace/FsusBlog-transport-style/tests/frontend/support/unit/setup.ts
+ ❯ ../../tests/frontend/support/unit/setup.ts:2:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: &apos;ERR_MODULE_NOT_FOUND&apos; }
+            </failure>
+        </testcase>
+    </testsuite>
+    <testsuite name="../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts" timestamp="2026-10-09T06:22:57.726Z" hostname="0e33985bbc57" tests="1" failures="1" errors="0" skipped="0" time="0">
+        <testcase classname="../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts" name="../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts" time="0">
+            <failure message="Cannot find package &apos;happy-dom&apos; imported from /workspace/FsusBlog-transport-style/tests/frontend/support/unit/setup.ts" type="Error">
+Error: Cannot find package &apos;happy-dom&apos; imported from /workspace/FsusBlog-transport-style/tests/frontend/support/unit/setup.ts
+ ❯ ../../tests/frontend/support/unit/setup.ts:2:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: &apos;ERR_MODULE_NOT_FOUND&apos; }
+            </failure>
+        </testcase>
+    </testsuite>
+</testsuites>

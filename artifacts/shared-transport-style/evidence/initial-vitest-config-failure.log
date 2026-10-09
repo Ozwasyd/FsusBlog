@@ -1,0 +1,35 @@
+vitest.config.ts (3:16) [33m[UNRESOLVED_IMPORT] [0mCould not resolve '@vitejs/plugin-vue' in vitest.config.ts
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m vitest.config.ts:3:17 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m3 │[0m [38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249mv[0m[38;5;249mu[0m[38;5;249me[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m'@vitejs/plugin-vue'
+ [38;5;240m  │[0m                 ──────────┬─────────  
+ [38;5;240m  │[0m                           ╰─────────── Module not found, treating it as an external dependency
+[38;5;246m───╯[0m
+
+vitest.config.ts (4:19) [33m[UNRESOLVED_IMPORT] [0mCould not resolve '@vitejs/plugin-vue-jsx' in vitest.config.ts
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m vitest.config.ts:4:20 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m4 │[0m [38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249mv[0m[38;5;249mu[0m[38;5;249me[0m[38;5;249mJ[0m[38;5;249ms[0m[38;5;249mx[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m'@vitejs/plugin-vue-jsx'
+ [38;5;240m  │[0m                    ────────────┬───────────  
+ [38;5;240m  │[0m                                ╰───────────── Module not found, treating it as an external dependency
+[38;5;246m───╯[0m
+
+failed to load config from /workspace/FsusBlog-transport-style/src/frontend/vitest.config.ts
+
+⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@vitejs/plugin-vue' imported from /tmp/chain-3735-tooling/front-test-env/node_modules/.vite-temp/vitest.config.ts.timestamp-1791526716683-f3dec49f967c3.mjs
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:859:18)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+    at #resolve (node:internal/modules/esm/loader:683:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+
+

@@ -1,0 +1,199 @@
+{
+    "kind": "ordinary transport source/style/regression evidence; not qualification",
+    "capturedAtUtc": "2026-10-09T06:25:22.720453+00:00",
+    "testedSourceCommit": "dea86a509b185cdb75bdc2146f1fc1b8ee71e075",
+    "baseMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "consumerSourceCommit": "a0d58a2f3b5121dd34e6e9a1eabcc836e15b268f",
+    "branch": "codex/shared-transport-style-20261009",
+    "productBlobs": {
+        "baseMaster": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+        "consumer": "f40d2e6cd1e240217269d7628edf88bbf1451ff2",
+        "testedSource": "f75932afdcedce739e1b7e99bba684d7be72d1c5"
+    },
+    "cases": {
+        "originalBinaryApiClient": 24,
+        "newTransportRegression": 6,
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0
+    },
+    "ordinaryNodeRuns": [
+        {
+            "node": "24.19.0",
+            "exitCode": 0,
+            "passed": 30
+        },
+        {
+            "node": "24.16.0",
+            "exitCode": 0,
+            "passed": 30
+        }
+    ],
+    "style": {
+        "entrypoint": "node tools/frontend/check-frontend-style.mjs --mode changed --base 537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea --file src/frontend/src/api/binaryApiClient.ts",
+        "node": "24.16.0",
+        "eslint": "10.8.0",
+        "typescriptEslint": "8.65.0",
+        "files": 1,
+        "violations": 0,
+        "exitCode": 0,
+        "rulesOrBaselineChanged": false
+    },
+    "vitest": {
+        "version": "4.1.11",
+        "happyDom": "20.9.0",
+        "configuration": "src/frontend/vitest.config.ts",
+        "setup": "tests/frontend/support/unit/setup.ts",
+        "originalTestBlob": "74e9f64bf014cbc422fcff396dd8574aeb23481e",
+        "originalTestMatchesMaster": true,
+        "frozenFsusUiSource": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "command": "vitest run --config vitest.config.ts ../../tests/frontend/unit/api/binaryApiClient.test.ts ../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+        "workingDirectory": "src/frontend"
+    },
+    "regressions": [
+        "same original TypeError/AbortError/exceptional non-Error identity for both deduped waiters",
+        "every listener removed; request can be repeated after rejection",
+        "one waiter cancellation preserves its peer; final waiter cleanup precedes shared abort",
+        "late rejection after cancellation does not resettle a waiter",
+        "proof and response observer stripped; input immutable; auth header stripping/proof settlement/rest fetch options preserved"
+    ],
+    "sourceBinding": [
+        {
+            "path": "src/frontend/src/api/binaryApiClient.ts",
+            "gitBlob": "f75932afdcedce739e1b7e99bba684d7be72d1c5",
+            "sha256": "0079fd4f42156967210ba63357601e1e1402c3d990ddf3bca4a9a7e1c0546241"
+        },
+        {
+            "path": "tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts",
+            "gitBlob": "4e480d97843054c239f649da2a745d246eacfdc2",
+            "sha256": "5b38367bc5d9a97d8f95b18bbe531e76f693266291d8defd0ecaf0ea8548dbb4"
+        },
+        {
+            "path": "tests/frontend/unit/api/binaryApiClient.test.ts",
+            "gitBlob": "74e9f64bf014cbc422fcff396dd8574aeb23481e",
+            "sha256": "527881fb24244de4089533234c5a47567215d5899a55fbcdf7fd6e3f48545984"
+        },
+        {
+            "path": "src/frontend/vitest.config.ts",
+            "gitBlob": "3aace05462d69ea05d6320774bdbef69bb171c02",
+            "sha256": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec"
+        },
+        {
+            "path": "tests/frontend/support/unit/setup.ts",
+            "gitBlob": "8c23a6a81aa9d714a4655f5eab228258cb0bf5e0",
+            "sha256": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a"
+        },
+        {
+            "path": "tools/frontend/check-frontend-style.mjs",
+            "gitBlob": "fa55a556c43b4caca707138f367f85421789e5fc",
+            "sha256": "5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2"
+        },
+        {
+            "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+            "gitBlob": "fdde159aa5ccb86215492ac9899986b8516c67df",
+            "sha256": "c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a"
+        },
+        {
+            "path": "tools/frontend/style-toolchain/package-lock.json",
+            "gitBlob": "cda087663517c681f64ea2a6facdeae13e3df98d",
+            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+        }
+    ],
+    "failedAttempts": [
+        {
+            "kind": "initial config lacked Vue plugins",
+            "exitCode": 1
+        },
+        {
+            "kind": "dependency directory symlink entered style source roster",
+            "exitCode": 1,
+            "attempts": 2
+        },
+        {
+            "kind": "default npm cache unavailable",
+            "exitCode": 254
+        },
+        {
+            "kind": "partially installed toolchain missing executables",
+            "exitCode": 1
+        },
+        {
+            "kind": "Node24.16 original setup missing happy-dom",
+            "exitCode": 1,
+            "testCasesExecuted": 0
+        }
+    ],
+    "limits": [
+        "full frontend types/build/CI unrun",
+        "no runtime HTTP/Postgres/rendered UX or independent acceptance",
+        "test TypeScript files lie outside configured product style source sets; style is exactly one product file",
+        "source receipts stay bound to dea86a509; later documentation/artifact commits are not a whole-head rerun",
+        "frozen registration/Canvas/consumer source heads unchanged"
+    ],
+    "artifacts": [
+        {
+            "path": "evidence/canonical-dependency-style-directory-failure.log",
+            "sha256": "135f0a72ab3542d65cb97c13c3c21d2e8cf2caf4777fc2a6f19a92884796d844"
+        },
+        {
+            "path": "evidence/initial-npm-cache-failure.log",
+            "sha256": "9bfef762c34b783e202bdb6f9dac87042f1a871d02b986a3ec1f68e9b62e99e5"
+        },
+        {
+            "path": "evidence/initial-style-directory-failure.log",
+            "sha256": "135f0a72ab3542d65cb97c13c3c21d2e8cf2caf4777fc2a6f19a92884796d844"
+        },
+        {
+            "path": "evidence/initial-vitest-config-failure.log",
+            "sha256": "53ce6f9da5d47fb6005b8514e01f55c6eda328a5378946e06bf405e474d1900e"
+        },
+        {
+            "path": "evidence/locked-toolchain-install-pass.log",
+            "sha256": "d91f0a08945b2b63f9455f012fbf852f44e081be22a6b3a5fad81dd69bda70c3"
+        },
+        {
+            "path": "evidence/node2416-style-pass.log",
+            "sha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+        },
+        {
+            "path": "evidence/node2416-vitest-pass.json",
+            "sha256": "ecad159e1bfe6627362177610668e3885dba50d1c9679f9e84017ff11906c7cd"
+        },
+        {
+            "path": "evidence/node2416-vitest-pass.log",
+            "sha256": "3c99d944c1f91e29a851db35ab177321894ee54c560f2f262e66e6a68d50d398"
+        },
+        {
+            "path": "evidence/node2416-vitest-pass.xml",
+            "sha256": "c22bf1bb36cbffaaf9fe1f8febce1dbd4df6637a0e8279a6e4eba9bf5bfa1b86"
+        },
+        {
+            "path": "evidence/node2416-vitest-setup-failure.json",
+            "sha256": "a67857350d142c6ddc56364857c9c191c17522f510d2f46211cc007b728214d9"
+        },
+        {
+            "path": "evidence/node2416-vitest-setup-failure.log",
+            "sha256": "7add632e52e11a3e1255a90c4a35e30be13c8b14322e4fc67a4762b1cdc5899e"
+        },
+        {
+            "path": "evidence/node2416-vitest-setup-failure.xml",
+            "sha256": "e918573a6e07fdfd954dce743dce9c9ba405562adf7efcbfc34c46e0a1e1a280"
+        },
+        {
+            "path": "evidence/node2419-vitest-pass.json",
+            "sha256": "1eae0185d99cceb08fa439e18397a4e1e6ad02c6525a0ac77cd8d3f01464e49f"
+        },
+        {
+            "path": "evidence/node2419-vitest-pass.log",
+            "sha256": "e4793eed5dc8cb70ee0b1b4b1fd7530a1bf417995bb02be841a5da01a22f35e7"
+        },
+        {
+            "path": "evidence/node2419-vitest-pass.xml",
+            "sha256": "eff15efec310ddf345a8873e9f995d7cb5fc729fc01d17cf05c95ab78fac7100"
+        },
+        {
+            "path": "evidence/style-missing-toolchain-failure.log",
+            "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+        }
+    ]
+}
