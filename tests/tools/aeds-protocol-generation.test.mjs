@@ -5,7 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { renderAedsProtocolOutputs } from '../../tools/frontend/generate-aeds-protocol.mjs';
+import { renderAedsProtocolOutputs } from '@fsusblog/governance-tools/frontend/aeds-protocol';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const manifest = JSON.parse(readFileSync(path.join(root, 'src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'));
@@ -54,7 +54,7 @@ test('the original producer owns five products with manifest-derived identities 
     assert.deepEqual(golden.frames, [...manifest.frameTypes]
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
-    assert.equal(golden.frames.length, 244);
+    assert.equal(golden.frames.length, 251);
 });
 
 test('the original 236 golden records, evidence and retirement remain unchanged', () =>
@@ -101,27 +101,90 @@ for (const [name, value, family] of [
 }
 
 for (const [label, mutate, expected] of [
-    ['missing golden metadata', (source) => { delete source.goldenCatalog; }, /closed v1 shape/u],
-    ['unknown golden metadata field', (source) => { source.goldenCatalog.extra = true; }, /closed v1 shape/u],
-    ['unknown catalog version', (source) => { source.goldenCatalog.version = 'unknown'; }, /closed v1 shape/u],
-    ['empty evidence', (source) => { source.goldenCatalog.defaultEvidence = []; }, /canonical backend test paths/u],
-    ['duplicate evidence', (source) => { source.goldenCatalog.defaultEvidence.push(source.goldenCatalog.defaultEvidence[0]); }, /canonical backend test paths/u],
-    ['outside evidence', (source) => { source.goldenCatalog.defaultEvidence[0] = '../outside.cs'; }, /canonical backend test paths/u],
-    ['traversing evidence', (source) => { source.goldenCatalog.defaultEvidence[0] = 'tests/backend/../outside.cs'; }, /canonical backend test paths/u],
-    ['evidence with terminal LF', (source) => { source.goldenCatalog.defaultEvidence[0] += '\n'; }, /canonical backend test paths/u],
-    ['missing family', (source) => { delete source.frameTypes[0].goldenFamily; }, /family is missing or invalid/u],
-    ['empty family', (source) => { source.frameTypes[0].goldenFamily = ''; }, /family is missing or invalid/u],
-    ['family with terminal LF', (source) => { source.frameTypes[0].goldenFamily += '\n'; }, /family is missing or invalid/u],
-    ['missing order', (source) => { delete source.frameTypes[0].goldenOrder; }, /uniquely cover every frame/u],
-    ['duplicate order', (source) => { source.frameTypes[0].goldenOrder = source.frameTypes[1].goldenOrder; }, /uniquely cover every frame/u],
-    ['negative order', (source) => { source.frameTypes[0].goldenOrder = -1; }, /uniquely cover every frame/u],
-    ['out of range order', (source) => { source.frameTypes[0].goldenOrder = source.frameTypes.length; }, /uniquely cover every frame/u],
-    ['fractional order', (source) => { source.frameTypes[0].goldenOrder = 0.5; }, /uniquely cover every frame/u],
-    ['unannotated registered frame', (source) => { source.frameTypes.push({ name: 'Unannotated', value: 65535 }); }, /family is missing or invalid/u],
-    ['removed registered frame leaving a metadata gap', (source) => { source.frameTypes.splice(0, 1); }, /uniquely cover every frame/u],
-    ['duplicate frame identity', (source) => { source.frameTypes[1].value = source.frameTypes[0].value; }, /Duplicate frame type value/u],
-    ['retired frame reused as active', (source) => { source.frameTypes[0].value = source.retiredFrameValues[0].value; }, /reuses retired value/u],
-    ['empty frame collection', (source) => { source.frameTypes = []; }, /complete arrays/u]
+    ['missing golden metadata', (source) =>
+    {
+        delete source.goldenCatalog;
+    }, /closed v1 shape/u],
+    ['unknown golden metadata field', (source) =>
+    {
+        source.goldenCatalog.extra = true;
+    }, /closed v1 shape/u],
+    ['unknown catalog version', (source) =>
+    {
+        source.goldenCatalog.version = 'unknown';
+    }, /closed v1 shape/u],
+    ['empty evidence', (source) =>
+    {
+        source.goldenCatalog.defaultEvidence = [];
+    }, /canonical backend test paths/u],
+    ['duplicate evidence', (source) =>
+    {
+        source.goldenCatalog.defaultEvidence.push(source.goldenCatalog.defaultEvidence[0]);
+    }, /canonical backend test paths/u],
+    ['outside evidence', (source) =>
+    {
+        source.goldenCatalog.defaultEvidence[0] = '../outside.cs';
+    }, /canonical backend test paths/u],
+    ['traversing evidence', (source) =>
+    {
+        source.goldenCatalog.defaultEvidence[0] = 'tests/backend/../outside.cs';
+    }, /canonical backend test paths/u],
+    ['evidence with terminal LF', (source) =>
+    {
+        source.goldenCatalog.defaultEvidence[0] += '\n';
+    }, /canonical backend test paths/u],
+    ['missing family', (source) =>
+    {
+        delete source.frameTypes[0].goldenFamily;
+    }, /family is missing or invalid/u],
+    ['empty family', (source) =>
+    {
+        source.frameTypes[0].goldenFamily = '';
+    }, /family is missing or invalid/u],
+    ['family with terminal LF', (source) =>
+    {
+        source.frameTypes[0].goldenFamily += '\n';
+    }, /family is missing or invalid/u],
+    ['missing order', (source) =>
+    {
+        delete source.frameTypes[0].goldenOrder;
+    }, /uniquely cover every frame/u],
+    ['duplicate order', (source) =>
+    {
+        source.frameTypes[0].goldenOrder = source.frameTypes[1].goldenOrder;
+    }, /uniquely cover every frame/u],
+    ['negative order', (source) =>
+    {
+        source.frameTypes[0].goldenOrder = -1;
+    }, /uniquely cover every frame/u],
+    ['out of range order', (source) =>
+    {
+        source.frameTypes[0].goldenOrder = source.frameTypes.length;
+    }, /uniquely cover every frame/u],
+    ['fractional order', (source) =>
+    {
+        source.frameTypes[0].goldenOrder = 0.5;
+    }, /uniquely cover every frame/u],
+    ['unannotated registered frame', (source) =>
+    {
+        source.frameTypes.push({ name: 'Unannotated', value: 65535 });
+    }, /family is missing or invalid/u],
+    ['removed registered frame leaving a metadata gap', (source) =>
+    {
+        source.frameTypes.splice(0, 1);
+    }, /uniquely cover every frame/u],
+    ['duplicate frame identity', (source) =>
+    {
+        source.frameTypes[1].value = source.frameTypes[0].value;
+    }, /Duplicate frame type value/u],
+    ['retired frame reused as active', (source) =>
+    {
+        source.frameTypes[0].value = source.retiredFrameValues[0].value;
+    }, /reuses retired value/u],
+    ['empty frame collection', (source) =>
+    {
+        source.frameTypes = [];
+    }, /complete arrays/u]
 ])
 {
     test(`the original renderer refuses ${label} before any output`, () =>
@@ -135,7 +198,7 @@ for (const [label, mutate, expected] of [
 test('every frame, including future registrations, must explicitly provide complete golden metadata', () =>
 {
     const source = structuredClone(manifest);
-    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 244 });
+    source.frameTypes.push({ name: 'FutureFrame', value: 65535, goldenFamily: 'test-response', goldenOrder: 251 });
     const golden = goldenFrom(source);
     assert.deepEqual(golden.frames.at(-1), { name: 'FutureFrame', value: 65535, family: 'test-response' });
 });

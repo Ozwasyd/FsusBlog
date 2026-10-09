@@ -259,6 +259,13 @@
     { "name": "ThemeRegistryDetail", "value": 248, "family": "theme-registry-response" },
     { "name": "ThemeActivationList", "value": 249, "family": "theme-activation-response" },
     { "name": "ThemeActivation", "value": 250, "family": "theme-activation-response" },
-    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" }
+    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" },
+    { "name": "DocumentExportRequest", "value": 278, "family": "document-export-request" },
+    { "name": "DocumentExportTaskRequest", "value": 279, "family": "document-export-task-request" },
+    { "name": "DocumentExportJobResponse", "value": 280, "family": "document-export-job-response" },
+    { "name": "DocumentExportPageResponse", "value": 281, "family": "document-export-page-response" },
+    { "name": "DocumentExportSourceCaptureRequest", "value": 282, "family": "document-export-source-options" },
+    { "name": "DocumentExportRevisionChoicesRequest", "value": 283, "family": "document-export-source-options" },
+    { "name": "DocumentExportSourceChoicesResponse", "value": 284, "family": "document-export-source-options" }
   ]
 }
