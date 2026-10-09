@@ -210,6 +210,9 @@ internal static class ArticleSourceGenerationPersistence
     {
         // Validate immutable ownership, not current pointers: old events are invalidations,
         // and the original adapter must reread the current source before indexing anything.
+        // Scheduling/archive can retain an older publication beside a new current revision.
+        // The original producer's snapshots can therefore belong to that older publication;
+        // each coordinate must resolve within the actual article, not an invented single revision.
         await using NpgsqlCommand command = new("""
             SELECT EXISTS (
                 SELECT 1 FROM article_revision revision
@@ -217,19 +220,25 @@ internal static class ArticleSourceGenerationPersistence
                   AND revision.revision_no = @RevisionNo
                   AND (@RightsId IS NULL OR EXISTS (
                       SELECT 1 FROM article_rights_snapshot rights
-                      WHERE rights.id = @RightsId AND rights.article_id = revision.article_id
-                        AND rights.article_revision_id = revision.id))
+                      WHERE rights.id = @RightsId AND rights.article_id = @ArticleId
+                        AND EXISTS (SELECT 1 FROM article_revision rights_revision
+                            WHERE rights_revision.id = rights.article_revision_id
+                              AND rights_revision.article_id = @ArticleId)))
                   AND (@ResponsibilityId IS NULL OR EXISTS (
                       SELECT 1 FROM article_responsibility_snapshot responsibility
                       WHERE responsibility.id = @ResponsibilityId AND responsibility.article_id = @ArticleId
-                        AND responsibility.article_revision_id = @RevisionId
-                        AND responsibility.responsibility_version = @ResponsibilityVersion))
+                        AND responsibility.responsibility_version = @ResponsibilityVersion
+                        AND EXISTS (SELECT 1 FROM article_revision responsibility_revision
+                            WHERE responsibility_revision.id = responsibility.article_revision_id
+                              AND responsibility_revision.article_id = @ArticleId)))
                   AND (@PublicationId IS NULL OR EXISTS (
                       SELECT 1 FROM article_publication publication
                       WHERE publication.id = @PublicationId AND publication.article_id = @ArticleId
-                        AND publication.article_revision_id = @RevisionId AND publication.revision_no = @RevisionNo
-                        AND publication.publication_no = @PublicationNo AND publication.rights_snapshot_id = @RightsId
-                        AND publication.responsibility_snapshot_id IS NOT DISTINCT FROM @ResponsibilityId))
+                        AND publication.publication_no = @PublicationNo
+                        AND EXISTS (SELECT 1 FROM article_revision publication_revision
+                            WHERE publication_revision.id = publication.article_revision_id
+                              AND publication_revision.article_id = @ArticleId
+                              AND publication_revision.revision_no = publication.revision_no)))
             );
             """, connection, transaction);
         command.Parameters.AddWithValue("ArticleId", item.AggregateId);
