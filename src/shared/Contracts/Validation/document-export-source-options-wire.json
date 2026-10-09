@@ -1,0 +1,69 @@
+{
+    "schemaVersion": 1,
+    "contractSource": "src/shared/Contracts/DocumentExport/DocumentExportSourceOptionsContracts.cs",
+    "managedCodecSource": "src/core/Cache/PodBinaryCodec.DocumentExportSourceOptions.cs",
+    "managedCodecSha256": "c479251fd8034bdbc5e3ea9f07e80b0c7230b7f6600b2a018fa6fa70f032fc00",
+    "sourceCatalogCommit": "871b8e4f7474000dd5d3d79162d9e81fe0abf6b6",
+    "payloadRevision": 1,
+    "maximumChoices": 50,
+    "privateMaximumBindingsPerScope": 512,
+    "choiceIdLength": 64,
+    "maximumDraftKeyUtf16": 96,
+    "maximumLabelUtf16": 256,
+    "nativeError": {
+        "name": "DocumentExportSourceOptionsPayloadInvalid",
+        "value": 19,
+        "reason": "document_export_source_options_payload_invalid"
+    },
+    "records": {
+        "DocumentExportSourceCaptureRequest": [
+            "IReadOnlyList<DocumentExportSourceSelector> Sources"
+        ],
+        "DocumentExportRevisionChoicesRequest": [
+            "int ArticleId"
+        ],
+        "DocumentExportSourceSelector": [
+            "int Kind",
+            "int ArticleId",
+            "string? DraftKey",
+            "long? RevisionId",
+            "long? PublicationId"
+        ],
+        "DocumentExportSourceCoordinate": [
+            "int Kind",
+            "long ArticleId",
+            "string? DraftKey",
+            "long? RevisionId",
+            "long? PublicationId",
+            "long SourceVersion"
+        ],
+        "DocumentExportSourceChoiceResponse": [
+            "string ChoiceId",
+            "string Label",
+            "DocumentExportSourceCoordinate Coordinate"
+        ],
+        "DocumentExportSourceChoicesResponse": [
+            "IReadOnlyList<DocumentExportSourceChoiceResponse> Choices"
+        ]
+    },
+    "roots": {
+        "DocumentExportSourceCaptureRequest": {
+            "value": 282,
+            "family": "document-export-source-options",
+            "model": "DocumentExportSourceCaptureRequest",
+            "maxPayloadBytes": 65520
+        },
+        "DocumentExportRevisionChoicesRequest": {
+            "value": 283,
+            "family": "document-export-source-options",
+            "model": "DocumentExportRevisionChoicesRequest",
+            "maxPayloadBytes": 1008
+        },
+        "DocumentExportSourceChoicesResponse": {
+            "value": 284,
+            "family": "document-export-source-options",
+            "model": "DocumentExportSourceChoicesResponse",
+            "maxPayloadBytes": 131072
+        }
+    }
+}

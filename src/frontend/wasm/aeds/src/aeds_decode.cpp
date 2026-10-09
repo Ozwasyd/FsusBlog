@@ -2,6 +2,8 @@
 
 #include "aeds_crc32.hpp"
 #include "aeds_frame.hpp"
+#include "document_export_wire.generated.hpp"
+#include "document_export_source_options_wire.generated.hpp"
 #include "font_theme_admin_pods.hpp"
 #include "pod_views.hpp"
 
@@ -54,6 +56,10 @@ const char* ToErrorString(ErrorCode errorCode)
             return "header_length_mismatch";
         case ErrorCode::PayloadCrcMismatch:
             return "payload_crc_mismatch";
+        case ErrorCode::DocumentExportPayloadInvalid:
+            return "document_export_payload_invalid";
+        case ErrorCode::DocumentExportSourceOptionsPayloadInvalid:
+            return "document_export_source_options_payload_invalid";
         case ErrorCode::ArticlePayloadInvalid:
             return "article_payload_invalid";
         case ErrorCode::FrameTypeUnsupported:
@@ -111,6 +117,19 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         return MakeError(ErrorCode::FrameTypeUnsupported);
     }
 
+    const std::size_t ExportBudget = DocumentExportWire::PayloadBudget(FrameType);
+    if (ExportBudget != 0 && (ReadU16Le(frame + 6) != 0
+        || PayloadLength > ExportBudget || frameLen > ExportBudget + kHeaderSize))
+    {
+        return MakeError(ErrorCode::DocumentExportPayloadInvalid);
+    }
+    const std::size_t SourceOptionsBudget = DocumentExportSourceOptionsWire::PayloadBudget(FrameType);
+    if (SourceOptionsBudget != 0 && (ReadU16Le(frame + 6) != 0
+        || PayloadLength > SourceOptionsBudget || frameLen > SourceOptionsBudget + kHeaderSize))
+    {
+        return MakeError(ErrorCode::DocumentExportSourceOptionsPayloadInvalid);
+    }
+
     const std::uint8_t* payload = frame + kHeaderSize;
     const std::uint16_t PayloadCrc = ComputeCrc16(payload, PayloadLength);
     if (PayloadCrc != PayloadCrc16)
@@ -131,6 +150,15 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         && !FsusBlog::Pod::FontTheme::ParsePayload(FrameType, payload, PayloadLength, nullptr))
     {
         return MakeError(ErrorCode::FontThemePayloadInvalid);
+    }
+
+    if (ExportBudget != 0 && !DocumentExportWire::Validate(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::DocumentExportPayloadInvalid);
+    }
+    if (SourceOptionsBudget != 0 && !DocumentExportSourceOptionsWire::Validate(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::DocumentExportSourceOptionsPayloadInvalid);
     }
 
     DecodeResult ok{};

@@ -16,6 +16,8 @@ import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceCo
 import { mapCategoryListFromPayload, mapTagListFromPayload, mapTaxonomyExactMetadataFromPayload } from '@/adapters/binary/taxonomyAdapter';
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
+import { decodeDocumentExportSourceChoicesResponse } from '@/codecs/binary/documentExportSourceOptionsWire.generated';
+import { decodeDocumentExportJobResponse, decodeDocumentExportPageResponse } from '@/codecs/binary/documentExportWire.generated';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
@@ -29,6 +31,9 @@ const knownFrameTypes = new Set<number>(Object.values(FrameType));
 // This is the protocol-facing response catalog. Keep it independent from the
 // decoder registrations so registry validation can detect missing mappings.
 export const binaryFrameDecoderFrameTypes = Object.freeze([
+    FrameType.DocumentExportJobResponse,
+    FrameType.DocumentExportPageResponse,
+    FrameType.DocumentExportSourceChoicesResponse,
     FrameType.ArticleList,
     FrameType.ArticleDetail,
     FrameType.ArticleHot,
@@ -231,6 +236,9 @@ export function createBinaryFrameDecoderRegistry(
 }
 
 export const binaryFrameDecoderRegistrations = Object.freeze([
+    [FrameType.DocumentExportJobResponse, decodeDocumentExportJobResponse],
+    [FrameType.DocumentExportPageResponse, decodeDocumentExportPageResponse],
+    [FrameType.DocumentExportSourceChoicesResponse, decodeDocumentExportSourceChoicesResponse],
     [FrameType.ArticleList, mapArticlePageFromPodPayload],
     [FrameType.ArticleDetail, mapArticleDetailFromPodPayload],
     [FrameType.ArticleHot, mapArticleHotFromPodPayload],

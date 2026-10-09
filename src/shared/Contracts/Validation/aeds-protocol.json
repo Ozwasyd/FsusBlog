@@ -1517,6 +1517,48 @@
             "value": 252,
             "goldenFamily": "theme-activation-response",
             "goldenOrder": 243
+        },
+        {
+            "name": "DocumentExportRequest",
+            "value": 278,
+            "goldenFamily": "document-export-request",
+            "goldenOrder": 244
+        },
+        {
+            "name": "DocumentExportTaskRequest",
+            "value": 279,
+            "goldenFamily": "document-export-task-request",
+            "goldenOrder": 245
+        },
+        {
+            "name": "DocumentExportJobResponse",
+            "value": 280,
+            "goldenFamily": "document-export-job-response",
+            "goldenOrder": 246
+        },
+        {
+            "name": "DocumentExportPageResponse",
+            "value": 281,
+            "goldenFamily": "document-export-page-response",
+            "goldenOrder": 247
+        },
+        {
+            "name": "DocumentExportSourceCaptureRequest",
+            "value": 282,
+            "goldenFamily": "document-export-source-options",
+            "goldenOrder": 248
+        },
+        {
+            "name": "DocumentExportRevisionChoicesRequest",
+            "value": 283,
+            "goldenFamily": "document-export-source-options",
+            "goldenOrder": 249
+        },
+        {
+            "name": "DocumentExportSourceChoicesResponse",
+            "value": 284,
+            "goldenFamily": "document-export-source-options",
+            "goldenOrder": 250
         }
     ],
     "goldenCatalog": {
@@ -1524,7 +1566,9 @@
         "defaultEvidence": [
             "tests/backend/Unit/BackendGoldenCatalogTests.cs",
             "tests/backend/Unit/PodBinaryCodecTests.cs",
-            "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
+            "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs",
+            "tests/backend/Unit/DocumentExportBinaryCodecTests.cs",
+            "tests/backend/Unit/DocumentExportSourceOptionsWireTests.cs"
         ]
     }
 }
