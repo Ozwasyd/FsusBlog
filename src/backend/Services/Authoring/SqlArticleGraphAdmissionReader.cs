@@ -28,6 +28,7 @@ internal sealed record ArticleGraphCurrentArticleAdmission(
 /// SourceEpoch identifies the durable source incarnation and never supplies a runtime DocumentEpoch.
 /// Admission requires PostgreSQL READ COMMITTED statement snapshots, in autocommit or a caller-owned transaction.
 /// Active ambient and fixed-snapshot contexts are unavailable; the caller's transaction is never changed.
+/// The original connection and transaction references must survive every read; auto-open/close is permitted.
 /// </summary>
 public sealed class SqlArticleGraphAdmissionReader(
     ISqlSugarClient db,
@@ -35,6 +36,10 @@ public sealed class SqlArticleGraphAdmissionReader(
     IAuthorArticlePinPermissionProjectionProvider permissions,
     IAuthorArticlePinArticleProjectionSource articles)
 {
+    private readonly record struct CurrentReadContext(
+        System.Data.IDbConnection Connection,
+        System.Data.IDbTransaction? Transaction);
+
     internal async Task<ArticleGraphCurrentArticleAdmission?> ReadCurrentAsync(
         ArticleGraphCurrentArticleReadRequest request,
         CancellationToken cancellationToken = default)
@@ -50,9 +55,10 @@ public sealed class SqlArticleGraphAdmissionReader(
             {
                 return null;
             }
+            var context = new CurrentReadContext(db.Ado.Connection, db.Ado.Transaction);
 
             // Authenticate live context before even resolving the portable identity.
-            AuthorArticlePinPermissionSnapshot? preflight = await ReadPermissionAsync(request, [], cancellationToken)
+            AuthorArticlePinPermissionSnapshot? preflight = await ReadPermissionAsync(request, [], context, cancellationToken)
                 .ConfigureAwait(false);
             if (preflight is null)
             {
@@ -60,12 +66,13 @@ public sealed class SqlArticleGraphAdmissionReader(
             }
             ArticleRelationArticleCoordinate? binding = await coordinates.FindArticleAsync(
                 db, request.ArticleIdentity, cancellationToken).ConfigureAwait(false);
-            if (binding is null || binding.ArticleId <= 0 || binding.ArticleIdentity != request.ArticleIdentity)
+            if (binding is null || binding.ArticleId <= 0 || binding.ArticleIdentity != request.ArticleIdentity
+                || !await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false))
             {
                 return null;
             }
             IReadOnlyList<int> articleIds = Array.AsReadOnly(new[] { binding.ArticleId });
-            AuthorArticlePinPermissionSnapshot? permission = await ReadPermissionAsync(request, articleIds, cancellationToken)
+            AuthorArticlePinPermissionSnapshot? permission = await ReadPermissionAsync(request, articleIds, context, cancellationToken)
                 .ConfigureAwait(false);
             if (permission is null || !SameContext(preflight, permission))
             {
@@ -73,7 +80,7 @@ public sealed class SqlArticleGraphAdmissionReader(
             }
 
             // Metadata is read only after BOTH projection and opening authority succeed.
-            AuthorArticlePinArticleFact? article = await ReadArticleAsync(binding.ArticleId, articleIds, cancellationToken)
+            AuthorArticlePinArticleFact? article = await ReadArticleAsync(binding.ArticleId, articleIds, context, cancellationToken)
                 .ConfigureAwait(false);
             if (article is null)
             {
@@ -85,7 +92,7 @@ public sealed class SqlArticleGraphAdmissionReader(
                 || source.RevisionId != article.CurrentRevisionId || source.RevisionNo != article.RevisionNo
                 || source.ArticleIdentity != request.ArticleIdentity || source.RevisionIdentity != request.RevisionIdentity
                 || source.SourceEpoch == Guid.Empty
-                || !await HasFreshStatementSnapshotsAsync(cancellationToken).ConfigureAwait(false))
+                || !await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false))
             {
                 return null;
             }
@@ -94,19 +101,20 @@ public sealed class SqlArticleGraphAdmissionReader(
             ArticleRelationRevisionCoordinate? currentSource = await coordinates.ReadRevisionAsync(
                 db, article.ArticleId, article.CurrentRevisionId, cancellationToken).ConfigureAwait(false);
             if (currentSource != source
-                || !await HasFreshStatementSnapshotsAsync(cancellationToken).ConfigureAwait(false))
+                || !await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false))
             {
                 return null;
             }
-            AuthorArticlePinArticleFact? currentArticle = await ReadArticleAsync(binding.ArticleId, articleIds, cancellationToken)
+            AuthorArticlePinArticleFact? currentArticle = await ReadArticleAsync(binding.ArticleId, articleIds, context, cancellationToken)
                 .ConfigureAwait(false);
             if (currentArticle != article)
             {
                 return null;
             }
-            AuthorArticlePinPermissionSnapshot? currentPermission = await ReadPermissionAsync(request, articleIds, cancellationToken)
+            AuthorArticlePinPermissionSnapshot? currentPermission = await ReadPermissionAsync(request, articleIds, context, cancellationToken)
                 .ConfigureAwait(false);
-            if (currentPermission is null || !SamePermission(permission, currentPermission))
+            if (currentPermission is null || !SamePermission(permission, currentPermission)
+                || !HasFreshTransactionContext(context))
             {
                 return null;
             }
@@ -148,8 +156,13 @@ public sealed class SqlArticleGraphAdmissionReader(
     private async Task<AuthorArticlePinPermissionSnapshot?> ReadPermissionAsync(
         ArticleGraphCurrentArticleReadRequest request,
         IReadOnlyList<int> articleIds,
+        CurrentReadContext context,
         CancellationToken cancellationToken)
     {
+        if (!IsSameReadContext(context))
+        {
+            return null;
+        }
         AuthorArticlePinPermissionSnapshot snapshot = await permissions.ResolveAsync(
             new(request.Owner, request.RequestId, articleIds), cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
@@ -176,15 +189,16 @@ public sealed class SqlArticleGraphAdmissionReader(
                 return null;
             }
         }
-        return await HasFreshStatementSnapshotsAsync(cancellationToken).ConfigureAwait(false) ? snapshot : null;
+        return await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false) ? snapshot : null;
     }
 
     private async Task<AuthorArticlePinArticleFact?> ReadArticleAsync(
         int articleId,
         IReadOnlyList<int> articleIds,
+        CurrentReadContext context,
         CancellationToken cancellationToken)
     {
-        if (!await HasFreshStatementSnapshotsAsync(cancellationToken).ConfigureAwait(false))
+        if (!await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false))
         {
             return null;
         }
@@ -192,7 +206,7 @@ public sealed class SqlArticleGraphAdmissionReader(
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (facts.Count != 1
-            || !await HasFreshStatementSnapshotsAsync(cancellationToken).ConfigureAwait(false))
+            || !await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false))
         {
             return null;
         }
@@ -207,10 +221,10 @@ public sealed class SqlArticleGraphAdmissionReader(
             : null;
     }
 
-    private async Task<bool> HasFreshStatementSnapshotsAsync(CancellationToken cancellationToken)
+    private async Task<bool> HasFreshStatementSnapshotsAsync(CurrentReadContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!HasFreshTransactionContext())
+        if (!HasFreshTransactionContext(context))
         {
             return false;
         }
@@ -229,21 +243,27 @@ public sealed class SqlArticleGraphAdmissionReader(
             isolation = reader.GetString(0);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return isolation == "read committed" && HasFreshTransactionContext();
+        return isolation == "read committed" && HasFreshTransactionContext(context);
     }
 
-    private bool HasFreshTransactionContext()
+    private bool HasFreshTransactionContext(CurrentReadContext context)
     {
-        if (Transaction.Current is not null
-            || db.CurrentConnectionConfig.DbType != SqlSugar.DbType.PostgreSQL)
+        if (!IsSameReadContext(context)
+            || db.CurrentConnectionConfig.DbType != SqlSugar.DbType.PostgreSQL
+            || context.Connection is not NpgsqlConnection)
         {
             return false;
         }
-        return db.Ado.Transaction is null
-            || (db.Ado.Transaction is NpgsqlTransaction transaction
-                && ReferenceEquals(transaction.Connection, db.Ado.Connection)
+        return context.Transaction is null
+            || (context.Transaction is NpgsqlTransaction transaction
+                && ReferenceEquals(transaction.Connection, context.Connection)
                 && transaction.IsolationLevel == System.Data.IsolationLevel.ReadCommitted);
     }
+
+    private bool IsSameReadContext(CurrentReadContext context)
+        => Transaction.Current is null
+            && ReferenceEquals(db.Ado.Connection, context.Connection)
+            && ReferenceEquals(db.Ado.Transaction, context.Transaction);
 
     private static bool IsRevisionIdentity(string identity)
         => identity is not null && identity.StartsWith("revision:", StringComparison.Ordinal)
