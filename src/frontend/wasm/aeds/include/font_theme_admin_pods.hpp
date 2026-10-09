@@ -10,6 +10,7 @@ namespace FsusBlog::Pod::FontTheme
 {
 
 #pragma pack(push, 1)
+
 struct Utf8SliceRef
 {
     std::int32_t Offset;
@@ -23,6 +24,7 @@ struct FontThemePayloadHeaderPod
     std::int32_t PayloadLength;
     std::int32_t Reserved0;
 };
+
 static_assert(sizeof(FontThemePayloadHeaderPod) == 16);
 static_assert(offsetof(FontThemePayloadHeaderPod, Version) == 0);
 static_assert(offsetof(FontThemePayloadHeaderPod, RecordCount) == 4);
@@ -46,6 +48,7 @@ struct FontRegistryItemPod
     Utf8SliceRef Category;
     Utf8SliceRef Version;
 };
+
 static_assert(sizeof(FontRegistryItemPod) == 76);
 static_assert(offsetof(FontRegistryItemPod, InstalledAtUnixMs) == 0);
 static_assert(offsetof(FontRegistryItemPod, UpdatedAtUnixMs) == 8);
@@ -82,6 +85,7 @@ struct FontRegistryDetailPod
     Utf8SliceRef LicenseSourceJson;
     Utf8SliceRef ManifestJson;
 };
+
 static_assert(sizeof(FontRegistryDetailPod) == 100);
 static_assert(offsetof(FontRegistryDetailPod, InstalledAtUnixMs) == 0);
 static_assert(offsetof(FontRegistryDetailPod, UpdatedAtUnixMs) == 8);
@@ -114,6 +118,7 @@ struct FontFacePod
     Utf8SliceRef UnicodeRange;
     Utf8SliceRef FontDisplay;
 };
+
 static_assert(sizeof(FontFacePod) == 56);
 static_assert(offsetof(FontFacePod, SizeBytes) == 0);
 static_assert(offsetof(FontFacePod, Weight) == 8);
@@ -137,6 +142,7 @@ struct FontActivationPod
     Utf8SliceRef CjkFontId;
     Utf8SliceRef EmojiFontId;
 };
+
 static_assert(sizeof(FontActivationPod) == 64);
 static_assert(offsetof(FontActivationPod, ConfigVersion) == 0);
 static_assert(offsetof(FontActivationPod, UpdatedAtUnixMs) == 8);
@@ -163,6 +169,7 @@ struct ThemeRegistryItemPod
     Utf8SliceRef PackageHash;
     Utf8SliceRef PackageLocation;
 };
+
 static_assert(sizeof(ThemeRegistryItemPod) == 84);
 static_assert(offsetof(ThemeRegistryItemPod, InstalledAtUnixMs) == 0);
 static_assert(offsetof(ThemeRegistryItemPod, UpdatedAtUnixMs) == 8);
@@ -212,6 +219,7 @@ struct ThemeRegistryDetailPod
     Utf8SliceRef ManifestJson;
     Utf8SliceRef ConfigSchemaJson;
 };
+
 static_assert(sizeof(ThemeRegistryDetailPod) == 148);
 static_assert(offsetof(ThemeRegistryDetailPod, InstalledAtUnixMs) == 0);
 static_assert(offsetof(ThemeRegistryDetailPod, UpdatedAtUnixMs) == 8);
@@ -262,6 +270,7 @@ struct ThemeActivationPod
     Utf8SliceRef ActivationId;
     Utf8SliceRef AssetVersion;
 };
+
 static_assert(sizeof(ThemeActivationPod) == 64);
 static_assert(offsetof(ThemeActivationPod, ConfigVersion) == 0);
 static_assert(offsetof(ThemeActivationPod, UpdatedAtUnixMs) == 8);
@@ -306,6 +315,7 @@ struct ThemeActivationHistoryPod
     Utf8SliceRef FailureReason;
     Utf8SliceRef ActivatedBy;
 };
+
 static_assert(sizeof(ThemeActivationHistoryPod) == 124);
 static_assert(offsetof(ThemeActivationHistoryPod, ConfigVersion) == 0);
 static_assert(offsetof(ThemeActivationHistoryPod, PreviousConfigVersion) == 8);
@@ -347,8 +357,8 @@ struct PayloadView
 
 inline std::uint32_t ReadU32(const std::uint8_t* p)
 {
-    return std::uint32_t(p[0]) | (std::uint32_t(p[1]) << 8u)
-        | (std::uint32_t(p[2]) << 16u) | (std::uint32_t(p[3]) << 24u);
+    return std::uint32_t(p[0]) | (std::uint32_t(p[1]) << 8u) | (std::uint32_t(p[2]) << 16u)
+           | (std::uint32_t(p[3]) << 24u);
 }
 
 inline std::int32_t ReadI32(const std::uint8_t* p)
@@ -383,9 +393,10 @@ inline bool Utf8(const std::uint8_t* p, std::size_t length)
         {
             continue;
         }
-        const std::size_t remaining = first >= 0xc2u && first <= 0xdfu ? 1
-            : first >= 0xe0u && first <= 0xefu ? 2
-            : first >= 0xf0u && first <= 0xf4u ? 3 : 0;
+        const std::size_t remaining = first >= 0xc2u && first <= 0xdfu   ? 1
+                                      : first >= 0xe0u && first <= 0xefu ? 2
+                                      : first >= 0xf0u && first <= 0xf4u ? 3
+                                                                         : 0;
         if (remaining == 0 || remaining > length - index)
         {
             return false;
@@ -410,7 +421,9 @@ inline bool Utf8(const std::uint8_t* p, std::size_t length)
 class BlobCursor
 {
 public:
-    explicit BlobCursor(const PayloadView& view) : _blob(view.Blob), _length(view.BlobLength)
+    explicit BlobCursor(const PayloadView& view)
+        : _blob(view.Blob)
+        , _length(view.BlobLength)
     {
     }
 
@@ -418,9 +431,9 @@ public:
     {
         const auto offset = ReadI32(reference);
         const auto length = ReadI32(reference + 4);
-        if (offset < 0 || std::size_t(offset) != _cursor || length < 0
-            || std::size_t(length) > maximum || std::size_t(length) > _length - _cursor
-            || (!allowEmpty && length == 0) || !Utf8(_blob + _cursor, std::size_t(length)))
+        if (offset < 0 || std::size_t(offset) != _cursor || length < 0 || std::size_t(length) > maximum
+            || std::size_t(length) > _length - _cursor || (!allowEmpty && length == 0)
+            || !Utf8(_blob + _cursor, std::size_t(length)))
         {
             return false;
         }
@@ -447,7 +460,7 @@ public:
     bool Optional(std::uint8_t present, const std::uint8_t* reference, std::size_t maximum, bool guid = false)
     {
         return present == 0 ? ReadI32(reference) == 0 && ReadI32(reference + 4) == 0
-            : present == 1 && Text(reference, maximum, true, guid);
+                            : present == 1 && Text(reference, maximum, true, guid);
     }
 
     bool Finished() const
@@ -477,13 +490,12 @@ inline bool FontSummary(const std::uint8_t* p, BlobCursor& blob, bool detail)
 {
     const auto count = ReadI32(p + 24);
     const auto critical = ReadI32(p + 28);
-    return Timestamp(p) && Timestamp(p + 8) && ReadI64(p + 16) >= 0
-        && count >= 0 && count <= 32 && critical >= 0 && critical <= count
-        && Flags(p + 32, 2) && p[34] == 1 && p[35] == 0
-        && blob.Text(p + 36, 256) && blob.Text(p + 44, 4096) && blob.Text(p + 52, 16384)
-        && blob.Text(p + 60, 256) && blob.Text(p + 68, 256)
-        && (!detail || (blob.Text(p + 76, 2097152, true) && blob.Text(p + 84, 2097152, true)
-            && blob.Text(p + 92, 2097152, true)));
+    return Timestamp(p) && Timestamp(p + 8) && ReadI64(p + 16) >= 0 && count >= 0 && count <= 32 && critical >= 0
+           && critical <= count && Flags(p + 32, 2) && p[34] == 1 && p[35] == 0 && blob.Text(p + 36, 256)
+           && blob.Text(p + 44, 4096) && blob.Text(p + 52, 16384) && blob.Text(p + 60, 256) && blob.Text(p + 68, 256)
+           && (!detail
+               || (blob.Text(p + 76, 2097152, true) && blob.Text(p + 84, 2097152, true)
+                   && blob.Text(p + 92, 2097152, true)));
 }
 
 inline bool ThemeSummary(const std::uint8_t* p, BlobCursor& blob, bool detail)
@@ -496,9 +508,8 @@ inline bool ThemeSummary(const std::uint8_t* p, BlobCursor& blob, bool detail)
     }
     if (detail)
     {
-        if (ReadI64(p + 16) < 0 || ReadI64(p + 24) < 0 || ReadI64(p + 32) < 0
-            || ReadI32(p + 40) < 0 || ReadI32(p + 44) < 0 || ReadI32(p + 48) < 0
-            || ReadI32(p + 52) < 0 || !Flags(p + 58, 9) || p[67] != 0)
+        if (ReadI64(p + 16) < 0 || ReadI64(p + 24) < 0 || ReadI64(p + 32) < 0 || ReadI32(p + 40) < 0
+            || ReadI32(p + 44) < 0 || ReadI32(p + 48) < 0 || ReadI32(p + 52) < 0 || !Flags(p + 58, 9) || p[67] != 0)
         {
             return false;
         }
@@ -508,32 +519,28 @@ inline bool ThemeSummary(const std::uint8_t* p, BlobCursor& blob, bool detail)
         return false;
     }
     return blob.Text(p + text, 256) && blob.Text(p + text + 8, 4096) && blob.Text(p + text + 16, 256)
-        && blob.Text(p + text + 24, 4096) && blob.Text(p + text + 32, 4096, true)
-        && blob.Text(p + text + 40, 256) && blob.Text(p + text + 48, 256) && blob.Text(p + text + 56, 4096)
-        && (!detail || (blob.Text(p + 132, 2097152, true) && blob.Text(p + 140, 2097152, true)));
+           && blob.Text(p + text + 24, 4096) && blob.Text(p + text + 32, 4096, true) && blob.Text(p + text + 40, 256)
+           && blob.Text(p + text + 48, 256) && blob.Text(p + text + 56, 4096)
+           && (!detail || (blob.Text(p + 132, 2097152, true) && blob.Text(p + 140, 2097152, true)));
 }
 
 inline bool Activation(const std::uint8_t* p, BlobCursor& blob)
 {
-    return Flags(p + 16, 6) && p[22] == 0 && p[23] == 0
-        && (p[20] == 0 ? ReadI64(p) == 0 : ReadI64(p) >= 0)
-        && (p[21] == 0 ? ReadI64(p + 8) == 0 : Timestamp(p + 8))
-        && blob.Text(p + 24, 256) && blob.Optional(p[16], p + 32, 256)
-        && blob.Optional(p[17], p + 40, 256) && blob.Optional(p[18], p + 48, 256, true)
-        && blob.Optional(p[19], p + 56, 256);
+    return Flags(p + 16, 6) && p[22] == 0 && p[23] == 0 && (p[20] == 0 ? ReadI64(p) == 0 : ReadI64(p) >= 0)
+           && (p[21] == 0 ? ReadI64(p + 8) == 0 : Timestamp(p + 8)) && blob.Text(p + 24, 256)
+           && blob.Optional(p[16], p + 32, 256) && blob.Optional(p[17], p + 40, 256)
+           && blob.Optional(p[18], p + 48, 256, true) && blob.Optional(p[19], p + 56, 256);
 }
 
 inline bool History(const std::uint8_t* p, BlobCursor& blob)
 {
     return Flags(p + 32, 9) && p[41] >= 1 && p[41] <= 4 && p[42] == 0 && p[43] == 0
-        && (p[36] == 0 ? ReadI64(p) == 0 : ReadI64(p) >= 0)
-        && (p[37] == 0 ? ReadI64(p + 8) == 0 : ReadI64(p + 8) >= 0)
-        && Timestamp(p + 16) && Timestamp(p + 24)
-        && blob.Text(p + 44, 256, false, true) && blob.Text(p + 52, 256)
-        && blob.Optional(p[32], p + 60, 256) && blob.Optional(p[33], p + 68, 256)
-        && blob.Optional(p[34], p + 76, 256) && blob.Optional(p[35], p + 84, 256)
-        && blob.Optional(p[38], p + 92, 256) && blob.Optional(p[39], p + 100, 256)
-        && blob.Optional(p[40], p + 108, 4096) && blob.Text(p + 116, 1024);
+           && (p[36] == 0 ? ReadI64(p) == 0 : ReadI64(p) >= 0)
+           && (p[37] == 0 ? ReadI64(p + 8) == 0 : ReadI64(p + 8) >= 0) && Timestamp(p + 16) && Timestamp(p + 24)
+           && blob.Text(p + 44, 256, false, true) && blob.Text(p + 52, 256) && blob.Optional(p[32], p + 60, 256)
+           && blob.Optional(p[33], p + 68, 256) && blob.Optional(p[34], p + 76, 256)
+           && blob.Optional(p[35], p + 84, 256) && blob.Optional(p[38], p + 92, 256)
+           && blob.Optional(p[39], p + 100, 256) && blob.Optional(p[40], p + 108, 4096) && blob.Text(p + 116, 1024);
 }
 
 inline bool IsFontThemeFrame(std::uint16_t frame)
@@ -565,18 +572,27 @@ inline bool ParsePayload(std::uint16_t frame, const std::uint8_t* payload, std::
         return false;
     }
     const auto signedCount = ReadI32(payload + 4);
-    const std::size_t maximum = type == FrameType::FontRegistryDetail ? 32
-        : type == FrameType::ThemeRegistryDetail ? 2 : type == FrameType::FontActivationList ? 256
-        : type == FrameType::ThemeActivationHistory ? 50 : type == FrameType::ThemeActivation ? 1 : 1024;
-    if (signedCount < 0 || std::size_t(signedCount) > maximum || (type == FrameType::ThemeActivation && signedCount != 1))
+    const std::size_t maximum = type == FrameType::FontRegistryDetail       ? 32
+                                : type == FrameType::ThemeRegistryDetail    ? 2
+                                : type == FrameType::FontActivationList     ? 256
+                                : type == FrameType::ThemeActivationHistory ? 50
+                                : type == FrameType::ThemeActivation        ? 1
+                                                                            : 1024;
+    if (signedCount < 0 || std::size_t(signedCount) > maximum
+        || (type == FrameType::ThemeActivation && signedCount != 1))
     {
         return false;
     }
     const auto count = std::size_t(signedCount);
-    const std::size_t detailSize = type == FrameType::FontRegistryDetail ? 100 : type == FrameType::ThemeRegistryDetail ? 148 : 0;
-    const std::size_t recordSize = type == FrameType::FontRegistryList ? 76 : type == FrameType::FontRegistryDetail ? 56
-        : type == FrameType::ThemeRegistryList ? 84 : type == FrameType::ThemeRegistryDetail ? 8
-        : type == FrameType::ThemeActivationHistory ? 124 : 64;
+    const std::size_t detailSize = type == FrameType::FontRegistryDetail    ? 100
+                                   : type == FrameType::ThemeRegistryDetail ? 148
+                                                                            : 0;
+    const std::size_t recordSize = type == FrameType::FontRegistryList         ? 76
+                                   : type == FrameType::FontRegistryDetail     ? 56
+                                   : type == FrameType::ThemeRegistryList      ? 84
+                                   : type == FrameType::ThemeRegistryDetail    ? 8
+                                   : type == FrameType::ThemeActivationHistory ? 124
+                                                                               : 64;
     const std::size_t fixedLength = detailSize + count * recordSize;
     if (fixedLength > length - 20)
     {
@@ -587,7 +603,8 @@ inline bool ParsePayload(std::uint16_t frame, const std::uint8_t* payload, std::
     {
         return false;
     }
-    const PayloadView view{payload + 16, payload + 16 + detailSize, payload + 20 + fixedLength, count, std::size_t(blobLength)};
+    const PayloadView view{
+        payload + 16, payload + 16 + detailSize, payload + 20 + fixedLength, count, std::size_t(blobLength)};
     BlobCursor blob(view);
     if (type == FrameType::FontRegistryDetail
         && (!FontSummary(view.Records, blob, true) || ReadI32(view.Records + 24) != signedCount))
@@ -640,22 +657,23 @@ inline bool ParsePayload(std::uint16_t frame, const std::uint8_t* payload, std::
                 }
                 break;
             case FrameType::ThemeRegistryDetail:
-            {
-                if (!blob.Text(p, 256))
                 {
-                    return false;
+                    if (!blob.Text(p, 256))
+                    {
+                        return false;
+                    }
+                    const auto* text = view.Blob + ReadI32(p);
+                    const auto size = ReadI32(p + 4);
+                    const unsigned mode = size == 5 && std::memcmp(text, "light", 5) == 0  ? 1
+                                          : size == 4 && std::memcmp(text, "dark", 4) == 0 ? 2
+                                                                                           : 0;
+                    if (mode == 0 || (modes & mode) != 0)
+                    {
+                        return false;
+                    }
+                    modes |= mode;
+                    break;
                 }
-                const auto* text = view.Blob + ReadI32(p);
-                const auto size = ReadI32(p + 4);
-                const unsigned mode = size == 5 && std::memcmp(text, "light", 5) == 0 ? 1
-                    : size == 4 && std::memcmp(text, "dark", 4) == 0 ? 2 : 0;
-                if (mode == 0 || (modes & mode) != 0)
-                {
-                    return false;
-                }
-                modes |= mode;
-                break;
-            }
             case FrameType::ThemeActivationList:
             case FrameType::ThemeActivation:
                 if (!Activation(p, blob))
@@ -673,7 +691,8 @@ inline bool ParsePayload(std::uint16_t frame, const std::uint8_t* payload, std::
                 return false;
         }
     }
-    if (!blob.Finished() || (type == FrameType::FontRegistryDetail && critical != std::size_t(ReadI32(view.Records + 28))))
+    if (!blob.Finished()
+        || (type == FrameType::FontRegistryDetail && critical != std::size_t(ReadI32(view.Records + 28))))
     {
         return false;
     }
