@@ -1,0 +1,472 @@
+import { controlDigest } from '../../../../tools/frontend/control-legality/source.mjs';
+
+/** Bounded AST helpers for the original composition renderer, never a second graph. */
+export function createCompositionFunctionalSource({ resolver })
+{
+    const { ts, dom } = resolver;
+    const reserved = new Set(['data-fsus-composition-node', 'data-fsus-composition-call']);
+    const bindings = new WeakSet();
+    const fail = (record, message) => { throw new Error(`[composition-source] ${message} ${record.file}`); };
+    function unwrap(node)
+    {
+        while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node)
+            || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node)))
+        {
+            node = node.expression;
+        }
+        return node;
+    }
+    function step(record, node)
+    {
+        const script = record.scripts.find(({ ast }) => ast === node.getSourceFile());
+        if (!script)
+        {
+            fail(record, 'foreign functional AST');
+        }
+        return { file: record.file, offset: script.offset + node.getStart(), kind: 'script-source', digest: controlDigest(node.getText()) };
+    }
+    function visit(record, callback)
+    {
+        function walk(node)
+        {
+            callback(node);
+            ts.forEachChild(node, walk);
+        }
+        record.scripts.forEach(({ ast }) => walk(ast));
+    }
+    function names(pattern)
+    {
+        if (ts.isIdentifier(pattern))
+        {
+            return [pattern];
+        }
+        if (ts.isObjectBindingPattern(pattern) || ts.isArrayBindingPattern(pattern))
+        {
+            return pattern.elements.filter(ts.isBindingElement).flatMap((element) => names(element.name));
+        }
+        return [];
+    }
+    function declarations(record, name)
+    {
+        const result = [];
+        visit(record, (node) =>
+        {
+            if ((ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isBindingElement(node)
+                || ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)
+                || ts.isImportSpecifier(node) || ts.isNamespaceImport(node) || ts.isImportClause(node)
+                || ts.isFunctionExpression(node)) && node.name)
+            {
+                result.push(...names(node.name).filter((entry) => entry.text === name));
+            }
+        });
+        return [...new Set(result)];
+    }
+    function root(node)
+    {
+        node = unwrap(node);
+        while (node && (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)))
+        {
+            node = unwrap(node.expression);
+        }
+        return node && ts.isIdentifier(node) ? node.text : null;
+    }
+    function reference(node)
+    {
+        const parent = node.parent;
+        return !(parent && ((ts.isPropertyAccessExpression(parent) && parent.name === node)
+            || ((ts.isPropertyAssignment(parent) || ts.isJsxAttribute(parent)) && parent.name === node)
+            || (ts.isBindingElement(parent) && parent.propertyName === node)));
+    }
+    function readonly(record, name, declaration, metadata = false)
+    {
+        if (declarations(record, name).length !== 1 || declarations(record, name)[0] !== declaration)
+        {
+            fail(record, `shadowed functional binding #${name}`);
+        }
+        const metadataSteps = [];
+        visit(record, (node) =>
+        {
+            const assignment = ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
+            if (assignment && root(node.left) === name)
+            {
+                const left = unwrap(node.left);
+                const inert = metadata && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+                    && ts.isExpressionStatement(node.parent) && ts.isSourceFile(node.parent.parent)
+                    && ts.isPropertyAccessExpression(left) && ts.isIdentifier(left.expression)
+                    && ((left.name.text === 'displayName' && ts.isStringLiteral(node.right))
+                        || (left.name.text === 'inheritAttrs' && [ts.SyntaxKind.TrueKeyword, ts.SyntaxKind.FalseKeyword].includes(node.right.kind)));
+                if (!inert)
+                {
+                    fail(record, `mutated functional binding #${name}`);
+                }
+                metadataSteps.push(step(record, node));
+            }
+            if (((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+                && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) && root(node.operand) === name)
+                || (ts.isDeleteExpression(node) && root(node.expression) === name))
+            {
+                fail(record, `mutated functional binding #${name}`);
+            }
+        });
+        return metadataSteps;
+    }
+    function noEscape(record, name, declaration, allow)
+    {
+        visit(record, (node) =>
+        {
+            if (ts.isIdentifier(node) && node.text === name && node !== declaration && reference(node) && !allow(node))
+            {
+                fail(record, `escaped functional binding #${name}`);
+            }
+        });
+    }
+    function memberUse(node)
+    {
+        while (ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node)
+        {
+            node = node.parent;
+        }
+        return node;
+    }
+    function captured(node, render)
+    {
+        for (let parent = node.parent; parent && parent !== render; parent = parent.parent)
+        {
+            if (ts.isFunctionLike(parent))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    function within(node, render)
+    {
+        for (let parent = node; parent; parent = parent.parent)
+        {
+            if (parent === render)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    function parameter(record, parameter)
+    {
+        if (parameter.initializer || parameter.dotDotDotToken || parameter.modifiers?.length)
+        {
+            fail(record, 'unknown functional parameter');
+        }
+        const pattern = parameter.name;
+        if (!ts.isIdentifier(pattern) && (!ts.isObjectBindingPattern(pattern) || pattern.elements.some((element) =>
+            element.initializer || element.dotDotDotToken || !ts.isIdentifier(element.name)
+                || element.propertyName && !(ts.isIdentifier(element.propertyName) || ts.isStringLiteral(element.propertyName)))))
+        {
+            fail(record, 'unknown functional parameter pattern');
+        }
+        names(pattern).forEach((identifier) => readonly(record, identifier.text, identifier));
+        return pattern;
+    }
+    function bind(record, expression)
+    {
+        if (resolver.parse(record.file) !== record)
+        {
+            fail(record, 'noncanonical functional record');
+        }
+        const render = unwrap(expression);
+        if (!render || !ts.isArrowFunction(render) || render.modifiers?.length || render.asteriskToken
+            || render.parameters.length > 2)
+        {
+            fail(record, 'unknown functional definition');
+        }
+        step(record, render);
+        const declaration = render.parent;
+        let metadata = [];
+        if (ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name)
+            && declaration.initializer === render && declaration.parent.flags & ts.NodeFlags.Const
+            && ts.isVariableStatement(declaration.parent.parent) && ts.isSourceFile(declaration.parent.parent.parent))
+        {
+            metadata = readonly(record, declaration.name.text, declaration.name, true);
+            noEscape(record, declaration.name.text, declaration.name, (node) =>
+                ts.isExportAssignment(node.parent) || ts.isExportSpecifier(node.parent)
+                || ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node
+                    && ts.isBinaryExpression(node.parent.parent) && node.parent.parent.left === node.parent);
+        }
+        else if (!(ts.isExportAssignment(declaration) && !declaration.isExportEquals))
+        {
+            fail(record, 'noncanonical functional declaration');
+        }
+        const props = render.parameters[0] ? parameter(record, render.parameters[0]) : null;
+        const context = render.parameters[1] ? parameter(record, render.parameters[1]) : null;
+        let slots = null;
+        if (context)
+        {
+            if (!ts.isObjectBindingPattern(context) || context.elements.length !== 1
+                || (context.elements[0].propertyName ?? context.elements[0].name).text !== 'slots')
+            {
+                fail(record, 'unknown functional context');
+            }
+            slots = context.elements[0].name;
+            noEscape(record, slots.text, slots, (node) =>
+            {
+                const member = memberUse(node);
+                return within(node, render) && !captured(node, render) && (member === node && ts.isJsxExpression(node.parent)
+                    || member !== node && ts.isPropertyAccessExpression(member) && member.expression === node
+                    && (ts.isCallExpression(member.parent) && member.parent.expression === member && !member.parent.arguments.length
+                        || ts.isConditionalExpression(member.parent) && member.parent.condition === member
+                        || ts.isBinaryExpression(member.parent) && member.parent.left === member
+                            && member.parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken));
+            });
+        }
+        // Passing a props object or a destructured field to arbitrary code can
+        // mutate it. A type annotation cannot make such a supplier readonly.
+        for (const identifier of props ? names(props) : [])
+        {
+            noEscape(record, identifier.text, identifier, (node) =>
+            {
+                const member = memberUse(node);
+                const parent = member.parent;
+                return within(node, render) && !captured(node, render) && (ts.isJsxExpression(parent) || ts.isShorthandPropertyAssignment(parent)
+                    || ts.isPropertyAssignment(parent) && parent.initializer === member
+                    || ts.isVariableDeclaration(parent) && parent.initializer === member
+                        && ts.isObjectBindingPattern(parent.name)
+                    || ts.isSpreadAssignment(parent) || ts.isJsxSpreadAttribute(parent)
+                    || member !== node && (ts.isConditionalExpression(parent) && parent.condition === member
+                        || ts.isBinaryExpression(parent) && parent.left === member
+                            && parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+                        || ts.isPrefixUnaryExpression(parent) && parent.operator === ts.SyntaxKind.ExclamationToken));
+            });
+        }
+        function effects(node)
+        {
+            if (ts.isFunctionLike(node))
+            {
+                return;
+            }
+            if (ts.isNewExpression(node) || ts.isCallExpression(node) && !(slots
+                && ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression)
+                && node.expression.expression.text === slots.text && !node.arguments.length && !node.typeArguments?.length))
+            {
+                fail(record, 'unbound functional call effects');
+            }
+            ts.forEachChild(node, effects);
+        }
+        effects(render.body);
+        const branches = [];
+        const conditions = [];
+        function flow(node, paths)
+        {
+            if (ts.isReturnStatement(node))
+            {
+                paths.forEach((conditional) => branches.push({ node: node.expression ?? null, conditional, step: step(record, node) }));
+                return [];
+            }
+            if (ts.isBlock(node))
+            {
+                return node.statements.reduce((remaining, statement) => remaining.length ? flow(statement, remaining) : remaining, paths);
+            }
+            if (ts.isIfStatement(node))
+            {
+                conditions.push(node.expression);
+                const yes = paths.map((path) => [...path, { name: 'if', expression: node.expression.getText() }]);
+                const no = paths.map((path) => [...path, { name: 'else', expression: node.expression.getText() }]);
+                return [...flow(node.thenStatement, yes), ...(node.elseStatement ? flow(node.elseStatement, no) : no)];
+            }
+            if (ts.isVariableStatement(node) || ts.isEmptyStatement(node) || ts.isFunctionDeclaration(node))
+            {
+                return paths;
+            }
+            fail(record, `unknown functional return flow at ${node.getStart()}`);
+        }
+        if (ts.isBlock(render.body))
+        {
+            if (flow(render.body, [[]]).length)
+            {
+                fail(record, 'functional return fallthrough');
+            }
+        }
+        else
+        {
+            branches.push({ node: render.body, conditional: [], step: step(record, render.body) });
+        }
+        const steps = [step(record, declaration), step(record, render), ...render.parameters.map((node) => step(record, node)),
+            ...metadata, ...branches.map((branch) => branch.step)];
+        branches.forEach((branch) =>
+        {
+            branch.conditional.forEach(Object.freeze);
+            Object.freeze(branch.conditional);
+            Object.freeze(branch.step);
+            Object.freeze(branch);
+        });
+        steps.forEach(Object.freeze);
+        const binding = Object.freeze({ call: render, setup: render, render, props, slots: slots?.text ?? null,
+            branches: Object.freeze(branches), conditions: Object.freeze(conditions), steps: Object.freeze(steps),
+            proofDigest: controlDigest({ steps }), functional: true });
+        bindings.add(binding);
+        return binding;
+    }
+    function check(record, node, binding)
+    {
+        if (!bindings.has(binding) || resolver.parse(record.file) !== record
+            || binding.render.getSourceFile() !== node.getSourceFile())
+        {
+            fail(record, 'foreign functional binding/input');
+        }
+        step(record, node);
+    }
+    function constant(record, node, binding)
+    {
+        const identifier = unwrap(node);
+        const found = declarations(record, identifier.text);
+        const declaration = found.length === 1 ? found[0].parent : null;
+        if (!declaration || !ts.isVariableDeclaration(declaration) || !declaration.initializer
+            || !(declaration.parent.flags & ts.NodeFlags.Const) || record.imports.has(identifier.text))
+        {
+            fail(record, `unbound functional output/spread #${identifier.text}`);
+        }
+        // Only declarations directly in this render or in its module are in scope.
+        const scope = declaration.parent.parent.parent;
+        if (scope !== binding.render.body && !ts.isSourceFile(scope))
+        {
+            fail(record, `out-of-scope functional constant #${identifier.text}`);
+        }
+        if (scope === binding.render.body && declaration.getStart() >= identifier.getStart())
+        {
+            fail(record, `uninitialized functional constant #${identifier.text}`);
+        }
+        readonly(record, identifier.text, found[0]);
+        noEscape(record, identifier.text, found[0], (entry) =>
+            ts.isReturnStatement(entry.parent) || ts.isJsxExpression(entry.parent)
+            || ts.isJsxSpreadAttribute(entry.parent) || ts.isSpreadAssignment(entry.parent));
+        return declaration.initializer;
+    }
+    function outputValue(record, node, binding, seen = new Set())
+    {
+        if (!node)
+        {
+            return null;
+        }
+        check(record, node, binding);
+        node = unwrap(node);
+        if (node && ts.isIdentifier(node))
+        {
+            if (seen.has(node.text))
+            {
+                fail(record, 'cyclic functional output');
+            }
+            return outputValue(record, constant(record, node, binding), binding, new Set([...seen, node.text]));
+        }
+        if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+        {
+            fail(record, 'unbound functional output member');
+        }
+        if (ts.isCallExpression(node) && !slotCall(record, node, binding))
+        {
+            fail(record, 'unbound functional output call');
+        }
+        return node;
+    }
+    function spreadFields(record, node, binding, seen = new Set())
+    {
+        node = unwrap(node);
+        if (node && ts.isIdentifier(node))
+        {
+            if (seen.has(node.text))
+            {
+                fail(record, 'cyclic functional spread');
+            }
+            return spreadFields(record, constant(record, node, binding), binding, new Set([...seen, node.text]));
+        }
+        if (!node || !ts.isObjectLiteralExpression(node))
+        {
+            fail(record, 'unbound functional prop spread supplier');
+        }
+        return fields(record, node.properties, binding, seen);
+    }
+    function fields(record, properties, binding, seen = new Set())
+    {
+        const result = [];
+        const keys = new Set();
+        for (const property of properties)
+        {
+            check(record, property, binding);
+            const expanded = ts.isJsxSpreadAttribute(property) || ts.isSpreadAssignment(property)
+                ? spreadFields(record, property.expression, binding, new Set(seen)) : [property];
+            for (const field of expanded)
+            {
+                const name = field.name?.text;
+                if (!name || name === '__proto__' || reserved.has(name) || keys.has(name) || ts.isComputedPropertyName(field.name)
+                    || !(ts.isJsxAttribute(field) || ts.isPropertyAssignment(field) || ts.isShorthandPropertyAssignment(field)))
+                {
+                    fail(record, 'unknown/duplicate/reserved functional prop field');
+                }
+                keys.add(name);
+                result.push(field);
+            }
+        }
+        return result;
+    }
+    function componentOrigin(record, node, jsx = false)
+    {
+        if (resolver.parse(record.file) !== record)
+        {
+            fail(record, 'noncanonical functional record');
+        }
+        step(record, node);
+        node = unwrap(node);
+        if (jsx && ts.isIdentifier(node) && dom.parserOptions.isNativeTag(node.text))
+        {
+            if (declarations(record, node.text).length)
+            {
+                fail(record, 'shadowed functional native target');
+            }
+            return { kind: 'native', name: node.text };
+        }
+        if (!node || !ts.isIdentifier(node) || !record.imports.has(node.text))
+        {
+            fail(record, 'unbound functional component target');
+        }
+        const declaration = declarations(record, node.text);
+        if (declaration.length !== 1 || !(ts.isImportClause(declaration[0].parent)
+            || ts.isImportSpecifier(declaration[0].parent)))
+        {
+            fail(record, 'shadowed functional import');
+        }
+        readonly(record, node.text, declaration[0]);
+        noEscape(record, node.text, declaration[0], (entry) =>
+            ts.isImportClause(entry.parent) || ts.isImportSpecifier(entry.parent)
+            || (ts.isJsxOpeningElement(entry.parent) || ts.isJsxClosingElement(entry.parent)
+                || ts.isJsxSelfClosingElement(entry.parent)) && entry.parent.tagName === entry);
+        const origins = resolver.resolveExpression(record.file, node);
+        if (origins.length !== 1)
+        {
+            fail(record, 'ambiguous functional imported target');
+        }
+        if (!origins[0].file && !origins[0].definition && origins[0].kind !== 'framework-structure')
+        {
+            fail(record, 'unbound functional imported definition');
+        }
+        return origins[0];
+    }
+    function slotCall(record, node, binding)
+    {
+        check(record, node, binding);
+        node = unwrap(node);
+        const callee = node && ts.isCallExpression(node) ? unwrap(node.expression) : null;
+        if (!callee || !ts.isPropertyAccessExpression(callee) || !ts.isIdentifier(callee.expression)
+            || callee.expression.text !== binding.slots)
+        {
+            return null;
+        }
+        if (!within(node, binding.render) || captured(node, binding.render))
+        {
+            fail(record, 'out-of-scope functional slot');
+        }
+        if (node.arguments.length || node.typeArguments?.length)
+        {
+            fail(record, 'unbound functional slot payload');
+        }
+        return { name: callee.name.text, steps: [step(record, binding.render), step(record, node)] };
+    }
+    return { bind, fields, componentOrigin, outputValue, slotCall };
+}
