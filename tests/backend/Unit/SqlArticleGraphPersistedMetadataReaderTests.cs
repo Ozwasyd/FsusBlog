@@ -300,7 +300,12 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Reader.ReadAsync(Request([1]), cancellation.Token));
         Assert.Equal(0, fixture.ProbeReads);
         using var duringRead = new CancellationTokenSource();
-        fixture.BeforeRows = token => { duringRead.Cancel(); token.ThrowIfCancellationRequested(); return Task.CompletedTask; };
+        fixture.BeforeRows = token =>
+        {
+            duringRead.Cancel();
+            token.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        };
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Reader.ReadAsync(Request([1]), duringRead.Token));
         fixture = new Fixture { BeforeRows = token => Task.Delay(Timeout.InfiniteTimeSpan, token) };
         Assert.Null(await fixture.Reader.ReadAsync(Request([1]) with { RemainingMilliseconds = 30 }));
