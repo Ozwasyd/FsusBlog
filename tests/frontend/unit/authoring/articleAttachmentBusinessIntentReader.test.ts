@@ -1,7 +1,9 @@
+// @vitest-environment happy-dom
+
 import { afterEach, describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { ElMarkdownEditor } from 'fsusui';
-import { createMarkdownAnchorMap, type MarkdownEditorDispatchResult, type MarkdownEditorTransaction } from '@/fsusui/articlePositionMaps';
+import { ElMarkdownEditor, type MarkdownEditorDispatchResult, type MarkdownEditorTransaction } from '@ozwasyd/element-plus';
+import { createMarkdownAnchorMap } from '@ozwasyd/element-plus/markdown-runtime';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
 import {
     ArticleAttachmentContextAdapter,

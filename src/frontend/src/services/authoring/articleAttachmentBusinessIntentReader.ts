@@ -3,8 +3,9 @@ import {
     type ArticleAttachmentOwnedIntentObservation,
     type ArticleAttachmentPendingHandle
 } from './articleAttachmentContext';
-import type { ArticlePositionMapBinding } from './articleAnchorContext';
 import { validateArticleDocumentContext, type ArticleDocumentContext } from './articleDocumentContext';
+
+import type { ArticlePositionMapBinding } from './articleAnchorContext';
 
 /** Business coordinates remain facts; only the original borrowed handle establishes ownership. */
 export type ArticleAttachmentBusinessIntentNode = Pick<ArticleAttachmentOwnedIntentObservation,
@@ -37,14 +38,26 @@ export function createArticleAttachmentBusinessIntentReader(
         signal?.throwIfAborted();
         try
         {
-            if (!validateArticleDocumentContext(context)) return null;
+            if (!validateArticleDocumentContext(context))
+            {
+                return null;
+            }
             const handle = ports.handle(intentRef);
-            if (!handle) return null;
+            if (!handle)
+            {
+                return null;
+            }
             const binding = ports.binding();
-            if (binding.document.contextDigest !== context.contextDigest) return null;
+            if (binding.document.contextDigest !== context.contextDigest)
+            {
+                return null;
+            }
             const observation = ports.attachments.readOwnedIntent(handle, binding);
             signal?.throwIfAborted();
-            if (!observation || observation.intentRef !== intentRef) return null;
+            if (observation?.intentRef !== intentRef)
+            {
+                return null;
+            }
             return { handle, observation };
         }
         catch
@@ -77,7 +90,10 @@ export function createArticleAttachmentBusinessIntentReader(
             signal?.throwIfAborted();
             const expected = Object.freeze({ ...node });
             const before = read(expected.intentRef, context, signal);
-            if (!before || !matches(before.observation, expected, context)) return false;
+            if (!before || !matches(before.observation, expected, context))
+            {
+                return false;
+            }
             // Re-observe after the promise boundary through the same original owner.
             await Promise.resolve();
             signal?.throwIfAborted();
