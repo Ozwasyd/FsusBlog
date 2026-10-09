@@ -244,6 +244,7 @@ test('ordinary direct Migration calls refuse bounded mode before build, engine o
     await assert.rejects(readMigrationExecution({}, env), /does not admit Migration/u);
     await assert.rejects(readMigrationExecutionDependency({}, env), /does not admit Migration/u);
     await assert.rejects(runMigrationTests({}, { env: { FSUSBLOG_BACKEND_UNIT_SELECTION_FILE: 'explicit.json' } }), /does not admit Migration/u);
+    await assert.rejects(runMigrationTests({}, { env: { FSUSBLOG_BACKEND_UNIT_SELECTION_FILE: ' ' } }), /does not admit Migration/u);
     await assert.rejects(runMigrationTests({}, { env: { CURRENT_TIER: 'backend-unit', FSUSBLOG_TEST_SELECTION: 'bounded-server ' } }), /does not admit Migration/u);
     assert.equal(commands, 0);
 });

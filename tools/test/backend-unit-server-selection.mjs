@@ -31,7 +31,7 @@ export function requireWholeMigrationSelection(env)
     const selection = String(env.FSUSBLOG_TEST_SELECTION ?? '');
     requireCondition(selection !== 'bounded-server'
         && (env.CURRENT_TIER !== 'backend-unit' || ['', 'full', 'affected'].includes(selection))
-        && !String(env.FSUSBLOG_BACKEND_UNIT_SELECTION_FILE ?? '').trim(), 'Server-only selection does not admit Migration execution or aggregate receipt consumption');
+        && !String(env.FSUSBLOG_BACKEND_UNIT_SELECTION_FILE ?? ''), 'Server-only selection does not admit Migration execution or aggregate receipt consumption');
 }
 
 /** Select whole methods only; every actual theory row must match the declared count. */
