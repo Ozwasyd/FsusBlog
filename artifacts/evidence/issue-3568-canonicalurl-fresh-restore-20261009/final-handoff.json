@@ -1,0 +1,57 @@
+{
+  "recordedAtUTC": "2026-10-09T07:22:05.547672+00:00",
+  "candidate": "da5d862e575674595327b38388fb7417d256cfec",
+  "sourceCorrectionNeeded": false,
+  "compatibleExistingMinimalSource": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+  "existingSourceAlreadyInherited": true,
+  "actualLockBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+  "lockSHA256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9",
+  "comparisonCandidate": "29e362e7b9dbd10cb3b2ab9b904d74f19eaae0c9",
+  "all49PackageInputsByteIdentical": true,
+  "all49InputsPreservedAfterCurrentRestore": true,
+  "worktreeTrackedChanges": [],
+  "freshCurrentCommandResult": {
+    "candidate": "da5d862e575674595327b38388fb7417d256cfec",
+    "command": [
+      "dotnet",
+      "restore",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--locked-mode",
+      "--force",
+      "-p:NuGetAudit=true"
+    ],
+    "startedAtUTC": "2026-10-09T07:20:11.862709+00:00",
+    "exitCode": 0,
+    "log": "/workspace/FsusBlog/.tmp/issue-3568-canonicalurl-fresh-restore-20261009/actual-fresh-audit-on-locked-restore.log",
+    "sha256": "3e15a778f1b4f5f6eb98843dff1c003a32dde3f58703acc8ffdaca4616c2b1da",
+    "sdk": "10.0.302",
+    "CI": null,
+    "GITHUB_ACTIONS": null,
+    "auditWarnings": [
+      "/workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/tests/backend/FsusBlog.Server.Tests.csproj]",
+      "/workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q"
+    ],
+    "freshWorktree": true,
+    "testhostOrRuntimeInvoked": false
+  },
+  "PrivateAssets": "Microsoft.Extensions.ApiDescription.Server PrivateAssets=all is correctly excluded from Server propagated project dependency edge; no private propagation defect found.",
+  "native": "SQLitePCLRaw.lib.e_sqlite3 native2.1.11 NU1903 remains separate; no native3.53.3 source or graph imported.",
+  "conclusion": "Exact source/lock can fresh audit-on locked restore successfully under SDK10.0.302, CI and GITHUB_ACTIONS unset. Historical --no-restore NU1004 does not establish a current lock defect; stale/failed assets are consistent with reported behavior but not diagnosed in original worker.",
+  "receiverNextCommand": [
+    "dotnet",
+    "restore",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--locked-mode",
+    "--force",
+    "-p:NuGetAudit=true"
+  ],
+  "notRun": [
+    "Original worker cache inspection or mutation",
+    "Original worker SDK/environment fresh replay",
+    "SDK testhost or tests",
+    "BehaviorDoc or receipt entrypoints",
+    "Held audits or runtime qualification"
+  ],
+  "publication": "No source patch/branch regeneration needed. Parent source branch read-only; standalone disposable worktree restore and separate evidence only.",
+  "root3568": "BLOCKED retained-runtime/authority gates; not completed by this restore."
+}

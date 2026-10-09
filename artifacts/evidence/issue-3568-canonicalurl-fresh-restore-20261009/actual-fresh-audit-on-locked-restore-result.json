@@ -1,0 +1,24 @@
+{
+  "candidate": "da5d862e575674595327b38388fb7417d256cfec",
+  "command": [
+    "dotnet",
+    "restore",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--locked-mode",
+    "--force",
+    "-p:NuGetAudit=true"
+  ],
+  "startedAtUTC": "2026-10-09T07:20:11.862709+00:00",
+  "exitCode": 0,
+  "log": "/workspace/FsusBlog/.tmp/issue-3568-canonicalurl-fresh-restore-20261009/actual-fresh-audit-on-locked-restore.log",
+  "sha256": "3e15a778f1b4f5f6eb98843dff1c003a32dde3f58703acc8ffdaca4616c2b1da",
+  "sdk": "10.0.302",
+  "CI": null,
+  "GITHUB_ACTIONS": null,
+  "auditWarnings": [
+    "/workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/tests/backend/FsusBlog.Server.Tests.csproj]",
+    "/workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q"
+  ],
+  "freshWorktree": true,
+  "testhostOrRuntimeInvoked": false
+}

@@ -1,0 +1,32 @@
+{
+  "schema": "task-scoped-evidence-export.v1",
+  "scope": "Current fresh audited locked restore and exact source input identity; no correction, testhost or runtime acceptance inferred",
+  "sourceHead": "da5d862e575674595327b38388fb7417d256cfec",
+  "files": [
+    {
+      "path": "final-handoff.json",
+      "sha256": "a35eea93ae72ec2fb1191ae2efd9580142829af65201e49da5cb8ea4047e574a",
+      "bytes": 3287
+    },
+    {
+      "path": "candidate-verified-full-package-inputs.json",
+      "sha256": "d924cfe06fcbce95b908810f56a2300f8fc61ec503930584a433983d69d92cfb",
+      "bytes": 12981
+    },
+    {
+      "path": "actual-fresh-audit-on-locked-restore-result.json",
+      "sha256": "470a376560aec408d9eaab2e73743c62d793edd1199a152427886389e016a8d6",
+      "bytes": 1316
+    },
+    {
+      "path": "actual-fresh-audit-on-locked-restore.log",
+      "sha256": "3e15a778f1b4f5f6eb98843dff1c003a32dde3f58703acc8ffdaca4616c2b1da",
+      "bytes": 1543
+    },
+    {
+      "path": "official-sdk-info.log",
+      "sha256": "e4747beb0e1009fff0bc3888db25b2882ab8027a6413d24fbc3a215e18cf1c61",
+      "bytes": 1263
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored /workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/src/shared/FsusBlog.Shared.csproj (in 216 ms).
+/workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/tests/backend/FsusBlog.Server.Tests.csproj]
+/workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+  Restored /workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 859 ms).
+  Restored /workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/src/core/FsusBlog.Core.csproj (in 9 ms).
+  Restored /workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/src/backend/FsusBlog.Server.csproj (in 884 ms).
+  Restored /workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/src/migration/FsusBlog.Migration.csproj (in 874 ms).
+  Restored /workspace/.task-worktrees/issue-3568-canonicalurl-fresh-restore-da5d862e/tests/backend/FsusBlog.Server.Tests.csproj (in 618 ms).
