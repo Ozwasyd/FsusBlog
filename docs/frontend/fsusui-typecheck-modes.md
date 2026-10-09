@@ -86,6 +86,12 @@ The verifier refuses an independently installed Vue provider at the FsusUI root,
 `vue/`, or declaration hosts when its real package identity differs from the
 consumer's provider, even when versions match. It checks Vue and the runtime-core,
 runtime-dom, reactivity and shared declaration providers before creating links.
+It also checks every dependency provider about to be injected: a projected Vue
+family alias must have the same physical provider as the consumer, and Vue family
+resolution from each real injected package host must agree. Same-version nested
+aliases or transitive providers cannot split component and declaration identities.
+All identity checks finish before the source dependency directory is created;
+an alias pointing to the exact consumer provider remains valid.
 Use an isolated source checkout for Blog consumption; retain the standalone UI
 checkout and its own locked installation for UI web/Vitest qualification.
 Do not run the standalone UI root program against `vue/packages/node_modules`

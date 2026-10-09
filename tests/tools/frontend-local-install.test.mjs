@@ -373,6 +373,91 @@ test('verify refuses independent runtime-core augmentation providers with a shar
     assert.equal(fs.existsSync(path.join(context.fsusui, 'vue/packages/node_modules')), false);
 });
 
+test('verify refuses same-version projected Vue family aliases before creating any dependency links', (t) =>
+{
+    for (const name of ['vue', '@vue/runtime-core', '@vue/runtime-dom', '@vue/reactivity', '@vue/shared'])
+    {
+        const context = fixture(t);
+        const entry = { ...context.lockfile.packages['node_modules/vue'], name };
+        context.lockfile.packages[location].dependencies[name] = '3.5.33';
+        context.lockfile.packages[`${location}/node_modules/${name}`] = entry;
+        context.write(path.join(context.frontend, 'package-lock.json'), JSON.stringify(context.lockfile));
+        const alias = `fsusui-local-${name.replaceAll(/[^a-z0-9-]/gu, '-')}`;
+        const projected = projectLocalFsusUiInstall(context);
+        assert.equal(projected.manifest.dependencies[alias], `npm:${name}@3.5.33`);
+        context.write(path.join(context.frontend, 'node_modules', name, 'package.json'), JSON.stringify({ name, version: '3.5.33' }));
+        const provider = path.join(context.frontend, 'node_modules', alias, 'package.json');
+        context.write(provider, JSON.stringify({ name, version: '3.5.33' }));
+        const before = fs.readFileSync(provider);
+        assert.throws(() => verifyLocalFsusUiInstall(context), /independent source Vue identity/u, name);
+        assert.deepEqual(fs.readFileSync(provider), before);
+        assert.equal(fs.existsSync(path.join(context.fsusui, 'vue/packages/node_modules')), false);
+    }
+});
+
+test('verify accepts projected Vue family aliases sharing the exact consumer providers', (t) =>
+{
+    for (const name of ['vue', '@vue/runtime-core', '@vue/runtime-dom', '@vue/reactivity', '@vue/shared'])
+    {
+        const context = fixture(t);
+        context.lockfile.packages[location].dependencies[name] = '3.5.33';
+        context.lockfile.packages[`${location}/node_modules/${name}`] = { ...context.lockfile.packages['node_modules/vue'], name };
+        context.write(path.join(context.frontend, 'package-lock.json'), JSON.stringify(context.lockfile));
+        const provider = path.join(context.frontend, 'node_modules', name);
+        context.write(path.join(provider, 'package.json'), JSON.stringify({ name, version: '3.5.33' }));
+        const alias = `fsusui-local-${name.replaceAll(/[^a-z0-9-]/gu, '-')}`;
+        fs.symlinkSync(provider, path.join(context.frontend, 'node_modules', alias), 'dir');
+        verifyLocalFsusUiInstall(context);
+        assert.equal(fs.realpathSync(path.join(context.fsusui, 'vue/packages/node_modules', name)), fs.realpathSync(provider));
+        assert.equal(fs.realpathSync(path.join(context.frontend, 'node_modules', alias)), fs.realpathSync(provider));
+    }
+});
+
+test('verify refuses Vue family providers resolved inside an injected package before creating links', (t) =>
+{
+    for (const name of ['vue', '@vue/runtime-core', '@vue/runtime-dom', '@vue/reactivity', '@vue/shared'])
+    {
+        const context = fixture(t);
+        const entry = { ...context.lockfile.packages['node_modules/vue'], name };
+        const parent = `${location}/node_modules/katex`;
+        context.lockfile.packages[parent].dependencies = { [name]: '3.5.33' };
+        context.lockfile.packages[`${parent}/node_modules/${name}`] = entry;
+        context.write(path.join(context.frontend, 'package-lock.json'), JSON.stringify(context.lockfile));
+        const projected = projectLocalFsusUiInstall(context);
+        const nested = path.join('node_modules/fsusui-local-katex/node_modules', name);
+        assert.deepEqual(projected.lockfile.packages[nested], entry);
+        context.write(path.join(context.frontend, 'node_modules', name, 'package.json'), JSON.stringify({ name, version: '3.5.33' }));
+        const provider = path.join(context.frontend, nested, 'package.json');
+        context.write(provider, JSON.stringify({ name, version: '3.5.33' }));
+        const before = fs.readFileSync(provider);
+        assert.throws(() => verifyLocalFsusUiInstall(context), /independent source Vue identity/u, name);
+        assert.deepEqual(fs.readFileSync(provider), before);
+        assert.equal(fs.existsSync(path.join(context.fsusui, 'vue/packages/node_modules')), false);
+    }
+});
+
+test('verify accepts transitive Vue family links sharing the exact consumer providers', (t) =>
+{
+    for (const name of ['vue', '@vue/runtime-core', '@vue/runtime-dom', '@vue/reactivity', '@vue/shared'])
+    {
+        const context = fixture(t);
+        const entry = { ...context.lockfile.packages['node_modules/vue'], name };
+        const parent = `${location}/node_modules/katex`;
+        context.lockfile.packages[parent].dependencies = { [name]: '3.5.33' };
+        context.lockfile.packages[`${parent}/node_modules/${name}`] = entry;
+        context.write(path.join(context.frontend, 'package-lock.json'), JSON.stringify(context.lockfile));
+        const provider = path.join(context.frontend, 'node_modules', name);
+        context.write(path.join(provider, 'package.json'), JSON.stringify({ name, version: '3.5.33' }));
+        const transitive = path.join(context.frontend, 'node_modules/fsusui-local-katex/node_modules', name);
+        fs.mkdirSync(path.dirname(transitive), { recursive: true });
+        fs.symlinkSync(provider, transitive, 'dir');
+        verifyLocalFsusUiInstall(context);
+        assert.equal(fs.realpathSync(transitive), fs.realpathSync(provider));
+        assert.equal(fs.realpathSync(path.join(context.fsusui, 'vue/packages/node_modules/vue')),
+            fs.realpathSync(path.join(context.frontend, 'node_modules/vue')));
+    }
+});
+
 test('verify rejects absent nested packages, version drift, already installed private package and source dependency drift', (t) =>
 {
     const missing = fixture(t);

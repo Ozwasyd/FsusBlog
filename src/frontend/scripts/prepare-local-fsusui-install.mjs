@@ -233,14 +233,28 @@ function lockedDependencyLocation(lockfile, name)
     return location;
 }
 
-function assertSourceVueIdentity(frontend, root)
+function assertSourceVueIdentity(frontend, root, bindings)
 {
     const consumer = createRequire(path.join(frontend, 'package.json'));
-    const hosts = ['package.json', 'vue/package.json', 'vue/typings/env.d.ts', 'vue/typings/components.d.ts'];
-    for (const host of hosts)
+    const vuePackages = ['vue', '@vue/runtime-core', '@vue/runtime-dom', '@vue/reactivity', '@vue/shared'];
+    const hosts = ['package.json', 'vue/package.json', 'vue/typings/env.d.ts', 'vue/typings/components.d.ts']
+        .map(host => ({ host, file: path.join(root, host) }));
+    for (const binding of bindings)
     {
-        const source = createRequire(path.join(root, host));
-        for (const name of ['vue', '@vue/runtime-core', '@vue/runtime-dom', '@vue/reactivity', '@vue/shared'])
+        const manifest = fs.realpathSync(path.join(frontend, binding.location, 'package.json'));
+        if (vuePackages.includes(binding.name))
+        {
+            assert.equal(manifest, fs.realpathSync(consumer.resolve(`${binding.name}/package.json`)),
+                `independent source Vue identity at ${binding.location}: ${binding.name}`);
+        }
+        // Node follows the injected symlink to this real provider. Its nested
+        // dependencies must share the family used by declarations and the app.
+        hosts.push({ host: binding.location, file: manifest });
+    }
+    for (const { host, file } of hosts)
+    {
+        const source = createRequire(file);
+        for (const name of vuePackages)
         {
             let sourceManifest;
             try
@@ -306,7 +320,7 @@ export function verifyLocalFsusUiInstall({ frontend, fsusui })
     // A standalone UI program resolves augmentations above packages/. Shadowing
     // only its component imports would split the Vue declarations and runtime.
     // The Docker/source consumer has no independent install at those hosts.
-    assertSourceVueIdentity(frontend, root);
+    assertSourceVueIdentity(frontend, root, bindings);
     for (const binding of bindings)
     {
         const link = path.join(destination, binding.name);
