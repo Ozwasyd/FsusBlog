@@ -10,23 +10,23 @@
         },
         {
             "path": "docs/api.md",
-            "sha256": "f46980c91ebedd1a3e937edb21252442ecf053b423c214d586027ded047c28f3"
+            "sha256": "15ee88e7e3db876c69ea122afa1c8dcc452a1e5574fa0290d82438df6f3c92c7"
         },
         {
             "path": "docs/api/aeds-only-policy.md",
-            "sha256": "122283a1e3b68230dba31fc8ecf1a1d16e6cfdd47638d5f561d2b7284610cdd6"
+            "sha256": "bb753d315074c29e5ebc7d9ace2eafb09a2210599e6da47fb94b94b09e0bdfe6"
         },
         {
             "path": "docs/api/quick-reference.md",
-            "sha256": "c7ce8792d7de9ef5d2c4bd9feb127584e0086814fd5fe6ab0dca66120eb61000"
+            "sha256": "356d2949a894a15fd7c59ee074728e4b5e9a35a5fb2caccc7d10bbc533b5762b"
         },
         {
             "path": "docs/api/schemas-and-errors.md",
-            "sha256": "cd90e72d431cf85071271822de538e54e4b391f49b6b2f88926db50780fa145c"
+            "sha256": "0ae7619fe0a35b6295ffad0b52c9eefd3f62eeca09e50f1aa4e68b1f9fd73754"
         },
         {
             "path": "docs/api/stability.md",
-            "sha256": "ae603d0da335dfa41a4bc2435534bed6279d2ac9f6c8f5555678bc050307aa2a"
+            "sha256": "5c088fe36175127cf8cd9d70aac83e88a2ac6ff8423cefb8486d2405d8b39aa1"
         },
         {
             "path": "docs/architecture/comment-command-boundary.md",
@@ -34,7 +34,7 @@
         },
         {
             "path": "docs/architecture/comment-query-boundary.md",
-            "sha256": "d9ff076c51a51a423f67f9620f2051f4a8dddfbf691bb4e9aeb61bb3e62dd9ed"
+            "sha256": "123ba8364aa7379f2a2651af0e6f7a9e724433202ecefc0001e5436d27561975"
         },
         {
             "path": "docs/architecture/monolithic-distributed-boundary.md",
