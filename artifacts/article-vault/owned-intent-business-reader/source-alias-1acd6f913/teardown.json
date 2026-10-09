@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "1acd6f913bfdcac50e2d38e072668d389946e669",
+  "runtimeWorkersObserved": [
+    110164
+  ],
+  "runtimeWorkerAliveAfterProcessExit": {
+    "110164": false
+  },
+  "completedHookStarts": 21,
+  "completedHookFinishes": 21,
+  "selectedHooks": "afterEach original attachments.dispose+wrapper.unmount; afterAll original animationFrames.dispose",
+  "runtimeDatabasesDockerBrowsersCreated": 0,
+  "ownedUiRootDependencyLinkRemoved": true,
+  "ownedUiPackageProjectionRemoved": true,
+  "transientInstallInputsRemoved": true,
+  "isolatedUiCheckoutRetainedForDiagnosis": "/workspace/chain1975-intent-fsusui-source",
+  "consumerPublicDependencyCacheRetainedForReproduction": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules",
+  "originalStandaloneUiNotMutated": true
+}

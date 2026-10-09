@@ -1,0 +1,4 @@
+{"event":"start","workerProcessId":109238,"task":{"id":"-140095791_0_0","name":"verifies the actual current pending handle without a lifecycle receipt or new store"}}
+{"event":"finish","workerProcessId":109238,"task":{"id":"-140095791_0_0","name":"verifies the actual current pending handle without a lifecycle receipt or new store"}}
+{"event":"start","workerProcessId":109238,"task":{"id":"-140095791_0_1","name":"verifies the actual committed successor after the original owner microtask"}}
+{"event":"finish","workerProcessId":109238,"task":{"id":"-140095791_0_1","name":"verifies the actual committed successor after the original owner microtask"}}

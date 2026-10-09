@@ -1,0 +1,186 @@
+{
+  "rows": [
+    {
+      "host": "package.json",
+      "name": "vue",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "package.json",
+      "name": "@vue/runtime-core",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "package.json",
+      "name": "@vue/runtime-dom",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "package.json",
+      "name": "@vue/reactivity",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "package.json",
+      "name": "@vue/shared",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/package.json",
+      "name": "vue",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/package.json",
+      "name": "@vue/runtime-core",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/package.json",
+      "name": "@vue/runtime-dom",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/package.json",
+      "name": "@vue/reactivity",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/package.json",
+      "name": "@vue/shared",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/typings/env.d.ts",
+      "name": "vue",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/typings/env.d.ts",
+      "name": "@vue/runtime-core",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/typings/env.d.ts",
+      "name": "@vue/runtime-dom",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/typings/env.d.ts",
+      "name": "@vue/reactivity",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/typings/env.d.ts",
+      "name": "@vue/shared",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/typings/components.d.ts",
+      "name": "vue",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/typings/components.d.ts",
+      "name": "@vue/runtime-core",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/typings/components.d.ts",
+      "name": "@vue/runtime-dom",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/typings/components.d.ts",
+      "name": "@vue/reactivity",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/typings/components.d.ts",
+      "name": "@vue/shared",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/packages/components/markdown-editor/package.json",
+      "name": "vue",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/packages/components/markdown-editor/package.json",
+      "name": "@vue/runtime-core",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/packages/components/markdown-editor/package.json",
+      "name": "@vue/runtime-dom",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/packages/components/markdown-editor/package.json",
+      "name": "@vue/reactivity",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/package.json",
+      "version": "3.5.33"
+    },
+    {
+      "host": "vue/packages/components/markdown-editor/package.json",
+      "name": "@vue/shared",
+      "consumer": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/package.json",
+      "version": "3.5.33"
+    }
+  ],
+  "versions": {
+    "vitest": "4.1.11",
+    "@vue/test-utils": "2.4.10",
+    "happy-dom": "20.9.0",
+    "typescript": "6.0.3",
+    "vue-tsc": "3.2.7"
+  }
+}

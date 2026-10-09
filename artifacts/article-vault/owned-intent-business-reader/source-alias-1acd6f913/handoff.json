@@ -1,0 +1,132 @@
+{
+  "sourceCommit": "1acd6f913bfdcac50e2d38e072668d389946e669",
+  "base": "b66ad3ea5e730236af0beba21f7bab39477c5004",
+  "branch": "codex/chain-1975-intent-source-alias-verification",
+  "fsusuiSourceCommit": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+  "installerCommit": "75e66fa4e7ad7e4c1d58357298ac5fd18735d1f4",
+  "installerFileSha256": "02ee2f1c2f7e2254cba12d5cad24bb562d04125bfd39bcc1c681776566203b40",
+  "sourceHashes": {
+    "src/frontend/src/services/authoring/articleAttachmentBusinessIntentReader.ts": "f9022d9428e0af601e88dfc0666f6cee95a35547b52996d91cbc44b5d0f4ed76",
+    "tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts": "6896208345274aa243e830f8771e53c2b769023dcc0fdde8a7a694de51df3244"
+  },
+  "unchangedOriginalInputHashes": {
+    "package.json": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+    "package-lock.json": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+  },
+  "mode": "documented original source-alias public-lock projection; no installed FsusUI package",
+  "actualTools": {
+    "node": "24.19.0",
+    "npm": "11.13.0",
+    "vitest": "4.1.11",
+    "typescript": "6.0.3",
+    "vue-tsc": "3.2.7",
+    "happy-dom": "20.9.0"
+  },
+  "sourceChanges": "Only own consumer typed-rule fixes and own controls public imports/HappyDOM directive. No original owner, host, reference module, IFileService, DI, upstream source/helper or tracked npm input edits.",
+  "checks": {
+    "publicProjectedNpmCi": {
+      "exit": 0,
+      "packages": 490,
+      "lifecycleScripts": "disabled; actual native optional package binaries installed from original public tarballs"
+    },
+    "originalInstallerVerification": {
+      "exit": 0,
+      "identityAssertions": 25
+    },
+    "exactDiscovery": {
+      "exit": 0,
+      "count": 21
+    },
+    "positive": {
+      "exit": 0,
+      "passed": 2,
+      "nonselected": 19,
+      "failed": 0
+    },
+    "ordinarySelectedControls": {
+      "exit": 0,
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0
+    },
+    "typedLint": {
+      "exit": 0,
+      "sourceFilesActuallyInspected": 1,
+      "errors": 0,
+      "warnings": 0
+    },
+    "canonicalFrontendStyle": {
+      "exit": 0,
+      "files": 1,
+      "violations": 0
+    },
+    "commitContract": {
+      "exit": 0,
+      "range": "b66ad3ea5e730236af0beba21f7bab39477c5004..1acd6f913bfdcac50e2d38e072668d389946e669"
+    },
+    "diffCheck": {
+      "exit": 0
+    }
+  },
+  "historicalFailuresPreserved": {
+    "discovery.log": "incorrect cwd: exit127; no discovery",
+    "discovery-current.log": "unrecognized fsusui test import; exit1; no cases executed",
+    "typed-lint-fix.log": "ignored file warning; not typed qualification",
+    "typed-lint-current.log": "actual optional-chain diagnostic; fixed only own module",
+    "positive.log": "wrong name separator selected0cases; not passed",
+    "positive-current.log": "2actual positive failures: test lacked HappyDOM and compiled real editor as SSR; fixed only own test",
+    "change-contract-1acd6f913.log": "wrong CLI args; corrected with original --range"
+  },
+  "privatePackageInstallation": {
+    "status": "still blocked",
+    "error": "existing original E401 Unauthorized @ozwasyd/element-plus1.5.1; not retried or bypassed",
+    "originalEvidenceAtBase": "artifacts/article-vault/owned-intent-business-reader/handoff.json"
+  },
+  "notRun": [
+    "full app vue-tsc/build",
+    "standalone FsusUI qualification",
+    "published package consumption",
+    "held/security/receipt/integrity audits",
+    "business reuse/reference/cleanup end-to-end authority",
+    "UI/browser product qualification"
+  ],
+  "qualification": false,
+  "sourceAliasUnitAcceptanceOnly": true,
+  "artifactHashes": {
+    "positive-current-topology.jsonl": "3994c40ba3cffb0d202bd4464b55ca8a54b74c812d0f9956552b26482b462f0c",
+    "canonical-style-1acd6f913.log": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+    "positive-1acd6f913-topology.jsonl": "7c4616fab1523cc8b6918361ede62c8379f2dcd7e408a4ea220bd4d5d062de08",
+    "physical-vue-identity.json": "f8b7098d643c496c8c37cf2c2ced35a2344065c2005b9ac68b1fbe5a5a9cf5ba",
+    "positive-current.log": "fabb629e88003382281a626cfef145c3379e519398737bd0f579358f29fa4ccb",
+    "positive-1acd6f913.log": "574f907eeb721f558d3324c2eef864a24b8ae5c61721c70861cfd9cf5741d335",
+    "discovery-1acd6f913.json": "0efb1e626c884342339b7b882f3989dfb7ce918078582025dfdcceed1600e89b",
+    "discovery.log": "74552544e72cff82dd1a97fb2607edb3bbeff1539b61d5e03ace7dfc4c82a5c1",
+    "positive-happydom.log": "7e7c323413ad9623b513dc08807bcb910aec5d0a95bc2a6122fe03b02f16db7c",
+    "controls-1acd6f913.json": "b9c28e6eeb24686e5dbe1c85d3ac40b1ff10c1c3830cef709bc0bd481df1f70b",
+    "prepare.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "discovery-1acd6f913.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "positive-1acd6f913.xml": "4abf10747f809b7c4653ac848cbae827f8ef9037c6f0b6e702e5bf873df03c26",
+    "controls-1acd6f913.xml": "95d59a7678936fddfea9b26cb0e6b2eee1ce4510bf155ae87d3ccf356e3611b5",
+    "discovery-current.log": "0120a73df8e97fcba1769d519fc0c89facea229ed3000526cac38bcde0a0a160",
+    "positive-happydom-topology.jsonl": "32106363cd65b7aa87b4598987ca293d1f6051235a7bf77bfb5b3ef80e955673",
+    "typed-lint-fix.log": "5c2b88ad9363053160388b20ba302b62939b3ec59c8c9f1c10bc7299ba5c9fee",
+    "typed-lint-fixed.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "typed-lint-1acd6f913.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "change-contract-1acd6f913.log": "56ba7c601384a0b02a9361fdd571ceaa4a93a53f12509802e61145c5ff9109ef",
+    "discovery-fixed.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "teardown.json": "82bb0dd936a851a30657c4048af82c3be44c6eef63e60a272c26c863ff916442",
+    "preflight.json": "566df1f962d0ef020e6ba409fd84a99a7e8c2aa9837df13b191a3c11baa802c8",
+    "discovery-fixed.json": "0efb1e626c884342339b7b882f3989dfb7ce918078582025dfdcceed1600e89b",
+    "verify.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "change-contract-current.log": "fe4bdc87b24f9b0ff8b8affe54bf1d57fb3fcf4e8930561d2f4d5c094aeda883",
+    "controls-1acd6f913.log": "d63f4fb045d531425b961d6faf83b9200c43365ed7c878fb998a01fbb9026f44",
+    "positive.log": "eaf32c61370e896192aec4df01795af9a2f474db687208b827f2392a59341ccd",
+    "controls-1acd6f913-topology.jsonl": "d2de84b63054fef77de19028688a1ea157f7875bb73ab04244588c67795e92e0",
+    "source-assets.json": "7a56f5e182b700ff92512f23aaabf29986c95f9de427ef129867a996957af8d8",
+    "positive-1acd6f913.json": "0a2937a77f4c1e72b076573c393754919519534f0da086bc421e433c6bae6d2c",
+    "typed-lint-current.log": "f134e1e25417455b52a3de963b6369341813ec4ee435ed7ea5970bb4f2b33fe4",
+    "public-restore.log": "53c07efb83ba5f5aa515dd193f2f74924cb7d0264ce825bea4b17fc51c65d928",
+    "style-restore.log": "aa493d736270da31159e17afa6204bc74dffac9d361fc0b322fcaa232515fd8e",
+    "typed-lint-1acd6f913.json": "19b658e1dff4d0fad77afa95b3f8585e7565291696ae6791e01529a675b04589"
+  }
+}

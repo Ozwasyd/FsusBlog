@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "b66ad3ea5e730236af0beba21f7bab39477c5004",
+  "runtimeSource": "ffacd1f062968a151ba4504b855eb65013a16c54",
+  "fsusuiSource": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+  "installerSource": "75e66fa4e7ad7e4c1d58357298ac5fd18735d1f4",
+  "selectedFile": "tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts",
+  "expectedCases": 21,
+  "positiveExactNames": [
+    "verifies the actual current pending handle without a lifecycle receipt or new store",
+    "verifies the actual committed successor after the original owner microtask"
+  ],
+  "hooks": "Actual original setup: task HappyDOM and animationFrames disposed afterAll; locale graph beforeAll; original AEDS/PoW/search unit mocks preserved. New selected test uses actual upstream public ElMarkdownEditor, original owner/readOwnedIntent; afterEach disposes attachments and unmounts wrappers. No servers, databases, Docker, native/held/security/receipt audit cases.",
+  "physicalWorkers": 1,
+  "sourceHashes": {
+    "src/frontend/src/services/authoring/articleAttachmentBusinessIntentReader.ts": "412d55aedb838ba27b35c978894b1be390a7cc46be2c950fd68d0a696ab1fd8e",
+    "tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts": "06430a21d4f473fd7e033dcdc6f0f754c7b9485f82d2971891c6ab9928aa84ea",
+    "src/frontend/vitest.config.ts": "b9bbf48d562246eb54bce3e9324abe57b91e194a54dbec46149ac005d98b23ec",
+    "src/frontend/vitest.shared.mjs": "d66c79d39eecbee536afa1549634e1dfe8197178f8f9486170bc460661ae740b",
+    "tests/frontend/support/unit/setup.ts": "d31b2f48d35569b88a36a49d7e11117d678e328e1255bc95ee2e23518a92c31a",
+    "tests/frontend/support/unit/animationFrameEnvironment.ts": "e7e5e496be89938974cc31d56c2580a8aa2b264ff5e782e492442efc016113ca"
+  },
+  "cpuCount": 5,
+  "memoryAvailable": "MemAvailable:   17387344 kB",
+  "envOptIns": {},
+  "qualification": false
+}

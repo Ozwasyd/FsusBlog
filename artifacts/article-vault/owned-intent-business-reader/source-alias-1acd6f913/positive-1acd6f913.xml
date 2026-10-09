@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="21" failures="0" errors="0" time="0.450398802">
+    <testsuite name="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" timestamp="2026-10-09T10:14:06.508Z" hostname="053f59c5d37b" tests="21" failures="0" errors="0" skipped="19" time="0.450398802">
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; verifies the actual current pending handle without a lifecycle receipt or new store" time="0.062330917">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; verifies the actual committed successor after the original owner microtask" time="0.021852537">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rejects changed business intentRef coordinates" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rejects changed business nodeId coordinates" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rejects changed business transactionRef coordinates" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rejects changed business providerRef coordinates" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rejects changed business contextDigest coordinates" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rejects changed business sourceOrder coordinates" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rejects changed business sourceReferenced coordinates" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rejects changed business disposition coordinates" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rejects changed business sourceUrl coordinates" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; refuses an original handle lookup replaced by clone" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; refuses an original handle lookup replaced by receipt" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; refuses an original handle lookup replaced by foreign" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; refuses an original handle lookup replaced by missing" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; preserves actual removal false and denies a current intent grant for a terminal handle" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; preserves unknown source relation without turning it into proven removal" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rereads handle ownership after the promise boundary" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rereads the actual host context after a concurrent source edit" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; propagates caller cancellation at the promise boundary" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts" name="Original owned intent business adapter &gt; rejects after the original adapter is disposed" time="0">
+            <skipped/>
+        </testcase>
+    </testsuite>
+</testsuites>

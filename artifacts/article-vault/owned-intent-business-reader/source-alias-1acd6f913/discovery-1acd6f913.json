@@ -1,0 +1,86 @@
+[
+  {
+    "name": "Original owned intent business adapter > verifies the actual current pending handle without a lifecycle receipt or new store",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > verifies the actual committed successor after the original owner microtask",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business intentRef coordinates",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business nodeId coordinates",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business transactionRef coordinates",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business providerRef coordinates",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business contextDigest coordinates",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business sourceOrder coordinates",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business sourceReferenced coordinates",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business disposition coordinates",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects changed business sourceUrl coordinates",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > refuses an original handle lookup replaced by clone",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > refuses an original handle lookup replaced by receipt",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > refuses an original handle lookup replaced by foreign",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > refuses an original handle lookup replaced by missing",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > preserves actual removal false and denies a current intent grant for a terminal handle",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > preserves unknown source relation without turning it into proven removal",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rereads handle ownership after the promise boundary",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rereads the actual host context after a concurrent source edit",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > propagates caller cancellation at the promise boundary",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  },
+  {
+    "name": "Original owned intent business adapter > rejects after the original adapter is disposed",
+    "file": "/workspace/chain1975-intent-source-alias-verification/tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts"
+  }
+]
