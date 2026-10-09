@@ -1222,7 +1222,54 @@ exec "$@"
         --physical-warning-only-proof "$evidenceRoot" "$parentCommit" "${identityArgs[@]}" --proof-output "$evidenceRoot/proof.json"
 )
 
+RunBackendBoundedServerSelection() {
+    local selectionFile="${FSUSBLOG_BACKEND_UNIT_SELECTION_FILE:-}"
+    local selectedFilter platformFilter assemblyFile selectionPlan status=0
+    local -a selectionArgs
+    if [[ -z "$selectionFile" ]]; then
+        Fail 'bounded-server requires FSUSBLOG_BACKEND_UNIT_SELECTION_FILE'
+    fi
+    selectionArgs=(--backend-unit --server-selection "$selectionFile")
+    # Resolve the explicit declaration before build/discovery/test commands.
+    selectedFilter="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-migration-tests.mjs" \
+        "${selectionArgs[@]}" --selection-action filter)" || return $?
+    Log 'backend-unit selection=bounded-server; Migration explicitly not-selected; aggregate coverage incomplete'
+    PrepareBackendPlatformPlan backend-unit "$selectedFilter" || return $?
+    platformFilter="$("${FSUSBLOG_NODE:-node}" -p \
+        "require('$(BackendPlatformPlanFile backend-unit)').executionFilter")" || return $?
+    assemblyFile="$(BackendTestRuntimeOutputDirectory)/FsusBlog.Server.Tests.dll"
+    selectionPlan="$ROOT_DIR/.tmp/backend-unit/bounded-server-selection-plan.json"
+    selectionArgs+=(--diagnostic-root "$ROOT_DIR/.tmp/backend-unit/platform-discovery" \
+        --source "$assemblyFile" --platform-plan "$(BackendPlatformPlanFile backend-unit)" \
+        --selection-plan "$selectionPlan")
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-migration-tests.mjs" \
+        "${selectionArgs[@]}" --selection-action verify || return $?
+    RunBackendDotnetFilterOnly "$platformFilter" backend-unit || status=$?
+    FinalizeBackendPlatformOutcome backend-unit || status=$?
+    if ((status != 0)); then
+        return "$status"
+    fi
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-migration-tests.mjs" \
+        "${selectionArgs[@]}" --selection-action outcome --trx "$(BackendTrxFile backend-unit)" \
+        --out "$ROOT_DIR/.tmp/backend-unit/bounded-server-selection-outcome.json" || return $?
+    # No Migration receipt, aggregate summary or integrity producer is emitted.
+    # A successful bounded control run cannot satisfy the whole matrix tier.
+    Log 'bounded Server controls passed; backend-unit aggregate acceptance remains unrun (exit 3)'
+    return 3
+}
+
 RunBackendUnitLane() {
+    case "${FSUSBLOG_TEST_SELECTION:-}" in
+        '' | full | affected | bounded-server) ;;
+        *) Fail 'unsupported backend-unit selection; use full, affected or bounded-server' ;;
+    esac
+    if [[ "${FSUSBLOG_TEST_SELECTION:-}" == bounded-server ]]; then
+        RunBackendBoundedServerSelection
+        return $?
+    fi
+    if [[ -n "${FSUSBLOG_BACKEND_UNIT_SELECTION_FILE:-}" ]]; then
+        Fail 'FSUSBLOG_BACKEND_UNIT_SELECTION_FILE requires explicit bounded-server mode'
+    fi
     if [[ "${FSUSBLOG_TEST_SELECTION:-}" == "affected" ]]; then
         Log "backend-unit selection=affected"
         Run "$ROOT_DIR/tools/dotnet-affected-tests.sh"
