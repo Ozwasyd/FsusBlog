@@ -370,3 +370,76 @@ test('ordinary runtime component name rejects an unrelated defineComponent decla
     const child = fixture('import {defineComponent} from "vue";const decoy=defineComponent({name:"ElOption"});export default defineComponent({setup(){return()=>null;}});');
     assert.throws(() => expressionProof(`import {h} from "vue";import Child from "./${child.split('/').at(-1)}";const result=h(Child,{},[]).type.name;`), /ambiguous component runtime name/);
 });
+
+
+function scriptSlotFixture(output = 'h("button",{title:label},[])', payload = '{label:"Actual"}', mutation = '', imports = '')
+{
+    const { source, slots } = tools();
+    const owner = fixture(`import {defineComponent} from "vue";export default defineComponent({setup(_, {slots}){return()=>slots.cell?.(${payload});}});`);
+    const file = fixture(`${imports}import {defineComponent,h} from "vue";import Owner from "./${owner.split('/').at(-1)}";export default defineComponent({setup(){const slotObject={cell:({label})=>${output}};${mutation}return()=> <Owner>{slotObject}</Owner>;}});`);
+    const graph = source.graph([file]);
+    const call = graph.nodes.find((entry) => entry.file === file && entry.tag === 'Owner');
+    assert.ok(call, 'canonical graph contains actual JSX owner call');
+    const ts = source.resolver.ts;
+    const invocation = find(source, owner, (node) => ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'cell');
+    return { source, slots, graph, call, owner, file, invocation };
+}
+
+test('ordinary JSX scoped slot object binds actual supplier and component payload', () =>
+{
+    const { slots, graph, call, owner, file, invocation } = scriptSlotFixture();
+    const errors = JSON.stringify(graph.errors);
+    const binding = slots.bindSlot({ graph, callNode: call.id, name: 'cell' });
+    assert.equal(binding.proofScope, 'slot-supplier-binding');
+    assert.equal(binding.callbackPending, true);
+    assert.equal(binding.value.file, file);
+    const proof = slots.invokeSlot({ graph, binding, file: owner, invocation });
+    assert.equal(proof.value.target.name, 'button');
+    assert.equal(proof.value.props.title, 'Actual');
+    assert.equal(proof.supplierProofDigest, binding.proofDigest);
+    assert.ok(proof.steps.some((entry) => entry.file === file));
+    assert.ok(proof.steps.some((entry) => entry.file === owner));
+    assert.equal(JSON.stringify(graph.errors), errors);
+});
+
+test('ordinary JSX slot callback preserves own public component instead of supplier owner', () =>
+{
+    const { slots, graph, call, owner, invocation } = scriptSlotFixture('h(Child,{title:label},[])', undefined, '', 'import {FsusTaskPageHeader as Child} from "@ozwasyd/element-plus";');
+    const binding = slots.bindSlot({ graph, callNode: call.id, name: 'cell' });
+    const proof = slots.invokeSlot({ graph, binding, file: owner, invocation });
+    assert.equal(proof.value.target.publicName, 'FsusTaskPageHeader');
+    assert.notEqual(proof.value.definition, owner);
+    assert.equal(proof.value.props.title, 'Actual');
+});
+
+test('ordinary JSX slot object rejects mutated supplier and opaque callback effects', () =>
+{
+    const mutated = scriptSlotFixture(undefined, undefined, 'slotObject.cell=opaque;');
+    assert.throws(() => mutated.slots.bindSlot({ graph: mutated.graph, callNode: mutated.call.id, name: 'cell' }), /mutated|unbound finite component binding/);
+    const opaque = scriptSlotFixture('opaque(label)');
+    const binding = opaque.slots.bindSlot({ graph: opaque.graph, callNode: opaque.call.id, name: 'cell' });
+    assert.throws(() => opaque.slots.invokeSlot({ graph: opaque.graph, binding, file: opaque.owner, invocation: opaque.invocation }), /unknown runtime value.*opaque/);
+    const unknown = scriptSlotFixture(undefined, '{label:measurement.value}');
+    const unknownBinding = unknown.slots.bindSlot({ graph: unknown.graph, callNode: unknown.call.id, name: 'cell' });
+    assert.throws(() => unknown.slots.invokeSlot({ graph: unknown.graph, binding: unknownBinding, file: unknown.owner, invocation: unknown.invocation }), /unknown runtime value.*measurement/);
+});
+
+
+test('actual AutoResizer JSX supplier binds while original measurement payload remains unknown', () =>
+{
+    const { source, slots } = tools();
+    const owner = resolve(fsusUIRoot, 'vue/packages/components/table-v2/src/components/auto-resizer.tsx');
+    const importPath = relative(directory, owner).replaceAll('\\', '/');
+    const file = fixture(`import {defineComponent,h} from "vue";import Auto from "${importPath}";export default defineComponent({setup(){return()=> <Auto>{{default:({height,width})=>h("div",{title:width},[])}}</Auto>;}});`);
+    const graph = source.graph([file]);
+    const call = graph.nodes.find((entry) => entry.file === file && entry.tag === 'Auto');
+    assert.equal(call.definition, owner);
+    const before = JSON.stringify(graph.errors);
+    const binding = slots.bindSlot({ graph, callNode: call.id });
+    assert.equal(binding.callbackPending, true);
+    assert.equal(binding.value.file, file);
+    const ts = source.resolver.ts;
+    const invocation = find(source, owner, (node) => ts.isCallExpression(node) && node.expression.getText() === 'slots.default');
+    assert.throws(() => slots.invokeSlot({ graph, binding, file: owner, invocation }), /unknown runtime value.*height/);
+    assert.equal(JSON.stringify(graph.errors), before);
+});

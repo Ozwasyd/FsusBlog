@@ -1075,7 +1075,7 @@ export function createCompositionSlotSource({ source })
             }
             return false;
         };
-        if (unresolved(value))
+        if (unresolved(value) && inputs.proofScope !== 'slot-supplier-binding')
         {
             fail('callback return/effects require an actual invocation');
         }
@@ -1110,17 +1110,66 @@ export function createCompositionSlotSource({ source })
         }
         return node;
     }
+    function bindScriptSlot(graph, call, name, record)
+    {
+        if (call.conditional.length || call.sourceSyntax?.kind !== 'jsx')
+        {
+            fail('unbound conditional/script slot supplier');
+        }
+        const matches = [];
+        const find = (node) =>
+        {
+            if (ts.isJsxElement(node) && node.getStart() === call.offset)
+            {
+                matches.push(node);
+            }
+            ts.forEachChild(node, find);
+        };
+        record.scripts.forEach(({ ast }) => find(ast));
+        if (matches.length !== 1 || controlDigest(matches[0].getText()) !== call.sourceDigest)
+        {
+            fail('missing canonical JSX slot supplier');
+        }
+        const supplier = matches[0];
+        const children = supplier.children.filter((child) => !ts.isJsxText(child) || child.text.trim());
+        if (children.length !== 1 || !ts.isJsxExpression(children[0]) || !children[0].expression || children[0].dotDotDotToken)
+        {
+            fail('unbound JSX slot object or callback');
+        }
+        const ctx = context();
+        step(record.file, supplier, ctx);
+        const target = component(record.file, supplier.openingElement.tagName, true, ctx);
+        if (source.componentFile(target) !== call.definition)
+        {
+            fail('slot supplier component identity changed');
+        }
+        const supplied = evaluate(record.file, children[0].expression, new Map(), ctx);
+        const callback = closures.has(supplied) && name === 'default' ? supplied
+            : supplied && typeof supplied === 'object' && !Array.isArray(supplied) && !vnodes.has(supplied)
+                && Object.hasOwn(supplied, name) ? supplied[name] : null;
+        if (!callback || !closures.has(callback) || callback.template)
+        {
+            fail('missing actual JSX slot callback');
+        }
+        return result(callback, ctx, { proofScope: 'slot-supplier-binding', callbackPending: true,
+            callNode: call.id, property: name, callPath: [call.id], supplierSource: resolver.sourceStep(record.file, children[0].expression),
+            inputDigest: controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }) });
+    }
     function bindSlot({ graph, callNode, name = 'default' })
     {
         const call = canonicalNode(graph, callNode);
-        if (!call.definition || call.slotInputs.unknown || call.slotInputs.present[name] !== true)
+        if (!call.definition || call.slotInputs.unknown)
         {
             fail(`unbound actual slot supplier ${callNode}#${name}`);
         }
         const record = resolver.parse(call.file);
         if (!record.template)
         {
-            fail('script slot supplier requires actual callback invocation binding');
+            return bindScriptSlot(graph, call, name, record);
+        }
+        if (call.slotInputs.present[name] !== true)
+        {
+            fail(`unbound actual slot supplier ${callNode}#${name}`);
         }
         const ctx = context();
         let supplier;
@@ -1209,6 +1258,8 @@ export function createCompositionSlotSource({ source })
         const ctx = context();
         return result(evaluate(file, node, new Map(), ctx), ctx);
     }
+    // This proves only the selected actual nested invocation. Persistent setup
+    // cache updates, emits and other render effects remain outside this result.
     function proveHelperCall({ graph, callNode, file, invocation, name = 'default' })
     {
         const call = canonicalNode(graph, callNode);
@@ -1255,7 +1306,7 @@ export function createCompositionSlotSource({ source })
     function invokeSlot({ graph, binding, file, invocation })
     {
         const bound = values.get(binding);
-        if (!bound || !bound.value.template)
+        if (!bound || !closures.has(bound.value))
         {
             fail('foreign slot proof');
         }
@@ -1266,6 +1317,8 @@ export function createCompositionSlotSource({ source })
         }
         const ctx = context();
         ctx.steps.push(...bound.context.steps);
+        ctx.escapes.push(...bound.context.escapes);
+        bound.context.calls.forEach((node) => ctx.calls.add(node));
         const node = unwrap(invocation);
         if (!ts.isCallExpression(node))
         {
@@ -1294,7 +1347,7 @@ export function createCompositionSlotSource({ source })
         const parameter = pattern && ts.isObjectBindingPattern(pattern) ? pattern.elements.find((element) =>
             (element.propertyName ?? element.name).getText() === 'slots') : null;
         if (!parameter || !ts.isIdentifier(parameter.name) || parameter.name.text !== callee.expression.text
-            || parameter.initializer || parameter.dotDotDotToken)
+            || declarationOf(callee.expression) !== parameter.name || parameter.initializer || parameter.dotDotDotToken)
         {
             fail('unbound actual setup slots parameter');
         }
