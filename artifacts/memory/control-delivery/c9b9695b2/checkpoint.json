@@ -1,0 +1,1698 @@
+{
+  "schema": "fsusblog.memory.snapshot-ownership-policy-ordinary-checkpoint.v1",
+  "runId": "ordinary-snapshot-policy-50108c4b-b207-4fdd-adb3-3839397a9945",
+  "generatedAt": "2026-10-09T12:09:41.556055+00:00",
+  "sourceHead": "c9b9695b23f0c6aae6a80e61eda0cb172d14f35f",
+  "sourceTree": "34fa36cf7fc7f296355b0f3bd63cadacbd30292d",
+  "branch": "codex/mem-3444-compliant-integration",
+  "sourceRemoteReadbackConfirmed": true,
+  "sourceIncrement": "9c4ecdddedab1515ad0b8f88298432a2532600f6",
+  "fixtureRepair": "c9b9695b23f0c6aae6a80e61eda0cb172d14f35f",
+  "latestFetchedOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "masterIncorporated": false,
+  "changedFiles": [
+    "docs/architecture/repository-layout.md",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshot.HostOwnership.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.HostOwnership.cs",
+    "tests/backend/Unit/PublicHotReadSnapshotOwnershipPolicyTests.cs"
+  ],
+  "heldAndReleasedFilesUnchanged": [
+    "config/application/backend-configuration-contract.json",
+    "docs/configuration/backend-configuration-reference.generated.md",
+    "src/backend/Entities/SystemConfig.cs",
+    "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+    "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+    "src/backend/Infrastructure/PublicAot/ReservedCspNonceScratchWriter.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Routing.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadResidency.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSanity.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.Runtime.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/ReservedAedsFrameWriter.cs",
+    "src/backend/Interfaces/ISystemService.cs",
+    "src/backend/Services/SystemService.cs",
+    "tests/backend/Unit/OwnedPublicHotReadSnapshotTests.cs",
+    "tests/backend/Unit/PublicBinaryHostFrameTests.cs",
+    "tests/backend/Unit/PublicHotReadFastPathTests.cs",
+    "tests/backend/Unit/PublicHotReadSanityTests.cs",
+    "tests/backend/Unit/PublicHotReadVersionStickinessTests.cs",
+    "tests/backend/Unit/ReservedAedsFrameWriterTests.cs",
+    "tests/backend/Unit/ReservedCspNonceScratchWriterTests.cs"
+  ],
+  "passedCases": 45,
+  "failedCases": 0,
+  "skippedCases": 0,
+  "positiveMethods": 19,
+  "newPolicyCases": 39,
+  "affectedLegacyCases": 6,
+  "ordinaryBuild": {
+    "sdk": "10.0.401",
+    "restoreOrAuditPerformed": false,
+    "warningLines": 1515,
+    "errorLines": 0,
+    "fullSourceStageRun": false
+  },
+  "failedEarlierAttempt": {
+    "source": "9c4ecdddedab1515ad0b8f88298432a2532600f6",
+    "phase": "original project discovery/build",
+    "exit": 1,
+    "testExecutionStarted": false,
+    "errors": "New fixture used wrong original TryServeAsync signature and nonexistent Invalidate/DropToEmptyUntilPublish names; production source compiled."
+  },
+  "executableContract": {
+    "configuration": "PublicHotReadOptions.SnapshotOwnership under the existing Configure<PublicHotReadOptions>(PublicHotRead section); twelve nullable required fields and no numerical defaults or mode/enable flag.",
+    "factory": "PublicHotReadSnapshotOwnershipPolicy.TryCreate(options, actual ledger, metadata byte domain, operation-slot domain, supplied MemoryGovernorBaselineBinding, independent immutable PublicHotReadSnapshotOwnershipLimits, candidate commit, now).",
+    "freezeBoundary": "Missing/unfrozen/unqualified/mismatched input refuses policy creation; every configured value must equal the independent frozen limits. Shape/equality validation does not independently verify a receipt or qualify content.",
+    "admission": "Original store TryApplySnapshotOwnershipPolicy / TryAttachSnapshotHostOwnership consume the immutable policy and supplied real read leases. Canonical TryReserveUnderBounds atomically reserves metadata upper bound + explicit headroom Bytes and MaximumHolds OperationSlots before constructing attached group metadata; uses current enforced caps and accounting revision.",
+    "rosters": "Per-group lease/root/consumer limits, per-live-snapshot representation limit and aggregate hold limit; copies and consumers share the original real backing read leases.",
+    "release": "FinalSharedHold: actual final successful source-lease disposal then metadata/slot reservation return once. A source release failure stays charged and cannot complete policy drain; held failure injection not run.",
+    "reload": "DrainBeforeApply: one pending newer revision; missing new frozen evidence/stale revision rejects without partial replacement. New group admission stops; original publisher controls root retirement and original bounded consumers keep their holds. Pending policy applies after all actual old-group admissions end.",
+    "unitsAndZero": "Explicit bytes and operation slots use original domain types. Counts/revisions/capacity/upper bound must be positive; no omitted/zero unlimited values. Headroom zero is an explicit no-extra-byte reservation, never omission.",
+    "ownership": "Retained root P01/P02/P03/P06; no released module source changes and no SystemService/SystemConfig/SiteIdentity changes."
+  },
+  "registrationHandoff": {
+    "baseSource": "c1ac6630e86a899f4acf59283ea10a4fcdd69894",
+    "authority": "config/application/backend-configuration-contract.json",
+    "generatedReference": "docs/configuration/backend-configuration-reference.generated.md",
+    "rows": [
+      {
+        "key": "PublicHotRead:SnapshotOwnership:Revision",
+        "owner": "public-delivery",
+        "purpose": "Positive snapshot ownership policy revision; omission or zero refuses admission",
+        "valueType": "integer",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:AccountingRevision",
+        "owner": "public-delivery",
+        "purpose": "Positive canonical ledger revision; stale revisions refuse admission",
+        "valueType": "integer",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:MaximumHolds",
+        "owner": "public-delivery",
+        "purpose": "Finite reference/operation-slot count per shared group; includes snapshot and consumer holds",
+        "valueType": "integer",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:MaximumRepresentations",
+        "owner": "public-delivery",
+        "purpose": "Finite representation count per live snapshot within the shared group",
+        "valueType": "integer",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:MaximumLeases",
+        "owner": "public-delivery",
+        "purpose": "Finite original host-read-lease roster count per shared group",
+        "valueType": "integer",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:MaximumSnapshots",
+        "owner": "public-delivery",
+        "purpose": "Finite simultaneous immutable snapshot/root count per shared group",
+        "valueType": "integer",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:MaximumConsumers",
+        "owner": "public-delivery",
+        "purpose": "Finite simultaneous consumer count per shared group",
+        "valueType": "integer",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:MetadataUpperBoundBytes",
+        "owner": "public-delivery",
+        "purpose": "Frozen conservative bytes covering the declared group rosters and metadata construction overlap; not a measured CLR layout",
+        "valueType": "integer",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:MetadataCapacityBytes",
+        "owner": "public-delivery",
+        "purpose": "Finite per-group metadata budget in bytes; upper bound plus headroom must fit",
+        "valueType": "integer",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:MetadataHeadroomBytes",
+        "owner": "public-delivery",
+        "purpose": "Explicit additional reserved bytes; zero means no extra headroom, omission refuses admission",
+        "valueType": "integer",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:ReleaseDisposition",
+        "owner": "public-delivery",
+        "purpose": "Explicit FinalSharedHold: return metadata/slot reservation after actual final source/consumer release",
+        "valueType": "string",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      },
+      {
+        "key": "PublicHotRead:SnapshotOwnership:ReloadDisposition",
+        "owner": "public-delivery",
+        "purpose": "Explicit DrainBeforeApply: stop new group admission and apply newer frozen revision after old groups drain",
+        "valueType": "string",
+        "environments": [
+          "Development",
+          "Production"
+        ],
+        "allowedSources": [
+          "deployment-configuration"
+        ],
+        "environmentVariables": [],
+        "secret": false,
+        "requiredStatus": "conditional",
+        "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+        "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+        "allowEmptyBaseValue": false,
+        "validation": {
+          "kind": "feature-gate",
+          "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+        },
+        "documentation": "docs/architecture/repository-layout.md",
+        "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+        "runtimeOnly": true,
+        "deprecation": null
+      }
+    ],
+    "patchSha256": "a392b704a1fc4c7ec9c0f383e3b88ef5f176ce556bddf0e343168b7a27529de8",
+    "disposition": "Pending coordinator/registration-owner integration; independent memory source does not write shared registration files"
+  },
+  "configurationCheck": {
+    "prospectivePatchCommandExit": 1,
+    "actualBaselineCommandExit": 1,
+    "baselineErrorCount": 35,
+    "prospectiveErrorCount": 35,
+    "introducedErrors": [],
+    "sourceOfExistingDrift": "ArticleDetailViewProjection, Security AdminSession/PublicHotReadRisk projection, PrivateAssets unowned appsettings keys in original base/Production overlays; unchanged and outside this patch.",
+    "setupAttempt": "Initial alternate-file baseline comparison added one canonical-authority-path error. Corrected real isolated c1ac baseline worktree has exactly the same 35 errors as the prospective patch. No error waived.",
+    "sharedFiles": "Own-only registration/reference diff captured, checked and restored after SiteIdentity coordination. Current committed shared files remain byte-identical to baseline; patch is pending owner integration."
+  },
+  "productionAutoActivated": false,
+  "remainingFacts": "Actual P01 frozen numerical model/baseline proof and canonical projector admitted content/location/source inputs remain absent. No actual measured metadata/CLR peak, original producer/raw-snapshot/overlay/compression peak admission, backend/Auto/readiness/production transition or full platform performance qualification is claimed.",
+  "priorEvidencePreserved": {
+    "snapshot29": "00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b",
+    "hostFrame21": "de0adc1a5ed4a32f5cdfc01b9c560f9b357cd250",
+    "nonce14": "ab2c589d02fabfa6ed15967f0e58800d2555398a"
+  },
+  "P06Criteria": {
+    "MEM-P06-AC01": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "NotRun: no qualified native host/Auto production selection or new production activation."
+    },
+    "MEM-P06-AC02": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Partial: ordinary managed identity GET/HEAD/304, actual original publication rejection/integrity and stickiness controls passed. Native/compressed/HTML full differential absent; prior nonce not rerun."
+    },
+    "MEM-P06-AC03": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Partial managed original group retains real read leases and quota through original Pipe backpressure and Drop; policy reload waits for actual final consumer completion. No held native/lease race/alias/TOCTOU/custody/receipt qualification."
+    },
+    "MEM-P06-AC04": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Partial: actual supplied opaque managed ROM traverses existing snapshot and original body writer without adapter ToArray. No native qualified copy/capacity trace."
+    },
+    "MEM-P06-AC05": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "NotRun: no full L0 forbidden-operation-hook product proof."
+    },
+    "MEM-P06-AC06": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "No new nonce work; 14/14 remains bound to ab2c589d02fabfa6ed15967f0e58800d2555398a."
+    },
+    "MEM-P06-AC07": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Partial: actual ledger conservatively reserves the supplied metadata byte upper-bound/headroom and finite hold slots per group; original backing stays separately charged. No measured CLR layout, native/generation residency projection or actual frozen production model."
+    },
+    "MEM-P06-AC08": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Partial: five original stickiness/integrity cases plus managed publication rejection, retain-last-good, Drop, repeated publication, sticky expiry and security-bypass controls passed. Full qualified route/revocation differential remains held."
+    },
+    "MEM-P06-AC09": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Blocked: comparable finite frozen P01 performance gates are not supplied or accepted; no speedup claimed."
+    },
+    "MEM-P06-AC10": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "NotRun: production Auto/disable/drain integration not activated."
+    }
+  },
+  "issues": [
+    {
+      "issue": 3444,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Per-family actual consumer/release/capacity closure and qualified support/offline dependency evidence; source work remains open.",
+      "criteria": [
+        {
+          "id": "MEM-P00-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC08",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3445,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "A genuine systemd user manager and delegated canonical measurement supervisor; then comparable frozen workloads, numerical baseline and performance evidence.",
+      "criteria": [
+        {
+          "id": "MEM-P01-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC08",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3446,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Executable policy/configuration contract now exists with required finite inputs, canonical ledger domains and original group lifecycle enforcement. Actual P01 frozen values/qualified baseline and source/location producer remain absent. Twelve semantic registration rows/generated reference are an exact handoff to the shared registration owner. Whole platform/config/readiness/Auto qualification and acceptance remain open.",
+      "criteria": [
+        {
+          "id": "MEM-P02-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC13",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC14",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "45/45 ordinary explicit-input controls at c9b9695b23f0c6aae6a80e61eda0cb172d14f35f: 39 new revisioned snapshot-policy cases and six affected legacy group cases. The existing PublicHotRead binder resolves the typed no-default contract; independent frozen limits must match configured values."
+    },
+    {
+      "issue": 3447,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Actual frozen metadata upper-bound/headroom and real production resource scopes are still required. This contract keeps conservative reservations rather than inventing physical metadata descriptors or measured CLR layouts. Full producer/transient/pool/native composition, overhead/peak qualification and stage acceptance remain incomplete.",
+      "criteria": [
+        {
+          "id": "MEM-P03-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC08",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "Partial original group composition at c9b9695b23f0c6aae6a80e61eda0cb172d14f35f: real canonical ledger byte/headroom plus operation-slot vector is admitted before attached group construction; byte/slot denial leaves no partial reservation; final actual group release returns reservation once; stale accounting and pending reload controls are included in 45/45. No multi-thread/lease/race/receipt audit."
+    },
+    {
+      "issue": 3448,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Complete production/cross-tier transport, interruption, pin and retirement matrix after accepted stage inputs.",
+      "criteria": [
+        {
+          "id": "MEM-P04-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3450,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Raw platform caller is implemented in PortableMemoryPressureSource.CapturePlatformObservations. Complete domain/ancestor/epoch and sampling provenance, actual v1/zram/Windows/macOS native rows, admitted metadata/probe costs, frozen P01/P02 bounds and canonical background/Auto/readiness remain unverified.",
+      "criteria": [
+        {
+          "id": "MEM-P08-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. Prior exact-source evidence retained; not rerun in this nonce increment. Prior source-bound result retained; not rerun in this nullable increment: Partial source composition: 34/34 ordinary selected tests at 69de9395d9855f7ccbac9105742a988311eab12d"
+    },
+    {
+      "issue": 3451,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "native module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Native owner release/runtime target qualification and source-to-product acceptance; unavailable target rows stay NotVerified.",
+      "criteria": [
+        {
+          "id": "MEM-P05-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3452,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified scoped P08 inputs and frozen comparable P01 calibration, original scheduler/reclaimer integration and measured outcomes remain missing. This repair changes no production policy or controller activation.",
+      "criteria": [
+        {
+          "id": "MEM-P09-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. Prior exact-source evidence retained; not rerun in this nonce increment. Minimal nullable-flow correction; five original governor replay controls passed at 4231fd4337817c62270336eb6b37964878ab27fc"
+    },
+    {
+      "issue": 3453,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "disk module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified root/capacity/physical-bound inputs and canonical automatic lifecycle; delegated whole-issue evidence remains open.",
+      "criteria": [
+        {
+          "id": "MEM-P10-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3454,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified baseline/governor/pressure and explicit physical bounds, then existing production startup/readiness/protected diagnostics. Drain APIs are no longer missing.",
+      "criteria": [
+        {
+          "id": "MEM-AUTO-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC15",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC13",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC14",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC16",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3455,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "disk module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified physical/root/inode policy and full default Auto lifecycle; delegated acceptance remains open.",
+      "criteria": [
+        {
+          "id": "MEM-P11-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC06",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3456,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Ordinary typed frozen-policy code is implemented. Canonical projector still produces arrays without actual admitted qualified lease/content/location; independent actual frozen P01 values/baseline and shared registration integration remain required. P01/P05/Auto acceptance, native/compressed/HTML differential, nonce scratch inputs, backing-aware statistics and production disable/drain qualification remain missing.",
+      "criteria": [
+        {
+          "id": "MEM-P06-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC10",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "Partial policy-to-original snapshot/group integration in 45/45 ordinary controls at c9b9695b23f0c6aae6a80e61eda0cb172d14f35f, including real Pipe completion during Drop and deferred reload. Previous complete 29/29 stays at 00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b; only six affected cases were rerun in the new selection. Prior 21/14 results unchanged."
+    },
+    {
+      "issue": 3457,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Satisfied managed/native/governor/Auto/disk prerequisites; actual scoped pressure and qualified owned spill resources.",
+      "criteria": [
+        {
+          "id": "MEM-P12-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3458,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "OS module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "OS owner real platform/backing/locking/NUMA/I/O qualification and accepted Auto/governor integration; missing OS/architecture rows stay NotVerified.",
+      "criteria": [
+        {
+          "id": "MEM-P16-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC10",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3459,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "The numerical contract requires an independently frozen conservative model covering rosters/construction overlap; actual bounds have not been supplied or measured. Already-created producer/raw snapshot metadata, cloning/overlay/compression workspace peaks and fine-grained shared-block reclamation remain separate admission/qualification work. No actual peak or performance acceptance claimed.",
+      "criteria": [
+        {
+          "id": "MEM-P07-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "Partial bounded final representation/root/consumer roster contract and group quota lifecycle at c9b9695b23f0c6aae6a80e61eda0cb172d14f35f, verified by ordinary managed controls. No original build/compression/overlay peak profiling or workspace acceptance run."
+    },
+    {
+      "issue": 3460,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "GPU/peer module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Authoritative per-backend production physical upper bounds and actual supported GPU/driver hardware; accepted P04/P09/Auto/P12 qualification. Controlled observations do not qualify hardware.",
+      "criteria": [
+        {
+          "id": "MEM-P17-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3461,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Satisfied P12/P07 stages and canonical existing publisher/L1/L2 owner integration; source Current is not current-request qualification.",
+      "criteria": [
+        {
+          "id": "MEM-P13-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3462,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "GPU/peer module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified supported ReBAR/peer hardware and accepted GPU/backend/Auto inputs from sole owner.",
+      "criteria": [
+        {
+          "id": "MEM-P18-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3463,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "transient module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Satisfied P13 and production transient/DB/WebSocket ownership integration; fixture evidence does not qualify downstream publication.",
+      "criteria": [
+        {
+          "id": "MEM-P14-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3464,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "flat-index module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Accepted P14 plus production descriptor/index integration and complete corruption/overflow/performance/platform acceptance.",
+      "criteria": [
+        {
+          "id": "MEM-P15-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3465,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Child platform/product/default-policy/performance evidence, source-governance owner repair and canonical owner resolution of ArticleEndpoint generation/publication assertion failure.",
+      "criteria": [
+        {
+          "id": "MEM-P19-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC12",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3466,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Accepted P19, actual finite configuration/readiness/protected diagnostics inputs and safe transition operating tests.",
+      "criteria": [
+        {
+          "id": "MEM-P20-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC11",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3468,
+      "kind": "tracking_only",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Complete child criteria, independent P19 matrix and global conflict/review/merge barrier.",
+      "criteria": [
+        {
+          "id": "MEM-EPIC-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC12",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    }
+  ],
+  "acceptedIssues": 0,
+  "criteriaAccepted": 0,
+  "checks": [
+    {
+      "command": "Original positive 19-FQN / 45-case preflight, dotnet test --no-restore --filter <exact filter> --list-tests then same selection --no-build --logger trx",
+      "exit": 0
+    },
+    {
+      "command": "Scoped C# style five files, then one fixture call-site repair",
+      "exit": 0
+    },
+    {
+      "command": "Scoped original comment/marker checks for five files",
+      "exit": 0
+    },
+    {
+      "command": "node tools/docs/generate-document-lifecycle.mjs --check",
+      "exit": 0
+    },
+    {
+      "command": "node tools/governance/check-change-contract.mjs --range c1ac6630e86a899f4acf59283ea10a4fcdd69894..c9b9695b23f0c6aae6a80e61eda0cb172d14f35f",
+      "exit": 0
+    },
+    {
+      "command": "git diff --check c1ac6630e86a899f4acf59283ea10a4fcdd69894..c9b9695b23f0c6aae6a80e61eda0cb172d14f35f",
+      "exit": 0
+    },
+    {
+      "command": "git apply --check snapshot-ownership-registration.patch",
+      "exit": 0
+    },
+    {
+      "command": "Existing full backend configuration checker at isolated baseline and prospective twelve-row registration",
+      "exit": 1,
+      "existingErrors": 35,
+      "introducedErrors": 0
+    }
+  ],
+  "notRun": [
+    "prior 29 as a whole, unchanged 21/nonce14 or broad suites",
+    "held native/lease race/alias/TOCTOU/custody/receipt/full SOURCE audits",
+    "production frozen-policy receipt verification/measurement, source producer and Auto activation",
+    "clone/overlay/compression/producer peak bounds, native/GPU/platform/performance matrix",
+    "shared registration integration, SystemService/SystemConfig/SiteIdentity implementation",
+    "fresh restore/audit, production DB, deploy, merge, issue closure, GitHub metadata publishing or cross-chain conflict resolution"
+  ]
+}
