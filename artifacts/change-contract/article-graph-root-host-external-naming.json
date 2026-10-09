@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleGraphRootAdmissionHost.cs"
+            ],
+            "reason": "Preserve the registered C# authenticated host adapter surface; private host state follows repository conventions."
+        }
+    ]
+}
