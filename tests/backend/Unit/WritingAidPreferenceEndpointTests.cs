@@ -1,7 +1,6 @@
 using System.Buffers;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Reflection;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -13,6 +12,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.AuthoringPreferences;
 
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
@@ -210,19 +210,24 @@ public sealed class WritingAidPreferenceEndpointTests
         request.Content.Headers.ContentType = new(fault == "json" ? "application/json" : "application/octet-stream");
         using HttpResponseMessage response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal(ErrorCode.Validation, (await EndpointSecurityTestServer.ReadErrorAsync(response)).Code);
+        // The original middleware rejects JSON before the POD binder with its
+        // canonical 415/InfraFailure mapping; malformed AEDS reaches validation.
+        Assert.Equal(fault == "json" ? HttpStatusCode.UnsupportedMediaType : HttpStatusCode.BadRequest,
+            response.StatusCode);
+        Assert.Equal(fault == "json" ? ErrorCode.InfraFailure : ErrorCode.Validation,
+            (await EndpointSecurityTestServer.ReadErrorAsync(response)).Code);
     }
 
     internal static EndpointSecurityTestServer CreateServer(
         IWritingAidPreferenceReader reader, IWritingAidPreferenceCommand? command = null,
         IWritingAidPreferenceInitializationCommand? initialization = null)
     {
-        EndpointSecurityTestServer server = EndpointSecurityTestServer.Create(new()
+        return EndpointSecurityTestServer.Create(new()
         {
             ConfigureServices = services =>
             {
                 services.AddSingleton(reader);
+                services.AddSingleton<IStartupFilter>(new WritingAidPreferenceRouteStartupFilter());
                 if (command is not null)
                 {
                     services.AddSingleton(command);
@@ -233,20 +238,20 @@ public sealed class WritingAidPreferenceEndpointTests
                 }
             }
         });
-        try
-        {
-            // Exercise the new map through the original host, without modifying the
-            // canonical registration file retained by #3735. Map before its first request.
-            var app = (WebApplication)typeof(EndpointSecurityTestServer)
-                .GetField("_application", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(server)!;
-            AuthoringEndpoints.MapWritingAidPreferenceRoutes(app.MapGroup("/api/binary/author"));
-            return server;
-        }
-        catch
-        {
-            server.Dispose();
-            throw;
-        }
+    }
+
+    private sealed class WritingAidPreferenceRouteStartupFilter : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+            => app =>
+            {
+                next(app);
+                // The original WebApplication retains its routing builder for
+                // UseEndpoints after configuration, but clears the global key.
+                // Use that public hook before the host builds its pipeline.
+                app.UseEndpoints(routes => AuthoringEndpoints.MapWritingAidPreferenceRoutes(
+                    routes.MapGroup("/api/binary/author")));
+            };
     }
 
     internal static HttpRequestMessage Request(HttpMethod method, WritingAidPreferenceUpdate? update = null, string suffix = "")
