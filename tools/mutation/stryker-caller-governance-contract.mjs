@@ -249,15 +249,19 @@ function shellTokens(input)
     return tokens;
 }
 
-// Quote removal is only for literal declaration names/delimiters. Dynamic names
-// are unsupported; word spelling in the body remains exact, including quoting.
+// Supported literal grammar for declaration names and heredoc delimiters:
+// an identifier, optionally inside one complete single/double quote pair.
+// Escapes, concatenated fragments and expansions refuse. In particular, a
+// backslash in a single-quoted delimiter must never decode to an early EOF.
+// Body words remain exact and are not decoded through this helper.
 function literalName(word)
 {
-    if (word === undefined || /[$`]/u.test(word))
+    if (typeof word !== 'string')
     {
         return null;
     }
-    return word.replace(/\\(.)/gu, '$1').replace(/["']/gu, '');
+    const literal = /^(?:([A-Za-z_][A-Za-z0-9_]*)|'([A-Za-z_][A-Za-z0-9_]*)'|"([A-Za-z_][A-Za-z0-9_]*)")$/u.exec(word);
+    return literal ? literal[1] ?? literal[2] ?? literal[3] : null;
 }
 
 // Prefix grammar establishes lexical top-level context, independently of the
