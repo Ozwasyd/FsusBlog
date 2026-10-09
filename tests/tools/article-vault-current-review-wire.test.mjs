@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { decodeVaultCurrentReviewRequest, encodeVaultCurrentReviewRequest, validateVaultCurrentReviewRequest } from '../../src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts';
+import { decodeVaultCurrentReviewRequest, encodeVaultCurrentReviewRequest, validateVaultCurrentReviewRequest } from 'fsusblog-client/codecs/binary/article-vault-current-review-wire';
 
 const literal = name => Uint8Array.from(Buffer.from(readFileSync(new URL(`../fixtures/article-vault-current-review-wire/${name}.hex`, import.meta.url), 'utf8').trim(), 'hex'));
 const request = checkpoint => ({
@@ -39,29 +39,46 @@ for (const [offset, replacement] of [[0, 0], [4, 2], [6, 2], [12, 1], [16, 0], [
 {
     test(`closed field negative ${offset}/${replacement}`, () =>
     {
-        const bytes = literal('exact-checkpoint'); bytes[offset] = replacement;
+        const bytes = literal('exact-checkpoint');
+        bytes[offset] = replacement;
         assert.throws(() => decodeVaultCurrentReviewRequest(bytes), /article_vault_current_review_request_invalid/u);
     });
 }
 
 test('exact size, absent data, zero article, unsafe integers, unsupported identity and unknown properties', () =>
 {
-    for (const size of [0, 3175, 3177]) assert.throws(() => decodeVaultCurrentReviewRequest(new Uint8Array(size)));
-    const absent = literal('proposal-only'); absent[160] = 1; assert.throws(() => decodeVaultCurrentReviewRequest(absent));
+    for (const size of [0, 3175, 3177])
+    {
+        assert.throws(() => decodeVaultCurrentReviewRequest(new Uint8Array(size)));
+    }
+    const absent = literal('proposal-only');
+    absent[160] = 1;
+    assert.throws(() => decodeVaultCurrentReviewRequest(absent));
     for (const offset of [160, 3040])
     {
-        const bytes = literal('exact-checkpoint'); new DataView(bytes.buffer).setBigInt64(offset, 9007199254740992n, true);
+        const bytes = literal('exact-checkpoint');
+        new DataView(bytes.buffer).setBigInt64(offset, 9007199254740992n, true);
         assert.throws(() => decodeVaultCurrentReviewRequest(bytes));
     }
-    const zero = literal('proposal-only'); zero.fill(0, 8, 12); assert.throws(() => decodeVaultCurrentReviewRequest(zero));
+    const zero = literal('proposal-only');
+    zero.fill(0, 8, 12);
+    assert.throws(() => decodeVaultCurrentReviewRequest(zero));
     assert.equal(validateVaultCurrentReviewRequest({ ...request(false), fabricatedCurrentInputs: {} }), false);
-    const extra = request(true); extra.checkpoint.operation.unknown = true;
+    const extra = request(true);
+    extra.checkpoint.operation.unknown = true;
     assert.equal(validateVaultCurrentReviewRequest(extra), false);
-    const getter = request(false); Object.defineProperty(getter, 'articleId', { get: () => { throw new Error('must not invoke getter'); } });
+    const getter = request(false);
+    Object.defineProperty(getter, 'articleId', { get: () =>
+    {
+        throw new Error('must not invoke getter');
+    } });
     assert.equal(validateVaultCurrentReviewRequest(getter), false);
-    const broken = request(true); broken.checkpoint.operation.siteIdentity = 'bad\ud800';
+    const broken = request(true);
+    broken.checkpoint.operation.siteIdentity = 'bad\ud800';
     assert.equal(validateVaultCurrentReviewRequest(broken), false);
-    const max = request(true); max.checkpoint.operation.siteIdentity = '中'.repeat(128);
+    const max = request(true);
+    max.checkpoint.operation.siteIdentity = '中'.repeat(128);
     assert.deepEqual(decodeVaultCurrentReviewRequest(encodeVaultCurrentReviewRequest(max)), max);
-    max.checkpoint.operation.siteIdentity += '中'; assert.equal(validateVaultCurrentReviewRequest(max), false);
+    max.checkpoint.operation.siteIdentity += '中';
+    assert.equal(validateVaultCurrentReviewRequest(max), false);
 });

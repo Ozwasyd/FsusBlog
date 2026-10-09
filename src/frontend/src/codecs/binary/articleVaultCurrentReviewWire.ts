@@ -19,7 +19,7 @@ export type VaultCurrentReviewRequest = Readonly<{
     articleId: number;
     resolutionOperationIdentity: string;
     proposalSha256: string;
-    checkpoint: Readonly<{ operation: VaultCurrentReviewOperation; sequence: number; contentSha256: string }> | null;
+    checkpoint: Readonly<{ operation: VaultCurrentReviewOperation; sequence: number; contentSha256: string; }> | null;
 }>;
 
 export const VAULT_CURRENT_REVIEW_REQUEST_BYTES = 3176;
@@ -51,13 +51,19 @@ function digest(value: unknown): value is string
 
 function identity(value: unknown): value is string
 {
-    if (typeof value !== 'string' || value.length < 3 || value.length > 128) return false;
+    if (typeof value !== 'string' || value.length < 3 || value.length > 128)
+    {
+        return false;
+    }
     for (const rune of value)
     {
         const cp = rune.codePointAt(0)!;
         if (cp === 0 || cp === 47 || cp === 92 || cp >= 0xd800 && cp <= 0xdfff
             || cp >= 9 && cp <= 13 || cp === 32 || cp === 133 || cp === 160 || cp === 5760
-            || cp >= 8192 && cp <= 8202 || cp === 8232 || cp === 8233 || cp === 8239 || cp === 8287 || cp === 12288) return false;
+            || cp >= 8192 && cp <= 8202 || cp === 8232 || cp === 8233 || cp === 8239 || cp === 8287 || cp === 12288)
+        {
+            return false;
+        }
     }
     return encoder.encode(value).length < 512;
 }
@@ -65,16 +71,31 @@ function identity(value: unknown): value is string
 /** Rejects unknown properties and unsupported references; does not authenticate their existence. */
 export function validateVaultCurrentReviewRequest(value: unknown): value is VaultCurrentReviewRequest
 {
-    if (!closed(value, requestKeys)) return false;
+    if (!closed(value, requestKeys))
+    {
+        return false;
+    }
     const request = value as VaultCurrentReviewRequest;
     if (!Number.isInteger(request.articleId) || request.articleId < 1 || request.articleId > 2147483647
         || typeof request.resolutionOperationIdentity !== 'string'
-        || !/^resolution-[0-9a-f]{64}$/u.test(request.resolutionOperationIdentity) || !digest(request.proposalSha256)) return false;
-    if (request.checkpoint === null) return true;
-    if (!closed(request.checkpoint, ['operation', 'sequence', 'contentSha256'])) return false;
+        || !/^resolution-[0-9a-f]{64}$/u.test(request.resolutionOperationIdentity) || !digest(request.proposalSha256))
+    {
+        return false;
+    }
+    if (request.checkpoint === null)
+    {
+        return true;
+    }
+    if (!closed(request.checkpoint, ['operation', 'sequence', 'contentSha256']))
+    {
+        return false;
+    }
     const checkpoint = request.checkpoint;
     if (!Number.isSafeInteger(checkpoint.sequence) || checkpoint.sequence < 0 || !digest(checkpoint.contentSha256)
-        || !closed(checkpoint.operation, operationKeys)) return false;
+        || !closed(checkpoint.operation, operationKeys))
+    {
+        return false;
+    }
     const operation = checkpoint.operation;
     return operation.schema === OPERATION_SCHEMA && operation.schemaVersion === 1
         && [operation.siteIdentity, operation.vaultIdentity, operation.deviceIdentity, operation.agentIdentity, operation.planReference].every(identity)
@@ -85,10 +106,16 @@ export function validateVaultCurrentReviewRequest(value: unknown): value is Vaul
 /** Writes the fixed POD with an all-zero absent checkpoint and canonical zero padding. */
 export function encodeVaultCurrentReviewRequest(request: VaultCurrentReviewRequest): Uint8Array
 {
-    if (!validateVaultCurrentReviewRequest(request)) return fail();
+    if (!validateVaultCurrentReviewRequest(request))
+    {
+        return fail();
+    }
     const bytes = new Uint8Array(VAULT_CURRENT_REVIEW_REQUEST_BYTES);
     const view = new DataView(bytes.buffer);
-    const put = (offset: number, text: string): void => { bytes.set(encoder.encode(text), offset); };
+    const put = (offset: number, text: string): void =>
+    {
+        bytes.set(encoder.encode(text), offset);
+    };
     view.setUint32(0, MAGIC, true);
     view.setUint16(4, 1, true);
     view.setUint16(6, request.checkpoint === null ? 0 : 1, true);
@@ -121,26 +148,47 @@ export function encodeVaultCurrentReviewRequest(request: VaultCurrentReviewReque
 /** Decodes structural references only; no parser result supplies an execution or current-input grant. */
 export function decodeVaultCurrentReviewRequest(bytes: Uint8Array): VaultCurrentReviewRequest
 {
-    if (!(bytes instanceof Uint8Array) || bytes.length !== VAULT_CURRENT_REVIEW_REQUEST_BYTES) return fail();
+    if (!(bytes instanceof Uint8Array) || bytes.length !== VAULT_CURRENT_REVIEW_REQUEST_BYTES)
+    {
+        return fail();
+    }
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const get = (offset: number, size: number): string =>
     {
         const slot = bytes.subarray(offset, offset + size);
         const zero = slot.indexOf(0);
-        if (zero >= 0 && slot.subarray(zero).some(byte => byte !== 0)) return fail();
-        try { return decoder.decode(zero < 0 ? slot : slot.subarray(0, zero)); }
-        catch { return fail(); }
+        if (zero >= 0 && slot.subarray(zero).some(byte => byte !== 0))
+        {
+            return fail();
+        }
+        try
+        {
+            return decoder.decode(zero < 0 ? slot : slot.subarray(0, zero));
+        }
+        catch
+        {
+            return fail();
+        }
     };
     if (view.getUint32(0, true) !== MAGIC || view.getUint16(4, true) !== 1
-        || view.getUint16(6, true) > 1 || view.getUint32(12, true) !== 0) return fail();
+        || view.getUint16(6, true) > 1 || view.getUint32(12, true) !== 0)
+    {
+        return fail();
+    }
     let checkpoint: VaultCurrentReviewRequest['checkpoint'] = null;
     if (view.getUint16(6, true) === 0)
     {
-        if (bytes.subarray(160).some(byte => byte !== 0)) return fail();
+        if (bytes.subarray(160).some(byte => byte !== 0))
+        {
+            return fail();
+        }
     }
     else
     {
-        if (view.getUint32(284, true) !== 0) return fail();
+        if (view.getUint32(284, true) !== 0)
+        {
+            return fail();
+        }
         checkpoint = {
             sequence: Number(view.getBigInt64(160, true)), contentSha256: get(168, 64),
             operation: {
@@ -153,7 +201,10 @@ export function decodeVaultCurrentReviewRequest(bytes: Uint8Array): VaultCurrent
         };
     }
     const request = { articleId: view.getInt32(8, true), resolutionOperationIdentity: get(16, 80), proposalSha256: get(96, 64), checkpoint };
-    if (!validateVaultCurrentReviewRequest(request)) return fail();
+    if (!validateVaultCurrentReviewRequest(request))
+    {
+        return fail();
+    }
     if (checkpoint !== null)
     {
         Object.freeze(checkpoint.operation);

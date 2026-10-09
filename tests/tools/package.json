@@ -3,6 +3,7 @@
     "version": "0.0.0",
     "private": true,
     "dependencies": {
-        "@fsusblog/governance-tools": "file:../../tools"
+        "@fsusblog/governance-tools": "file:../../tools",
+        "fsusblog-client": "file:../../src/frontend"
     }
 }
