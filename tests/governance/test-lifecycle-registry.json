@@ -5083,6 +5083,16 @@
             ]
         },
         {
+            "file": "tests/tools/linux-cgroup-membership-locator.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/tools/system-memory.test.mjs",
             "owner": "manual-diagnostic:tests/tools/system-memory.test.mjs",
             "executionCategory": "manual-diagnostic",

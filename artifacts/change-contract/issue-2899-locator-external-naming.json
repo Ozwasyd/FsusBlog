@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/linux-cgroup-membership-locator.mjs",
+                "tools/test/system-memory.mjs"
+            ],
+            "reason": "Preserve original process environment names and internal option naming; the locator adds no environment override or memory grant."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Preserve the existing exported shell environment spelling and canonical command interface while adding one test asset path."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Regenerate through the unchanged canonical producer while preserving authority schema keys, targets, declarations and independent source index."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve canonical registry schema, check identifiers and normative path declarations while registering the locator and reconciling one duplicate owner."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing/issue-1072-production-resource-enforcement.md"
+            ],
+            "reason": "Retain existing caller-visible documentation spellings; this resource-observation explanation introduces no DOM selector or token naming change."
+        }
+    ]
+}
