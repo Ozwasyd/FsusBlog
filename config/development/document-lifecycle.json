@@ -3387,6 +3387,16 @@
             ],
             "supersedes": [],
             "supersededBy": null
+        },
+        {
+            "path": "docs/testing/zap-baseline-result-outlet.md",
+            "status": "current",
+            "owner": "security",
+            "relatedIssues": [
+                2260
+            ],
+            "supersedes": [],
+            "supersededBy": null
         }
     ],
     "legacyNamingCompatibility": [

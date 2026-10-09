@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:3c5418c9c684ad1404f5be6ed4528a034b7fab57df767a91e47992a1a3e753e0",
+    "policyDigest": "sha256:e06ec65bbf62e1f9804b924ba732d30a0776e06c05054d02178a636f69992200",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -4731,6 +4731,20 @@
             "supersededBy": null,
             "relatedIssues": [
                 1421
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/testing/zap-baseline-result-outlet.md",
+            "title": "ZAP baseline raw result outlet",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "security",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2260
             ],
             "producer": null
         },
