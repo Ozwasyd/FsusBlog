@@ -12,7 +12,11 @@ const allowedControls = Object.freeze([
     'backend preparation real-input identity and no-dispatch control'
 ]);
 const sourceCommit = '9690f0924509d665748afd5310c3b074ebcc03d6';
-const frameworkCommit = '2eda290cc6098971b685b3fb1465d7193bd3dde2';
+// Complete inspected source combinations, never a per-file arbitrary fallback.
+const supportedFrameworkCommits = Object.freeze([
+    '2eda290cc6098971b685b3fb1465d7193bd3dde2',
+    '39466f9a3a4714b5b58cd4c75a8baa69588e9c9e'
+]);
 const repositoryRoot = new URL('../../', import.meta.url);
 const bridgePath = 'tools/test/backend-atomic-bridge.mjs';
 
@@ -63,6 +67,11 @@ test(allowedControls[1], () =>
 
 test(allowedControls[2], () =>
 {
+    const executionPath = 'tools/test-matrix/atomic-producers/execution.mjs';
+    const executionSource = fs.readFileSync(new URL(executionPath, repositoryRoot), 'utf8');
+    const frameworkCommit = supportedFrameworkCommits.find((commit) =>
+        executionSource === publishedSource(commit, executionPath));
+    assert.ok(frameworkCommit, 'execution source must match an exact supported framework commit');
     for (const file of [
         'tools/test-matrix/atomic-producers/compiler.mjs',
         'tools/test-matrix/atomic-producers/contract.mjs',
