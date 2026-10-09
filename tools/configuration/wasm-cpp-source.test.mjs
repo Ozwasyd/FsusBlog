@@ -37,7 +37,8 @@ function fixture(action)
     };
     try
     {
-        const files = execFileSync('git', ['ls-files', 'src/frontend/wasm', 'config/development/native-tooling-style-policy.json'],
+        const files = execFileSync('git', ['ls-files', 'src/frontend/wasm', 'config/development/native-tooling-style-policy.json',
+            'CMakeLists.txt', 'cmake/FsusWarnings.cmake', 'tests/native'],
             { cwd: repository, encoding: 'utf8' }).trim().split('\n');
         for (const file of files)
         {
@@ -80,6 +81,37 @@ test('original Wasm CMake basic and SIMD contexts bind real TU header sysroot an
         }
         const entry = JSON.parse(fs.readFileSync(database('build-basic')))[0];
         assert.throws(() => cppCompileContext(root, entry), /unsupported C\+\+ compiler/u);
+    });
+});
+
+test('already covered original host inputs do not require an unrelated installed Wasm context', () =>
+{
+    fixture(({ root, configure }) =>
+    {
+        configure('build-basic');
+        execFileSync('cmake', ['-S', root, '-B', path.join(root, '.tmp/cmake/native-basic'),
+            '-G', 'Ninja', '-DCMAKE_CXX_COMPILER=/usr/bin/g++', '-DCMAKE_BUILD_TYPE=Debug'], { stdio: 'pipe' });
+        const python = process.env.EMSDK_PYTHON;
+        try
+        {
+            process.env.EMSDK_PYTHON = '/unavailable/python3';
+            const report = inspectCppSource({ repositoryRoot: root,
+                files: ['src/frontend/wasm/aeds/src/aeds_crc32.cpp', 'src/frontend/wasm/aeds/include/aeds_crc32.hpp'] });
+            assert.equal(report.qualificationEligible, false);
+            assert.ok(report.contexts.length > 0);
+            assert.ok(report.contexts.every(context => context.wasmContext === undefined));
+        }
+        finally
+        {
+            if (python === undefined)
+            {
+                delete process.env.EMSDK_PYTHON;
+            }
+            else
+            {
+                process.env.EMSDK_PYTHON = python;
+            }
+        }
     });
 });
 

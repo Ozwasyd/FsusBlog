@@ -180,8 +180,19 @@ export function inspectCppSource({ repositoryRoot, files })
     const policy = JSON.parse(fs.readFileSync(path.join(root, policyFile), 'utf8'));
     const contexts = [];
     const covered = new Set();
+    let requireWasm;
     for (const candidate of policy.standardTools.cppLint.compileDatabaseCandidates)
     {
+        const wasmCandidate = ['src/frontend/wasm/build-basic', 'src/frontend/wasm/build-simd'].includes(candidate);
+        if (wasmCandidate)
+        {
+            requireWasm ??= files.some(file => file.startsWith('src/frontend/wasm/'))
+                && !files.every(file => covered.has(file));
+            if (!requireWasm)
+            {
+                continue;
+            }
+        }
         const directory = path.resolve(root, candidate);
         relative(root, directory);
         const database = path.join(directory, 'compile_commands.json');
@@ -193,7 +204,7 @@ export function inspectCppSource({ repositoryRoot, files })
         const cacheFile = path.join(directory, 'CMakeCache.txt');
         const cacheBytes = fs.readFileSync(cacheFile);
         const cache = cacheBytes.toString('utf8');
-        const wasm = ['src/frontend/wasm/build-basic', 'src/frontend/wasm/build-simd'].includes(candidate)
+        const wasm = wasmCandidate
             ? inspectWasmBuildContext(root, directory, cache, bind) : null;
         if (!wasm && (!cache.includes(`CMAKE_HOME_DIRECTORY:INTERNAL=${root}\n`)
             || !cache.includes('CMAKE_PROJECT_NAME:STATIC=FsusBlogNativeTooling\n')))
