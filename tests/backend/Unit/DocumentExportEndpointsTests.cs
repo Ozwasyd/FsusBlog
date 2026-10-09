@@ -328,12 +328,15 @@ public sealed class DocumentExportEndpointsTests
     {
         using var fixture = new DurableFixture();
         fixture.Authorization.Allowed = false;
-        HttpContext resultContext = AuthenticatedContext();
+        HttpContext resultContext = AuthenticatedContext(fixture.Binding, fixture.Task);
         IResult result = await BinaryEndpoints.HandleDocumentExportRequestAsync(resultContext,
             fixture.Service(), fixture.Binding, new AedsEncoder(), default);
         await AssertDeniedAsync(resultContext, result);
         Assert.False(Directory.Exists(fixture.JobRoot));
         Assert.Null(fixture.LastSnapshot);
+        Assert.Equal(1, fixture.Authorization.Calls);
+        await fixture.Binding.Received(1).FreezeDecodedRequestAsync(resultContext, Actor(),
+            Arg.Any<DocumentExportRequestCoreModel>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -435,11 +438,16 @@ public sealed class DocumentExportEndpointsTests
     private sealed class DurableAuthorization : IDocumentExportJobAuthorization
     {
         public bool Allowed { get; set; } = true;
+        public int Calls
+        {
+            get; private set;
+        }
 
         public ValueTask<bool> IsAllowedAsync(DocumentExportJobActor actor, DocumentExportArticleCoordinate coordinate,
             DocumentExportJobOperation operation, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Calls++;
             return ValueTask.FromResult(Allowed && actor == Actor());
         }
     }
