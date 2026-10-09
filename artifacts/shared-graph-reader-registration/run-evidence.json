@@ -97,7 +97,7 @@
     "runtimePostgresHTTPUX": "UNRUN; no acceptance claim",
     "defaultBuild": "NOT RUN on root; strict gate failure is not ordinary compilation failure"
   },
-  "conflict": "020 shared membership drops property integration class; older native inputs would undo supplied3filefix. Retained fixes, paused conflicting files, sole3657 to supply exact composition closure.",
+  "conflict": "Previous020wholeclosure sharedfiles paused; actual04ce minimal4path closure nowexactlyconsumed. No remainingmembership supply gap. OriginalreaderfreshnessP1 remainswaitingonsoleowner.",
   "writingAid": "current persistence1f03355 and sole endpoint8208d5d fetched/inspected. Existing wiref1cef retained on frozen original. Separate minimal shared protocol/DI/registry/route integration requested; no handler/store duplication; device authority unavailable.",
   "issues": {
     "3735": "source WIP; runtime/HTTP/session/storage acceptance open",
@@ -128,5 +128,15 @@
       "testedCommit": "bdf724ba4f1f25e9f2f433266577b2221b2d1af2",
       "exitCode": 0
     }
+  },
+  "currentSourceCommit": "dc9e92882ae452f6b9873c58229f070d96f1da08",
+  "membershipClosureConsumed": {
+    "sourceCommit": "dc9e92882ae452f6b9873c58229f070d96f1da08",
+    "supplied": "04ce4b8c60bcfacac02c574690a953a336c69ef3",
+    "currentCheckerExit": 0,
+    "classCount": 127,
+    "sourceEstimatedCases": 1073,
+    "originalNodePass": 11,
+    "skip": 0
   }
 }

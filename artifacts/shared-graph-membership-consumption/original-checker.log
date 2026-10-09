@@ -1,0 +1,1 @@
+[postgres-test-collections] ok collections=2 classes=127 estimatedCases=1073 collectionCases=SchemaMigrationPostgresCollectionA:525,SchemaMigrationPostgresCollectionB:548

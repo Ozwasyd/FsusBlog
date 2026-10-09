@@ -1,0 +1,25 @@
+{
+  "testedCommit": "dc9e92882ae452f6b9873c58229f070d96f1da08",
+  "originalSuite": "tests/tools/check-postgres-test-collections.test.mjs",
+  "positiveNames": [
+    "accepts the checked-in PostgreSQL collection manifest",
+    "rejects omission of the current content-asset and runtime-rollup PostgreSQL classes",
+    "rejects omission of the existing lifecycle class even after its case total is repaired",
+    "rejects a fixture-backed test class that is absent from the manifest",
+    "validates collection membership per class when one file declares multiple fixture tests",
+    "rejects a per-class annotation that disagrees with its manifest collection",
+    "rejects estimatedFacts drift using Fact and InlineData execution semantics",
+    "rejects deletion of a required Theory case even when the aggregate count is repaired",
+    "rejects drift in a required Theory case label without relying on case count",
+    "rejects deletion of a required root ID Theory case",
+    "rejects drift in a required root ID Theory input"
+  ],
+  "expectedPositiveCount": 11,
+  "negativeControlCount": 10,
+  "hooks": [],
+  "sourceSha256": "084b6e344f88987fe7ff49a9f51d828eec8a16fa19e51b8f132dd7ecfa4c93b4",
+  "resourceReview": "Entire originaltest/checker and2helpermodules inspected: stdlib source scans/localfilecopy; no nativeDB/browser/network orheld audit execution. Originalnodecases create source-only mkdtempfixtures and spawn the unchanged checker. No CSharp source bodies execute. Originaltests do not self-deletefixtures, so originalsuite runs inside taskexclusive/tmp root and orchestrator removes only thatownedroot afterward.",
+  "taskExclusiveTmpRoot": "/tmp/shared-graph-membership-dc9-mln4u719",
+  "bodyExecutionDuringSelection": 0,
+  "selectionPassed": true
+}

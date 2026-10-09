@@ -1,0 +1,39 @@
+{
+  "currentParent": "49fa812abb51d560e7e0ea3eed290ae048979dde",
+  "suppliedCommit": "04ce4b8c60bcfacac02c574690a953a336c69ef3",
+  "suppliedParent": "bdf724ba4f1f25e9f2f433266577b2221b2d1af2",
+  "paths": [
+    {
+      "path": "artifacts/change-contract/postgres-collection-manifest-naming-exceptions.json",
+      "actualPreimage": "2bcb933aff80f97bb5788da5e4be5774f4d4a670",
+      "suppliedPreimage": "2bcb933aff80f97bb5788da5e4be5774f4d4a670",
+      "postimage": "d24d9128b20fc74178647d7efe285b4110277629",
+      "exactMatch": true
+    },
+    {
+      "path": "docs/testing.md",
+      "actualPreimage": "d9acfba4cc28f1f8a09d80b96d22705d04ce1019",
+      "suppliedPreimage": "d9acfba4cc28f1f8a09d80b96d22705d04ce1019",
+      "postimage": "de61a850f54f4e13beb7f91e6fe3961b7401ef99",
+      "exactMatch": true
+    },
+    {
+      "path": "tests/backend/Fixtures/postgres-test-collections.json",
+      "actualPreimage": "dc3d15801f165c199cfa89ba38c89dddbb0d5356",
+      "suppliedPreimage": "dc3d15801f165c199cfa89ba38c89dddbb0d5356",
+      "postimage": "aa2b9e3e6e3504f200c337681b902e5d0832b431",
+      "exactMatch": true
+    },
+    {
+      "path": "tests/tools/check-postgres-test-collections.test.mjs",
+      "actualPreimage": "3db42cee0e0888d881ffc0bd728c72fd5b64e449",
+      "suppliedPreimage": "3db42cee0e0888d881ffc0bd728c72fd5b64e449",
+      "postimage": "26103e917b1835920ed7c80bac9de3698dc207d1",
+      "exactMatch": true
+    }
+  ],
+  "noConflict": true,
+  "readerCoordinateGenerationNativeInputs": "unchanged; only exact4suppliedpaths consumed",
+  "fixtureClassAndCaseTotals": "127classes/1073sourceestimatedcases, not executedDBcount",
+  "qualification": false
+}

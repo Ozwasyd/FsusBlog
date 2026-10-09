@@ -1,0 +1,76 @@
+TAP version 13
+# Subtest: accepts the checked-in PostgreSQL collection manifest
+ok 1 - accepts the checked-in PostgreSQL collection manifest
+  ---
+  duration_ms: 418.161335
+  type: 'test'
+  ...
+# Subtest: rejects omission of the current content-asset and runtime-rollup PostgreSQL classes
+ok 2 - rejects omission of the current content-asset and runtime-rollup PostgreSQL classes
+  ---
+  duration_ms: 850.504751
+  type: 'test'
+  ...
+# Subtest: rejects omission of the existing lifecycle class even after its case total is repaired
+ok 3 - rejects omission of the existing lifecycle class even after its case total is repaired
+  ---
+  duration_ms: 401.324046
+  type: 'test'
+  ...
+# Subtest: rejects a fixture-backed test class that is absent from the manifest
+ok 4 - rejects a fixture-backed test class that is absent from the manifest
+  ---
+  duration_ms: 469.855553
+  type: 'test'
+  ...
+# Subtest: validates collection membership per class when one file declares multiple fixture tests
+ok 5 - validates collection membership per class when one file declares multiple fixture tests
+  ---
+  duration_ms: 409.209111
+  type: 'test'
+  ...
+# Subtest: rejects a per-class annotation that disagrees with its manifest collection
+ok 6 - rejects a per-class annotation that disagrees with its manifest collection
+  ---
+  duration_ms: 447.222004
+  type: 'test'
+  ...
+# Subtest: rejects estimatedFacts drift using Fact and InlineData execution semantics
+ok 7 - rejects estimatedFacts drift using Fact and InlineData execution semantics
+  ---
+  duration_ms: 436.437341
+  type: 'test'
+  ...
+# Subtest: rejects deletion of a required Theory case even when the aggregate count is repaired
+ok 8 - rejects deletion of a required Theory case even when the aggregate count is repaired
+  ---
+  duration_ms: 416.824001
+  type: 'test'
+  ...
+# Subtest: rejects drift in a required Theory case label without relying on case count
+ok 9 - rejects drift in a required Theory case label without relying on case count
+  ---
+  duration_ms: 401.152803
+  type: 'test'
+  ...
+# Subtest: rejects deletion of a required root ID Theory case
+ok 10 - rejects deletion of a required root ID Theory case
+  ---
+  duration_ms: 410.576803
+  type: 'test'
+  ...
+# Subtest: rejects drift in a required root ID Theory input
+ok 11 - rejects drift in a required root ID Theory input
+  ---
+  duration_ms: 410.209287
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5159.003744

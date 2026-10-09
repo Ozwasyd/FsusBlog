@@ -1,0 +1,20 @@
+{
+  "taskExclusiveTmpRoot": "/tmp/shared-graph-membership-dc9-mln4u719",
+  "createdSourceOnlyFixturePaths": [
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-474Vjw",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-Q9LR2I",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-WJwNfr",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-ZKW5S6",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-c68m1l",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-i0k0Tu",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-jLxoaZ",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-jSi95u",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-n1hX1L",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-sin1wB",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-w8nVHT",
+    "/tmp/shared-graph-membership-dc9-mln4u719/fsusblog-postgres-collections-yzeNUq"
+  ],
+  "removedOnlyTaskOwnedRoot": true,
+  "rootExistsAfterCleanup": false,
+  "databaseOrServiceCleanupClaim": false
+}

@@ -1,0 +1,28 @@
+{
+  "commands": [
+    {
+      "testedCommit": "dc9e92882ae452f6b9873c58229f070d96f1da08",
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test/generate-backend-evidence-path-authority.mjs",
+        "--write"
+      ],
+      "exitCode": 0,
+      "bodyExecution": 0
+    },
+    {
+      "testedCommit": "dc9e92882ae452f6b9873c58229f070d96f1da08",
+      "command": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test/generate-backend-evidence-path-authority.mjs",
+        "--check"
+      ],
+      "exitCode": 0,
+      "bodyExecution": 0
+    }
+  ],
+  "generatedOutputByteUnchanged": true,
+  "generatedOutputSha256": "33f8b05eaaddda53c9a6806a6b2a6ec4eabf8b1cf10ad1c2fe6630ca902ba246",
+  "qualificationReceiptGenerated": false,
+  "unchangedOriginalProducer": true
+}

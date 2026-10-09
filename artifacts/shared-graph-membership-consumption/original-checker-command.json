@@ -1,0 +1,10 @@
+{
+  "testedCommit": "dc9e92882ae452f6b9873c58229f070d96f1da08",
+  "command": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/check-postgres-test-collections.mjs"
+  ],
+  "exitCode": 0,
+  "reported": "127classes/1073estimatedcases A525/B548",
+  "executedPostgres": 0
+}

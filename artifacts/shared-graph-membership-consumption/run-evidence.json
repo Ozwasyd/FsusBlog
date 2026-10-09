@@ -1,0 +1,51 @@
+{
+  "sourceCommit": "dc9e92882ae452f6b9873c58229f070d96f1da08",
+  "branch": "codex/shared-graph-reader-registration-20261009",
+  "actualParent": "49fa812abb51d560e7e0ea3eed290ae048979dde",
+  "exactSuppliedCommit": "04ce4b8c60bcfacac02c574690a953a336c69ef3",
+  "sourceIncrementPaths": [
+    "artifacts/change-contract/postgres-collection-manifest-naming-exceptions.json",
+    "docs/testing.md",
+    "tests/backend/Fixtures/postgres-test-collections.json",
+    "tests/tools/check-postgres-test-collections.test.mjs"
+  ],
+  "sourcePreimages": "all4byteexact suppliedParentbdf724; original3conflict class additions consumed without replacing oldproperty/B/native inputs",
+  "staticChecker": {
+    "exitCode": 0,
+    "classes": 127,
+    "sourceEstimatedCases": 1073,
+    "collectionA": 525,
+    "collectionB": 548,
+    "notExecutedPostgresCount": true
+  },
+  "originalNodeControls": {
+    "exitCode": 0,
+    "positive": 11,
+    "pass": 11,
+    "fail": 0,
+    "skip": 0,
+    "negativeControlsIncluded": 10,
+    "actualRosterFile": "selection-preflight.json",
+    "taskTmpFixtureCount": 12,
+    "actualCleanup": "task-fixture-cleanup.json"
+  },
+  "pathAuthorityOriginalProducer": {
+    "writeExit": 0,
+    "checkExit": 0,
+    "generatedBytesUnchanged": true,
+    "newReceipt": false
+  },
+  "unchangedCSharpNativeProjectLocksReaderCoordinateGeneration": true,
+  "noBroaderBuildOrSuiteRerun": "only manifest/documentation/originalNodegolden/naming paths changed; existingstrictbuild1508 at999 remainsfailed, not relabeled atnewsource",
+  "rootBackendControls": {
+    "expected": 14,
+    "bodiesExecuted": 0,
+    "executableDiscovery": "UNRUN afterfailedstrictgate",
+    "newRootPostgresHTTPUXReceipt": false
+  },
+  "membershipSupplyGap": "DONE atdc9; do notkeepreportingmissing3657closure",
+  "logicBoundary": "originalreader freshness P1 underactiveowner repair; no reader/coordinate scope modified; module020 original106PASS andhost403 original17PASS remainupstreamevidence only",
+  "latestFetchedMaster": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "qualification": false,
+  "heldDeniedOrWorkspaceAuditRetried": false
+}
