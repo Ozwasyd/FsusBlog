@@ -136,9 +136,23 @@ choices response does not carry provider availability, supported layout/theme
 profiles, per-choice privacy policy or locale. A browser host must obtain those
 facts from their actual authorities and prepare the original request against the
 exact returned choice. The existing active locale runtime is a locale authority;
-the choices response is not. Article navigation, host mounting and route/bootstrap
-activation remain separate integration work, not evidence supplied by a choices
-factory or the two POST registrations.
+the choices response is not. The article-list host now requires explicit article
+and persisted revision selections, uses the original active locale, and prepares
+the original immutable request/idempotency identity against that exact choice.
+It retains the original private-generation lifecycle, clears on close/unmount,
+and never automatically repeats an uncertain acquisition.
+
+`ReadCatalogMetadataAsync` authenticates the original admin owner/session/site
+context and article-write permission before projecting the canonical registry
+identity, support, budgets, delivery policy and original reading-style profiles.
+This is an internal metadata read, not a new public frame or catalog HTTP route.
+It declares runtime availability unknown and unavailable because no readiness
+reader exists. Output delivery policy does not classify source confidentiality.
+The host constructs its existing browser port only after actual runtime/catalog
+and per-choice privacy facts are provided. No such reader is registered here,
+so export submission stays unavailable. Canonical catalog transport, runtime
+qualification, source-policy projection and full route/bootstrap activation
+remain separate gates; metadata and host source alone do not satisfy them.
 
 The original binding exposes `FreezeDecodedRequestAsync(context, actor, request, ct)`
 for an endpoint-level consumer that already read the existing request POD. It never

@@ -95,7 +95,10 @@ public sealed class DocumentExportCatalogMetadataTests
         internal HttpContext Context { get; } = new DefaultHttpContext();
         internal IDocumentExportRequestFreezer Freezer { get; } = Substitute.For<IDocumentExportRequestFreezer>();
         internal IBinaryEndpointRequestContext Requests { get; } = Substitute.For<IBinaryEndpointRequestContext>();
-        internal DocumentExportEndpointBinding Binding { get; }
+        internal DocumentExportEndpointBinding Binding
+        {
+            get;
+        }
 
         internal Fixture(string? mutation = null)
         {
