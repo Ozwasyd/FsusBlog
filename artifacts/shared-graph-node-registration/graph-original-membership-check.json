@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "08da3894d4b1332933f5fff23c780f3c3821bc0a",
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/check-postgres-test-collections.mjs"
+  ],
+  "cwd": "/workspace/FsusBlog-graph-registration",
+  "startedAtUtc": "2026-10-09T13:20:23.160875+00:00",
+  "endedAtUtc": "2026-10-09T13:20:24.635136+00:00",
+  "exitCode": 0,
+  "seconds": 1.474,
+  "stdoutArtifact": "graph-original-membership-check.log",
+  "runtimeQualification": false
+}

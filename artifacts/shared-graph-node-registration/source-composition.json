@@ -1,0 +1,172 @@
+{
+  "sourceCommit": "08da3894d4b1332933f5fff23c780f3c3821bc0a",
+  "baseEvidenceHead": "c3a8cfaa34fcc1e58e778b647a4d70e19e7e9879",
+  "supplierSources": [
+    "7b5ff66180f21ecc90006b0f46a5d64938308d92",
+    "71930e7436aadc31ee156eccea269e38ea3ecb65"
+  ],
+  "sourceDeltaCount": 7,
+  "sourceDelta": [
+    "artifacts/change-contract/article-graph-node-candidate-resolver-external-naming.json",
+    "artifacts/change-contract/article-graph-node-projection-consumer-external-naming.json",
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "src/backend/Services/Authoring/ArticleGraphNodeCandidateResolver.cs",
+    "src/backend/Services/Authoring/ArticleGraphNodeProjectionConsumer.cs",
+    "tests/backend/Unit/ArticleGraphNodeCandidateResolverTests.cs",
+    "tests/backend/Unit/ArticleGraphNodeProjectionConsumerTests.cs"
+  ],
+  "supplierBindings": [
+    {
+      "path": "artifacts/change-contract/article-graph-node-projection-consumer-external-naming.json",
+      "supplier": "7b5ff66180f21ecc90006b0f46a5d64938308d92",
+      "supplierBlob": "3eb40bd62d3df284a3592457ebddd40c5df6881f",
+      "rootBlob": "3eb40bd62d3df284a3592457ebddd40c5df6881f",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticleGraphNodeProjectionConsumer.cs",
+      "supplier": "7b5ff66180f21ecc90006b0f46a5d64938308d92",
+      "supplierBlob": "6ee195995bd97d57a23231fe6c15d80fb065a128",
+      "rootBlob": "6ee195995bd97d57a23231fe6c15d80fb065a128",
+      "byteExact": true
+    },
+    {
+      "path": "tests/backend/Unit/ArticleGraphNodeProjectionConsumerTests.cs",
+      "supplier": "7b5ff66180f21ecc90006b0f46a5d64938308d92",
+      "supplierBlob": "88a363879e84578c32e44817f1a8f234b3ca1361",
+      "rootBlob": "88a363879e84578c32e44817f1a8f234b3ca1361",
+      "byteExact": true
+    },
+    {
+      "path": "artifacts/change-contract/article-graph-node-candidate-resolver-external-naming.json",
+      "supplier": "71930e7436aadc31ee156eccea269e38ea3ecb65",
+      "supplierBlob": "bc728680abbb0e3066053c1d7662ae418fa839d9",
+      "rootBlob": "bc728680abbb0e3066053c1d7662ae418fa839d9",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticleGraphNodeCandidateResolver.cs",
+      "supplier": "71930e7436aadc31ee156eccea269e38ea3ecb65",
+      "supplierBlob": "fb930043037195b859c3e0f005f69901e6342a62",
+      "rootBlob": "fb930043037195b859c3e0f005f69901e6342a62",
+      "byteExact": true
+    },
+    {
+      "path": "tests/backend/Unit/ArticleGraphNodeCandidateResolverTests.cs",
+      "supplier": "71930e7436aadc31ee156eccea269e38ea3ecb65",
+      "supplierBlob": "ea62e4c60cf0efb7dae37f85ffb9704481c0c47b",
+      "rootBlob": "ea62e4c60cf0efb7dae37f85ffb9704481c0c47b",
+      "byteExact": true
+    }
+  ],
+  "dependencyBindings": [
+    {
+      "path": "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs",
+      "blob": "f9e36726ff7c2a934cf520a7cbfa1f74f3dd8099",
+      "supplierByteExact": true
+    },
+    {
+      "path": "src/backend/Entities/ArticleRelationSourceCoordinate.cs",
+      "blob": "f31fa4261621ceff25e590ea6a9af8fb0858a220",
+      "supplierByteExact": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthorArticlePinContracts.cs",
+      "blob": "51fd2eb6e632f262767370ec7f320e1c4b858ed2",
+      "supplierByteExact": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthorArticlePinProjectionContracts.cs",
+      "blob": "b385a998a51e0d872959756a4f8bafe77f5487eb",
+      "supplierByteExact": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/SqlAuthorArticlePinPermissionAuthority.cs",
+      "blob": "f08576f0b7c0e3f5651ee4ded2917281dafa9f17",
+      "supplierByteExact": true
+    },
+    {
+      "path": "src/backend/Services/Authoring/SqlAuthorArticlePinArticleProjectionSource.cs",
+      "blob": "3af6efc1bf3885d2d858e849c95dfc28f0d0b5f3",
+      "supplierByteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticleEmbeds/ArticleEmbedTargetCodec.cs",
+      "blob": "c37fcaffa5e5d0e3b7bcd6ee3308078884543612",
+      "supplierByteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticleGraph/ArticleGraphContracts.cs",
+      "blob": "89526dcd46e68a5709000b791fe6f88661b9dc05",
+      "supplierByteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticleGraph/ArticleGraphContract.cs",
+      "blob": "a72ee87da6bab57ad26113d7bfab8545b49d98ca",
+      "supplierByteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs",
+      "blob": "e0c95cecbbbd061cfa98c770013cb668d32f4d88",
+      "supplierByteExact": true
+    },
+    {
+      "path": "src/backend/Entities/Article.cs",
+      "blob": "46ff5bf70ab67351ff0eb7fc0f5b63a692693309",
+      "supplierByteExact": true
+    }
+  ],
+  "centralScopedKeys": [
+    "ArticleGraphCurrentArticleHost",
+    "ArticleGraphNodeCandidateResolver",
+    "ArticleGraphNodeProjectionConsumer"
+  ],
+  "existingDependenciesReused": [
+    "ISqlSugarClient",
+    "ArticleRelationSourceCoordinateAuthority",
+    "IAuthorArticlePinPermissionProjectionProvider",
+    "IAuthorArticlePinArticleProjectionSource"
+  ],
+  "productionBuild": {
+    "exitCode": 0,
+    "warnings": 323,
+    "errors": 0,
+    "changedFileDiagnostics": []
+  },
+  "originalPostgresMembership": {
+    "exitCode": 0,
+    "classes": 127,
+    "estimatedCases": 1075,
+    "A": 527,
+    "B": 548,
+    "newNodeUnitClassesArePostgresFixtureClasses": false,
+    "additionalMembershipDeltaRequired": false
+  },
+  "supplierReportedControls": [
+    {
+      "source": "7b5ff66180f21ecc90006b0f46a5d64938308d92",
+      "cases": 44
+    },
+    {
+      "source": "71930e7436aadc31ee156eccea269e38ea3ecb65",
+      "cases": 15
+    }
+  ],
+  "rootManagedDiscoveryAndBodies": "NOT RUN; prior strict SDK failure bound to older47a source is not rebound and no alternate execution is allowed",
+  "compositionBlocker": "Canonical native adjacency exact commit/path/API, retained lease verification and authoritative usage/truncation/runtime coordinates missing from provided trees and bounded actual local FsusUI search",
+  "budgetDerivation": {
+    "resolver": "c+2",
+    "nodeReadAndSameReadVerifyWhenAuthorized": "4a+10",
+    "minimumTotal": "c+4a+12",
+    "allAuthorized1000": 5012,
+    "maxOperations": 4096,
+    "upperBoundIgnoringRootAndAdjacency": 816,
+    "qualification": "source arithmetic only; not a runtime measurement"
+  },
+  "filters": "category/tag and Published scope remain refused",
+  "epoch": "SourceEpoch is never assigned to DocumentEpoch",
+  "completeGraphProjectionAccepted": false,
+  "siteIdentityAuthorityActivated": false,
+  "contentApiWrites": 0,
+  "createdAtUtc": "2026-10-09T13:22:02.018456+00:00"
+}
