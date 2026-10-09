@@ -1,0 +1,15 @@
+[GNUPG:] PLAINTEXT 74 0 
+[GNUPG:] NEWSIG
+gpg: Signature made Thu May 21 13:19:35 2026 UTC
+gpg:                using EDDSA key 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356
+[GNUPG:] KEY_CONSIDERED 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356 0
+[GNUPG:] SIG_ID FubAYsV0+T6IncuCm5IF905o2Vc 2026-05-21 1779369575
+gpg: /workspace/task-tools/mem-gpu-node24.16/keyring/trustdb.gpg: trustdb created
+[GNUPG:] GOODSIG 20B1A390B168D356 Antoine du Hamel <antoine.duhamel@platformatic.dev>
+gpg: Good signature from "Antoine du Hamel <antoine.duhamel@platformatic.dev>" [unknown]
+gpg:                 aka "Antoine du Hamel <duhamelantoine1995@gmail.com>" [unknown]
+[GNUPG:] VALIDSIG 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356 2026-05-21 1779369575 0 4 0 22 8 01 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356
+[GNUPG:] TRUST_UNDEFINED 0 pgp
+gpg: WARNING: This key is not certified with a trusted signature!
+gpg:          There is no indication that the signature belongs to the owner.
+Primary key fingerprint: 5BE8 A3F6 C8A5 C01D 106C  0AD8 20B1 A390 B168 D356

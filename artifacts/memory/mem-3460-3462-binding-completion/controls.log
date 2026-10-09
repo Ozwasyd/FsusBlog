@@ -1,0 +1,24 @@
+✔ C# style governance accepts Roslyn expression braces and multiline verbatim content (3039.389687ms)
+✔ C# style governance aggregates tabs braces indentation using naming and line-ending failures (1549.918581ms)
+✔ parameter attributes keep framework enum arguments separate from multiline parameter names (40.402783ms)
+✔ parameter attributes still reject an uppercase first multiline parameter (37.963704ms)
+✔ parameter attributes still reject an uppercase continuation parameter (38.002994ms)
+✔ parameter attributes still reject an uppercase named attribute argument (36.19513ms)
+✔ parameter attributes still reject an uppercase multiple attributes (38.349364ms)
+✔ parameter attributes still reject an uppercase ordinary parameter (38.277116ms)
+✔ C# source lexer preserves the three character-class regex match contracts (2.646411ms)
+✔ C# source lexer retains real array and generic naming and declaration refusals (83.966562ms)
+✔ contextual record expressions do not exempt lowercase types named with (820.406998ms)
+✔ singular Miss enums and plural flags retain both naming refusal controls (249.534388ms)
+✔ array-valued attributes retain genuine contextual record expressions (1438.638081ms)
+✔ singular Access retains the eight ordinary and flags controls (344.013709ms)
+✔ delegate declarations check the actual name across native and C# return-type syntax (943.176891ms)
+✔ delegate declarations retain naming refusals for each return-type syntax (1125.19742ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9893.554189

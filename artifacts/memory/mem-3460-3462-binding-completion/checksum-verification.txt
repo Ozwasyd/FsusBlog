@@ -1,0 +1,5 @@
+Official signed SHA256 entry: d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9  node-v24.16.0-linux-x64.tar.xz
+Actual SHA256: d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9
+Signing fingerprint: 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356
+Official documented primary fingerprint: 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356
+Match: true
