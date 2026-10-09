@@ -50,7 +50,7 @@ internal sealed record ArticleGraphPersistedMetadataResult(
 /// without a per-article coordinate loop or parallel coordinate store. The caller retains
 /// transaction, connection and commit ownership. Awaiting command/reader disposal establishes
 /// completion before return; cancellation response and cleanup can still exceed the allocation.
-/// The existing SQL permission adapter does not pass cancellation to GetDataReaderAsync.
+/// The permission supplier links request and prior ADO cancellation and awaits reader completion.
 /// The allocation limits fact acceptance and requests cancellation; mandatory command/reader
 /// completion is awaited before relinquishing the borrowed client, even after that deadline.
 /// Cleanup is not promised to finish within the allocation. Production admission remains
