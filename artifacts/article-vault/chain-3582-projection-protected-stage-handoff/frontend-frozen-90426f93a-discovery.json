@@ -1,0 +1,310 @@
+[
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > composes disjoint canonical node changes with exact BOM emoji spaces \"\\n\" bytes",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > composes disjoint canonical node changes with exact BOM emoji spaces \"\\r\\n\" bytes",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > independently verifies no-op bytes without a final newline and repeated computation",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > retains a length-changing canonical identity ambiguity as manual despite the pure paragraph candidate",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > retains exact same-node refs for byte-disjoint changes without an automatic candidate",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > keeps structural deletion movement and normalization diagnostics in composition: \"# Heading\\n\\nBody.\\n\" to \"## Heading\\n\\nBody.\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > keeps structural deletion movement and normalization diagnostics in composition: \"- One\\n- Two\\n\" to \"- One\\n  - Two\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > keeps structural deletion movement and normalization diagnostics in composition: \"| A | B |\\n|---|---|\\n| 1 | 2 |\\n\" to \"| A | B | C |\\n|---|---|---|\\n| 1 | 2 | 3 |\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > keeps structural deletion movement and normalization diagnostics in composition: \"```text\\nBody\\n```\\n\" to \"````text\\nBody\\n````\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > keeps structural deletion movement and normalization diagnostics in composition: \"First.\\n\\nSecond.\\n\" to \"Second.\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > keeps structural deletion movement and normalization diagnostics in composition: \"First.\\n\\nSecond.\\n\" to \"Second.\\n\\nFirst.\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > keeps structural deletion movement and normalization diagnostics in composition: \"﻿Alpha.  \\r\\n\\r\\nOther.\\r\\n\" to \"Alpha.\\n\\nOther.\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > retains the original paragraph refusal even when unchanged structural projection is available",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > refuses malformed source and missing base before the paragraph computation",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > invalidates the bound candidate after current identity plan parser coordinate or byte movement",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > preserves original upstream manual disposition without candidate bytes",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > preserves original upstream rejected disposition without candidate bytes",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > rejects a resealed original candidate with tampered bytes hunks and provenance inside the composed candidate",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > refuses stale projection digests ranges identity and hidden wrapper fields",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > refuses wrapper projection and paragraph getters without evaluating them",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault canonical projection and original paragraph composition > keeps sensitive source out of structural conflict diagnostics",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > applies real disjoint paragraph hunks and independently rereads all three projections",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > keeps byte-disjoint edits in the same real base semantic node manual",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > preserves BOM, emoji, trailing spaces, \"\\n\" and final newline exactly",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > preserves BOM, emoji, trailing spaces, \"\\r\\n\" and final newline exactly",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > preserves missing final newline and proves unchanged inputs as no-op",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects unsupported actual semantic boundaries without logging source: \"# Heading\\n\\nParagraph.\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects unsupported actual semantic boundaries without logging source: \"- Item\\n- Other\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects unsupported actual semantic boundaries without logging source: \"| A | B |\\n|---|---|\\n| 1 | 2 |\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects unsupported actual semantic boundaries without logging source: \"```text\\nContent\\n```\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects unsupported actual semantic boundaries without logging source: \"```unclosed\\nContent\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects unsupported actual semantic boundaries without logging source: \"---\\ntitle: secret\\n---\\n\\nParagraph.\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects unsupported actual semantic boundaries without logging source: \"<div>secret</div>\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects unsupported actual semantic boundaries without logging source: \"[Link](https://example.test)\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > reports actual parser-owned syntax refs and byte ranges without source text: \"# Secret heading 😀\\r\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > reports actual parser-owned syntax refs and byte ranges without source text: \"```unclosed\\r\\nsecret 😀\\r\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > reports actual parser-owned syntax refs and byte ranges without source text: \"---\\r\\ntitle: secret\\r\\n---\\r\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > reports actual parser-owned syntax refs and byte ranges without source text: \"<div>secret 😀</div>\\r\\n\"",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > preserves real UTF8 base-node refs in a same-node conflict with BOM and CRLF",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects unknown, hidden, symbol and inherited candidate fields even when the old digest matches",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects every accessor-bearing candidate field without invoking any getter",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects hunk, hunk-array and byte-buffer accessors without executing them",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects missing base, invalid UTF8, deleted paragraph and paragraph move ambiguity",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects format-before-diff, new paragraph boundaries and BOM changes",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault paragraph source computation with actual canonical parser > rejects stale actual bytes, parser/policy drift and resealed byte/hunk/provenance tamper",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > projects unchanged actual canonical nodes without granting admission",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > leaves the original disjoint paragraph computation intact",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > projects only canonical retained identities for disjoint paragraph changes",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports same semantic node for disjoint byte ranges",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports intersecting byte changes",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports heading boundary changes with canonical ranges",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports list boundary changes with canonical ranges",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports table boundary changes with canonical ranges",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports fence boundary changes with canonical ranges",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports unsupported frontmatter coverage without a second parser",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports inline link semantic boundaries",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports anchor and embed semantic boundaries",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > keeps raw HTML and angle boundaries unsupported even without changes",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports deletion versus edit at the original node",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports exact syntax movement ambiguity without retargeting",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports repeated syntax ambiguity without guessing a match",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > keeps new canonical IDs ambiguous after length-changing edits",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > rejects malformed unclosed fences with actual parser diagnostics",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > rejects unknown parser state without exposing exception context",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > rejects parser version drift against the actual current runtime",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > preserves BOM CRLF emoji trailing spaces and final newline byte offsets",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > keeps an emoji replacement on whole UTF8 scalar boundaries",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > preserves LF missing final newline and mixed newline facts",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > reports normalization trim and newline changes instead of hiding them",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > rejects missing base rather than falling back to two-way comparison",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > rejects byte tamper and stale source reference facts",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > rejects portable identity operation and current coordinate drift",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > rejects coordinate schema digest and missing snapshot drift",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > preserves upstream manual and rejected source dispositions",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > binds algorithm policy parser version inputs ranges and diagnostics against tamper",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > rejects invalid UTF8 actual bytes and bounds projection workload",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  },
+  {
+    "name": "Article Vault three-way source projection > keeps full source and hidden diagnostic context out of ordinary logs",
+    "file": "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+  }
+]

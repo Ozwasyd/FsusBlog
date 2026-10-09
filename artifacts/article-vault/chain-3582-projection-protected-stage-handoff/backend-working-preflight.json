@@ -1,0 +1,112 @@
+{
+  "sourceFiles": {
+    "src/backend/Services/ArticleVault/ArticleVaultRecoveryStageComposition.cs": "ef801efed0acc4454d22f53513092c1c588d137289998b815b5c235a2211625c",
+    "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs": "9f4d4d44354d8048e0852355dccb79641a4637906efcb66948a934cb59e991a2",
+    "src/backend/Infrastructure/Bootstrap/ArticleVaultRecoveryServiceCollectionExtensions.cs": "83ae5fd50ac7292456ac4f9bd2cd63b6df118be64437b4122a249641ac41fe61",
+    "tests/backend/Unit/ArticleVaultRecoveryServiceRegistrationTests.cs": "c927ceec7a4d8457f40294e42a47f68c504fc5d155a2fd39926cd1d84ac6810a",
+    "tests/backend/Helpers/TestInfrastructure/RedisOperationFailureDiagnosticCollector.cs": "99e88185c55c2062fd35808220104b880fa2fef0d37db2eee72e9113efc76a0b"
+  },
+  "expectedCaseCount": 10,
+  "expectedMethods": {
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_SharesSoleWriterStorageAndExistingKeysWithoutIo": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_MissingOriginalOwnerLeavesRegistrationUnchanged": 3,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_RefusesDuplicateAndCompetingEncryptedStorage": 2,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.EncryptedRecoveryComposition_RequiresProtectionAndUsesTheSoleStorageInstance": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.EncryptedRecoveryComposition_BindsExistingKeysToActualProtectionWithoutCreatingOrReadingKeys": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.BackupProtectionComposition_RequiresExistingKeyOwnerAndSharesTheActualProvider": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProductionComposition_ResolvesTheExistingPostgresCheckpointStoreWithinEachScope": 1
+  },
+  "actualCaseCount": 10,
+  "actualMethods": {
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_SharesSoleWriterStorageAndExistingKeysWithoutIo": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_MissingOriginalOwnerLeavesRegistrationUnchanged": 3,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_RefusesDuplicateAndCompetingEncryptedStorage": 2,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.EncryptedRecoveryComposition_RequiresProtectionAndUsesTheSoleStorageInstance": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.EncryptedRecoveryComposition_BindsExistingKeysToActualProtectionWithoutCreatingOrReadingKeys": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.BackupProtectionComposition_RequiresExistingKeyOwnerAndSharesTheActualProvider": 1,
+    "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProductionComposition_ResolvesTheExistingPostgresCheckpointStoreWithinEachScope": 1
+  },
+  "selected": [
+    {
+      "id": "967aa502-a3c0-fe43-ecc7-ddb3ba5741c3",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_SharesSoleWriterStorageAndExistingKeysWithoutIo",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_SharesSoleWriterStorageAndExistingKeysWithoutIo",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "ba1f8ed6-3f7a-e055-16f8-765fee2c897b",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_MissingOriginalOwnerLeavesRegistrationUnchanged",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_MissingOriginalOwnerLeavesRegistrationUnchanged(missingOwner: 0)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "55342db2-8ef2-028f-60e6-0684b43c80ed",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_MissingOriginalOwnerLeavesRegistrationUnchanged",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_MissingOriginalOwnerLeavesRegistrationUnchanged(missingOwner: 1)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "b9bcd50b-f9aa-18fb-506d-e7b59d1577ec",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_MissingOriginalOwnerLeavesRegistrationUnchanged",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_MissingOriginalOwnerLeavesRegistrationUnchanged(missingOwner: 2)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "79fb29ae-04ae-29a7-6453-0740756f1005",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_RefusesDuplicateAndCompetingEncryptedStorage",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_RefusesDuplicateAndCompetingEncryptedStorage(encryptedFirst: False)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "ec75d0f2-79e2-51a4-bb45-ff4d907823b5",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_RefusesDuplicateAndCompetingEncryptedStorage",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_RefusesDuplicateAndCompetingEncryptedStorage(encryptedFirst: True)",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "0c4daeab-70dc-cf80-4b2e-a2f95582016d",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProductionComposition_ResolvesTheExistingPostgresCheckpointStoreWithinEachScope",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProductionComposition_ResolvesTheExistingPostgresCheckpointStoreWithinEachScope",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "e6235f8a-179e-a792-e5e2-ddda554f3c9c",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.EncryptedRecoveryComposition_RequiresProtectionAndUsesTheSoleStorageInstance",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.EncryptedRecoveryComposition_RequiresProtectionAndUsesTheSoleStorageInstance",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "b68e49cf-cfff-b6a7-1eff-8b40051ac5ec",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.BackupProtectionComposition_RequiresExistingKeyOwnerAndSharesTheActualProvider",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.BackupProtectionComposition_RequiresExistingKeyOwnerAndSharesTheActualProvider",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    },
+    {
+      "id": "eb8b0965-6e29-3638-6408-957be22b0d7a",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.EncryptedRecoveryComposition_BindsExistingKeysToActualProtectionWithoutCreatingOrReadingKeys",
+      "displayName": "FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.EncryptedRecoveryComposition_BindsExistingKeysToActualProtectionWithoutCreatingOrReadingKeys",
+      "source": "/workspace/FsusBlog/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll",
+      "traits": {}
+    }
+  ],
+  "filter": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_SharesSoleWriterStorageAndExistingKeysWithoutIo|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_MissingOriginalOwnerLeavesRegistrationUnchanged|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProtectedStageComposition_RefusesDuplicateAndCompetingEncryptedStorage|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.EncryptedRecoveryComposition_RequiresProtectionAndUsesTheSoleStorageInstance|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.EncryptedRecoveryComposition_BindsExistingKeysToActualProtectionWithoutCreatingOrReadingKeys|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.BackupProtectionComposition_RequiresExistingKeyOwnerAndSharesTheActualProvider|FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticleVaultRecoveryServiceRegistrationTests.ProductionComposition_ResolvesTheExistingPostgresCheckpointStoreWithinEachScope",
+  "discoveryHostLogSha256": "bf5e174c20e98d9493a759abf8206c352ac71ea63a48a42170301819eef38996",
+  "fixtureReview": {
+    "selectedClass": "ArticleVaultRecoveryServiceRegistrationTests; no class/collection/assembly fixture or lifecycle hooks",
+    "newSetup": "Actual canonical writer/storage constructors with original NSubstitute execution/proposal/key ports; task-owned NpgsqlDataSource.Create only, no OpenConnection/SQL/HTTP/native writes",
+    "newCleanup": "NpgsqlDataSource, ServiceProvider and both scopes all disposed with using",
+    "existingControls": "Same controlled registration class; scoped DI and real provider types; no connection opened or credentials used",
+    "assemblyHook": "Original RedisOperationFailureDiagnosticCollector.Initialize opt-in absent; returns without resource hooks"
+  },
+  "heldAudits": false,
+  "replacementHarness": false
+}

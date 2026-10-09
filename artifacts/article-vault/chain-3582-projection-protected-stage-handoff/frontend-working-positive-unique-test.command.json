@@ -1,0 +1,21 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+    "/workspace/FsusBlog/src/frontend/node_modules/vitest/vitest.mjs",
+    "run",
+    "/workspace/FsusBlog/tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+    "/workspace/FsusBlog/tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+    "--config",
+    "vitest.config.ts",
+    "--testNamePattern",
+    "^(Article Vault canonical projection and original paragraph composition|Article Vault paragraph source computation with actual canonical parser|Article Vault three-way source projection) ",
+    "--reporter=default",
+    "--reporter=json",
+    "--outputFile.json=/workspace/FsusBlog/.tmp/chain-3582-expanded/source-projection-composition/working-positive-unique/results.json"
+  ],
+  "cwd": "/workspace/FsusBlog/src/frontend",
+  "start": "2026-10-09T08:12:25.921Z",
+  "end": "2026-10-09T08:12:27.634Z",
+  "exitCode": 0,
+  "error": null
+}

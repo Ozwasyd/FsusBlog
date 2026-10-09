@@ -1,0 +1,133 @@
+## Linked Issue
+
+Refs #3582
+
+
+## Scope Summary
+
+Bind the original Article Vault execution tests to compiled production ownership and executable refusal behavior, retaining canonical writer routing and transaction boundaries. The coordinated source composition consumes each supplied canonical owner, with explicit host binding and original verifiers.
+
+Current source adds a canonical three-way projection/paragraph candidate composition and a sole-writer protected recovery stage DI path. Manual/rejected projection diagnostics prevent automatic bytes; the candidate seal and independent verifiers bind both identities. Recovery storage uses the supplied writer's clock/data source and existing key owner. All source-only/native/complete-input admission gates remain in force.
+
+## Change Classification
+
+- [x] Behavior change
+- [ ] Format-only
+- [ ] Naming-only
+- [x] Generated output
+- [x] Public contract change
+- [x] External naming exception
+- Contract impact: compatible
+
+`Behavior change`, `Format-only`, and `Naming-only` are mutually exclusive. `Generated output`, `Public contract change`, and `External naming exception` are supplementary.
+
+The gate reads fields only from their named section, rejects duplicate fields or headings hidden in fenced examples, and requires contract checkboxes to be checked. Record a not-applicable reason in `Notes For Reviewers` before checking that review item.
+
+## Tests Run
+
+- [x] Latest source `89b1a14c238e919069f9377b4310d86d64dae414`: original Vitest4.1.11/public FsusUI f2b3bb89 exact two-file positive selection77 passes0fail0skip after strict method/case/hook preflight (21 new root composition,24 retained paragraph,32 supplied adapter). Original SDK10.0.302 locked restore/Release build passes1507warnings0errors;7 exact FQNs yield10 passed0skip DI cases (6 new,4 original). C# style4/lifecycle379/authority11 pass. Evidence: artifacts/article-vault/chain-3582-projection-protected-stage-handoff/summary.json.
+- [ ] Current default frontend application typecheck exits2 (missing published markdown runtime declarations and other app errors), original selected changed-style exits1 (241 type-resolution findings); original local public-export typecheck passes but excludes the application composition. No private config, qualification substitution or package credential workaround. Two failed preflight attempts executed0 tests and remain archived; repaired exact selection passes.
+- [x] Latest frozen `8eab176ae759612af5d18fa09ff009ecfaf4c8ae`: original SDK10.0.302 locked restore/Release build pass. Original discovery parser validates8 exact positive FQNs and13 expected cases before execution;12 new current-property-to-proposal cases plus1 changed DI case pass0fail0skip. Fixtures/hooks reviewed, no empty-filter/full-suite fallback. Style4/lifecycle379/authoritative docs11 pass. Earlier288 belongs to d1e863a8 and is not a current summed count.
+- [x] Current frozen production `d1e863a8060e7348e1f51314a4c5b29cba6febbc`: SDK10.0.302 original locked restore and Release build exit0; exact288 focused controls pass0fail0skip (12 new composition,46 supplier current-read,43 foundation,54 finite planner,91 finite codec,42 retained property merge), style21/lifecycle379/authoritative docs11 pass. Source, commands, UTC and compiled hashes are archived. Initial35 batch-fixture failures and the incorrect doc-check filename remain preserved; exact supplier fixture and correct original checker repair them without reducing assertions.
+- [x] Actual public FsusUI f2b3bb89ffe5f749da26c388f058efdbb6aee864 finite API probe6 passes. Edited heading receives a new identity/tombstone; unchanged identity is retained. Initial contrary exploratory assumption is preserved, not product/merge qualification.
+- [ ] `./tools/test.sh fast`
+- [x] Frozen production `518237768fcd8c77fb0fd6aaf1d2d1f1a5feea24`: original SDK10.0.302 locked restore and Release backend test build exit0; allowlisted ordinary current-upload caller controls21 pass0fail0skip. Commands, UTC, source/assembly hashes and unchanged source are archived.
+- [x] Earlier original newly supplied InputRead controls7 passed on their working candidate. Their identity is separate; supplier56 and historical291/42 are not current results. Controlled authorities exercise actual production readers/verifier and do not qualify native/PG/product execution.
+- [x] Canonical9/root2/final6 style groups pass (overlapping counts are not added); lifecycle379, authoritative docs11 and own incremental commit range pass. Guard source/blame/mechanical archive are unchanged from e7f8c738; original mechanical proofs are preserved.
+- [x] Historical frozen e1d9c841 original backend251/pure38/real task PostgreSQL2 retain their original291 identity. Initial timing failure and unchanged same-assembly retry are retained. Other prior component controls retain their original SHAs.
+- [x] Initial compiler/fixture identity/seal failures and immutable-array comparison failure are retained; fixture corrections preserve exact bytes and all negative controls. No production gate/threshold is weakened.
+- [ ] Original finite authority/parser/index matrix closure, full fast/CI and independent review remain open. Held graph/lease/receipt/race/native/replacement audits, real current host startup, native/device/installer/product terminal acceptance are not run or qualified.
+
+## UI Evidence
+
+- [ ] Screenshots or video attached for UI changes
+- [ ] Mobile layout checked
+- [ ] Dark mode checked
+- [ ] Accessibility and reduced-motion impact considered
+
+## Coding Convention
+
+- [x] C# mother-style mapping checked
+- [x] Formatter/linter run
+- [x] No tool default overrides repository style
+- [x] Mechanical formatting separated from logic
+- [x] `.git-blame-ignore-revs` updated when applicable
+
+For a `Format-only` change, complete every field. The idempotence evidence must be one repository-relative `.json` path changed by this PR and conform to `fsusblog.format-idempotence-evidence.v1`. Use `none` for other changes.
+
+- Formatter identity: none
+- Formatter version: none
+- Formatter command: none
+- Formatter idempotence evidence: none
+- Blame-ignore revision: none
+
+## External Naming Exception
+
+For a checked `External naming exception`, point to one changed repository-relative JSON manifest using `fsusblog.external-naming-exceptions.v1`. Each entry binds one registered exception ID to its own changed paths and substantive reason; the union must exactly cover every changed registered naming surface. A missing manifest already named by an authoritative merged PR may instead use `fsusblog.post-merge-external-naming-evidence-repair.v1`; that strict repair binds immutable merge history, unchanged source blob/revision identity, the registered surface, and the exact missing artifact without changing the source again. Use `none` otherwise.
+
+- Exceptions manifest: artifacts/article-vault/chain-3582-projection-protected-stage-handoff/external-naming.json
+
+## Documentation / Intent
+
+- [x] Public API docs updated
+- [x] Ownership/security/performance intent updated
+- [x] Historical handoff archived or source-of-truth updated
+- [x] TODO/FIXME references valid issues
+
+## Compatibility And Risk
+
+- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer
+- [x] External wire / ABI / database / third-party names preserved or explicitly adapted
+- [x] Public API impact reviewed
+- [x] AEDS frame / binary contract impact reviewed
+- [x] Database migration impact reviewed
+- [x] Security, auth, moderation, PoW, or privacy impact reviewed
+- [x] Docs updated or a reason is recorded below
+- [x] Known limitations updated if applicable
+
+## Performance Claim
+
+Use `none` and `Evidence path: none` unless the PR title type is `perf`. For S/M/R/C, the evidence path must be a changed repository-relative JSON manifest using `fsusblog.performance-claim-evidence.v1`; it binds the one perf commit SHA, claim level, `structural-only`/`measured` status, and each changed evidence file with its SHA-256 digest.
+
+- Claim level: none
+- Evidence path: none
+- Non-goals: No measured performance, prototype or runtime qualification.
+
+## Release Note
+
+The matching `release-note:*` label selects the generated release category. GitHub renders the merged PR title as the release entry, so every included category requires `Summary` to exactly equal the summary portion of the PR title after `type(scope):`; `Category: none` instead requires `Summary: none`. Pure formatting, internal renames, and CI rearrangement must use `Internal/Tooling` or `none`.
+
+- Audience: internal
+- Category: Internal/Tooling
+- Summary: bind Vault projections and canonical protected stage composition
+
+## Generated Output
+
+For a checked `Generated output`, bind the output to its source through one repository-relative `.json` manifest path changed by this PR. Normal atomic source/output changes use `fsusblog.generated-output-binding.v1`. A generated-only repair for a source omission already merged into the PR base uses `fsusblog.post-merge-generated-output-repair.v1`; it must name one trusted producer and leave its source and generator unchanged. A trusted ordered multi-producer repair uses `fsusblog.post-merge-generated-output-repair-dag.v2` and its registry-owned canonical manifest path. An authenticated bot must identify itself exactly. Use `none` otherwise.
+
+- Generator source: tests/matrix.yml, config/development/document-lifecycle.json, src/shared/Contracts/Validation/aeds-protocol.json, src/shared/Contracts/Validation/aeds-endpoint-contracts.json
+- Generated outputs: docs/index.md, docs/testing.generated.md, config/testing/correctness-attempt-producers.json, config/development/document-inventory.generated.json, src/core/Algorithms/AedsFrameType.cs, src/shared/AedsFrameHeader.cs, src/frontend/wasm/aeds/include/aeds_frame.hpp, src/frontend/wasm/web/protocol/frame.ts, tests/backend/Fixtures/aeds-golden-catalog.json, src/shared/Contracts/Validation/fsusblog.openapi.json
+- Digest/evidence: artifacts/change-contract/article-vault-conflict-contract-generated-binding.json
+- Automation identity: none
+
+## Rollout / Rollback
+
+- Rollout: Draft source review only; current acceptance and authority gates remain blocked. No deployment.
+- Rollback: Revert the affected root DI/provider consumption increments if the original controls regress; preserve the existing key owner, sync planner and sole canonical writer.
+- Deferred work: Remaining authorized V1 metadata/persisted property and portable typed taxonomy/property binding, operation-bound Git/native readers and canonical finite matrix/inventory projection from their owners, followed by original complete acceptance.
+- Known limitations: Source-only classification binding is not automatic eligibility. Full fast and product/platform qualification are not passed. Applicable exact-SHA local evidence may replace remote CI; independent source review remains mandatory. All linked issues remain open.
+
+## Notes For Reviewers
+
+Related to #3582, #2117, #2118, #2107, #2121 and the coordinated Vault chains. Current tested production is `89b1a14c238e919069f9377b4310d86d64dae414`, with projection source `6782bad0210d75393bfdcbc739e3506017ec1377`. Two earlier published commits were corrected only for allowed commit scopes/Refs footers; exact trees are unchanged and old4b/904 SHAs remain on `codex/chain-3582-published-90426f93a`. Fresh original executable controls bind89b; older receipts retain their identities.
+
+Exact supplier source/test files from a63133339bd6b43faaef97667b715ee511e2c685 and protected-stage factory/writer from ef4c534daccfc4b6c5eb2b18ae15a3022257d19b are byte-identical. The actual recovery authenticator/envelope were already present and byte-identical. Root owns existing paragraph/DI/transport composition; no supplier writer, parser, verifier or persistence policy is rewritten. Supplier13 PostgreSQL cases and historical source receipts remain separate from root10 DI/77 frontend controls.
+
+Current property rows/source are obtained through the original authorized readers and independently rechecked before/after the sole typed proposal. Runtime current-upload input retains the existing operation/dependency/principal/site bindings and sole asset input verifier. Bytes, article-read permissions and observed references do not grant resource-specific execution/publication rights; asset version SHA is not converted into a numeric revision. The canonical finite package writer8472af99 is available, but legitimate complete inputs remain unavailable.
+
+Outstanding: original verified/admitted three-source transport and complete coordinates; real ArticleService persisted-property provider/DI/schema/audit/DB/HTTP facts; genuine base/local/historical/draft/reference authority; three13-field V1 manifests and compatible current observation hashes; historical slug/public route/lifecycle/taxonomy facts; operation-bound Git/native acquisition, current resource-specific asset/dependency rights and upload/reuse/accepted-reference receipts; conditional native writes/readback/recovery/base completion. No full fast/product/platform/terminal/independent acceptance is claimed. Default frontend application type/style gates remain failed. No held graph/lease/receipt/native/replacement audits or RepositoryRoot action was performed.
+
+All49 issue records and exact command/discovery/source/assembly/log/TRX evidence: artifacts/article-vault/chain-3582-projection-protected-stage-handoff/.20 retained/29 delegated/8 tracking/0 accepted or closed. Guard mechanical source/blame/evidence remain unchanged and are not replayed. Latest fetched masterc04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f introduces no changes in this increment's relevant paths; no cross-chain merge/conflict resolution occurred.
+
+This metadata is prepared locally for the coordinating parent's sole GitHub content writer. No issue/PR content API write, merge, deployment or closure is performed here.

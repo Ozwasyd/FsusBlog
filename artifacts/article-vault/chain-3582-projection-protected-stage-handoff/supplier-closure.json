@@ -1,0 +1,38 @@
+[
+  {
+    "supplier": "a63133339bd6b43faaef97667b715ee511e2c685",
+    "path": "src/frontend/src/services/articleVault/threeWaySourceProjectionAdapter.ts",
+    "sha256": "f9c408761622d1fb0b5b38a35ab3fdf55b4af07f66e39b64408a0113c4ab828b",
+    "byteIdentical": true
+  },
+  {
+    "supplier": "a63133339bd6b43faaef97667b715ee511e2c685",
+    "path": "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts",
+    "sha256": "b84f0058ede4b2b9a6410d0b82be7c18427fdd58ee27bfdbe7aee58345c4264c",
+    "byteIdentical": true
+  },
+  {
+    "supplier": "ef4c534daccfc4b6c5eb2b18ae15a3022257d19b",
+    "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryStageComposition.cs",
+    "sha256": "ef801efed0acc4454d22f53513092c1c588d137289998b815b5c235a2211625c",
+    "byteIdentical": true
+  },
+  {
+    "supplier": "ef4c534daccfc4b6c5eb2b18ae15a3022257d19b",
+    "path": "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
+    "sha256": "9f4d4d44354d8048e0852355dccb79641a4637906efcb66948a934cb59e991a2",
+    "byteIdentical": true
+  },
+  {
+    "supplier": "ef4c534daccfc4b6c5eb2b18ae15a3022257d19b",
+    "path": "src/backend/Services/ArticleVault/ArticleVaultRecoveryBackupProtectionAuthority.cs",
+    "sha256": "3e58269a273c0f271ef6bbe6ce026f60bfc8c140ecac1d86947c7cc805d10aef",
+    "byteIdentical": true
+  },
+  {
+    "supplier": "ef4c534daccfc4b6c5eb2b18ae15a3022257d19b",
+    "path": "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryBackupEnvelope.cs",
+    "sha256": "39504cac9c02aa3f0e745a6915b3ea7737390577c9d1ac33d7767af8cdb92cd9",
+    "byteIdentical": true
+  }
+]

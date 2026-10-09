@@ -1,0 +1,45 @@
+{
+  "source": "90426f93aa720580d40c1c32ca7ce212d465dfd1",
+  "commandTiming": "Not recorded for these three checks; no timestamps fabricated",
+  "checks": [
+    {
+      "cwd": "src/frontend",
+      "argv": [
+        "npm",
+        "run",
+        "typecheck:local-fsusui"
+      ],
+      "exitCode": 0
+    },
+    {
+      "cwd": "src/frontend",
+      "argv": [
+        "node_modules/.bin/vue-tsc",
+        "--noEmit",
+        "-p",
+        "tsconfig.app.json"
+      ],
+      "exitCode": 2
+    },
+    {
+      "cwd": ".",
+      "argv": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "src/frontend/src/services/articleVault/paragraphSourceMerge.ts",
+        "--file",
+        "tests/frontend/unit/articleVault/paragraphSourceMerge.test.ts",
+        "--file",
+        "src/frontend/src/services/articleVault/threeWaySourceProjectionAdapter.ts",
+        "--file",
+        "tests/frontend/unit/articleVault/threeWaySourceProjectionAdapter.test.ts"
+      ],
+      "exitCode": 1
+    }
+  ],
+  "equivalentCurrentSource": "89b1a14c238e919069f9377b4310d86d64dae414",
+  "sourceTreeIdentical": true
+}

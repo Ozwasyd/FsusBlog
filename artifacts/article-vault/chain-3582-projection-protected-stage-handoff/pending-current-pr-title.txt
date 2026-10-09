@@ -1,0 +1,1 @@
+feat(contracts): bind Vault projections and canonical protected stage composition

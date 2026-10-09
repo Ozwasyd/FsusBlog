@@ -1,0 +1,7 @@
+{
+  "kind": "authored proposed manifest derived from original registry and exact PR diff; not style acceptance",
+  "base": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "head": "89b1a14c238e919069f9377b4310d86d64dae414",
+  "registeredPaths": 188,
+  "registrySha256": "aa788845ecdf0cda4f29e1e6b556f8d8a1d78f209e99648d8c80faf7281770e0"
+}
