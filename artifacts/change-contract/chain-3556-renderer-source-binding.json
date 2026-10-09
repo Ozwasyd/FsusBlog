@@ -1,0 +1,60 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/docs/generated-fact-sections/renderers.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "c1a43603e921f57d72ba8b930d534d78b28cd8755aaa90d7d2d04d35cfa223a3"
+        },
+        {
+            "path": "docs/api.md",
+            "sha256": "f46980c91ebedd1a3e937edb21252442ecf053b423c214d586027ded047c28f3"
+        },
+        {
+            "path": "docs/api/aeds-only-policy.md",
+            "sha256": "122283a1e3b68230dba31fc8ecf1a1d16e6cfdd47638d5f561d2b7284610cdd6"
+        },
+        {
+            "path": "docs/api/quick-reference.md",
+            "sha256": "c7ce8792d7de9ef5d2c4bd9feb127584e0086814fd5fe6ab0dca66120eb61000"
+        },
+        {
+            "path": "docs/api/schemas-and-errors.md",
+            "sha256": "cd90e72d431cf85071271822de538e54e4b391f49b6b2f88926db50780fa145c"
+        },
+        {
+            "path": "docs/api/stability.md",
+            "sha256": "ae603d0da335dfa41a4bc2435534bed6279d2ac9f6c8f5555678bc050307aa2a"
+        },
+        {
+            "path": "docs/architecture/comment-command-boundary.md",
+            "sha256": "9765e342f0a338a2733b0968babaab022b501ad5703e569a1c7e3f53ae16db18"
+        },
+        {
+            "path": "docs/architecture/comment-query-boundary.md",
+            "sha256": "d9ff076c51a51a423f67f9620f2051f4a8dddfbf691bb4e9aeb61bb3e62dd9ed"
+        },
+        {
+            "path": "docs/architecture/monolithic-distributed-boundary.md",
+            "sha256": "56a6269f5a94d84ef6d07ef2d73129ac5f02de200c0e3131a0c33b15ba06e98b"
+        },
+        {
+            "path": "docs/architecture/overview.md",
+            "sha256": "82fcd64c5cc218ab064d76f8e7c69639be6361a0ade2bf39772b5b008998ef2b"
+        },
+        {
+            "path": "docs/releases/blue-green-deployment-runbook.md",
+            "sha256": "86dd540e7290577e719ad4f8bc0093f3b53e44ce189cb427e9abc2d8ece5ef88"
+        },
+        {
+            "path": "docs/releases/release-identity.md",
+            "sha256": "021f9eacd89b499dcd423d41846059c04d4db1449fe5a8283efc6a4e5645c4d2"
+        },
+        {
+            "path": "docs/testing.md",
+            "sha256": "ae09573524dac73a86c97798d30fb51fd992de1e0157739d69c50a2cf5569d3f"
+        }
+    ]
+}
