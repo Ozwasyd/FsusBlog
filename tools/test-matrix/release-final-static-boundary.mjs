@@ -92,20 +92,26 @@ const allowedReleaseFinalizerLines = [
     /^esac$/u,
     /^releaseFinalEvidencePaths=\($/u,
     /^"\$\{FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT:-\}"$/u,
-    /^"\$\{FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH:-\}"$/u,
-    /^"\$\{FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH:-\}"$/u,
+    /^"\$\{FSUSBLOG_RELEASE_FINAL_BINDING_INPUTS_PATH:-\}"$/u,
+    /^"\$\{FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_PATH:-\}"$/u,
+    /^"\$\{FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_HANDOFF_PATH:-\}"$/u,
+    /^"\$\{FSUSBLOG_RELEASE_FINAL_COMMITTED_CHECKPOINT:-\}"$/u,
     /^\)$/u,
     /^for evidencePath in "\$\{releaseFinalEvidencePaths\[@\]\}"; do$/u,
     /^if \[\[ -z "\$evidencePath" \|\| ! -f "\$evidencePath" \|\| ! -s "\$evidencePath" \|\| -L "\$evidencePath" \]\]; then$/u,
     /^echo "release-final requires existing non-empty context and evidence files" >&2$/u,
     /^done$/u,
     /^releaseFinalArgs=\(\)$/u,
-    /^if \[\[ -n "\$\{FSUSBLOG_LOCAL_PROFILE_CHECKPOINT:-\}" \]\]; then$/u,
-    /^releaseFinalArgs\+=\(--local-profile-checkpoint "\$FSUSBLOG_LOCAL_PROFILE_CHECKPOINT"\)$/u,
     /^fi$/u,
     /^releaseFinalArgs\+=\(--current-run-context "\$FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT"\)$/u,
-    /^releaseFinalArgs\+=\(--manifest-binding "\$FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH"\)$/u,
-    /^releaseFinalArgs\+=\(--domain-binding "\$FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH"\)$/u,
+    /^releaseFinalArgs\+=\(--inputs "\$FSUSBLOG_RELEASE_FINAL_BINDING_INPUTS_PATH"\)$/u,
+    /^releaseFinalArgs\+=\(--inputs-digest "\$\{FSUSBLOG_RELEASE_FINAL_BINDING_INPUTS_DIGEST:-\}"\)$/u,
+    /^releaseFinalArgs\+=\(--checkpoint "\$FSUSBLOG_RELEASE_FINAL_COMMITTED_CHECKPOINT"\)$/u,
+    /^releaseFinalArgs\+=\(--committed-revision "\$\{FSUSBLOG_RELEASE_FINAL_COMMITTED_REVISION:-\}"\)$/u,
+    /^releaseFinalArgs\+=\(--reference "\$FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_PATH"\)$/u,
+    /^releaseFinalArgs\+=\(--reference-digest "\$\{FSUSBLOG_RELEASE_FINAL_REFERENCE_DIGEST:-\}"\)$/u,
+    /^releaseFinalArgs\+=\(--handoff "\$FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_HANDOFF_PATH"\)$/u,
+    /^releaseFinalArgs\+=\(--handoff-digest "\$\{FSUSBLOG_RELEASE_FINAL_HANDOFF_DIGEST:-\}"\)$/u,
     /^exec "\$NODE_FD_PATH" "\$ROOT_DIR\/tools\/release\/check-release-final\.mjs" "\$\{releaseFinalArgs\[@\]\}"$/u
 ];
 
@@ -113,7 +119,7 @@ const allowedReleaseFinalizerLines = [
 // snapshot. Removing or reordering the seal/control-flow cannot be re-admitted by regenerating
 // the candidate-owned authority fixture.
 const requiredReleaseFinalizerDigest =
-    'sha256:cff35b87471c1932ac0d3aba65cc3485c332fb1eaa1220985c47aea8ca19a7e7';
+    'sha256:68decc8b05ac6589935e71be526854b503e3f3dbf1cc50c13b3c7fa375e145fc';
 
 const forbiddenFinalizerCapability =
     /(?:create-correctness|publish-release-final-evidence-parent|run-matrix-governance-once|check-job-summaries|check-flaky-|repository-governance-authority|check-release-evidence-manifest|(?:^|[\s/_.-])(?:producer|repair|parser|mutation|governance)(?:[\s/_.-]|$))/u;
@@ -2656,8 +2662,10 @@ export function applyReleaseFinalizerSpawnDecision(
     let sealState = 'missing';
     const pathBindings = [
         ['current-run context', sealedEnvironment.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT],
-        ['manifest binding', sealedEnvironment.FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH],
-        ['domain binding', sealedEnvironment.FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH]
+        ['authority binding inputs', sealedEnvironment.FSUSBLOG_RELEASE_FINAL_BINDING_INPUTS_PATH],
+        ['final output reference', sealedEnvironment.FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_PATH],
+        ['final output handoff', sealedEnvironment.FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_HANDOFF_PATH],
+        ['committed checkpoint', sealedEnvironment.FSUSBLOG_RELEASE_FINAL_COMMITTED_CHECKPOINT]
     ];
     const boundaryErrors = [];
     if (String(sealedEnvironment.FSUSBLOG_RELEASE_FINAL_SEAL_STATE ?? '').trim())

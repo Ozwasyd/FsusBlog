@@ -212,6 +212,37 @@ export async function verifyCommittedReleaseFinalAuthorityBinding(options)
         status: 'committed-reference-verified', qualificationEligible: false });
 }
 
+// Shared read-only input loading for local/CI consumers and the registered
+// producer. Consumers never call the producer or accept injected owner APIs.
+export function loadReleaseFinalBindingInputs(inputPath, inputDigest, { repositoryRoot = root, context } = {})
+{
+    requireCheck(typeof inputPath === 'string', 'MISSING_INPUT', 'explicit owned input path is required');
+    requireCheck(!path.isAbsolute(inputPath) && !inputPath.includes('\\')
+        && !inputPath.split('/').some((part) => ['', '.', '..'].includes(part)),
+    'INPUT_PATH_REJECTED', 'producer inputs must be a canonical relative path');
+    const file = path.resolve(repositoryRoot, inputPath);
+    requireCheck(fs.realpathSync(file) === file && fs.lstatSync(file).isFile(),
+        'INPUT_PATH_REJECTED', 'producer input must be a regular non-symlink file');
+    const bytes = fs.readFileSync(file);
+    requireCheck(digestBytes(bytes) === inputDigest, 'INPUT_DIGEST_MISMATCH', 'producer input digest mismatch');
+    const inputs = JSON.parse(bytes);
+    requireKeys(inputs, ['context', 'expectedPlanIdentity', 'testPlan', 'bindingInputs']);
+    validateCurrentRunEvidenceContext(inputs.context);
+    readOwnerEvidenceReference({ path: inputPath, digest: inputDigest },
+        { repositoryRoot, context: inputs.context });
+    const catalog = loadCanonicalRequiredEvidenceCatalog();
+    const locatorRegistry = JSON.parse(fs.readFileSync(path.join(repositoryRoot,
+        'config/testing/evidence-locator-registry.json'), 'utf8'));
+    if (context !== undefined)
+    {
+        validateCurrentRunEvidenceContext(context);
+        requireCheck(governanceContentDigest(context) === governanceContentDigest(inputs.context),
+            'CURRENT_RUN_CONTEXT_MISMATCH', 'independent current-run context differs from original binding inputs');
+    }
+    const verifierRegistry = createDomainVerifierRegistry({ catalog, repositoryRoot });
+    return { ...inputs, catalog, locatorRegistry, verifierRegistry, repositoryRoot };
+}
+
 export async function runReleaseFinalBindingProducer(argv, { repositoryRoot = root } = {})
 {
     const args = {};
@@ -224,26 +255,8 @@ export async function runReleaseFinalBindingProducer(argv, { repositoryRoot = ro
         args[key] = argv[index + 1];
     }
     requireCheck(Object.keys(args).length === 3, 'MISSING_INPUT', 'explicit input path/digest and output path are required');
-    const inputPath = args['--inputs'];
-    requireCheck(!path.isAbsolute(inputPath) && !inputPath.includes('\\')
-        && !inputPath.split('/').some((part) => ['', '.', '..'].includes(part)),
-    'INPUT_PATH_REJECTED', 'producer inputs must be a canonical relative path');
-    const file = path.resolve(repositoryRoot, inputPath);
-    requireCheck(fs.realpathSync(file) === file && fs.lstatSync(file).isFile(),
-        'INPUT_PATH_REJECTED', 'producer input must be a regular non-symlink file');
-    const bytes = fs.readFileSync(file);
-    requireCheck(digestBytes(bytes) === args['--inputs-digest'], 'INPUT_DIGEST_MISMATCH', 'producer input digest mismatch');
-    const inputs = JSON.parse(bytes);
-    requireKeys(inputs, ['context', 'expectedPlanIdentity', 'testPlan', 'bindingInputs']);
-    validateCurrentRunEvidenceContext(inputs.context);
-    readOwnerEvidenceReference({ path: inputPath, digest: args['--inputs-digest'] },
-        { repositoryRoot, context: inputs.context });
-    const catalog = loadCanonicalRequiredEvidenceCatalog();
-    const locatorRegistry = JSON.parse(fs.readFileSync(path.join(repositoryRoot,
-        'config/testing/evidence-locator-registry.json'), 'utf8'));
-    const verifierRegistry = createDomainVerifierRegistry({ catalog, repositoryRoot });
-    return publishReleaseFinalVerifiedAuthorityBinding({ outputPath: args['--output'],
-        bindings: { ...inputs, catalog, locatorRegistry, verifierRegistry, repositoryRoot } });
+    const bindings = loadReleaseFinalBindingInputs(args['--inputs'], args['--inputs-digest'], { repositoryRoot });
+    return publishReleaseFinalVerifiedAuthorityBinding({ outputPath: args['--output'], bindings });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

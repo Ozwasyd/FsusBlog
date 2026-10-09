@@ -43,8 +43,10 @@ case "$releaseFinalDecision" in
 esac
 releaseFinalEvidencePaths=(
     "${FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT:-}"
-    "${FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH:-}"
-    "${FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH:-}"
+    "${FSUSBLOG_RELEASE_FINAL_BINDING_INPUTS_PATH:-}"
+    "${FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_PATH:-}"
+    "${FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_HANDOFF_PATH:-}"
+    "${FSUSBLOG_RELEASE_FINAL_COMMITTED_CHECKPOINT:-}"
 )
 for evidencePath in "${releaseFinalEvidencePaths[@]}"; do
     if [[ -z "$evidencePath" || ! -f "$evidencePath" || ! -s "$evidencePath" || -L "$evidencePath" ]]; then
@@ -53,10 +55,13 @@ for evidencePath in "${releaseFinalEvidencePaths[@]}"; do
     fi
 done
 releaseFinalArgs=()
-if [[ -n "${FSUSBLOG_LOCAL_PROFILE_CHECKPOINT:-}" ]]; then
-    releaseFinalArgs+=(--local-profile-checkpoint "$FSUSBLOG_LOCAL_PROFILE_CHECKPOINT")
-fi
 releaseFinalArgs+=(--current-run-context "$FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT")
-releaseFinalArgs+=(--manifest-binding "$FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH")
-releaseFinalArgs+=(--domain-binding "$FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH")
+releaseFinalArgs+=(--inputs "$FSUSBLOG_RELEASE_FINAL_BINDING_INPUTS_PATH")
+releaseFinalArgs+=(--inputs-digest "${FSUSBLOG_RELEASE_FINAL_BINDING_INPUTS_DIGEST:-}")
+releaseFinalArgs+=(--checkpoint "$FSUSBLOG_RELEASE_FINAL_COMMITTED_CHECKPOINT")
+releaseFinalArgs+=(--committed-revision "${FSUSBLOG_RELEASE_FINAL_COMMITTED_REVISION:-}")
+releaseFinalArgs+=(--reference "$FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_PATH")
+releaseFinalArgs+=(--reference-digest "${FSUSBLOG_RELEASE_FINAL_REFERENCE_DIGEST:-}")
+releaseFinalArgs+=(--handoff "$FSUSBLOG_RELEASE_PUBLISH_RELEASE_FINAL_BINDINGS_EVIDENCE_HANDOFF_PATH")
+releaseFinalArgs+=(--handoff-digest "${FSUSBLOG_RELEASE_FINAL_HANDOFF_DIGEST:-}")
 exec "$NODE_FD_PATH" "$ROOT_DIR/tools/release/check-release-final.mjs" "${releaseFinalArgs[@]}"

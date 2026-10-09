@@ -14,7 +14,7 @@ const { evidenceContentDigest, evidenceProducerReceiptDigest, locateCurrentRunEv
 const { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication, prepareCurrentRunEvidencePublication, readCurrentRunEvidencePublication, recoverCurrentRunEvidencePublication } = await import(new URL('../../tools/test/current-run-evidence-publication.mjs', import.meta.url));
 const { createRequiredEvidenceBinding } = await import(new URL('../../tools/release/required-evidence-binding.mjs', import.meta.url));
 const { createReleaseFinalVerifiedAuthorityBinding, verifyReleaseFinalVerifiedAuthorityBinding, assessReleaseFinalTerminalPrerequisites } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
-const { consumeReleaseFinalVerifiedBindings, assessReleaseFinalTerminalPrerequisites: assessFinalizerPrerequisites } = await import(new URL('../../tools/release/check-release-final.mjs', import.meta.url));
+const { consumeReleaseFinalVerifiedBindings, runReleaseFinalizer, assessReleaseFinalTerminalPrerequisites: assessFinalizerPrerequisites } = await import(new URL('../../tools/release/check-release-final.mjs', import.meta.url));
 const { publishReleaseFinalVerifiedAuthorityBinding, verifyPublishedReleaseFinalAuthorityBinding,
     verifyCommittedReleaseFinalAuthorityBinding, releaseFinalBindingOutputRegistration,
     runReleaseFinalBindingProducer } = await import(new URL('../../tools/release/publish-release-final-bindings.mjs', import.meta.url));
@@ -373,6 +373,44 @@ test('canonical CLI producer consumes explicit owned original inputs and refuses
     assert.equal((await verifyPublishedReleaseFinalAuthorityBinding({ bindings,
         reference: result.reference, handoffReference: result.handoffReference })).binding.authorities.length,
     bindings.catalog.entries.length);
+});
+
+test('ordinary finalizer rejects omitted duplicated and legacy transport arguments before reading evidence', async () =>
+{
+    const args = ['--current-run-context', 'not-read-context', '--inputs', 'not-read-inputs',
+        '--inputs-digest', `sha256:${'a'.repeat(64)}`, '--checkpoint', 'not-read-checkpoint',
+        '--committed-revision', '7', '--reference', 'not-read-reference',
+        '--reference-digest', `sha256:${'b'.repeat(64)}`, '--handoff', 'not-read-handoff',
+        '--handoff-digest', `sha256:${'c'.repeat(64)}`];
+    for (let index = 0; index < args.length; index += 2)
+    {
+        await assert.rejects(runReleaseFinalizer(args.filter((_, slot) => slot !== index && slot !== index + 1)),
+            (error) => error.reasonCode === 'MISSING_INPUT');
+    }
+    for (const extra of [['--inputs', 'another'], ['--manifest-binding', 'legacy'],
+        ['--domain-binding', 'legacy'], ['--self-test'], ['--qualification-eligible', 'true']])
+    {
+        await assert.rejects(runReleaseFinalizer([...args, ...extra]),
+            (error) => error.reasonCode === 'UNSUPPORTED_INPUT');
+    }
+});
+
+test('ordinary finalizer requires an independent after-write revision without aliases or coercion', async () =>
+{
+    const args = ['--current-run-context', 'not-read-context', '--inputs', 'not-read-inputs',
+        '--inputs-digest', `sha256:${'a'.repeat(64)}`, '--checkpoint', 'not-read-checkpoint',
+        '--committed-revision', '7', '--reference', 'not-read-reference',
+        '--reference-digest', `sha256:${'b'.repeat(64)}`, '--handoff', 'not-read-handoff',
+        '--handoff-digest', `sha256:${'c'.repeat(64)}`];
+    for (const revision of ['0', '-1', '7.0', '7e0', '07', '9007199254740992'])
+    {
+        const changed = [...args];
+        changed[9] = revision;
+        await assert.rejects(runReleaseFinalizer(changed),
+            (error) => error.reasonCode === 'COMMITTED_REVISION_REQUIRED');
+    }
+    await assert.rejects(runReleaseFinalizer([...args, '--expected-revision', '6']),
+        (error) => error.reasonCode === 'UNSUPPORTED_INPUT');
 });
 
 test('final-binding owner consumes every projected authority binding and independently replays complete records', async (t) =>
