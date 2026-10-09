@@ -370,7 +370,11 @@ component imports, or zero-argument expression defaults that reach an actual
 component source. A string name cannot borrow an imported component identity. It binds each result to the exact call chain and input digests;
 unknown overrides, mutable aliases, template shadows, dynamic keys and ambiguous
 spreads remain errors. An absent input is allowed only behind its actual prop
-condition and cannot authorize a rendered component. Vue setup prop forwarding
+condition and cannot authorize a rendered component. The absence proof also
+recognizes a prop required by a conjunction in an actual `v-if` or
+`v-else-if`; negation, disjunction, aliases and shadowed bindings cannot prove
+that an absent prop prevents rendering. The absence proof records that exact
+guard. This supplies no product branch state or runtime acceptance. Vue setup prop forwarding
 may exclude attrs only for a prop declared by that same component; arbitrary
 spreads and arbitrary function results remain unknown. The DOM join checks the
 proven call chain, declaration and inputs before accepting its rendered source.
@@ -380,6 +384,22 @@ runtime/product acceptance. Run them with the actual upstream source:
 
 ```bash
 FSUSBLOG_LOCAL_FSUSUI_ROOT=/path/to/FsusUI node --test tests/tools/layout-component-props-source.test.mjs
+```
+
+An object-destructured factory component can establish a bounded slot render
+source only through its actual immutable function, literal arguments, straight
+constant construction and unique returned field. The selected actual Vue
+`defineComponent` must disable attrs fallthrough and return only its unchanged
+default slot. The proof records the construction, factory, selected component
+and render offsets/digests, evaluated arguments and complete source file digests.
+Unknown callees, dynamic arguments, return branches, spreads, computed or duplicate
+keys, mutations, async construction and altered slot render sources stay errors.
+This describes the render source only; it does not register a wrapper, authorize
+lifecycle behavior or grant public ownership to local components or slot children.
+Source changes during the scan remain graph errors. Ordinary factory controls:
+
+```bash
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/path/to/FsusUI node --test tests/tools/layout-factory-source.test.mjs
 ```
 
 Caller-provided classes or surface attributes cannot establish public provenance.
