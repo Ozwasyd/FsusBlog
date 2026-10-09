@@ -1,7 +1,6 @@
 using System.Buffers;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Reflection;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -13,6 +12,8 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.AuthoringPreferences;
 
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
@@ -222,11 +223,12 @@ public sealed class WritingAidPreferenceEndpointTests
         IWritingAidPreferenceReader reader, IWritingAidPreferenceCommand? command = null,
         IWritingAidPreferenceInitializationCommand? initialization = null)
     {
-        EndpointSecurityTestServer server = EndpointSecurityTestServer.Create(new()
+        return EndpointSecurityTestServer.Create(new()
         {
             ConfigureServices = services =>
             {
                 services.AddSingleton(reader);
+                services.AddSingleton<IStartupFilter>(new WritingAidPreferenceRouteStartupFilter());
                 if (command is not null)
                 {
                     services.AddSingleton(command);
@@ -237,20 +239,24 @@ public sealed class WritingAidPreferenceEndpointTests
                 }
             }
         });
-        try
-        {
-            // Exercise the new map through the original host, without modifying the
-            // canonical registration file retained by #3735. Map before its first request.
-            var app = (WebApplication)typeof(EndpointSecurityTestServer)
-                .GetField("_application", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(server)!;
-            AuthoringEndpoints.MapWritingAidPreferenceRoutes(app.MapGroup("/api/binary/author"));
-            return server;
-        }
-        catch
-        {
-            server.Dispose();
-            throw;
-        }
+    }
+
+    private sealed class WritingAidPreferenceRouteStartupFilter : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+            => app =>
+            {
+                next(app);
+                // WebApplication exposes its global route builder during original
+                // host configuration. Add the group before the pipeline is built;
+                // adding it after StartAsync leaves it outside the captured sources.
+                if (!app.Properties.TryGetValue("__GlobalEndpointRouteBuilder", out object? builder)
+                    || builder is not IEndpointRouteBuilder routes)
+                {
+                    throw new InvalidOperationException("Original host global route builder is unavailable.");
+                }
+                AuthoringEndpoints.MapWritingAidPreferenceRoutes(routes.MapGroup("/api/binary/author"));
+            };
     }
 
     internal static HttpRequestMessage Request(HttpMethod method, WritingAidPreferenceUpdate? update = null, string suffix = "")
