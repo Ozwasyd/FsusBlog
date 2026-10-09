@@ -1,3 +1,4 @@
+import './article-comment-composer-consumer-contract'
 import {
   ElButton,
   ElDangerZone,

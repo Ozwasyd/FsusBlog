@@ -10,12 +10,12 @@
             class="mb-3 flex items-center justify-between border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-3 py-2 text-xs text-[var(--fsusblog-text-tertiary)]"
         >
             <span>正在回复 @{{ replyTarget.author.displayName }}</span>
-            <ElButton
+            <FsusUiButton
                 link
                 @click="$emit('cancel-reply')"
             >
                 取消
-            </ElButton>
+            </FsusUiButton>
         </div>
 
         <p
@@ -63,22 +63,24 @@
                         {{ anonymousQuotaHint }}删除或审核拒绝不会返还额度；凭据更新后按新周期重新计算。
                     </p>
                 </div>
-                <label
-                    class="comment-identity-toggle"
-                    :class="{ 'is-disabled': publicIdentityDisabled }"
-                >
-                    <input
-                        v-model="publicIdentityModel"
-                        class="comment-identity-toggle__input"
-                        type="checkbox"
+                <div class="comment-identity-choice">
+                    <FsusUiCheckbox
+                        :model-value="publicIdentityModel"
                         :disabled="publicIdentityDisabled"
-                    />
-                    <span
-                        class="comment-identity-toggle__box"
-                        aria-hidden="true"
-                    />
-                    <span class="comment-identity-toggle__label">公开显示我的名称</span>
-                </label>
+                        @update:model-value="updatePublicIdentity"
+                    >
+                        公开显示我的名称
+                        <span
+                            v-if="publicIdentityReason"
+                            class="sr-only"
+                        >（{{ publicIdentityReason }}）</span>
+                    </FsusUiCheckbox>
+                    <p
+                        v-if="publicIdentityReason"
+                        class="comment-identity-hint"
+                        aria-live="polite"
+                    >{{ publicIdentityReason }}</p>
+                </div>
             </div>
         </div>
 
@@ -88,19 +90,20 @@
             aria-live="polite"
         >
             <span v-if="draftNeedsReview">
-                评论策略已更新。请先审查草稿，发布身份不会自动恢复。
+                {{ localDraft.policyHash !== policySnapshotHash ? '评论策略已更新。' : '' }}请先审查草稿，本次发布身份需重新确认。
             </span>
             <span v-else>已恢复公开草稿{{ draftSavedAtText ? ` ${draftSavedAtText}` : '' }}</span>
             <span class="comment-composer-draft__actions">
-                <button
+                <FsusUiButton
                     v-if="draftNeedsReview"
-                    type="button"
+                    link
                     @click="reviewCommentDraft"
-                >审查草稿</button>
-                <button
-                    type="button"
+                >审查草稿</FsusUiButton>
+                <FsusUiButton
+                    link
+                    type="danger"
                     @click="discardCommentDraft"
-                >丢弃</button>
+                >丢弃</FsusUiButton>
             </span>
         </div>
 
@@ -114,49 +117,28 @@
 
         <div class="comment-composer-editor">
             <div class="comment-composer-toolbar">
-                <div
-                    class="comment-composer-mode"
-                    role="tablist"
-                    aria-label="评论编辑模式"
-                >
-                    <button
-                        v-for="option in commentComposerModeOptions"
-                        :key="option.value"
-                        type="button"
-                        class="comment-composer-mode__item"
-                        :class="{ 'is-active': commentComposerMode === option.value }"
-                        role="tab"
-                        :aria-selected="commentComposerMode === option.value"
-                        @click="commentComposerMode = option.value"
-                    >
-                        {{ option.label }}
-                    </button>
-                </div>
-                <ElButton
+                <FsusUiSegmentedControl
+                    v-bind="commentComposerModeProps"
+                    :model-value="commentComposerMode"
+                    @update:model-value="updateComposerMode"
+                />
+                <FsusUiButton
                     class="comment-composer-focus"
                     text
                     :disabled="composerInputDisabled"
                     @click="openFocusMode"
                 >
                     扩展编辑
-                </ElButton>
+                </FsusUiButton>
             </div>
 
-            <ElInput
+            <FsusUiInput
                 v-if="commentComposerMode === 'write'"
                 ref="editorInputRef"
                 v-model="contentModel"
-                :csp-safe="true"
-                type="textarea"
+                v-bind="commentEditorProps"
                 :rows="3"
                 :autosize="{ minRows: 3, maxRows: 8 }"
-                resize="none"
-                aria-label="发表评论"
-                :placeholder="placeholderText"
-                :disabled="composerInputDisabled"
-                @focus="notifyPrivacyIntent"
-                @keydown.ctrl.enter="requestSubmit"
-                @keydown.meta.enter="requestSubmit"
             />
 
             <div
@@ -189,56 +171,38 @@
             </div>
         </div>
         <div :class="commentDetailTokens.composer.submitWrap">
-            <ElButton
+            <FsusUiButton
                 type="primary"
                 @click="requestSubmit"
                 :disabled="submitDisabled"
                 :aria-disabled="submitDisabled"
             >
                 {{ composerUi.submitBusyText }}
-            </ElButton>
+            </FsusUiButton>
         </div>
 
         <FsusDialog
-            v-model="focusModeVisible"
+            v-model="focusModeModel"
             class="comment-composer-focus-dialog"
             title="扩展编辑评论"
             width="min(92vw, 48rem)"
-            @closed="closeFocusMode"
+            @opened="focusFocusModeEditor"
+            @closed="restoreFocusModeTrigger"
         >
             <div class="comment-composer-focus__body">
                 <div class="comment-composer-toolbar">
-                    <div
-                        class="comment-composer-mode"
-                        role="tablist"
-                        aria-label="扩展编辑模式"
-                    >
-                        <button
-                            v-for="option in commentComposerModeOptions"
-                            :key="option.value"
-                            type="button"
-                            class="comment-composer-mode__item"
-                            :class="{ 'is-active': commentComposerMode === option.value }"
-                            role="tab"
-                            :aria-selected="commentComposerMode === option.value"
-                            @click="commentComposerMode = option.value"
-                        >
-                            {{ option.label }}
-                        </button>
-                    </div>
+                    <FsusUiSegmentedControl
+                        v-bind="commentComposerModeProps"
+                        :model-value="commentComposerMode"
+                        @update:model-value="updateComposerMode"
+                    />
                 </div>
-                <textarea
+                <FsusUiInput
                     v-if="commentComposerMode === 'write'"
                     ref="focusEditorInputRef"
                     v-model="contentModel"
-                    class="comment-composer-focus__textarea"
-                    rows="12"
-                    aria-label="专注撰写评论"
-                    :placeholder="placeholderText"
-                    :disabled="composerInputDisabled"
-                    @focus="notifyPrivacyIntent"
-                    @keydown.ctrl.enter="requestSubmit"
-                    @keydown.meta.enter="requestSubmit"
+                    v-bind="commentEditorProps"
+                    :rows="12"
                 />
                 <div
                     v-else
@@ -263,18 +227,18 @@
                         <span>{{ commentUtf8Bytes }} / {{ commentPolicy.maxUtf8Bytes }} bytes</span>
                     </div>
                     <div class="comment-composer-focus__actions">
-                        <ElButton
+                        <FsusUiButton
                             class="comment-composer-focus__action"
-                            @click="focusModeVisible = false"
-                        >收起</ElButton>
-                        <ElButton
+                            @click="closeFocusMode"
+                        >收起</FsusUiButton>
+                        <FsusUiButton
                             class="comment-composer-focus__action"
                             type="primary"
                             :disabled="submitDisabled"
                             @click="requestSubmit"
                         >
                             {{ composerUi.submitBusyText }}
-                        </ElButton>
+                        </FsusUiButton>
                     </div>
                 </div>
             </template>
@@ -303,6 +267,14 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CommentAuthorMode, CommentAuthorView, CommentDisplayLanguage } from '@/api/comment';
 import CommentMarkdownRenderer from '@/components/article/CommentMarkdownRenderer.vue';
 import FsusDialog from '@/components/ui/FsusDialog.vue';
+import { FsusUiButton } from '@/fsusui/button';
+import { FsusUiCheckbox, type FsusUiCheckboxValue } from '@/fsusui/checkbox';
+import { FsusUiInput, type FsusUiInputInstance } from '@/fsusui/input';
+import {
+    FsusUiSegmentedControl,
+    type FsusUiSegmentedControlItem,
+    type FsusUiSegmentedControlValue
+} from '@/fsusui/segmentedControl';
 import {
     registerCommentPrivacyCredentialPurgeHandler,
     type CommentPrivacyCredentialPurgeReason
@@ -336,8 +308,10 @@ interface ReplyTargetView {
 }
 
 type CommentComposerMode = 'write' | 'preview';
-interface ElInputExpose {
-    focus?: () => void;
+interface CommentEditorSelection {
+    start: number;
+    end: number;
+    direction: 'forward' | 'backward' | 'none';
 }
 type CommentDraftSnapshot = PersistedPublicCommentDraft;
 
@@ -389,11 +363,16 @@ const emit = defineEmits<{
 }>();
 
 const composerShell = ref<HTMLElement | null>(null);
-const editorInputRef = ref<ElInputExpose | null>(null);
-const focusEditorInputRef = ref<ElInputExpose | null>(null);
+const editorInputRef = ref<FsusUiInputInstance | null>(null);
+const focusEditorInputRef = ref<FsusUiInputInstance | null>(null);
 const commentComposerMode = ref<CommentComposerMode>('write');
 const focusModeVisible = ref(false);
+const isEditorComposing = ref(false);
+let editorSelection: CommentEditorSelection | null = null;
+let focusModeTrigger: HTMLElement | null = null;
+let pendingEditorTransition: (() => void) | null = null;
 const localDraft = ref<CommentDraftSnapshot | null>(null);
+let reviewedPublicDraft: CommentDraftSnapshot | null = null;
 const restoredDraftVisible = ref(false);
 const draftNeedsReview = ref(false);
 const draftPrivacyBlocked = ref(false);
@@ -405,10 +384,14 @@ let commentDraftScopeId = '';
 let unregisterDraftPurgeHandler: (() => void) | null = null;
 let lastAccountId: number | null = null;
 
-const commentComposerModeOptions: readonly { value: CommentComposerMode; label: string; }[] = [
+const commentComposerModeOptions: FsusUiSegmentedControlItem[] = [
     { value: 'write', label: '编写' },
     { value: 'preview', label: '预览' }
 ];
+const commentComposerModeProps = {
+    items: commentComposerModeOptions,
+    ariaLabel: '评论编辑模式'
+};
 
 const contentModel = computed({
     get: () => props.modelValue,
@@ -449,7 +432,7 @@ const authorModeModel = computed<CommentAuthorMode>(() =>
 });
 
 const publicIdentityModel = computed({
-    get: () => authorModeModel.value === 'public' && props.publicSendConfirmed,
+    get: () => !draftNeedsReview.value && authorModeModel.value === 'public' && props.publicSendConfirmed,
     set: (value: boolean) =>
     {
         if (value && !props.publicCommentsEnabled)
@@ -467,8 +450,49 @@ const publicIdentityModel = computed({
 });
 
 const publicIdentityDisabled = computed(() =>
-    props.isBanned || props.isPowCalculating || props.isSubmitting || !props.publicCommentsEnabled
+    props.isBanned || props.isPowCalculating || props.isSubmitting || !props.publicCommentsEnabled || draftNeedsReview.value
 );
+
+const publicIdentityReason = computed(() =>
+{
+    if (props.isBanned)
+    {
+        return '当前账号已被禁言';
+    }
+    if (props.isPowCalculating)
+    {
+        return '正在准备发送，请稍候';
+    }
+    if (props.isSubmitting)
+    {
+        return '正在发送评论，请稍候';
+    }
+    if (!props.publicCommentsEnabled)
+    {
+        return '当前文章或讨论串不允许公开署名评论';
+    }
+    if (draftNeedsReview.value)
+    {
+        return '请先审查恢复的草稿，再确认本次公开署名';
+    }
+    if (draftPrivacyBlocked.value)
+    {
+        return '强匿名发布已暂停，勾选后将公开署名';
+    }
+    if (!effectiveAnonymousCommentsEnabled.value || props.privacyState === 'unavailable')
+    {
+        return '强匿名发布暂不可用，勾选后将公开署名';
+    }
+    return '';
+});
+
+const updatePublicIdentity = (value: FsusUiCheckboxValue): void =>
+{
+    if (typeof value === 'boolean' && !publicIdentityDisabled.value)
+    {
+        publicIdentityModel.value = value;
+    }
+};
 
 const composerUi = computed(() =>
     createCommentComposerUiContract(props.redirectPath, {
@@ -513,6 +537,10 @@ const submitDisabled = computed(() =>
 
 const requestSubmit = (): void =>
 {
+    if (isEditorComposing.value)
+    {
+        return;
+    }
     if (!markdownValidation.value.isValid)
     {
         commentComposerMode.value = 'write';
@@ -529,26 +557,141 @@ const requestSubmit = (): void =>
 const focusEditorAfterSubmit = async (): Promise<void> =>
 {
     await nextTick();
-    editorInputRef.value?.focus?.();
+    const editor = focusModeVisible.value ? focusEditorInputRef.value : editorInputRef.value;
+    editor?.focus();
 };
 
 const focusFocusModeEditor = async (): Promise<void> =>
 {
     await nextTick();
-    focusEditorInputRef.value?.focus?.();
+    if (commentComposerMode.value === 'write')
+    {
+        focusEditorInputRef.value?.focus();
+        restoreEditorSelection(focusEditorInputRef.value);
+    }
 };
 
-const openFocusMode = (): void =>
+const captureEditorSelection = (editor: FsusUiInputInstance | null): void =>
 {
-    commentComposerMode.value = 'write';
-    focusModeVisible.value = true;
-    void focusFocusModeEditor();
+    const textarea = editor?.textarea;
+    if (textarea)
+    {
+        editorSelection = {
+            start: textarea.selectionStart,
+            end: textarea.selectionEnd,
+            direction: textarea.selectionDirection
+        };
+    }
+};
+
+const restoreEditorSelection = (editor: FsusUiInputInstance | null): void =>
+{
+    if (editorSelection)
+    {
+        editor?.textarea?.setSelectionRange(editorSelection.start, editorSelection.end, editorSelection.direction);
+    }
+};
+
+const transitionEditor = (action: () => void): void =>
+{
+    if (isEditorComposing.value)
+    {
+        pendingEditorTransition = action;
+        return;
+    }
+    action();
+};
+
+const updateComposerMode = (value: FsusUiSegmentedControlValue): void =>
+{
+    if (value !== 'write' && value !== 'preview')
+    {
+        return;
+    }
+    transitionEditor(() =>
+    {
+        const editor = focusModeVisible.value ? focusEditorInputRef.value : editorInputRef.value;
+        captureEditorSelection(editor);
+        commentComposerMode.value = value;
+        void nextTick(() => restoreEditorSelection(
+            focusModeVisible.value ? focusEditorInputRef.value : editorInputRef.value
+        ));
+    });
+};
+
+const openFocusMode = (event: MouseEvent): void =>
+{
+    if (composerInputDisabled.value)
+    {
+        return;
+    }
+    if (event.currentTarget instanceof HTMLElement)
+    {
+        focusModeTrigger = event.currentTarget;
+    }
+    transitionEditor(() =>
+    {
+        captureEditorSelection(editorInputRef.value);
+        focusModeVisible.value = true;
+    });
 };
 
 const closeFocusMode = (): void =>
 {
-    focusModeVisible.value = false;
-    void focusEditorAfterSubmit();
+    transitionEditor(() =>
+    {
+        captureEditorSelection(focusEditorInputRef.value);
+        focusModeVisible.value = false;
+    });
+};
+
+const focusModeModel = computed({
+    get: () => focusModeVisible.value,
+    set: (visible: boolean) =>
+    {
+        if (!visible)
+        {
+            closeFocusMode();
+        }
+    }
+});
+
+const restoreFocusModeTrigger = async (): Promise<void> =>
+{
+    await nextTick();
+    restoreEditorSelection(editorInputRef.value);
+    focusModeTrigger?.focus();
+};
+
+const handleEditorCompositionStart = (): void =>
+{
+    isEditorComposing.value = true;
+};
+
+const handleEditorCompositionEnd = async (): Promise<void> =>
+{
+    // Input commits its v-model after emitting compositionend.
+    await nextTick();
+    isEditorComposing.value = false;
+    const transition = pendingEditorTransition;
+    pendingEditorTransition = null;
+    transition?.();
+};
+
+const handleSubmitShortcut = (event: KeyboardEvent | Event): void =>
+{
+    if (!(event instanceof KeyboardEvent))
+    {
+        return;
+    }
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey))
+    {
+        event.preventDefault();
+        if (!event.isComposing && event.keyCode !== 229)
+        {
+            requestSubmit();
+        }
+    }
 };
 
 const notifyPrivacyIntent = (): void =>
@@ -590,6 +733,7 @@ onMounted(() =>
 
 onBeforeUnmount(() =>
 {
+    pendingEditorTransition = null;
     if (draftSaveTimer)
     {
         clearTimeout(draftSaveTimer);
@@ -619,6 +763,19 @@ const placeholderText = computed(() =>
         ? `回复 @${props.replyTarget.author.displayName} (Ctrl + Enter 发送)`
         : composerUi.value.placeholder
 );
+
+const commentEditorProps = computed(() => ({
+    type: 'textarea' as const,
+    cspSafe: true,
+    resize: 'none' as const,
+    label: '发表评论',
+    placeholder: placeholderText.value,
+    disabled: composerInputDisabled.value,
+    onFocus: notifyPrivacyIntent,
+    onKeydown: handleSubmitShortcut,
+    onCompositionstart: handleEditorCompositionStart,
+    onCompositionend: handleEditorCompositionEnd
+}));
 
 const draftSavedAtText = computed(() =>
 {
@@ -667,6 +824,8 @@ const refreshCommentDraftStorageKey = (): void =>
 
 const restoreCommentDraft = (): void =>
 {
+    // Retry identity belongs to the previous draft key, not another article or reply.
+    reviewedPublicDraft = null;
     const key = draftStorageKey.value;
     if (!key || !commentDraftStorage)
     {
@@ -688,19 +847,9 @@ const restoreCommentDraft = (): void =>
 
     localDraft.value = result.draft;
     restoredDraftVisible.value = true;
-    if (result.draft.policyHash !== props.policySnapshotHash)
-    {
-        draftNeedsReview.value = true;
-        return;
-    }
-
-    draftNeedsReview.value = false;
-    if (!contentModel.value.trim())
-    {
-        emit('update:modelValue', result.draft.content);
-        emit('update:authorMode', 'public');
-        emit('update:publicSendConfirmed', true);
-    }
+    draftNeedsReview.value = true;
+    emit('update:authorMode', 'zk_anonymous');
+    emit('update:publicSendConfirmed', false);
 };
 
 const clearPersistedCommentDraft = (): boolean =>
@@ -744,14 +893,15 @@ const saveCommentDraft = (): void =>
         return;
     }
 
+    const retryDraft = localDraft.value ?? reviewedPublicDraft;
     const draft: CommentDraftSnapshot = {
         version: 3,
         content,
         savedAt: Date.now(),
         policyHash: props.policySnapshotHash,
-        clientMutationId: localDraft.value?.content === content &&
-            localDraft.value.policyHash === props.policySnapshotHash
-            ? localDraft.value.clientMutationId
+        clientMutationId: retryDraft?.content === content &&
+            retryDraft.policyHash === props.policySnapshotHash
+            ? retryDraft.clientMutationId
             : createCommentMutationId()
     };
 
@@ -795,6 +945,9 @@ const reviewCommentDraft = (): void =>
     {
         draftPrivacyBlocked.value = true;
     }
+    // Keep only the reviewed public retry identity in this composer. Anonymous
+    // submits never consult it, and identity-wide/anonymous-memory purge clears it.
+    reviewedPublicDraft = draft.policyHash === props.policySnapshotHash ? draft : null;
     emit('update:modelValue', draft.content);
     emit('update:authorMode', 'zk_anonymous');
     emit('update:publicSendConfirmed', false);
@@ -803,12 +956,14 @@ const reviewCommentDraft = (): void =>
 
 const discardCommentDraft = (): void =>
 {
+    reviewedPublicDraft = null;
+    const wasPendingReview = draftNeedsReview.value;
     const draftContent = localDraft.value?.content ?? '';
     if (!clearPersistedCommentDraft())
     {
         draftPrivacyBlocked.value = true;
     }
-    if (contentModel.value === draftContent)
+    if (!wasPendingReview && contentModel.value === draftContent)
     {
         emit('update:modelValue', '');
     }
@@ -827,6 +982,7 @@ const identityWideDraftPurgeReasons = new Set<CommentPrivacyCredentialPurgeReaso
 
 const clearDraftMemory = (): void =>
 {
+    reviewedPublicDraft = null;
     if (draftSaveTimer)
     {
         clearTimeout(draftSaveTimer);
@@ -953,6 +1109,7 @@ watch(() => contentModel.value, (value) =>
 {
     if (!value.trim())
     {
+        reviewedPublicDraft = null;
         if (!draftNeedsReview.value && !clearPersistedCommentDraft())
         {
             draftPrivacyBlocked.value = true;
@@ -1127,97 +1284,6 @@ function createCommentMutationId(): string
     line-height: 1.5;
 }
 
-.comment-identity-toggle
- {
-    flex: 0 0 auto;
-    position: relative;
-    display: inline-flex;
-    min-height: 1.75rem;
-    align-items: center;
-    gap: 0.5rem;
-    margin-right: -0.125rem;
-    color: var(--fsusblog-text-tertiary);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1.35;
-}
-
-.comment-identity-toggle.is-disabled
- {
-    color: color-mix(in srgb, var(--fsusblog-text-muted) 88%, transparent);
-    cursor: not-allowed;
-}
-
-.comment-identity-toggle__label
- {
-    display: inline-flex;
-    align-items: center;
-    min-height: 1.25rem;
-}
-
-.comment-identity-toggle__input
- {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.comment-identity-toggle__box
- {
-    position: relative;
-    display: inline-flex;
-    width: 1rem;
-    height: 1rem;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--fsusblog-panel-border-strong);
-    border-radius: var(--fsus-radius-control-small, 4px);
-    background: var(--fsusblog-panel-bg);
-    transition:
-        background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-        border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-        box-shadow var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.comment-identity-toggle__box::after
- {
-    content: "";
-    width: 0.35rem;
-    height: 0.6rem;
-    border: solid var(--fsusblog-panel-bg);
-    border-width: 0 2px 2px 0;
-    opacity: 0;
-    transform: translateY(-0.05rem) rotate(45deg) scale(0.82);
-    transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.comment-identity-toggle__input:checked + .comment-identity-toggle__box
- {
-    border-color: var(--fsusblog-color-primary);
-    background: var(--fsusblog-color-primary);
-}
-
-.comment-identity-toggle__input:checked + .comment-identity-toggle__box::after
- {
-    opacity: 1;
-}
-
-.comment-identity-toggle__input:focus-visible + .comment-identity-toggle__box
- {
-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-}
-
-.comment-identity-toggle__input:disabled + .comment-identity-toggle__box
- {
-    border-color: color-mix(in srgb, var(--fsusblog-text-muted) 28%, transparent);
-    background: var(--fsusblog-panel-bg-soft);
-}
-
 .comment-composer-editor
  {
     display: grid;
@@ -1240,16 +1306,6 @@ function createCommentMutationId(): string
     font-weight: 700;
 }
 
-.comment-composer-draft button
- {
-    border: 0;
-    background: transparent;
-    color: var(--fsusblog-color-primary);
-    cursor: pointer;
-    font: inherit;
-    padding: 0;
-}
-
 .comment-composer-draft__actions
  {
     display: inline-flex;
@@ -1267,53 +1323,10 @@ function createCommentMutationId(): string
     min-width: 0;
 }
 
-.comment-composer-mode
- {
-    display: inline-flex;
-    width: max-content;
-    max-width: 100%;
-    align-items: center;
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsusblog-radius-control, 6px);
-    background: color-mix(in srgb, var(--fsusblog-panel-bg) 92%, transparent);
-    padding: 0.1875rem;
-}
-
-.comment-composer-mode__item
- {
-    min-height: 1.875rem;
-    border: 0;
-    border-radius: var(--fsusblog-radius-control, 6px);
-    background: transparent;
-    color: var(--fsusblog-text-muted);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1;
-    padding: 0 0.6875rem;
-}
-
-.comment-composer-mode__item.is-active
- {
-    background: var(--fsusblog-page-bg);
-    color: var(--fsusblog-text-primary);
-    box-shadow: 0 1px 4px color-mix(in srgb, #000 8%, transparent);
-}
-
-.comment-composer-mode__item:focus-visible
- {
-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-    outline: none;
-}
-
 .comment-composer-focus
  {
     flex: 0 0 auto;
-    min-height: 1.875rem;
     align-self: center;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1;
     white-space: nowrap;
 }
 
@@ -1367,43 +1380,6 @@ function createCommentMutationId(): string
     gap: 0.75rem;
 }
 
-.comment-composer-focus__textarea
- {
-    width: 100%;
-    min-height: min(52vh, 26rem);
-    box-sizing: border-box;
-    resize: none;
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsusblog-radius-control, 6px);
-    background: var(--fsusblog-panel-bg);
-    color: var(--fsusblog-text-primary);
-    font: inherit;
-    line-height: 1.6;
-    outline: none;
-    padding: 0.875rem 1rem;
-    transition:
-        border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-        box-shadow var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.comment-composer-focus__textarea::placeholder
- {
-    color: var(--fsusblog-text-muted);
-}
-
-.comment-composer-focus__textarea:focus
- {
-    border-color: color-mix(in srgb, var(--fsusblog-color-primary) 42%, var(--fsusblog-panel-border));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fsusblog-color-primary) 34%, transparent);
-}
-
-.comment-composer-focus__textarea:disabled
- {
-    background: var(--fsusblog-panel-bg-soft);
-    color: var(--fsusblog-text-muted);
-    cursor: not-allowed;
-}
-
 .comment-composer-focus__preview
  {
     min-height: min(52vh, 26rem);
@@ -1455,11 +1431,6 @@ function createCommentMutationId(): string
         align-items: flex-start;
         flex-direction: column;
         gap: 0.5rem;
-    }
-
-    .comment-identity-toggle
- {
-        margin-right: 0;
     }
 
     .comment-composer-focus__footer
