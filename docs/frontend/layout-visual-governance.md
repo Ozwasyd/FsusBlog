@@ -275,6 +275,16 @@ under one parent keep every conditional render path and one actual source marker
 this finite closure supplies no chosen branch or state acceptance. Vnode props
 shorthand retains the actual expression rather than guessing a static value.
 
+Finite selectors over component-valued props retain every actual prop edge.
+An absent selector needs every input to be absent at the same actual call chain
+and the exact disjunction guard over those inputs; an unknown supplied input
+still fails. An actual imported fallback may follow a closed immutable object
+destructuring with no default or rest binding. Closed prop declaration spreads
+retain their actual fields and reject unknown overrides. Declared Vue attrs
+exclude declared props, but opaque forwarded spreads remain errors even beside
+an explicit component input. The current Dialog motion spread is unresolved;
+its traced Close fallback does not establish a rendered binding or acceptance.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

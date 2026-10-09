@@ -170,7 +170,7 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
                     {
                         child.definitions?.forEach(visit);
                     }
-                    if (child.origin.kind === 'component-prop' && child.file.startsWith(graph.upstreamRoot + '/'))
+                    if (['component-prop', 'component-prop-variants'].includes(child.origin.kind) && child.file.startsWith(graph.upstreamRoot + '/'))
                     {
                         const binding = matchCompositionComponentProp(graph, child, ancestry(node));
                         if (binding?.definition?.startsWith(graph.upstreamRoot + '/'))
@@ -198,7 +198,7 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
         }
         const chain = ancestry(node);
         const dynamic = chain.map((ancestor) => sourceNodes.get(ancestor.sourceCall))
-            .filter((candidate) => candidate?.origin.kind === 'component-prop');
+            .filter((candidate) => ['component-prop', 'component-prop-variants'].includes(candidate?.origin.kind));
         for (const prop of dynamic)
         {
             const binding = matchCompositionComponentProp(graph, prop, chain);

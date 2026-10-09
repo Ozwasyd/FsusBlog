@@ -1263,6 +1263,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     if (!origin)
                     {
                         const targets = resolver.resolveComponentInput(file, exp, { templateRefs: true });
+                        if (targets.some((target) => target.kind === 'component-prop' && localNames.has(target.property)))
+                        {
+                            fail(`unbound template component prop ${file}:${offset}`);
+                        }
                         if (targets.length > 1 && targets.every((target) => target.kind === 'native'))
                         {
                             origin = { kind: 'native-variants', values: [...new Set(targets.map((target) => target.name))] };
@@ -1270,6 +1274,12 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         else if (targets.length > 1 && targets.every((target) => ['local', 'fsusui-public', 'upstream-internal'].includes(target.kind)))
                         {
                             origin = { kind: 'component-variants', variants: targets, selectorExpression: dynamic.expression,
+                                selectorDigest: controlDigest(dynamic.expression) };
+                        }
+                        else if (targets.length > 1 && targets.every((target) => target.kind === 'component-prop' && target.file === file))
+                        {
+                            origin = { kind: 'component-prop-variants', edges: targets,
+                                declarationDigest: controlDigest(targets), selectorExpression: dynamic.expression,
                                 selectorDigest: controlDigest(dynamic.expression) };
                         }
                         else if (targets.length !== 1)
@@ -1534,11 +1544,17 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
             const binding = named[0];
             const spreads = call.directives.filter((entry) => entry.name === 'bind' && !entry.argument);
-            if (spreads.length > 1 || (spreads.length && (binding || attributes.length)))
+            const spreadValues = spreads.map((entry) => spreadInput(call.file, expression(entry.expression, call.file), property));
+            if ((binding || attributes.length) && spreadValues.some((value) => value !== absent))
             {
                 fail(`ambiguous component input ${key}`);
             }
-            let input = spreads.length ? spreadInput(call.file, expression(spreads[0].expression, call.file), property) : absent;
+            const suppliedSpreads = spreadValues.filter((value) => value !== absent);
+            if (suppliedSpreads.length > 1)
+            {
+                fail(`ambiguous component input ${key}`);
+            }
+            let input = suppliedSpreads[0] ?? absent;
             if (binding)
             {
                 input = { file: call.file, expression: expression(binding.expression, call.file) };
@@ -1648,7 +1664,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 {
                     for (const input of componentInput(call, node.origin.property))
                     {
-                        const target = input.target;
+                        const target = input.target ?? node.origin.fallbackSource ?? null;
                         const definition = target ? componentFile(target) : null;
                         function requiresInput(exp)
                         {
@@ -1692,10 +1708,75 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 }
             }
         }
+        for (const node of graphNodes.filter((entry) => entry.origin.kind === 'component-prop-variants'))
+        {
+            const calls = graphNodes.filter((entry) => entry.definition === node.file);
+            if (!calls.length)
+            {
+                componentPropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-component-prop-source' });
+            }
+            for (const call of calls)
+            {
+                try
+                {
+                    const inputs = node.origin.edges.map((edge) => componentInput(call, edge.property));
+                    if (inputs.some((values) => values.length !== 1 || values[0].target !== null)
+                        || !inputs.every((values) => controlDigest(values[0].callPath) === controlDigest(inputs[0][0].callPath)))
+                    {
+                        fail(`unknown component prop alternatives ${node.file}:${node.offset}`);
+                    }
+                    const properties = node.origin.edges.map((edge) => edge.property);
+                    function absentDisjunction(exp)
+                    {
+                        exp = unwrapInput(exp);
+                        if (exp && ts.isIdentifier(exp))
+                        {
+                            return [exp.text];
+                        }
+                        if (exp && ts.isBinaryExpression(exp) && exp.operatorToken.kind === ts.SyntaxKind.BarBarToken)
+                        {
+                            return [...absentDisjunction(exp.left), ...absentDisjunction(exp.right)];
+                        }
+                        return ['unknown'];
+                    }
+                    const guard = [node, ...node.ancestors.map((id) => nodes.get(id))]
+                        .filter((entry) => !properties.some((property) => entry.scopedBindings.includes(property)))
+                        .flatMap((entry) => entry.conditional.map((condition) => ({ ...condition, nodeId: entry.id })))
+                        .find((condition) =>
+                        {
+                            if (!['if', 'else-if'].includes(condition.name) || !condition.expression)
+                            {
+                                return false;
+                            }
+                            const leaves = absentDisjunction(expression(condition.expression, node.file));
+                            return leaves.length === properties.length && new Set(leaves).size === properties.length
+                                && leaves.every((property) => properties.includes(property));
+                        });
+                    if (!guard)
+                    {
+                        fail(`unguarded absent component prop alternatives ${node.file}:${node.offset}`);
+                    }
+                    const callPath = inputs[0][0].callPath;
+                    componentPropBindings.push({ sourceNode: node.id, declarationDigest: node.origin.declarationDigest,
+                        callNode: call.id, callPath, inputDigests: callPath.map((id) =>
+                        {
+                            const entry = nodes.get(id);
+                            return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
+                        }), target: null, definition: null, absent: true,
+                        absenceGuard: { sourceNode: guard.nodeId, directive: guard.name, expression: guard.expression,
+                            expressionDigest: controlDigest(guard.expression), properties } });
+                }
+                catch (failure)
+                {
+                    componentPropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-component-prop-source',
+                        callNode: call.id, message: failure.message });
+                }
+            }
+        }
         // Newly reached component definitions may contain further inputs. An
         // unbound nested edge remains an error; reaching its file is not proof.
         for (const node of [...nodes.values()].filter((entry) => reachable.has(entry.file)
-            && entry.origin.kind === 'component-prop' && !graphNodes.some((original) => original.id === entry.id)))
+            && ['component-prop', 'component-prop-variants'].includes(entry.origin.kind) && !graphNodes.some((original) => original.id === entry.id)))
         {
             componentPropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-component-prop-source', property: node.origin.property });
         }
