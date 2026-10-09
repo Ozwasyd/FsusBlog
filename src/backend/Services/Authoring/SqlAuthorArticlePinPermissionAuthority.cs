@@ -79,6 +79,8 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
     /// The caller must serialize use of its borrowed client and own its connection and transaction
     /// lifecycle. Cancellation may leave a PostgreSQL transaction aborted; this reader never replaces
     /// the client, commits or rolls back that transaction, or abandons pending SQL work.
+    /// Command completion follows the native driver's cancellation response policy. This contract
+    /// does not impose an execution deadline or prove the Graph metadata reader's 250 ms budget.
     /// </remarks>
     public async Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(
         AuthorArticlePinPermissionBatchRequest request,
@@ -110,15 +112,17 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
             return Unavailable(request.Owner, "article_pin_permission_context_denied");
         }
 
-        CancellationToken? previousCancellation = db.Ado.CancellationToken;
+        IAdo ado = db.Ado;
+        CancellationToken? previousCancellation = ado.CancellationToken;
         using CancellationTokenSource? linkedCancellation = previousCancellation is { CanBeCanceled: true } previous
             ? CancellationTokenSource.CreateLinkedTokenSource(previous, cancellationToken)
             : null;
         CancellationToken commandCancellation = linkedCancellation?.Token ?? cancellationToken;
         try
         {
-            db.Ado.CancellationToken = commandCancellation;
+            ado.CancellationToken = commandCancellation;
             PermissionState? state = await ReadPermissionStateAsync(
+                ado,
                 adminPrincipalId,
                 sessionId,
                 commandCancellation).ConfigureAwait(false);
@@ -134,7 +138,7 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
                 return Unavailable(request.Owner, "article_pin_permission_session_denied");
             }
 
-            Dictionary<int, ArticleAccessState> articles = await ReadArticleStatesAsync(articleIds, commandCancellation)
+            Dictionary<int, ArticleAccessState> articles = await ReadArticleStatesAsync(ado, articleIds, commandCancellation)
                 .ConfigureAwait(false);
             commandCancellation.ThrowIfCancellationRequested();
             string siteRevision = AuthorArticlePinProjectionContract.HashText(
@@ -179,7 +183,7 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
         }
         finally
         {
-            db.Ado.CancellationToken = previousCancellation;
+            ado.CancellationToken = previousCancellation;
         }
     }
 
@@ -191,11 +195,12 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
     }
 
     private async Task<PermissionState?> ReadPermissionStateAsync(
+        IAdo ado,
         long adminPrincipalId,
         string sessionId,
         CancellationToken cancellationToken)
     {
-        await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using DbDataReader reader = (DbDataReader)await ado.GetDataReaderAsync(
             """
             SELECT ap.status AS principal_status,
                    ap.isroot,
@@ -230,6 +235,7 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
     }
 
     private async Task<Dictionary<int, ArticleAccessState>> ReadArticleStatesAsync(
+        IAdo ado,
         IReadOnlyList<int> articleIds,
         CancellationToken cancellationToken)
     {
@@ -238,7 +244,7 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
         {
             return result;
         }
-        await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using DbDataReader reader = (DbDataReader)await ado.GetDataReaderAsync(
             """
             SELECT id, status, isdeleted
             FROM article
