@@ -16,6 +16,30 @@ public sealed class ArticleVaultAuthenticatedConflictReviewAdapter(
     ArticleVaultConflictReviewReader reader,
     string trustedVaultSiteIdentity)
 {
+    /// <summary>
+    /// Prepares the canonical request handoff without registering an endpoint or response wire.
+    /// Request fields name exact references; the caller separately supplies trusted current inputs.
+    /// </summary>
+    public Task<ArticleVaultConflictReviewSnapshot> ReadCurrentRequestFromHttpContextAsync(
+        ArticleVaultCurrentReviewRequest request,
+        HttpContext context,
+        ArticleVaultResolutionPlanInput current,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!ArticleVaultCurrentReviewWireContract.IsValid(request))
+        {
+            throw Rejected("article_vault_current_review_request_invalid");
+        }
+        ArticleVaultConflictReviewCheckpointReference? checkpoint = request.Checkpoint is { } exact
+            ? new(exact.Operation, exact.Sequence, exact.ContentSha256)
+            : null;
+        var reference = new ArticleVaultConflictReviewReference(
+            request.ResolutionOperationIdentity, request.ProposalSha256, checkpoint);
+        return ReadFromHttpContextAsync(reference, request.ArticleId, context, current, cancellationToken);
+    }
+
     /// <summary>Uses the original endpoint's admin-session claim mapping, never request DTO identity fields.</summary>
     public Task<ArticleVaultConflictReviewSnapshot> ReadFromHttpContextAsync(
         ArticleVaultConflictReviewReference reference,
