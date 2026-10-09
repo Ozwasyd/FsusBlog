@@ -11,6 +11,14 @@ public static class ArticleRelationContractValidator
     public const int MaxRelationsPerSet = 100_000;
     public const int MaxCandidatesPerSource = 10_000;
 
+    /// <summary>Recomputes the canonical relation identity and record digest on a copy of the supplied record.</summary>
+    /// <param name="record">The non-null record whose existing identity and digest will be replaced.</param>
+    /// <returns>A record copy with both hashes recomputed; the supplied instance is unchanged.</returns>
+    /// <remarks>
+    /// Sealing computes hashes without validating the supplied facts or performing authorization.
+    /// Use <see cref="Validate(ArticleRelationRecord)"/> to check the resulting record contract.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="record"/> is <see langword="null"/>.</exception>
     public static ArticleRelationRecord Seal(ArticleRelationRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
@@ -301,6 +309,14 @@ public static class ArticleRelationContractValidator
         return Valid();
     }
 
+    /// <summary>Checks a relation record's declared facts, contract bindings and canonical hashes.</summary>
+    /// <param name="record">The record to check; null is refused as an invalid record.</param>
+    /// <returns>A valid result when all checks succeed, or an invalid result with the first refusal reason code.</returns>
+    /// <remarks>
+    /// Checks schema, closed enums, coordinates, source/target/visibility/occurrence facts, catalogue eligibility,
+    /// actor and resolution bindings, public-scope restrictions, identity and digest. Unlinked mentions require
+    /// the separate candidate contract. This method does not fetch permission or publication authority.
+    /// </remarks>
     public static ArticleRelationValidationResult Validate(ArticleRelationRecord? record)
     {
         if (record is null
