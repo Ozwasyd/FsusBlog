@@ -30,6 +30,18 @@ function fixture(text, extension = 'vue')
     writeFileSync(file, text);
     return file;
 }
+function functionPackage(exports = { '.': { import: './public.mjs', require: './index.cjs' } }, text = 'export const predicate=(value)=>typeof value === "string";')
+{
+    const name = `actual-functions-${randomUUID()}`;
+    const root = resolve(directory, 'node_modules', name);
+    mkdirSync(root, { recursive: true });
+    writeFileSync(resolve(root, 'package.json'), JSON.stringify({ name, exports }));
+    writeFileSync(resolve(root, 'index.cjs'), 'module.exports={};');
+    writeFileSync(resolve(root, 'public.mjs'), text);
+    const file = fixture(`import {predicate as alias} from '${name}';const selected=alias('Actual');`, 'ts');
+    const s = source();
+    return { s, file, root, resolve: () => s.resolver.resolveSourceFunction(file, s.expression('alias', file)) };
+}
 function mixed(framework = false)
 {
     const child = fixture('<template><a>Actual child</a></template>');
@@ -328,6 +340,84 @@ test('central template outlet cannot consume a JSX callback supplier without its
     assert.ok(graph.errors.some((error) => error.reason === 'unbound-slot-source'
         && error.file === owner && /missing actual slot callback invocation/.test(error.message)));
     assert.equal(graph.slotBindings.some((entry) => entry.supplier.callNode === call.id), false);
+});
+
+test('canonical actual Options predicates resolve to original public ESM definitions and metadata inputs', () =>
+{
+    const s = source();
+    const file = resolve(fsusUIRoot, 'vue/packages/components/select/src/options.ts');
+    for (const name of ['isString', 'isFunction'])
+    {
+        const result = s.resolver.resolveSourceFunction(file, s.expression(name, file));
+        assert.ok(result.file.endsWith('/@vue/shared/dist/shared.esm-bundler.js'));
+        assert.equal(result.name, name);
+        assert.equal(result.fn, s.resolver.parse(result.file).variables.get(name));
+        assert.deepEqual(result.sourceSteps, [s.resolver.sourceStep(result.file, result.fn)]);
+    }
+    const inputs = s.resolver.sourceBindings();
+    assert.deepEqual(inputs.errors, []);
+    assert.ok(inputs.files.some((entry) => entry.path.endsWith('/@vue/shared/package.json')));
+    assert.ok(inputs.files.some((entry) => entry.path.endsWith('/utils/types.ts')));
+    assert.ok(inputs.files.some((entry) => entry.path.endsWith('/@vue/shared/dist/shared.esm-bundler.js')));
+});
+
+test('canonical public function source follows the actual declared ESM entry without executing require output', () =>
+{
+    const state = functionPackage();
+    const result = state.resolve();
+    assert.equal(result.file, resolve(state.root, 'public.mjs'));
+    assert.equal(result.name, 'predicate');
+    assert.equal(result.fn, state.s.resolver.parse(result.file).variables.get('predicate'));
+    assert.ok(state.s.resolver.sourceBindings().files.some((entry) => entry.path === resolve(state.root, 'package.json')));
+});
+
+test('canonical public function source rejects a same name absent from its actual export', () =>
+{
+    const state = functionPackage(undefined, 'export const unrelated=()=>true;');
+    assert.throws(state.resolve, /unknown component source function import/);
+});
+
+test('canonical public function source rejects ambiguous import conditions and conflicting module entry', () =>
+{
+    for (const contract of [
+        { import: { browser: './public.mjs', default: './public.mjs' }, require: './index.cjs' },
+        { import: './public.mjs', module: './index.cjs', require: './index.cjs' }
+    ])
+    {
+        assert.throws(functionPackage({ '.': contract }).resolve, /missing\/ambiguous public ESM function entry/);
+    }
+});
+
+test('canonical public function source rejects private subpaths and escaped declared source', () =>
+{
+    const state = functionPackage();
+    const name = state.root.split('/').at(-1);
+    const file = fixture(`import {predicate} from '${name}/public.mjs';`, 'ts');
+    assert.throws(() => state.s.resolver.resolveSourceFunction(file, state.s.expression('predicate', file)), /unavailable public function package/);
+    assert.throws(functionPackage({ '.': { import: './../outside.mjs', require: './index.cjs' } }).resolve, /invalid public ESM function entry/);
+});
+
+test('canonical public function source rejects stale metadata and original function bytes', () =>
+{
+    const metadata = functionPackage();
+    metadata.resolve();
+    writeFileSync(resolve(metadata.root, 'package.json'), JSON.stringify({ name: metadata.root.split('/').at(-1),
+        exports: { '.': { import: './public.mjs', require: './index.cjs' } }, changed: true }));
+    assert.throws(metadata.resolve, /public function package source changed/);
+    const body = functionPackage();
+    body.resolve();
+    writeFileSync(resolve(body.root, 'public.mjs'), 'export const predicate=()=>true;');
+    assert.throws(body.resolve, /component source function changed/);
+});
+
+test('canonical public function source leaves effectful and unavailable imports unqualified', () =>
+{
+    const state = functionPackage(undefined, 'export const predicate=(value)=>unknown(value);');
+    const result = state.resolve();
+    assert.equal(result.fn.body.getText(), 'unknown(value)');
+    assert.equal(result.qualificationEligible, undefined);
+    const file = fixture(`import {predicate} from 'missing-actual-package-${randomUUID()}';`, 'ts');
+    assert.throws(() => state.s.resolver.resolveSourceFunction(file, state.s.expression('predicate', file)), /unavailable public function package/);
 });
 
 for (const [label, text] of [

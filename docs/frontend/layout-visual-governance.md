@@ -409,6 +409,12 @@ JSX slot callback bindings retain `callbackPending` until an actual invocation
 is proved. A template outlet cannot substitute for that callback invocation;
 its unresolved edge remains `unbound-slot-source`. Functional supplier facts
 and their dependencies remain bound to original AST steps and source digests.
+The existing `resolver.resolveSourceFunction(file, expression)` can follow an
+actual imported definition through a declared public ESM entry. Package metadata
+and the parsed module join its original source-input closure; `sourceSteps`
+contains the actual function AST step. Conditional or conflicting entries,
+private subpaths, absent exports and changed inputs refuse. Reading a definition
+does not prove its effects or authorize a callback, provider or runtime value.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state

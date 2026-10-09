@@ -328,14 +328,17 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                                 if (imported)
                                 {
                                     const source = modulePath(imported.specifier, file, mode === 'local' && file.startsWith(path.join(fsusUIRoot, 'vue')));
-                                    origin = typeof source === 'string' ? exportsOf(source, next).get(imported.name) : { package: source.package, name: imported.name };
+                                    origin = typeof source === 'string' ? exportsOf(source, next).get(imported.name)
+                                        : { package: source.package, name: imported.name, packageImporter: file };
                                 }
                                 else
                                 {
                                     origin = { file, name };
                                 }
                             }
-                            set(entry.name.text, origin ?? { file: typeof target === 'string' ? target : null, name, unresolved: true });
+                            set(entry.name.text, origin ?? { file: typeof target === 'string' ? target : null, name,
+                                package: typeof target === 'string' ? undefined : target?.package,
+                                packageImporter: typeof target === 'string' ? undefined : file, unresolved: true });
                         }
                     }
                 }
@@ -1133,6 +1136,75 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         return [...new Map(targets.map((target) => [controlDigest(target), target])).values()];
     };
+    // Read a declared public ESM entry; never execute a package or guess a
+    // private distribution path. This exposes definitions, not function effects.
+    const publicFunctionEntry = (specifier, importer) =>
+    {
+        const parts = specifier.split('/');
+        const name = specifier.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
+        let entry;
+        try
+        {
+            entry = require.resolve(specifier, { paths: [path.dirname(importer), path.join(parserRoot, 'src/frontend')] });
+        }
+        catch
+        {
+            fail(`unknown component source function import: unavailable public function package ${specifier}`);
+        }
+        if (!fs.existsSync(entry) || !fs.statSync(entry).isFile())
+        {
+            fail(`unknown component source function import: unavailable public function package ${specifier}`);
+        }
+        let packageRoot = path.dirname(fs.realpathSync(entry));
+        let metadataFile;
+        let packageMetadata;
+        while (packageRoot !== path.dirname(packageRoot))
+        {
+            const candidate = path.join(packageRoot, 'package.json');
+            if (fs.existsSync(candidate))
+            {
+                const value = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+                if (value.name === name)
+                {
+                    metadataFile = candidate;
+                    packageMetadata = value;
+                    break;
+                }
+            }
+            packageRoot = path.dirname(packageRoot);
+        }
+        const subpath = specifier.slice(name.length);
+        const exports = packageMetadata?.exports;
+        const contract = subpath ? exports?.['.' + subpath]
+            : typeof exports === 'string' ? exports : exports?.['.'] ?? exports;
+        const declared = typeof contract === 'string' ? contract : contract?.import;
+        if (!metadataFile || typeof declared !== 'string' || !declared.startsWith('./')
+            || typeof contract === 'object' && contract.module !== undefined && contract.module !== declared)
+        {
+            fail(`missing/ambiguous public ESM function entry ${specifier}`);
+        }
+        const target = path.resolve(packageRoot, declared);
+        if (!target.startsWith(packageRoot + path.sep) || !fs.existsSync(target) || !fs.statSync(target).isFile())
+        {
+            fail(`invalid public ESM function entry ${specifier}`);
+        }
+        const actual = fs.realpathSync(target);
+        if (!actual.startsWith(packageRoot + path.sep) || !/\.(?:mjs|js|mts|ts)$/.test(actual) || actual.endsWith('.d.ts'))
+        {
+            fail(`unowned public ESM function entry ${specifier}`);
+        }
+        const digest = controlDigest(fs.readFileSync(metadataFile, 'utf8'));
+        const previous = resolutionInputs.find((input) => input.path === metadataFile);
+        if (previous && previous.digest !== digest)
+        {
+            fail(`public function package source changed ${specifier}`);
+        }
+        if (!previous)
+        {
+            resolutionInputs.push({ path: metadataFile, digest });
+        }
+        return actual;
+    };
     const componentFunction = (file, callee, seen = new Set()) =>
     {
         if (!ts.isIdentifier(callee))
@@ -1148,11 +1220,19 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         const next = new Set([...seen, identity]);
         finiteComponentBinding(file, name);
         const record = parse(file);
+        if (controlDigest(record.content) !== controlDigest(fs.readFileSync(record.file, 'utf8')))
+        {
+            fail(`component source function changed ${identity}`);
+        }
         const imported = record.imports.get(name);
         if (imported)
         {
             const target = modulePath(imported.specifier, file, mode === 'local' && file.startsWith(path.join(fsusUIRoot, 'vue') + path.sep));
-            const exported = typeof target === 'string' ? exportsOf(target).get(imported.name) : null;
+            let exported = exportsOf(typeof target === 'string' ? target : publicFunctionEntry(target.package, file)).get(imported.name);
+            if (exported?.package && !exported.ambiguous)
+            {
+                exported = exportsOf(publicFunctionEntry(exported.package, exported.packageImporter ?? file)).get(exported.name);
+            }
             if (!exported?.file || exported.ambiguous || exported.unresolved)
             {
                 fail(`unknown component source function import ${identity}`);
@@ -1170,7 +1250,7 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         {
             fail(`unknown component source function body ${identity}`);
         }
-        return { file, fn, name };
+        return { file, fn, name, sourceSteps: [sourceStep(file, fn)] };
     };
     const componentSourceStep = (file, node) =>
     {
