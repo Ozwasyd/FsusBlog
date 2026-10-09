@@ -13,9 +13,12 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test-matrix/blame-ignore-source.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/source-governance.mjs"
             ],
-            "reason": "Preserve the canonical attempt migration tool owner and its externally invoked process/tooling interfaces while validating the complete actual producer inventory; no external environment spelling or command key is renamed."
+            "reason": "Preserve the canonical migration and SOURCE owner CLI, environment and metadata spellings while integrating the exact supplied blame-ignore port; no external spelling, registered exception or gate is changed."
         }
     ]
 }

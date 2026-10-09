@@ -1,13 +1,18 @@
 {
-    "schema": "fsusblog.generated-output-binding.v1",
-    "sources": [
-        "tools/test/correctness-attempt-migration.mjs",
-        "config/testing/release-final-execution-authority-index.json"
-    ],
-    "outputs": [
-        {
-            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "0e3f84275984fe9a9054ee1018faa3b58471646a317776492aeadf5519cb9cda"
-        }
-    ]
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "tools/test/correctness-attempt-migration.mjs",
+    "config/testing/release-final-execution-authority-index.json",
+    "tests/tools/blame-ignore-source.test.mjs",
+    "tests/tools/pr-impact-plan.test.mjs",
+    "tools/test-matrix/blame-ignore-source.mjs",
+    "tools/test-matrix/pr-impact-plan.mjs",
+    "tools/test-matrix/source-governance.mjs"
+  ],
+  "outputs": [
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "sha256": "77b6fe9ff8c7066334d3df8414e4cfb36286c9f4ca265883a9ece40057df4dbc"
+    }
+  ]
 }
