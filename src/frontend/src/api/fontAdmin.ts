@@ -1,9 +1,9 @@
-import type { FontActivationItem, FontDetail, FontRegistryItem } from '@/adapters/binary/fontThemeAdminAdapter';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
+import type { FontActivationItem, FontDetail, FontRegistryItem } from '@/contracts/fontThemeAdmin';
 
 import { FrameType } from '@wasm/protocol/frame';
 
-export type { FontActivationItem, FontDetail, FontFaceItem, FontRegistryItem } from '@/adapters/binary/fontThemeAdminAdapter';
+export type { FontActivationItem, FontDetail, FontFaceItem, FontRegistryItem } from '@/contracts/fontThemeAdmin';
 
 export function getFontRegistry(): Promise<FontRegistryItem[]>
 {

@@ -1,9 +1,9 @@
-import type { ThemeActivationHistoryItem, ThemeActivationItem, ThemeDetail, ThemeRegistryItem } from '@/adapters/binary/fontThemeAdminAdapter';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
+import type { ThemeActivationHistoryItem, ThemeActivationItem, ThemeDetail, ThemeRegistryItem } from '@/contracts/fontThemeAdmin';
 
 import { FrameType } from '@wasm/protocol/frame';
 
-export type { ThemeActivationHistoryItem, ThemeActivationItem, ThemeDetail, ThemeRegistryItem } from '@/adapters/binary/fontThemeAdminAdapter';
+export type { ThemeActivationHistoryItem, ThemeActivationItem, ThemeDetail, ThemeRegistryItem } from '@/contracts/fontThemeAdmin';
 
 export function getThemeRegistry(): Promise<ThemeRegistryItem[]>
 {
