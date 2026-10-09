@@ -1144,6 +1144,88 @@ function checkRoslynCompatibilityExceptions(file, lines)
     return violations;
 }
 
+// A delegate's return type precedes its declaration identifier. Locate the
+// outer parameter list without treating return tuples, generic arguments or
+// function-pointer signatures as that list. Roslyn remains the syntax authority.
+function parseDelegateDeclaration(codeLines, lineIndex)
+{
+    const header = stripLeadingScopeAttributes(codeLines[lineIndex]);
+    const start = header.match(/^(?:(?:public|protected|private|internal|file|new|unsafe)\s+)*delegate(?:\s+|$)/u);
+    if (!start)
+    {
+        return null;
+    }
+    const declaration = [header.slice(start[0].length), ...codeLines.slice(lineIndex + 1)].join('\n');
+    let angles = 0;
+    let genericStart = -1;
+    let completedGenericStart = -1;
+    let brackets = 0;
+    let parentheses = 0;
+    for (let index = 0; index < declaration.length; index += 1)
+    {
+        const character = declaration[index];
+        if (character === '(' && angles === 0 && brackets === 0 && parentheses === 0)
+        {
+            let prefix = declaration.slice(0, index).trimEnd();
+            if (prefix.endsWith('>') && completedGenericStart >= 0)
+            {
+                prefix = prefix.slice(0, completedGenericStart).trimEnd();
+            }
+            const name = prefix.match(/(?:^|\s)(@?[A-Za-z_]\w*)$/u);
+            // "ref readonly (T, T)" starts a return tuple, not a delegate
+            // called readonly. Escaped keyword identifiers remain names.
+            if (name && name[1] !== 'readonly' && prefix.slice(0, name.index).trim())
+            {
+                const nameIndex = prefix.length - name[1].length;
+                return {
+                    name: name[1].replace(/^@/u, ''),
+                    line: lineIndex + 1 + declaration.slice(0, nameIndex).split('\n').length - 1
+                };
+            }
+        }
+        // Attribute arguments can contain comparison operators. Their
+        // brackets/parentheses do not open or close a generic parameter list.
+        if (character === '<' && brackets === 0 && parentheses === 0)
+        {
+            if (angles === 0)
+            {
+                genericStart = index;
+            }
+            angles += 1;
+        }
+        else if (character === '>' && brackets === 0 && parentheses === 0)
+        {
+            angles = Math.max(0, angles - 1);
+            if (angles === 0)
+            {
+                completedGenericStart = genericStart;
+            }
+        }
+        else if (character === '[')
+        {
+            brackets += 1;
+        }
+        else if (character === ']')
+        {
+            brackets = Math.max(0, brackets - 1);
+        }
+        else if (character === '(')
+        {
+            parentheses += 1;
+        }
+        else if (character === ')')
+        {
+            parentheses = Math.max(0, parentheses - 1);
+        }
+        else if ((character === ';' || character === '{' || character === '}')
+            && angles === 0 && brackets === 0 && parentheses === 0)
+        {
+            return null;
+        }
+    }
+    return null;
+}
+
 function parseMethodDeclaration(trimmed, codeLines = [], lineIndex = codeLines.length)
 {
     if (!/^(?:public|protected|private|internal)\s+/u.test(trimmed))
@@ -1291,10 +1373,16 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
         {
             violations.push(makeViolation(file, lineNumber, 'interface-name', interfaceMatch[1], 'interface must use I + PascalCase'));
         }
-        const typeMatch = trimmed.match(/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:class|struct|record(?:\s+(?:class|struct))?|enum|delegate)\s+([A-Za-z_]\w*)/u);
+        const typeMatch = trimmed.match(/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:class|struct|record(?:\s+(?:class|struct))?|enum)\s+([A-Za-z_]\w*)/u);
         if (typeMatch && !recordExpressionLines[index] && !isPascalCase(typeMatch[1]))
         {
             violations.push(makeViolation(file, lineNumber, 'type-name', typeMatch[1], 'type must use PascalCase'));
+        }
+
+        const delegate = parseDelegateDeclaration(codeLines, index);
+        if (delegate && !isPascalCase(delegate.name))
+        {
+            violations.push(makeViolation(file, delegate.line, 'type-name', delegate.name, 'type must use PascalCase'));
         }
 
         const fieldMatch = trimmed.match(/^(?<access>public|protected|private|internal)\s+(?<modifiers>(?:(?:static|readonly|volatile|const|unsafe|required|new)\s+)*)(?<type>[A-Za-z_][\w<>,.?[\]]*)\s+(?<name>[A-Za-z_]\w*)\s*(?<terminator>=>|=|;|\{)/u);

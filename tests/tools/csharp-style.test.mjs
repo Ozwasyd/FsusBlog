@@ -1610,3 +1610,67 @@ test('Access-only rebind preserves the merged Miss baseline and refuses substitu
         assert.equal(readFileSync(path.join(fixtureRoot, 'original-baseline.json'), 'utf8'), originalBytes);
     });
 });
+
+const delegateDeclarations = [
+    ['primitive', 'internal delegate int Init(uint flags);', 'Init'],
+    ['native integer', 'private delegate nint CopyDevices();', 'CopyDevices'],
+    ['void', 'private delegate void PoolPop(nint pool);', 'PoolPop'],
+    ['unsigned integer', 'private delegate ulong SendInteger(nint value);', 'SendInteger'],
+    ['byte', 'private delegate byte SendBoolean(nint value);', 'SendBoolean'],
+    ['qualified', 'internal delegate System.Int32 ReadValue();', 'ReadValue'],
+    ['alias-qualified generic', 'internal delegate global::System.Collections.Generic.Dictionary<string, int[]> ReadValues();', 'ReadValues'],
+    ['generic variance', 'internal delegate TResult Convert<in T, out TResult>(T value);', 'Convert'],
+    ['attributed generic less-than', 'internal delegate TResult Convert<T, [Flag(1 < 2)] TResult>(T value);', 'Convert'],
+    ['attributed generic greater-than', 'internal delegate TResult Convert<T, [Flag(2 > 1)] TResult>(T value);', 'Convert'],
+    ['nullable array', 'internal delegate int?[] ReadValues();', 'ReadValues'],
+    ['tuple', 'internal delegate (int Left, System.Int32 Right) ReadPair();', 'ReadPair'],
+    ['ref return', 'internal delegate ref int ReadValue();', 'ReadValue'],
+    ['readonly ref return', 'internal delegate ref readonly int ReadValue();', 'ReadValue'],
+    ['readonly ref tuple return', 'internal delegate ref readonly (int Left, int Right) ReadPair();', 'ReadPair'],
+    ['pointer return', 'internal unsafe delegate int* ReadPointer();', 'ReadPointer'],
+    ['function pointer return', 'internal unsafe delegate delegate* unmanaged[Cdecl]<int, void> ReadCallback();', 'ReadCallback'],
+    ['escaped name', 'internal delegate int @ReadValue();', 'ReadValue'],
+    ['inline attribute', '[System.Obsolete] internal delegate int ReadValue();', 'ReadValue'],
+    ['multiline header', 'internal delegate\n    ref readonly\n    int\n    ReadValue\n    ();', 'ReadValue'],
+    ['multiline generic header', 'internal delegate TResult\n    Convert<\n        in T,\n        out TResult>\n    (T value);', 'Convert'],
+    ['native attributed parameter', 'private delegate nint RegisterSelector([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPUTF8Str)] string name);', 'RegisterSelector'],
+    ['native multiline parameters', 'private delegate void SendCopy(nint value, nint selector, nint source, ulong sourceOffset,\n    nint destination, ulong destinationOffset, ulong bytes);', 'SendCopy']
+];
+
+test('delegate declarations check the actual name across native and C# return-type syntax', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        for (const [description, declaration] of delegateDeclarations)
+        {
+            writeFixture(fixtureRoot, 'src/sample/DelegateType.cs', `namespace Fixture;\n\n${declaration}\n`);
+            const result = runChecker(fixtureRoot, ['--mode', 'full']);
+            assert.equal(result.status, 0, `${description}: ${output(result)}`);
+            assert.match(result.stdout, /ok files=1 violations=0 new=0/u);
+        }
+    });
+});
+
+test('delegate declarations retain naming refusals for each return-type syntax', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        for (const [description, declaration, name] of delegateDeclarations)
+        {
+            const invalidName = name[0].toLowerCase() + name.slice(1);
+            const invalid = declaration.replace(name, invalidName);
+            writeFixture(fixtureRoot, 'src/sample/DelegateType.cs', `namespace Fixture;\n\n${invalid}\n`);
+            const result = runChecker(fixtureRoot, ['--mode', 'full']);
+            assert.equal(result.status, 1, `${description}: ${output(result)}`);
+            assert.match(result.stderr, new RegExp(`type-name: type must use PascalCase \\[${invalidName}\\]`, 'u'), description);
+            assert.equal((result.stderr.match(/type-name:/gu) ?? []).length, 1, output(result));
+        }
+        for (const name of ['Read_Value', 'Read__Value', '_ReadValue', '@event'])
+        {
+            writeFixture(fixtureRoot, 'src/sample/DelegateType.cs', `namespace Fixture;\n\ninternal delegate System.Int32 ${name}();\n`);
+            const result = runChecker(fixtureRoot, ['--mode', 'full']);
+            assert.equal(result.status, 1, output(result));
+            assert.match(result.stderr, /type-name: type must use PascalCase/u);
+        }
+    });
+});
