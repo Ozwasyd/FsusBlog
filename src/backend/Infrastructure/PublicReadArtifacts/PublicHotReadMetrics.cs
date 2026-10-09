@@ -521,6 +521,23 @@ internal static class PublicHotReadRouteKeys
 internal static class PublicHotReadBinaryArtifactFactory
 {
     /// <summary>
+    /// Creates only metadata over a supplied real read lease. The caller retains custody until
+    /// explicit snapshot attachment; unlike ConsumeHostFrameAsync this can enter that transfer.
+    /// It provides no new lease, compression allocation, content identity or publication evidence.
+    /// </summary>
+    internal static PublicBinaryArtifact FromHostReadLease(IMemoryHostReadLease lease,
+        AedsFrameType frameType, string cacheControl, long version, PublicHotReadOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.EnablePrecompressedBinaryVariants)
+        {
+            throw new NotSupportedException("Owned host frame construction requires explicit identity-only options.");
+        }
+        return FromFrame(lease.Memory, frameType, cacheControl, version, options);
+    }
+
+    /// <summary>
     /// Borrows an already host-readable identity frame under the source's actual read lease.
     /// The callback must finish every consumer before returning and must not publish or retain
     /// the borrowed artifact. The existing owner keeps its bytes immutable through completion.

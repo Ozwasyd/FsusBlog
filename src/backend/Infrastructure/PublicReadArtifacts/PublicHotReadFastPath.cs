@@ -11,6 +11,7 @@ using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Memory.Contracts;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -292,7 +293,7 @@ internal readonly record struct PublicHotReadRetiringRuntimeSnapshot(
     long PrunedCount,
     PublicHotReadRetiringLimits Limits);
 
-public sealed class PublicHotReadSnapshot
+public sealed partial class PublicHotReadSnapshot
 {
     private const int HtmlOverlayCompactionFloor = 32;
     public static readonly PublicHotReadSnapshot Empty = new(
@@ -354,52 +355,73 @@ public sealed class PublicHotReadSnapshot
         FrozenSet<string> htmlRemovedPaths,
         int htmlFrameCount,
         int publicArticleCount,
-        int articleFrameLimit)
+        int articleFrameLimit,
+        PublicHotReadSnapshotHostOwnership? hostOwnership = null)
     {
-        Version = version;
-        PublicationEvidence = publicationEvidence;
-        _articleFramesById = articleFramesById.ToFrozenDictionary(
-            static pair => pair.Key,
-            static pair => PublicHotReadArtifactIntegrity.Seal(
-                pair.Value,
-                PublicArtifactIntegrityContext.ForArticle(pair.Key)));
-        _listFrames = listFrames.ToFrozenDictionary(
-            static pair => pair.Key,
-            static pair => PublicHotReadArtifactIntegrity.Seal(
-                pair.Value,
-                PublicArtifactIntegrityContext.ForList(pair.Key)));
-        _categoryFrame = PublicHotReadArtifactIntegrity.Seal(
-            categoryFrame,
-            PublicArtifactIntegrityContext.ForCategory());
-        _tagFrame = PublicHotReadArtifactIntegrity.Seal(
-            tagFrame,
-            PublicArtifactIntegrityContext.ForTag());
-        _htmlBaseByPath = htmlBaseByPath.ToFrozenDictionary(
-            static pair => pair.Key,
-            static pair => PublicHotReadArtifactIntegrity.Seal(
-                pair.Value,
-                PublicArtifactIntegrityContext.ForHtml(pair.Key)),
-            StringComparer.Ordinal);
-        _htmlOverlayByPath = htmlOverlayByPath.ToFrozenDictionary(
-            static pair => pair.Key,
-            static pair => PublicHotReadArtifactIntegrity.Seal(
-                pair.Value,
-                PublicArtifactIntegrityContext.ForHtml(pair.Key)),
-            StringComparer.Ordinal);
-        _htmlRemovedPaths = htmlRemovedPaths;
-        _publicCategoryIds = TargetIdsOfKind(_listFrames, PublicListKind.Category);
-        _publicTagIds = TargetIdsOfKind(_listFrames, PublicListKind.Tag);
-        _htmlFrameCount = htmlFrameCount;
-        PublicArticleCount = Math.Max(publicArticleCount, articleFramesById.Count);
-        ArticleFrameLimit = Math.Max(articleFrameLimit, 0);
-        _residency = PublicHotReadResidentAccounting.Calculate(
-            _articleFramesById,
-            _listFrames,
-            _categoryFrame,
-            _tagFrame,
-            _htmlBaseByPath,
-            _htmlOverlayByPath,
-            _htmlRemovedPaths);
+        _hostOwnership = hostOwnership;
+        _hostOwnershipGate = hostOwnership is null ? null : new object();
+        if (hostOwnership is not null)
+        {
+            MemoryOperationResult<IDisposable> retention = hostOwnership.TryRetain();
+            if (!retention.Succeeded)
+            {
+                throw new InsufficientMemoryException($"Snapshot host retention rejected: {retention.Failure}.");
+            }
+            _hostRootHold = retention.Value;
+        }
+        try
+        {
+            Version = version;
+            PublicationEvidence = publicationEvidence;
+            _articleFramesById = articleFramesById.ToFrozenDictionary(
+                static pair => pair.Key,
+                static pair => PublicHotReadArtifactIntegrity.Seal(
+                    pair.Value,
+                    PublicArtifactIntegrityContext.ForArticle(pair.Key)));
+            _listFrames = listFrames.ToFrozenDictionary(
+                static pair => pair.Key,
+                static pair => PublicHotReadArtifactIntegrity.Seal(
+                    pair.Value,
+                    PublicArtifactIntegrityContext.ForList(pair.Key)));
+            _categoryFrame = PublicHotReadArtifactIntegrity.Seal(
+                categoryFrame,
+                PublicArtifactIntegrityContext.ForCategory());
+            _tagFrame = PublicHotReadArtifactIntegrity.Seal(
+                tagFrame,
+                PublicArtifactIntegrityContext.ForTag());
+            _htmlBaseByPath = htmlBaseByPath.ToFrozenDictionary(
+                static pair => pair.Key,
+                static pair => PublicHotReadArtifactIntegrity.Seal(
+                    pair.Value,
+                    PublicArtifactIntegrityContext.ForHtml(pair.Key)),
+                StringComparer.Ordinal);
+            _htmlOverlayByPath = htmlOverlayByPath.ToFrozenDictionary(
+                static pair => pair.Key,
+                static pair => PublicHotReadArtifactIntegrity.Seal(
+                    pair.Value,
+                    PublicArtifactIntegrityContext.ForHtml(pair.Key)),
+                StringComparer.Ordinal);
+            _htmlRemovedPaths = htmlRemovedPaths;
+            _publicCategoryIds = TargetIdsOfKind(_listFrames, PublicListKind.Category);
+            _publicTagIds = TargetIdsOfKind(_listFrames, PublicListKind.Tag);
+            _htmlFrameCount = htmlFrameCount;
+            PublicArticleCount = Math.Max(publicArticleCount, articleFramesById.Count);
+            ArticleFrameLimit = Math.Max(articleFrameLimit, 0);
+            _residency = PublicHotReadResidentAccounting.Calculate(
+                _articleFramesById,
+                _listFrames,
+                _categoryFrame,
+                _tagFrame,
+                _htmlBaseByPath,
+                _htmlOverlayByPath,
+                _htmlRemovedPaths);
+        }
+        catch
+        {
+            _hostRootHold?.Dispose();
+            _hostRootHold = null;
+            throw;
+        }
     }
 
     public long Version
@@ -565,7 +587,8 @@ public sealed class PublicHotReadSnapshot
             _htmlRemovedPaths,
             _htmlFrameCount,
             PublicArticleCount,
-            ArticleFrameLimit);
+            ArticleFrameLimit,
+            _hostOwnership);
     }
 
     internal PublicHotReadSnapshot WithoutList(PublicListKey listKey)
@@ -589,7 +612,8 @@ public sealed class PublicHotReadSnapshot
             _htmlRemovedPaths,
             _htmlFrameCount,
             PublicArticleCount,
-            ArticleFrameLimit);
+            ArticleFrameLimit,
+            _hostOwnership);
     }
 
     internal PublicHotReadSnapshot WithoutCategory()
@@ -607,7 +631,8 @@ public sealed class PublicHotReadSnapshot
                 _htmlRemovedPaths,
                 _htmlFrameCount,
                 PublicArticleCount,
-                ArticleFrameLimit);
+                ArticleFrameLimit,
+            _hostOwnership);
 
     internal PublicHotReadSnapshot WithoutTag()
         => _tagFrame.Frame.IsEmpty
@@ -624,7 +649,8 @@ public sealed class PublicHotReadSnapshot
                 _htmlRemovedPaths,
                 _htmlFrameCount,
                 PublicArticleCount,
-                ArticleFrameLimit);
+                ArticleFrameLimit,
+            _hostOwnership);
 
     internal PublicHotReadSnapshot WithoutAllArticles()
         => _articleFramesById.Count == 0
@@ -641,7 +667,8 @@ public sealed class PublicHotReadSnapshot
                 _htmlRemovedPaths,
                 _htmlFrameCount,
                 PublicArticleCount,
-                ArticleFrameLimit);
+                ArticleFrameLimit,
+            _hostOwnership);
 
     internal PublicHotReadSnapshot WithoutListsOfKind(PublicListKind kind)
     {
@@ -666,12 +693,17 @@ public sealed class PublicHotReadSnapshot
                 _htmlRemovedPaths,
                 _htmlFrameCount,
                 PublicArticleCount,
-                ArticleFrameLimit)
+                ArticleFrameLimit,
+            _hostOwnership)
             : this;
     }
 
     public PublicHotReadSnapshot WithHtml(string path, PublicHtmlArtifact html)
     {
+        if (HasHostOwnership && !html.Bytes.IsEmpty && !MemoryMarshal.TryGetArray(html.Bytes, out _))
+        {
+            throw new NotSupportedException("Owned binary snapshots cannot acquire opaque HTML through an array composition API.");
+        }
         bool existed = TryGetHtml(path, out _);
         Dictionary<string, PublicHtmlArtifact> overlay = _htmlOverlayByPath.ToDictionary(StringComparer.Ordinal);
         overlay[path] = html;
@@ -742,7 +774,8 @@ public sealed class PublicHotReadSnapshot
                 FrozenSet<string>.Empty,
                 0,
                 PublicArticleCount,
-                ArticleFrameLimit);
+                ArticleFrameLimit,
+            _hostOwnership);
 
     private PublicHotReadSnapshot CreateHtmlDeltaSnapshot(
         Dictionary<string, PublicHtmlArtifact> overlay,
@@ -774,7 +807,8 @@ public sealed class PublicHotReadSnapshot
                 FrozenSet<string>.Empty,
                 htmlFrameCount,
                 PublicArticleCount,
-                ArticleFrameLimit);
+                ArticleFrameLimit,
+            _hostOwnership);
         }
 
         return new PublicHotReadSnapshot(
@@ -789,7 +823,8 @@ public sealed class PublicHotReadSnapshot
             removed.ToFrozenSet(StringComparer.Ordinal),
             htmlFrameCount,
             PublicArticleCount,
-            ArticleFrameLimit);
+            ArticleFrameLimit,
+            _hostOwnership);
     }
 }
 
@@ -913,9 +948,14 @@ public partial class PublicHotReadStore
     {
         ArgumentNullException.ThrowIfNull(next);
         long overlapBytes;
+        IDisposable? retiredCurrent;
+        IDisposable? retiredLastGood;
+        IDisposable? retiredSticky;
         lock (_gate)
         {
             PublicHotReadSnapshot current = Current;
+            PublicHotReadSnapshot previousLastGood = _lastGood;
+            PublicHotReadSnapshot previousSticky = _sticky;
             // Durable obligation replay may repeat a completed publication after
             // a process crash. Never let such a replay restore an older snapshot.
             if (next.Version < current.Version)
@@ -1001,6 +1041,7 @@ public partial class PublicHotReadStore
             }
 
             SetLifecycleStageLocked("admit");
+            next.ClaimHostPublication(this);
             SetLifecycleStageLocked("publish");
             Volatile.Write(ref _current, next);
             Volatile.Write(ref _lastGood, next);
@@ -1021,7 +1062,11 @@ public partial class PublicHotReadStore
             }
             SetLifecycleStageLocked(_retiringSnapshots.Count == 0 ? "active" : "retire");
             _runtime = CreateRuntimeSnapshotLocked(nameof(PublicHotReadState.Ready), next, now, _runtime.LastBuildReason, "ok", null);
+            retiredCurrent = DetachInactiveHostRootLocked(current);
+            retiredLastGood = DetachInactiveHostRootLocked(previousLastGood);
+            retiredSticky = DetachInactiveHostRootLocked(previousSticky);
         }
+        DisposeRetiredHostRoots(retiredCurrent, retiredLastGood, retiredSticky);
         FsusObservability.RecordPublicHotResidency(next.Residency, overlapBytes);
     }
 
@@ -1133,19 +1178,29 @@ public partial class PublicHotReadStore
 
             PublicHotReadSnapshot next = current;
             int processed = 0;
-            foreach (string fragment in fragments.Distinct(StringComparer.Ordinal))
+            try
             {
-                next = ApplyOneDistributedFragment(next, fragment);
-                processed++;
-            }
+                foreach (string fragment in fragments.Distinct(StringComparer.Ordinal))
+                {
+                    PublicHotReadSnapshot previous = next;
+                    next = ApplyOneDistributedFragment(previous, fragment);
+                    DisposeIntermediateHostClone(previous, next, current);
+                    processed++;
+                }
 
-            if (!ReferenceEquals(next, current))
+                if (!ReferenceEquals(next, current))
+                {
+                    Publish(next);
+                }
+
+                Interlocked.Increment(ref _distributedInvalidationGeneration);
+                return processed;
+            }
+            catch
             {
-                Publish(next);
+                DisposeIntermediateHostClone(next, current, current);
+                throw;
             }
-
-            Interlocked.Increment(ref _distributedInvalidationGeneration);
-            return processed;
         }
     }
 
@@ -1182,14 +1237,24 @@ public partial class PublicHotReadStore
         }
 
         PublicHotReadSnapshot next = snapshot.WithoutHtml(PublicHotReadRouteKeys.HtmlPath(routeKey));
-        foreach (LocaleDescriptor locale in LocaleCatalog.Enabled)
+        try
         {
-            next = next.WithoutHtml(PublicHotReadRouteKeys.LocalizeHtmlPath(
-                PublicHotReadRouteKeys.HtmlPath(routeKey),
-                locale.Code));
-        }
+            foreach (LocaleDescriptor locale in LocaleCatalog.Enabled)
+            {
+                PublicHotReadSnapshot previous = next;
+                next = previous.WithoutHtml(PublicHotReadRouteKeys.LocalizeHtmlPath(
+                    PublicHotReadRouteKeys.HtmlPath(routeKey),
+                    locale.Code));
+                DisposeIntermediateHostClone(previous, next, snapshot);
+            }
 
-        return next;
+            return next;
+        }
+        catch
+        {
+            DisposeIntermediateHostClone(next, snapshot, snapshot);
+            throw;
+        }
     }
 
     private static bool TryParseArticleFragment(string fragment, out int articleId, out bool commentsOnly)
@@ -1230,6 +1295,9 @@ public partial class PublicHotReadStore
         PublicHotReadInvalidationPolicy policy)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        IDisposable? retiredCurrent;
+        IDisposable? retiredLastGood;
+        IDisposable? retiredSticky;
         lock (_gate)
         {
             Volatile.Write(ref _lastInvalidationReason, reason);
@@ -1258,6 +1326,9 @@ public partial class PublicHotReadStore
                 }
             }
 
+            PublicHotReadSnapshot previousCurrent = _current;
+            PublicHotReadSnapshot previousLastGood = _lastGood;
+            PublicHotReadSnapshot previousSticky = _sticky;
             Volatile.Write(ref _current, PublicHotReadSnapshot.Empty);
             Volatile.Write(ref _lastGood, PublicHotReadSnapshot.Empty);
             Volatile.Write(ref _ready, 0);
@@ -1276,7 +1347,11 @@ public partial class PublicHotReadStore
                 "invalidated-drop-to-empty",
                 null);
             Interlocked.Increment(ref _distributedInvalidationGeneration);
+            retiredCurrent = DetachInactiveHostRootLocked(previousCurrent);
+            retiredLastGood = DetachInactiveHostRootLocked(previousLastGood);
+            retiredSticky = DetachInactiveHostRootLocked(previousSticky);
         }
+        DisposeRetiredHostRoots(retiredCurrent, retiredLastGood, retiredSticky);
     }
 
     internal bool TryGetRequestSnapshot(out PublicHotReadSnapshot snapshot, out string reason)

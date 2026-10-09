@@ -483,10 +483,10 @@ does not return storage still used by the consumer. The borrowed frame cannot
 outlive the callback; captured memory rejects access after operation completion.
 The finite managed fixture budgets are not production defaults or native
 qualification. This operation surface adds no allocator or publication authority.
-Long-lived PublicHot snapshots still require a body ownership-transfer contract
-on `PublicBinaryArtifact`, integration with the original snapshot/read retirement
-owner, and simultaneous source/destination/workspace admission. The existing
-array construction and unbounded compression path do not supply those contracts.
+The scoped callback cannot supply long-lived snapshot custody. Explicit snapshot
+read-lease attachment is described below; production source/destination/workspace
+admission remains required. Existing array construction and unbounded compression
+do not supply that admission.
 Unknown-length producers and compression workspace remain separate unverified
 work; they cannot publish the callback's borrowed memory.
 
@@ -508,8 +508,46 @@ The original `WriteBinaryFrame` remains the response owner; its internal access
 allows ordinary source composition controls without another response writer.
 This adapter adds no snapshot lifetime owner, publication/qualification authority,
 compression reservation, capability probe, native allocation or Auto activation.
-Long-lived snapshot retirement and the canonical content-to-location binding
-remain prerequisites for production use; native transport evidence is unverified.
+The separate explicit snapshot path below supplies source ownership wiring.
+Canonical production content-to-location binding and native transport evidence
+remain unverified.
+
+`FromHostReadLease` creates original binary metadata over an actual supplied read
+lease without taking disposal custody. `PublicHotReadSnapshot.WithHostReadLeases`
+then attaches exclusive disposal custody to a new immutable snapshot. This path
+rejects precompressed variants before the existing array-only compression schema
+validator runs. Every opaque identity representation must match an actual lease's ROM, and content/location
+tokens come from that lease. No IDs or visibility evidence are generated here.
+The supplied positive shared-hold bound applies to snapshot copies and actual
+consumers. Current, last-good and sticky remain the original store's references;
+`Publish` claims disposal custody only after its original visibility, age, budget
+and integrity gates pass. Ownership claim is not qualification. A rejected candidate
+remains caller-owned and supports explicit unpublished cleanup.
+
+The original request classifier/security flow selects an owned generation and
+retains consumption under the existing store lock before accessing its bytes.
+Original serving Tasks retain the supplied real read holds through completion,
+abort and backpressure. Array snapshots keep their original selection path.
+Shared-hold refusal uses the existing 503 response; it does not enter an endpoint
+or silently copy data. Replacement and DropToEmpty detach inactive roots; the
+source's actual read lease ends only after all snapshot/consumer holds end.
+Expired owned sticky references are reaped on consumption. Original distributed
+fragment/HTML copies preserve shared ownership and clean unpublished intermediate
+copies on success or interruption. Actual source-lease disposal occurs outside
+the publication lock, except intermediate reference returns that cannot be final
+while their preserved current generation still holds the group.
+
+This attachment conservatively retains all original supplied leases while any
+derived snapshot uses their group, including removed representations. The canonical
+ledger continues charging their actual backing; historical logical residency does
+not become measured retained capacity. Fine-grained release/projection remains work.
+Opaque HTML attachment is unsupported. No Auto activation, native qualification,
+new publisher/registry or compression reservation is introduced. The original
+`PublicHotArtifactProjector` still produces arrays and visibility evidence; it has
+no admitted host read lease or authoritative memory content/location binding input.
+Production must supply that typed materialization and frozen P01/P02 shared-hold
+and metadata limits through its existing owners. This code supplies retention,
+not those missing producer facts or qualification results.
 
 The established `CspNonceHtmlResponseWriter.WriteBodyAsync` has an explicit
 `TransientBufferLease` overload for caller-admitted nonce scratch.
