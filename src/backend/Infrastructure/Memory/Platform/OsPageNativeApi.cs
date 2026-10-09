@@ -44,7 +44,15 @@ internal static class OsPageNativeApi
     // Detection alone never certifies release qualification or online activation.
     public static IOsPageNativeApi? Detect(OsPageStrategy strategy = OsPageStrategy.Normal,
         int explicitPageBytes = 2097152, MemoryCapabilityMode mode = MemoryCapabilityMode.Auto)
+        => Detect(out _, strategy, explicitPageBytes, mode);
+
+    // Raw Windows geometry remains available even when no adapter can be built.
+    // It is not a qualification, permission or resource-admission receipt.
+    public static IOsPageNativeApi? Detect(out WindowsPageGeometryObservation? windowsGeometry,
+        OsPageStrategy strategy = OsPageStrategy.Normal, int explicitPageBytes = 2097152,
+        MemoryCapabilityMode mode = MemoryCapabilityMode.Auto)
     {
+        windowsGeometry = null;
         if (!Enum.IsDefined(strategy))
         {
             throw new ArgumentOutOfRangeException(nameof(strategy));
@@ -61,8 +69,27 @@ internal static class OsPageNativeApi
         {
             return new LinuxOsPageNativeApi(strategy == OsPageStrategy.ExplicitLarge ? explicitPageBytes : 0);
         }
-        return OperatingSystem.IsWindows() && strategy != OsPageStrategy.ExplicitLarge
-            ? new WindowsOsPageNativeApi() : null;
+        return OperatingSystem.IsWindows()
+            ? DetectWindows(strategy, mode, WindowsPageGeometryReader.Observe, out windowsGeometry) : null;
+    }
+
+    internal static IOsPageNativeApi? DetectWindows(OsPageStrategy strategy, MemoryCapabilityMode mode,
+        Func<MemoryCapabilityMode, WindowsPageGeometryObservation> observe,
+        out WindowsPageGeometryObservation? windowsGeometry)
+    {
+        windowsGeometry = null;
+        if (!Enum.IsDefined(strategy))
+        {
+            throw new ArgumentOutOfRangeException(nameof(strategy));
+        }
+        if (MemoryCapabilityPolicy.Validate(mode) == MemoryCapabilityMode.Disabled
+            || strategy == OsPageStrategy.ExplicitLarge)
+        {
+            return null;
+        }
+        ArgumentNullException.ThrowIfNull(observe);
+        windowsGeometry = observe(mode);
+        return WindowsOsPageNativeApi.TryCreate(windowsGeometry);
     }
 }
 
@@ -136,9 +163,36 @@ internal sealed class LinuxOsPageNativeApi : IOsPageNativeApi
 
 internal sealed class WindowsOsPageNativeApi : IOsPageNativeApi
 {
-    public int PageBytes => Environment.SystemPageSize;
+    private WindowsOsPageNativeApi(WindowsPageGeometryObservation geometry, int pageBytes)
+    {
+        Geometry = geometry;
+        PageBytes = pageBytes;
+    }
+
+    public WindowsPageGeometryObservation Geometry
+    {
+        get;
+    }
+    public int PageBytes
+    {
+        get;
+    }
     public string Backend => "windows-virtualalloc";
     public bool UsesExplicitLargePages => false;
+
+    internal static WindowsOsPageNativeApi? TryCreate(WindowsPageGeometryObservation geometry)
+    {
+        ArgumentNullException.ThrowIfNull(geometry);
+        // Preserve the raw observation while refusing an unknown or unusable page
+        // unit. Reservation alignment and minimum large-page size are separate.
+        if (geometry.PageSize.Detection != MemoryDetection.Present
+            || geometry.PageSize.Bytes is not nuint bytes || bytes == 0
+            || bytes > int.MaxValue || (bytes & (bytes - 1)) != 0)
+        {
+            return null;
+        }
+        return new(geometry, checked((int)bytes));
+    }
 
     public nint Reserve(nuint bytes, out int error)
     {
