@@ -155,7 +155,7 @@ test('ordinary clone rejects mutated VNodes and aggregate aliases', () =>
     for (const mutation of ['firstLegitNode.type="section";', 'const alias=[firstLegitNode];alias[0].type="section";',
         'const alias={child:firstLegitNode};alias.child.props.title="Changed";'])
     {
-        assert.throws(() => expressionProof(`import {h,cloneVNode} from "vue";const firstLegitNode=h("button",{},[]);${mutation}const result=cloneVNode(firstLegitNode,{title:"Actual"});`), /mutated source binding/);
+        assert.throws(() => expressionProof(`import {h,cloneVNode} from "vue";const firstLegitNode=h("button",{},[]);${mutation}const result=cloneVNode(firstLegitNode,{title:"Actual"});`), /unbound finite component binding/);
     }
 });
 
@@ -182,7 +182,7 @@ test('ordinary callback rejects function name and VNode annotation as runtime au
 test('ordinary callback rejects shadowed Vue APIs and component imports', () =>
 {
     assert.throws(() => expressionProof('import {h,cloneVNode} from "vue";function helper(cloneVNode){return cloneVNode(h("button",{},[]),{});}const result=helper(()=>null);'), /shadowed source binding/);
-    assert.throws(() => expressionProof('import {h} from "vue";import {FsusTaskPageHeader as Header} from "@ozwasyd/element-plus";const callback=(Header)=>h(Header,{},[]);const result=callback("button");'), /shadowed source binding/);
+    assert.throws(() => expressionProof('import {h} from "vue";import {FsusTaskPageHeader as Header} from "@ozwasyd/element-plus";const callback=(Header)=>h(Header,{},[]);const result=callback("button");'), /unbound finite component binding/);
 });
 
 test('ordinary callback rejects private public-package imports', () =>
@@ -228,11 +228,11 @@ test('actual Options supplier retains unproved helper escape without blessing re
         && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'default' && ts.isIdentifier(node.expression.expression));
     const binding = slots.bindSlot({ graph, callNode: call.id });
     assert.equal(binding.callNode, call.id);
-    assert.throws(() => slots.invokeSlot({ graph, binding, file: owner, invocation }), /shadowed source binding|unproved source escape/);
+    assert.throws(() => slots.invokeSlot({ graph, binding, file: owner, invocation }), /unbound finite component binding/);
     assert.ok(graph.errors.some((error) => error.message?.includes('escaped script render constant')));
     const helperCall = find(source, owner, (node) => ts.isCallExpression(node) && node.expression.getText() === 'filterOptions'
         && node.arguments[0]?.getText() === 'children[0]?.children');
-    assert.throws(() => slots.proveValue({ file: owner, node: helperCall }), /shadowed source binding/);
+    assert.throws(() => slots.proveValue({ file: owner, node: helperCall }), /unknown component source function body.*filterOptions/);
 });
 
 test('actual OnlyChild clone and directive expression retains unresolved supplier context', () =>

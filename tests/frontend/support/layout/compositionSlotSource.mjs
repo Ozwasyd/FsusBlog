@@ -29,13 +29,7 @@ export function createCompositionSlotSource({ source })
     };
     function step(file, node, context)
     {
-        const record = resolver.parse(file);
-        const script = record.scripts.find(({ ast }) => ast === node.getSourceFile());
-        if (!script)
-        {
-            fail(`AST does not belong to canonical record ${file}`);
-        }
-        const entry = { file, offset: script.offset + node.getStart(), kind: 'script-source', digest: controlDigest(node.getText()) };
+        const entry = resolver.sourceStep(file, node);
         context.steps.push(entry);
         return entry;
     }
@@ -61,6 +55,13 @@ export function createCompositionSlotSource({ source })
             return;
         }
         context.guards.add(identity);
+        const binding = declaration.parent;
+        const parameter = ts.isParameter(binding) || ts.isBindingElement(binding)
+            && ts.isObjectBindingPattern(binding.parent) && ts.isParameter(binding.parent.parent);
+        if (!parameter)
+        {
+            resolver.assertImmutableBinding(record.file, name);
+        }
         const contains = (node) =>
         {
             if (ts.isIdentifier(node) && node.text === name)
@@ -161,7 +162,8 @@ export function createCompositionSlotSource({ source })
                     readonly(record, name, declaration.name, context);
                     if (ts.isFunctionDeclaration(declaration))
                     {
-                        return closure(file, declaration, env);
+                        const resolved = resolver.resolveSourceFunction(file, identifier);
+                        return closure(resolved.file, resolved.fn, env);
                     }
                     if (!(declaration.parent.flags & ts.NodeFlags.Const) || !declaration.initializer
                         || declaration.getStart() > identifier.getStart())
@@ -186,38 +188,10 @@ export function createCompositionSlotSource({ source })
         {
             // Component identity remains the canonical resolver's decision.
             // Callable imports must resolve to actual source, never a name table.
-            const target = source.importFile(file, imported.specifier);
-            if (typeof target !== 'string')
-            {
-                fail(`opaque imported callback ${file}#${name}`);
-            }
-            const exported = resolver.exportsOf(target).get(imported.name);
-            if (!exported || exported.ambiguous)
-            {
-                fail(`unknown imported callback ${file}#${name}`);
-            }
-            const owner = resolver.parse(exported.file);
-            const declarations = owner.scripts.flatMap(({ ast }) => ast.statements.flatMap((statement) =>
-                ts.isFunctionDeclaration(statement) && statement.name?.text === exported.name ? [statement]
-                    : ts.isVariableStatement(statement) ? statement.declarationList.declarations.filter((entry) =>
-                        ts.isIdentifier(entry.name) && entry.name.text === exported.name) : []));
-            if (declarations.length !== 1)
-            {
-                fail(`unbound imported function body ${exported.file}#${exported.name}`);
-            }
-            readonly(owner, exported.name, declarations[0].name, context);
-            const declaration = declarations[0];
-            if (ts.isFunctionDeclaration(declaration))
-            {
-                return closure(exported.file, declaration, new Map());
-            }
-            const initializer = unwrap(declaration.initializer);
-            if (!(declaration.parent.flags & ts.NodeFlags.Const) || !initializer
-                || !(ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)))
-            {
-                fail('unbound imported callback initializer');
-            }
-            return closure(exported.file, initializer, new Map());
+            const resolved = resolver.resolveSourceFunction(file, identifier);
+            step(file, identifier, context);
+            step(resolved.file, resolved.fn, context);
+            return closure(resolved.file, resolved.fn, new Map());
         }
         fail(`unknown runtime value ${file}#${name}`);
     }
