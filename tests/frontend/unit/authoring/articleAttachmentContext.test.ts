@@ -421,11 +421,14 @@ describe('Article attachment owned-handle currentness reader (#2256)', () =>
         expect(editor.adapter.readOwnedIntent(handle, editor.binding())).toMatchObject({ current: false, sourceReferenced: null });
     });
 
-    it('attests a real completed successor lease only at its exact commit revision', () =>
+    it('attests a real completed successor lease only at its exact commit revision', async () =>
     {
         const editor = lifecycle();
         const handle = editor.insert().handles[0]!;
         const snapshot = editor.adapter.complete(handle, editor.resolved(handle, '/actual.png'), editor.port);
+        // Flush the document owner's actual missing-map microtask queued during controlled dispatch.
+        await Promise.resolve();
+        expect(handle.snapshot).toBe(snapshot);
         expect(handle.signal.aborted).toBe(true);
         expect(editor.adapter.currentTaskLeases).toEqual([]);
         expect(editor.adapter.readOwnedIntent(handle, editor.binding())).toMatchObject({ snapshot, current: true,
