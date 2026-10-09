@@ -501,6 +501,12 @@ flush's terminal event, including backpressure and request cancellation; canceli
 an outer wait cannot refund scratch still held by the response operation. The
 caller retains its own lease until disposal, and the original pool owns clearing
 and retained-capacity accounting. Fixture budgets do not qualify production bounds.
+The caller must preserve exclusive stable scratch ownership and keep its storage
+disjoint from both the immutable template and BodyWriter destination through
+completion. An operation hold preserves lifetime; it does not establish exclusivity
+or detect aliases. For a valid nonce, encoding may write scratch before the original
+template rejects an already-canceled token, so cancellation does not promise an
+unchanged buffer. Pool-owned clearing remains tied to the actual last hold.
 `PublicHotReadFastPath.ServeHtmlWithNonce` currently supplies no admitted scratch
 lease or pool/budget binding, so its default path continues to use the original
 overload. Actual production scratch admission, immutable template/read ownership,
