@@ -8,10 +8,16 @@ namespace FsusBlog.Server.Entities;
 public sealed class ArticleRelationArticleBinding
 {
     [SugarColumn(ColumnName = "article_id", IsPrimaryKey = true)]
-    public int ArticleId { get; set; }
+    public int ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "portable_identity")]
-    public Guid PortableIdentity { get; set; }
+    public Guid PortableIdentity
+    {
+        get; set;
+    }
 }
 
 /// <summary>
@@ -24,14 +30,26 @@ public sealed class ArticleRelationArticleBinding
 public sealed class ArticleRelationSourceCoordinate
 {
     [SugarColumn(ColumnName = "revision_id", IsPrimaryKey = true)]
-    public long RevisionId { get; set; }
+    public long RevisionId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_id")]
-    public int ArticleId { get; set; }
+    public int ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revision_identity")]
-    public Guid RevisionIdentity { get; set; }
+    public Guid RevisionIdentity
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "source_epoch")]
-    public Guid SourceEpoch { get; set; }
+    public Guid SourceEpoch
+    {
+        get; set;
+    }
 }
