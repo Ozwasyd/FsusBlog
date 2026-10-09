@@ -721,15 +721,17 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
                         Responsibility(),
                         ArticlePublicationTransitionKinds.ImmediatePublish,
                         "stale-base")));
+
+            // Observe the original no-write contract before rollback can erase a regression.
+            Assert.Equal("article_revision_conflict", exception.Message);
+            Assert.Equal(1, await CountAsync(db, "article_revision"));
+            Assert.Equal(1, await CountAsync(db, "article_publication"));
+            Assert.Equal(1, await CountAsync(db, "article_mutation_outbox"));
         }
         finally
         {
             await db.Ado.RollbackTranAsync();
         }
-        Assert.Equal("article_revision_conflict", exception.Message);
-        Assert.Equal(1, await CountAsync(db, "article_revision"));
-        Assert.Equal(1, await CountAsync(db, "article_publication"));
-        Assert.Equal(1, await CountAsync(db, "article_mutation_outbox"));
     }
 
     [Fact]
