@@ -358,8 +358,9 @@ test('repository production profile maps every logical tier exactly once', (cont
 {
     const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
     const declaration = matrix.tiers.find((tier) => tier.id === 'validate-declarations');
+    const governance = matrix.tiers.find((tier) => tier.id === 'validate-matrix');
     const bundleSource = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8');
-    assert.ok(bundleSource.includes(`commandStep('${declaration.id}', '${declaration.command}', ['${declaration.id}'])`));
+    assert.ok(bundleSource.includes(`commandStep('${governance.id}', '${declaration.command} && ${governance.command}', ['${declaration.id}', '${governance.id}'])`));
     const actual = spawnSync(process.execPath, ['tools/run-test-matrix.mjs', 'validate-declarations'], {
         cwd: root, encoding: 'utf8'
     });

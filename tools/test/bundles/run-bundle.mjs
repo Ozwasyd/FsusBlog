@@ -2077,13 +2077,12 @@ function commandStep(id, command, members, options = {})
 function buildStaticSteps()
 {
     return [
-        commandStep('validate-declarations', 'node tools/run-test-matrix.mjs validate-declarations', ['validate-declarations']),
         commandStep('backend-tests-ready', null, [], {
-            dependsOn: ['validate-declarations'],
+            dependsOn: ['validate-matrix'],
             resources: { coordinationOnly: true }
         }),
         commandStep('frontend-build', 'cd src/frontend && FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC=1 npm run build:release', ['frontend-build'], {
-            dependsOn: ['validate-declarations'],
+            dependsOn: ['validate-matrix'],
             artifacts: [path.join(frontendDistRoot, 'index.html')],
             resources: {
                 cpuWeight: 2,
@@ -2092,9 +2091,7 @@ function buildStaticSteps()
                 exclusiveResources: ['build-output']
             }
         }),
-        commandStep('validate-matrix', 'tools/test/run-matrix-governance-once.sh validate-matrix', ['validate-matrix'], {
-            dependsOn: ['validate-declarations']
-        }),
+        commandStep('validate-matrix', 'node tools/run-test-matrix.mjs validate-declarations && tools/test/run-matrix-governance-once.sh validate-matrix', ['validate-declarations', 'validate-matrix']),
         commandStep('pr-smart-gate-plan', 'tools/test/lanes/plan-pr-risk.sh', ['pr-smart-gate-plan'], {
             dependsOn: ['validate-matrix'],
             artifacts: currentRunMarkerArtifacts('pr-smart-gate-plan-ready'),
@@ -2104,17 +2101,17 @@ function buildStaticSteps()
             )
         }),
         commandStep('public-hydration-fast', 'tools/test/lanes/public-hydration-fast.sh', ['public-hydration-fast'], {
-            dependsOn: ['validate-declarations']
+            dependsOn: ['validate-matrix']
         }),
         commandStep('perception-redteam', 'tools/test/lanes/perception-v2-redteam.sh pr', ['perception-v2-redteam-pr'], {
-            dependsOn: ['validate-declarations']
+            dependsOn: ['validate-matrix']
         }),
         commandStep('risk-control', 'tools/test/lanes/risk-control-test-matrix.sh', ['risk-control-test-matrix'], {
-            dependsOn: ['validate-declarations'],
+            dependsOn: ['validate-matrix'],
             artifacts: [path.join(process.env.FSUSBLOG_SECURITY_OUTPUT_ROOT ?? path.join(root, '.tmp/security'), 'risk-control-test-matrix.json')]
         }),
         commandStep('viewport-plan-progress', 'node tools/ux/run-viewport-plan-progress.mjs', ['ux-viewport-plan-progress'], {
-            dependsOn: ['validate-declarations'],
+            dependsOn: ['validate-matrix'],
             artifacts: [path.join(process.env.FSUSBLOG_UX_OUTPUT_ROOT ?? path.join(root, '.tmp/ux'), 'viewport-plan-progress.json')]
         }),
         commandStep('sync-static-assets', [
