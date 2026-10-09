@@ -1,0 +1,117 @@
+{
+  "schema": "fsusblog.memory.raw-artifact-manifest.v1",
+  "sourceHead": "de0adc1a5ed4a32f5cdfc01b9c560f9b357cd250",
+  "runId": "ordinary-host-frame-824d2753-022e-4317-ac62-5c2ebeb94d05",
+  "files": [
+    {
+      "path": "attempt-0ecb2a98c/list-tests.log",
+      "size": 445205,
+      "sha256": "d2c9428db44fb1b88116ad91528d304538f94a2595cb68eb78a322b7738878b4"
+    },
+    {
+      "path": "attempt-0ecb2a98c/preflight.json",
+      "size": 6954,
+      "sha256": "2937a280c917ec971eb6f99b9e04770850ada73cbe02f2e1ad2ae299639e887e"
+    },
+    {
+      "path": "attempt-0ecb2a98c/run-selected.py",
+      "size": 6114,
+      "sha256": "a1a067f4273f8e4d6c1ed4d3176a622f2e7ea40e99d50260d10527011c014ca0"
+    },
+    {
+      "path": "bindings.json",
+      "size": 4999,
+      "sha256": "2d116048a88ad8593c91ea3ac629fad769673828929261224c2ddc3ad9ced6cf"
+    },
+    {
+      "path": "change-contract.log",
+      "size": 81,
+      "sha256": "a18e96a4a2c89d30a9858e5bb498e299eb2a7b1010eb33e923dd903dac5d7b27"
+    },
+    {
+      "path": "checkpoint.json",
+      "size": 44139,
+      "sha256": "ffd92c9f284f658fac3702c33fbebd6fafd459a1099533e6445fce3fb622deff"
+    },
+    {
+      "path": "checkpoint.md",
+      "size": 14076,
+      "sha256": "db4f92e31301af4d12d9077944bf5b2ab1e8428b7a4dad85490f7b1835daebfe"
+    },
+    {
+      "path": "code-intent.json",
+      "size": 312,
+      "sha256": "44d9052452a3b1842b378fa3e47dc3fa027d0507cf80674a856e016a53aa15e5"
+    },
+    {
+      "path": "document-lifecycle.log",
+      "size": 38,
+      "sha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6"
+    },
+    {
+      "path": "dotnet-info.txt",
+      "size": 1190,
+      "sha256": "12fe406b55e24794c55d1519e90df90420bfb07220e1d70f5cc35888bd22d18b"
+    },
+    {
+      "path": "issue3445.json",
+      "size": 19209,
+      "sha256": "0bfd1b75606b9ece7a41ea7591a0fc7237e91f7ff912aabbce4cfff864db999e"
+    },
+    {
+      "path": "issue3451.json",
+      "size": 13231,
+      "sha256": "851a55d5b51b828a7a6ad52b5f6b5912a1a9b516e185520dda4010d777586500"
+    },
+    {
+      "path": "issue3454.json",
+      "size": 19589,
+      "sha256": "0ee7545eed271f2e44d60ce5e608f48fba68fade1b89a76446be8cdc6bfa63dc"
+    },
+    {
+      "path": "issue3456.json",
+      "size": 13135,
+      "sha256": "72daff968b897a39e96436c96818fb6b8665584e959dd07ca4600e51761955d0"
+    },
+    {
+      "path": "list-tests.log",
+      "size": 447793,
+      "sha256": "a1f2937f5933a0087b11ba32aa25d5793fa0ddb1b3efc88e2a979e142969dfe1"
+    },
+    {
+      "path": "preflight.json",
+      "size": 12264,
+      "sha256": "ce9c3523398258ccf7df7ca9c9f168154371062fceef27d798f412ae19ec9e45"
+    },
+    {
+      "path": "producer.py",
+      "size": 18352,
+      "sha256": "c3488204c48c45ebeebd12bb730c54d7f8af1b51da80a8ba7d6240bf8ce7364d"
+    },
+    {
+      "path": "run-selected.py",
+      "size": 6114,
+      "sha256": "d9e359640bd72b2e5024b64e977f3d315ba332312df8a49020f990dfd6eb0199"
+    },
+    {
+      "path": "selected.log",
+      "size": 410,
+      "sha256": "af63153b823489f40c48d7d6ba5c5e0b17b3ef97c4bf277a8552ad7b8a855eff"
+    },
+    {
+      "path": "selected.trx",
+      "size": 31424,
+      "sha256": "3a7eb6bcc294d0f5acfc3aa836919f43317da5b34b3622cc1bbedd2129355bbf"
+    },
+    {
+      "path": "style.log",
+      "size": 45,
+      "sha256": "58217e7675dae3f3a8a6e9003bc3fe122abf5b9d6cedb3f1d71d4e1c0777e941"
+    },
+    {
+      "path": "uname.txt",
+      "size": 80,
+      "sha256": "f09725dd2139b1749ca4cabc00a4ecce99dd5c2c53d31cbccc337d89bc646db8"
+    }
+  ]
+}

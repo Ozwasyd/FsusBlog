@@ -1,0 +1,41 @@
+{
+  "sourceSha": "0ecb2a98c62b9ed79a34b202da80f96ce6dcef53",
+  "runId": "ordinary-host-frame-5e9b5264-7660-476c-a2eb-9373bd9c8692",
+  "startedUtc": "2026-10-09T09:54:04.097448+00:00",
+  "gitTreeSha256": "50ee66e78830a9a56a429c1d10b6bc992f5d3f0899add8917c2c8564da195ccc",
+  "expectedCases": 21,
+  "positiveFqnAllowlist": [
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.CompressionRequestRejectsWithoutAcquisitionOrCompatibilityCopy",
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.ConsumerFailurePropagatesWithoutReturningTheRootBacking",
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.HostMemoryMatchesArrayFactoryBytesMetadataAndOriginalIntegrity",
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.InvalidFrameOrCeilingRejectsAndReturnsTheAcquiredReadHold",
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.OriginalPendingWriteCancellationPropagatesAndEndsOnlyItsReadHold",
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.OriginalResponsePreservesIdentityBytesStatusAndHeaders",
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.OuterWaitCancellationKeepsTheReadLeaseThroughOriginalPipeCompletion",
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.PreCanceledInputDoesNotAcquireOrCallTheConsumer",
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.ReadHoldLimitRejectsBeforeConsumerWithoutAnotherPhysicalCharge",
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.RepeatedBorrowingEndsEachReadHoldAndRefundsTheBackingOnce",
+    "FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.StaleLocationPreservesTheOriginalTypedRejection",
+    "FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHeadHit_WritesHeadersWithoutBody",
+    "FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHit_PrefersPrecompressedBrotliVariant",
+    "FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHit_QValueFallbackStillHonorsQuality",
+    "FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHit_Returns304ForMatchingIfNoneMatch",
+    "FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_ResponseAbortCancellationPropagatesFromBodyWriter"
+  ],
+  "filter": "(FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.CompressionRequestRejectsWithoutAcquisitionOrCompatibilityCopy|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.ConsumerFailurePropagatesWithoutReturningTheRootBacking|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.HostMemoryMatchesArrayFactoryBytesMetadataAndOriginalIntegrity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.InvalidFrameOrCeilingRejectsAndReturnsTheAcquiredReadHold|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.OriginalPendingWriteCancellationPropagatesAndEndsOnlyItsReadHold|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.OriginalResponsePreservesIdentityBytesStatusAndHeaders|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.OuterWaitCancellationKeepsTheReadLeaseThroughOriginalPipeCompletion|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.PreCanceledInputDoesNotAcquireOrCallTheConsumer|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.ReadHoldLimitRejectsBeforeConsumerWithoutAnotherPhysicalCharge|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.RepeatedBorrowingEndsEachReadHoldAndRefundsTheBackingOnce|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.StaleLocationPreservesTheOriginalTypedRejection|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHeadHit_WritesHeadersWithoutBody|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHit_PrefersPrecompressedBrotliVariant|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHit_QValueFallbackStillHonorsQuality|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHit_Returns304ForMatchingIfNoneMatch|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_ResponseAbortCancellationPropagatesFromBodyWriter)&Category!=Integration&Fixture!=LocalRedis",
+  "actualImportsAndHooksVerified": true,
+  "originalProject": "tests/backend/FsusBlog.Server.Tests.csproj",
+  "dataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory/host-frame-20261009/data",
+  "commands": [
+    [
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--filter",
+      "(FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.CompressionRequestRejectsWithoutAcquisitionOrCompatibilityCopy|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.ConsumerFailurePropagatesWithoutReturningTheRootBacking|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.HostMemoryMatchesArrayFactoryBytesMetadataAndOriginalIntegrity|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.InvalidFrameOrCeilingRejectsAndReturnsTheAcquiredReadHold|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.OriginalPendingWriteCancellationPropagatesAndEndsOnlyItsReadHold|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.OriginalResponsePreservesIdentityBytesStatusAndHeaders|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.OuterWaitCancellationKeepsTheReadLeaseThroughOriginalPipeCompletion|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.PreCanceledInputDoesNotAcquireOrCallTheConsumer|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.ReadHoldLimitRejectsBeforeConsumerWithoutAnotherPhysicalCharge|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.RepeatedBorrowingEndsEachReadHoldAndRefundsTheBackingOnce|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicBinaryHostFrameTests.StaleLocationPreservesTheOriginalTypedRejection|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHeadHit_WritesHeadersWithoutBody|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHit_PrefersPrecompressedBrotliVariant|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHit_QValueFallbackStillHonorsQuality|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_DetailHit_Returns304ForMatchingIfNoneMatch|FullyQualifiedName=FsusBlog.Server.Tests.Unit.PublicHotReadFastPathTests.TryServeAsync_ResponseAbortCancellationPropagatesFromBodyWriter)&Category!=Integration&Fixture!=LocalRedis",
+      "--list-tests"
+    ]
+  ],
+  "list-tests.log.exit": 1
+}
