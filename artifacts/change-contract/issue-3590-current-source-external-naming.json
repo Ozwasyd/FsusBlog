@@ -6,7 +6,8 @@
             "paths": [
                 "tools/test/correctness-attempt-migration.mjs",
                 "tools/test-matrix/fixture-profile-contract.mjs",
-                "tools/testing/fixture-catalog.mjs"
+                "tools/testing/fixture-catalog.mjs",
+                "tools/test-matrix/runtime-state-domain-catalog.mjs"
             ],
             "reason": "Preserve process environment names while consuming the full-roster migration source and correcting finite fixture classification and source observations."
         },
@@ -28,6 +29,13 @@
                 "config/testing/content-field-contracts.generated.json"
             ],
             "reason": "Preserve canonical applicability, schema, producer inventory and execution-target wire keys while regenerating actual candidate identities."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing/runtime-state-equivalence.md"
+            ],
+            "reason": "Preserve existing caller-visible documentation spelling while explaining conditional observations; no CSS selector or token contract changes."
         }
     ]
 }
