@@ -162,6 +162,11 @@ public readonly record struct PublicHtmlRouteIndex(
 
 public sealed class PublicHotReadOptions
 {
+    /// <summary>Omission blocks ownership admission; it does not change requested capability modes.</summary>
+    public PublicHotReadSnapshotOwnershipOptions? SnapshotOwnership
+    {
+        get; set;
+    }
     public bool Enabled { get; set; } = true;
     public string CacheControl { get; set; } = "public,max-age=60";
     public int[] PreloadPages { get; set; } = [1];
@@ -362,6 +367,8 @@ public sealed partial class PublicHotReadSnapshot
         _hostOwnershipGate = hostOwnership is null ? null : new object();
         if (hostOwnership is not null)
         {
+            hostOwnership.ValidateSnapshotRoster((long)articleFramesById.Count + listFrames.Count + htmlFrameCount
+                + (categoryFrame.Frame.IsEmpty ? 0 : 1) + (tagFrame.Frame.IsEmpty ? 0 : 1));
             MemoryOperationResult<IDisposable> retention = hostOwnership.TryRetain();
             if (!retention.Succeeded)
             {

@@ -549,6 +549,49 @@ Production must supply that typed materialization and frozen P01/P02 shared-hold
 and metadata limits through its existing owners. This code supplies retention,
 not those missing producer facts or qualification results.
 
+`PublicHotRead:SnapshotOwnership` binds through the existing `PublicHotReadOptions`
+configuration section. Its twelve canonical backend configuration metadata rows
+are handed to that shared registration owner for integration. Its typed options
+have no numerical defaults. `PublicHotReadSnapshotOwnershipPolicy.TryCreate` requires
+every field, an independently supplied candidate-bound frozen baseline and actual
+registered byte/operation domains from the canonical ledger. An independent immutable
+`PublicHotReadSnapshotOwnershipLimits` input from that policy owner must match every
+configured value; an old baseline binding cannot authorize substituted numerical values.
+It copies the limits;
+shape validation never measures CLR sizes or verifies baseline evidence. Missing,
+unfrozen, unqualified or mismatched inputs refuse admission without changing Auto.
+Required count/revision/capacity values must be positive; omitted values are unknown,
+not zero or unlimited. Explicit zero metadata headroom reserves no extra bytes.
+
+Counts apply per shared ownership group: a representation limit applies to each
+live snapshot; lease, simultaneous snapshot/root and consumer rosters are finite.
+MaximumHolds must cover both root and consumer maxima. The frozen metadata upper
+bound must cover these complete rosters and construction/sealing overlap; upper
+bound plus explicit headroom must fit MetadataCapacityBytes. The code reserves
+that byte sum and MaximumHolds operation slots atomically under the ledger's current
+enforced caps/accounting revision, before constructing attached group metadata.
+It does not invent a physical allocation descriptor or derive the bound from fixture
+counts. Existing backing and already-created producer/snapshot metadata retain their
+own admission requirements; this contract does not qualify or bound those earlier peaks.
+
+The original store's explicit `TryApplySnapshotOwnershipPolicy` and
+`TryAttachSnapshotHostOwnership` consume this contract and genuine supplied read
+leases. Group copies and consumers enforce their respective roster limits. The
+original publisher remains the only publication authority. Final successful source
+lease disposal after the last group hold returns the byte/slot reservation once.
+A release failure leaves it charged and cannot complete a policy drain.
+
+ReloadDisposition is explicitly DrainBeforeApply and ReleaseDisposition is explicitly
+FinalSharedHold; neither has an omission default. A higher policy revision needs new
+frozen evidence. A pending revision stops new group admission, retains existing
+bounded published groups/consumers and applies only after their actual final release.
+Original publication/retirement controls when those roots retire; reload does not
+replace them or claim a logical target is reclaimed memory. Invalid/stale replacements
+leave the current revision intact; the pending roster is bounded to one revision.
+No production frozen values are shipped or Auto path activated here. The canonical
+projector still needs actual admitted content/location/source facts and original
+qualification inputs before this explicit policy can enter production admission.
+
 The established `CspNonceHtmlResponseWriter.WriteBodyAsync` has an explicit
 `TransientBufferLease` overload for caller-admitted nonce scratch.
 `ReservedCspNonceScratchWriter` checks the actual UTF-8 nonce size against the

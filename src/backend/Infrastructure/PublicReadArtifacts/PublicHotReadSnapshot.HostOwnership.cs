@@ -19,12 +19,16 @@ public sealed partial class PublicHotReadSnapshot
     /// unchanged. Shared holds use the caller's finite bound; this supplies no qualification.
     /// </summary>
     internal PublicHotReadSnapshot WithHostReadLeases(IReadOnlyList<IMemoryHostReadLease> leases, int maximumHolds)
+        => WithHostReadLeases(leases, maximumHolds, null);
+
+    internal PublicHotReadSnapshot WithHostReadLeases(IReadOnlyList<IMemoryHostReadLease> leases,
+        int maximumHolds, PublicHotReadSnapshotOwnershipAdmission? admission)
     {
         if (HasHostOwnership)
         {
             throw new InvalidOperationException("This snapshot already owns host read leases.");
         }
-        PublicHotReadSnapshotHostOwnership ownership = PublicHotReadSnapshotHostOwnership.Create(this, leases, maximumHolds);
+        PublicHotReadSnapshotHostOwnership ownership = PublicHotReadSnapshotHostOwnership.Create(this, leases, maximumHolds, admission);
         try
         {
             return new PublicHotReadSnapshot(Version, _articleFramesById, _listFrames, _categoryFrame, _tagFrame,
@@ -97,7 +101,7 @@ public sealed partial class PublicHotReadSnapshot
         {
             return _hostRootHold is null
                 ? MemoryOperationResult<IDisposable>.Reject(MemoryFailure.OwnershipViolation)
-                : ownership.TryRetain();
+                : ownership.TryRetain(consumer: true);
         }
     }
 }
@@ -110,17 +114,22 @@ internal sealed class PublicHotReadSnapshotHostOwnership
 {
     private readonly object _gate = new();
     private readonly int _maximumHolds;
+    private readonly PublicHotReadSnapshotOwnershipAdmission? _admission;
     private IMemoryHostReadLease[]? _leases;
     private int _holds;
+    private int _snapshots;
+    private int _consumers;
 
-    private PublicHotReadSnapshotHostOwnership(IMemoryHostReadLease[] leases, int maximumHolds)
+    private PublicHotReadSnapshotHostOwnership(IMemoryHostReadLease[] leases, int maximumHolds,
+        PublicHotReadSnapshotOwnershipAdmission? admission)
     {
         _leases = leases;
         _maximumHolds = maximumHolds;
+        _admission = admission;
     }
 
     internal static PublicHotReadSnapshotHostOwnership Create(PublicHotReadSnapshot snapshot,
-        IReadOnlyList<IMemoryHostReadLease> leases, int maximumHolds)
+        IReadOnlyList<IMemoryHostReadLease> leases, int maximumHolds, PublicHotReadSnapshotOwnershipAdmission? admission)
     {
         ArgumentNullException.ThrowIfNull(leases);
         if (maximumHolds <= 0 || leases.Count == 0)
@@ -158,7 +167,9 @@ internal sealed class PublicHotReadSnapshotHostOwnership
         {
             throw new ArgumentException("Every opaque binary representation requires its actual lease; opaque HTML is unsupported.", nameof(leases));
         }
-        return new(supplied, maximumHolds);
+        var ownership = new PublicHotReadSnapshotHostOwnership(supplied, maximumHolds, admission);
+        admission?.TransferToGroup();
+        return ownership;
 
         void Add(ReadOnlyMemory<byte> memory)
         {
@@ -172,7 +183,15 @@ internal sealed class PublicHotReadSnapshotHostOwnership
     private static bool IsArrayOrEmpty(ReadOnlyMemory<byte> memory)
         => memory.IsEmpty || MemoryMarshal.TryGetArray(memory, out _);
 
-    internal MemoryOperationResult<IDisposable> TryRetain()
+    internal void ValidateSnapshotRoster(long representations)
+    {
+        if (_admission is { } admission && representations > admission.Policy.MaximumRepresentations)
+        {
+            throw new InsufficientMemoryException("Snapshot representation roster exceeds the supplied frozen ownership policy.");
+        }
+    }
+
+    internal MemoryOperationResult<IDisposable> TryRetain(bool consumer = false)
     {
         lock (_gate)
         {
@@ -180,12 +199,21 @@ internal sealed class PublicHotReadSnapshotHostOwnership
             {
                 return MemoryOperationResult<IDisposable>.Reject(MemoryFailure.OwnershipViolation);
             }
-            if (_holds >= _maximumHolds)
+            if (_holds >= _maximumHolds || _admission is { } admission
+                && (consumer ? _consumers >= admission.Policy.MaximumConsumers : _snapshots >= admission.Policy.MaximumSnapshots))
             {
                 return MemoryOperationResult<IDisposable>.Reject(MemoryFailure.BudgetRejected);
             }
-            var hold = new Hold(this);
+            var hold = new Hold(this, consumer);
             _holds++;
+            if (consumer)
+            {
+                _consumers++;
+            }
+            else
+            {
+                _snapshots++;
+            }
             return MemoryOperationResult<IDisposable>.Success(hold);
         }
     }
@@ -202,9 +230,13 @@ internal sealed class PublicHotReadSnapshotHostOwnership
             }
         }
         DisposeAll(release);
+        if (release is not null)
+        {
+            _admission?.Dispose();
+        }
     }
 
-    private void Release()
+    private void Release(bool consumer)
     {
         IMemoryHostReadLease[]? release = null;
         lock (_gate)
@@ -218,8 +250,20 @@ internal sealed class PublicHotReadSnapshotHostOwnership
                 release = _leases;
                 _leases = null;
             }
+            if (consumer)
+            {
+                _consumers--;
+            }
+            else
+            {
+                _snapshots--;
+            }
         }
         DisposeAll(release);
+        if (release is not null)
+        {
+            _admission?.Dispose();
+        }
     }
 
     private static void DisposeAll(IMemoryHostReadLease[]? leases)
@@ -242,9 +286,9 @@ internal sealed class PublicHotReadSnapshotHostOwnership
         }
     }
 
-    private sealed class Hold(PublicHotReadSnapshotHostOwnership owner) : IDisposable
+    private sealed class Hold(PublicHotReadSnapshotHostOwnership owner, bool consumer) : IDisposable
     {
         private PublicHotReadSnapshotHostOwnership? _owner = owner;
-        public void Dispose() => Interlocked.Exchange(ref _owner, null)?.Release();
+        public void Dispose() => Interlocked.Exchange(ref _owner, null)?.Release(consumer);
     }
 }
