@@ -174,14 +174,34 @@
       "bytes": 15897
     },
     {
+      "path": "pending-current-pr-body.txt",
+      "sha256": "df41bea732fcf22f267f0591be5db55c239f49c08ec43a79b64532f2e757c207",
+      "bytes": 11765
+    },
+    {
+      "path": "pending-current-pr-title.txt",
+      "sha256": "ac839995349446815d6faba119d93ecd844180a03ef31166a7641a4cdb9ccb7c",
+      "bytes": 65
+    },
+    {
+      "path": "prepared-current-pr-gate.log.gz",
+      "sha256": "31d981e8b61b679e7a02f7ebd19ba2209135cebbce940443ca71c36dff844c9d",
+      "bytes": 64
+    },
+    {
+      "path": "prepared-pr-initial-refusal.log.gz",
+      "sha256": "775928f1e8edfd08579f382a09ecdd6b011b595e08f1ccb55e3cf57e8219fc9a",
+      "bytes": 105
+    },
+    {
       "path": "source-closure.json",
       "sha256": "4e29a3e26859395db3791302e1f300c159215c7234a3d05c8283992d2107bd4e",
       "bytes": 3718
     },
     {
       "path": "summary.json",
-      "sha256": "13a45a34fb71de6026d1729270adb736c51d73411c53b03e934209a3071b8fb1",
-      "bytes": 1684
+      "sha256": "a1c8c5d0680ab1e71e64a498cb9fea423dfac077c63604987781436443ba6743",
+      "bytes": 2127
     },
     {
       "path": "supplier-input-current.log.gz",

@@ -27,5 +27,15 @@
   "tracking": 8,
   "allIssues": 49,
   "githubContentWriteHeld": true,
-  "rootVerifiedExecutableCandidateStillUnfinished": true
+  "rootVerifiedExecutableCandidateStillUnfinished": true,
+  "localPreparedPr": {
+    "head": "b53a75078a56031ed1f23beb8b0bd24d20c6e4d0",
+    "base": "5dcd62096f97ccb2297781f2fcebf04fa8dbedd6",
+    "exitCode": 0,
+    "files": 768,
+    "body": "pending-current-pr-body.txt",
+    "title": "pending-current-pr-title.txt",
+    "remoteContentUpdated": false,
+    "initialRefusal": "Missing four exact naming-manifest surface paths; canonical manifest corrected without registry/policy/source changes."
+  }
 }
