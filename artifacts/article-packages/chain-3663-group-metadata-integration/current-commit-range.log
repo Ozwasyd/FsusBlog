@@ -1,0 +1,1 @@
+[change-contract] usage: [--root <repository>] --message-file <path> | --title <title> | --range <base..head> | --github-event <path> | --repository | --print-registry

@@ -1,0 +1,5 @@
+Test run for /workspace/chain-3663-evidence/group-metadata-integration/harness/bin/Debug/net10.0/PropertyCodec.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /workspace/chain-3663-evidence/group-metadata-integration/current-trx/_bad473dbf38b_2026-10-09_07_32_16_net10.0.trx
+
+Passed!  - Failed:     0, Passed:   795, Skipped:     0, Total:   795, Duration: 8 s - PropertyCodec.Tests.dll (net10.0)

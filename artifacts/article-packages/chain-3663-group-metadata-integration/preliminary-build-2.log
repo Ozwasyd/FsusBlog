@@ -1,0 +1,9 @@
+/workspace/FsusBlog-group-property-recheck-3663/src/backend/Models/Dtos/CommentDto.cs(90,12): error CS0246: The type or namespace name 'RegionModerationDecision' could not be found (are you missing a using directive or an assembly reference?) [/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj]
+
+Build FAILED.
+
+/workspace/FsusBlog-group-property-recheck-3663/src/backend/Models/Dtos/CommentDto.cs(90,12): error CS0246: The type or namespace name 'RegionModerationDecision' could not be found (are you missing a using directive or an assembly reference?) [/workspace/chain-3663-evidence/group-metadata-integration/harness/PropertyCodec.Tests.csproj]
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:01.01
