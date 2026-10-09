@@ -7,12 +7,17 @@
         "tests/tools/execution-envelope-policy.test.mjs",
         "tools/testing/generate-test-execution-envelope-applicability.mjs",
         "tools/test/generate-correctness-attempt-producers.mjs",
-        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+        "tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "tools/testing/fixture-catalog.mjs",
+        "tools/test-matrix/fixture-profile-contract.mjs",
+        "tests/tools/fixture-catalog.test.mjs",
+        "tests/tools/matrix-fixture-profile.test.mjs",
+        "tools/testing/generate-fixture-catalog-artifacts.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "d2bb8dd2b927ec81b5cda176abc3af487cef2591b07a8cd549f85e156cb936c9"
+            "sha256": "97b671dc0fd8f415d9d325e043c93134cc7676ebad07f41cc06b786d6cebdce5"
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
@@ -21,6 +26,10 @@
         {
             "path": "config/testing/test-execution-envelope-applicability.json",
             "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
+        },
+        {
+            "path": "config/testing/fixture-profile-matrix.generated.json",
+            "sha256": "25894e315ea042b54da3536a87cab5c2c42aaac3ac4f1aa13e05fc277951fc5f"
         }
     ]
 }

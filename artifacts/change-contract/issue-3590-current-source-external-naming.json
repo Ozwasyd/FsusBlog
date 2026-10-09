@@ -4,9 +4,11 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test-matrix/fixture-profile-contract.mjs",
+                "tools/testing/fixture-catalog.mjs"
             ],
-            "reason": "Preserve canonical process environment names in the inherited full-roster migration source."
+            "reason": "Preserve process environment names while consuming the full-roster migration source and correcting finite fixture classification and source observations."
         },
         {
             "id": "shell-environment-variable",
@@ -21,7 +23,8 @@
                 "config/schemas/test-execution-envelope-applicability.schema.json",
                 "config/testing/correctness-attempt-producers.json",
                 "config/testing/test-execution-envelope-applicability.json",
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/fixture-profile-matrix.generated.json"
             ],
             "reason": "Preserve canonical applicability, schema, producer inventory and execution-target wire keys while regenerating actual candidate identities."
         }

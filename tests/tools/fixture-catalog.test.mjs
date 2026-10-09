@@ -18,7 +18,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const {canonicalDigest: currentSchemaCanonicalDigest, runtimeReadyReceiptPath, runtimeReadySchema} = await import(new URL('../../tools/db/verify-current-schema-test-materialization-receipt.mjs', import.meta.url));
 const {buildFixtureReceipt, writeFixtureReceipt} = await import(new URL('../../tools/test-fixtures/receipt/fixture-receipt.mjs', import.meta.url));
-const {applySealedFixtureProfileEnvironment, buildFixtureVariantPlan, buildProducerFixtureVariantPlan, currentSchemaRuntimeTopologyAdmissionBinding, expandFixtureProfile, fixtureCatalogDigest, fixtureCatalogFiles, observeFixtureConsumerSource, planFixtureMutation, resolveFixtureVariants, resolveFixtureProfile, scanFixtureSourceDeclarations, sealMatrixFixtureProfile, validateFixtureAuthoritySources, validateFixtureCatalogs, validateFixtureVariantEvidence, validateFixtureSentinelRegistry, validateNoneFixtureTier, verifyCurrentSchemaRuntimeTopologyAdmission, verifyCurrentSchemaTerminalDag, writeAcceptanceRuntimeTopology, writeCurrentSchemaRuntimeTopologyAdmission, writeFixtureProfileReceipt} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
+const {applySealedFixtureProfileEnvironment, buildFixtureVariantPlan, buildProducerFixtureVariantPlan, currentSchemaRuntimeTopologyAdmissionBinding, expandFixtureProfile, fixtureCatalogDigest, fixtureCatalogFiles, matrixConsumerObservationContent, observeFixtureConsumerSource, planFixtureMutation, resolveFixtureVariants, resolveFixtureProfile, scanFixtureSourceDeclarations, sealMatrixFixtureProfile, validateFixtureAuthoritySources, validateFixtureCatalogs, validateFixtureVariantEvidence, validateFixtureSentinelRegistry, validateNoneFixtureTier, verifyCurrentSchemaRuntimeTopologyAdmission, verifyCurrentSchemaTerminalDag, writeAcceptanceRuntimeTopology, writeCurrentSchemaRuntimeTopologyAdmission, writeFixtureProfileReceipt} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
+const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
 const root = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     "..",
@@ -718,6 +719,47 @@ test("inventory records public-content transaction-fixture without API→DB or e
         sessions.currentFallback,
         /persists auth fixture files when FSUSBLOG_PERSIST_AUTH_FIXTURES/u
     );
+});
+
+test("scale observations bind specific generator scripts rather than unrelated words", () =>
+{
+    const expected = /scale data is produced by the scale-data generator/u;
+    for (const source of [
+        "tools/data-scale/seed.sh",
+        "tools/data-scale/cleanup.sh",
+        "tools/data-scale/probe.sh",
+        "tools/test/lanes/data-scale.sh"
+    ])
+    {
+        assert.match(observeFixtureConsumerSource(source, readFileSync(path.join(root, source), "utf8")), expected);
+    }
+    assert.match(observeFixtureConsumerSource("tools/test/lanes/custom.sh",
+        'bash "$ROOT_DIR/tools/data-scale/seed.sh" "$TIER"'), expected);
+    for (const content of [
+        "data-scale-runtime-caller.mjs; seed auth fixtures; probe readiness",
+        "scale.article-comment; seed auth fixtures",
+        "tools/data-scale/seed.sh.backup; cleanup auth",
+        "not-data-scale/seed.sh; probe readiness"
+    ])
+    {
+        assert.doesNotMatch(observeFixtureConsumerSource("tools/bootstrap-acceptance-env.sh", content), expected);
+    }
+});
+
+test("shared bootstrap resource helpers do not imply scale fixture generation", () =>
+{
+    const bootstrap = readFileSync(path.join(root, "tools/bootstrap-acceptance-env.sh"), "utf8");
+    assert.match(bootstrap, /data-scale-runtime-caller\.mjs/u);
+    const expected = /scale data is produced by the scale-data generator/u;
+    assert.doesNotMatch(observeFixtureConsumerSource("tools/bootstrap-acceptance-env.sh", bootstrap), expected);
+    const matrix = parseMatrix(readFileSync(path.join(root, "tests/matrix.yml"), "utf8"));
+    for (const id of ["bootstrap", "browser-contract", "runtime-cache-public-hot-read", "production"])
+    {
+        const tier = matrix.tiers.find((candidate) => candidate.id === id);
+        assert.ok(tier, id);
+        assert.doesNotMatch(observeFixtureConsumerSource(tier.command,
+            matrixConsumerObservationContent(tier)), expected, id);
+    }
 });
 
 test("inventory rejects hardcoded no-fallback while source reuses env data", () =>
