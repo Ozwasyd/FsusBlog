@@ -51,6 +51,7 @@ The `/api/binary/**` runtime surface is the main application transport. It is op
 ## Admin And Deployment APIs
 
 Admin routes and undocumented deployment internals may change. Treat them as maintainer-facing implementation details unless a dedicated stability document says otherwise.
+
 ## Current contract observation identity
 
 <!-- fsus-doc-claim
