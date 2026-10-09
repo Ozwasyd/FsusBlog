@@ -490,6 +490,22 @@ byte-array `FromFrame` and unbounded compression path do not supply those
 contracts. Unknown-length producers and compression workspace remain separate
 unverified work; they cannot publish the callback's borrowed memory.
 
+The established `CspNonceHtmlResponseWriter.WriteBodyAsync` has an explicit
+`TransientBufferLease` overload for caller-admitted nonce scratch.
+`ReservedCspNonceScratchWriter` checks the actual UTF-8 nonce size against the
+logical span and invokes the original `CspNonceUtf8Template.Write`. Immutable
+template segments stream directly into the original response BodyWriter; no
+whole-HTML destination is created. Both overloads use the same original flush
+and canceled/completed-reader handling. The transient operation hold covers that
+flush's terminal event, including backpressure and request cancellation; canceling
+an outer wait cannot refund scratch still held by the response operation. The
+caller retains its own lease until disposal, and the original pool owns clearing
+and retained-capacity accounting. Fixture budgets do not qualify production bounds.
+`PublicHotReadFastPath.ServeHtmlWithNonce` currently supplies no admitted scratch
+lease or pool/budget binding, so its default path continues to use the original
+overload. Actual production scratch admission, immutable template/read ownership,
+representation qualification and accepted P01/P05/Auto evidence remain required.
+
 `WindowsNativeMemoryPressureReader` is a raw 64-bit Windows PSAPI2 observation
 surface using system32 `GlobalMemoryStatusEx`, `K32GetPerformanceInfo` and
 `K32GetProcessMemoryInfo`. It fills fixed caller-owned admitted value storage,
