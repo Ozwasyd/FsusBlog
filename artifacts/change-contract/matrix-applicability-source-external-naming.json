@@ -9,7 +9,8 @@
                 "config/testing/fixture-profile-matrix.generated.json",
                 "config/testing/fixture-consumer-inventory.generated.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "config/testing/correctness-attempt-producers.json"
+                "config/testing/correctness-attempt-producers.json",
+                "config/schemas/test-execution-envelope-applicability.schema.json"
             ],
             "reason": "Preserve the original matrix declarations and canonical generated JSON wire fields while refreshing actual required SDK environment, mysql services, fixture classification and source/output bindings."
         }

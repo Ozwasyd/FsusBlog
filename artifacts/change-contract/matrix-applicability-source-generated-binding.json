@@ -3,7 +3,9 @@
     "sources": [
         "tests/matrix.yml",
         "tools/test-matrix/fixture-profile-contract.mjs",
-        "tests/tools/matrix-fixture-profile.test.mjs"
+        "tests/tools/matrix-fixture-profile.test.mjs",
+        "config/schemas/test-execution-envelope-applicability.schema.json",
+        "tests/tools/execution-envelope-policy.test.mjs"
     ],
     "outputs": [
         {
