@@ -3022,8 +3022,12 @@ an archive, a persisted read, a target transition, a permission decision or a wr
 The closed envelope requires `schemaVersion`, `canonicalHashVersion`,
 `propertySchemaVersion`, `articles` and `semanticDigest`. Only the exact current
 version tuple is supported: candidate `1`, `ArticleCanonicalHashV1.HashVersion`
-`1` and `ArticlePropertyValueSnapshot.CurrentSchemaVersion` `1`. No lossless
-migration has been registered; missing, legacy and future versions are rejected.
+`1` and `ArticlePropertyValueSnapshot.CurrentSchemaVersion` `1`.
+`ArticlePackageManifestVersionRegistry` is the single immutable registration
+used by candidate creation, parsing, serialization, version properties and
+semantic digest framing. Only the existing `(1,1,1)` source/target identity
+disposition is registered; it does not authorize a product migration. Lossy
+requests and missing, unregistered, legacy or future tuples are rejected.
 Adding a version or a migration requires its own closed source/target mapping,
 unsupported-field policy and independent proof; unknown fields do not become a
 compatibility union.
