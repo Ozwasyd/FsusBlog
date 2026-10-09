@@ -11,22 +11,10 @@ public sealed class WritingAidPreferenceContractTests
     {
         WritingAidPreferenceReceipt receipt = Receipt("update", 2, new(1, true, false, true));
         Assert.True(WritingAidPreferenceReceiptValidator.Validate(receipt, receipt.Previous.Owner));
-        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with
-        {
-            DeviceScope = "raw-session"
-        }, receipt.Previous.Owner));
-        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with
-        {
-            Action = "migrate-legacy"
-        }, receipt.Previous.Owner));
-        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with
-        {
-            Status = "prepared"
-        }, receipt.Previous.Owner));
-        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with
-        {
-            OperationId = Guid.NewGuid()
-        }, receipt.Previous.Owner));
+        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with { DeviceScope = "raw-session" }, receipt.Previous.Owner));
+        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with { Action = "migrate-legacy" }, receipt.Previous.Owner));
+        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with { Status = "prepared" }, receipt.Previous.Owner));
+        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with { OperationId = Guid.NewGuid() }, receipt.Previous.Owner));
     }
 
     [Fact]
@@ -50,10 +38,7 @@ public sealed class WritingAidPreferenceContractTests
             WritingAidPreferenceValidator.ComputeDigest(owner, revision + 1, values));
         var receipt = new WritingAidPreferenceReceipt(Guid.NewGuid(), "device:" + new string('a', 64),
             previous, committed, action, "committed", string.Empty);
-        return receipt with
-        {
-            ContentDigest = WritingAidPreferenceReceiptValidator.ComputeDigest(receipt)
-        };
+        return receipt with { ContentDigest = WritingAidPreferenceReceiptValidator.ComputeDigest(receipt) };
     }
 
     [Fact]
@@ -118,41 +103,17 @@ public sealed class WritingAidPreferenceContractTests
             WritingAidPreferenceValidator.ComputeDigest(owner, 3, values));
         Assert.Equal(WritingAidPreferenceValidation.Valid, WritingAidPreferenceValidator.ValidateSnapshot(snapshot, owner));
         Assert.Equal(WritingAidPreferenceValidation.OwnerMismatch,
-            WritingAidPreferenceValidator.ValidateSnapshot(snapshot, owner with
-            {
-                UserScope = "account:2"
-            }));
+            WritingAidPreferenceValidator.ValidateSnapshot(snapshot, owner with { UserScope = "account:2" }));
         Assert.Equal(WritingAidPreferenceValidation.OwnerMismatch,
-            WritingAidPreferenceValidator.ValidateSnapshot(snapshot, owner with
-            {
-                SiteScope = "site:other"
-            }));
+            WritingAidPreferenceValidator.ValidateSnapshot(snapshot, owner with { SiteScope = "site:other" }));
         Assert.Equal(WritingAidPreferenceValidation.DigestMismatch,
-            WritingAidPreferenceValidator.ValidateSnapshot(snapshot with
-            {
-                Revision = 4
-            }, owner));
+            WritingAidPreferenceValidator.ValidateSnapshot(snapshot with { Revision = 4 }, owner));
         Assert.Equal(WritingAidPreferenceValidation.DigestMismatch,
-            WritingAidPreferenceValidator.ValidateSnapshot(snapshot with
-            {
-                Values = values with
-                {
-                    TypewriterEnabled = true
-                }
-            }, owner));
+            WritingAidPreferenceValidator.ValidateSnapshot(snapshot with { Values = values with { TypewriterEnabled = true } }, owner));
         Assert.Equal(WritingAidPreferenceValidation.InvalidSchema,
-            WritingAidPreferenceValidator.ValidateSnapshot(snapshot with
-            {
-                Revision = 0
-            }, owner));
+            WritingAidPreferenceValidator.ValidateSnapshot(snapshot with { Revision = 0 }, owner));
         Assert.Equal(WritingAidPreferenceValidation.InvalidSchema,
-            WritingAidPreferenceValidator.ValidateSnapshot(snapshot with
-            {
-                Values = values with
-                {
-                    SchemaVersion = 2
-                }
-            }, owner));
+            WritingAidPreferenceValidator.ValidateSnapshot(snapshot with { Values = values with { SchemaVersion = 2 } }, owner));
     }
 
     [Fact]
@@ -160,19 +121,10 @@ public sealed class WritingAidPreferenceContractTests
     {
         var update = new WritingAidPreferenceUpdate(0, Guid.NewGuid(), WritingAidPreferenceContract.Defaults);
         Assert.Equal(WritingAidPreferenceValidation.InvalidOperation,
-            WritingAidPreferenceValidator.ValidateUpdate(update with
-            {
-                OperationId = Guid.Empty
-            }));
+            WritingAidPreferenceValidator.ValidateUpdate(update with { OperationId = Guid.Empty }));
         Assert.Equal(WritingAidPreferenceValidation.InvalidRevision,
-            WritingAidPreferenceValidator.ValidateUpdate(update with
-            {
-                ExpectedRevision = WritingAidPreferenceContract.MaximumExactRevision
-            }));
+            WritingAidPreferenceValidator.ValidateUpdate(update with { ExpectedRevision = WritingAidPreferenceContract.MaximumExactRevision }));
         Assert.Equal(WritingAidPreferenceValidation.InvalidRevision,
-            WritingAidPreferenceValidator.ValidateUpdate(update with
-            {
-                ExpectedRevision = -1
-            }));
+            WritingAidPreferenceValidator.ValidateUpdate(update with { ExpectedRevision = -1 }));
     }
 }
