@@ -77,6 +77,10 @@ export interface DocumentExportUiPort<TSnapshot, TRequest> {
     download: (taskId: string, signal: AbortSignal) => Promise<void>;
     inspect: (snapshot: TSnapshot) => DocumentExportPresentation;
     classifyFailure: (error: unknown) => DocumentExportCallFailure;
+    /** Original private generation changes clear an idle view as well as pending calls. */
+    subscribePermissionRevoked?: (notify: () => void) => () => void;
+    /** Release this view's transient choices, pending requests and private lease. */
+    dispose?: () => void;
 }
 
 /** Unknown status is deliberately non-actionable. Progress uses real stages. */
