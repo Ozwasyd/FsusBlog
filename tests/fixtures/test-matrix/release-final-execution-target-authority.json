@@ -2395,8 +2395,8 @@
         },
         {
             "path": "tools/check-gate-integrity.sh",
-            "contentDigest": "sha256:b91205c6e067d66029845498bbb634292e2b4cd52d7044878ab11bb9e722aef3",
-            "indexDigest": "sha256:b91205c6e067d66029845498bbb634292e2b4cd52d7044878ab11bb9e722aef3"
+            "contentDigest": "sha256:bf9e24d61c2fc75d6e669f073f51dce7fa7d4b00dbaf3222fce3ba3fbafd08ed",
+            "indexDigest": "sha256:bf9e24d61c2fc75d6e669f073f51dce7fa7d4b00dbaf3222fce3ba3fbafd08ed"
         },
         {
             "path": "tools/check-postgres-test-collections.mjs",
@@ -5650,8 +5650,8 @@
         },
         {
             "path": "tools/yaml/parse-document.mjs",
-            "contentDigest": "sha256:203c90274d01f2ef0c6e9f16e32dc74b994e9696cda53ba3d21226a28c27e347",
-            "indexDigest": "sha256:203c90274d01f2ef0c6e9f16e32dc74b994e9696cda53ba3d21226a28c27e347"
+            "contentDigest": "sha256:ac2949a70fbb0d6b7308f195def1029ec264e2017ddd30af84db380a72e80cea",
+            "indexDigest": "sha256:ac2949a70fbb0d6b7308f195def1029ec264e2017ddd30af84db380a72e80cea"
         },
         {
             "path": "tools/yaml/workflow-structure.mjs",
