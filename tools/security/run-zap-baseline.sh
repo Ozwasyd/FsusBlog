@@ -62,6 +62,16 @@ for target in $TARGETS; do
     status=$?
     set -e
 
+    if node "$ROOT_DIR/tools/security/zap-baseline-result-outlet.mjs" \
+        "$RUN_DIR/zap-baseline-results.jsonl" "$target" "$status" \
+        "$RUN_DIR/$json_report" "$RUN_DIR/$html_report" "$RUN_DIR/$markdown_report"; then
+        :
+    else
+        outletStatus=$?
+        Log "result outlet failed: $target (outlet exit $outletStatus; scanner exit $status)"
+        overall_status=1
+    fi
+
     case "$status" in
         0)
             Log "target passed without alerts: $target"
