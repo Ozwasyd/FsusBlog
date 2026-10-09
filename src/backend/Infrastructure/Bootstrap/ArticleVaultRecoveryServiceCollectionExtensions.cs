@@ -11,6 +11,22 @@ namespace FsusBlog.Server.Infrastructure.Bootstrap;
 /// <summary>Composes the existing read authorities with an explicit server-owned Vault site binding.</summary>
 public static class ArticleVaultRecoveryServiceCollectionExtensions
 {
+    /// <summary>Prepares typed candidate reads only; does not bind a candidate to runtime trusted-site authority.</summary>
+    public static IServiceCollection AddFsusArticleVaultInstallationSiteIdentityCandidates(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        if (services.Any(static descriptor => descriptor.ServiceType == typeof(ArticleVaultInstallationSiteIdentityCandidateReader)))
+        {
+            throw new InvalidOperationException("article_vault_installation_site_candidate_already_registered");
+        }
+        if (!services.Any(static descriptor => descriptor.ServiceType == typeof(ISystemSiteIdentityReader)))
+        {
+            throw new InvalidOperationException("article_vault_installation_site_original_reader_missing");
+        }
+        services.AddScoped<ArticleVaultInstallationSiteIdentityCandidateReader>();
+        return services;
+    }
+
     /// <summary>Requires the original property authority; installs no fallback provider or persistence.</summary>
     public static IServiceCollection AddFsusArticleVaultCurrentPropertyInputs(
         this IServiceCollection services, string trustedPropertySiteScope)
