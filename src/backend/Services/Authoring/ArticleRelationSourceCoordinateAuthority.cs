@@ -185,8 +185,8 @@ public sealed class ArticleRelationSourceCoordinateAuthority
     private static async Task<Guid> EnsureArticleBindingAsync(
         NativeSession session, int articleId, Guid? importedIdentity, CancellationToken cancellationToken)
     {
-        const string readSql = "SELECT portable_identity FROM article_relation_article_binding WHERE article_id = @articleId;";
-        object? stored = await ScalarAsync(session, readSql, articleId, null, cancellationToken).ConfigureAwait(false);
+        const string ReadSql = "SELECT portable_identity FROM article_relation_article_binding WHERE article_id = @articleId;";
+        object? stored = await ScalarAsync(session, ReadSql, articleId, null, cancellationToken).ConfigureAwait(false);
         if (stored is Guid savedIdentity)
         {
             Require(savedIdentity != Guid.Empty, "article_relation_binding_invalid");
@@ -204,7 +204,7 @@ public sealed class ArticleRelationSourceCoordinateAuthority
         {
             throw new ArticleRelationSourceCoordinateException("article_relation_binding_conflict");
         }
-        stored = await ScalarAsync(session, readSql, articleId, null, cancellationToken).ConfigureAwait(false);
+        stored = await ScalarAsync(session, ReadSql, articleId, null, cancellationToken).ConfigureAwait(false);
         Require(stored is Guid identity && identity != Guid.Empty, "article_relation_binding_unavailable");
         return (Guid)stored!;
     }
