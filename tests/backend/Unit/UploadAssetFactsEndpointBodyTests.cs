@@ -146,7 +146,10 @@ public sealed class UploadAssetFactsEndpointBodyTests
 
     private static DefaultHttpContext CreateContext(Stream stream, IServiceProvider services)
     {
-        var context = new DefaultHttpContext { User = Principal(withPermission: true), RequestServices = services };
+        var context = new DefaultHttpContext
+        {
+            User = Principal(withPermission: true), RequestServices = services
+        };
         context.Request.Body = stream;
         context.Request.ContentType = "application/octet-stream";
         context.Request.ContentLength = null;
@@ -198,8 +201,14 @@ public sealed class UploadAssetFactsEndpointBodyTests
     private sealed class UnknownLengthStream(byte[] bytes, bool blockAtEnd = false) : Stream
     {
         private int _offset;
-        public TaskCompletionSource EofReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public int ReadCalls { get; private set; }
+        public TaskCompletionSource EofReadStarted
+        {
+            get;
+        } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int ReadCalls
+        {
+            get; private set;
+        }
         public override bool CanRead => true;
         public override bool CanSeek => false;
         public override bool CanWrite => false;

@@ -1780,6 +1780,10 @@ continues to preserve the original20MiB policy.
 It retains admin authentication, ArticleWrite, PoW and original owner/token/expiry
 checks. Its request is the existing `UploadCompleteRequest` with exactly64 payload
 bytes (80 including the AEDS header); the response is `private, no-store`.
+The facts endpoint requires the body to end after that frame, including when
+Content-Length is unknown. Truncation or any trailing byte refuses before the
+observer is called; cancellation while awaiting body completion releases the
+payload lease. Other endpoints retain their original frame-read contract.
 
 `UploadAssetFacts` is the distinct canonical frame285 with native error20. Its
 `fsusblog.upload-asset-facts.v1` payload is exactly760 bytes (776 framed), reusing
