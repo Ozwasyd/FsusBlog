@@ -4,13 +4,312 @@ using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
 
+using AngleSharp.Html.Parser;
+
 using FsusBlog.Server.Services.DocumentExport;
+using FsusBlog.Server.Services.DocumentExport.Jobs;
 using FsusBlog.Server.Tests.Helpers;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class DocumentExportHtmlProviderTests
 {
+    // Captured from the actual FsusUI runtime probe; this fixture does not qualify
+    // the sandbox renderer tool, font coverage, or browser offline acceptance.
+    private const string CanonicalMermaidFragment = """
+        <figure class="markdown-renderer__mermaid" data-mermaid-rendered="true" data-mermaid-width="396" data-mermaid-height="104"><svg class="mermaid" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 396 104" width="396" height="104" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mermaid diagram"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#71717a" /></marker></defs><line x1="172" y1="52" x2="224" y2="52" stroke="#71717a" stroke-width="2" marker-end="url(#arrow)" /><rect x="24" y="24" width="148" height="56" rx="16" fill="#ffffff" stroke="#d4d4d8" stroke-width="1.5" /><text x="98" y="52" text-anchor="middle" dominant-baseline="middle" fill="#18181b" font-size="14" font-family="Google Sans, Noto Sans SC, system-ui, sans-serif">A</text><rect x="224" y="24" width="148" height="56" rx="16" fill="#ffffff" stroke="#d4d4d8" stroke-width="1.5" /><text x="298" y="52" text-anchor="middle" dominant-baseline="middle" fill="#18181b" font-size="14" font-family="Google Sans, Noto Sans SC, system-ui, sans-serif">B</text></svg></figure>
+        """;
+    private const string SvgOpen = "<svg xmlns=\"http://www.w3.org/2000/svg\">";
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void PreservesSvgAccessibleTitlesAlongsideOwnedPageTitle(int diagramCount)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        string fragment = string.Concat(Enumerable.Range(0, diagramCount).Select(index =>
+            $"<svg xmlns=\"http://www.w3.org/2000/svg\" role=\"img\" aria-label=\"Diagram {index}\"><title>Diagram {index}</title><desc>Details {index}</desc><path d=\"M 0 0 L 1 1\" /></svg>"));
+        byte[] sanitized = DocumentExportHtmlSanitizer.Sanitize(fragment, [], 1_048_576);
+        byte[] document = SelfContainedHtmlDocumentExportProvider.ComposeDocument("Page title", input, sanitized, 16_777_216);
+
+        DocumentExportHtmlVerifier.Validate(document, input, 16_777_216);
+        using var parsed = new HtmlParser().ParseDocument(Encoding.UTF8.GetString(document));
+        Assert.Equal("Page title", parsed.Title);
+        Assert.Single(parsed.Head!.QuerySelectorAll("title"));
+        Assert.Equal(diagramCount, parsed.QuerySelectorAll("svg title").Length);
+        for (int index = 0; index < diagramCount; index++)
+        {
+            var svg = parsed.QuerySelectorAll("svg")[index];
+            Assert.Equal($"Diagram {index}", svg.GetAttribute("aria-label"));
+            Assert.Equal($"Diagram {index}", svg.QuerySelector("title")!.TextContent);
+            Assert.Equal("http://www.w3.org/2000/svg", svg.QuerySelector("title")!.NamespaceUri);
+            Assert.Equal($"Details {index}", svg.QuerySelector("desc")!.TextContent);
+        }
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("duplicate")]
+    [InlineData("body-only")]
+    [InlineData("body-extra")]
+    [InlineData("nested-head")]
+    [InlineData("foreign-title")]
+    [InlineData("foreign-head")]
+    [InlineData("svg-substitute")]
+    public void RefusesPageTitleOutsideItsUniqueHtmlHeadOwnership(string mutation)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        byte[] document = SelfContainedHtmlDocumentExportProvider.ComposeDocument("Page title", input, "<p>Text</p>"u8, 16_777_216);
+        string original = Encoding.UTF8.GetString(document);
+        const string PageTitle = "<title>Page title</title>";
+        string changed = mutation switch
+        {
+            "missing" => original.Replace(PageTitle, string.Empty, StringComparison.Ordinal),
+            "duplicate" => original.Replace(PageTitle, PageTitle + PageTitle, StringComparison.Ordinal),
+            "body-only" => original.Replace(PageTitle, string.Empty, StringComparison.Ordinal)
+                .Replace("<body>", "<body>" + PageTitle, StringComparison.Ordinal),
+            "body-extra" => original.Replace("<body>", "<body>" + PageTitle, StringComparison.Ordinal),
+            "nested-head" => original.Replace(PageTitle, "<div>" + PageTitle + "</div>", StringComparison.Ordinal),
+            "foreign-title" => original.Replace(PageTitle, "<title xmlns=\"urn:other\">Page title</title>", StringComparison.Ordinal),
+            "foreign-head" => original.Replace("<head>", "<head xmlns=\"urn:other\">", StringComparison.Ordinal),
+            "svg-substitute" => original.Replace(PageTitle, string.Empty, StringComparison.Ordinal)
+                .Replace("<article>", "<article>" + SvgOpen + "<title>Page title</title><path d=\"M 0 0 L 1 1\" /></svg>", StringComparison.Ordinal),
+            _ => throw new InvalidOperationException("Unknown title mutation.")
+        };
+
+        Assert.NotEqual(original, changed);
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlVerifier.Validate(
+            Encoding.UTF8.GetBytes(changed), input, 16_777_216));
+    }
+
+    [Theory]
+    [InlineData("em")]
+    [InlineData("strong")]
+    [InlineData("span")]
+    [InlineData("a")]
+    public void EmptyNonVoidElementsPreserveHtml5SiblingSemantics(string element)
+    {
+        string attributes = element == "a" ? " href=\"https://example.invalid\"" : string.Empty;
+        string fragment = $"<p><{element}{attributes} />plain text</p><h2 id=\"heading\">Heading</h2><p>After</p>";
+        var parser = new HtmlParser();
+        using var unsanitized = parser.ParseDocument(fragment);
+        Assert.Contains("plain text", unsanitized.QuerySelector(element)!.TextContent, StringComparison.Ordinal);
+
+        byte[] sanitized = DocumentExportHtmlSanitizer.Sanitize(fragment, [], 1_048_576);
+        string html = Encoding.UTF8.GetString(sanitized);
+        using var document = parser.ParseDocument(html);
+
+        Assert.Contains($"</{element}>", html, StringComparison.Ordinal);
+        Assert.Empty(document.QuerySelector(element)!.TextContent);
+        Assert.Equal("plain text", document.QuerySelector("p")!.TextContent);
+        Assert.Null(document.GetElementById("heading")!.Closest(element));
+        Assert.Equal("After", document.QuerySelectorAll("p")[1].TextContent);
+    }
+
+    [Fact]
+    public void IndependentVerifierRefusesXmlValidNonVoidSelfClosingMutation()
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        byte[] fragment = DocumentExportHtmlSanitizer.Sanitize("<p><em />plain text</p>", [], 1_048_576);
+        byte[] document = SelfContainedHtmlDocumentExportProvider.ComposeDocument("Title", input, fragment, 16_777_216);
+        DocumentExportHtmlVerifier.Validate(document, input, 16_777_216);
+        string mutation = Encoding.UTF8.GetString(document).Replace("<em></em>", "<em />", StringComparison.Ordinal);
+        Assert.NotEqual(Encoding.UTF8.GetString(document), mutation);
+
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlVerifier.Validate(
+            Encoding.UTF8.GetBytes(mutation), input, 16_777_216));
+    }
+
+    [Fact]
+    public void ExplicitNonVoidClosingPreservesExistingVoidAndSvgElements()
+    {
+        string fragment = "<p>Line<br />Next</p><hr />" + SvgOpen + "<path d=\"M 0 0 L 1 1\" /></svg>";
+        byte[] sanitized = DocumentExportHtmlSanitizer.Sanitize(fragment, [], 1_048_576);
+        using var parsed = new HtmlParser().ParseDocument(Encoding.UTF8.GetString(sanitized));
+
+        Assert.Single(parsed.QuerySelectorAll("br"));
+        Assert.Single(parsed.QuerySelectorAll("hr"));
+        Assert.Equal("LineNext", parsed.QuerySelector("p")!.TextContent);
+        Assert.Equal("http://www.w3.org/2000/svg", parsed.QuerySelector("path")!.NamespaceUri);
+    }
+
+    [Theory]
+    [InlineData("fa-IR", "rtl")]
+    [InlineData("ur-PK", "rtl")]
+    [InlineData("ar-EG", "rtl")]
+    [InlineData("he-IL", "rtl")]
+    [InlineData("en-US", "ltr")]
+    [InlineData("zh-Hant", "ltr")]
+    public void ComposesAndIndependentlyVerifiesActualLocaleDirection(string locale, string direction)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidInput() with
+        {
+            Locale = locale
+        });
+        byte[] document = SelfContainedHtmlDocumentExportProvider.ComposeDocument("Title", input,
+            "<p>Text</p>"u8, 16_777_216);
+        using var parsed = new HtmlParser().ParseDocument(Encoding.UTF8.GetString(document));
+
+        Assert.Equal(direction, parsed.DocumentElement!.GetAttribute("dir"));
+        Assert.Equal(locale, parsed.DocumentElement.GetAttribute("lang"));
+        DocumentExportHtmlVerifier.Validate(document, input, 16_777_216);
+        string opposite = direction == "rtl" ? "ltr" : "rtl";
+        string mutation = Encoding.UTF8.GetString(document).Replace($"dir=\"{direction}\"",
+            $"dir=\"{opposite}\"", StringComparison.Ordinal);
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlVerifier.Validate(
+            Encoding.UTF8.GetBytes(mutation), input, 16_777_216));
+    }
+
+    [Theory]
+    [InlineData("中文")]
+    [InlineData("fn-中文")]
+    [InlineData("fnref-中文")]
+    [InlineData("ملاحظة")]
+    [InlineData("हिन्दी")]
+    [InlineData("e\u0301")]
+    [InlineData("𐐀-Ⅳ")]
+    public void PreservesBoundedUnicodeHtmlIdsAndExactLocalReferences(string id)
+    {
+        string fragment = $"<h1 id=\"{id}\">Heading</h1><a href=\"#{id}\">Top</a><p aria-describedby=\"{id}\">Text</p>";
+        byte[] sanitized = DocumentExportHtmlSanitizer.Sanitize(fragment, [], 1_048_576);
+        using var parsed = new HtmlParser().ParseDocument(Encoding.UTF8.GetString(sanitized));
+
+        Assert.NotNull(parsed.GetElementById(id));
+        Assert.Equal("#" + id, parsed.QuerySelector("a")!.GetAttribute("href"));
+        Assert.Equal(id, parsed.QuerySelector("p")!.GetAttribute("aria-describedby"));
+    }
+
+    [Fact]
+    public void PreservesObservedCanonicalUnicodeFootnoteAndBackreferences()
+    {
+        // Captured with the existing upstream ordinary Wasm parser. This is not
+        // browser or sandbox renderer qualification.
+        const string Fragment = "<p class=\"markdown-renderer__text\">note<sup><a href=\"#fn-中文\" id=\"fnref-中文\" class=\"footnote-ref\">1</a></sup></p><section class=\"footnotes\"><hr /><ol><li id=\"fn-中文\">原文 <a href=\"#fnref-中文\" class=\"footnote-backref\">↩</a></li></ol></section>";
+        byte[] sanitized = DocumentExportHtmlSanitizer.Sanitize(Fragment, [], 1_048_576);
+        using var parsed = new HtmlParser().ParseDocument(Encoding.UTF8.GetString(sanitized));
+
+        Assert.Equal("#fn-中文", parsed.GetElementById("fnref-中文")!.GetAttribute("href"));
+        Assert.Equal("#fnref-中文", parsed.QuerySelector(".footnote-backref")!.GetAttribute("href"));
+        Assert.Contains("原文", parsed.GetElementById("fn-中文")!.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnicodeHtmlIdsRetainTheOriginalUtf16LengthCeiling()
+    {
+        string id = new('中', 161);
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlSanitizer.Sanitize(
+            $"<p id=\"{id}\">Text</p>", [], 1_048_576));
+    }
+
+    [Theory]
+    [InlineData("white space")]
+    [InlineData("bidi\u202eoverride")]
+    [InlineData("join\u200der")]
+    [InlineData("html&lt;tag")]
+    public void UnicodeHtmlIdsStillRefuseWhitespaceFormatAndMarkupCharacters(string id)
+    {
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlSanitizer.Sanitize(
+            $"<p id=\"{id}\">Text</p>", [], 1_048_576));
+    }
+
+    [Theory]
+    [InlineData("<p id=\"中文\">One</p><p id=\"中文\">Two</p>")]
+    [InlineData("<a href=\"#中文\">Missing</a>")]
+    [InlineData(SvgOpen + "<path id=\"中文\" /></svg>")]
+    public void UnicodeHtmlIdsDoNotRelaxUniquenessResolutionOrSvgGrammar(string fragment)
+    {
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlSanitizer.Sanitize(fragment, [], 1_048_576));
+    }
+
+    [Theory]
+    [InlineData("<table><tr><th style=\"text-align:left\">Aligned</th></tr></table>")]
+    [InlineData("<span class=\"katex-mathml\"><math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mi>x</mi></math></span>")]
+    [InlineData("<p><a href=\"#fn-中文\" id=\"fnref-中文\">1</a><a href=\"#fn-中文\" id=\"fnref-中文\">1</a></p><p id=\"fn-中文\">Note</p>")]
+    public void UnsupportedRendererShapesRefuseInsteadOfDroppingOrRewritingContent(string fragment)
+    {
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlSanitizer.Sanitize(fragment, [], 1_048_576));
+    }
+
+    [Fact]
+    public void PreservesObservedCanonicalMermaidMarkerDocumentDeterministically()
+    {
+        long maximumBytes = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets.MaxOutputBytes;
+        byte[] first = DocumentExportHtmlSanitizer.Sanitize(CanonicalMermaidFragment, [], maximumBytes);
+        byte[] second = DocumentExportHtmlSanitizer.Sanitize(CanonicalMermaidFragment, [], maximumBytes);
+
+        Assert.Equal(first, second);
+        string output = Encoding.UTF8.GetString(first);
+        Assert.Contains("data-mermaid-rendered=\"true\"", output, StringComparison.Ordinal);
+        Assert.Contains("preserveAspectRatio=\"xMidYMid meet\"", output, StringComparison.Ordinal);
+        Assert.Contains("<defs><marker ", output, StringComparison.Ordinal);
+        Assert.Contains("id=\"arrow\"", output, StringComparison.Ordinal);
+        Assert.Contains("marker-end=\"url(#arrow)\"", output, StringComparison.Ordinal);
+        Assert.Contains("font-family=\"Google Sans, Noto Sans SC, system-ui, sans-serif\"", output, StringComparison.Ordinal);
+        Assert.Contains(">A</text>", output, StringComparison.Ordinal);
+        Assert.Contains(">B</text>", output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("url(#arrow)", "url(https://example.invalid/marker.svg#arrow)")]
+    [InlineData("url(#arrow)", "url(data:image/svg+xml,arrow)")]
+    [InlineData("url(#arrow)", "url(javascript:alert(1))")]
+    [InlineData("url(#arrow)", "url(#missing)")]
+    [InlineData("<defs>", "<defs onclick=\"alert(1)\">")]
+    [InlineData("<defs>", "<defs><script>alert(1)</script>")]
+    [InlineData("<defs>", "<defs><foreignObject />")]
+    [InlineData("<defs>", "<defs><use href=\"https://example.invalid/remote.svg#icon\" />")]
+    [InlineData("<svg class=\"mermaid\"", "<svg class=\"mermaid\" style=\"background:url(https://example.invalid)\"")]
+    [InlineData("markerWidth=\"7\"", "markerWidth=\"-1\"")]
+    [InlineData("markerWidth=\"7\"", "markerWidth=\"NaN\"")]
+    [InlineData("markerWidth=\"7\"", "markerWidth=\"100001\"")]
+    [InlineData("font-size=\"14\"", "font-size=\"100000\"")]
+    [InlineData("Google Sans, Noto Sans SC, system-ui, sans-serif", "url(https://example.invalid/font)")]
+    [InlineData("xMidYMid meet", "url(https://example.invalid/layout)")]
+    [InlineData("auto-start-reverse", "url(https://example.invalid/orient)")]
+    [InlineData("data-mermaid-rendered=\"true\"", "data-mermaid-rendered=\"false\"")]
+    [InlineData("data-mermaid-width=\"396\"", "data-mermaid-width=\"0\"")]
+    public void RejectsCanonicalMermaidActiveRemoteDanglingAndUnboundedMutations(string original, string mutation)
+    {
+        long maximumBytes = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets.MaxOutputBytes;
+        string fragment = CanonicalMermaidFragment.Replace(original, mutation, StringComparison.Ordinal);
+
+        Assert.NotEqual(CanonicalMermaidFragment, fragment);
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlSanitizer.Sanitize(fragment, [], maximumBytes));
+    }
+
+    [Theory]
+    [InlineData(SvgOpen + "<line marker-end=\"url(#arrow)\" /></svg><p id=\"arrow\">outside</p>")]
+    [InlineData("<p id=\"arrow\">outside</p>" + SvgOpen + "<line marker-end=\"url(#arrow)\" /></svg>")]
+    [InlineData(SvgOpen + "<line marker-end=\"url(#arrow)\" /></svg>" + SvgOpen + "<defs><marker id=\"arrow\" /></defs></svg>")]
+    [InlineData(SvgOpen + "<defs><marker id=\"arrow\" /></defs></svg>" + SvgOpen + "<line marker-end=\"url(#arrow)\" /></svg>")]
+    [InlineData(SvgOpen + "<path id=\"arrow\" /><line marker-end=\"url(#arrow)\" /></svg>")]
+    [InlineData(SvgOpen + "<defs><marker id=\"arrow\" /></defs><path marker-end=\"url(#arrow)\" /></svg>")]
+    [InlineData(SvgOpen + "<path fill=\"url(#outside)\" /></svg>" + SvgOpen + "<path id=\"outside\" /></svg>")]
+    [InlineData(SvgOpen + "<text aria-describedby=\"outside\">A</text></svg><p id=\"outside\">outside</p>")]
+    [InlineData(SvgOpen + "<marker id=\"arrow\" /><line marker-end=\"url(#arrow)\" /></svg>")]
+    [InlineData(SvgOpen + "<g><defs><marker id=\"arrow\" /></defs></g></svg>")]
+    [InlineData(SvgOpen + SvgOpen + "</svg></svg>")]
+    [InlineData(SvgOpen + "<p xmlns=\"http://www.w3.org/1999/xhtml\">outside namespace</p></svg>")]
+    public void RejectsSvgReferencesOutsideTheirDocumentOrMarkerOwner(string fragment)
+    {
+        long maximumBytes = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets.MaxOutputBytes;
+
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlSanitizer.Sanitize(fragment, [], maximumBytes));
+    }
+
+    [Fact]
+    public void AllowsOwnSvgForwardReferencesWithoutLeakingIntoAnotherDocument()
+    {
+        string fragment = SvgOpen + "<line marker-end=\"url(#first)\" /><defs><marker id=\"first\" /></defs></svg>"
+            + SvgOpen + "<defs><marker id=\"second\" /></defs><line marker-end=\"url(#second)\" /></svg>";
+        long maximumBytes = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets.MaxOutputBytes;
+
+        string output = Encoding.UTF8.GetString(DocumentExportHtmlSanitizer.Sanitize(fragment, [], maximumBytes));
+
+        Assert.Contains("marker-end=\"url(#first)\"", output, StringComparison.Ordinal);
+        Assert.Contains("marker-end=\"url(#second)\"", output, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void RequiresSandboxRuntime()
     {
@@ -329,6 +628,58 @@ public sealed class DocumentExportHtmlProviderTests
             responseDigest: ValidResponse(input).ContentDigest);
         SelfContainedHtmlDocumentExportProvider provider = CreateProvider(fixture);
         DocumentExportProviderResult result = await provider.ExportAsync(task, input);
+        var registry = new DocumentExportProviderRegistry(fixture.CreateSandbox());
+        IDocumentExportJobProvider jobProvider = registry.RequireJobProvider("self-contained-html");
+        Assert.Equal(result.Receipt.ProviderId, jobProvider.ProviderId);
+        Assert.Same(jobProvider, registry.RequireJobProvider("self-contained-html"));
+        await jobProvider.VerifyAsync(result, task, input, CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidDataException>(() => jobProvider.VerifyAsync(
+            result with
+            {
+                Bytes = [.. result.Bytes, 0]
+            },
+            task,
+            input,
+            CancellationToken.None));
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => jobProvider.VerifyAsync(
+            result, task, input, cancelled.Token));
+        Assert.Throws<InvalidOperationException>(() => registry.RequireJobProvider("pdf"));
+        Assert.Throws<InvalidOperationException>(() => registry.RequireJobProvider("docx"));
+        Assert.Throws<InvalidOperationException>(() => registry.RequireJobProvider("epub"));
+
+        string substitutedHost = DocumentExportDigest.ComputeBytes("substituted host"u8);
+        DocumentExportSandboxPlan substitutedPlan = DocumentExportSandboxRuntime.SealPlan(result.SandboxPlan with
+        {
+            HostBuildDigest = substitutedHost
+        });
+        DocumentExportSandboxReceipt substitutedSandbox = result.SandboxReceipt with
+        {
+            HostBuildDigest = substitutedHost,
+            PlanDigest = substitutedPlan.ContentDigest,
+            ContentDigest = string.Empty
+        };
+        substitutedSandbox = substitutedSandbox with
+        {
+            ContentDigest = DocumentExportDigest.Compute(substitutedSandbox)
+        };
+        DocumentExportProviderReceipt substitutedReceipt = DocumentExportContractValidator.Seal(result.Receipt with
+        {
+            SandboxReceiptDigest = substitutedSandbox.ContentDigest
+        });
+        DocumentExportProviderResult substitutedResult = result with
+        {
+            SandboxPlan = substitutedPlan,
+            SandboxReceipt = substitutedSandbox,
+            Receipt = substitutedReceipt
+        };
+        // All changed envelopes are resealed; the registry must still use its
+        // own frozen host identity rather than adopting the result's identity.
+        SelfContainedHtmlDocumentExportProvider.ValidateResult(
+            substitutedResult, task, input, fixture.Tool, substitutedHost);
+        await Assert.ThrowsAsync<InvalidDataException>(() => jobProvider.VerifyAsync(
+            substitutedResult, task, input, CancellationToken.None));
 
         Assert.Throws<InvalidDataException>(() => SelfContainedHtmlDocumentExportProvider.ValidateResult(
             result with
@@ -435,8 +786,8 @@ public sealed class DocumentExportHtmlProviderTests
         ];
         ConstructorInfo providerConstructor = ProviderConstructor();
         MethodInfo requireTool = RegisteredToolMethod();
-        Assert.Empty(ReadSoleConstructor(typeof(TextOnlyRegistryFixture))
-            .Where(instruction => instruction.OpCode == OpCodes.Newobj && instruction.Member == providerConstructor));
+        Assert.DoesNotContain(ReadSoleConstructor(typeof(TextOnlyRegistryFixture)),
+            instruction => instruction.OpCode == OpCodes.Newobj && instruction.Member == providerConstructor);
         IlInstruction otherConstruction = Assert.Single(ReadSoleConstructor(typeof(OtherProviderRegistryFixture)),
             instruction => instruction.OpCode == OpCodes.Newobj
                 && instruction.Member?.DeclaringType == typeof(OtherProviderRegistryFixture.SelfContainedHtmlDocumentExportProvider));

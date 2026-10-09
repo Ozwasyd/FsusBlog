@@ -78,8 +78,14 @@ public sealed class DocumentExportContractTests
         Assert.Equal(provider.FormatId, task.FormatId);
         Assert.Equal(provider.ProviderId, task.ProviderId);
         Assert.Equal(provider.ProviderVersion, task.ProviderVersion);
-        Assert.Equal(DocumentExportDigest.Compute(task with { ContentDigest = string.Empty }), task.ContentDigest);
-        Assert.Equal(DocumentExportDigest.Compute(receipt with { ContentDigest = string.Empty }), receipt.ContentDigest);
+        Assert.Equal(DocumentExportDigest.Compute(task with
+        {
+            ContentDigest = string.Empty
+        }), task.ContentDigest);
+        Assert.Equal(DocumentExportDigest.Compute(receipt with
+        {
+            ContentDigest = string.Empty
+        }), receipt.ContentDigest);
         Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(task, input));
         Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(receipt, task, input, provider));
     }
@@ -285,7 +291,7 @@ public sealed class DocumentExportContractTests
             DocumentExportContractCatalog.InputSchema,
             "input-owned",
             7,
-            11,
+            "https://example.test",
             new DocumentExportArticleCoordinate(DocumentExportCoordinateKind.Revision, 42, null, 101, null, 3),
             ImmutableCollectionsMarshal.AsImmutableArray(source),
             DocumentExportDigest.ComputeBytes(source),
@@ -301,6 +307,7 @@ public sealed class DocumentExportContractTests
             "zh-CN",
             ImmutableCollectionsMarshal.AsImmutableArray(assets),
             DocumentExportReadingStyleAuthority.AuthorityDigest,
+            null,
             string.Empty);
 
         DocumentExportFrozenInput frozen = DocumentExportContractValidator.Seal(unsealed);
@@ -319,7 +326,9 @@ public sealed class DocumentExportContractTests
 
     [Theory]
     [InlineData("fsusblog.document-export-frozen-input.v1")]
+    [InlineData("fsusblog.document-export-frozen-input.v2")]
     [InlineData("fsusblog.document-export-frozen-input.v3")]
+    [InlineData("fsusblog.document-export-frozen-input.v5")]
     [InlineData("")]
     public void FrozenInput_RejectsOldFutureAndMissingSchemas(string schema)
     {
@@ -328,6 +337,53 @@ public sealed class DocumentExportContractTests
             {
                 Schema = schema
             }));
+    }
+
+    [Theory]
+    [InlineData("fsusblog.document-export-frozen-input.v2", false)]
+    [InlineData("fsusblog.document-export-frozen-input.v2", true)]
+    [InlineData("fsusblog.document-export-frozen-input.v3", false)]
+    [InlineData("fsusblog.document-export-frozen-input.v3", true)]
+    [InlineData("fsusblog.document-export-frozen-input.v4", false)]
+    [InlineData("fsusblog.document-export-frozen-input.v4", true)]
+    public void FrozenInput_RejectsNumericSiteMemberWithoutAnyRemapping(string schema, bool keepScope)
+    {
+        JsonObject value = JsonNode.Parse(DocumentExportDigest.Serialize(ValidInput()))!.AsObject();
+        value["schema"] = schema;
+        value["siteId"] = 11;
+        if (!keepScope)
+        {
+            value.Remove("siteScope");
+        }
+        Assert.Throws<InvalidDataException>(() =>
+            DocumentExportDigest.Deserialize<DocumentExportFrozenInput>(Encoding.UTF8.GetBytes(value.ToJsonString())));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" https://example.test")]
+    [InlineData("https://example.test ")]
+    [InlineData("https://example.test/")]
+    [InlineData("https://example.test\n")]
+    public void FrozenInput_RejectsNonCanonicalSiteScopeInsteadOfNormalizing(string? scope)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(ValidInput() with
+        {
+            SiteScope = scope!
+        });
+        Assert.Throws<ArgumentException>(() => DocumentExportContractValidator.Validate(input));
+    }
+
+    [Fact]
+    public void Task_RejectsResealedForeignSiteScope()
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = DocumentExportContractValidator.Seal(ValidTask(input) with
+        {
+            SiteScope = "https://other.example.test"
+        });
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(task, input));
     }
 
     [Fact]
@@ -674,6 +730,51 @@ public sealed class DocumentExportContractTests
             task,
             input,
             provider));
+
+        DocumentExportFeatureSupport warningFeature = Assert.Single(provider.Features,
+            feature => feature.Disposition == DocumentExportFeatureDisposition.WarningWithPreservedFallback);
+        DocumentExportProviderReceipt warningReceipt = DocumentExportContractValidator.Seal(receipt with
+        {
+            ObservedFeatures = ["headings", warningFeature.FeatureId],
+            Warnings = [$"{warningFeature.FeatureId}:{warningFeature.PreservedFallback}"]
+        });
+        DocumentExportContractValidator.Validate(warningReceipt, task, input, provider);
+        foreach (DocumentExportProviderResultStatus status in Enum.GetValues<DocumentExportProviderResultStatus>())
+        {
+            DocumentExportProviderReceipt statusReceipt = DocumentExportContractValidator.Seal(warningReceipt with
+            {
+                Status = status
+            });
+            DocumentExportContractValidator.Validate(
+                statusReceipt,
+                task,
+                input,
+                provider);
+        }
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            DocumentExportContractValidator.Seal(warningReceipt with
+            {
+                Warnings = []
+            }),
+            task,
+            input,
+            provider));
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            DocumentExportContractValidator.Seal(warningReceipt with
+            {
+                Warnings = [$"{warningFeature.FeatureId}:different-fallback"]
+            }),
+            task,
+            input,
+            provider));
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            DocumentExportContractValidator.Seal(receipt with
+            {
+                SemanticDigest = Digest("different-semantic-output")
+            }),
+            task,
+            input,
+            provider));
     }
 
     private static void AssertContractTypeHasNoExecutionOrAlternateParserAuthority(Type type)
@@ -769,8 +870,14 @@ public sealed class DocumentExportContractTests
         DocumentExportProviderReceipt baseline = ValidReceipt(task, input, provider);
         DocumentExportContractValidator.Validate(baseline, task, input, provider);
         DocumentExportProviderReceipt receipt = DocumentExportContractValidator.Seal(field == "tool-id"
-            ? baseline with { ToolId = "different-tool" }
-            : baseline with { ToolVersion = "different-version" });
+            ? baseline with
+            {
+                ToolId = "different-tool"
+            }
+            : baseline with
+            {
+                ToolVersion = "different-version"
+            });
 
         Assert.NotEqual(baseline.ContentDigest, receipt.ContentDigest);
         Assert.Equal(task.ContentDigest, receipt.TaskDigest);
@@ -868,16 +975,25 @@ public sealed class DocumentExportContractTests
             "availability" => baseline with { ImplementationAvailable = false },
             "budgets" => baseline with
             {
-                Budgets = baseline.Budgets with { MaxOutputBytes = baseline.Budgets.MaxOutputBytes + 1 }
+                Budgets = baseline.Budgets with
+                {
+                    MaxOutputBytes = baseline.Budgets.MaxOutputBytes + 1
+                }
             },
             "delivery" => baseline with
             {
-                Delivery = baseline.Delivery with { RetentionTtl = baseline.Delivery.RetentionTtl + TimeSpan.FromSeconds(1) }
+                Delivery = baseline.Delivery with
+                {
+                    RetentionTtl = baseline.Delivery.RetentionTtl + TimeSpan.FromSeconds(1)
+                }
             },
             "features" => baseline with
             {
                 Features = baseline.Features.Select((feature, index) => index == 0
-                    ? feature with { Disposition = DocumentExportFeatureDisposition.HardFail }
+                    ? feature with
+                    {
+                        Disposition = DocumentExportFeatureDisposition.HardFail
+                    }
                     : feature).ToArray()
             },
             _ => throw new ArgumentException("Unknown provider contract mutation.", nameof(field))
@@ -905,8 +1021,12 @@ public sealed class DocumentExportContractTests
         DocumentExportProviderContract canonical = DocumentExportContractCatalog.RequireProvider(format);
         DocumentExportProviderContract provider = canonical with
         {
-            Budgets = canonical.Budgets with { },
-            Delivery = canonical.Delivery with { },
+            Budgets = canonical.Budgets with
+            {
+            },
+            Delivery = canonical.Delivery with
+            {
+            },
             Features = canonical.Features.Select(feature => feature with { }).ToArray()
         };
         DocumentExportTask task = DocumentExportContractValidator.Seal(ValidTask(input) with
@@ -922,6 +1042,16 @@ public sealed class DocumentExportContractTests
         Assert.True(provider.Features.SequenceEqual(canonical.Features));
         DocumentExportContractValidator.Validate(task, input);
         DocumentExportContractValidator.Validate(receipt, task, input, provider);
+        DocumentExportNormalizationContract normalization = DocumentExportContractCatalog.Normalizations.Single(
+            candidate => candidate.ProviderId == provider.ProviderId);
+        if (!normalization.ByteIdenticalForEqualFrozenInput)
+        {
+            DocumentExportProviderReceipt normalizedReceipt = DocumentExportContractValidator.Seal(receipt with
+            {
+                SemanticDigest = Digest("normalized-semantic-output")
+            });
+            DocumentExportContractValidator.Validate(normalizedReceipt, task, input, provider);
+        }
     }
 
     [Fact]
@@ -992,7 +1122,7 @@ public sealed class DocumentExportContractTests
             DocumentExportContractCatalog.InputSchema,
             "input-0001",
             7,
-            11,
+            "https://example.test",
             new DocumentExportArticleCoordinate(
                 DocumentExportCoordinateKind.Publication,
                 42,
@@ -1014,6 +1144,7 @@ public sealed class DocumentExportContractTests
             "zh-Hant",
             assets.ToImmutableArray(),
             DocumentExportReadingStyleAuthority.AuthorityDigest,
+            null,
             string.Empty);
         return DocumentExportContractValidator.Seal(input);
     }
@@ -1056,7 +1187,7 @@ public sealed class DocumentExportContractTests
             "request-0001",
             "idempotency-0001",
             input.UserId,
-            input.SiteId,
+            input.SiteScope,
             input.Coordinate,
             input.InputId,
             input.ContentDigest,

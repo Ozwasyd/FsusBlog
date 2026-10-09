@@ -1,0 +1,291 @@
+{
+  "preimageSource": "8464d9667f6de4fd159718bc65c32868df022d5d",
+  "donorSource": "dec33cb67ec41424abd1226efaec6113105f2860",
+  "currentSource": "5fbceb43c49cc7c8bea47d2fc61b980a99d04702",
+  "threeWayComparison": [
+    {
+      "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+      "preimageSource": "8464d9667f6de4fd159718bc65c32868df022d5d",
+      "donorSource": "dec33cb67ec41424abd1226efaec6113105f2860",
+      "currentSource": "5fbceb43c49cc7c8bea47d2fc61b980a99d04702",
+      "blobs": {
+        "preimage": "66cc1a34192a805df743f885d31942d167f2f429",
+        "donor": "a397d4a7ffd5c2b22818dff5deba99b23b528818",
+        "current": "709a0b40c84ef6e2a4562aa06dda1e807b63a916"
+      },
+      "mergePreviewExitCode": 2
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+      "preimageSource": "8464d9667f6de4fd159718bc65c32868df022d5d",
+      "donorSource": "dec33cb67ec41424abd1226efaec6113105f2860",
+      "currentSource": "5fbceb43c49cc7c8bea47d2fc61b980a99d04702",
+      "blobs": {
+        "preimage": "0f4b1ce5d2967f90982c7f33f80e967256858d51",
+        "donor": "5e0f85cc1f9f58563c4a308de1af51184c1e695f",
+        "current": "e3c252ae17ef09ccbf8243fe290c6c2b84c9f595"
+      },
+      "mergePreviewExitCode": 5
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs",
+      "preimageSource": "8464d9667f6de4fd159718bc65c32868df022d5d",
+      "donorSource": "dec33cb67ec41424abd1226efaec6113105f2860",
+      "currentSource": "5fbceb43c49cc7c8bea47d2fc61b980a99d04702",
+      "blobs": {
+        "preimage": null,
+        "donor": "f812969369e503856f8d4be3c9cbb37182906079",
+        "current": "92adfaf1f25bcb6e292c364a2531e13fab14a2f8"
+      }
+    }
+  ],
+  "resolvedOwnerFiles": [
+    {
+      "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+      "mergedGitBlob": "a397d4a7ffd5c2b22818dff5deba99b23b528818",
+      "donorByteIdentical": true,
+      "currentFixesPreserved": "canonical-stage tool/budget/RunId/receipt/tmp accounting retained; only cumulative resource port strengthens existing stage"
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+      "mergedGitBlob": "5e0f85cc1f9f58563c4a308de1af51184c1e695f",
+      "donorByteIdentical": true,
+      "currentFixesPreserved": "canonical-stage tool/budget/RunId/receipt/tmp accounting retained; only cumulative resource port strengthens existing stage"
+    }
+  ],
+  "safeImportPlan": [
+    {
+      "path": "artifacts/document-export-integration/private-delivery-handoff.md",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "artifacts/document-export-integration/selected-server29-preflight.md",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.DocumentExport.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/DocumentExportEndpointBinding.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportFrozenEmbedSourceBridge.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportHttpJobAuthorization.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportRequestFreezer.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/DocumentExportServiceCollectionExtensions.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/Jobs/DocumentExportJobPolicy.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/Jobs/DocumentExportJobRepository.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/Jobs/DocumentExportJobService.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/Jobs/README.md",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/README.Transport.md",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "src/frontend/src/api/documentExport.ts",
+      "state": "already byte identical"
+    },
+    {
+      "path": "src/frontend/src/components/document-export/documentExportCall.ts",
+      "state": "already byte identical"
+    },
+    {
+      "path": "src/frontend/src/components/document-export/documentExportUiPort.ts",
+      "state": "already byte identical"
+    },
+    {
+      "path": "src/frontend/src/components/document-export/documentExportWireUiPort.ts",
+      "state": "already byte identical"
+    },
+    {
+      "path": "src/frontend/src/composables/useDocumentExport.ts",
+      "state": "already byte identical"
+    },
+    {
+      "path": "src/frontend/src/composition/documentExport.ts",
+      "state": "already byte identical"
+    },
+    {
+      "path": "src/frontend/src/services/documentExportPrivateDelivery.ts",
+      "state": "already byte identical"
+    },
+    {
+      "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Helpers/DocumentExportTestToolFixture.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportAttemptResourcesTests.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportContractTests.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportEndpointBindingTests.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportEndpointsTests.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportFrozenEmbedSourceBridgeTests.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportHttpJobAuthorizationTests.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportJobServiceTests.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportRequestFreezerTests.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/backend/Unit/DocumentExportSandboxTests.cs",
+      "state": "safe patch",
+      "checkExitCode": 0,
+      "stderr": ""
+    },
+    {
+      "path": "tests/frontend/unit/services/documentExportPrivateDelivery.test.ts",
+      "state": "already byte identical"
+    }
+  ],
+  "soleJobsSource": "8087cdf742d7cf2ee2ba71b20d7ea5eb00a5dcac",
+  "jobContractsUnchanged": true,
+  "nativeAcceptance": false
+}
