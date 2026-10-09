@@ -111,7 +111,10 @@ public sealed class ArticlePropertySavedViewDependencyProviderIntegrationTests(P
             Status = ArticlePropertyDefinitionStatus.Deleted,
             SchemaRevision = retired.SchemaRevision + 1
         };
-        deleted = deleted with { ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(deleted) };
+        deleted = deleted with
+        {
+            ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(deleted)
+        };
         ArticlePropertyDefinitionContract.ValidateDefinition(deleted);
         Assert.Equal(1, await db.Ado.ExecuteCommandAsync(
             "UPDATE article_property_definition SET status = @Status, schema_revision = @Revision, content_digest = @Digest "
