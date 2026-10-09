@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 331,
+      "estimatedFacts": 411,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -172,12 +172,24 @@
         {
           "path": "Integration/ArticlePropertyDefinitionAuthorityIntegrationTests.cs",
           "class": "ArticlePropertyDefinitionAuthorityIntegrationTests"
+        },
+        {
+          "path": "Integration/AdminAuditDurableReplayIssue2040IntegrationTests.cs",
+          "class": "AdminAuditDurableReplayIssue2040IntegrationTests"
+        },
+        {
+          "path": "Integration/AuditDurableReplayIssue2040IntegrationTests.cs",
+          "class": "AuditDurableReplayIssue2040IntegrationTests"
+        },
+        {
+          "path": "Integration/ChallengeV2DurableReplayIssue2040IntegrationTests.cs",
+          "class": "ChallengeV2DurableReplayIssue2040IntegrationTests"
         }
       ]
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 458,
+      "estimatedFacts": 561,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -519,6 +531,30 @@
         {
           "path": "Unit/PrivateAssetStoreTests.cs",
           "class": "PrivateAssetStorePostgresIntegrationTests"
+        },
+        {
+          "path": "Integration/AdminPasskeyJoinedEndpointPostgresTests.cs",
+          "class": "AdminPasskeyJoinedEndpointPostgresTests"
+        },
+        {
+          "path": "Integration/OfflineMigrationOwnedWriterReadScopeIntegrationTests.cs",
+          "class": "OfflineMigrationOwnedWriterReadScopeIntegrationTests"
+        },
+        {
+          "path": "Unit/AdminSessionTouchPersistenceTests.cs",
+          "class": "AdminSessionTouchPersistenceTests"
+        },
+        {
+          "path": "Unit/BlacklistServiceMutationTests.cs",
+          "class": "BlacklistServiceMutationTests"
+        },
+        {
+          "path": "Unit/AdminFixtureSessionIssuanceTests.cs",
+          "class": "TypedAdminSessionWriterDatabaseTests"
+        },
+        {
+          "path": "Integration/SystemSiteIdentityIntegrationTests.cs",
+          "class": "SystemSiteIdentityIntegrationTests"
         }
       ]
     }
