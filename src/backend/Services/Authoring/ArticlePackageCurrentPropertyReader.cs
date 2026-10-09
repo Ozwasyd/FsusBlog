@@ -5,6 +5,14 @@ using FsusBlog.Shared.Contracts.ArticleProperties;
 
 namespace FsusBlog.Server.Services.Authoring;
 
+/// <summary>Current definition observation separate from the signed historical value epoch.</summary>
+public sealed record ArticlePackageCurrentPropertyDefinitionObservation(
+    Guid DefinitionId,
+    long SchemaRevision,
+    string ContentDigest,
+    ArticlePropertyValueType ValueType,
+    ArticlePropertyDefinitionStatus Status);
+
 /// <summary>Backend-only observed provenance; audit data is never added to portable property JSON.</summary>
 public sealed class ArticlePackageCurrentPropertyProjection
 {
@@ -12,12 +20,14 @@ public sealed class ArticlePackageCurrentPropertyProjection
         long actorAdminPrincipalId,
         ArticlePropertyValuePersistedSnapshot source,
         ArticlePackageManifestPropertyCandidate component,
-        IReadOnlyList<ArticlePropertyValueReconciliation> reconciliation)
+        IReadOnlyList<ArticlePropertyValueReconciliation> reconciliation,
+        IReadOnlyList<ArticlePackageCurrentPropertyDefinitionObservation> definitions)
     {
         ActorAdminPrincipalId = actorAdminPrincipalId;
         Source = source;
         Component = component;
         Reconciliation = Array.AsReadOnly(reconciliation.ToArray());
+        Definitions = Array.AsReadOnly(definitions.ToArray());
     }
 
     public long ActorAdminPrincipalId
@@ -33,6 +43,10 @@ public sealed class ArticlePackageCurrentPropertyProjection
         get;
     }
     public IReadOnlyList<ArticlePropertyValueReconciliation> Reconciliation
+    {
+        get;
+    }
+    public IReadOnlyList<ArticlePackageCurrentPropertyDefinitionObservation> Definitions
     {
         get;
     }
@@ -101,11 +115,12 @@ public sealed class ArticlePackageCurrentPropertyReader(IArticlePropertyValueAut
             || before.Source.AuditChainId != after.Source.AuditChainId
             || before.Source.AuditRecordHash != after.Source.AuditRecordHash
             || before.Component.ComponentDigest != after.Component.ComponentDigest
-            || !before.Reconciliation.SequenceEqual(after.Reconciliation))
+            || !before.Reconciliation.SequenceEqual(after.Reconciliation)
+            || !before.Definitions.SequenceEqual(after.Definitions))
         {
             return Refuse("article_package_property_read_drift");
         }
-        return new(true, null, new(actorAdminPrincipalId, after.Source, after.Component, after.Reconciliation));
+        return new(true, null, after);
     }
 
     private static ArticlePackageCurrentPropertyReadResult MapObserved(
@@ -167,11 +182,12 @@ public sealed class ArticlePackageCurrentPropertyReader(IArticlePropertyValueAut
             {
                 return Refuse("article_package_property_definition_read_mismatch");
             }
+            var definitionObservations = new List<ArticlePackageCurrentPropertyDefinitionObservation>();
             foreach (ArticlePropertyValueEntry row in source.Snapshot.Values)
             {
                 if (!byId.TryGetValue(row.DefinitionId, out ArticlePropertyDefinition? definition)
-                    || definition.Owner != owner || definition.SchemaRevision != row.DefinitionSchemaRevision
-                    || definition.ContentDigest != row.DefinitionDigest)
+                    || definition.Owner != owner || definition.SchemaRevision < row.DefinitionSchemaRevision
+                    || definition.SchemaRevision == row.DefinitionSchemaRevision && definition.ContentDigest != row.DefinitionDigest)
                 {
                     return Refuse("article_package_property_definition_read_mismatch");
                 }
@@ -179,6 +195,8 @@ public sealed class ArticlePackageCurrentPropertyReader(IArticlePropertyValueAut
                 {
                     return Refuse("article_package_property_definition_type_mismatch");
                 }
+                definitionObservations.Add(new(definition.DefinitionId, definition.SchemaRevision,
+                    definition.ContentDigest, definition.ValueType, definition.Status));
                 IEnumerable<Guid> optionIds = row.Value switch
                 {
                     ArticlePropertySingleSelectValue single => [single.OptionId],
@@ -209,7 +227,9 @@ public sealed class ArticlePackageCurrentPropertyReader(IArticlePropertyValueAut
             {
                 return Refuse(result.ReasonCode!);
             }
-            return new(true, null, new(actorAdminPrincipalId, source, component!, reconciliation.OrderBy(static item => item.DefinitionId).ToArray()));
+            return new(true, null, new(actorAdminPrincipalId, source, component!,
+                reconciliation.OrderBy(static item => item.DefinitionId).ToArray(),
+                definitionObservations.OrderBy(static item => item.DefinitionId).ToArray()));
         }
         catch (ArticlePropertyDefinitionValidationException)
         {

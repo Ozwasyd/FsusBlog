@@ -3489,8 +3489,13 @@ immutable snapshot/factset IDs, snapshot audit reference, audit-chain date and
 record hash. Exact definition owner, site, article/revision/property revision
 and nullable publication coordinates must match the selected source bindings;
 every snapshot/value digest is recomputed by the canonical validator. Actual
-definitions must have matching owner/schema revision/digest, valid canonical
-content and the correct one of the existing eight value types. Explicit select
+definitions must have the actual matching owner, valid canonical content and
+the correct one of the existing eight value types. Same-epoch digests must
+match; current schema revisions cannot precede the signed historical rows.
+Current definition revision/digest/type/status observations are held separately
+from immutable historical value epochs; current changes never overwrite the
+source schema/digest. Their movement is also checked on the second read.
+Explicit select
 identities must belong to that actual definition. Historical inactive options,
 presence, false/zero/empty values, decimal precision, UTC ticks and default
 provenance are preserved without applying current defaults or normalization.
@@ -3520,3 +3525,13 @@ executable import/export receipt. Production registration of the actual article
 owner and operation-bound integration must be verified separately. Controlled
 source-port tests exercise this mapping and its refusals; their supplied rows
 are not database or permission receipts.
+
+`ArticlePackageManifestCandidatePlanner.ReadCurrentPropertiesAndCreateCandidatePlanAsync`
+connects this source stage to the existing finite planner. Its property snapshot
+inputs are replaced by actual reader results before existing projection and
+aggregate checks; caller `BindSnapshot` values cannot establish persisted
+facts. The article set and raw-byte budget are checked before reads, and the
+existing aggregate preflight runs on each observed prefix. A refusal exposes
+neither a partial plan nor partial source projections. Other supplied article
+metadata/bytes remain candidates. Neither per-article rechecks nor this finite
+plan establish atomic group/export or full package admission.

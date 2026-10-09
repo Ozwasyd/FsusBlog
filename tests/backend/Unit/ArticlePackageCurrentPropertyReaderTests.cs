@@ -1,5 +1,6 @@
 using System.Text;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticlePackages;
 using FsusBlog.Shared.Contracts.ArticleProperties;
@@ -152,7 +153,7 @@ public sealed class ArticlePackageCurrentPropertyReaderTests
         {
             "definition-owner" => Seal(definition with { Owner = new(43, "primary-site") }),
             "definition-digest" => definition with { ContentDigest = new string('b', 64) },
-            "definition-schema" => Seal(definition with { SchemaRevision = 2 }),
+            "definition-schema" => Seal(definition with { SchemaRevision = 0 }),
             "option" => Seal(definition with { Options = [definition.Options[0] with { OptionId = Id(99) }] }),
             "type" => Definition(ArticlePropertyValueType.Text),
             _ => definition
@@ -275,6 +276,98 @@ public sealed class ArticlePackageCurrentPropertyReaderTests
         await Assert.ThrowsAsync<ArticlePropertyDefinitionAccessDeniedException>(() =>
             new ArticlePackageCurrentPropertyReader(authority).ReadAndMapAsync(42, Bindings(model)));
         Assert.Equal(2, reads);
+    }
+
+    [Fact]
+    public async Task CurrentInactiveDefinitionObservationsDoNotRewriteHistoricalValueEpoch()
+    {
+        var historical = Model(ArticlePropertyValueType.SingleSelect);
+        var currentDefinition = Seal(historical.Definitions[0] with
+        {
+            SchemaRevision = 2,
+            Options = [historical.Definitions[0].Options[0] with { Status = ArticlePropertyOptionStatus.Deprecated }]
+        });
+        var current = historical with
+        {
+            Definitions = [currentDefinition],
+            Reconciliation = [new(s_definitionId, ArticlePropertyValueReconciliationStatus.DefinitionChanged, "definition_changed")]
+        };
+        var result = await Reader(current).Reader.ReadAndMapAsync(42, Bindings(historical));
+        Assert.True(result.IsValid, result.ReasonCode);
+        var row = Assert.Single(result.Projection!.Component.Mapping.Properties);
+        Assert.Equal(1, row.SourceSchemaRevision);
+        Assert.Equal(historical.Definitions[0].ContentDigest, row.SourceDefinitionDigest);
+        Assert.Equal(2, Assert.Single(result.Projection.Definitions).SchemaRevision);
+        Assert.Equal(currentDefinition.ContentDigest, result.Projection.Definitions[0].ContentDigest);
+        Assert.Same(historical.Current, result.Projection.Source);
+        Assert.False(result.Projection.Component.RequirePropertyAuthority().IsValid);
+    }
+
+    [Fact]
+    public async Task CurrentDefinitionEpochMovementIsDetectedEvenWhenImmutableValuesAreUnchanged()
+    {
+        var model = Model(ArticlePropertyValueType.Boolean);
+        var changed = model with
+        {
+            Definitions = [Seal(model.Definitions[0] with { SchemaRevision = 2 })]
+        };
+        await Reject(Reader(model, changed).Reader, Bindings(model), "article_package_property_read_drift");
+    }
+
+    [Fact]
+    public async Task ExistingPlannerUsesObservedRowsInsteadOfAssertedPropertySnapshot()
+    {
+        var model = Model(ArticlePropertyValueType.Text);
+        var input = PlannerInput(model);
+        var badSnapshot = new ArticlePropertyValueSnapshot(1, s_coordinates, input.PropertySnapshot.Values, new string('b', 64));
+        var asserted = new ArticlePackageManifestCandidateInput(input.Article, input.TitleBinding,
+            badSnapshot, input.PropertyBindings, Encoding.UTF8.GetBytes(input.Article.MarkdownContent));
+        Assert.False(ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan([asserted], out _).IsValid);
+        var result = await ArticlePackageManifestCandidatePlanner.ReadCurrentPropertiesAndCreateCandidatePlanAsync(
+            42, [asserted], Reader(model).Reader);
+        Assert.True(result.IsValid, result.ReasonCode);
+        Assert.Same(model.Current, Assert.Single(result.Sources!).Source);
+        Assert.Equal(model.Current!.Snapshot.ContentDigest,
+            Assert.Single(result.Plan!.Articles).Properties.SourceSnapshotDigest);
+        Assert.False(result.Plan.RequirePackageAuthority().IsValid);
+    }
+
+    [Fact]
+    public async Task PlannerRefusalCannotExposePartialPlanOrObservedSources()
+    {
+        var model = Model(ArticlePropertyValueType.Text);
+        var missing = model with
+        {
+            Current = null
+        };
+        var result = await ArticlePackageManifestCandidatePlanner.ReadCurrentPropertiesAndCreateCandidatePlanAsync(
+            42, [PlannerInput(model)], Reader(missing).Reader);
+        Assert.False(result.IsValid);
+        Assert.Null(result.Plan);
+        Assert.Null(result.Sources);
+    }
+
+    [Fact]
+    public async Task PlannerRejectsOversizedArticleSetBeforeAnyPropertyRead()
+    {
+        var model = Model(ArticlePropertyValueType.Text);
+        var (reader, authority) = Reader(model);
+        var inputs = Enumerable.Repeat(PlannerInput(model), 1001).ToArray();
+        var result = await ArticlePackageManifestCandidatePlanner.ReadCurrentPropertiesAndCreateCandidatePlanAsync(42, inputs, reader);
+        Assert.False(result.IsValid);
+        Assert.Null(result.Plan);
+        Assert.Null(result.Sources);
+        await authority.DidNotReceiveWithAnyArgs().ReadAsync(default, default, default);
+    }
+
+    private static ArticlePackageManifestCandidateInput PlannerInput(ArticlePropertyValueReadModel model)
+    {
+        var article = new ArticleCanonicalInput(7, 100, 1, "route", "Title", null, null, 1, [],
+            ArticleStatusValues.Draft, null, null, "# Body\r\nexact  \r\n");
+        Assert.True(ArticlePackageIdentity.TryCreate(ArticlePackageIdentityKind.Article, "article:" + Id(7).ToString("D"),
+            out var portable).IsValid);
+        var title = new ArticlePackageTitleSummaryBinding(7, 100, 1, ArticleCanonicalHashV1.ComputeHashHex(article), portable);
+        return new(article, title, model.Current!.Snapshot, Bindings(model), Encoding.UTF8.GetBytes(article.MarkdownContent));
     }
 
     private static async Task Reject(ArticlePackageCurrentPropertyReader reader,
