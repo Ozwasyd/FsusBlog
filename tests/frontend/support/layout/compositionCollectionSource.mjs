@@ -2385,6 +2385,7 @@ export function createCompositionCollectionSource(source)
             fail(`out-of-scope partition props parameter ${file}`);
         }
         const primitiveReads = new Set();
+        const primitiveOperations = [];
         walk(propsBinding.parent.body, (node) =>
         {
             const parts = ts.isCallExpression(node) && path(node.expression);
@@ -2393,6 +2394,16 @@ export function createCompositionCollectionSource(source)
             {
                 const member = unwrap(node.expression);
                 primitiveReads.add(unwrap(unwrap(member.expression).expression));
+                primitiveOperations.push(step(file, node));
+            }
+            if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken
+                && path(node.operand)?.join('.') === `${propsName}.${property}`)
+            {
+                // callStrings above binds every actual authored caller branch
+                // to literal strings. This is the existing source-plan input
+                // contract, not a getter/Proxy or mounted-runtime purity proof.
+                primitiveReads.add(unwrap(unwrap(node.operand).expression));
+                primitiveOperations.push(step(file, node));
             }
         });
         const inputClosure = rootClosure(file, propsBinding.parent, 0, property, bindings, null, primitiveReads);
@@ -2812,6 +2823,7 @@ export function createCompositionCollectionSource(source)
             assembledRoot: branch.assembledRoot.map((item) => ({ ...item, node: step(file, item.node) })),
             wrappers: branch.wrappers.map((item) => ({ source: step(file, item.node), push: step(file, item.operation), conditions: item.conditions })) }));
         return { ...proof({ kind: 'ordered-partition-plan', callNode: call.id, input: strings.proofDigest, inputClosure,
+            primitiveOperations, runtimeInputIdentityProven: false,
             branches: payload, excludedReturns, projectionSteps: table.projectionSteps, sinkEffects: table.sinkEffects, constructorEdges, callbackEffects: callbackEffects(file, fn), renderProven: false },
         [step(file, loop), step(file, components), step(file, table.declaration), step(file, state), ...strings.steps, ...inputClosure.steps]), outputs: branches };
     }

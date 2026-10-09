@@ -1472,3 +1472,19 @@ test('effect boundary: nested callback implicit return preserves its own origina
     assert.ok(returned.binding);
     assert.equal(returned.originBindings.length, 1);
 });
+test('effect boundary: literal caller partition truthiness retains its source operations without runtime identity', () =>
+{
+    const state = actualPagination('layout="prev, pager, next"');
+    const result = state.module.partitionCollection(state.file, state.loop, state.componentCall, state.bindings);
+    const authored = find(state.source.resolver.parse(state.file), (node) => state.ts.isPrefixUnaryExpression(node)
+        && node.operator === state.ts.SyntaxKind.ExclamationToken && node.operand.getText() === 'props.layout', state.ts)[0];
+    assert.ok(result.primitiveOperations.some((entry) => entry.digest === state.source.resolver.sourceStep(state.file, authored).digest));
+    assert.equal(result.runtimeInputIdentityProven, false);
+    assert.equal(result.renderProven, false);
+    assert.deepEqual(result.outputs[0].left.map((item) => item.key), ['prev','pager','next']);
+});
+test('effect boundary: opaque partition caller cannot borrow literal operation source bindings', () =>
+{
+    const state = actualPagination(':layout="unknown"');
+    assert.throws(() => state.module.partitionCollection(state.file, state.loop, state.componentCall, state.bindings), /nonliteral collection input/u);
+});
