@@ -248,6 +248,9 @@ public sealed class CanonicalArticlePublicationFixturePort(
 
             var tran = await db.Ado.UseTranAsync(async () =>
             {
+                using var callerCancellation = new ArticleCreateMutationAuthority.CallerCancellationScope(db);
+                await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken)
+                    .ConfigureAwait(false);
                 ArticleRightsNormalizedModel rights = ArticleProductionNormalizers.NormalizeArticleRights(request.Plan.Rights);
                 List<int> tagIds = ArticleProductionNormalizers.NormalizeTagIds(request.Plan.TagIds);
                 ArticleSummaryProjectionResult summaryProjection = ArticleSummaryProjection.Resolve(

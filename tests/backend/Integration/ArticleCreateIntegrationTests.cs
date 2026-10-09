@@ -301,6 +301,11 @@ public sealed class ArticleCreateIntegrationTests(PostgresSchemaMigrationFixture
             typeof(ArticleDraft),
             typeof(ArticleRightsPolicy),
             typeof(ArticleRightsSnapshot),
+            typeof(ArticleResponsibilitySnapshot),
+            typeof(ArticlePublicationRecord),
+            typeof(ArticleSourceGeneration),
+            typeof(ArticleSourceSequence),
+            typeof(ArticleSourceMutation),
             typeof(ArticleMutationOutboxEvent));
         await db.Ado.ExecuteCommandAsync("""
             INSERT INTO "category"(id, name) VALUES (11, 'engineering');
@@ -331,6 +336,8 @@ public sealed class ArticleCreateIntegrationTests(PostgresSchemaMigrationFixture
                 await step.ExecuteAsync(db, CancellationToken.None);
             }
         }
+        await fixture.ExecuteAsync(db.CurrentConnectionConfig.ConnectionString,
+            ArticleRelationSourceCoordinateMigrationDefinitions.Sql);
         return db;
     }
 
