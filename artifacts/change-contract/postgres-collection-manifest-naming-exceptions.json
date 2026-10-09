@@ -6,7 +6,7 @@
             "paths": [
                 "tests/backend/Fixtures/postgres-test-collections.json"
             ],
-            "reason": "preserve caller-visible PostgreSQL collection IDs and manifest JSON keys while rebinding source-estimated counts to the two actual P1 admission freshness Facts for #3657, retaining every existing Graph collection member"
+            "reason": "preserve caller-visible PostgreSQL collection IDs and manifest JSON keys while rebinding source counts to the actual caller-context pinning Fact and three InlineData rows for #3657 on the exact Graph consumer, retaining every existing membership"
         }
     ]
 }
