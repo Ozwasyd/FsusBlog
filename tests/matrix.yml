@@ -1129,6 +1129,7 @@ localProfiles:
                   [
                       frontend-build,
                       frontend-runtime-contracts,
+                      validate-declarations,
                       validate-matrix,
                       pr-smart-gate-plan,
                       production-build-artifacts,

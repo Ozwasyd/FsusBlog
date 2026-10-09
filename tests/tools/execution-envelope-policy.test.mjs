@@ -159,9 +159,14 @@ test('missing, unknown, duplicate, ambiguous, and defaulted policy state fails c
         {
             candidate.producers[0].policyId = 'unknown-policy';
         },
-        ({ matrix: candidate }) =>
+        ({ matrix: candidate, catalog: applicability }) =>
         {
-            candidate.tiers[0].executionClass = 'acceptance';
+            const producer = applicability.producers.find((entry) =>
+                entry.sourceKind === 'matrix-tier' && entry.executionClass !== 'acceptance');
+            assert.ok(producer, 'negative control requires an admitted matrix producer');
+            const tier = candidate.tiers.find((entry) => entry.id === producer.producerId);
+            assert.ok(tier, 'negative control producer must bind a matrix tier');
+            tier.executionClass = 'acceptance';
         },
         ({ catalog: candidate }) =>
         {
@@ -197,7 +202,7 @@ test('missing, unknown, duplicate, ambiguous, and defaulted policy state fails c
     {
         const candidate = valid();
         mutate(candidate);
-        assert.notDeepEqual(validateExecutionEnvelopeContracts(candidate), []);
+        assert.notDeepEqual(validateExecutionEnvelopeContracts(candidate), [], mutate.toString());
     }
 });
 
