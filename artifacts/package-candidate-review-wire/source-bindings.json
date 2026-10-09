@@ -3,12 +3,12 @@
   "canonicalOwnerRelease": "9d1f98d0279bb65c51140a762f7c0b9d75da1614",
   "supplierSource": "d49a430828354760ec42463d98739babdbec9312",
   "supplierFinal": "76f900f3266560af64e05f6936d4096f76577361",
-  "sourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "sourceCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
   "ownerThread": "01a11963-efb0-7431-8fc4-3a54b35e7034",
   "ownedFiles": [
     {
       "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
-      "sha256": "f51b57926643f65bccda318f5ffc600dd905b44aeb62f083202e5928bf3fd596",
+      "sha256": "371d5167f366dacfa413350d54a46bcde2fff060a292b10386b48f055fd7f5af",
       "baseAbsent": true
     },
     {
@@ -18,7 +18,7 @@
     },
     {
       "path": "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
-      "sha256": "5836d3230899166dd56a3716c9f172d45a2828b50261fb1049ea12908f072b47",
+      "sha256": "7262585ff7a9a810348ab804e938f3c806d24bb53f017c5d2ac527449d113fde",
       "baseAbsent": true
     },
     {
@@ -28,17 +28,17 @@
     },
     {
       "path": "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
-      "sha256": "2ba843a9570bd3edd8510433284083a6c6c33d347df0b667cb62fe2cd5da04dd",
+      "sha256": "8f22c774171dc35ae61ea10a35369d86cd8011c121bd19af19b30af9e8274e00",
       "baseAbsent": true
     },
     {
       "path": "tests/tools/article-package-candidate-review-wire.test.mjs",
-      "sha256": "207a7c794f1ad6062705fb33ad5f1d7d1ae13127bf02944b56a52e6a8d3a58fc",
+      "sha256": "67597e760109058368617009fc0df1e9b865d9bb789a9166f454046f1f7396f7",
       "baseAbsent": true
     },
     {
       "path": "tests/native/ArticlePackageCandidateReviewWireTests.cpp",
-      "sha256": "466b5eada3a2ca639352c32e0626bff0b5bc8ebde25be30feaf45ec1c45d1083",
+      "sha256": "90de39408b52accc60fd00455691ae6684d6245706ca05cf4d3d96b5131afb80",
       "baseAbsent": true
     }
   ],
@@ -273,11 +273,77 @@
       "blob": "904f677f36eb288c1c03d394100da4fcd357943e",
       "sha256": "091c1bee151aeeae5d16191c3069962c1a321b3facb3927c6fd61158d0c5ea8f",
       "byteExact": true
+    },
+    {
+      "path": "src/frontend/src/api/types/articlePackageCandidateRead.ts",
+      "supplier": "1525e2ad0ea56350f34a368c8f2107706d342759",
+      "blob": "df3671091af6e12313cb9165a1bac0f032bd9418",
+      "sha256": "6ffc8c42a333066a3e9ce3f43f2acdc4a74b3cabee8b76107fe3634ec4dfb0d0",
+      "byteExact": true
     }
   ],
   "supplierExecutionCredit": false,
   "registrationActive": false,
   "routeMapped": false,
   "executeDisabled": true,
-  "qualification": false
+  "qualification": false,
+  "previousImplementationCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "canonicalExistingHelpers": [
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "blob": "f4d3d037304b66acc0a9f4aaaf431646125d15b5",
+      "sha256": "5926df80b86c71d15771ae8b21f17c1b3178e5f388819ae45401d2a38c146e19",
+      "byteExact": true
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+      "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "blob": "881e1852f846a65bb0ba7e6c6306ec94367c972f",
+      "sha256": "bd886fa5dbdadbde37f3ab17d4d424cf549ba309df60c36e18a193c29f7f7f60",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/AedsFrameHeader.cs",
+      "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "blob": "c6fc479e0c3ccef1949266c7f6a5dbe28fc6eadf",
+      "sha256": "cf91019019f7dee0872c8ba18d0a999205630e05a5af4190dc9a63f7615f6783",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Binary/BinaryRequestBinder.cs",
+      "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "blob": "3dc1b645b73959c227c67695786ef83f19ef809c",
+      "sha256": "b8244e810e787672ef29aeea08e8e32b723a1e33322f5a4e83a5aafff2d6b213",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Binary/BinaryEndpointRequestContext.cs",
+      "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "blob": "b105664e79d6e8d0deab590ed5bc41e834d1f00b",
+      "sha256": "f5ca54bd3b8f43071b8693bbe2199ff286e9fb993c33d96c427d48bda8a0772f",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Results/BinaryFrameResult.cs",
+      "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "blob": "d0fa65ef3fb0c0d30aa86c438c615871e9342493",
+      "sha256": "5129df88698884d2a7ebb5ce2679e1b8ae100d00a582a673c69ac73a90f268e1",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Auth/AdminPermissions.cs",
+      "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "blob": "7af02597d32ff704729b24dd06d139ea5c1003f6",
+      "sha256": "6f4a0e610597a2351c3c7faedd917026b931703e7a3a38d81e8e1c871ff738d5",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Helpers/ClaimsPrincipalExtensions.cs",
+      "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "blob": "c3dee3c9fca6fc396a77aeca26b407c71b9035db",
+      "sha256": "557537868c482284559f12a1bb18d25c23df6b9749f22bef542a80940a713faa",
+      "byteExact": true
+    }
+  ]
 }

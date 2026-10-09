@@ -222,3 +222,15 @@
      assert.equal(report.outputCount, wasmArtifactContract.requiredOutputFiles.length);
  });
  
+--- a/src/backend/Modules/Endpoints/AuthoringEndpoints.cs
++++ b/src/backend/Modules/Endpoints/AuthoringEndpoints.cs
+@@ -118,6 +118,9 @@
+     {
+         string[] segments = (remaining.Value ?? string.Empty).Split('/', StringSplitOptions.RemoveEmptyEntries);
+         route = default;
++
++        if (HttpMethods.IsPost(method) && segments is ["article-packages", "candidate-review"])
++            return Found(AedsFrameType.ArticlePackageCandidateReviewReadRequest, AedsFrameType.ArticlePackageCandidateReviewReadResponse, out route);
+ 
+         if (HttpMethods.IsPost(method) && segments is ["drafts"])
+             return Found(AedsFrameType.AuthorDraftSaveRequest, AedsFrameType.AuthorDraftResponse, out route);

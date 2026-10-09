@@ -1,0 +1,30 @@
+--- a/tools/contracts/FsusBlog.OpenApiObservation/Program.cs
++++ b/tools/contracts/FsusBlog.OpenApiObservation/Program.cs
+@@ -1243,14 +1243,16 @@
+                 or "FsusBlog.Server.Modules.Endpoints.Binary.BinaryEndpoints"
+             && method.Name is "ReadAsync" or "ReadRequestAsync" or "TryReadGovernanceJson"
+                 or "ReadCommentManagementRequestAsync";
++        bool isClosedJsonReader = declaring == "FsusBlog.Shared.Contracts.ArticlePackages.ArticlePackageCandidateReviewWireValidation"
++            && method.Name == "TryReadRequest";
+         bool isBinaryReader = method.DeclaringType == typeof(PodBinaryCodec)
+             && method.Name.StartsWith("TryDecode", StringComparison.Ordinal);
+-        if (!isJsonReader && !isBinaryReader)
++        if (!isJsonReader && !isBinaryReader && !isClosedJsonReader)
+         {
+             return;
+         }
+ 
+-        string encoding = isJsonReader ? "utf8-json" : "binary-layout";
++        string encoding = isJsonReader || isClosedJsonReader ? "utf8-json" : "binary-layout";
+         string readerIdentity = $"{method.DeclaringType?.FullName}.{method.Name}";
+         if (method.IsGenericMethod)
+         {
+@@ -1260,7 +1262,7 @@
+             }
+         }
+ 
+-        if (isBinaryReader)
++        if (isBinaryReader || isClosedJsonReader)
+         {
+             foreach (ParameterInfo parameter in method.GetParameters().Where(static item => item.ParameterType.IsByRef))
+             {

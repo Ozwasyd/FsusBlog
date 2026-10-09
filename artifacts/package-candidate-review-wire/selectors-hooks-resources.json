@@ -1,8 +1,8 @@
 {
-  "sourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "sourceCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
   "status": "DECLARED_ONLY_ADMISSION_REJECTED",
-  "mandatoryPreflight": "FAIL_RELEASE_FINAL_STATIC_BOUNDARY_AT_CLEAN_COMMITTED_CANDIDATE",
-  "actualSelection": "FAIL_INDEPENDENT_NODE_PARSER_IDENTITY_DRIFT_AT_CLEAN_COMMITTED_CANDIDATE",
+  "mandatoryPreflight": "FAIL_AT_CORRECTED_SOURCE",
+  "actualSelection": "UNRUN_AT_CORRECTED_SOURCE_AFTER_MANDATORY_PREFLIGHT_REFUSAL",
   "testBodies": "UNRUN",
   "managedDiscovery": "UNRUN",
   "sdkGate": "UNRUN_NO_ADMITTED_MANAGED_SELECTION",
@@ -11,8 +11,8 @@
   "managedDeclaredSelectors": [
     {
       "path": "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs",
-      "sha256": "2ba843a9570bd3edd8510433284083a6c6c33d347df0b667cb62fe2cd5da04dd",
-      "declaredCaseCount": 31,
+      "sha256": "8f22c774171dc35ae61ea10a35369d86cd8011c121bd19af19b30af9e8274e00",
+      "declaredCaseCount": 46,
       "cases": [
         {
           "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.LiteralSeedAndReadonlyProjection_PreserveCorrelationWithoutAuthority",
@@ -20,7 +20,7 @@
         },
         {
           "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.RequestWrongPrimitiveBudgetAndIntent_AreRefused",
-          "declaredInlineCases": 14
+          "declaredInlineCases": 16
         },
         {
           "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.RequestAndEveryNestedResponse_RejectUnknownDuplicateAndMissingProperties",
@@ -28,7 +28,7 @@
         },
         {
           "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.NestedTargetRevision_RefusesNoncanonicalInt64Strings",
-          "declaredInlineCases": 6
+          "declaredInlineCases": 7
         },
         {
           "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.ExactInt64AndReplayContext_RemainStringsAndRejectDrift",
@@ -59,8 +59,28 @@
           "declaredInlineCases": 1
         },
         {
-          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointInitializationRequiredDenialCancellationAndStorageFailure_RemainPrivateRefusals",
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointInitializationRequiredAndStorageFailure_RemainPrivateRefusals",
           "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointIdentityDenial_UsesOriginalStatusBeforeBodyOrReader",
+          "declaredInlineCases": 5
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointCallerOrRequestAbort_ProducesNoResponseBodyOrIdentityRead",
+          "declaredInlineCases": 2
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointAbortDuringOriginalIdentityRead_ProducesNoResponse",
+          "declaredInlineCases": 2
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointUnsignalledCancellation_PropagatesWithoutPublicResponse",
+          "declaredInlineCases": 1
+        },
+        {
+          "selector": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.ArticlePackageCandidateReviewWireValidationTests.EndpointStalePlanOrOwnerDrift_UsesOriginalConflict",
+          "declaredInlineCases": 2
         }
       ],
       "fixtures": []
@@ -317,13 +337,18 @@
       "cpuUnits": 1,
       "memoryGiB": 2,
       "services": [],
-      "resourceOwners": "memory ZIP; original claims/configuration; controlled typed reader; HttpContext memory BodyReader/BodyWriter; scoped provider and streams disposed; no live server/database/Redis"
+      "resourceOwners": "memory ZIP; original claims/configuration; controlled typed reader; HttpContext memory BodyReader/BodyWriter; scoped provider and streams disposed; no live server/database/Redis",
+      "minimumObservedSetupEnvelope": {
+        "cpuUnits": 1,
+        "memoryGiB": 3,
+        "status": "NOT_CREATED_OR_QUALIFIED; original selected producer still determines exact admission"
+      }
     },
     "node": {
       "cpuUnits": 1,
       "memoryGiB": 0.5,
       "services": [],
-      "resourceOwners": "original TS source imported using pinned Node type stripping; bounded literal payloads and AbortControllers; no I/O transport/network"
+      "resourceOwners": "original TS/DTO source and canonical generated frame header using pinned Node type stripping; bounded literals and AbortControllers; no I/O transport/network"
     },
     "native": {
       "cpuUnits": 1,
@@ -346,16 +371,48 @@
     "held receipt",
     "replacement",
     "cohort",
-    "native custody audits"
+    "native custody audits",
+    "frozen original prototype routes/tests",
+    "original3663 controlled 32/backend and 70/frontend test credit"
   ],
   "priorMandatoryPreflightSource": "934211fa851a4a2d4353d60af0fe8daecaad096a",
   "priorSelectionFailure": {
     "sourceCommit": "934211fa851a4a2d4353d60af0fe8daecaad096a",
     "reason": "independent release-final Node parser identity drifted; applicable execution authority schema, source index or parser identity drifted"
   },
-  "admissionCandidateCommit": "4c0ce525795367bb3c3c1f26e421cb11a7fe6a93",
   "firstFinalSourceSelectionFailure": {
     "sourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
     "reason": "PR impact requires a clean committed source candidate; uncommitted evidence files"
-  }
+  },
+  "previousSourceCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "priorAdmissionCandidateCommit": "4c0ce525795367bb3c3c1f26e421cb11a7fe6a93",
+  "admissionCandidateCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
+  "managedDeclaredCaseCount": 147,
+  "nodeSupportSources": [
+    {
+      "path": "src/frontend/src/codecs/binary/articlePackageCandidateReviewWire.ts",
+      "sha256": "7262585ff7a9a810348ab804e938f3c806d24bb53f017c5d2ac527449d113fde"
+    },
+    {
+      "path": "src/frontend/src/api/types/articlePackageCandidateRead.ts",
+      "sha256": "6ffc8c42a333066a3e9ce3f43f2acdc4a74b3cabee8b76107fe3634ec4dfb0d0"
+    },
+    {
+      "path": "src/frontend/src/api/types/articlePackageCandidateReview.ts",
+      "sha256": "091c1bee151aeeae5d16191c3069962c1a321b3facb3927c6fd61158d0c5ea8f"
+    },
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "sha256": "5926df80b86c71d15771ae8b21f17c1b3178e5f388819ae45401d2a38c146e19"
+    }
+  ],
+  "nativeTestSource": {
+    "path": "tests/native/ArticlePackageCandidateReviewWireTests.cpp",
+    "sha256": "90de39408b52accc60fd00455691ae6684d6245706ca05cf4d3d96b5131afb80"
+  },
+  "nativeValidatorSource": {
+    "path": "src/frontend/wasm/aeds/include/article_package_candidate_review_wire.hpp",
+    "sha256": "8fd62f13213ffb7c66c073abadf80a7035b5bb5a0235d1a83605580ab5f4b5a4"
+  },
+  "resourceAdmission": "UNRUN; sizing declarations/root cgroup observations are not the required isolated producer grant"
 }

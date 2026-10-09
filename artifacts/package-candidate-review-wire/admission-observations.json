@@ -78,5 +78,51 @@
     "seconds": 96.76,
     "testBodies": "UNRUN",
     "qualification": false
+  },
+  {
+    "name": "corrected-source-mandatory-preflight",
+    "argv": [
+      "node",
+      "tools/run-test-matrix.mjs",
+      "preflight"
+    ],
+    "sourceCommit": "c0c6c312cfae9e18620f3ecf4b7046282dbb8409",
+    "exitCode": 1,
+    "seconds": 100.885,
+    "observedResourceLimits": {
+      "cpu.max": "400000 100000",
+      "memory.max": "17179869184",
+      "memory.current": "314302464",
+      "pids.max": "max"
+    },
+    "status": "FAIL",
+    "sdkGate": "UNRUN",
+    "managedDiscovery": "UNRUN",
+    "testBodies": "UNRUN",
+    "rawLogLocation": "local /tmp only; not published",
+    "qualification": false,
+    "failureReason": "release-final static boundary rejected matrix parse; independent release-final Node parser identity drift and execution target authority owner/content/dependency closure mismatch",
+    "expectedClosureSha256": "142d04ffc89385fb9de39a0322902fdb2d1a7d5382c6cb688e74511808f940ea",
+    "actualClosureSha256": "e9d3a2cc7920a8a47b7fe03b7a8b83f1f19c0f857f2298e1db84f8ad6b3f9658"
+  },
+  {
+    "name": "final-corrected-source-mandatory-preflight",
+    "argv": [
+      "node",
+      "tools/run-test-matrix.mjs",
+      "preflight"
+    ],
+    "sourceCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
+    "exitCode": 1,
+    "seconds": 104.659,
+    "status": "FAIL",
+    "sdkGate": "UNRUN",
+    "managedDiscovery": "UNRUN",
+    "testBodies": "UNRUN",
+    "rawLogLocation": "local /tmp only; not published",
+    "qualification": false,
+    "failureReason": "release-final static boundary rejected matrix parse; independent release-final Node parser identity drift and execution target authority owner/content/dependency closure mismatch",
+    "expectedClosureSha256": "142d04ffc89385fb9de39a0322902fdb2d1a7d5382c6cb688e74511808f940ea",
+    "actualClosureSha256": "e9d3a2cc7920a8a47b7fe03b7a8b83f1f19c0f857f2298e1db84f8ad6b3f9658"
   }
 ]

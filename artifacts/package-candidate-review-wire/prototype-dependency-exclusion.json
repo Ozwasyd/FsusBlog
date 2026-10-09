@@ -1,0 +1,31 @@
+{
+  "ownerThread": "01a11963-efb0-7431-8fc4-3a54b35e7034",
+  "sourceCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
+  "prototypeSource": "1525e2ad0ea56350f34a368c8f2107706d342759",
+  "prototypeRemote": "d33a417865ec41b16d7470178288a5d78679f553",
+  "prototypeFrozen": true,
+  "doNotImport": [
+    "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs",
+    "tests/backend/Unit/ArticlePackageCandidateReadEndpointTests.cs"
+  ],
+  "doNotApplyOldMappingProposal": "artifacts/article-packages/chain-3663-authenticated-read-host-20261009/root-3735-authoring-hook-proposal.patch",
+  "collision": "Both partials define AuthoringEndpoints.MapArticlePackageCandidateReviewRoutes(IEndpointRouteBuilder) and ReadArticlePackageCandidateReviewAsync(HttpContext, IAedsEncoder, ArticlePackageCandidateReviewReadService, CancellationToken); unmounted does not remove duplicate compiled definitions.",
+  "consumeInstead": [
+    "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateReviewRoutes.cs",
+    "tests/backend/Unit/ArticlePackageCandidateReviewWireValidationTests.cs"
+  ],
+  "originalOwnerRetains": [
+    "src/backend/Services/Authoring/ArticlePackageCandidateReviewReadService.cs",
+    "src/frontend/src/composables/useArticlePackageCandidateReadHost.ts",
+    "src/frontend/src/composables/useArticlePackageCandidateReview.ts",
+    "src/frontend/src/components/admin/article-packages/ArticlePackageCandidateReview.vue"
+  ],
+  "requiredIntegration": "Import only exact necessary source paths from original3663; do not merge its whole history or the frozen prototype/test. Map the canonical new endpoint exactly once, then admit the same reserved pair in the original resolver/contract registry.",
+  "ifPrototypeAlreadyPresent": "Sole project owner may exclude its frozen routes/test from compilation through the original projects; this module neither changes nor registers those files.",
+  "ownerOnlyCompileExclusions": {
+    "src/backend/FsusBlog.Server.csproj": "<Compile Remove=\"Modules/Endpoints/AuthoringEndpoints.ArticlePackageCandidateRoutes.cs\" />",
+    "tests/backend/FsusBlog.Server.Tests.csproj": "<Compile Remove=\"Unit/ArticlePackageCandidateReadEndpointTests.cs\" />"
+  },
+  "executionCreditInherited": false,
+  "activationAuthorized": false
+}

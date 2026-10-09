@@ -1,7 +1,7 @@
 {
   "schema": "package-candidate-review-transport-outcome-v1",
-  "implementationCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
-  "admissionCandidateCommit": "4c0ce525795367bb3c3c1f26e421cb11a7fe6a93",
+  "implementationCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
+  "admissionCandidateCommit": "4a353be288a519bd8e025377eb20ef6a2383ac87",
   "branch": "codex/package-candidate-review-wire-2406-2418-20261009",
   "ownedProductionPaths": 4,
   "ownedTestPaths": 3,
@@ -12,7 +12,7 @@
   "executeDisabled": true,
   "qualification": false,
   "mandatoryPreflight": "FAIL",
-  "sourceSelection": "FAIL",
+  "sourceSelection": "UNRUN_AFTER_MANDATORY_PREFLIGHT_FAILURE_AT_CORRECTED_SOURCE",
   "sdkGate": "UNRUN",
   "managedDiscovery": "UNRUN",
   "managedTests": "UNRUN",
@@ -34,6 +34,22 @@
     "Original SDK gate and exact selector discovery/matching/hooks/resources before dependent execution",
     "Original native target/catalog/matrix registration",
     "Canonical SiteIdentity lifecycle/scope/revision review and original reader implementation",
-    "Sole central owner integration/ABI/generated products admission"
-  ]
+    "Sole central owner integration/ABI/generated products admission",
+    "Original compiled request observer recognition/admission for actual Shared closed-reader out DTO"
+  ],
+  "previousImplementationCommit": "54edafc83a2a9d7b245ecc67dea494745227b050",
+  "corrections": [
+    "Auth namespace import",
+    "Authenticated identity refusal before body/binder/reader",
+    "Original 401/403/409 refusal mappings",
+    "Linked cancellation propagated without a response, including unsignalled cancellation",
+    "TS trailing-newline scalar refusals match Shared/native",
+    "Original host DTO aliases and canonical TS header size",
+    "Original host operationId",
+    "Explicit frozen prototype/test dependency exclusion"
+  ],
+  "managedDeclaredCases": 147,
+  "managedWireDeclaredCases": 46,
+  "originalPrototypeTestCredit": false,
+  "newRawLogsPublished": false
 }
