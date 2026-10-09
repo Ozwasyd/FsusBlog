@@ -842,7 +842,7 @@ public sealed partial class CommentThreadFixturePort(
                 throw new InvalidOperationException($"Comment role {role} has incomplete outbox evidence.");
             CommentModerationTimelineResult? timeline = await governance.ReadTimelineAsync(row.Id, cancellationToken)
                 .ConfigureAwait(false);
-            if (timeline is null || !timeline.Consistent || timeline.Events.Count == 0)
+            if (timeline is null || !CommentFixtureTimelineVerifier.IsConsistent(timeline, row.Id, row.ModerationStatus))
                 throw new InvalidOperationException(
                     $"Comment role {role} has incomplete moderation audit evidence (comment={row.Id}, events={timeline?.Events.Count.ToString(CultureInfo.InvariantCulture) ?? "null"}, consistent={timeline?.Consistent.ToString() ?? "null"}, projected={timeline?.ProjectedStatus.ToString() ?? "null"}, current={row.ModerationStatus}).");
             string cacheIdentity = $"article:{articleId.ToString(CultureInfo.InvariantCulture)}";

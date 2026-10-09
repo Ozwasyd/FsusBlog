@@ -68,7 +68,10 @@ public sealed record CommentFixtureNoticeMessageObservation(
     string ContentDigest,
     DateTime CreatedAt);
 
-/// <summary>Single-pass read observations; missing or pending work is retained, never promoted to qualification.</summary>
+/// <summary>
+/// Read observations with complete queue and reply-page traversal; missing or pending work is retained,
+/// never promoted to qualification or an atomic snapshot. AdminQueueFirstPage retains its serialized name.
+/// </summary>
 public sealed record CommentFixtureDeliveryObservation(
     CommentFixtureMutationResult Authority,
     string BoundedQueueCatalogDigest,
@@ -109,8 +112,8 @@ public sealed partial class CommentThreadFixturePort
 
         CommentPermalinkContextDto publicProjection = await publicQueries.GetPermalinkContextAsync(row.ArticleId,
             row.Id).ConfigureAwait(false);
-        CommentModerationQueueResponse queue = await moderationQueue.ListCommentModerationQueuePageAsync(null, 100,
-            null, cancellationToken).ConfigureAwait(false);
+        CommentModerationQueueResponse queue = await CommentFixtureQueuePageReader.ReadAllAsync(moderationQueue,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         string commentId = row.Id.ToString(CultureInfo.InvariantCulture);
         var queueObservation = new CommentFixtureAdminQueueObservation(
             queue.Items.Where(item => item.Id == commentId)
@@ -175,14 +178,14 @@ public sealed partial class CommentThreadFixturePort
             observations.Add(new(item.EventId, sourceId, eligibleRecipient, string.Empty, null, false, false, []));
         foreach (MessageConversation conversation in conversations)
         {
-            ConversationDetailResponse? projection = conversation.InitiatorAccountId is > 0
-                ? await messageQueries.GetAccountConversationDetailAsync(conversation.InitiatorAccountId.Value,
-                    conversation.Id, null, cancellationToken).ConfigureAwait(false) : null;
+            IReadOnlyList<ConversationMessageResponse>? messages = conversation.InitiatorAccountId is > 0
+                ? await CommentFixtureReplyMessagePageReader.ReadAsync(messageQueries,
+                    conversation.InitiatorAccountId.Value, conversation.Id, cancellationToken).ConfigureAwait(false) : null;
             observations.Add(new(item.EventId, sourceId, eligibleRecipient,
                 conversation.Id.ToString(CultureInfo.InvariantCulture), conversation.InitiatorAccountId,
                 conversation.IsSystemSource,
-                projection is not null && projection.ConversationId == conversation.Id.ToString(CultureInfo.InvariantCulture),
-                projection?.Messages.Select(message => new CommentFixtureNoticeMessageObservation(message.MessageId,
+                messages is not null,
+                messages?.Select(message => new CommentFixtureNoticeMessageObservation(message.MessageId,
                     message.ConversationId, message.SenderType.ToString(), Digest(message.Body), message.CreatedAt)).ToArray() ?? []));
         }
     }

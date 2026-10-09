@@ -239,8 +239,8 @@ public sealed partial class CommentThreadFixturePort
             cancellationToken).ConfigureAwait(false);
         CommentModerationTimelineResult? timeline = await governance.ReadTimelineAsync(row.Id, cancellationToken)
             .ConfigureAwait(false);
-        if (!HasExactRevisionHistory(row, revisions, string.Empty) || timeline is null || !timeline.Consistent
-            || timeline.Events.Count == 0 || timeline.CurrentStatus != row.ModerationStatus)
+        if (!HasExactRevisionHistory(row, revisions, string.Empty) || timeline is null
+            || !CommentFixtureTimelineVerifier.IsConsistent(timeline, row.Id, row.ModerationStatus))
             throw new InvalidOperationException("Production comment mutation history or timeline is inconsistent.");
         List<CommentMutationOutboxEvent> outbox = await db.Queryable<CommentMutationOutboxEvent>()
             .Where(item => item.CommentId == row.Id && item.ArticleId == row.ArticleId)

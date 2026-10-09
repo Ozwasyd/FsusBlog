@@ -141,6 +141,183 @@ public sealed class CommentFixtureMutationRoutingTests
             Assert.Empty(result.ReplyNotices);
     }
 
+    [Fact]
+    public async Task DeliveryObservation_FindsTargetQueueItemAndLeaseBeyondFirstPage()
+    {
+        var model = new Model("report");
+        model.PrepareDelivery(CommentMutationEventTypes.Created);
+        CommentFixtureMutationResult authority = await model.Port.ExecuteMutationAsync(model.Plan);
+        model.Queue.ListCommentModerationQueuePageAsync(null, 100, null, CancellationToken.None)
+            .Returns(new CommentModerationQueueResponse([QueueItem("99")], 1, 0, 0, "opaque-next"));
+        var lease = new CommentModerationQueueLeaseResponse("41", "row-41", 1, 2,
+            new DateTime(2026, 10, 8, 0, 0, 0, DateTimeKind.Utc), 91, "active", null, null, null,
+            "note", null, 3, "claim-41");
+        model.Queue.ListCommentModerationQueuePageAsync(null, 100, "opaque-next", CancellationToken.None)
+            .Returns(new CommentModerationQueueResponse([QueueItem("41")], 2, 0, 0, null, [lease]));
+        model.Author.ClearReceivedCalls();
+        model.Governance.ClearReceivedCalls();
+        model.Moderation.ClearReceivedCalls();
+
+        CommentFixtureDeliveryObservation result = await model.Port.ObserveDeliveryAsync(authority);
+
+        CommentFixtureQueueItemObservation item = Assert.Single(result.AdminQueueFirstPage.Items);
+        Assert.Equal("41", item.CommentId);
+        Assert.Equal(CommentModerationStatus.Pending, item.Status);
+        Assert.Equal($"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("content-41")))}",
+            item.ContentDigest);
+        CommentFixtureQueueLeaseObservation observed = Assert.Single(result.AdminQueueFirstPage.Leases);
+        Assert.Equal(lease.CommentId, observed.CommentId);
+        Assert.Equal(lease.CommentRowVersion, observed.CommentRowVersion);
+        Assert.Equal(lease.OwnerAdminPrincipalId, observed.OwnerAdminPrincipalId);
+        Assert.Equal(lease.ClaimGeneration, observed.ClaimGeneration);
+        Assert.Equal(lease.ClaimRowVersion, observed.ClaimRowVersion);
+        Assert.Equal(lease.LeaseExpiresAtUtc, observed.LeaseExpiresAtUtc);
+        Assert.False(result.AdminQueueFirstPage.HasNextPage);
+        await model.Queue.Received(1).ListCommentModerationQueuePageAsync(null, 100, null, CancellationToken.None);
+        await model.Queue.Received(1).ListCommentModerationQueuePageAsync(null, 100, "opaque-next", CancellationToken.None);
+        Assert.Empty(model.Author.ReceivedCalls());
+        Assert.Empty(model.Governance.ReceivedCalls());
+        Assert.Empty(model.Moderation.ReceivedCalls());
+        Assert.Empty(model.InitialComments.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task DeliveryObservation_RefusesPartialQueueWhenCursorRepeats()
+    {
+        var model = new Model("report");
+        model.PrepareDelivery(CommentMutationEventTypes.Created);
+        CommentFixtureMutationResult authority = await model.Port.ExecuteMutationAsync(model.Plan);
+        model.Queue.ListCommentModerationQueuePageAsync(null, 100, Arg.Any<string?>(), CancellationToken.None)
+            .Returns(new CommentModerationQueueResponse([], 0, 0, 0, "repeated"));
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            model.Port.ObserveDeliveryAsync(authority));
+
+        Assert.Contains("repeated cursor", error.Message, StringComparison.Ordinal);
+        Assert.Equal(2, model.Queue.ReceivedCalls().Count());
+        Assert.Empty(model.RedisDb.ReceivedCalls());
+        Assert.Empty(model.Messages.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task DeliveryObservation_ReadsOlderReplyMessagesInProductionOrder()
+    {
+        var model = new Model("report");
+        model.PrepareDelivery(CommentMutationEventTypes.ReplyNotificationRequested);
+        CommentFixtureMutationResult authority = await model.Port.ExecuteMutationAsync(model.Plan);
+        model.Messages.GetAccountConversationDetailAsync(12, 71, null, CancellationToken.None)
+            .Returns(new ConversationDetailResponse
+            {
+                ConversationId = "71",
+                Messages = [new ConversationMessageResponse { MessageId = "81", ConversationId = "71", Body = "newer" }],
+                HasOlder = true,
+                PreviousCursor = "81"
+            });
+        model.Messages.GetAccountConversationDetailAsync(12, 71, 81, CancellationToken.None)
+            .Returns(new ConversationDetailResponse
+            {
+                ConversationId = "71",
+                Messages = [new ConversationMessageResponse { MessageId = "79", ConversationId = "71", Body = "older" }]
+            });
+
+        CommentFixtureReplyNoticeObservation notice = Assert.Single((await model.Port.ObserveDeliveryAsync(authority)).ReplyNotices);
+
+        Assert.True(notice.RecipientApiVisible);
+        Assert.Equal(12, notice.CurrentEligibleRecipientAccountId);
+        Assert.Equal(new[] { "79", "81" }, notice.Messages.Select(message => message.MessageId));
+        Assert.All(notice.Messages, message => Assert.Equal("71", message.ConversationId));
+        await model.Messages.Received(1).GetAccountConversationDetailAsync(12, 71, null, CancellationToken.None);
+        await model.Messages.Received(1).GetAccountConversationDetailAsync(12, 71, 81, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task DeliveryObservation_RefusesMissingReplyContinuation()
+    {
+        var model = new Model("report");
+        model.PrepareDelivery(CommentMutationEventTypes.ReplyNotificationRequested);
+        CommentFixtureMutationResult authority = await model.Port.ExecuteMutationAsync(model.Plan);
+        model.Messages.GetAccountConversationDetailAsync(12, 71, null, CancellationToken.None)
+            .Returns(new ConversationDetailResponse
+            {
+                ConversationId = "71",
+                Messages = [new ConversationMessageResponse { MessageId = "81", ConversationId = "71" }],
+                HasOlder = true,
+                PreviousCursor = "81"
+            });
+        model.Messages.GetAccountConversationDetailAsync(12, 71, 81, CancellationToken.None)
+            .Returns((ConversationDetailResponse?)null);
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            model.Port.ObserveDeliveryAsync(authority));
+
+        Assert.Contains("continuation is missing", error.Message, StringComparison.Ordinal);
+        Assert.Equal(2, model.Messages.ReceivedCalls().Count());
+    }
+
+    [Fact]
+    public async Task MutationObservation_RejectsBrokenTimelineBeforeCommands()
+    {
+        var model = new Model("report");
+        model.Governance.ReadTimelineAsync(41, CancellationToken.None).Returns(new CommentModerationTimelineResult(
+            41, CommentModerationStatus.Approved, CommentModerationStatus.Approved, true,
+            [new CommentModerationEvent { Id = 30, CommentId = 41, PreviousStatus = CommentModerationStatus.Hidden,
+                NextStatus = CommentModerationStatus.Approved }]));
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            model.Port.ExecuteMutationAsync(model.Plan));
+
+        Assert.Contains("timeline is inconsistent", error.Message, StringComparison.Ordinal);
+        await model.Governance.DidNotReceive().ReportAsAccountAsync(Arg.Any<long>(), Arg.Any<int>(),
+            Arg.Any<CommentReportRequest>(), Arg.Any<CancellationToken>());
+        Assert.Empty(model.Queue.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task MutationObservation_RejectsGrantedAppealTimelineGapAfterCommand()
+    {
+        var model = new Model("review-appeal");
+        model.After.ModerationStatus = CommentModerationStatus.Approved;
+        var command = new CommentFixtureReviewAppeal(61, 92, new CommentAppealDecisionRequest("granted", "Review granted"));
+        CommentFixtureMutationPlan plan = model.Plan with
+        {
+            Command = command,
+            CommandDigest = CommentThreadFixturePort.ComputeCommandDigest(command)
+        };
+        List<CommentModerationEvent> before =
+        [
+            new() { Id = 30, CommentId = 41, NextStatus = CommentModerationStatus.Approved },
+            new() { Id = 31, CommentId = 41, PreviousStatus = CommentModerationStatus.Approved,
+                NextStatus = CommentModerationStatus.Hidden }
+        ];
+        // Preserve the production gap: the granted event records Approved -> Approved after Hidden.
+        model.Governance.ReadTimelineAsync(41, CancellationToken.None).Returns(
+            new CommentModerationTimelineResult(41, CommentModerationStatus.Hidden, CommentModerationStatus.Hidden, true, before),
+            new CommentModerationTimelineResult(41, CommentModerationStatus.Approved, CommentModerationStatus.Approved, true,
+                [.. before, new() { Id = 32, CommentId = 41, PreviousStatus = CommentModerationStatus.Approved,
+                    NextStatus = CommentModerationStatus.Approved }]));
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            model.Port.ExecuteMutationAsync(plan));
+
+        Assert.Contains("timeline is inconsistent", error.Message, StringComparison.Ordinal);
+        await model.Governance.Received(1).ReviewAppealAsync(61, 92, command.Request, CancellationToken.None);
+        Assert.Empty(model.Queue.ReceivedCalls());
+        Assert.Empty(model.Messages.ReceivedCalls());
+    }
+
+    private static CommentModerationItemResponse QueueItem(string id)
+        => new(
+            Id: id, ArticleId: 42, ArticleTitle: "article", AuthorDisplayName: "author", Content: $"content-{id}",
+            CreateTime: new DateTime(2026, 10, 8, 0, 0, 0, DateTimeKind.Utc), Status: CommentModerationStatus.Pending,
+            Reason: null, ModeratedByAdminPrincipalId: null, ModeratedAt: null, AutoModerated: false,
+            ModerationActor: "pending", HitReasons: [], SubmitRegion: null, SubmitRegionConfidence: null,
+            BlockedRegions: [], RegionPolicyVersion: null, RegionDecisionReason: null, RegionCanPublish: false,
+            RegionRequiresManualReview: true, RegionHideUntilReviewed: true, ModelSignals: [], ModelLabel: null,
+            ModelConfidence: null, ModelPrimaryReason: null, ModelProvider: null, ModelUnavailable: false,
+            AuthorMode: null, AnonymousDisplayLanguage: null, ModerationSubjectHash: null, NullifierHash: null,
+            NullifierStatusLabel: null, AnonymousScope: null, RateClass: null, RequiresModeration: null,
+            AnonymousCredentialId: null, CanBlockAnonymousNullifier: false, CanRevokeAnonymousCredential: false);
+
     private sealed class Model
     {
         private static readonly DateTime s_now = new(2026, 7, 20, 12, 0, 0, DateTimeKind.Utc);
@@ -304,7 +481,7 @@ public sealed class CommentFixtureMutationRoutingTests
                 .Returns(new ConversationDetailResponse
                 {
                     ConversationId = "71",
-                    Messages = [new ConversationMessageResponse { MessageId = "81" }]
+                    Messages = [new ConversationMessageResponse { MessageId = "81", ConversationId = "71" }]
                 });
         }
 
