@@ -34,10 +34,14 @@ describe('binaryApiClient transport rejection and option preservation', () =>
     });
 
     it.each([
-        new TypeError('Failed to fetch'),
-        new DOMException('The operation was aborted.', 'AbortError'),
-        'external rejection value'
-    ])('preserves the original shared rejection value %s and cleans every waiter', async (reason) =>
+        { label: 'TypeError', reason: new TypeError('Failed to fetch') },
+        { label: 'AbortError', reason: new DOMException('The operation was aborted.', 'AbortError') },
+        { label: 'string', reason: 'external rejection value' },
+        { label: 'number', reason: 42 },
+        { label: 'null', reason: null },
+        { label: 'undefined', reason: undefined },
+        { label: 'object', reason: Object.freeze({ code: 'external-rejection' }) }
+    ])('preserves the original shared $label rejection value and cleans every waiter', async ({ reason }) =>
     {
         const network = createDeferred<Response>();
         const firstController = new AbortController();

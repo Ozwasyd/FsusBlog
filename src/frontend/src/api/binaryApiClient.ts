@@ -238,6 +238,18 @@ function waitForInFlightBinaryRequest(entry: InFlightBinaryRequest, signal?: Abo
             entry.waiters.delete(waiter);
         };
 
+        const completeWaiter = <T>(complete: (value: T) => void) => (value: T) =>
+        {
+            if (settled)
+            {
+                return;
+            }
+
+            settled = true;
+            cleanup();
+            complete(value);
+        };
+
         const onAbort = () =>
         {
             if (settled)
@@ -258,28 +270,11 @@ function waitForInFlightBinaryRequest(entry: InFlightBinaryRequest, signal?: Abo
         signal?.addEventListener('abort', onAbort, { once: true });
 
         entry.promise.then(
-            (result) =>
+            completeWaiter<AppResult<ArrayBuffer>>((result) =>
             {
-                if (settled)
-                {
-                    return;
-                }
-
-                settled = true;
-                cleanup();
                 resolve(cloneBinaryRequestResult(result));
-            },
-            (reason) =>
-            {
-                if (settled)
-                {
-                    return;
-                }
-
-                settled = true;
-                cleanup();
-                reject(reason);
-            }
+            }),
+            completeWaiter<unknown>(reject)
         );
 
         if (signal?.aborted)
