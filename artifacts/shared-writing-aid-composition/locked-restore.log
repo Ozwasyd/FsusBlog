@@ -1,0 +1,7 @@
+  Determining projects to restore...
+  Restored /workspace/FsusBlog-writing-aid-composition/src/shared/FsusBlog.Shared.csproj (in 222 ms).
+  Restored /workspace/FsusBlog-writing-aid-composition/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 1.15 sec).
+  Restored /workspace/FsusBlog-writing-aid-composition/src/migration/FsusBlog.Migration.csproj (in 1.16 sec).
+  Restored /workspace/FsusBlog-writing-aid-composition/src/backend/FsusBlog.Server.csproj (in 1.17 sec).
+  Restored /workspace/FsusBlog-writing-aid-composition/src/core/FsusBlog.Core.csproj (in 8 ms).
+  Restored /workspace/FsusBlog-writing-aid-composition/tests/backend/FsusBlog.Server.Tests.csproj (in 897 ms).

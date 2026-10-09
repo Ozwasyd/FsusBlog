@@ -1,0 +1,188 @@
+{
+  "sourceCommit": "dbac88a329e4e40a96b013a49f8443cbce9eeba3",
+  "expectedPositiveRows": 34,
+  "unitEndpointRows": 30,
+  "postgresEndpointRows": 3,
+  "originalRegistrationRows": 1,
+  "rows": [
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_EncodesDomainDefaultsWithoutInitialization",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_ClientCoordinatesCannotOverrideVerifiedAdminAndSite",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_RefusesAnonymousOrAccountPrincipalBeforeDomainRead",
+      "data": "false"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_RefusesAnonymousOrAccountPrincipalBeforeDomainRead",
+      "data": "true"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_PreservesEveryIndependentBooleanCombination",
+      "data": "0"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_PreservesEveryIndependentBooleanCombination",
+      "data": "1"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_PreservesEveryIndependentBooleanCombination",
+      "data": "2"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_PreservesEveryIndependentBooleanCombination",
+      "data": "3"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_PreservesEveryIndependentBooleanCombination",
+      "data": "4"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_PreservesEveryIndependentBooleanCombination",
+      "data": "5"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_PreservesEveryIndependentBooleanCombination",
+      "data": "6"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_PreservesEveryIndependentBooleanCombination",
+      "data": "7"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_UsesUnifiedDomainErrors",
+      "data": "WritingAidPreferenceOutcome.Invalid, HttpStatusCode.BadRequest, \"writing_aid_preference_request_invalid\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_UsesUnifiedDomainErrors",
+      "data": "WritingAidPreferenceOutcome.Corrupt, HttpStatusCode.InternalServerError, \"writing_aid_preference_integrity_failed\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_UsesUnifiedDomainErrors",
+      "data": "WritingAidPreferenceOutcome.Unavailable, HttpStatusCode.ServiceUnavailable, \"writing_aid_preference_unavailable\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt",
+      "data": "0"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt",
+      "data": "1"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt",
+      "data": "2"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt",
+      "data": "3"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt",
+      "data": "4"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt",
+      "data": "5"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt",
+      "data": "6"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt",
+      "data": "7"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Initialize_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Initialize_RejectsNondefaultOrNonzeroRevision",
+      "data": "1, 0"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Initialize_RejectsNondefaultOrNonzeroRevision",
+      "data": "0, 1"
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RejectsInvalidTransportBeforeDeviceRefusal",
+      "data": "\"json\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RejectsInvalidTransportBeforeDeviceRefusal",
+      "data": "\"wrong-frame\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RejectsInvalidTransportBeforeDeviceRefusal",
+      "data": "\"trailing-payload\""
+    },
+    {
+      "file": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RejectsInvalidTransportBeforeDeviceRefusal",
+      "data": "\"invalid-boolean\""
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferenceEndpointPostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferenceEndpointPostgresTests.Read_MissingRowUsesProductionDefaultsAcrossReloadWithoutWrites",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferenceEndpointPostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferenceEndpointPostgresTests.UpdateAndInitialize_DeviceRefusalLeavesSolePreferenceAndJournalEmpty",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Integration/WritingAidPreferenceEndpointPostgresTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Integration.WritingAidPreferenceEndpointPostgresTests.Read_UnavailableOriginalPersistenceReturnsUnifiedFailure",
+      "data": null
+    },
+    {
+      "file": "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs",
+      "fullyQualifiedName": "FsusBlog.Server.Tests.Unit.AuthoringCanvasServiceRegistrationTests.RuntimeDomainServices_ResolveOneProductionReferenceAuthority",
+      "data": null
+    }
+  ],
+  "selectionPassed": true,
+  "bodyExecution": 0,
+  "hooksAndResources": {
+    "unit": "Original EndpointSecurityTestServer.Create with real authoring security middleware and in-process HTTP; no class fixture. Each using closes request/client/response/server. Unique endpoint worker file unchanged.",
+    "postgres": "Actual PostgresSchemaMigrationFixture via SchemaMigrationPostgresCollectionB; original test infrastructure creates fixture-owned disposable databases, original migration DDL, realSqlSugar/Npgsql, and helper disposes clients. Container fixture cleanup, Docker/database capability not run because executable gate not yet passed.",
+    "registration": "Actual ServiceCollection with original scoped registration, NSubstituteSqlSugar seam before any database operation; AddLogging/TimeProvider. Disposable serviceProvider+scope; zero external services."
+  },
+  "heldControlsOrReceiptWorkSelected": false,
+  "testFilter": "FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferenceEndpointPostgresTests.Read_MissingRowUsesProductionDefaultsAcrossReloadWithoutWrites|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferenceEndpointPostgresTests.Read_UnavailableOriginalPersistenceReturnsUnifiedFailure|FullyQualifiedName=FsusBlog.Server.Tests.Integration.WritingAidPreferenceEndpointPostgresTests.UpdateAndInitialize_DeviceRefusalLeavesSolePreferenceAndJournalEmpty|FullyQualifiedName=FsusBlog.Server.Tests.Unit.AuthoringCanvasServiceRegistrationTests.RuntimeDomainServices_ResolveOneProductionReferenceAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Initialize_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Initialize_RejectsNondefaultOrNonzeroRevision|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_ClientCoordinatesCannotOverrideVerifiedAdminAndSite|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_EncodesDomainDefaultsWithoutInitialization|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_PreservesEveryIndependentBooleanCombination|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_RefusesAnonymousOrAccountPrincipalBeforeDomainRead|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Read_UsesUnifiedDomainErrors|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RefusesMissingDeviceAuthorityWithoutDispatchOrReceipt|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WritingAidPreferenceEndpointTests.Update_RejectsInvalidTransportBeforeDeviceRefusal"
+}

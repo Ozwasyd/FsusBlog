@@ -1,0 +1,9 @@
+{
+  "sourceCommit": "dbac88a329e4e40a96b013a49f8443cbce9eeba3",
+  "command": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/db/check-offline-migration-catalog-parity.mjs"
+  ],
+  "exitCode": 0,
+  "bodiesExecuted": 0
+}

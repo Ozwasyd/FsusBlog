@@ -1,0 +1,239 @@
+{
+  "sourceCommit": "dbac88a329e4e40a96b013a49f8443cbce9eeba3",
+  "moduleCompositionCommit": "776cf7421e626ce649bae30c88ab28215aefd637",
+  "branch": "codex/shared-writing-aid-composition-20261009",
+  "frozenConsumerBase": "b304c494de2d805f9b5b70ce8d738b1f1cb6df94",
+  "latestFetchedMaster": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "currentMasterQualification": false,
+  "incrementPaths": [
+    "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "src/backend/Interfaces/AuthorTypographyPreferencePorts.cs",
+    "src/backend/Interfaces/WritingAidPreferencePorts.cs",
+    "src/backend/Modules/Endpoints/AuthoringEndpoints.WritingAidPreferenceRoutes.cs",
+    "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+    "src/backend/Services/UserLocalePreferenceService.AuthorTypography.cs",
+    "src/backend/Services/UserLocalePreferenceService.AuthoringPreferences.cs",
+    "src/backend/Services/UserLocalePreferenceService.WritingAids.cs",
+    "src/backend/Services/UserLocalePreferenceService.cs",
+    "src/migration/Catalogs/SchemaMigrationCatalog20261008WritingAidPreferences.cs",
+    "src/migration/Definitions/WritingAidPreferenceMigrationDefinitions.cs",
+    "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+    "src/migration/OfflineMigrationClassificationFacts.cs",
+    "src/migration/SchemaMigrationManifest.cs",
+    "src/shared/Contracts/AuthorTypography/AuthorTypographyCommandPolicy.cs",
+    "src/shared/Contracts/AuthorTypography/AuthorTypographyCommands.cs",
+    "src/shared/Contracts/AuthorTypography/AuthorTypographyContractValidator.cs",
+    "src/shared/Contracts/AuthorTypography/AuthorTypographyContracts.cs",
+    "src/shared/Contracts/AuthorTypography/AuthorTypographyRequestReplayPolicy.cs",
+    "tests/backend/Integration/WritingAidPreferenceEndpointPostgresTests.cs",
+    "tests/backend/Unit/AuthoringCanvasServiceRegistrationTests.cs",
+    "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs"
+  ],
+  "incrementPathCount": 22,
+  "masterAggregateDiffPathCount": 625,
+  "minimalModuleClosure": [
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.WritingAidPreferenceRoutes.cs",
+      "suppliedSource": "8208d5d456cec5393d779803164ee58c7891886a",
+      "gitBlob": "8b5711cee927bf190d2c3548ab5b3c8fdd283058",
+      "sha256": "49afed3d83d59cbe64503e922871206a75cb8886bad32e2d47cdcacc9ccf1010",
+      "byteExact": true
+    },
+    {
+      "path": "tests/backend/Unit/WritingAidPreferenceEndpointTests.cs",
+      "suppliedSource": "8208d5d456cec5393d779803164ee58c7891886a",
+      "gitBlob": "bad6aa8b9cc28f268beed36381f1616682e3982f",
+      "sha256": "db731598714372794fa313fa97aa1ecfd78cb8eb9780d78e53ad89702ca83afd",
+      "byteExact": true
+    },
+    {
+      "path": "tests/backend/Integration/WritingAidPreferenceEndpointPostgresTests.cs",
+      "suppliedSource": "8208d5d456cec5393d779803164ee58c7891886a",
+      "gitBlob": "28a98cf72a3e0fe157ccfefb3cda9f592d801519",
+      "sha256": "dc92bb8c846ee3555bb3372355c190a3204c6c39ed41050404fa30868ce316e2",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Interfaces/AuthorTypographyPreferencePorts.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "b44f2f4f85ff6a579be2c14941c8e4cca4574182",
+      "sha256": "5192a9dca485f3bbdb6a55f85f722d071af5f457c7204996d05dfd18ab319cd3",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Interfaces/WritingAidPreferencePorts.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "a36244740a84dca336853e9da93137346bd84577",
+      "sha256": "91f5f988e3736fa9e0d8a4309c3138375bc8b47bbdf99be4f9e0fb3829fd677d",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Services/UserLocalePreferenceService.AuthorTypography.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "a616c1c0964d5727fdf236f29aeb33638930139b",
+      "sha256": "c97ef00f93db96c5a9163b871ad65c2f413ebb0b2b35523612b9372624e2bde8",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Services/UserLocalePreferenceService.AuthoringPreferences.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "6ea22d568a1542ba507f3bfb1bc9eab4e6bad2c8",
+      "sha256": "a2f894c534e941b861c6fab57481bde511a9c403de28e09406a1779697bc1ef8",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Services/UserLocalePreferenceService.WritingAids.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "c6400528f5597d515983f2c231f34b530214102d",
+      "sha256": "aeec2f206e5ed39d0d5952e561483a62b9a297cfca18ab8467b102b18ae10f69",
+      "byteExact": true
+    },
+    {
+      "path": "src/backend/Services/UserLocalePreferenceService.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "ac01f56333930d6b5177cd415e2e77bf8f84d002",
+      "sha256": "ded2e58d2d4bf12b749155886670f01b5f0bdd06be990d6c2ea6c62f1ec57905",
+      "byteExact": true
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20261008WritingAidPreferences.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "da5183ffb1ff624a395bdb56f7369e637b0bb737",
+      "sha256": "8f3458418de166762d0ab6ea9cae2390da108aa61eb87c9abbed47b15c8c41b5",
+      "byteExact": true
+    },
+    {
+      "path": "src/migration/Definitions/WritingAidPreferenceMigrationDefinitions.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "e934857b9a5e77b8289cdf2af0545e6863d0ff54",
+      "sha256": "d17ad9bcade88bc2b2a855f8e83e1cd29ef874c11cb30ad8f54a3c40893202bd",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/AuthorTypography/AuthorTypographyCommandPolicy.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "6939b775c6d1a6da74b30824bfc3304388f2c8b0",
+      "sha256": "600048c31ef33d763b84ce1e9d95e2c5cecc356a2123a6c62a4c520aac142315",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/AuthorTypography/AuthorTypographyCommands.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "14d74908918f621aee228ff397ef635a9650ab8a",
+      "sha256": "5facb970ae16ba77ad8966260b83edf1ede9d9208cc3e20fa2eaa582b3b73809",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/AuthorTypography/AuthorTypographyContractValidator.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "a65ab5068ae5d299d9b91e96d75c7b0fdb011b6b",
+      "sha256": "e30baf0620bb39f6684cfebaa6d31db2fb2a1cf3b678ac07f24747e9577a3b3f",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/AuthorTypography/AuthorTypographyContracts.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "d243b66d2315f04965f4dcc95df9acda083b1264",
+      "sha256": "6b41371c224c60713c5ac6d2af7ceab6f5082082160dbb6df8e3a1567eafe5c6",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/AuthorTypography/AuthorTypographyRequestReplayPolicy.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "11a9b6ff7f6871a77c86bb33c91774bea96c2770",
+      "sha256": "d461e62b1dc6232ae6e4751de397d6eb5860dbf54ea125dfaca270124cb23387",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceContracts.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "45d511be96f6151dbdfd92c02cbd29f87182e51b",
+      "sha256": "20f0a6044486dd73197ce2f07b7a25699be4459f37ab1f99fcc6fdada4f249f3",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "184ea0dcaa1f2bd005d8e6c866a292283131884e",
+      "sha256": "d706651aeca0556b028774894c49537ca586b97cc954d920e7a4547927539818",
+      "byteExact": true
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceValidator.cs",
+      "suppliedSource": "1f03355ee5f4155d61303d5bb200960c205ac5bb",
+      "gitBlob": "dc6182d426fdf31a416151e90681ae312e6b3cdf",
+      "sha256": "0adbf08462290b90f78fd8963e4d73f2740add891bb6efe596d86e3a448dd8b3",
+      "byteExact": true
+    }
+  ],
+  "rootSharedChanges": [
+    "three writingaidports reuse existing scoped UserLocalePreferenceService",
+    "MapWritingAidPreferenceRoutes immediately after MapWorkspaceSnapshotRoutes",
+    "combined20261008 descriptor catalog retains property/workspace and adds originalWritingAid descriptor; existingCanvas-link catalog preserved",
+    "supplied WritingAid classification block appended; original catalog producer regenerates digest, no manualgeneratededit",
+    "originalDIcontrol verifies allthreeports sameactualserviceinstance"
+  ],
+  "retainedMigrationIds": [
+    "20261006-post-article-canvas-link-history",
+    "20261008-post-article-property-value-snapshots",
+    "20261008-post-authoring-workspace-snapshot",
+    "20261008-post-writing-aid-preferences"
+  ],
+  "originalProducer": {
+    "source": "tools/db/generate-offline-migration-catalog.mjs unchanged",
+    "runBinding": "actualprecommit combinedcandidate on parent776cf742; no execution qualification",
+    "log": "catalog-producer.log",
+    "classificationCount": 152,
+    "expandCount": 59,
+    "backfillCount": 1,
+    "legacyContractCount": 81,
+    "digest": "sha256:04cf09eb23c486090642b96f5588b1417528bd540d7be5d365e94ebf41657879",
+    "parityCurrentCommit": "dbac88a329e4e40a96b013a49f8443cbce9eeba3",
+    "parityExit": 0
+  },
+  "nativeThreeInputs": "exact4a2124d449f45e0cf653a76f0c01adcdca6109de ande4ac73dad845c71cc0f12027e3fc65ed0d5923cb; alreadybyteexact in frozenconsumer, no addednative diff",
+  "defaultServerBuild": {
+    "exit": 0,
+    "errors": 0,
+    "warnings": 330
+  },
+  "strictTestBuild": {
+    "exit": 1,
+    "errors": 1202,
+    "modifiedPathDiagnostics": 18,
+    "all18UnchangedInheritedClassificationLines": true,
+    "changedHunkAndSuppliedModuleDiagnostics": 0
+  },
+  "lockedAuditedRestore": {
+    "exit": 0,
+    "auditSettingsUnchanged": true,
+    "NU1903": 0
+  },
+  "whitespace": {
+    "exit": 0,
+    "rootSharedPaths": 5
+  },
+  "positiveSelection": {
+    "unitEndpoint": 30,
+    "postgresEndpoint": 3,
+    "originalRegistration": 1,
+    "totalRows": 34,
+    "bodiesExecuted": 0,
+    "executableDiscovery": "UNRUN after failed strictgate",
+    "alternateHarnessOrRelaxation": false
+  },
+  "readinessLimits": [
+    "Uniqueendpoint30unit+3PG controls UNRUN; no runtimeHTTP/Postgres acceptance",
+    "actualserververifieddevice authority missing; validmutationsrefuseGeneric503 beforecallingcommands",
+    "existingfrozenCanvas Owner usesprimary-site, so actualconfiguredsite/sessionfullpath qualification absent",
+    "fullfronttypes/nativebrowserUX/CI notrun",
+    "modernmasteraggregate/Graphfreshreader/currentmembershipclosure notcombined onthisconsumer; otherbranches stayfrozen"
+  ],
+  "heldOrDeniedWorkRetried": false,
+  "publication": "isolatedsourcepushed; parentsolePR/contentwriter; noPRURLclaimed",
+  "issues": {
+    "3735": "sourceWIP, runtimeHTTP/session/storageopen",
+    "3736": "sourceWIP, fulltypes/composition/renderedUXopen",
+    "3738": "sourceWIP, canonicalwriter supplied in separategraphbranch; currentgeneration/schema/edge-to-linkruntimeopen"
+  }
+}

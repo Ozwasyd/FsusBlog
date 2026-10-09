@@ -1,0 +1,20 @@
+{
+  "sourceCommit": "dbac88a329e4e40a96b013a49f8443cbce9eeba3",
+  "command": [
+    "bash",
+    "tools/build-with-data-env.sh",
+    "/tmp/chain-3735-tooling/dotnet/dotnet",
+    "build",
+    "src/backend/FsusBlog.Server.csproj",
+    "--no-restore",
+    "-v",
+    "minimal"
+  ],
+  "environment": {
+    "FSUSBLOG_DATA_ROOT": "/workspace/FsusBlog-writing-aid-composition/.tmp/writing-aid-composition/data",
+    "FSUSBLOG_DOTNET_DEPENDENCY_CACHE_ROOT": "/tmp/shared-authority-integration-cache"
+  },
+  "exitCode": 0,
+  "testBodiesExecuted": 0,
+  "log": "default-server-build.log"
+}
