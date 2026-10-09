@@ -51,9 +51,11 @@ internal sealed record ArticleGraphPersistedMetadataResult(
 /// transaction, connection and commit ownership. Awaiting command/reader disposal establishes
 /// completion before return; cancellation response and cleanup can still exceed the allocation.
 /// The existing SQL permission adapter does not pass cancellation to GetDataReaderAsync.
-/// Production admission remains unavailable until supplier command completion within the
-/// allocation and caller-connection custody are resolved for permission and coordinate reads.
-/// CancelAfter/token propagation and abandonment with WaitAsync cannot establish that contract.
+/// The allocation limits fact acceptance and requests cancellation; mandatory command/reader
+/// completion is awaited before relinquishing the borrowed client, even after that deadline.
+/// Cleanup is not promised to finish within the allocation. Production admission remains
+/// unavailable until supplier cancellation, completion and caller-connection custody are checked
+/// together with the original Graph orchestration. WaitAsync abandonment cannot establish that contract.
 /// </remarks>
 public sealed class SqlArticleGraphPersistedMetadataReader
 {

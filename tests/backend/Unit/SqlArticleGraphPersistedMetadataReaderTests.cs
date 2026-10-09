@@ -350,6 +350,40 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
         Assert.Equal(0, fixture.CoordinateReads);
     }
 
+    [Fact]
+    public async Task DeadlineRefusesFactsAfterAwaitingBorrowedReadCompletion()
+    {
+        var fixture = new Fixture();
+        var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationRequested = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool completed = false;
+        fixture.BeforeRows = async token =>
+        {
+            using CancellationTokenRegistration registration = token.Register(() => cancellationRequested.TrySetResult(true));
+            started.TrySetResult(true);
+            await releaseCompletion.Task.ConfigureAwait(false);
+            completed = true;
+        };
+        Task<ArticleGraphPersistedMetadataResult?> read = fixture.Reader.ReadAsync(Request([1]));
+        ArticleGraphPersistedMetadataResult? result = null;
+        try
+        {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await cancellationRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(read.IsCompleted);
+            Assert.False(completed);
+        }
+        finally
+        {
+            releaseCompletion.TrySetResult(true);
+            result = await read;
+        }
+        Assert.True(completed);
+        Assert.Null(result);
+        Assert.Equal(0, fixture.CoordinateReads);
+    }
+
     private static ArticleGraphPersistedMetadataRequest Request(int[] ids,
         ArticleGraphMetadataSelection selection = ArticleGraphMetadataSelection.Current)
         => new(s_owner, Guid.NewGuid(), ids.Select(id => new ArticleRelationArticleCoordinate(id, Identity(id))).ToArray(),
