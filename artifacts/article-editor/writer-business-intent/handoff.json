@@ -1,0 +1,48 @@
+{
+  "sourceBranch": "codex/chain-2246-writer-business-intent",
+  "base": "d953e820094c32a2f11d5cd5cfaf269a369e4b06",
+  "runtimeTestedSource": "77231d5f23ca1fbf28f3c804f32fdadd1809a8d0",
+  "suppliedRef": "b66ad3ea5e730236af0beba21f7bab39477c5004",
+  "suppliedImplementation": "ffacd1f062968a151ba4504b855eb65013a16c54",
+  "sourceImport": "1ff423836d0cc96306b5cc4dcc166fb121c69eb4",
+  "sourceAndTestsByteIdenticalToProducer": true,
+  "hostMethod": "authoringAttachmentRuntime.bindBusinessIntent(originalPendingHandle)",
+  "hostCount": 40,
+  "hostResults": {
+    "passed": 40,
+    "failed": 0,
+    "pending": 0,
+    "todo": 0,
+    "runStartUtcMs": 1791541232441
+  },
+  "producer21": "NOT RUN: positive discovery blocked by unresolved fsusui import; no positive-list artifact, no fake alias",
+  "producerOwningLint": "FAILED:9 source findings plus3 original baseline digests; canonical1975 correction pending",
+  "hostLint": "FAILED:3 original baseline digests only",
+  "applicationTypes": {
+    "before": 232,
+    "after": 232,
+    "added": 0,
+    "removed": 0,
+    "exitCode": 2
+  },
+  "currentTransportOwner": "3735",
+  "referenceCleanupAuthority": "missing; fail closed; no grant/receipt fabricated",
+  "commitContract": "PASS source range d953..77231",
+  "whitespace": "PASS",
+  "wholeChainComplete": false,
+  "issueStatus": {
+    "2246": "partial; terminal acceptance open",
+    "2250": "partial; terminal acceptance open",
+    "2253": "partial; terminal acceptance open",
+    "2256": "partial; terminal acceptance open",
+    "2280": "partial; terminal acceptance open",
+    "2282": "partial; terminal acceptance open",
+    "2284": "partial; terminal acceptance open",
+    "2286": "partial; terminal acceptance open",
+    "2287": "partial; terminal acceptance open"
+  },
+  "tracking1809": "OPEN: aggregate evidence only; full child/runtime gates pending",
+  "contentAPIWrites": false,
+  "draftPRCreated": false,
+  "rawEvidencePath": "/workspace/FsusBlog-writer-business-intent-2246/.tmp/chain-2246/writer-business-intent"
+}
