@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/release-final-execution-authority-index.json"
+            ],
+            "reason": "Preserve the canonical execution-authority JSON keys for the existing ordinary blame metadata handler and the exact unchanged format-parser load declaration; regenerated output binds this candidate without changing planner or parser behavior."
+        }
+    ]
+}

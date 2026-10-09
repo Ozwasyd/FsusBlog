@@ -1,0 +1,18 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/blame-ignore-source.test.mjs",
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tools/test-matrix/blame-ignore-source.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs",
+        "config/testing/release-final-execution-authority-index.json",
+        "tests/tools/release-final-static-boundary.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "80eea54566cee6570592bc2ceff7e23e4bd3466e6b3191ec262570601cade0ba"
+        }
+    ]
+}
