@@ -1,11 +1,19 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
+
 import {
     createMarkdownEditorProjection,
     createMarkdownSourceCoordinateMap,
     stabilizeMarkdownEditorProjection,
     type MarkdownEditorProjectionResult
 } from '@ozwasyd/element-plus/markdown-runtime';
+
+import {
+    projectThreeWaySource,
+    verifyThreeWaySourceProjection,
+    type ThreeWaySourceProjectionInput,
+    type ThreeWaySourceProjectionResult
+} from '@/services/articleVault/threeWaySourceProjectionAdapter';
 
 /** Pure computation only. The Shared process-owned admission proof has no frontend transport yet. */
 export interface ParagraphSourceBytes {
@@ -79,6 +87,23 @@ export type ParagraphSourceResult =
     }
     | { readonly kind: 'rejected'; readonly reasonCode: string; readonly diagnostics: readonly ParagraphSourceSyntaxDiagnostic[]; };
 
+/** Value-bound composition only; the host still owns verified-input transport and admission. */
+export interface ProjectedParagraphSourceCandidate {
+    readonly algorithmVersion: typeof projectedAlgorithmVersion;
+    readonly projection: ThreeWaySourceProjectionResult;
+    readonly paragraph: ParagraphSourceCandidate;
+    readonly contentSha256: string;
+}
+
+export type ProjectedParagraphSourceResult =
+    | { readonly kind: 'computed'; readonly candidate: ProjectedParagraphSourceCandidate; }
+    | {
+        readonly kind: 'manual' | 'rejected'; readonly projection: ThreeWaySourceProjectionResult;
+        readonly paragraph: ParagraphSourceResult | null;
+    };
+
+const projectedAlgorithmVersion = 'fsusblog.article-vault.projected-paragraph-computation.v1';
+
 const algorithmVersion = 'fsusblog.article-vault.paragraph-byte-computation.v1';
 const policySha256 = hash(new TextEncoder().encode(JSON.stringify([
     algorithmVersion, 'canonical-public-projection', 'paragraph-only', 'same-base-node-manual',
@@ -110,6 +135,80 @@ interface ThreeSnapshots {
     readonly base: Snapshot;
     readonly local: Snapshot;
     readonly server: Snapshot;
+}
+
+/** Canonical projection may restrict the original paragraph computation, never widen its eligibility. */
+export function computeProjectedParagraphSourceMerge(input: ThreeWaySourceProjectionInput): ProjectedParagraphSourceResult
+{
+    const held = holdProjectionBytes(input);
+    const projection = projectThreeWaySource(held);
+    if (projection.kind !== 'projected')
+    {
+        return { kind: projection.kind, projection, paragraph: null };
+    }
+    if (!verifyThreeWaySourceProjection(held, projection))
+    {
+        return { kind: 'rejected', projection, paragraph: null };
+    }
+    const paragraph = computeParagraphSourceMerge(held.bytes);
+    if (paragraph.kind !== 'computed')
+    {
+        return { kind: paragraph.kind, projection, paragraph };
+    }
+    if (!verifyParagraphSourceCandidate(held.bytes, paragraph.candidate))
+    {
+        return { kind: 'rejected', projection, paragraph: null };
+    }
+    return {
+        kind: 'computed', candidate: {
+            algorithmVersion: projectedAlgorithmVersion, projection, paragraph: paragraph.candidate,
+            contentSha256: projectedCandidateDigest(projection.contentSha256, paragraph.candidate.contentSha256)
+        }
+    };
+}
+
+/** Fresh canonical projection and the original independent byte/hunk verifier both have to agree. */
+export function verifyProjectedParagraphSourceCandidate(input: ThreeWaySourceProjectionInput, supplied: unknown): boolean
+{
+    try
+    {
+        const fields = readOwnData(supplied, ['algorithmVersion', 'projection', 'paragraph', 'contentSha256']);
+        if (fields?.algorithmVersion !== projectedAlgorithmVersion || typeof fields.contentSha256 !== 'string')
+        {
+            return false;
+        }
+        const held = holdProjectionBytes(input);
+        const fresh = projectThreeWaySource(held);
+        // Read supplied nested candidates only through the original descriptor-based verifiers.
+        const paragraph = readClosedCandidate(fields.paragraph, 256);
+        return fresh.kind === 'projected' && paragraph !== null
+            && verifyThreeWaySourceProjection(held, fields.projection)
+            && verifyParagraphSourceCandidate(held.bytes, paragraph)
+            && fields.contentSha256 === projectedCandidateDigest(fresh.contentSha256, paragraph.contentSha256);
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+function holdProjectionBytes(input: ThreeWaySourceProjectionInput): ThreeWaySourceProjectionInput
+{
+    if (!input?.bytes || !(input.bytes.base instanceof Uint8Array) || !(input.bytes.local instanceof Uint8Array)
+        || !(input.bytes.server instanceof Uint8Array)
+        // Oversized inputs go directly to the canonical adapter's refusal without an extra allocation.
+        || [input.bytes.base, input.bytes.local, input.bytes.server].some(bytes => bytes.byteLength > 131072))
+    {
+        return input;
+    }
+    return { ...input, bytes: {
+        base: input.bytes.base.slice(), local: input.bytes.local.slice(), server: input.bytes.server.slice()
+    } };
+}
+
+function projectedCandidateDigest(projectionSha256: string, paragraphSha256: string): string
+{
+    return hash(new TextEncoder().encode(JSON.stringify([projectedAlgorithmVersion, projectionSha256, paragraphSha256])));
 }
 
 /** No plan fields, asserted verified flags, storage, writer or coordinate-admission result. */
