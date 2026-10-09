@@ -225,6 +225,7 @@ const handlePasskeyLogin = () => loginWithPasskey(rememberMe.value);
  {
     align-items: flex-start;
     height: auto;
+    min-height: var(--fsus-control-height);
     min-width: 0;
 }
 
