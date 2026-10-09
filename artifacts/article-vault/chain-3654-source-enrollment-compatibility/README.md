@@ -1,6 +1,7 @@
 # Complete repaired enrollment closure for the original Vault consumer
 
-Current reviewed-source return: `b4f0e8f5019253e5e937d4b07d6231f3a1b22d80`.
+Current source return: `2028188e5868c414894815ffefcb0d8ab2e78a5b`.
+Prior complete 27-path source and build/admission evidence: `b4f0e8f5019253e5e937d4b07d6231f3a1b22d80`.
 Exact consumer baseline: `abb28c41213f6ea506a6b4dcb64f30b7451384b7`.
 Original consumer implementation: `08dbbac2bb522ca7f6b2433c02acbb60490149f0`.
 Published branch: `task/3654-vault-enrollment-compatibility`.
@@ -143,3 +144,45 @@ listed. This establishes unchanged consumer source, not c46 equality or absence.
 The smallest next handoff is the exact c46 full SHA and reviewed matrix/bundle blob
 roster, plus canonical toolchain/authority owner evidence for actual parser identity.
 All thirteen database controls remain UNRUN and all chain acceptances remain OPEN.
+
+
+## Original lifecycle fixture header correction
+
+Source commit `2028188e5868c414894815ffefcb0d8ab2e78a5b`, based on
+`3d5c7987a52d527c0a34fcb423695fc5fba25621`, moves only the existing
+`FsusBlog.Migration.Definitions` using after the Contracts/Core imports in
+`CanonicalArticleLifecycleFixturePortIntegrationTests.cs`. The unchanged official
+CSharp formatter produced this change. All ordinary using directives and every
+byte from namespace onward remain unchanged. Existing requests and assertions
+remain exact. This one-file source increment follows the three source increments
+above; no inherited history or new implementation is required.
+
+Two actual passes of the command below exit 0: the first corrects one file, the
+second corrects zero files.
+
+```sh
+node tools/dotnet/check-csharp-style.mjs --fix --mode changed --file tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs
+```
+
+Both original scoped whitespace/style checks pass; both file-tree digests are
+`9b399561b4b7c491144c852052101443f176d5af918ecb7739175e808c8b508b`.
+Separate commit `efa320062d622a5d45f64b5762da9846c7655b06` records genuine
+idempotence evidence and registers the source commit in `.git-blame-ignore-revs`.
+
+The original incremental format-history gate at efa320062 exits 1:
+
+```text
+[change-contract] 2028188e5868c414894815ffefcb0d8ab2e78a5b: Format-only diff changes non-whitespace or quoted-value tokens: tests/backend/Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs
+```
+
+This is a retained qualification failure, separate from the two scoped style
+passes. No current checker, policy, equivalence rule or baseline changed, and no
+unpromoted using-equivalence proposal was consumed. The gate argv, exact tested
+HEAD, times, exit code and message are in `lifecycle-using-order-handoff.json` and
+`artifacts/style/chain-3654-lifecycle-using-order-idempotence.json`.
+
+No DB control, build, preflight, SDK probe or broader test reran for this header
+correction. Prior build/admission receipts remain bound to b4f0e8f50, and thirteen
+DB controls remain UNRUN. Return this exact mechanical source plus the genuine
+failed qualification record to the same reviewer through the coordinator; all
+fifteen issue acceptances remain OPEN.
