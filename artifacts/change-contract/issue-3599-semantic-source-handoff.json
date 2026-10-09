@@ -1,0 +1,506 @@
+{
+    "type": "ordinary source handoff; no runtime or admission authority",
+    "createdUTC": "2026-10-09T08:39:36.880276+00:00",
+    "issue": 3599,
+    "status": "OPEN / source increments published; independent semantic review and full scheduler/native qualification unresolved",
+    "branch": "task/3599-review-semantic-controls",
+    "sourceBase": "7ee86f9792d580223106fe776cc460ad180b3a3a",
+    "latestObservedMaster": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+    "commits": {
+        "R4": "c060bcf21babcce16c0ce2fe4274bb8cbb211337",
+        "R3": "f0b073eeb8361011e1f3a970ac5ff6c36b414792",
+        "originalProducerOutput": "2c2270adcb67293d75958a6908aaf9f4d249494a",
+        "ordinaryV1Binding": "599d03c95fedfb793ba27ee37c3bcf88cb4ff892"
+    },
+    "testBinding": {
+        "actualExecutionParent": "c060bcf21babcce16c0ce2fe4274bb8cbb211337",
+        "actualExecutionWorktree": "three task-owned source/test changes, subsequently committed byte-identically as R3; no clean-head full acceptance claim",
+        "byteIdenticalCommittedSource": "f0b073eeb8361011e1f3a970ac5ff6c36b414792",
+        "sha256": {
+            "tools/check-gate-integrity.sh": "bf9e24d61c2fc75d6e669f073f51dce7fa7d4b00dbaf3222fce3ba3fbafd08ed",
+            "tools/yaml/parse-document.mjs": "ac2949a70fbb0d6b7308f195def1029ec264e2017ddd30af84db380a72e80cea",
+            "tests/tools/yaml-consumer-style.test.mjs": "2d484a1b102266398f6851c9b657d1d9abc950e037f658caf40b36669c68cdda"
+        },
+        "node": "v24.16.0",
+        "ordinaryCases": [
+            {
+                "name": "plain",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "single-quoted YAML",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "double-quoted YAML",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "trailing YAML comment",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "folded adjacent lines",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "folded interior blank",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "folded shell comment",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "literal separate lines",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "disabled step",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "enabled step",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "dynamic step condition",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "unbound owner substring",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "direct canonical route",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "disabled job",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "dynamic job condition",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "folded matrix comment",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "wrong matrix command",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "renamed tier",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "quoted duplicate tier",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "duplicate command field",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "renamed workflow job",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "'tools/run-test-matrix.mjs' validate",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "'tools/run-test-matrix.mjs' preflight",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "'tools/run-test-matrix.mjs' evidence-plan",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "\"tools/run-test-matrix.mjs\" validate",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "\"tools/run-test-matrix.mjs\" preflight",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "\"tools/run-test-matrix.mjs\" evidence-plan",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "tools/'run-test-matrix'.mjs validate",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "tools/'run-test-matrix'.mjs preflight",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "tools/'run-test-matrix'.mjs evidence-plan",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "tools/run-test-matri\\x.mjs validate",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "tools/run-test-matri\\x.mjs preflight",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "tools/run-test-matri\\x.mjs evidence-plan",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "quoted argv",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "longer subcommand",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "shell comment",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "empty argv word",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "shell separator",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            },
+            {
+                "name": "disabled duplicate owner",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "nonbreaking workflow prefix",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "nonbreaking workflow suffix",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "nonbreaking matrix prefix",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "nonbreaking matrix suffix",
+                "expectedExit": 1,
+                "actualExit": 1,
+                "passed": true
+            },
+            {
+                "name": "nonbreaking argv separator",
+                "expectedExit": 0,
+                "actualExit": 0,
+                "passed": true
+            }
+        ],
+        "pureYamlTAP": "TAP version 13\n# Subtest: matrix parser follows structural indentation and all supported sequence forms\nok 1 - matrix parser follows structural indentation and all supported sequence forms\n  ---\n  duration_ms: 5.256681\n  type: 'test'\n  ...\n# Subtest: structured YAML parser rejects misalignment, duplicate keys and unfinished flow lists\nok 2 - structured YAML parser rejects misalignment, duplicate keys and unfinished flow lists\n  ---\n  duration_ms: 0.450199\n  type: 'test'\n  ...\n# Subtest: workflow needs parser accepts inline, block and multiline flow sequences\nok 3 - workflow needs parser accepts inline, block and multiline flow sequences\n  ---\n  duration_ms: 1.266225\n  type: 'test'\n  ...\n# Subtest: structured YAML parser preserves ordinary block scalar semantics\nok 4 - structured YAML parser preserves ordinary block scalar semantics\n  ---\n  duration_ms: 1.441263\n  type: 'test'\n  ...\n# Subtest: matrix parser preserves ordinary folded command values\nok 5 - matrix parser preserves ordinary folded command values\n  ---\n  duration_ms: 3.647387\n  type: 'test'\n  ...\n1..5\n# tests 5\n# suites 0\n# pass 5\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 123.461094\n",
+        "sourceChecks": {
+            "runId": "3599-r3-2026-10-09T08:28:11.540488+00:00",
+            "priorWrapperFailure": "exit 1 after all five test callbacks exited 0; expected TAP summary on default spec reporter",
+            "commands": [
+                {
+                    "name": "five-pure-yaml-tap",
+                    "argv": [
+                        "/workspace/scratch/fsusblog-3599-authority-tools/node-v24.16.0-linux-x64/bin/node",
+                        "--test",
+                        "--test-reporter=tap",
+                        "--test-name-pattern",
+                        "^(matrix\\ parser\\ follows\\ structural\\ indentation\\ and\\ all\\ supported\\ sequence\\ forms|structured\\ YAML\\ parser\\ rejects\\ misalignment,\\ duplicate\\ keys\\ and\\ unfinished\\ flow\\ lists|workflow\\ needs\\ parser\\ accepts\\ inline,\\ block\\ and\\ multiline\\ flow\\ sequences|structured\\ YAML\\ parser\\ preserves\\ ordinary\\ block\\ scalar\\ semantics|matrix\\ parser\\ preserves\\ ordinary\\ folded\\ command\\ values)$",
+                        "tests/tools/yaml-consumer-style.test.mjs"
+                    ],
+                    "exitCode": 0
+                },
+                {
+                    "name": "eslint",
+                    "argv": [
+                        "/workspace/scratch/fsusblog-3599-authority-tools/node-v24.16.0-linux-x64/bin/node",
+                        "tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js",
+                        "--config",
+                        "tools/frontend/style-toolchain/eslint.config.mjs",
+                        "--max-warnings",
+                        "0",
+                        "tools/yaml/parse-document.mjs",
+                        "tests/tools/yaml-consumer-style.test.mjs"
+                    ],
+                    "exitCode": 0
+                },
+                {
+                    "name": "diff-check",
+                    "argv": [
+                        "git",
+                        "diff",
+                        "--check"
+                    ],
+                    "exitCode": 0
+                }
+            ],
+            "cleanup": "empty"
+        },
+        "otherSyntaxCommands": [
+            {
+                "argv": [
+                    "bash",
+                    "-n",
+                    "tools/check-gate-integrity.sh"
+                ],
+                "exitCode": 0
+            },
+            {
+                "argv": [
+                    "node",
+                    "--check",
+                    "tools/yaml/parse-document.mjs"
+                ],
+                "exitCode": 0
+            },
+            {
+                "argv": [
+                    "node",
+                    "--check",
+                    "tests/tools/yaml-consumer-style.test.mjs"
+                ],
+                "exitCode": 0
+            }
+        ],
+        "fixtureCleanup": "empty",
+        "preflight": "all seven top-level test names inspected; only exact five pure parser names selected; no hooks; last two subprocess consumer callbacks excluded",
+        "retainedNegativeExecution": "first command wrapper exited 1 after test subprocess exited 0 because it expected TAP on the default spec reporter. Original spec stdout and stderr are preserved below. Explicit TAP followup confirmed exactly five passes, zero failed/cancelled/skipped.",
+        "firstReporterStdout": "\u2714 matrix parser follows structural indentation and all supported sequence forms (4.613108ms)\n\u2714 structured YAML parser rejects misalignment, duplicate keys and unfinished flow lists (0.524994ms)\n\u2714 workflow needs parser accepts inline, block and multiline flow sequences (0.864383ms)\n\u2714 structured YAML parser preserves ordinary block scalar semantics (1.168428ms)\n\u2714 matrix parser preserves ordinary folded command values (2.874124ms)\n\u2139 tests 5\n\u2139 suites 0\n\u2139 pass 5\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 189.310251\n",
+        "firstReporterStderr": ""
+    },
+    "canonicalGeneration": {
+        "runId": "3599-r3-canonical-2026-10-09T08:29:41.432301+00:00",
+        "candidateSourceSHA": "f0b073eeb8361011e1f3a970ac5ff6c36b414792",
+        "nodeVersion": "v24.16.0",
+        "argv": [
+            "/workspace/scratch/fsusblog-3599-authority-tools/node-v24.16.0-linux-x64/bin/node",
+            "tools/test-matrix/generate-release-final-execution-authority.mjs"
+        ],
+        "producerSourceUnchangedFrom": "7ee86f9792d580223106fe776cc460ad180b3a3a",
+        "auditedEntry": "writeReleaseFinalExecutionAuthority -> parse/validate declarations -> original AST dependency inspection -> owned fixture write; child command strings parsed, never run",
+        "excluded": [
+            "SOURCE",
+            "held Git replacement",
+            "receipt/admission",
+            "native/scheduler suites"
+        ],
+        "exitCode": 0,
+        "finishedAt": "2026-10-09T08:33:06.008332+00:00",
+        "outputSHA256": "f6a5326b3d7fb2d4bf3991aeb3bd1315277e2e7bd1396176985178a4e7c27e3a"
+    },
+    "projectionComparison": {
+        "outputSHA256": "f6a5326b3d7fb2d4bf3991aeb3bd1315277e2e7bd1396176985178a4e7c27e3a",
+        "targets": 102,
+        "closureFiles": 1128,
+        "onlyDigestFieldsChanged": true,
+        "changes": [
+            {
+                "group": "closureFiles",
+                "path": "tools/check-gate-integrity.sh",
+                "field": "contentDigest",
+                "old": "sha256:b91205c6e067d66029845498bbb634292e2b4cd52d7044878ab11bb9e722aef3",
+                "new": "sha256:bf9e24d61c2fc75d6e669f073f51dce7fa7d4b00dbaf3222fce3ba3fbafd08ed"
+            },
+            {
+                "group": "closureFiles",
+                "path": "tools/check-gate-integrity.sh",
+                "field": "indexDigest",
+                "old": "sha256:b91205c6e067d66029845498bbb634292e2b4cd52d7044878ab11bb9e722aef3",
+                "new": "sha256:bf9e24d61c2fc75d6e669f073f51dce7fa7d4b00dbaf3222fce3ba3fbafd08ed"
+            },
+            {
+                "group": "closureFiles",
+                "path": "tools/yaml/parse-document.mjs",
+                "field": "contentDigest",
+                "old": "sha256:203c90274d01f2ef0c6e9f16e32dc74b994e9696cda53ba3d21226a28c27e347",
+                "new": "sha256:ac2949a70fbb0d6b7308f195def1029ec264e2017ddd30af84db380a72e80cea"
+            },
+            {
+                "group": "closureFiles",
+                "path": "tools/yaml/parse-document.mjs",
+                "field": "indexDigest",
+                "old": "sha256:203c90274d01f2ef0c6e9f16e32dc74b994e9696cda53ba3d21226a28c27e347",
+                "new": "sha256:ac2949a70fbb0d6b7308f195def1029ec264e2017ddd30af84db380a72e80cea"
+            }
+        ]
+    },
+    "consumerCompatibility": {
+        "observationUTC": "2026-10-09T08:37:29.507311+00:00",
+        "consumer": "10d905813fe34f248099d69eb24ec0b81225a1f6",
+        "suppliedFrozenPlanningTree": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+        "sourceOnlyPlanningOrigin": "52fd929fcdc50f5b335f17bd927c1ad53fdf901b",
+        "sourceConsumerFunction": "function printPlan(tiers)",
+        "frozenFunction": "export function printPlan(tiers, matrix = null, planningMetadata = null)",
+        "consumerMissing": [
+            "tools/test-matrix/required-evidence-dependencies.mjs",
+            "tests/tools/required-evidence-dependencies.test.mjs"
+        ],
+        "actualRequiredPlanningClosure": [
+            "tools/test-matrix/required-evidence-dependencies.mjs",
+            "tools/test-matrix/release-final-evidence-contract.mjs requiredEvidenceDependencies/contentDigest source hunks",
+            "tools/run-test-matrix.mjs original required-evidence imports and projection source hunks",
+            "tests/tools/required-evidence-dependencies.test.mjs original controls subject to separate non-empty preflight"
+        ],
+        "existingCatalogAndDirectDependenciesByteIdentical": [
+            {
+                "path": "tools/test-matrix/required-evidence-catalog.mjs",
+                "sha256": "62fae8ed7b0c82fe2ae029bd0d7b8f1f63f742a0abdc71200b08de89d012a53e"
+            },
+            {
+                "path": "config/testing/required-evidence-authority-ledger.json",
+                "sha256": "330cb3c156529a9f7be1a7dce7484cbcf4184bdbc32ccb36e637ce692517e18a"
+            },
+            {
+                "path": "tools/fact-extractors/identity.mjs",
+                "sha256": "f5a45ff84b254e2e55b5a49ed3aa3d5b3d7b48ea3b54ad344b2b6e0733a0a1fe"
+            },
+            {
+                "path": "tools/test/evidence-location-contract.mjs",
+                "sha256": "f27aa3990261faf03888afec9cc6fc84c5a454e8bd1db70359344dc076fb3db9"
+            }
+        ],
+        "existingSourceHistoryReference": "521271ba53077c6f498bdd8254a19581847899ca (read only; no guessed consumption or branch push)",
+        "generatedAuthorityTreatment": "regenerate from actual source using its original indexed producer after authorized source composition; never copy frozen output/binding bytes",
+        "status": "compatibility preflight blocked; no consumer tree mutation or runtime claim",
+        "excluded": [
+            "second planning helper",
+            "copied stale authority",
+            "whole catalog implementation duplication",
+            "broad matrix or held audit/test execution"
+        ]
+    },
+    "remaining": {
+        "R1": "Full report/input not available from original reviewer thread; no guessed expression parser or replacement harness",
+        "R2": "Full report/input not available from original reviewer thread; no reconstructed held repro",
+        "R3": "Ordinary whitespace source repaired and focused controls passed; full independent reviewer acceptance pending",
+        "R4": "Registered shared parser surface declared; original naming acceptance checker not run under held boundary",
+        "reviewerThread": "01a11b69-c361-7552-8ee2-adacf46db01d",
+        "reviewerTurn": "01a11c17-14a9-75df-acdb-7711647b3869",
+        "smallestNextAction": "Coordinator relays full R1/R2 report, exact input/expected behavior and permitted existing control names to this original session",
+        "fullAcceptance": "NOT RUN / OPEN: broad SOURCE, scheduler/native, held Git replacement, receipt/admission/history, lease/native integration audits; no old receipt promoted"
+    },
+    "publication": "Git source branch only. Root/coordinator owns GitHub metadata writes; no PR/issue/comment mutation, no merge/auto-merge/master push/issue closure/deployment.",
+    "canonicalFixedPoint": {
+        "runId": "3599-r3-final-binding-2026-10-09T08:36:07.196272+00:00",
+        "head": "599d03c95fedfb793ba27ee37c3bcf88cb4ff892",
+        "argv": [
+            "/workspace/scratch/fsusblog-3599-authority-tools/node-v24.16.0-linux-x64/bin/node",
+            "tools/test-matrix/generate-release-final-execution-authority.mjs"
+        ],
+        "outputSHA256Before": "f6a5326b3d7fb2d4bf3991aeb3bd1315277e2e7bd1396176985178a4e7c27e3a",
+        "preflight": "original call chain still unchanged; same scoped generator only",
+        "heldPathsInvoked": false,
+        "exitCode": 0,
+        "finishedAt": "2026-10-09T08:39:45.407879+00:00",
+        "sameBytes": true,
+        "gitDiffExitCode": 0,
+        "cleanupEmpty": true
+    },
+    "preparedDraftPR": {
+        "title": "fix(governance): preserve literal whitespace in scheduler gate binding",
+        "base": "master",
+        "headBranch": "task/3599-review-semantic-controls",
+        "draft": true,
+        "labels": [
+            "release-note:internal",
+            "governance"
+        ],
+        "body": "## Linked Issue\n\nRefs #3599\n\n## Scope Summary\n\nPreserve NBSP and other non-separator scalar content when checking the exact scheduler-owned command. Declare the registered shared parser naming surface. Retain all original ordinary fixtures and regenerate the current canonical authority with its unchanged producer and independent index.\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast`\n- [ ] Targeted backend tests:\n- [ ] Targeted frontend checks:\n- [x] Other: Node 24.16.0 ordinary parser self-test 44/44; exact five pure YAML parser names 5/5, zero failed/cancelled/skipped; Bash/Node syntax; original ESLint config with zero warnings. Tested source bytes were committed unchanged as f0b073eeb8361011e1f3a970ac5ff6c36b414792. Unchanged canonical producer exit 0; repeat on exact 599d03c95fedfb793ba27ee37c3bcf88cb4ff892 produced identical bytes and clean diff. Portable command output and source identities: artifacts/change-contract/issue-3599-semantic-source-handoff.json.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/issue-3599-candidate-authority-external-naming.json\n\n## Documentation / Intent\n\n- [x] Public API docs updated\n- [x] Ownership/security/performance intent updated\n- [x] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [x] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: performance, runtime scheduling, receipts and qualification.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve literal whitespace in scheduler gate binding\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh, tools/yaml/parse-document.mjs, tools/package.json\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\n## Rollout / Rollback\n\n- Rollout: draft review only; no merge, baseline promotion or deployment authority.\n- Rollback: revert this ordinary source/output increment together if it introduces a regression; retain the original negative controls and independent index.\n- Deferred work: full R1/R2 report, semantic repairs and independent review; authorized compatible planning source composition; full original scheduler/native qualification.\n- Known limitations: source controls and generation do not establish runtime or admission acceptance. The first test wrapper failed on a reporter-format assertion after the test subprocess passed; its output remains in the portable observation. Exact TAP followup confirmed five tests. Original naming acceptance checker and all held suites remain unrun.\n\n## Notes For Reviewers\n\nNo C#, UI, API, AEDS, database, auth or product implementation changed in this branch. These review items are not applicable; documentation records the internal source handoff and unresolved gates. No new TODO/FIXME was introduced. This fixes implementation handling of YAML/Bash separator characters without changing the intended public contract.\n\nThe preceding formatter stage and its frozen idempotence artifacts remain historical stage evidence. d162c80554b9426a9b23e07664c102fc38401037 still needs actual independent review before any blame-ignore registration; semantic and import commits are not format-only.\n\nPreserve existing canonical owners, all original refusal expectations, the complete 102-target/1128-member closure, every registered source/output and independent parser/index identity. R3/R4 source increments await the original independent review; R1/R2 are unresolved because the full report from thread 01a11b69-c361-7552-8ee2-adacf46db01d has not been supplied to this session. No generated-only, history, receipt or admission gate is weakened.\n\nRoot/coordinator is the sole GitHub content writer. This is a prepared draft payload, not an opened or updated PR. Confirm the actual remote branch head including this observation before publishing metadata. Related to https://github.com/Ozwasyd/FsusBlog/issues/3599.\n",
+        "headInstruction": "Coordinator must resolve the actual remote head including this observation; candidate source/generation evidence remains bound to the explicit tested heads above."
+    }
+}
