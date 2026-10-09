@@ -1378,7 +1378,7 @@ tiers:
       defaultShards: 1
       risk: critical
       cadence: pr
-      requiredFor: none
+      requiredFor: fast
       coverage: []
       artifacts: []
       evidence: []
@@ -1420,7 +1420,7 @@ tiers:
       defaultShards: 1
       risk: critical
       cadence: pr
-      requiredFor: none
+      requiredFor: fast
       coverage: []
       artifacts: [.tmp/source-governance/result.json]
       evidence: []
