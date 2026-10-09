@@ -4,12 +4,14 @@ using System.Text;
 
 namespace FsusBlog.Shared.Contracts.ArticleProperties;
 
+/// <summary>Chooses complete value-set replacement or an explicit change set for the current article.</summary>
 public enum ArticlePropertyValueMutationMode : byte
 {
     Replace = 0,
     Patch = 1
 }
 
+/// <summary>Identifies creation, update or removal of one definition-bound article property value.</summary>
 public enum ArticlePropertyValueChangeKind : byte
 {
     Create = 0,
@@ -17,6 +19,7 @@ public enum ArticlePropertyValueChangeKind : byte
     Remove = 2
 }
 
+/// <summary>Pairs an explicit change kind with its typed input and definition revision/digest coordinates.</summary>
 public sealed record ArticlePropertyValueChange(
     ArticlePropertyValueChangeKind Kind,
     ArticlePropertyValueInput Input);
@@ -41,6 +44,7 @@ public sealed record ArticlePropertyValuePersistedSnapshot(
     string AuditChainId,
     string AuditRecordHash);
 
+/// <summary>Records the authorized actor, request, revision transition, persisted snapshots and audit chain for a mutation or its idempotent replay.</summary>
 public sealed record ArticlePropertyValueMutationReceipt(
     Guid ReceiptId,
     long ActorAdminPrincipalId,
