@@ -129,88 +129,30 @@ import { computed, nextTick, ref, useId, watch } from 'vue';
 
 import { FsusUiDialog, fsusDialogWidths } from '@/fsusui/dialog';
 
-/** Presentation only: the host admits labels and identities and owns each opaque action.
- * Null or undefined actions remain unavailable. These types are not a transport DTO.
- */
-export interface InternalLinkPickerArticle {
-    id: string;
-    revision: string;
-    title: string;
-    statusText: string | null;
-    updatedText: string | null;
-    unavailableText: string | null;
-    selectAction: unknown;
-    headingsAction: unknown;
-}
+import type {
+    InternalLinkPickerArticle,
+    InternalLinkPickerCancellation,
+    InternalLinkPickerEmits,
+    InternalLinkPickerHeading,
+    InternalLinkPickerProps
+} from './ArticleInternalLinkPicker.types';
 
-/** Heading IDs and revisions are supplied by the owner, never derived from labels. */
-export interface InternalLinkPickerHeading {
-    id: string;
-    revision: string;
-    title: string;
-    unavailableText: string | null;
-    selectAction: unknown;
-}
+export type {
+    InternalLinkPickerArticle,
+    InternalLinkPickerCancellation,
+    InternalLinkPickerEmits,
+    InternalLinkPickerHeading,
+    InternalLinkPickerHeadingRequest,
+    InternalLinkPickerHeadingResult,
+    InternalLinkPickerProps,
+    InternalLinkPickerSearchRequest,
+    InternalLinkPickerSearchResult,
+    InternalLinkPickerSelection,
+    InternalLinkPickerState
+} from './ArticleInternalLinkPicker.types';
 
-export type InternalLinkPickerState = 'loading' | 'ready' | 'error' | 'cancelled';
-
-export interface InternalLinkPickerSearchResult {
-    requestKey: string;
-    state: InternalLinkPickerState;
-    articles: readonly InternalLinkPickerArticle[];
-    /** Only caller-admitted, safe display copy; raw transport errors do not belong here. */
-    message: string | null;
-}
-
-export interface InternalLinkPickerHeadingResult {
-    requestKey: string;
-    articleId: string;
-    articleRevision: string;
-    state: InternalLinkPickerState;
-    headings: readonly InternalLinkPickerHeading[];
-    message: string | null;
-}
-
-const props = defineProps<{
-    modelValue: boolean;
-    /** Change this when the host's command/selection context is replaced. */
-    sessionKey: string;
-    searchResult: InternalLinkPickerSearchResult | null;
-    headingResult: InternalLinkPickerHeadingResult | null;
-    /** Exact owner-provided current-selection diagnostic; null alone means no diagnostic. */
-    selectionUnavailableText: string | null;
-}>();
-
-const emit = defineEmits<{
-    'update:modelValue': [value: boolean];
-    'request-search': [request: { sessionKey: string; requestKey: string; query: string; }];
-    'request-headings': [request: {
-        sessionKey: string;
-        requestKey: string;
-        articleId: string;
-        articleRevision: string;
-        action: unknown;
-    }];
-    select: [selection: {
-        sessionKey: string;
-        searchRequestKey: string;
-        headingRequestKey: string | null;
-        articleId: string;
-        articleRevision: string;
-        headingId: string | null;
-        headingRevision: string | null;
-        action: unknown;
-    }];
-    cancel: [cancellation: {
-        sessionKey: string;
-        scope: 'picker' | 'search' | 'headings';
-        reason: 'dismiss' | 'replace-search' | 'back' | 'invalidated' | 'context-changed';
-        searchRequestKey: string | null;
-        headingRequestKey: string | null;
-    }];
-    /** Notification only; the public dialog owns DOM focus return, the host owns editor focus. */
-    closed: [];
-}>();
+const props = defineProps<InternalLinkPickerProps>();
+const emit = defineEmits<InternalLinkPickerEmits>();
 
 const instanceId = useId();
 const searchInput = ref<{ focus: () => void; }>();
@@ -238,7 +180,7 @@ const state = computed(() => (activeArticle.value ? currentHeadings.value : curr
 const message = computed(() => (activeArticle.value ? currentHeadings.value : currentSearch.value)?.message);
 const selectionAvailable = computed(() => props.selectionUnavailableText === null && !finishing.value);
 
-function cancelRequests(scope: 'picker' | 'search' | 'headings', reason: 'dismiss' | 'replace-search' | 'back' | 'invalidated' | 'context-changed')
+function cancelRequests(scope: InternalLinkPickerCancellation['scope'], reason: InternalLinkPickerCancellation['reason'])
 {
     emit('cancel', {
         sessionKey: props.sessionKey,
