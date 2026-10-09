@@ -1,0 +1,11 @@
+{
+    "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "9d50f803f0eced061e7a0b2d369f7dbdd711000e..HEAD"
+    ],
+    "exitCode": 0,
+    "sourceCommit": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+    "completedAtUtc": "2026-10-09T07:10:14.367652+00:00"
+}

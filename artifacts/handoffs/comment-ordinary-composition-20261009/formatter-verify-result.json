@@ -1,0 +1,20 @@
+{
+    "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "format",
+        "whitespace",
+        "/workspace/FsusBlog-2179-queue-caller-integration",
+        "--folder",
+        "--include",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+        "tests/backend/Unit/CommentFixtureMutationRoutingTests.cs",
+        "--verify-no-changes",
+        "--verbosity",
+        "diagnostic"
+    ],
+    "exitCode": 0,
+    "sourceCommit": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+    "completedAtUtc": "2026-10-09T07:10:12.769297+00:00"
+}

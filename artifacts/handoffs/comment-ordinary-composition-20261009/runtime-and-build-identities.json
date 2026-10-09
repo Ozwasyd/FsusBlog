@@ -1,0 +1,157 @@
+{
+    "sourceCommit": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+    "runId": "comment-ordinary-composition-20261009",
+    "observedFiles": [
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/tests/backend/FsusBlog.Server.Tests.csproj",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/tests/backend/FsusBlog.Server.Tests.csproj",
+            "sha256": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c",
+            "bytes": 2812
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/tests/backend/packages.lock.json",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/tests/backend/packages.lock.json",
+            "sha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9",
+            "bytes": 36957
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/backend/FsusBlog.Server.csproj",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/backend/FsusBlog.Server.csproj",
+            "sha256": "750dc43234f15be728a4eff93b1df2690d9efff880ecd8f9446aac726aa0bddc",
+            "bytes": 11273
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/backend/packages.lock.json",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/backend/packages.lock.json",
+            "sha256": "faf347073d76a55c4f48b4621a8591d33d7f2f45fd6330ed9eda3f07ec3ed51c",
+            "bytes": 25374
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/shared/FsusBlog.Shared.csproj",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/shared/FsusBlog.Shared.csproj",
+            "sha256": "4e0119671817f75e1f70e9c277b45adde6a9d294353a826a7f83eec74177a91b",
+            "bytes": 1707
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/shared/packages.lock.json",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/shared/packages.lock.json",
+            "sha256": "03eeadc5ef377c17f787ab65f41fb4c8a9c936bb7f7f4171111fdeec8a81cb46",
+            "bytes": 61
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/core/FsusBlog.Core.csproj",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/core/FsusBlog.Core.csproj",
+            "sha256": "a4eab8c5ccccdb999cc7d62e4d2fa6fc225c44d4279296251e1b32de6adad87e",
+            "bytes": 587
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/core/packages.lock.json",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/core/packages.lock.json",
+            "sha256": "e8f0732557ad7dc23e25b0758e65022af0b336d20800e14250b22b9ecb529ff4",
+            "bytes": 1181
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/migration/FsusBlog.Migration.csproj",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/migration/FsusBlog.Migration.csproj",
+            "sha256": "c1a554c4bcb77290033d2f20ffa0a41fc6a4d095b5dbd280a41e3a333400ee01",
+            "bytes": 1519
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/migration/packages.lock.json",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/migration/packages.lock.json",
+            "sha256": "1adc775f9affa3b5f938a54fd0175c9c666edc655e3fbb6d3f6ea9501166c70e",
+            "bytes": 11762
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+            "sha256": "3299f5a3daaac10dd85032d6a1cbc2ed8cd648b5dccbfb085212d7be17142e32",
+            "bytes": 609
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json",
+            "sha256": "b7cd55294c02cba922f35efd9b10b8b41e3bb764c17f2bbb4b6faa88162d79f2",
+            "bytes": 5745
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/Directory.Build.props",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/Directory.Build.props",
+            "sha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+            "bytes": 1110
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/Directory.Packages.props",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/Directory.Packages.props",
+            "sha256": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f",
+            "bytes": 3707
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/.editorconfig",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/.editorconfig",
+            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26",
+            "bytes": 7786
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/tests/backend/xunit.runner.json",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/tests/backend/xunit.runner.json",
+            "sha256": "8c79472a6d99eb1a7b26c4f748ab2d4ba5b27e748eba2ccf3301164c04d4fafa",
+            "bytes": 144
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+            "sha256": "9537aeb0f4c6e78cebd908326169eda45577ca9607e1886c51055a89c5449088",
+            "bytes": 14548992
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+            "sha256": "92098e1059e3ca4161152b4f3649a3b1d911e8725a8f9206ea6074477b9bbb35",
+            "bytes": 19667968
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll",
+            "sha256": "039880acd2594a2b2a345627ec00b33ad2e257406937561998d741d732495e0c",
+            "bytes": 1671168
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/core/bin/Debug/net10.0/FsusBlog.Core.dll",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/core/bin/Debug/net10.0/FsusBlog.Core.dll",
+            "sha256": "8fd6e12f25802b56140430c652f4b19f286b251e77c59abcd06823de592fa4de",
+            "bytes": 769024
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/src/migration/bin/Debug/net10.0/FsusBlog.Migration.dll",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/src/migration/bin/Debug/net10.0/FsusBlog.Migration.dll",
+            "sha256": "1e1d644212317f657803d8a68c4d5015fa82820283b36c703bffd2632323ab0c",
+            "bytes": 2581504
+        },
+        {
+            "path": "/workspace/FsusBlog-2179-queue-caller-integration/tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.dll",
+            "realpath": "/workspace/FsusBlog-2179-queue-caller-integration/tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.dll",
+            "sha256": "fbc63893709eea6666bcbb7c36ab16f10b5c61936ff4046255c7bf776c20bf0f",
+            "bytes": 16384
+        },
+        {
+            "path": "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+            "realpath": "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+            "sha256": "55117d7d1f27537ee6e7a81b8b9f84f0b50c8cbd2d1d1e21684c31db1518230a",
+            "bytes": 71808
+        },
+        {
+            "path": "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/sdk/10.0.302/Roslyn/bincore/csc.dll",
+            "realpath": "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/sdk/10.0.302/Roslyn/bincore/csc.dll",
+            "sha256": "425ac155ebd4b8226e50e2fc4591095ee992be3298a93d01a651ebad776f4b5a",
+            "bytes": 138576
+        }
+    ],
+    "missingOptionalPaths": [
+        "NuGet.Config"
+    ],
+    "worktreeStatus": "",
+    "testProjectModified": false,
+    "compilationExclusionsAdded": false,
+    "capturedAtUtc": "2026-10-09T07:14:24.433687+00:00"
+}

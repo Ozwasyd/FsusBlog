@@ -1,0 +1,44 @@
+[
+    {
+        "component": "queue",
+        "suppliedCommit": "cd68d64d5eca7a49ce9d40b0be88d5edb997a422",
+        "path": "src/backend/Services/Fixtures/CommentFixtureQueuePageReader.cs",
+        "unchanged": true,
+        "sha256": "988ffbb727a3741f36b8858cc603a6764dd4b1ad5df8e470cb9d747bab136e07"
+    },
+    {
+        "component": "queue",
+        "suppliedCommit": "cd68d64d5eca7a49ce9d40b0be88d5edb997a422",
+        "path": "tests/backend/Unit/CommentFixtureQueuePageReaderTests.cs",
+        "unchanged": true,
+        "sha256": "8ff675657fac4aaae51c95902d3749f79d718ceb7f63f19c9f94d419a6bcf691"
+    },
+    {
+        "component": "reply",
+        "suppliedCommit": "96c6d47696147456954dcc4b1f156a1dcef6dcaf",
+        "path": "src/backend/Services/Fixtures/CommentFixtureReplyMessagePageReader.cs",
+        "unchanged": true,
+        "sha256": "ab136e5cc8a7bf8d2d00b98284433c079606345f99e6c8f6219e4d83afc251d1"
+    },
+    {
+        "component": "reply",
+        "suppliedCommit": "96c6d47696147456954dcc4b1f156a1dcef6dcaf",
+        "path": "tests/backend/Unit/CommentFixtureReplyMessagePageReaderTests.cs",
+        "unchanged": true,
+        "sha256": "8c2d91cb20ddd3fb81e7438bdec894a7b48dfcc7be12c4e1203e9f19cb30639c"
+    },
+    {
+        "component": "timeline",
+        "suppliedCommit": "890efc138bc1c91e876fa186c8dcc1b836865f4d",
+        "path": "src/backend/Services/Fixtures/CommentFixtureTimelineVerifier.cs",
+        "unchanged": true,
+        "sha256": "87dfd227e14eab332799e0c1bc978b28fc6c75c6117fa60043f204da6c21328c"
+    },
+    {
+        "component": "timeline",
+        "suppliedCommit": "890efc138bc1c91e876fa186c8dcc1b836865f4d",
+        "path": "tests/backend/Unit/CommentFixtureTimelineVerifierTests.cs",
+        "unchanged": true,
+        "sha256": "f64e1fc411745015bbc74398084280b42216515f6f0382b244816af4ced61545"
+    }
+]

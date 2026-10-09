@@ -1,0 +1,18 @@
+{
+    "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+        "--file",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+        "--file",
+        "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+        "--file",
+        "tests/backend/Unit/CommentFixtureMutationRoutingTests.cs"
+    ],
+    "exitCode": 0,
+    "sourceCommit": "1f218e33afb889afd4b321ac4eb612d2ac9dd809"
+}

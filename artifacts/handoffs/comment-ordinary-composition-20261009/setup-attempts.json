@@ -1,0 +1,9 @@
+{
+    "initialFormatterAttempt": {
+        "exitCode": 1,
+        "reason": "System.IO.IOException: Read-only file system : '/home/agent/.dotnet'",
+        "candidateState": "uncommitted caller edits, not rebound to tested HEAD",
+        "resolution": "DOTNET_CLI_HOME=/workspace/.setup/dotnet-home; ordinary official formatter completed successfully"
+    },
+    "additionalToolchainInstallRequired": false
+}

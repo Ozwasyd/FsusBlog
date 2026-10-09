@@ -1,0 +1,44 @@
+.NET SDK:
+ Version:           10.0.302
+ Commit:            35b593bebf
+ Workload version:  10.0.300-manifests.1641d827
+ MSBuild version:   18.6.11+35b593beb
+
+Runtime Environment:
+ OS Name:     debian
+ OS Version:  13
+ OS Platform: Linux
+ RID:         linux-x64
+ Base Path:   /workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/sdk/10.0.302/
+
+.NET workloads installed:
+There are no installed workloads to display.
+Configured to use workload sets when installing new manifests.
+No workload sets are installed. Run "dotnet workload restore" to install a workload set.
+
+Host:
+  Version:      10.0.10
+  Architecture: x64
+  Commit:       f7d90799ce
+
+.NET SDKs installed:
+  10.0.302 [/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/sdk]
+
+.NET runtimes installed:
+  Microsoft.AspNetCore.App 10.0.10 [/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/shared/Microsoft.AspNetCore.App]
+  Microsoft.NETCore.App 10.0.10 [/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/shared/Microsoft.NETCore.App]
+
+Other architectures found:
+  None
+
+Environment variables:
+  DOTNET_CLI_HOME                          [/workspace/.setup/dotnet-home]
+
+global.json file:
+  Not found
+
+Learn more:
+  https://aka.ms/dotnet/info
+
+Download .NET:
+  https://aka.ms/dotnet/download

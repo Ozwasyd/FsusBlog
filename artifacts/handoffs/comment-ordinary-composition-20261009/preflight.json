@@ -1,0 +1,26 @@
+{
+    "sourceCommit": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+    "runId": "comment-ordinary-composition-20261009",
+    "filter": "FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.MutationOnlyEntry_UsesFormalCommandAndRereadsAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.CallerCancellation_StopsBeforeReadOrCommand|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.DeliveryObservation_ReadsProductionContractsAndModelsWithoutCommands|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.DeliveryObservation_FindsTargetQueueItemAndLeaseBeyondFirstPage|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.DeliveryObservation_RefusesPartialQueueWhenCursorRepeats|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.DeliveryObservation_ReadsOlderReplyMessagesInProductionOrder|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.DeliveryObservation_RefusesMissingReplyContinuation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.MutationObservation_RejectsBrokenTimelineBeforeCommands|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.MutationObservation_RejectsGrantedAppealTimelineGapAfterCommand",
+    "methods": [
+        "MutationOnlyEntry_UsesFormalCommandAndRereadsAuthority",
+        "CallerCancellation_StopsBeforeReadOrCommand",
+        "DeliveryObservation_ReadsProductionContractsAndModelsWithoutCommands",
+        "DeliveryObservation_FindsTargetQueueItemAndLeaseBeyondFirstPage",
+        "DeliveryObservation_RefusesPartialQueueWhenCursorRepeats",
+        "DeliveryObservation_ReadsOlderReplyMessagesInProductionOrder",
+        "DeliveryObservation_RefusesMissingReplyContinuation",
+        "MutationObservation_RejectsBrokenTimelineBeforeCommands",
+        "MutationObservation_RejectsGrantedAppealTimelineGapAfterCommand"
+    ],
+    "expectedCases": 16,
+    "classHooks": [],
+    "assemblyModuleInitializer": "RedisOperationFailureDiagnosticCollector.Initialize returns immediately when FSUSBLOG_TEST_REDIS_DIAGNOSTICS is absent",
+    "diagnosticOptInPresent": false,
+    "limitations": [
+        "ordinary mocked read-port caller controls only",
+        "initial fixture observation entry compiled, not runtime exercised",
+        "no held receipt/cohort/alias/race/TOCTOU audits",
+        "no native transaction or terminal delivery qualification"
+    ]
+}

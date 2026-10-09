@@ -1,0 +1,8 @@
+{
+    "schema": "fsusblog.lossless-command-output.v1",
+    "originalFilename": "source-push.log",
+    "originalBytes": 788,
+    "originalSha256": "097a470121c1d85206eb2bcc74385922f066a04adf8d3bb330f1a3e0ee17f04f",
+    "encoding": "utf-8",
+    "content": "remote: \nremote: Create a pull request for 'codex/issue-2179-queue-caller-integration-20261009' on GitHub by visiting:        \nremote:      https://github.com/Ozwasyd/FsusBlog/pull/new/codex/issue-2179-queue-caller-integration-20261009        \nremote: \nremote: GitHub found 19 vulnerabilities on Ozwasyd/FsusBlog's default branch (9 high, 8 moderate, 2 low). To find out more, visit:        \nremote:      https://github.com/Ozwasyd/FsusBlog/security/dependabot        \nremote: \nTo https://github.com/Ozwasyd/FsusBlog.git\n * [new branch]          codex/issue-2179-queue-caller-integration-20261009 -> codex/issue-2179-queue-caller-integration-20261009\nbranch 'codex/issue-2179-queue-caller-integration-20261009' set up to track 'origin/codex/issue-2179-queue-caller-integration-20261009'.\n"
+}

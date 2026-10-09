@@ -1,0 +1,118 @@
+{
+    "purpose": "ordinary source composition handoff, not fixture or native acceptance authority",
+    "runId": "comment-ordinary-composition-20261009",
+    "sourceHead": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+    "sourceBranch": "codex/issue-2179-queue-caller-integration-20261009",
+    "integrationBase": "9d50f803f0eced061e7a0b2d369f7dbdd711000e",
+    "currentFetchedMaster": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+    "sourceCommit": "9a5dc3381e9601e3bbc1286aa01353b77565704d",
+    "documentationCommit": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+    "consumedComponents": [
+        {
+            "name": "queue reader",
+            "suppliedCommit": "cd68d64d5eca7a49ce9d40b0be88d5edb997a422",
+            "incorporatedCommit": "cd68d64d5eca7a49ce9d40b0be88d5edb997a422",
+            "supplierTestsReportedByParent": 6
+        },
+        {
+            "name": "reply reader",
+            "suppliedCommit": "96c6d47696147456954dcc4b1f156a1dcef6dcaf",
+            "incorporatedCommit": "315953c40d1297a9fe79cf3b602e3007c48bc4da",
+            "supplierTestsReportedByParent": 8
+        },
+        {
+            "name": "timeline verifier",
+            "suppliedCommit": "890efc138bc1c91e876fa186c8dcc1b836865f4d",
+            "incorporatedCommit": "1e790bd9f15d4b0a84ccdc6d18cc94abcadf5ee7",
+            "supplierTestsReportedByParent": 7
+        }
+    ],
+    "componentFilesByteIdentical": true,
+    "supplierEvidenceNotReboundToIntegration": true,
+    "tests": {
+        "sourceCommit": "1f218e33afb889afd4b321ac4eb612d2ac9dd809",
+        "project": "tests/backend/FsusBlog.Server.Tests.csproj",
+        "SDK": "10.0.302",
+        "runtime": "10.0.10",
+        "lockedRestore": true,
+        "NuGetAudit": true,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "extraCases": 0,
+        "exitCode": 0,
+        "allowlist": "preflight.json",
+        "trx": "caller.trx",
+        "command": "test-command.json",
+        "rawLog": "test.log",
+        "membership": "trx-membership.json",
+        "actualControlScope": {
+            "formalMutationRoutes": 6,
+            "callerCancellation": 1,
+            "existingDeliveryVariants": 3,
+            "queuePaginationAndRefusal": 2,
+            "replyPaginationAndRefusal": 2,
+            "timelineRefusalBeforeAndAfterCommand": 2
+        }
+    },
+    "checks": {
+        "selectedCSharpStyle": {
+            "exitCode": 0,
+            "files": 4,
+            "violations": 0,
+            "newViolations": 0
+        },
+        "officialWhitespaceVerify": {
+            "exitCode": 0,
+            "formattedFiles": 0,
+            "selectedFiles": 4
+        },
+        "commitRangeContract": {
+            "exitCode": 0,
+            "range": "9d50f803f0eced061e7a0b2d369f7dbdd711000e..1f218e33afb889afd4b321ac4eb612d2ac9dd809"
+        },
+        "diffCheck": {
+            "exitCode": 0
+        }
+    },
+    "compatibility": [
+        "AdminQueueFirstPage serialized name retained; content now spans completed queue traversal",
+        "queue counts derive from terminal page, traversal is not atomic",
+        "initial absent account reply projection remains absent, invalid or missing continuation refuses output",
+        "revision-history checks retained; inconsistent granted-appeal events are rejected rather than repaired"
+    ],
+    "notRun": [
+        "native comment transaction/proof/nullifier/permissions and independent terminal acceptance",
+        "held receipt/cohort/artifact/alias/race/TOCTOU audits",
+        "initial fixture-observation entry runtime control (compiled only)",
+        "full Comment suite",
+        "matrix and live exact-head PR metadata gate"
+    ],
+    "remainingBlockers": {
+        "2178": [
+            "qualified initial actor/security/admin/business-clock refs and permission inputs missing or held",
+            "atomic audit/outbox/capability observation and rollback not qualified",
+            "production granted-appeal Hidden to Approved event continuity remains defective; source observer refuses it"
+        ],
+        "2179": [
+            "current-run sealed event/revision coordinates and owner1653 queue/cache/stream/reply terminal evidence absent",
+            "ordinary read-port models do not establish native Redis/message delivery or terminal success"
+        ],
+        "3576": [
+            "original publication owner evidence remains bound to frozen f4817f13b5b86d51494ebfc0648a3f51f6b235bf",
+            "matrix/generated admission/current-epoch/full stage gates remain unaccepted; not rerun or promoted by this caller work"
+        ]
+    },
+    "GitHubContentApiWrites": false,
+    "PRWriter": "coordinating root only; no PR or comment created by this task",
+    "noMergeClosureDeployment": true,
+    "wholeAssignmentAccepted": false,
+    "rawEncodings": [
+        {
+            "path": "source-push.log.raw.json",
+            "originalSha256": "097a470121c1d85206eb2bcc74385922f066a04adf8d3bb330f1a3e0ee17f04f",
+            "originalBytes": 788
+        }
+    ],
+    "createdAtUtc": "2026-10-09T07:16:07.496490+00:00"
+}

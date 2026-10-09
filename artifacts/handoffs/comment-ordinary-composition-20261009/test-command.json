@@ -1,0 +1,25 @@
+{
+    "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "-p:RestoreLockedMode=true",
+        "-p:NuGetAudit=true",
+        "-m:1",
+        "-nodeReuse:false",
+        "-p:UseSharedCompilation=false",
+        "--filter",
+        "FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.MutationOnlyEntry_UsesFormalCommandAndRereadsAuthority|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.CallerCancellation_StopsBeforeReadOrCommand|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.DeliveryObservation_ReadsProductionContractsAndModelsWithoutCommands|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.DeliveryObservation_FindsTargetQueueItemAndLeaseBeyondFirstPage|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.DeliveryObservation_RefusesPartialQueueWhenCursorRepeats|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.DeliveryObservation_ReadsOlderReplyMessagesInProductionOrder|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.DeliveryObservation_RefusesMissingReplyContinuation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.MutationObservation_RejectsBrokenTimelineBeforeCommands|FullyQualifiedName=FsusBlog.Server.Tests.Unit.CommentFixtureMutationRoutingTests.MutationObservation_RejectsGrantedAppealTimelineGapAfterCommand",
+        "--logger",
+        "trx;LogFileName=caller.trx",
+        "--results-directory",
+        "/workspace/FsusBlog-2179-queue-caller-integration/.tmp/comment-ordinary-composition-20261009"
+    ],
+    "environmentOverrides": {
+        "DOTNET_CLI_HOME": "/workspace/.setup/dotnet-home",
+        "NUGET_PACKAGES": "/workspace/.setup/nuget",
+        "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+        "MSBUILDDISABLENODEREUSE": "1"
+    },
+    "sourceCommit": "1f218e33afb889afd4b321ac4eb612d2ac9dd809"
+}
