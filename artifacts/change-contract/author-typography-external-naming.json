@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyContracts.cs",
+                "src/shared/Contracts/AuthorTypography/AuthorTypographyContractValidator.cs",
+                "tools/frontend/author-typography-inventory.mjs"
+            ],
+            "reason": "These source paths are covered by the existing broad process-environment registry. No environment keys are added or renamed; external closed profile IDs remain literal while C# and JavaScript identifiers follow the internal naming map."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/fsusui-typecheck-modes.md"
+            ],
+            "reason": "Preserve documented public FsusUI property and token spelling while explaining the consumer boundary; no CSS selector, token or process environment contract is added or renamed."
+        }
+    ]
+}
