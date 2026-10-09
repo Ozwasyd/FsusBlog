@@ -210,8 +210,12 @@ public sealed class WritingAidPreferenceEndpointTests
         request.Content.Headers.ContentType = new(fault == "json" ? "application/json" : "application/octet-stream");
         using HttpResponseMessage response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal(ErrorCode.Validation, (await EndpointSecurityTestServer.ReadErrorAsync(response)).Code);
+        // The original middleware rejects JSON before the POD binder with its
+        // canonical 415/InfraFailure mapping; malformed AEDS reaches validation.
+        Assert.Equal(fault == "json" ? HttpStatusCode.UnsupportedMediaType : HttpStatusCode.BadRequest,
+            response.StatusCode);
+        Assert.Equal(fault == "json" ? ErrorCode.InfraFailure : ErrorCode.Validation,
+            (await EndpointSecurityTestServer.ReadErrorAsync(response)).Code);
     }
 
     internal static EndpointSecurityTestServer CreateServer(
