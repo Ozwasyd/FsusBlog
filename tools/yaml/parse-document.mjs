@@ -1,3 +1,8 @@
+function trimYamlWhitespace(value)
+{
+    return value.replace(/^[ \t\r\n]+|[ \t\r\n]+$/gu, '');
+}
+
 function stripYamlComment(raw)
 {
     let quote = null;
@@ -29,13 +34,13 @@ function stripYamlComment(raw)
             quote = character;
             continue;
         }
-        if (character === '#' && (index === 0 || /\s/u.test(raw[index - 1])))
+        if (character === '#' && (index === 0 || /[ \t]/u.test(raw[index - 1])))
         {
-            return raw.slice(0, index).trimEnd();
+            return raw.slice(0, index).replace(/[ \t]+$/u, '');
         }
     }
 
-    return raw.trimEnd();
+    return raw.replace(/[ \t]+$/u, '');
 }
 
 function tokenize(text)
@@ -60,7 +65,7 @@ function tokenize(text)
             raw,
             leading,
             indent: raw.match(/^ */u)[0].length,
-            ignored: !content.trim() || content === '---' || content === '...',
+            ignored: !trimYamlWhitespace(content) || content === '---' || content === '...',
             terminated: index < lines.length - 1 || document.endsWith('\n'),
             line: index + 1
         });
@@ -113,7 +118,7 @@ function splitFlowItems(value, source, line)
         }
         if (character === ',' && depth === 0)
         {
-            items.push(value.slice(start, index).trim());
+            items.push(trimYamlWhitespace(value.slice(start, index)));
             start = index + 1;
         }
     }
@@ -122,13 +127,13 @@ function splitFlowItems(value, source, line)
     {
         throw new Error(`${source}:${line}: malformed YAML flow collection`);
     }
-    items.push(value.slice(start).trim());
+    items.push(trimYamlWhitespace(value.slice(start)));
     return items.filter(Boolean);
 }
 
 function splitMapping(content)
 {
-    const match = content.match(/^([A-Za-z_][A-Za-z0-9_.-]*):(?:\s+(.*)|\s*)$/u);
+    const match = content.match(/^([A-Za-z_][A-Za-z0-9_.-]*):(?:[ \t]+(.*)|[ \t]*)$/u);
     if (!match)
     {
         return null;
@@ -140,7 +145,7 @@ export function parseYamlScalar(raw, options = {})
 {
     const source = options.source ?? '<yaml>';
     const line = options.line ?? 1;
-    const value = String(raw ?? '').trim();
+    const value = trimYamlWhitespace(String(raw ?? ''));
 
     if (value.startsWith('['))
     {
@@ -148,7 +153,7 @@ export function parseYamlScalar(raw, options = {})
         {
             throw new Error(`${source}:${line}: unterminated YAML flow sequence`);
         }
-        const inner = value.slice(1, -1).trim();
+        const inner = trimYamlWhitespace(value.slice(1, -1));
         return inner ? splitFlowItems(inner, source, line).map((item) => parseYamlScalar(item, { source, line })) : [];
     }
     if (value.startsWith('{'))
@@ -158,7 +163,7 @@ export function parseYamlScalar(raw, options = {})
             throw new Error(`${source}:${line}: unterminated YAML flow mapping`);
         }
         const result = {};
-        const inner = value.slice(1, -1).trim();
+        const inner = trimYamlWhitespace(value.slice(1, -1));
         for (const item of inner ? splitFlowItems(inner, source, line) : [])
         {
             const mapping = splitMapping(item);
@@ -253,7 +258,7 @@ export function parseYamlDocument(text, options = {})
             {
                 break;
             }
-            parts.push(token.content.trim());
+            parts.push(trimYamlWhitespace(token.content));
             for (const character of token.content)
             {
                 if (quote === '"' && escaped)
@@ -475,7 +480,7 @@ export function parseYamlDocument(text, options = {})
             {
                 break;
             }
-            const item = token.content.slice(1).trimStart();
+            const item = token.content.slice(1).replace(/^[ \t]+/u, '');
             index += 1;
 
             if (!item)

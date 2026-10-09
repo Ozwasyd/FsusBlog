@@ -411,6 +411,11 @@ extraCommand('shell comment', 0, 'echo ok # node "tools/run-test-matrix.mjs" val
 extraCommand('empty argv word', 0, 'node "tools/run-test-matrix.mjs" \'\' validate');
 extraCommand('shell separator', 0, 'node "tools/run-test-matrix.mjs"; echo validate');
 cases.push({ name: 'disabled duplicate owner', expected: 1, workflow: `${workflow}\n  disabled:\n    if: false\n    steps:\n      - run: ${owner}\n`, matrix });
+workflowCase('nonbreaking workflow prefix', 1, `run: '\u00a0${owner}'`);
+workflowCase('nonbreaking workflow suffix', 1, `run: '${owner}\u00a0'`);
+cases.push({ name: 'nonbreaking matrix prefix', expected: 1, workflow, matrix: matrix.replace(`command: ${tierOwner}`, `command: \u00a0${tierOwner}`) });
+cases.push({ name: 'nonbreaking matrix suffix', expected: 1, workflow, matrix: matrix.replace(`command: ${tierOwner}`, `command: '${tierOwner}\u00a0'`) });
+extraCommand('nonbreaking argv separator', 0, 'node "tools/run-test-matrix.mjs"\u00a0validate');
 let failed = 0;
 for (const fixture of cases) {
   fs.writeFileSync(workflowPath, fixture.workflow);
@@ -575,7 +580,7 @@ function scanMatrix() {
   // YAML clip/keep terminators are shell whitespace; internal breaks and comments
   // remain part of the command and cannot qualify the canonical owner.
   if (typeof owners[0].command !== 'string'
-    || owners[0].command.trim() !== 'tools/test/run-matrix-governance-once.sh validate-matrix') {
+    || trimShellWhitespace(owners[0].command) !== 'tools/test/run-matrix-governance-once.sh validate-matrix') {
     addError(`${source} validate-matrix tier must run the canonical matrix governance owner exactly once`);
   }
 }
@@ -600,8 +605,12 @@ function scanPackageJson() {
   }
 }
 
+function trimShellWhitespace(value) {
+  return value.replace(/^[ \t\n]+|[ \t\n]+$/gu, '');
+}
+
 function isYamlRunBlock(value) {
-  const marker = value.trim().replace(/\s+#.*$/u, '');
+  const marker = trimShellWhitespace(value).replace(/[ \t]+#.*$/u, '');
   return /^[|>](?:[+-][1-9]?|[1-9][+-]?)?$/u.test(marker);
 }
 
@@ -610,14 +619,14 @@ function rawWorkflowCommands(text) {
   let blockIndent = -1;
   let blockLines = [];
   function flushRunBlock() {
-    if (blockLines.length > 0) commands.push(blockLines.join(' ').replace(/\s+/gu, ' ').trim());
+    if (blockLines.length > 0) commands.push(trimShellWhitespace(blockLines.join(' ').replace(/[ \t\n]+/gu, ' ')));
     blockIndent = -1;
     blockLines = [];
   }
   for (const line of text.split(/\r?\n/)) {
     // A block's contents are shell text, even if a line looks like a YAML key.
-    if (blockIndent >= 0 && (!line.trim() || line.match(/^\s*/)[0].length > blockIndent)) {
-      blockLines.push(line.trim());
+    if (blockIndent >= 0 && (!trimShellWhitespace(line) || line.match(/^[ \t]*/)[0].length > blockIndent)) {
+      blockLines.push(trimShellWhitespace(line));
       continue;
     }
     flushRunBlock();
@@ -675,7 +684,7 @@ function shellLiteralWords(command) {
     } else if (/[\n;&|()<>]/u.test(character)) {
       flushWord();
       words.push(null);
-    } else if (/\s/u.test(character)) flushWord();
+    } else if (/[ \t]/u.test(character)) flushWord();
     else {
       word += character;
       started = true;
@@ -719,7 +728,7 @@ function scanWorkflow(file) {
       return;
     }
     const declaredCommands = Object.values(jobs).flatMap((job) =>
-      (job.steps ?? []).filter((step) => typeof step.run === 'string').map((step) => step.run.trim()));
+      (job.steps ?? []).filter((step) => typeof step.run === 'string').map((step) => trimShellWhitespace(step.run)));
     // Until the shared parser preserves block contents, retain the existing raw
     // guard: a comment in a folded scalar can disable its command.
     const rawCommands = rawWorkflowCommands(text);
@@ -739,7 +748,7 @@ function scanWorkflow(file) {
     } else {
       const owner = jobs['validate-matrix'];
       const runSteps = owner.if === false ? [] : (owner.steps ?? [])
-        .filter((step) => step.if !== false && typeof step.run === 'string').map((step) => step.run.trim());
+        .filter((step) => step.if !== false && typeof step.run === 'string').map((step) => trimShellWhitespace(step.run));
       const matrixOwnerSteps = runSteps.filter((command) =>
         command.includes('validate-matrix')
         && /(?:tools\/test\.sh|tools\/run-test-matrix\.mjs|run-matrix-governance-once\.sh)/u.test(command));

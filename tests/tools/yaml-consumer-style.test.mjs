@@ -136,13 +136,18 @@ test('structured YAML parser preserves ordinary block scalar semantics', () =>
         ['single quoted value', "run: 'first # literal' # YAML comment\n", 'first # literal'],
         ['double quoted value', 'run: "first # literal" # YAML comment\n', 'first # literal'],
         ['plain trailing comment', 'run: first # YAML comment\n', 'first'],
-        ['plain non-comment hash', 'run: first#literal\n', 'first#literal']
+        ['plain non-comment hash', 'run: first#literal\n', 'first#literal'],
+        ['nonbreaking scalar edges', 'run: \u00a0first\u00a0\n', '\u00a0first\u00a0'],
+        ['nonbreaking space before hash', 'run: first\u00a0#literal\n', 'first\u00a0#literal'],
+        ['nonbreaking space before comment separator', 'run: first\u00a0 # comment\n', 'first\u00a0'],
+        ['nonbreaking literal scalar edges', 'run: |\n  \u00a0first\u00a0\n', '\u00a0first\u00a0\n']
     ];
-    assert.equal(fixtures.length, 28);
+    assert.equal(fixtures.length, 32);
     for (const [name, yaml, expected] of fixtures)
     {
         assert.equal(parseYamlDocument(yaml).run, expected, name);
     }
+    assert.deepEqual(parseYamlDocument('run: [\u00a0first\u00a0, second]\n').run, ['\u00a0first\u00a0', 'second']);
     const refusals = [
         ['over-indented leading blank', 'run: >\n    \n  first\n', /leading empty line is over-indented/u],
         ['decreased scalar indentation', 'run: >\n    first\n  second\n', /block scalar indentation decreased/u],
@@ -166,9 +171,11 @@ test('matrix parser preserves ordinary folded command values', () =>
         ['folded shell comment', `>\n      # disabled canonical owner\n      ${owner}\n`, `# disabled canonical owner ${owner}\n`],
         ['literal command', `|\n      ${owner}\n`, `${owner}\n`],
         ['quoted command', `'${owner}' # YAML comment\n`, owner],
-        ['plain command', `${owner} # YAML comment\n`, owner]
+        ['plain command', `${owner} # YAML comment\n`, owner],
+        ['nonbreaking command prefix', `\u00a0${owner}\n`, `\u00a0${owner}`],
+        ['nonbreaking quoted command suffix', `'${owner}\u00a0'\n`, `${owner}\u00a0`]
     ];
-    assert.equal(fixtures.length, 7);
+    assert.equal(fixtures.length, 9);
     for (const [name, value, expected] of fixtures)
     {
         const matrix = parseMatrix(`tiers:\n  - id: validate-matrix\n    command: ${value}    executionDependsOn: []\n# structural comment\n`);
