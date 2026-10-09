@@ -16,7 +16,7 @@ export function createCompositionCollectionSource(source)
     };
     const unwrap = (node) =>
     {
-        while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node)
+        while (node && (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isTypeAssertionExpression(node)
             || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node)))
         {
             node = node.expression;
@@ -50,6 +50,10 @@ export function createCompositionCollectionSource(source)
     function path(node)
     {
         node = unwrap(node);
+        if (node?.kind === ts.SyntaxKind.ThisKeyword)
+        {
+            return ['this'];
+        }
         if (node && ts.isIdentifier(node))
         {
             return [node.text];
@@ -82,7 +86,7 @@ export function createCompositionCollectionSource(source)
             {
                 parts = path(parent) ?? parts;
             }
-            else if (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent)
+            else if (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent) || ts.isTypeAssertionExpression(parent)
                 || ts.isNonNullExpression(parent) || ts.isSatisfiesExpression(parent))
             {
                 // All these nodes preserve the value; annotations add no facts.
@@ -90,6 +94,8 @@ export function createCompositionCollectionSource(source)
             else if (ts.isConditionalExpression(parent) && parent.condition !== top
                 || ts.isBinaryExpression(parent) && [ts.SyntaxKind.AmpersandAmpersandToken,
                     ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(parent.operatorToken.kind)
+                || ts.isBinaryExpression(parent) && parent.operatorToken.kind === ts.SyntaxKind.CommaToken && parent.right === top
+                || ts.isCommaListExpression(parent) && parent.elements.at(-1) === top
                 || ts.isSpreadElement(parent) || ts.isAwaitExpression(parent))
             {
                 indirect = true;
@@ -189,7 +195,7 @@ export function createCompositionCollectionSource(source)
         return { ...target, importSteps: [step(file, expression), step(target.file, target.fn)] };
     }
     /** Full callback effects, including nested callbacks; annotations grant nothing. */
-    function callbackEffects(file, fn)
+    function callbackEffects(file, fn, openParameters = false)
     {
         step(file, fn);
         const reads = [];
@@ -197,12 +203,13 @@ export function createCompositionCollectionSource(source)
         const writes = [];
         const escapes = [];
         const calls = [];
+        const unresolved = [];
         const bindings = new Set();
         const aliases = new Map();
         const aliasBindings = new Map();
         const parameters = fn.parameters.map((parameter) =>
         {
-            if (!ts.isIdentifier(parameter.name) || parameter.initializer || parameter.dotDotDotToken)
+            if (!ts.isIdentifier(parameter.name) || !openParameters && (parameter.initializer || parameter.dotDotDotToken))
             {
                 fail(`unknown callback parameter ${file}:${parameter.getStart()}`);
             }
@@ -210,15 +217,19 @@ export function createCompositionCollectionSource(source)
             return parameter.name.text;
         });
         const localDeclarations = [...fn.parameters];
-        walk(fn.body, (node) =>
+        effectRegions(fn).forEach((region) => walk(region, (node) =>
         {
             if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && ts.isIdentifier(node.name))
             {
                 localDeclarations.push(node);
             }
-        });
+        }));
         function lexicalBinding(identifier)
         {
+            if (!identifier)
+            {
+                return null;
+            }
             const scopes = [];
             for (let parent = identifier; parent; parent = parent.parent)
             {
@@ -264,12 +275,25 @@ export function createCompositionCollectionSource(source)
                 const binding = lexicalBinding(rootIdentifier(node));
                 return aliases.has(binding) ? aliases.get(binding).map((origin) => [...origin, ...parts.slice(1)]) : [parts];
             }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.CommaToken)
+            {
+                return origins(node.right);
+            }
+            if (ts.isCommaListExpression(node))
+            {
+                return origins(node.elements.at(-1));
+            }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken)
+            {
+                return origins(node.right);
+            }
             if (ts.isConditionalExpression(node))
             {
                 return [...origins(node.whenTrue), ...origins(node.whenFalse)];
             }
             if (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken,
-                ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind))
+                ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+                ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken].includes(node.operatorToken.kind))
             {
                 return [...origins(node.left), ...origins(node.right)];
             }
@@ -302,12 +326,25 @@ export function createCompositionCollectionSource(source)
                 const binding = lexicalBinding(root);
                 return aliasBindings.get(binding) ?? (binding ? [binding] : []);
             }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.CommaToken)
+            {
+                return originBindings(node.right);
+            }
+            if (ts.isCommaListExpression(node))
+            {
+                return originBindings(node.elements.at(-1));
+            }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken)
+            {
+                return originBindings(node.right);
+            }
             if (ts.isConditionalExpression(node))
             {
                 return [...originBindings(node.whenTrue), ...originBindings(node.whenFalse)];
             }
             if (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken,
-                ts.SyntaxKind.QuestionQuestionToken].includes(node.operatorToken.kind))
+                ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+                ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken].includes(node.operatorToken.kind))
             {
                 return [...originBindings(node.left), ...originBindings(node.right)];
             }
@@ -326,19 +363,46 @@ export function createCompositionCollectionSource(source)
             }
             return [];
         }
-        walk(fn.body, (node) =>
+        localDeclarations.filter((node) => ts.isVariableDeclaration(node)).forEach((node) => bindings.add(node.name.text));
+        function updateAlias(binding, value, guarded = false)
         {
-            if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name))
+            const next = origins(value);
+            const nextBindings = originBindings(value);
+            if (guarded)
             {
-                bindings.add(node.name.text);
-                const origin = origins(node.initializer);
-                if (origin.length)
+                const possible = [...(aliases.get(binding) ?? [[binding.name.text]]), ...(next.length ? next : [[binding.name.text]])];
+                aliases.set(binding, [...new Map(possible.map((parts) => [parts.join('.'), parts])).values()]);
+                aliasBindings.set(binding, [...new Set([...(aliasBindings.get(binding) ?? []), ...nextBindings])]);
+            }
+            else if (next.length)
+            {
+                aliases.set(binding, next);
+                aliasBindings.set(binding, nextBindings);
+            }
+            else
+            {
+                aliases.delete(binding);
+                aliasBindings.delete(binding);
+            }
+        }
+        function guardedAssignment(node, binding)
+        {
+            for (let owner = node.parent; owner && owner !== binding.parent; owner = owner.parent)
+            {
+                if (ts.isIfStatement(owner) || ts.isConditionalExpression(owner) || ts.isIterationStatement(owner, false)
+                    || ts.isSwitchStatement(owner) || ts.isTryStatement(owner) || ts.isFunctionLike(owner) && owner !== fn
+                    || ts.isBinaryExpression(owner) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken,
+                        ts.SyntaxKind.QuestionQuestionToken].includes(owner.operatorToken.kind))
                 {
-                    aliases.set(node, origin);
-                    aliasBindings.set(node, originBindings(node.initializer));
+                    return true;
+                }
+                if (owner === fn)
+                {
+                    break;
                 }
             }
-        });
+            return false;
+        }
         const entry = (node, target, extra = {}, originNode = node) =>
         {
             const root = rootIdentifier(originNode);
@@ -346,12 +410,42 @@ export function createCompositionCollectionSource(source)
             return { ...step(file, node), path: target, binding: binding ? step(file, binding) : null,
                 originBindings: [...new Set(originBindings(originNode))].map((owner) => step(file, owner)), ...extra };
         };
-        walk(fn.body, (node) =>
+        const writeOrigins = (node) => ts.isIdentifier(unwrap(node)) ? [[unwrap(node).text]] : origins(node);
+        // Syntax coverage is over original compiler nodes, never API names or
+        // type annotations. These kinds have value/effect handlers below (or
+        // remain output syntax for the canonical render visitor). Everything
+        // else is explicit unknown evidence, rather than an empty effect list.
+        const expressionKinds = new Set(['Identifier', 'ThisKeyword', 'NullKeyword', 'TrueKeyword', 'FalseKeyword',
+            'StringLiteral', 'NumericLiteral', 'BigIntLiteral', 'RegularExpressionLiteral', 'NoSubstitutionTemplateLiteral',
+            'ArrayLiteralExpression', 'ObjectLiteralExpression', 'PropertyAccessExpression', 'ElementAccessExpression',
+            'CallExpression', 'NewExpression', 'ParenthesizedExpression', 'FunctionExpression', 'ArrowFunction',
+            'PrefixUnaryExpression', 'PostfixUnaryExpression', 'BinaryExpression', 'ConditionalExpression',
+            'TemplateExpression', 'TypeOfExpression', 'VoidExpression', 'DeleteExpression', 'SpreadElement',
+            'AsExpression', 'TypeAssertionExpression', 'NonNullExpression', 'SatisfiesExpression', 'CommaListExpression',
+            'JsxElement', 'JsxSelfClosingElement', 'JsxFragment'].map((kind) => ts.SyntaxKind[kind]));
+        function returned(expression, kind = 'return')
         {
+            for (const target of origins(expression))
+            {
+                escapes.push(entry(expression, target, { kind }));
+            }
+        }
+        function inspectEffects(node)
+        {
+            if (ts.isTypeNode(node))
+            {
+                return;
+            }
+            if (ts.isExpressionNode(node) && !expressionKinds.has(node.kind)
+                || ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node) || ts.isWithStatement(node))
+            {
+                unresolved.push({ ...step(file, node), kind: ts.SyntaxKind[node.kind],
+                    required: 'actual unsupported expression or binding effects and value flow remain unproved' });
+            }
             if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
                 && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
             {
-                for (const target of origins(node.left).length ? origins(node.left) : [null])
+                for (const target of writeOrigins(node.left).length ? writeOrigins(node.left) : [null])
                 {
                     writes.push(entry(node, target, { operator: node.operatorToken.getText(), value: step(file, node.right) }, node.left));
                 }
@@ -359,14 +453,14 @@ export function createCompositionCollectionSource(source)
             if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
                 && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator))
             {
-                for (const target of origins(node.operand).length ? origins(node.operand) : [null])
+                for (const target of writeOrigins(node.operand).length ? writeOrigins(node.operand) : [null])
                 {
                     writes.push(entry(node, target, { operator: ts.tokenToString(node.operator) }, node.operand));
                 }
             }
             if (ts.isDeleteExpression(node))
             {
-                for (const target of origins(node.expression).length ? origins(node.expression) : [null])
+                for (const target of writeOrigins(node.expression).length ? writeOrigins(node.expression) : [null])
                 {
                     writes.push(entry(node, target, { operator: 'delete' }, node.expression));
                 }
@@ -391,7 +485,10 @@ export function createCompositionCollectionSource(source)
             if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
                 && !((ts.isPropertyAccessExpression(node.parent) || ts.isElementAccessExpression(node.parent)) && node.parent.expression === node))
             {
-                reads.push(entry(node, rooted(node)));
+                for (const target of origins(node).length ? origins(node) : [null])
+                {
+                    reads.push(entry(node, target));
+                }
             }
             if (ts.isIdentifier(node) && bindings.has(node.text) && node.parent.name !== node
                 && !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node))
@@ -412,13 +509,6 @@ export function createCompositionCollectionSource(source)
                     freeReads.push(entry(node, rooted(node)));
                 }
             }
-            if (ts.isReturnStatement(node) && node.expression)
-            {
-                for (const target of origins(node.expression))
-                {
-                    escapes.push(entry(node.expression, target, { kind: 'return' }));
-                }
-            }
             if (ts.isArrowFunction(node) || ts.isFunctionExpression(node))
             {
                 for (const parameter of parameters)
@@ -437,8 +527,51 @@ export function createCompositionCollectionSource(source)
                     }
                 }
             }
-        });
-        return proof({ parameters, reads, freeReads, writes, escapes, calls }, [step(file, fn)]);
+            ts.forEachChild(node, inspectEffects);
+            if (ts.isReturnStatement(node) && node.expression)
+            {
+                returned(node.expression);
+            }
+            if (ts.isThrowStatement(node))
+            {
+                returned(node.expression, 'throw');
+            }
+            if (ts.isArrowFunction(node) && !ts.isBlock(node.body))
+            {
+                returned(node.body);
+            }
+            // A binding receives the RHS value only after all RHS effects.
+            // This keeps nested assignments/comma carriers in authored order.
+            if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name))
+            {
+                updateAlias(node, node.initializer);
+            }
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
+            {
+                const assigned = unwrap(node.left);
+                const binding = ts.isIdentifier(assigned) && lexicalBinding(assigned);
+                if (binding && (ts.isVariableDeclaration(binding) || ts.isParameter(binding)))
+                {
+                    const logical = [ts.SyntaxKind.AmpersandAmpersandEqualsToken, ts.SyntaxKind.BarBarEqualsToken,
+                        ts.SyntaxKind.QuestionQuestionEqualsToken].includes(node.operatorToken.kind);
+                    updateAlias(binding, node.operatorToken.kind === ts.SyntaxKind.EqualsToken || logical ? node.right : null,
+                        logical || guardedAssignment(node, binding));
+                }
+            }
+        }
+        effectRegions(fn).forEach(inspectEffects);
+        if (ts.isArrowFunction(fn) && !ts.isBlock(fn.body))
+        {
+            returned(fn.body);
+        }
+        if (fn.asteriskToken || fn.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword))
+        {
+            unresolved.push({ ...step(file, fn), required: 'actual deferred generator or async result/thenable effects remain unproved' });
+        }
+        return proof({ parameters, parameterSources: fn.parameters.map((parameter) => ({ source: step(file, parameter),
+            rest: !!parameter.dotDotDotToken, initializer: parameter.initializer ? step(file, parameter.initializer) : null })),
+        reads, freeReads, writes, escapes, calls, unresolved }, [step(file, fn)]);
     }
     function readonlyReferences(file, name, allowed = new Set())
     {
@@ -585,7 +718,7 @@ export function createCompositionCollectionSource(source)
                 const effect = callbackEffects(file, fn);
                 // Calls, item writes and captures are never pure by a function
                 // name or a VNode/readonly annotation.
-                if (effect.writes.length || effect.calls.length || effect.escapes.some((entry) => entry.kind !== 'return'))
+                if (effect.unresolved.length || effect.writes.length || effect.calls.length || effect.escapes.some((entry) => entry.kind !== 'return'))
                 {
                     fail(`effectful collection callback ${file}:${fn.getStart()}`);
                 }
@@ -803,6 +936,195 @@ export function createCompositionCollectionSource(source)
             renderProven: false }, steps);
         return { ...target, ...result, effects: functions[0].effects };
     }
+    /** Consume the original public export API; dependency lists grant no purity. */
+    function frameworkExportEffects(file, callee)
+    {
+        step(file, callee);
+        const target = resolver.resolveFrameworkExport(file, callee);
+        if (target.dependencies.length > 64)
+        {
+            fail(`framework dependency source closure exceeds 64 ${file}`);
+        }
+        const steps = [step(file, callee), step(target.file, target.fn)];
+        const importEdges = target.edges.map((edge) =>
+        {
+            const original = step(edge.file, edge.originalImportOrExportAST);
+            steps.push(original);
+            return { file: edge.file, source: original, resolvedFile: edge.resolvedFile, exportedName: edge.exportedName };
+        });
+        const functions = [];
+        const classes = [];
+        const openEffects = [];
+        function sourceContexts(ownerFile, node, stop)
+        {
+            const contexts = [];
+            for (let child = node, parent = node.parent; parent && parent !== stop; child = parent, parent = parent.parent)
+            {
+                if (ts.isIfStatement(parent))
+                {
+                    contexts.unshift(condition(ownerFile, parent.expression, child === parent.thenStatement ? 'if' : 'else'));
+                }
+                else if (ts.isConditionalExpression(parent) && child !== parent.condition)
+                {
+                    contexts.unshift(condition(ownerFile, parent.condition, child === parent.whenTrue ? 'if' : 'else'));
+                }
+                else if (ts.isBinaryExpression(parent) && child === parent.right
+                    && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken,
+                        ts.SyntaxKind.AmpersandAmpersandEqualsToken, ts.SyntaxKind.BarBarEqualsToken,
+                        ts.SyntaxKind.QuestionQuestionEqualsToken].includes(parent.operatorToken.kind))
+                {
+                    contexts.unshift({ ...condition(ownerFile, parent.left, 'short-circuit-right'),
+                        operator: parent.operatorToken.getText(), valueProven: false });
+                }
+                else if (ts.isIterationStatement(parent, false) || ts.isSwitchStatement(parent) || ts.isTryStatement(parent))
+                {
+                    contexts.unshift({ kind: ts.SyntaxKind[parent.kind], source: step(ownerFile, parent), multiplicityProven: false });
+                }
+            }
+            return contexts;
+        }
+        function implicitEffects(ownerFile, fn, definition)
+        {
+            effectRegions(fn).forEach((region) => walk(region, (node) =>
+            {
+                if (ts.isBinaryExpression(node) && ![ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken,
+                    ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken,
+                    ts.SyntaxKind.AmpersandAmpersandEqualsToken, ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken,
+                    ts.SyntaxKind.CommaToken, ts.SyntaxKind.EqualsToken].includes(node.operatorToken.kind)
+                        && (!scalar(node.left) || !scalar(node.right))
+                    || ts.isPrefixUnaryExpression(node) && [ts.SyntaxKind.PlusToken, ts.SyntaxKind.MinusToken,
+                        ts.SyntaxKind.TildeToken].includes(node.operator) && !scalar(node.operand)
+                    || ts.isTemplateExpression(node) && node.templateSpans.some((span) => !scalar(span.expression))
+                    || ts.isSpreadElement(node) || ts.isSpreadAssignment(node) || ts.isForInStatement(node) || ts.isForOfStatement(node)
+                    || ts.isComputedPropertyName(node) && !scalar(node.expression))
+                {
+                    openEffects.push({ definition, source: step(ownerFile, node), contexts: sourceContexts(ownerFile, node, fn),
+                        required: 'actual primitive conversion, property enumeration or iterator effects; annotations grant no runtime values' });
+                }
+                if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+                {
+                    openEffects.push({ definition, source: step(ownerFile, node), contexts: sourceContexts(ownerFile, node, fn),
+                        required: 'actual property getter/setter or Proxy effects and receiver identity remain unproved' });
+                }
+                if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node))
+                {
+                    openEffects.push({ definition, source: step(ownerFile, node),
+                        required: 'actual JSX component/output effects require the canonical render visitor' });
+                }
+            }));
+        }
+        for (const dependency of target.dependencies)
+        {
+            const definition = dependency.fn ?? dependency.classDeclaration;
+            const owned = step(dependency.file, definition);
+            steps.push(owned);
+            if (dependency.fn)
+            {
+                const effects = callbackEffects(dependency.file, dependency.fn, true);
+                functions.push({ file: dependency.file, definition: owned, effects });
+                openEffects.push(...effects.unresolved.map((effect) => ({ definition: owned, effect, required: effect.required })));
+                implicitEffects(dependency.file, dependency.fn, owned);
+                openEffects.push(...effects.freeReads.map((read) => ({ definition: owned, read,
+                    required: 'actual captured binding value/effects; free identifier text grants no primitive or purity fact' })));
+                // Direct call/new definitions supplied by the canonical API do
+                // not close the body, member dispatch or native call effects.
+                openEffects.push(...effects.calls.map((call) => ({ definition: owned, call,
+                    required: 'actual argument/receiver effect closure; dependency enumeration alone grants no purity' })));
+                continue;
+            }
+            const constructors = [];
+            const members = [];
+            const fields = [];
+            const fieldBindings = [];
+            for (const member of definition.members)
+            {
+                const memberSource = step(dependency.file, member);
+                if (ts.isConstructorDeclaration(member))
+                {
+                    const effects = callbackEffects(dependency.file, member, true);
+                    constructors.push({ source: memberSource, effects });
+                    walk(member.body, (node) =>
+                    {
+                        if (!ts.isBinaryExpression(node) || node.operatorToken.kind !== ts.SyntaxKind.EqualsToken
+                            || path(node.left)?.[0] !== 'this' || path(node.left).length !== 2 || !ts.isIdentifier(unwrap(node.right)))
+                        {
+                            return;
+                        }
+                        const parameterIndex = member.parameters.findIndex((parameter) => ts.isIdentifier(parameter.name)
+                            && parameter.name.text === unwrap(node.right).text);
+                        if (parameterIndex >= 0)
+                        {
+                            fieldBindings.push({ field: path(node.left)[1], parameterIndex,
+                                parameter: step(dependency.file, member.parameters[parameterIndex]), assignment: step(dependency.file, node),
+                                contexts: sourceContexts(dependency.file, node, member.body), possibleSourceAssignment: true });
+                        }
+                    });
+                }
+                else if (ts.isGetAccessorDeclaration(member) || ts.isSetAccessorDeclaration(member) || ts.isMethodDeclaration(member))
+                {
+                    if (!member.body)
+                    {
+                        openEffects.push({ definition: owned, source: memberSource, required: 'actual member implementation body' });
+                        continue;
+                    }
+                    const effects = callbackEffects(dependency.file, member, true);
+                    members.push({ source: memberSource, name: member.name.getText(), kind: ts.SyntaxKind[member.kind], effects });
+                }
+                else
+                {
+                    fields.push({ source: memberSource, initializer: member.initializer ? step(dependency.file, member.initializer) : null });
+                    if (!ts.isPropertyDeclaration(member) && member.kind !== ts.SyntaxKind.SemicolonClassElement)
+                    {
+                        openEffects.push({ definition: owned, source: memberSource,
+                            required: 'actual unsupported class member or static initialization effects remain unproved' });
+                    }
+                    if (member.initializer)
+                    {
+                        openEffects.push({ definition: owned, source: memberSource, required: 'class field initialization effects remain unproved' });
+                    }
+                }
+            }
+            for (const binding of fieldBindings)
+            {
+                binding.overwrittenOrConditional = !!binding.contexts.length || constructors.some((constructor) =>
+                    constructor.effects.writes.filter((write) => write.path?.join('.') === `this.${binding.field}`).length > 1);
+            }
+            const deferredWrites = members.flatMap((member) => member.effects.writes.flatMap((write) =>
+                fieldBindings.filter((binding) => write.path?.[0] === 'this' && write.path?.[1] === binding.field)
+                    .map((binding) => ({ member: member.source, kind: member.kind, write, storedInput: binding,
+                        constructorParameterPath: [binding.parameterIndex, ...write.path.slice(2)], possibleSourceOrigin: true,
+                        constructorBindingProven: false,
+                        requiredBinding: 'actual new-expression-to-class constructor binding, returned carrier escape and later member dispatch; no runtime item identity inferred' }))));
+            for (const member of definition.members)
+            {
+                if (ts.isFunctionLike(member) && member.body)
+                {
+                    implicitEffects(dependency.file, member, owned);
+                }
+            }
+            for (const member of [...constructors, ...members])
+            {
+                openEffects.push(...member.effects.unresolved.map((effect) => ({ definition: owned, member: member.source,
+                    effect, required: effect.required })));
+                openEffects.push(...member.effects.freeReads.map((read) => ({ definition: owned, member: member.source, read,
+                    required: 'actual captured member binding effects remain unproved' })));
+                openEffects.push(...member.effects.calls.map((call) => ({ definition: owned, member: member.source, call,
+                    required: 'actual constructor/member argument and receiver effects remain unproved' })));
+            }
+            classes.push({ file: dependency.file, definition: owned, constructors, fields, members, fieldBindings, deferredWrites });
+        }
+        const unresolvedDependencies = target.unresolvedDependencies.map((entry) => ({ ...entry }));
+        const closureComplete = !openEffects.length && !unresolvedDependencies.length;
+        const readonly = closureComplete && functions.every((entry) => !entry.effects.writes.length && !entry.effects.escapes.length)
+            && classes.every((entry) => !entry.deferredWrites.length && [...entry.constructors, ...entry.members]
+                .every((member) => !member.effects.writes.length && !member.effects.escapes.length));
+        const result = proof({ kind: 'framework-export-effect-closure', exportIdentity: target.exportIdentity,
+            importEdges, functions, classes, unresolvedDependencies, openEffects, dependencyScope: target.dependencyScope,
+            closureComplete, readonly, qualificationEligible: false, renderProven: false }, steps);
+        // The original function AST stays outside serializable proof identities.
+        return { ...result, file: target.file, fn: target.fn };
+    }
+    const activeFrameworkParameters = new Set();
     /** Parameter-relative closure: other arguments/effects never imply purity. */
     function boundFunction(file, callee, bindings)
     {
@@ -839,6 +1161,7 @@ export function createCompositionCollectionSource(source)
         const functions = [];
         const edges = [];
         const unresolved = [];
+        const frameworkClosures = [];
         const steps = [];
         function inspect(ownerFile, owner, parameterIndex)
         {
@@ -882,6 +1205,10 @@ export function createCompositionCollectionSource(source)
                 }
                 const entry = { ...step(ownerFile, top), path: parts };
                 reads.push(entry);
+                if (parts.length > 1)
+                {
+                    unresolved.push({ ...entry, required: 'actual selected property getter/Proxy effects remain unproved' });
+                }
                 if (ts.isBinaryExpression(use) && use.left === top && use.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
                     && use.operatorToken.kind <= ts.SyntaxKind.LastAssignment || ts.isDeleteExpression(use)
                     || (ts.isPrefixUnaryExpression(use) || ts.isPostfixUnaryExpression(use))
@@ -902,8 +1229,50 @@ export function createCompositionCollectionSource(source)
                     }
                     catch (error)
                     {
-                        unresolved.push({ ...entry, call: step(ownerFile, use), reason: error.message,
-                            required: 'original resolver export/function AST and parameter effect closure' });
+                        let framework = null;
+                        const callee = unwrap(use.expression);
+                        if (ts.isIdentifier(callee) && resolver.parse(ownerFile).imports.has(callee.text)
+                            && typeof resolver.resolveFrameworkExport === 'function')
+                        {
+                            try
+                            {
+                                const { fn: frameworkAST, file: frameworkFile, ...effects } = frameworkExportEffects(ownerFile, callee);
+                                const argumentIndex = use.arguments.indexOf(top);
+                                const key = controlDigest({ definition: step(frameworkFile, frameworkAST), argumentIndex, property });
+                                if (activeFrameworkParameters.has(key))
+                                {
+                                    fail('recursive framework parameter source closure');
+                                }
+                                activeFrameworkParameters.add(key);
+                                let parameterEffects;
+                                try
+                                {
+                                    parameterEffects = parameterClosure(frameworkFile, frameworkAST, argumentIndex, property, bindings);
+                                }
+                                finally
+                                {
+                                    activeFrameworkParameters.delete(key);
+                                }
+                                const closure = { call: step(ownerFile, use), argument: entry, parameterIndex: argumentIndex,
+                                    callee: step(frameworkFile, frameworkAST), effects, parameterEffects };
+                                frameworkClosures.push(closure);
+                                framework = { effects: effects.proofDigest, parameterEffects: parameterEffects.proofDigest,
+                                    readonly: effects.readonly && parameterEffects.readonly };
+                                steps.push(...effects.steps, ...parameterEffects.steps);
+                                if (framework.readonly)
+                                {
+                                    edges.push({ call: closure.call, argument: entry, parameterIndex: argumentIndex, callee: closure.callee,
+                                        framework: framework.effects });
+                                    return;
+                                }
+                            }
+                            catch (frameworkError)
+                            {
+                                framework = { reason: frameworkError.message };
+                            }
+                        }
+                        unresolved.push({ ...entry, call: step(ownerFile, use), reason: error.message, framework,
+                            required: 'original resolver export/function AST and parameter effect closure; native, indirect and deferred member effects remain explicit' });
                     }
                     return;
                 }
@@ -911,20 +1280,31 @@ export function createCompositionCollectionSource(source)
                 // property's identity. Passing unrelated fields proves nothing
                 // about those fields, but cannot manufacture a marks write.
                 if ((ts.isCallExpression(use) || ts.isNewExpression(use)) && (use.arguments?.includes(top) || use.expression === top)
-                    || ts.isReturnStatement(use) || ts.isVariableDeclaration(use) && use.initializer === top
+                    || ts.isReturnStatement(use) || ts.isArrowFunction(use) && use.body === top
+                    || ts.isThrowStatement(use) || ts.isVariableDeclaration(use) && use.initializer === top
                     || ts.isPropertyAssignment(use) && use.initializer === top || ts.isShorthandPropertyAssignment(use)
                     || ts.isSpreadAssignment(use) || ts.isArrayLiteralExpression(use)
                     || ts.isBinaryExpression(use) && use.right === top && use.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
                         && use.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
                 {
                     escapes.push({ ...entry, operation: step(ownerFile, use), kind: 'identity-escape' });
+                    return;
+                }
+                if (!(ts.isExpressionStatement(use) || ts.isIfStatement(use) || ts.isConditionalExpression(use)
+                    || ts.isPrefixUnaryExpression(use) && use.operator === ts.SyntaxKind.ExclamationToken
+                    || ts.isTypeOfExpression(use) || ts.isVoidExpression(use)
+                    || ts.isBinaryExpression(use) && [ts.SyntaxKind.EqualsEqualsEqualsToken,
+                        ts.SyntaxKind.ExclamationEqualsEqualsToken].includes(use.operatorToken.kind)))
+                {
+                    unresolved.push({ ...entry, operation: step(ownerFile, use),
+                        required: 'actual source-reference consumer conversion, deferred effect or unsupported value flow remains unproved' });
                 }
             }));
             steps.push(definition);
             functions.push({ file: ownerFile, definition, parameterIndex, parameter: root, reads, writes, escapes });
         }
         inspect(file, fn, index);
-        return proof({ kind: seed ? 'binding-source-closure' : 'parameter-source-closure', property, functions, edges, unresolved,
+        return proof({ kind: seed ? 'binding-source-closure' : 'parameter-source-closure', property, functions, edges, unresolved, frameworkClosures,
             readonly: !unresolved.length && functions.every((entry) => !entry.writes.length && !entry.escapes.length),
             renderProven: false }, steps);
     }
@@ -2005,6 +2385,7 @@ export function createCompositionCollectionSource(source)
             fail(`out-of-scope partition props parameter ${file}`);
         }
         const primitiveReads = new Set();
+        const primitiveOperations = [];
         walk(propsBinding.parent.body, (node) =>
         {
             const parts = ts.isCallExpression(node) && path(node.expression);
@@ -2013,6 +2394,16 @@ export function createCompositionCollectionSource(source)
             {
                 const member = unwrap(node.expression);
                 primitiveReads.add(unwrap(unwrap(member.expression).expression));
+                primitiveOperations.push(step(file, node));
+            }
+            if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken
+                && path(node.operand)?.join('.') === `${propsName}.${property}`)
+            {
+                // callStrings above binds every actual authored caller branch
+                // to literal strings. This is the existing source-plan input
+                // contract, not a getter/Proxy or mounted-runtime purity proof.
+                primitiveReads.add(unwrap(unwrap(node.operand).expression));
+                primitiveOperations.push(step(file, node));
             }
         });
         const inputClosure = rootClosure(file, propsBinding.parent, 0, property, bindings, null, primitiveReads);
@@ -2171,6 +2562,18 @@ export function createCompositionCollectionSource(source)
         // Enumerate bounded source control paths. Return statements belonging
         // to callbacks/functions never terminate this render block. Each branch
         // decision is retained at its actual evaluation point.
+        const modeledOperations = new Set([loop, ...classCalls.map((entry) => entry.node), ...wrappers.map((entry) => entry.operation)]);
+        function rejectNestedOperations(node, allowRoot = false)
+        {
+            const root = unwrap(node);
+            walk(node, (child) =>
+            {
+                if (modeledOperations.has(child) && !(allowRoot && child === root))
+                {
+                    fail(`unsupported nested partition operation ${file}:${child.getStart()}`);
+                }
+            });
+        }
         function flow(statement, incoming)
         {
             if (ts.isBlock(statement))
@@ -2187,6 +2590,7 @@ export function createCompositionCollectionSource(source)
             }
             if (ts.isIfStatement(statement))
             {
+                rejectNestedOperations(statement.expression);
                 const result = incoming.flatMap((entry) => ['if', 'else'].flatMap((name) =>
                 {
                     const next = { ...entry, events: [...entry.events, { guard: statement, name }],
@@ -2205,6 +2609,24 @@ export function createCompositionCollectionSource(source)
                     ts.isThrowStatement, ts.isEmptyStatement].some((check) => check(statement)))
             {
                 fail(`unsupported partition control flow ${file}:${statement.getStart()}`);
+            }
+            if (ts.isExpressionStatement(statement))
+            {
+                rejectNestedOperations(statement.expression, true);
+            }
+            else if (ts.isVariableStatement(statement))
+            {
+                statement.declarationList.declarations.forEach((binding) =>
+                {
+                    if (binding.initializer)
+                    {
+                        rejectNestedOperations(binding.initializer);
+                    }
+                });
+            }
+            else if (ts.isReturnStatement(statement) && statement.expression)
+            {
+                rejectNestedOperations(statement.expression);
             }
             return incoming.map((entry) => ({ ...entry, events: [...entry.events, { statement }],
                 returned: ts.isReturnStatement(statement) || ts.isThrowStatement(statement) ? statement : entry.returned }));
@@ -2401,9 +2823,10 @@ export function createCompositionCollectionSource(source)
             assembledRoot: branch.assembledRoot.map((item) => ({ ...item, node: step(file, item.node) })),
             wrappers: branch.wrappers.map((item) => ({ source: step(file, item.node), push: step(file, item.operation), conditions: item.conditions })) }));
         return { ...proof({ kind: 'ordered-partition-plan', callNode: call.id, input: strings.proofDigest, inputClosure,
+            primitiveOperations, runtimeInputIdentityProven: false,
             branches: payload, excludedReturns, projectionSteps: table.projectionSteps, sinkEffects: table.sinkEffects, constructorEdges, callbackEffects: callbackEffects(file, fn), renderProven: false },
         [step(file, loop), step(file, components), step(file, table.declaration), step(file, state), ...strings.steps, ...inputClosure.steps]), outputs: branches };
     }
     return { collect, callbackEffects, computedBranches, emptyComputedCall, supplier, parameterClosure, bindingClosure,
-        callStrings, keyedMap, paneLabel, paneSourceChain, classMutation, bindClass, partitionCollection, slotFallback };
+        callStrings, keyedMap, paneLabel, paneSourceChain, classMutation, bindClass, partitionCollection, slotFallback, frameworkExportEffects };
 }

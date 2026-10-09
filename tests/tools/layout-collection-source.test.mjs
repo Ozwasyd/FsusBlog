@@ -1027,3 +1027,459 @@ test('repair: callback type references do not manufacture runtime free reads', (
     const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
     assert.ok(!result.freeReads.some((entry) => entry.path?.[0] === 'Opaque'));
 });
+
+function frameworkCall(relative, name)
+{
+    const state = context();
+    const file = resolve(fsusUIRoot, 'vue/packages/components', relative);
+    const record = state.source.resolver.parse(file);
+    const call = find(record, (node) => state.ts.isCallExpression(node) && node.expression.getText() === name, state.ts)[0];
+    return { ...state, file, call };
+}
+function frameworkFixture(body, imported = 'wrap')
+{
+    const state = context();
+    fixture(body, 'FrameworkHelper.ts');
+    const file = fixture(`import {${imported}} from './FrameworkHelper';const value=${imported}(input);`, 'FrameworkEntry.ts');
+    const record = state.source.resolver.parse(file);
+    return { ...state, file, call: record.variables.get('value') };
+}
+test('framework continuation: actual Slider toRefs binds every canonical import export edge and function definition', () =>
+{
+    const state = frameworkCall('slider/src/slider.vue', 'toRefs');
+    const actual = state.source.resolver.resolveFrameworkExport(state.file, state.call.expression);
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.equal(result.fn, actual.fn);
+    assert.equal(result.file, actual.file);
+    assert.equal(result.exportIdentity.sourceKind, 'declared-frontend-public-esm');
+    assert.deepEqual(result.importEdges.map((edge) => edge.source), actual.edges.map((edge) => state.source.resolver.sourceStep(edge.file, edge.originalImportOrExportAST)));
+    assert.equal(result.qualificationEligible, false);
+    assert.equal(result.renderProven, false);
+    assert.equal(result.readonly, false);
+});
+test('framework continuation: actual ObjectRefImpl setter preserves stored object parameter and both write paths', () =>
+{
+    const state = frameworkCall('form/src/hooks/use-form-item.ts', 'toRef');
+    const actual = state.source.resolver.resolveFrameworkExport(state.file, state.call.expression);
+    const definition = actual.dependencies.find((entry) => entry.classDeclaration?.name?.text === 'ObjectRefImpl');
+    assert.ok(definition);
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    const record = result.classes.find((entry) => entry.definition.digest === state.source.resolver.sourceStep(definition.file, definition.classDeclaration).digest);
+    assert.ok(record);
+    assert.ok(record.deferredWrites.some((entry) => entry.write.path.join('.') === 'this._object.*'));
+    assert.ok(record.deferredWrites.some((entry) => entry.write.path.join('.') === 'this._object.*.value'));
+    assert.ok(record.deferredWrites.every((entry) => entry.constructorParameterPath[0] === 0));
+    assert.ok(record.deferredWrites.every((entry) => entry.kind === 'SetAccessor'));
+    assert.equal(result.readonly, false);
+});
+test('framework continuation: actual Vue native dependency gaps remain explicit after source resolution', () =>
+{
+    const state = frameworkCall('slider/src/slider.vue', 'toRefs');
+    const actual = state.source.resolver.resolveFrameworkExport(state.file, state.call.expression);
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.deepEqual(result.unresolvedDependencies, actual.unresolvedDependencies);
+    assert.ok(result.unresolvedDependencies.some((entry) => entry.name === 'isArray'));
+    assert.ok(result.openEffects.length);
+    assert.equal(result.closureComplete, false);
+});
+test('framework continuation: actual Slider caller now retains both resolved framework bodies and readonly rejection', () =>
+{
+    const state = frameworkCall('slider/src/slider.vue', 'toRefs');
+    const record = state.source.resolver.parse(state.file);
+    const binding = find(record, (node) => state.ts.isVariableDeclaration(node) && node.name.getText() === 'props', state.ts)[0];
+    const selected = record.variables.get('markList');
+    const result = state.module.bindingClosure(state.file, binding, 'marks', new Set([selected.arguments[0]]));
+    assert.equal(result.readonly, false);
+    assert.equal(result.frameworkClosures.length, 2);
+    assert.deepEqual(result.frameworkClosures.map((entry) => entry.effects.exportIdentity.exportedName).sort(), ['toRef','toRefs']);
+    assert.ok(result.frameworkClosures.every((entry) => !entry.parameterEffects.readonly));
+    assert.ok(result.frameworkClosures.some((entry) => entry.parameterEffects.functions.some((fn) => fn.escapes.length)));
+    assert.ok(result.frameworkClosures.every((entry) => entry.effects.classes.some((record) => record.deferredWrites.length)));
+    assert.equal(result.unresolved.length, 2);
+    assert.ok(result.unresolved.every((entry) => entry.framework?.effects && entry.framework?.parameterEffects && !entry.framework.readonly));
+});
+test('framework continuation: a canonical function body with no effects closes source readonly without name authority', () =>
+{
+    const state = frameworkFixture('export function wrap(value){return 1;}');
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.equal(result.readonly, true);
+    assert.equal(result.closureComplete, true);
+    assert.equal(result.renderProven, false);
+    assert.equal(result.qualificationEligible, false);
+});
+test('framework continuation: default parameter write rejects readonly from the actual initializer source', () =>
+{
+    const state = frameworkFixture('export function wrap(value,side=(value.marks=unknown)){return 1;}');
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.ok(result.functions[0].effects.writes.some((entry) => entry.path.join('.') === 'value.marks'));
+    assert.ok(result.functions[0].effects.parameterSources[1].initializer);
+    assert.equal(result.readonly, false);
+});
+test('framework continuation: authored class setter maps back to its actual constructor parameter', () =>
+{
+    const state = frameworkFixture('export function wrap(value){return new Carrier(value);}class Carrier{constructor(value){this.target=value;}set value(next){this.target.marks=next;}}');
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.deepEqual(result.classes[0].deferredWrites[0].constructorParameterPath, [0,'marks']);
+    assert.equal(result.classes[0].fieldBindings[0].field, 'target');
+    assert.equal(result.readonly, false);
+    assert.ok(result.classes[0].deferredWrites[0].requiredBinding.includes('actual new-expression-to-class'));
+});
+test('framework continuation: copied named import callee AST is rejected', () =>
+{
+    const state = frameworkFixture('export function wrap(value){return 1;}');
+    assert.throws(() => state.module.frameworkExportEffects(state.file, {...state.call.expression}), /unowned source proof node/u);
+});
+test('framework continuation: namespace callee cannot replace an actual named import', () =>
+{
+    const state = context();
+    fixture('export function wrap(value){return 1;}', 'FrameworkHelper.ts');
+    const file = fixture("import * as ns from './FrameworkHelper';const value=ns.wrap(input);", 'FrameworkEntry.ts');
+    const call = state.source.resolver.parse(file).variables.get('value');
+    assert.throws(() => state.module.frameworkExportEffects(file, call.expression), /actual named import AST/u);
+});
+test('framework continuation: provided unknown marks remains rejected after framework source closure expansion', () =>
+{
+    const state = emptyFixture({input: ':marks="unknown"', ownerExtra: "import {toRefs} from 'vue';const forwarded=toRefs(props);"});
+    assert.throws(() => state.module.emptyComputedCall(state.file, state.call, state.componentCall), /escaped collection binding/u);
+});
+test('framework continuation: ordinary callback rest parameters remain rejected', () =>
+{
+    const state = local('const callback=(item,...rest)=>item;const children=[];');
+    assert.throws(() => state.module.callbackEffects(state.file, state.record.variables.get('callback')), /unknown callback parameter/u);
+});
+test('framework continuation: alias rebinding does not manufacture a write through its borrowed object', () =>
+{
+    const state = local('const callback=item=>{let alias=item;alias=other;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.writes.map((entry) => entry.path), [['alias']]);
+    assert.ok(result.writes[0].originBindings.length);
+});
+test('framework continuation: a string annotation cannot close implicit argument conversion effects', () =>
+{
+    const state = frameworkFixture('export function wrap(value:string){return value+1;}');
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.ok(result.openEffects.some((entry) => entry.required.includes('primitive conversion')));
+    assert.equal(result.readonly, false);
+    assert.equal(result.closureComplete, false);
+});
+test('framework continuation: constructor field overwrite retains only a possible authored source origin', () =>
+{
+    const state = frameworkFixture('export function wrap(value){return new Carrier(value);}class Carrier{constructor(value){this.target=value;this.target=unknown;}set value(next){this.target.marks=next;}}');
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    const stored = result.classes[0].fieldBindings[0];
+    assert.equal(stored.overwrittenOrConditional, true);
+    assert.equal(stored.possibleSourceAssignment, true);
+    assert.equal(result.classes[0].deferredWrites[0].constructorBindingProven, false);
+    assert.equal(result.readonly, false);
+});
+
+test('re-review: comma array escape is rejected', () => reject("const children=['a'];foreign((0,children));"));
+test('re-review: comma parameter escape is not readonly', () => assert.equal(reviewReadonly('function owner(props){foreign((0,props));}').readonly, false));
+test('re-review: short-circuit class write is rejected or modeled', () =>
+{
+    const state = reviewPartition((value) => value.replace("decorate(root[0],'first');", "extra&&decorate(root[0],'conditional');"));
+    let result;
+    try
+    {
+        result = reviewPlan(state);
+    }
+    catch (error)
+    {
+        assert.match(error.message, /composition-collection-source|control-legality/u);
+        return;
+    }
+    assert.ok(result.outputs.some((branch) => branch.mutations.some((write) => write.binding.classValue === 'conditional')));
+});
+test('re-review: reassigned callback alias retains actual parameter write', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;alias=item;alias.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'item.value'));
+});
+test('re-review boundary: a comma left operand does not supply the returned array identity', () =>
+{
+    const result = collection("const children=['a'];foreign((children,[]));");
+    assert.deepEqual(result.outputs.map((entry) => entry.node.text), ['a']);
+});
+test('re-review boundary: a conditional alias assignment retains both actual parameter origins', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;if(flag)alias=item;alias.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'item.value'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'other.value'));
+});
+test('re-review boundary: a later const alias reads the updated source binding', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;alias=item;const next=alias;next.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'item.value'));
+    assert.ok(!result.writes.some((write) => write.path?.join('.') === 'other.value'));
+});
+test('re-review boundary: a class write in an initializer cannot disappear from a successful partition plan', () =>
+{
+    assert.throws(() => reviewPlan(reviewPartition((value) => value.replace("decorate(root[0],'first');", "const ignored=decorate(root[0],'nested');"))), /unsupported nested partition operation/u);
+});
+test('vue continuation: actual Tabs chain consumes the original public Vue binding interface', () =>
+{
+    const state = actualPanes();
+    assert.equal(typeof state.source.vueBinding, 'function');
+    const result = state.module.paneSourceChain(state.chain);
+    assert.equal(result.frameworkEdges.length, 3);
+    assert.equal(result.renderProven, false);
+    assert.ok(result.navigationCall);
+});
+test('vue continuation: copied provider call AST cannot gain framework identity', () =>
+{
+    const state = actualPanes();
+    assert.throws(() => state.module.paneSourceChain({...state.chain,providerCall:{...state.chain.providerCall}}), /unowned source proof node/u);
+});
+test('vue continuation: a foreign parse record cannot gain original Vue binding identity', () =>
+{
+    const state = actualPanes();
+    const record = state.source.resolver.parse(state.chain.ownerFile);
+    assert.throws(() => state.source.vueBinding({...record}, state.chain.providerCall.expression, 'provide'), /foreign Vue binding record/u);
+});
+test('re-review boundary: nested assignment RHS completes before the outer alias receives its value', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=item;alias=(alias=item,other);alias.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'other.value'));
+    assert.ok(!result.writes.some((write) => write.path?.join('.') === 'item.value'));
+});
+test('re-review boundary: reassigned parameter member follows its current actual source origin', () =>
+{
+    const state = local('const callback=(item,other)=>{item=other;item.value=unknown;};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.ok(result.writes.some((write) => write.path?.join('.') === 'other.value'));
+});
+
+function checkedFramework(body)
+{
+    const state = frameworkFixture(body);
+    const actual = state.source.resolver.resolveFrameworkExport(state.file, state.call.expression);
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    assert.equal(result.fn, actual.fn);
+    assert.equal(result.file, actual.file);
+    assert.equal(result.qualificationEligible, false);
+    assert.equal(result.renderProven, false);
+    return result;
+}
+function unknownFramework(body)
+{
+    const result = checkedFramework(body);
+    assert.equal(result.closureComplete, false);
+    assert.equal(result.readonly, false);
+    assert.ok(result.openEffects.length);
+    return result;
+}
+test('effect repair FW1: local input alias getter or Proxy read remains unclosed', () =>
+{
+    const result = unknownFramework('export function wrap(value){const alias=value;const observed=alias.marks;return 1;}');
+    const read = result.functions[0].effects.reads.find((entry) => entry.path?.join('.') === 'value.marks');
+    assert.ok(read.binding);
+    assert.equal(read.originBindings.length, 1);
+    assert.ok(result.openEffects.some((entry) => entry.required.includes('getter')));
+});
+test('effect repair FW2: unary plus on a string annotated input remains unclosed', () =>
+{
+    unknownFramework('export function wrap(value:string){return +value;}');
+});
+test('effect repair FW3: implicit arrow return retains the input escape', () =>
+{
+    const result = checkedFramework('export const wrap=value=>value;');
+    assert.equal(result.readonly, false);
+    assert.ok(result.functions[0].effects.escapes.some((entry) => entry.kind === 'return' && entry.path.join('.') === 'value'));
+});
+test('effect boundary: optional member access preserves unknown getter effects', () =>
+{
+    unknownFramework('export const wrap=value=>{const observed=value?.marks;return 1;};');
+});
+test('effect boundary: computed member key conversion and Proxy effects remain unclosed', () =>
+{
+    unknownFramework('export function wrap(value,key){const observed=value[key];return 1;}');
+});
+test('effect boundary: conditional alias getter reads retain both original input bindings', () =>
+{
+    const result = unknownFramework('export function wrap(value,other){const alias=value?value:other;const observed=alias.marks;return 1;}');
+    assert.deepEqual(result.functions[0].effects.reads.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['value','marks'],['other','marks']]);
+});
+test('effect boundary: unary minus on an opaque input remains unclosed', () =>
+{
+    unknownFramework('export const wrap=value=>-value;');
+});
+test('effect boundary: bitwise not on an opaque input remains unclosed', () =>
+{
+    unknownFramework('export const wrap=value=>~value;');
+});
+test('effect boundary: nested arithmetic retains conversion gaps without inferred constant folding', () =>
+{
+    const result = checkedFramework('export function wrap(value){return +("1") - -2 + ~3;}');
+    // The enclosing arithmetic has nonliteral operands, so only the literal
+    // unary nodes close. No inferred constant folding is granted.
+    assert.equal(result.readonly, false);
+    assert.equal(result.closureComplete, false);
+    assert.ok(result.openEffects.length);
+});
+test('effect boundary: a single literal unary operation closes readonly', () =>
+{
+    const result = checkedFramework('export const wrap=value=>+("1");');
+    assert.equal(result.closureComplete, true);
+    assert.equal(result.readonly, true);
+});
+test('effect boundary: strict equality on an opaque input has no implicit conversion', () =>
+{
+    const result = checkedFramework('export const wrap=value=>value===1;');
+    assert.equal(result.closureComplete, true);
+    assert.equal(result.readonly, true);
+});
+test('effect boundary: boolean negation does not invent primitive conversion', () =>
+{
+    const result = checkedFramework('export const wrap=value=>!value;');
+    assert.equal(result.readonly, true);
+});
+test('effect boundary: typeof does not invent primitive conversion', () =>
+{
+    assert.equal(checkedFramework('export const wrap=value=>typeof value;').readonly, true);
+});
+test('effect boundary: loose equality on an opaque input remains unclosed', () =>
+{
+    unknownFramework('export const wrap=value=>value==1;');
+});
+test('effect boundary: template interpolation on an annotated input remains unclosed', () =>
+{
+    unknownFramework('export const wrap=(value:string)=>`${value}`;');
+});
+test('effect boundary: spread enumeration on an opaque input remains unclosed', () =>
+{
+    unknownFramework('export const wrap=value=>({...value});');
+});
+test('effect boundary: object binding getter effects remain explicitly unresolved', () =>
+{
+    const result = unknownFramework('export function wrap(value){const {marks}=value;return 1;}');
+    assert.ok(result.functions[0].effects.unresolved.some((entry) => entry.kind === 'ObjectBindingPattern'));
+});
+test('effect boundary: array binding iterator effects remain explicitly unresolved', () =>
+{
+    unknownFramework('export function wrap(value){const [first]=value;return 1;}');
+});
+test('effect boundary: tagged template dispatch remains explicitly unresolved', () =>
+{
+    const result = unknownFramework('export const wrap=value=>value`text`;');
+    assert.ok(result.functions[0].effects.unresolved.some((entry) => entry.kind === 'TaggedTemplateExpression'));
+});
+test('effect boundary: async thenable result cannot close from a return type', () =>
+{
+    unknownFramework('export async function wrap(value):Promise<number>{return value;}');
+});
+test('effect boundary: generator yield cannot close deferred effects', () =>
+{
+    unknownFramework('export function* wrap(value){yield value;}');
+});
+test('effect boundary: a class expression remains explicitly unsupported', () =>
+{
+    unknownFramework('export const wrap=value=>class {get marks(){return value.marks;}};');
+});
+test('effect boundary: implicit aggregate return retains every input reference', () =>
+{
+    const result = checkedFramework('export const wrap=(value,other)=>({value,list:[other]});');
+    assert.equal(result.readonly, false);
+    assert.deepEqual(result.functions[0].effects.escapes.filter((entry) => entry.kind === 'return').map((entry) => entry.path), [['value'],['other']]);
+});
+test('effect boundary: a cast cannot erase the implicit returned input identity', () =>
+{
+    const result = checkedFramework('export const wrap=value=><Readonly<object>>value;');
+    assert.equal(result.readonly, false);
+    assert.ok(result.functions[0].effects.escapes.some((entry) => entry.path?.[0] === 'value'));
+});
+test('effect boundary: comma return preserves only the final carrier identity', () =>
+{
+    const result = checkedFramework('export const wrap=(value,other)=>(value,other);');
+    assert.equal(result.readonly, false);
+    assert.deepEqual(result.functions[0].effects.escapes.filter((entry) => entry.kind === 'return').map((entry) => entry.path), [['other']]);
+});
+test('effect boundary: assignment expression carrier retains its actual input origin', () =>
+{
+    const result = checkedFramework('export function wrap(value){let alias;const carrier=(alias=value);return carrier;}');
+    assert.equal(result.readonly, false);
+    assert.ok(result.functions[0].effects.escapes.some((entry) => entry.kind === 'return' && entry.path?.[0] === 'value'));
+});
+test('effect boundary: logical alias assignment retains both possible input writes', () =>
+{
+    const result = checkedFramework('export function wrap(value,other){let alias=other;alias&&=value;alias.marks=1;return 1;}');
+    assert.equal(result.readonly, false);
+    assert.deepEqual(result.functions[0].effects.writes.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['other','marks'],['value','marks']]);
+});
+test('effect boundary: return expression records assignment effects before resolving the final alias', () =>
+{
+    const result = checkedFramework('export function wrap(value,other){let alias=other;return (alias=value,alias);}');
+    assert.deepEqual(result.functions[0].effects.escapes.filter((entry) => entry.kind === 'return').map((entry) => entry.path), [['value']]);
+});
+test('effect boundary: default initializer property read remains unclosed', () =>
+{
+    unknownFramework('export function wrap(value,other=value.marks){return 1;}');
+});
+test('effect boundary: short circuit conversion retains the authored unknown path', () =>
+{
+    const result = unknownFramework('export const wrap=value=>value&&+value;');
+    assert.ok(result.openEffects.some((entry) => entry.contexts?.some((guard) => guard.expression === 'value'
+        && guard.operator === '&&' && guard.valueProven === false)));
+});
+test('effect boundary: parameter closure rejects an implicit returned input reference', () =>
+{
+    const state = local('const callback=item=>item;const children=[];');
+    assert.equal(state.module.parameterClosure(state.file, state.record.variables.get('callback')).readonly, false);
+});
+test('effect boundary: parameter closure rejects an unproved coercive consumer', () =>
+{
+    assert.equal(reviewReadonly('function owner(props){return +props;}').readonly, false);
+});
+test('effect boundary: type query annotation does not manufacture runtime effects', () =>
+{
+    const result = checkedFramework('export function wrap(value:typeof namespace.member){return 1;}');
+    assert.equal(result.readonly, true);
+    assert.equal(result.closureComplete, true);
+    assert.deepEqual(result.functions[0].effects.unresolved, []);
+});
+test('effect boundary: class static initialization remains explicitly unproved', () =>
+{
+    const result = unknownFramework('export function wrap(value){return new Carrier(value);}class Carrier{static{foreign();}constructor(value){}}');
+    assert.ok(result.openEffects.some((entry) => entry.required.includes('static initialization')));
+});
+test('effect boundary: await thenable handling remains explicitly unproved', () =>
+{
+    const result = unknownFramework('export async function wrap(value){await value;return 1;}');
+    assert.ok(result.functions[0].effects.unresolved.some((entry) => entry.kind === 'AwaitExpression'));
+});
+test('effect boundary: opaque computed object key conversion remains unclosed', () =>
+{
+    unknownFramework('export const wrap=value=>({[value]:1});');
+});
+test('effect boundary: conditional conversion retains the original false arm condition', () =>
+{
+    const result = unknownFramework('export const wrap=value=>value?1:+value;');
+    assert.ok(result.openEffects.some((entry) => entry.contexts?.some((guard) => guard.expression === 'value' && guard.name === 'else')));
+});
+test('effect boundary: nested callback implicit return preserves its own original parameter binding', () =>
+{
+    const result = checkedFramework('export function wrap(value){const callback=inner=>inner;return 1;}');
+    assert.equal(result.readonly, false);
+    const returned = result.functions[0].effects.escapes.find((entry) => entry.kind === 'return' && entry.path?.[0] === 'inner');
+    assert.ok(returned.binding);
+    assert.equal(returned.originBindings.length, 1);
+});
+test('effect boundary: literal caller partition truthiness retains its source operations without runtime identity', () =>
+{
+    const state = actualPagination('layout="prev, pager, next"');
+    const result = state.module.partitionCollection(state.file, state.loop, state.componentCall, state.bindings);
+    const authored = find(state.source.resolver.parse(state.file), (node) => state.ts.isPrefixUnaryExpression(node)
+        && node.operator === state.ts.SyntaxKind.ExclamationToken && node.operand.getText() === 'props.layout', state.ts)[0];
+    assert.ok(result.primitiveOperations.some((entry) => entry.digest === state.source.resolver.sourceStep(state.file, authored).digest));
+    assert.equal(result.runtimeInputIdentityProven, false);
+    assert.equal(result.renderProven, false);
+    assert.deepEqual(result.outputs[0].left.map((item) => item.key), ['prev','pager','next']);
+});
+test('effect boundary: opaque partition caller cannot borrow literal operation source bindings', () =>
+{
+    const state = actualPagination(':layout="unknown"');
+    assert.throws(() => state.module.partitionCollection(state.file, state.loop, state.componentCall, state.bindings), /nonliteral collection input/u);
+});
