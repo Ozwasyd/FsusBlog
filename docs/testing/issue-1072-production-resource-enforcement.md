@@ -69,6 +69,17 @@ the smaller observed ceiling, not an atomic reservation. Darwin/Windows sampling
 and enforcement remain unchanged. Zero headroom stays zero here; caller floors and workload fit require separate
 admission verification.
 
+The read-only inherited-mount locator supports only self membership `/` with the exact mountinfo root marker
+`/..`. It does not normalize that marker into a filesystem path. It examines at most 256 directory entries and
+64 direct child cgroups, requiring canonical contained directories on the visible mount's device, domain cgroup
+types and exactly one child containing the real current PID. Missing or ambiguous observations refuse. Its result
+is location information only; the existing memory sampler reads the selected child and mounted parent controls,
+requires both visible directories' memory controls to be readable, and retains the existing headroom calculation.
+The ordinary sampler callers acquire this capability through the same module; there is no new CLI/environment
+override for a leaf, PID or capacity. Controlled I/O adapters are unit-fixture inputs and confer no authority.
+This bounded increment does not attest inaccessible ancestors, identity/race/TOCTOU/custody safety, reservations
+or runtime qualification. Those held audits are separate; a located PID alone cannot satisfy them.
+
 ## Process and container attribution
 
 In direct filesystem enforced mode the bundle entry shell starts stopped, the scheduler moves it into the bundle cgroup, and only then
