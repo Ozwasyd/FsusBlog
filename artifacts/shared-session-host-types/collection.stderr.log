@@ -1,0 +1,13 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./scripts/fsusui-local" without a file extension (vitest.config.ts:5:61). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+Error: Cannot find package '@noble/hashes/sha2.js' imported from /workspace/FsusBlog-session-host-types/src/frontend/src/services/authoring/openArticleDocumentRegistry.ts
+ ❯ src/services/authoring/openArticleDocumentRegistry.ts:1:1
+      1| import { sha256 } from '@noble/hashes/sha2.js';
+       | ^
+      2| import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+      3|
+ ❯ src/services/authoring/index.ts:1:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_MODULE_NOT_FOUND' }
