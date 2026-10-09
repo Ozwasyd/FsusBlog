@@ -154,10 +154,18 @@ repair, the canonical #3657 manifest closure independently passes its checker
 (124 classes, 972 source-estimated cases, A411/B561) and all eleven original Node
 controls. Document lifecycle registration and backend source-size checks pass.
 
-The backend-test-governance preflight still refuses stale shared evidence metadata,
-an existing mutation-runner root-discovery requirement and original path-discovery
-violations in ArticlePropertyDefinitionAuthorityTests and
-DocumentExportBinaryCodecTests. The code-intent checker also has an existing
-frontend performance-claim failure outside this task. New .NET execution is
-stopped pending legitimate owner fixes; the repaired 6+13 methods are `UNRUN`.
-No failing prerequisite is waived or replaced with a substitute harness.
+The original backend-test-governance preflight now passes after consuming the
+reviewed canonical mutation caller validator and the two original test path
+fixes. Its evidence-path inventory is refreshed only through the unchanged
+original producer; no supplier inventory is copied. These source results do not
+qualify runtime execution. The code-intent checker retains an existing frontend
+performance-claim failure outside this task.
+
+The real producer fixture consumes the original execution-envelope directory
+owner's exported `TMPDIR`, `TMP` and `TEMP` ingress, and refuses missing or
+inconsistent ingress. Its artifacts stay under the current attempt's managed
+temp root until the original owner records the post-inventory and performs
+terminal cleanup. Environment consistency alone is not resource authority; tests
+must use the original managed owner, without manufacturing a lease or receipt.
+The repaired 6+13 methods remain `UNRUN` pending actual resource admission and
+remaining gates. No failing prerequisite is waived or replaced with a harness.
