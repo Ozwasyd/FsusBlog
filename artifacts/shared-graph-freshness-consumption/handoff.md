@@ -9,3 +9,8 @@ Original strict SDK test build exited 1 with 1508 distinct diagnostics; selected
 Original static collection checker exits1: CollectionA manifest525/source527 (the two genuine new PostgreSQL cases). Parent count-only671d8 source is based on another older manifest; it was not copied over the preserved root127-class/1073-case source closure. Request original3657 owner minimal source closure for A527/B548/total1075, with old membership, exact goldens and original negative controls preserved. No edits to the active owner's manifest or count assertions were made here.
 
 Source published on `codex/shared-graph-reader-registration-20261009`; no merge, deployment, issue closure or qualification claim. Latest checked origin/master `9d72a1c93b297f719d8695a642cdfb1615cf1d51`.
+
+
+## Subsequent original P1 membership supply
+
+The historical A525/source527 failure above is resolved by exact original3657 `2c7d001c4372ee7fd0ae6d22bee128ce54239e24`, consumed as `530c22099ee97532ddc2a951850012f5adf0d0e3`. Allfourpreimagesmatched; current originalcheckerPASS127classes/1075sourceestimated A527/B548; original11NodecontrolsPASS0skip. See artifacts/shared-graph-p1-membership-consumption/handoff.md. Membershipsupply is DONE; oldstrict/runtimeevidence remainsboundtoitsactualsource and wasnotrebound orpromoted.

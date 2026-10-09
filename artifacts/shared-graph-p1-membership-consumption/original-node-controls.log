@@ -1,0 +1,19 @@
+✔ accepts the checked-in PostgreSQL collection manifest (544.535235ms)
+✔ rejects omission of the current content-asset and runtime-rollup PostgreSQL classes (1165.667913ms)
+✔ rejects omission of the existing lifecycle class even after its case total is repaired (464.24401ms)
+✔ rejects a fixture-backed test class that is absent from the manifest (512.321254ms)
+✔ validates collection membership per class when one file declares multiple fixture tests (423.669288ms)
+✔ rejects a per-class annotation that disagrees with its manifest collection (453.409309ms)
+✔ rejects estimatedFacts drift using Fact and InlineData execution semantics (413.822705ms)
+✔ rejects deletion of a required Theory case even when the aggregate count is repaired (458.518747ms)
+✔ rejects drift in a required Theory case label without relying on case count (542.313626ms)
+✔ rejects deletion of a required root ID Theory case (452.930867ms)
+✔ rejects drift in a required root ID Theory input (429.47021ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5990.378455

@@ -1,0 +1,25 @@
+{
+  "sourceCommit": "530c22099ee97532ddc2a951850012f5adf0d0e3",
+  "suppliedCommit": "2c7d001c4372ee7fd0ae6d22bee128ce54239e24",
+  "suite": "tests/tools/check-postgres-test-collections.test.mjs",
+  "positiveNames": [
+    "accepts the checked-in PostgreSQL collection manifest",
+    "rejects omission of the current content-asset and runtime-rollup PostgreSQL classes",
+    "rejects omission of the existing lifecycle class even after its case total is repaired",
+    "rejects a fixture-backed test class that is absent from the manifest",
+    "validates collection membership per class when one file declares multiple fixture tests",
+    "rejects a per-class annotation that disagrees with its manifest collection",
+    "rejects estimatedFacts drift using Fact and InlineData execution semantics",
+    "rejects deletion of a required Theory case even when the aggregate count is repaired",
+    "rejects drift in a required Theory case label without relying on case count",
+    "rejects deletion of a required root ID Theory case",
+    "rejects drift in a required root ID Theory input"
+  ],
+  "expectedPositiveCount": 11,
+  "negativeControlCount": 10,
+  "hooks": [],
+  "bodyExecutionDuringSelection": 0,
+  "sourceSha256": "ea4ab59e0e3bf118c3efbfd1082b0b7e3d3360737485e7a4fcf2f67b31751472",
+  "taskExclusiveTmpRoot": "/tmp/shared-graph-p1-membership-nluhwyz1",
+  "resourceReview": "Original suite/checker/import helpers reviewed; only stdlib source fixture copy and originalchecker child processes. No DB/browser/native/network, SDK bodies or held audit work. Only original two count assertions change; all11names/negativecontrols/resources preserved. Originalfixtures lack selfcleanup; this task cleans only its exclusive TMPDIR afterward."
+}

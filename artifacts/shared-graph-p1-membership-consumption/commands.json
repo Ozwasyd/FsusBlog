@@ -1,0 +1,37 @@
+[
+  {
+    "sourceCommit": "530c22099ee97532ddc2a951850012f5adf0d0e3",
+    "command": [
+      "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/check-postgres-test-collections.mjs"
+    ],
+    "startedUtc": "2026-10-09T11:49:59.972369+00:00",
+    "exitCode": 0,
+    "artifact": "static-checker.log"
+  },
+  {
+    "sourceCommit": "530c22099ee97532ddc2a951850012f5adf0d0e3",
+    "command": [
+      "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "--test",
+      "--test-name-pattern=^(?:accepts\\ the\\ checked\\-in\\ PostgreSQL\\ collection\\ manifest|rejects\\ omission\\ of\\ the\\ current\\ content\\-asset\\ and\\ runtime\\-rollup\\ PostgreSQL\\ classes|rejects\\ omission\\ of\\ the\\ existing\\ lifecycle\\ class\\ even\\ after\\ its\\ case\\ total\\ is\\ repaired|rejects\\ a\\ fixture\\-backed\\ test\\ class\\ that\\ is\\ absent\\ from\\ the\\ manifest|validates\\ collection\\ membership\\ per\\ class\\ when\\ one\\ file\\ declares\\ multiple\\ fixture\\ tests|rejects\\ a\\ per\\-class\\ annotation\\ that\\ disagrees\\ with\\ its\\ manifest\\ collection|rejects\\ estimatedFacts\\ drift\\ using\\ Fact\\ and\\ InlineData\\ execution\\ semantics|rejects\\ deletion\\ of\\ a\\ required\\ Theory\\ case\\ even\\ when\\ the\\ aggregate\\ count\\ is\\ repaired|rejects\\ drift\\ in\\ a\\ required\\ Theory\\ case\\ label\\ without\\ relying\\ on\\ case\\ count|rejects\\ deletion\\ of\\ a\\ required\\ root\\ ID\\ Theory\\ case|rejects\\ drift\\ in\\ a\\ required\\ root\\ ID\\ Theory\\ input)$",
+      "tests/tools/check-postgres-test-collections.test.mjs"
+    ],
+    "startedUtc": "2026-10-09T11:50:01.950084+00:00",
+    "exitCode": 0,
+    "artifact": "original-node-controls.log"
+  },
+  {
+    "sourceCommit": "530c22099ee97532ddc2a951850012f5adf0d0e3",
+    "command": [
+      "git",
+      "diff",
+      "530c22099ee97532ddc2a951850012f5adf0d0e3^",
+      "530c22099ee97532ddc2a951850012f5adf0d0e3",
+      "--check"
+    ],
+    "startedUtc": "2026-10-09T11:50:08.081884+00:00",
+    "exitCode": 0,
+    "artifact": "supplied-range-diff.log"
+  }
+]

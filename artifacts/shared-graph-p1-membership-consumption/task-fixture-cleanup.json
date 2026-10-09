@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "530c22099ee97532ddc2a951850012f5adf0d0e3",
+  "taskExclusiveRoot": "/tmp/shared-graph-p1-membership-nluhwyz1",
+  "actualFixtures": [
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-MUgm8l",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-xhjhYX",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-VooKid",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-yuLHU1",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-nDYw8s",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-m4nhY5",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-eMjA9z",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-ivI1kv",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-bYoB5p",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-0vUOJ7",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-NI1aq1",
+    "/tmp/shared-graph-p1-membership-nluhwyz1/fsusblog-postgres-collections-H4l3Te"
+  ],
+  "fixtureCount": 12,
+  "deleted": true,
+  "rootExistsAfter": false,
+  "deletionScope": "onlythisownedTMPDIR root",
+  "databaseCleanupReceipt": false
+}

@@ -1,0 +1,51 @@
+{
+  "sourceCommit": "530c22099ee97532ddc2a951850012f5adf0d0e3",
+  "branch": "codex/shared-graph-reader-registration-20261009",
+  "suppliedCommit": "2c7d001c4372ee7fd0ae6d22bee128ce54239e24",
+  "sourcePaths": [
+    {
+      "path": "artifacts/change-contract/postgres-collection-manifest-naming-exceptions.json",
+      "suppliedPreimage": "d24d9128b20fc74178647d7efe285b4110277629",
+      "currentPreimage": "d24d9128b20fc74178647d7efe285b4110277629",
+      "matched": true
+    },
+    {
+      "path": "docs/testing.md",
+      "suppliedPreimage": "de61a850f54f4e13beb7f91e6fe3961b7401ef99",
+      "currentPreimage": "de61a850f54f4e13beb7f91e6fe3961b7401ef99",
+      "matched": true
+    },
+    {
+      "path": "tests/backend/Fixtures/postgres-test-collections.json",
+      "suppliedPreimage": "aa2b9e3e6e3504f200c337681b902e5d0832b431",
+      "currentPreimage": "aa2b9e3e6e3504f200c337681b902e5d0832b431",
+      "matched": true
+    },
+    {
+      "path": "tests/tools/check-postgres-test-collections.test.mjs",
+      "suppliedPreimage": "26103e917b1835920ed7c80bac9de3698dc207d1",
+      "currentPreimage": "26103e917b1835920ed7c80bac9de3698dc207d1",
+      "matched": true
+    }
+  ],
+  "staticMembership": {
+    "classes": 127,
+    "sourceEstimatedCases": 1075,
+    "A": 527,
+    "B": 548,
+    "actualPostgresBodies": 0
+  },
+  "originalNodeControls": {
+    "expected": 11,
+    "pass": 11,
+    "fail": 0,
+    "skip": 0,
+    "negative": 10
+  },
+  "actualFixtureCleanup": "task-fixture-cleanup.json",
+  "unchangedProductionReaderCoordinateGenerationPropertyNativeProjectsLocks": true,
+  "strictRuntimeGates": "existing1508strictfail at47a remainsboundtoitsactualsource; root14/new2PG bodies anddiscoveryUNRUN; no SDK rerun forfourpuremetadata/countpaths",
+  "acceptance": false,
+  "membershipSupplyGap": "DONE; donotkeepreportingmissingclosure",
+  "canonicalStableSiteIdentity": "separate actualdecisiongap, notresolvedbycounts"
+}
