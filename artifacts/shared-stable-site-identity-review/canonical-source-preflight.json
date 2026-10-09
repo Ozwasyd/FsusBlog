@@ -1,0 +1,167 @@
+{
+  "checkedAtUtc": "2026-10-09T12:26:06.780641+00:00",
+  "sourceCommit": "467857b3cc88aaa2916159552c24088f6f9910b8",
+  "parent": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "parentSuppliedBranch": "feat/system-site-identity-20261009",
+  "reviewMode": "exact source object fetched and inspected only; not consumed or promoted",
+  "commands": [
+    {
+      "argv": [
+        "git",
+        "fetch",
+        "origin",
+        "467857b3cc88aaa2916159552c24088f6f9910b8"
+      ],
+      "exitCode": 0
+    },
+    {
+      "argv": [
+        "git",
+        "diff-tree",
+        "--no-commit-id",
+        "--name-status",
+        "-r",
+        "467857b3cc88aaa2916159552c24088f6f9910b8"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "sourceBindings": [
+    {
+      "path": "docs/development/system-site-identity.md",
+      "gitBlob": "c4f8d6d68841eed0aff0f1d7812f0a81e73873d0",
+      "sha256": "7000288748f0e3c76ec4209a3585f3c2d2cdbf913fca543ee922c9617287d25a",
+      "change": "A"
+    },
+    {
+      "path": "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+      "gitBlob": "63e994b7d0ffaae47f7cfc4ed6b364bf8a3a863a",
+      "sha256": "ee6371258149f8fc98b5540b7092a8751cde8adca73e22d405d7fc4c411159c6",
+      "change": "A"
+    },
+    {
+      "path": "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+      "gitBlob": "9d7eec38f591428b45637994785b61bf227ce13a",
+      "sha256": "dfee059d43725064e6fc345e6a57cd73520005b4dc60ed0234244181bc2b1ba8",
+      "change": "A"
+    },
+    {
+      "path": "src/backend/Services/SystemService.SiteIdentity.cs",
+      "gitBlob": "a52012d3941e28255d78aa4e54bb7a189188bd20",
+      "sha256": "e51fc8f40157edb456a74969ff3258c76234b5ae26d0f05583693cc9b7a25190",
+      "change": "A"
+    },
+    {
+      "path": "tests/backend/Integration/SystemSiteIdentityIntegrationTests.cs",
+      "gitBlob": "e9cfe3890a0ef44032103a6e40c0ce3381c3cdc3",
+      "sha256": "1e0589b89b0d6b6511196b0473e54d08befa6cb7957bb4cc2326e32a21f06b54",
+      "change": "A"
+    },
+    {
+      "path": "tests/backend/Unit/SystemSiteIdentityTests.cs",
+      "gitBlob": "3d4c543860d64e63e6931e43f01e184055c543f8",
+      "sha256": "fcfd61b6aa34fd53e88ab63778b68fd05dc4e0807ab0a6450034ce9fa573dded",
+      "change": "A"
+    }
+  ],
+  "existingProtectedPreimages": [
+    {
+      "path": "src/backend/Services/SystemService.cs",
+      "parentBlob": "842f13491890fcd203b2b8abf223b619577e6c2b",
+      "sourceBlob": "842f13491890fcd203b2b8abf223b619577e6c2b",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+      "parentBlob": "6138f3b208d98d1392d6511abfff1985630a5f88",
+      "sourceBlob": "6138f3b208d98d1392d6511abfff1985630a5f88",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Interfaces/ISystemService.cs",
+      "parentBlob": "46e146a47542cdbcf942f2e6288c85799107aca4",
+      "sourceBlob": "46e146a47542cdbcf942f2e6288c85799107aca4",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Infrastructure/CoreBridge/Gateways/SystemCoreGateway.cs",
+      "parentBlob": "ec24ed3f7ed31452363e9224f1e884b93b7873c2",
+      "sourceBlob": "ec24ed3f7ed31452363e9224f1e884b93b7873c2",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Infrastructure/CoreBridge/Adapters/SystemServiceCoreAdapter.cs",
+      "parentBlob": "a3a69e4343bc067c389b27ed238b5738fff8836c",
+      "sourceBlob": "a3a69e4343bc067c389b27ed238b5738fff8836c",
+      "unchanged": true
+    }
+  ],
+  "reservedMigrationDefinitionSupplied": false,
+  "readPort": "ISystemSiteIdentityReader.ReadCurrentSiteIdentityAsync(CancellationToken)",
+  "returnModel": "SystemSiteIdentityReadModel(State, Identity, LifecycleVersion, Generation, MappingRevision, Scopes)",
+  "authoritativeState": "Current",
+  "refusalStates": [
+    "Absent",
+    "MigrationRequired",
+    "Ambiguous",
+    "Malformed",
+    "UnsupportedVersion"
+  ],
+  "sourceRosters": [
+    {
+      "path": "tests/backend/Integration/SystemSiteIdentityIntegrationTests.cs",
+      "count": 13,
+      "sourceMethods": [
+        "OrdinaryRead_IsZeroWriteAndFreshInitializationPersistsAcrossRestart",
+        "ConcurrentInitialization_ExactIntentReplayCreatesOnlyOneIdentity",
+        "ReplayChangedInput_AndSupersededIntentRefuse",
+        "CallerRollback_RemovesIdentityAndPreservesOtherTransactionWork",
+        "SecondInsertFailure_RollsBackOperationSavepointWithoutCommittingCaller",
+        "MissingTransactionAndCancellation_AllocateNothing",
+        "CancellationDuringStorageLock_RestoresCallerSavepointAndAllocatesNothing",
+        "WrongIsolationAndStorageFailure_RefuseWithoutFallback",
+        "LegacyConfigurationAndContent_RequireExplicitMigrationInput",
+        "EditableSeoComplianceAndPages_CannotOverwriteIdentityOrMappings",
+        "MappingHistory_RejectsVersionDriftAndKeepsIdentity",
+        "MalformedUnsupportedAndAmbiguousPersistentRecords_RefuseReadAndMutation",
+        "RestoreContinuationAndExplicitIndependentClone_HaveDifferentIdentitySemantics"
+      ],
+      "executedHere": false,
+      "qualified": false
+    },
+    {
+      "path": "tests/backend/Unit/SystemSiteIdentityTests.cs",
+      "count": 6,
+      "sourceMethods": [
+        "ValidJournal_ExposesActorCompatibleIdentityAndExactMapping",
+        "EmptyOrOrphanJournal_RefusesAuthority",
+        "UnsupportedOrOversizeJournal_RefusesWithoutFallback",
+        "MalformedIdentityDigestAndScope_RefuseAuthority",
+        "MissingRevisionAndDuplicateIntent_RefuseAuthority",
+        "InvalidOperatorInputs_AreRejectedBeforeStorageAccess"
+      ],
+      "executedHere": false,
+      "qualified": false
+    }
+  ],
+  "authorReportedExecutions": {
+    "ownerSelected": 19,
+    "existingConfigLoader": 1,
+    "qualified": false,
+    "reboundOrExecutedHere": false
+  },
+  "pendingGates": [
+    "independent security/compatibility review before downstream authority promotion",
+    "parent exact existing-file DI hunk assignment",
+    "original shared PostgreSQL collection registration/reconciliation",
+    "documentation lifecycle registration through its canonical owner/producer",
+    "actual reviewed deployment scope mapping for lifecycle invocation"
+  ],
+  "futureScopedAlias": "reuse existing scoped SystemService; retain ISystemService Core adapter/gateway; no new authority and no read-time initialization",
+  "existingURLSiteScopeRewritten": false,
+  "separateAlreadyDeliveredExportSource": "10b33204607627d167e34f7ad69bcfccaee03b2c",
+  "productionSourceChanges": false,
+  "databaseWrites": false,
+  "managedTestsRunHere": false,
+  "runtimeOrProductAcceptance": false
+}
