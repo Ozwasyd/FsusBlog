@@ -195,5 +195,11 @@
             "path": "evidence/style-missing-toolchain-failure.log",
             "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
         }
-    ]
+    ],
+    "diffCheck": {
+        "checkedHead": "750a6750a5f7f1e27749b5b19ecdf523f7889d16",
+        "fullBranchExit": 2,
+        "sourceAndNewTestExit": 0,
+        "reason": "Original initial-vitest-config-failure.log contains two ANSI-formatted trailing whitespace lines and terminal blank lines; raw evidence bytes retained. This is not a full-branch clean diff claim."
+    }
 }

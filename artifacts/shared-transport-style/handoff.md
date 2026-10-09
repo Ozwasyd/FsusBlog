@@ -16,9 +16,12 @@ Next ordinary commands after the existing documented tooling and local-source se
 
 ```bash
 node tools/frontend/check-frontend-style.mjs --mode changed --base 537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea --file src/frontend/src/api/binaryApiClient.ts
-npm --prefix src/frontend exec -- vitest run --config vitest.config.ts ../../tests/frontend/unit/api/binaryApiClient.test.ts ../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts
+cd src/frontend
+npm exec -- vitest run --config vitest.config.ts ../../tests/frontend/unit/api/binaryApiClient.test.ts ../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts
 ```
 
 The second command must resolve the original configuration from `src/frontend`, using the existing repository-local test invocation; in this run the explicit Vitest executable was invoked with that working directory. Consumer owners can apply source commit dea86a509, preserving their existing canonical URL line, and reexecute original selected checks on their resulting exact source. If incorporation conflicts, report affected paths and leave cross-chain resolution to the parent phase.
 
 Full frontend types, application build, required whole CI, authenticated HTTP/session/PoW/provider/Postgres, rendered UX and independent acceptance are **UNRUN / OPEN**. Held integrity/receipt/cohort/template/workspace/graph/replacement audits were not executed. There is no route activation, production migration, deployment, merge, auto-merge, issue closure or acceptance of the 70-item queue. Rollback this transport increment only on its owner branch before coordinated integration; do not replace later consumer changes with an old whole-file snapshot.
+
+The full branch diff check at evidence head750a6750 exits2 for raw ANSI stdout trailing spaces/terminal blank lines in the first configuration-failure log. The product and supplemental test diff check exits0. Raw log bytes remain unchanged; no full-branch whitespace or gate pass is asserted.

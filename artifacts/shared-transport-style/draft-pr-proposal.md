@@ -26,7 +26,7 @@ Related to [#2325](https://github.com/Ozwasyd/FsusBlog/issues/2325) and [#1889](
 - [x] Targeted frontend checks: original 24 and new 6 regressions, **30 passed / 0 failed / 0 skipped**, at exact source `dea86a509b185cdb75bdc2146f1fc1b8ee71e075`, on Node24.16.0 and Node24.19.0; original Vitest4.1.11/configuration/setup retained.
 - [x] Other: original changed-style entrypoint, complete touched product file, Node24.16.0 / ESLint10.8.0 / typescript-eslint8.65.0, exit0 / files1 / violations0. Original test file remains byte-exact master. [Source, argv and raw reports](https://github.com/Ozwasyd/FsusBlog/blob/codex/shared-transport-style-20261009/artifacts/shared-transport-style/run-evidence.json).
 
-Full frontend types/build/CI and exact final whole-head qualification are UNRUN. Failed setup/install/style attempts remain in public evidence; they are not relabeled passes. Supplemental test TS lies outside configured product style sets.
+Product plus supplemental test `git diff --check` exits0. Whole branch `git diff --check` at750a6750 exits2 for preserved raw ANSI-log trailing spaces/terminal blank lines; evidence bytes remain unchanged. Full frontend types/build/CI and exact final whole-head qualification are UNRUN. Failed setup/install/style attempts remain in public evidence; they are not relabeled passes. Supplemental test TS lies outside configured product style sets.
 
 ## UI Evidence
 
