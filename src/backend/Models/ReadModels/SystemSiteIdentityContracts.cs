@@ -8,7 +8,8 @@ public enum SystemSiteIdentityState
     Ambiguous,
     Malformed,
     UnsupportedVersion,
-    Current
+    Current,
+    InitializationRequired
 }
 
 /// <summary>An exact reviewed URL binding; revision is the journal event that added it.</summary>

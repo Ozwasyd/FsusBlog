@@ -46,6 +46,7 @@ public sealed class ArticlePackageCandidateReviewReadServiceTests
     [InlineData(SystemSiteIdentityState.Ambiguous)]
     [InlineData(SystemSiteIdentityState.Malformed)]
     [InlineData(SystemSiteIdentityState.UnsupportedVersion)]
+    [InlineData(SystemSiteIdentityState.InitializationRequired)]
     public async Task NonCurrentState_NeverUsesAnIdentityEvenIfFieldsArePresent(SystemSiteIdentityState state)
     {
         var reader = new Reader(_ => Current() with { State = state });
