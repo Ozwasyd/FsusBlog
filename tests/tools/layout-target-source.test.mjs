@@ -3,16 +3,21 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 
 import { controlDigest } from '@fsusblog/control-legality/source';
 
 import { createCompositionSource } from '../frontend/support/layout/compositionSource.mjs';
-import { bindCompositionTargetInputs, resolveCompositionTargetOrigin } from '../frontend/support/layout/compositionTargetSource.mjs';
+import { bindCompositionRouterViewTargets, bindCompositionTargetInputs, resolveCompositionTargetOrigin } from '../frontend/support/layout/compositionTargetSource.mjs';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;
 const parserRoot = process.env.FSUSBLOG_TARGET_PARSER_ROOT ?? repositoryRoot;
 assert.ok(fsusUIRoot, 'an actual public FsusUI checkout is required');
+const routeSourceRoot = process.env.FSUSBLOG_TARGET_ROUTE_SOURCE_ROOT ?? repositoryRoot;
+const { resolveCompositionRoutes, resolveCompositionRouterViewSlot } = await import(pathToFileURL(
+    resolve(routeSourceRoot, 'tests/frontend/support/layout/compositionRoutes.mjs')));
+assert.equal(typeof resolveCompositionRouterViewSlot, 'function', 'original3576 actual route source API is required');
 const directory = resolve(repositoryRoot, '.tmp', `target-source-${randomUUID()}`);
 mkdirSync(directory, { recursive: true });
 test.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -256,6 +261,134 @@ test('target selector proof rejects a foreign original AST despite identical sou
     const foreign = fixture(content, 'Foreign.vue');
     const value = s.resolver.parse(foreign).variables.get('host');
     assert.throws(() => resolveCompositionTargetOrigin(s, file, value), /unowned source proof node/);
+});
+
+function slotBinding(s, routes, node, callPath = [])
+{
+    return bindCompositionRouterViewTargets(s, routes, node, { resolveRouterViewSlot: resolveCompositionRouterViewSlot, callPath });
+}
+function actualSlot(layout, entries = [layout])
+{
+    const s = source();
+    const file = resolve(repositoryRoot, 'src/frontend/src/layouts', layout);
+    const routes = resolveCompositionRoutes(s, resolve(repositoryRoot, 'src/frontend/src/router/index.ts'));
+    const graph = s.graph(entries.map((entry) => resolve(repositoryRoot, 'src/frontend/src/layouts', entry)));
+    const node = graph.nodes.find((entry) => entry.file === file && entry.tag === 'component');
+    assert.ok(node, 'actual dynamic source node is required');
+    return { s, file, routes, graph, node };
+}
+function slotFixture(markup = '<RouterView v-slot="{Component}"><component :is="Component"/></RouterView>', script = `import {RouterView} from 'vue-router';`)
+{
+    fixture('<template><section/></template>', 'RouteLeaf.vue');
+    const owner = fixture(`<script setup>${script}</script><template>${markup}</template>`, 'RouteOwner.vue');
+    const router = fixture(`import {createRouter} from 'vue-router';createRouter({routes:[{path:'/',component:()=>import('./RouteOwner.vue'),children:[{path:'leaf',component:()=>import('./RouteLeaf.vue')}]}]});`, 'Router.ts');
+    const s = source();
+    const routes = resolveCompositionRoutes(s, router);
+    const graph = s.graph([owner]);
+    const node = graph.nodes.find((entry) => entry.file === owner && entry.tag === 'component');
+    return { s, owner, router, routes, graph, node };
+}
+
+test('actual BlogLayout RouterView target binding retains every original supplier alternative and framework VNode identity', (t) =>
+{
+    const { s, file, routes, graph, node } = actualSlot('BlogLayout.vue');
+    const binding = slotBinding(s, routes, node);
+    assert.equal(node.offset, 272);
+    assert.equal(binding.supplier.slotOwner.offset, 224);
+    const expected = resolveCompositionRouterViewSlot(s, routes, { file, offset: node.offset });
+    assert.deepEqual(binding.supplier, expected);
+    assert.deepEqual(binding.alternatives.map(({ path, kind, componentFile }) => ({ path, kind, componentFile })),
+        expected.alternatives.map(({ path, kind, componentFile }) => ({ path, kind, componentFile })));
+    const article = binding.alternatives.find(({ path }) => path === '/article/:id');
+    assert.equal(article.targetKind, 'framework');
+    assert.equal(article.target.publicName, 'RouterView');
+    assert.equal(article.backingTarget.kind, 'local');
+    assert.ok(article.definition.endsWith('/views/ArticleDetail.vue'));
+    assert.equal(binding.runtimeState, 'unbound');
+    assert.equal(binding.permissionState, 'unbound');
+    assert.equal(binding.qualificationEligible, false);
+    const { proofDigest, ...facts } = binding;
+    assert.equal(proofDigest, controlDigest(facts));
+    assert.ok(graph.errors.some((error) => error.file === file && error.offset === node.offset));
+    t.diagnostic(`retained local BlogLayout graph errors: ${graph.errors.length}; central integration remains unverified`);
+});
+
+test('actual AccountRouteFrame RouterView target binding retains its real AdminWorkspaceFrame call chain', (t) =>
+{
+    const { s, file, routes, graph, node } = actualSlot('AccountRouteFrame.vue', ['AdminWorkspaceFrame.vue']);
+    const admin = resolve(repositoryRoot, 'src/frontend/src/layouts/AdminWorkspaceFrame.vue');
+    const call = graph.nodes.find((entry) => entry.file === admin && entry.definition === file);
+    assert.ok(call);
+    const binding = slotBinding(s, routes, node, [call.id]);
+    assert.equal(binding.supplier.routeOwner.file, admin);
+    assert.deepEqual(binding.callPath, [binding.supplier.slotOwner.callNode, call.id]);
+    assert.equal(binding.inputDigests[1], controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }));
+    assert.ok(binding.alternatives.some(({ definition }) => definition?.endsWith('/views/admin/Dashboard.vue')));
+    assert.ok(binding.alternatives.every(({ definition }) => !definition?.endsWith('/views/ArticleDetail.vue')));
+    assert.equal(binding.runtimeState, 'unbound');
+    assert.equal(binding.permissionState, 'unbound');
+    assert.ok(graph.errors.some((error) => error.file === file && error.offset === node.offset));
+    t.diagnostic(`retained local AdminWorkspaceFrame graph errors: ${graph.errors.length}; central integration remains unverified`);
+});
+
+test('RouterView target binding preserves original empty-view alternatives without native or component substitution', () =>
+{
+    const { s, routes, node } = slotFixture();
+    const binding = slotBinding(s, routes, node);
+    assert.deepEqual(binding.alternatives.map(({ targetKind }) => targetKind), ['empty-view', 'framework']);
+    assert.equal(binding.alternatives[0].target, null);
+    assert.equal(binding.alternatives[0].backingTarget, null);
+    assert.equal(binding.alternatives[0].definition, null);
+    assert.deepEqual(binding.conditional, node.conditional);
+});
+
+test('RouterView target binding preserves the actual imported Outlet alias and exposed View binding', () =>
+{
+    const { s, routes, node } = slotFixture('<Outlet v-slot="{Component:View}"><component :is="View"/></Outlet>', `import {RouterView as Outlet} from 'vue-router';`);
+    const binding = slotBinding(s, routes, node);
+    assert.equal(binding.supplier.slotOwner.tag, 'Outlet');
+    assert.equal(binding.supplier.slotOwner.binding, 'View');
+    assert.equal(binding.alternatives[1].target.publicName, 'RouterView');
+});
+
+test('actual AccountRouteFrame target binding rejects a missing route-owner call chain', () =>
+{
+    const { s, routes, node } = actualSlot('AccountRouteFrame.vue', ['AdminWorkspaceFrame.vue']);
+    assert.throws(() => slotBinding(s, routes, node), /no actual route declaration/);
+});
+
+test('actual AccountRouteFrame target binding rejects a substituted dynamic-node call path', () =>
+{
+    const { s, routes, node } = actualSlot('AccountRouteFrame.vue', ['AdminWorkspaceFrame.vue']);
+    assert.throws(() => slotBinding(s, routes, node, [node.id]), /actual component definitions/);
+});
+
+test('RouterView target binding rejects unresolved permission and runtime route overrides', () =>
+{
+    const { s, routes, node } = slotFixture('<RouterView :route="permission ? allowed : unknown" v-slot="{Component}"><component :is="Component"/></RouterView>');
+    assert.throws(() => slotBinding(s, routes, node), /view-name supplier/);
+});
+
+test('RouterView target binding rejects an intervening Component loop supplier', () =>
+{
+    const { s, routes, node } = slotFixture('<RouterView v-slot="{Component}"><component v-for="Component in unknown" :is="Component"/></RouterView>');
+    assert.throws(() => slotBinding(s, routes, node), /shadow scope/);
+});
+
+test('RouterView target binding rejects a local component named RouterView as a framework supplier', () =>
+{
+    fixture('<template><slot/></template>', 'PretendRouterView.vue');
+    const { s, routes, node } = slotFixture(undefined, `import RouterView from './PretendRouterView.vue';`);
+    assert.throws(() => slotBinding(s, routes, node), /canonical RouterView/);
+});
+
+test('RouterView target binding rejects route records observed by a different actual source instance', () =>
+{
+    const first = slotFixture();
+    const s = source();
+    const graph = s.graph([first.owner]);
+    const node = graph.nodes.find((entry) => entry.file === first.owner && entry.tag === 'component');
+    assert.throws(() => slotBinding(s, first.routes, node), /original source observation/);
 });
 
 function origin(s, file)

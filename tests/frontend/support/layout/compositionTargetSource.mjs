@@ -284,3 +284,64 @@ export function bindCompositionTargetInputs(source, node, inputs, graphNodes)
     return bindings.map((binding) => ({ ...binding, resolverInputs,
         proofDigest: controlDigest({ ...binding, resolverInputs }) }));
 }
+
+/**
+ * Consume original3576's resolveCompositionRouterViewSlot export with the same
+ * source instance and original routes observation. The supplied function is the
+ * canonical API, not a callback that manufactures supplier records. Keep its
+ * complete VNode/empty-view alternatives and actual route-owner call path;
+ * backing component definitions never select a route or prove permission/state.
+ */
+export function bindCompositionRouterViewTargets(source, routes, node, { resolveRouterViewSlot, callPath = [] })
+{
+    if (typeof resolveRouterViewSlot !== 'function' || source.nodes.get(node.id) !== node
+        || node.tag !== 'component' || !source.records.get(node.file)?.nodes.includes(node.id))
+    {
+        fail('RouterView target requires the canonical API and actual dynamic source node');
+    }
+    const supplier = resolveRouterViewSlot(source, routes, { file: node.file, offset: node.offset, callPath });
+    const selector = node.directives.find(({ name, argument }) => name === 'bind' && argument === 'is');
+    const provider = source.nodes.get(supplier.slotOwner.callNode);
+    if (supplier.file !== node.file || supplier.offset !== node.offset || supplier.selector.expression !== selector?.expression
+        || !provider || provider.file !== node.file || provider.offset !== supplier.slotOwner.offset
+        || provider.sourceDigest !== supplier.slotOwner.sourceDigest
+        || controlDigest(provider.origin) !== controlDigest(supplier.slotOwner.origin)
+        || !node.ancestors.includes(provider.id) || !node.scopedBindings.includes(supplier.slotOwner.binding))
+    {
+        fail('RouterView supplier does not match the actual graph scope');
+    }
+    const calls = [provider, ...supplier.routeOwner.callPath.map((entry) =>
+    {
+        const call = source.nodes.get(entry.id);
+        const inputDigest = call && controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs });
+        if (!call || call.file !== entry.file || call.offset !== entry.offset || call.definition !== entry.definition
+            || call.sourceDigest !== entry.sourceDigest || inputDigest !== entry.inputDigest)
+        {
+            fail('RouterView supplier call facts differ from the actual graph');
+        }
+        return call;
+    })];
+    const alternatives = supplier.alternatives.map((alternative) =>
+    {
+        if (alternative.kind === 'empty-view' && alternative.componentFile === null)
+        {
+            return { ...alternative, targetKind: 'empty-view', target: null, backingTarget: null, definition: null };
+        }
+        const backingTarget = supplier.variants.find((target) => target.file === alternative.componentFile);
+        if (alternative.kind !== 'component' || !backingTarget)
+        {
+            fail('unbound RouterView backing target');
+        }
+        const { definition } = targetDefinition(source, backingTarget);
+        return { ...alternative, targetKind: 'framework', target: supplier.slotOwner.origin, backingTarget, definition };
+    });
+    const inputDigests = calls.map((call) => controlDigest({ attributes: call.attributes,
+        directives: call.directives, slots: call.slotInputs }));
+    const binding = { kind: 'framework-slot-targets', sourceNode: node.id, supplier,
+        alternatives, variantDefinitions: [...new Set(alternatives.map(({ definition }) => definition).filter(Boolean))],
+        callNode: provider.id, callPath: calls.map(({ id }) => id), inputDigests, inputDigest: inputDigests[0],
+        callSteps: [node, ...calls].map(({ file, offset, sourceDigest }) => ({ file, offset, sourceDigest })),
+        conditional: node.conditional, resolverInputs: closure(source),
+        runtimeState: 'unbound', permissionState: 'unbound', qualificationEligible: false };
+    return { ...binding, proofDigest: controlDigest(binding) };
+}
