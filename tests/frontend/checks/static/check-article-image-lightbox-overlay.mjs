@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const LIGHTBOX_PATH = 'src/frontend/src/components/article/ArticleImageLightbox.vue';
 const COMPOSABLE_PATH = 'src/frontend/src/composables/article/useArticleImageLightbox.ts';
+const ADAPTER_PATH = 'src/frontend/src/fsusui/imageViewer.ts';
 const forbidden = [
     ['local-dialog', /role\s*=\s*["']dialog["']/u],
     ['second-overlay', /<FsusUiOverlay|<Teleport|<FsuTransition/u],
@@ -29,7 +30,7 @@ export function findLightboxSourceViolations(relativePath, source)
         .map(([id]) => `${relativePath}: forbidden ${id}`);
     const required = [
         ['public-viewer', /<ElImageViewer\b/u],
-        ['public-import', /import\s*\{\s*ElImageViewer\s*\}\s*from\s*['"]@ozwasyd\/element-plus['"]/u],
+        ['public-import', /import\s*\{\s*FsusUiImageViewer\s+as\s+ElImageViewer\s*\}\s*from\s*['"]@\/fsusui\/imageViewer['"]/u],
         ['alt-list', /:alt-list=/u],
         ['caption', /#caption=/u],
         ['controlled-index', /:active-index="activeIndex"/u],
@@ -51,12 +52,20 @@ export function findLightboxSourceViolations(relativePath, source)
     return violations;
 }
 
+export function findImageViewerAdapterViolations(source)
+{
+    return /^\s*export\s*\{\s*ElImageViewer\s+as\s+FsusUiImageViewer\s*\}\s*from\s*['"]@ozwasyd\/element-plus['"];?\s*$/u.test(source)
+        ? [] : [`${ADAPTER_PATH}: requires the type-preserving public ImageViewer named re-export`];
+}
+
 export function findArticleImageLightboxOverlayViolations(options = {})
 {
     const root = options.root ? path.resolve(options.root) : repoRoot;
     const lightbox = fs.readFileSync(path.join(root, LIGHTBOX_PATH), 'utf8');
     const composable = fs.readFileSync(path.join(root, COMPOSABLE_PATH), 'utf8');
     const failures = findLightboxSourceViolations(LIGHTBOX_PATH, lightbox);
+    const adapterPath = path.join(root, ADAPTER_PATH);
+    failures.push(...findImageViewerAdapterViolations(fs.existsSync(adapterPath) ? fs.readFileSync(adapterPath, 'utf8') : ''));
     if (/target\.focus\(|article-image-lightbox-open|document\.body/u.test(composable))
     {
         failures.push(`${COMPOSABLE_PATH}: duplicate modal focus/lock owner`);
@@ -67,10 +76,11 @@ export function findArticleImageLightboxOverlayViolations(options = {})
 function runLiveCheck()
 {
     const source = fs.readFileSync(path.join(repoRoot, LIGHTBOX_PATH), 'utf8');
+    const adapter = fs.readFileSync(path.join(repoRoot, ADAPTER_PATH), 'utf8');
     const failures = findArticleImageLightboxOverlayViolations();
     const mutations = [
         ['local-fixed-scrim', `${source}<style>.viewer { position: fixed; inset: 0; }</style>`],
-        ['deep-import', source.replace("'@ozwasyd/element-plus'", "'@ozwasyd/element-plus/es/components/image-viewer'")],
+        ['deep-import', source.replace("'@/fsusui/imageViewer'", "'@ozwasyd/element-plus/es/components/image-viewer'")],
         ['private-override', `${source}<style>:deep(.el-image-viewer) { padding: 0; }</style>`],
         ['bare-vh-geometry', `${source}<style>.viewer { height: 100vh; }</style>`],
         ['second-overlay', source.replace('<ElImageViewer', '<FsusUiOverlay><ElImageViewer')],
@@ -90,13 +100,27 @@ function runLiveCheck()
             failures.push(`mutation ${name}: expected rejection`);
         }
     }
+    const adapterMutations = [
+        ['missing-adapter', ''],
+        ['fake-export', adapter.replace('ElImageViewer as', 'ElInventedImageViewer as')],
+        ['private-adapter-import', adapter.replace("'@ozwasyd/element-plus'", "'@ozwasyd/element-plus/es/components/image-viewer'")],
+        ['widened-component', `${adapter}\nexport const WidenedViewer = FsusUiImageViewer as Component;`],
+        ['wrapper-component', 'export const FsusUiImageViewer = defineComponent({ render: () => h(ElImageViewer) });']
+    ];
+    for (const [name, candidate] of adapterMutations)
+    {
+        if (findImageViewerAdapterViolations(candidate).length === 0)
+        {
+            failures.push(`adapter mutation ${name}: expected rejection`);
+        }
+    }
     if (failures.length)
     {
         failures.forEach((failure) => console.error(`[check-article-image-lightbox-overlay] ${failure}`));
         process.exitCode = 1;
         return;
     }
-    console.log(`[check-article-image-lightbox-overlay] ok mutations=${mutations.length}`);
+    console.log(`[check-article-image-lightbox-overlay] ok mutations=${mutations.length} adapter-mutations=${adapterMutations.length}`);
 }
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url)
 {

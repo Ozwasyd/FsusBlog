@@ -32,11 +32,11 @@
 </template>
 
 <script setup lang="ts">
-import { ElImageViewer } from '@ozwasyd/element-plus';
 import { computed } from 'vue';
 
 import type { ArticleLightboxImage } from '@/composables/article/useArticleImageLightbox';
 import { useI18nText } from '@/composables/useI18nText';
+import { FsusUiImageViewer as ElImageViewer } from '@/fsusui/imageViewer';
 
 const props = defineProps<{
     open: boolean;
