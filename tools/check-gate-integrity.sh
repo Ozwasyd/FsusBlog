@@ -416,6 +416,31 @@ workflowCase('nonbreaking workflow suffix', 1, `run: '${owner}\u00a0'`);
 cases.push({ name: 'nonbreaking matrix prefix', expected: 1, workflow, matrix: matrix.replace(`command: ${tierOwner}`, `command: \u00a0${tierOwner}`) });
 cases.push({ name: 'nonbreaking matrix suffix', expected: 1, workflow, matrix: matrix.replace(`command: ${tierOwner}`, `command: '${tierOwner}\u00a0'`) });
 extraCommand('nonbreaking argv separator', 0, 'node "tools/run-test-matrix.mjs"\u00a0validate');
+workflowCase('disabled expression step', 1, 'if: ${{ false }}\n        run: ' + owner);
+workflowCase('disabled quoted step', 1, `if: "false"\n        run: ${owner}`);
+workflowCase('disabled quoted expression step', 1, 'if: "${{ false }}"\n        run: ' + owner);
+cases.push({ name: 'disabled expression job', expected: 1, workflow: workflow.replace('  validate-matrix:\n', '  validate-matrix:\n    if: ${{ false }}\n'), matrix });
+cases.push({ name: 'disabled quoted job', expected: 1, workflow: workflow.replace('  validate-matrix:\n', '  validate-matrix:\n    if: "false"\n'), matrix });
+workflowCase('enabled expression step', 0, 'if: ${{ true }}\n        run: ' + owner);
+workflowCase('dynamic expression containing false', 0, 'if: ${{ false || github.event_name == \'push\' }}\n        run: ' + owner);
+workflowCase('truthy expression string false', 0, 'if: ${{ \'false\' }}\n        run: ' + owner);
+for (const script of ["$'tools/run-test-matrix.mjs'", "tools/$'run-test-matrix'.mjs", "$'tools/run-test-\\x6datri\\170.mjs'", "$'tools/run-test-\\u006datrix.mjs'", "$'tools/run-test-\\U0000006datrix.mjs'", "$'tools/run-test-\\x{6d}atrix.mjs'"]) {
+  for (const verb of ['validate', 'preflight', 'evidence-plan']) extraCommand(`ANSI-C ${script} ${verb}`, 1, `node ${script} ${verb}`);
+}
+extraCommand('ANSI-C longer subcommand', 0, "node $'tools/run-test-matrix.mjs' validate-declarations");
+extraCommand('ANSI-C shell comment', 0, "echo ok # node $'tools/run-test-matrix.mjs' validate");
+extraCommand('ANSI-C empty argv word', 0, "node $'tools/run-test-matrix.mjs' $'' validate");
+extraCommand('ANSI-C shell separator', 0, "node $'tools/run-test-matrix.mjs'; echo validate");
+extraCommand('ANSI-C unknown path escape', 0, "node $'tools/run-test-\\matrix.mjs' validate");
+extraCommand('ordinary literal dollar path', 0, "node '$tools/run-test-matrix.mjs' validate");
+extraCommand('double-quoted literal ANSI-C spelling', 0, "node \"$'tools/run-test-matrix.mjs'\" validate");
+extraCommand('ANSI-C NUL truncation', 1, "node $'tools/run-test-matrix.mjs\\0ignored' validate");
+extraCommand('ANSI-C NUL followed by concatenation', 0, "node $'tools/run-test-matrix.mjs\\0ignored'backup validate");
+extraCommand('ANSI-C escaped verb', 1, "node $'tools/run-test-matrix.mjs' $'val\\x69date'");
+extraCommand('ANSI-C unknown verb escape', 0, "node $'tools/run-test-matrix.mjs' $'val\\idate'");
+extraCommand('ANSI-C quoted tab suffix', 0, "node $'tools/run-test-matrix.mjs\\t' validate");
+extraCommand('ANSI-C escaped quote suffix', 0, "node $'tools/run-test-matrix.mjs\\\'' validate");
+extraCommand('ANSI-C control NUL truncation', 1, "node $'tools/run-test-matrix.mjs\\c@ignored' validate");
 let failed = 0;
 for (const fixture of cases) {
   fs.writeFileSync(workflowPath, fixture.workflow);
@@ -609,6 +634,16 @@ function trimShellWhitespace(value) {
   return value.replace(/^[ \t\n]+|[ \t\n]+$/gu, '');
 }
 
+function isStaticallyDisabledCondition(condition) {
+  if (typeof condition !== 'string') return condition === false;
+  // GitHub interprets an if string as an expression, with or without ${{ }}.
+  // Recognize the whole false literal only; leave contextual expressions intact.
+  const trimExpression = (value) => value.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, '');
+  const expression = trimExpression(condition);
+  const wrapped = expression.match(/^\$\{\{([\s\S]*)\}\}$/u);
+  return trimExpression(wrapped ? wrapped[1] : expression) === 'false';
+}
+
 function isYamlRunBlock(value) {
   const marker = trimShellWhitespace(value).replace(/[ \t]+#.*$/u, '');
   return /^[|>](?:[+-][1-9]?|[1-9][+-]?)?$/u.test(marker);
@@ -643,6 +678,47 @@ function rawWorkflowCommands(text) {
 
 // Match literal shell word identity without executing or expanding shell text.
 // Separators interrupt argv adjacency; quoting and escapes preserve literal words.
+function ansiCQuotedLiteral(command, start) {
+  let end = start;
+  let raw = '';
+  for (; end < command.length && command[end] !== "'"; end += 1) {
+    raw += command[end];
+    if (command[end] === '\\' && end + 1 < command.length) raw += command[++end];
+  }
+  const escapes = { a: '\u0007', b: '\b', e: '\u001b', E: '\u001b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' };
+  let value = '';
+  for (let index = 0; index < raw.length; index += 1) {
+    let character = raw[index];
+    if (character === '\\' && index + 1 < raw.length) {
+      const next = raw[++index];
+      const remaining = raw.slice(index);
+      const octal = remaining.match(/^[0-7]{1,3}/u);
+      const hex = remaining.match(/^x([0-9A-Fa-f]{1,2})/u);
+      const bracedHex = remaining.match(/^x\{([0-9A-Fa-f]*)\}?/u);
+      const unicode = remaining.match(next === 'u' ? /^u([0-9A-Fa-f]{1,4})/u : /^U([0-9A-Fa-f]{1,8})/u);
+      if (Object.hasOwn(escapes, next)) character = escapes[next];
+      else if (octal || hex || bracedHex || unicode) {
+        const match = octal || hex || bracedHex || unicode;
+        const digits = octal ? match[0] : match[1];
+        const code = octal ? parseInt(digits, 8) & 0xff
+          : unicode ? parseInt(digits, 16) : parseInt(digits.slice(-2) || '0', 16);
+        // Out-of-range Unicode cannot equal the governed ASCII path or verb.
+        character = code <= 0x10ffff ? String.fromCodePoint(code) : '\ufffd';
+        index += match[0].length - 1;
+      } else if (next === 'c' && index + 1 < raw.length) {
+        const control = raw[++index];
+        if (control === '\\' && raw[index + 1] === '\\') index += 1;
+        character = String.fromCharCode(control === '?' ? 0x7f : control.charCodeAt(0) & 0x1f);
+      } else character = `\\${next}`;
+    }
+    // Bash truncates an ANSI-C quoted segment at NUL, then concatenates any
+    // following quoted/unquoted segment as part of the same shell word.
+    if (character === '\0') break;
+    value += character;
+  }
+  return { value, end };
+}
+
 function shellLiteralWords(command) {
   const words = [];
   let word = '';
@@ -675,7 +751,12 @@ function shellLiteralWords(command) {
       else word += character;
       continue;
     }
-    if (character === "'" || character === '"') {
+    if (character === '$' && command[index + 1] === "'") {
+      const literal = ansiCQuotedLiteral(command, index + 2);
+      word += literal.value;
+      started = true;
+      index = literal.end;
+    } else if (character === "'" || character === '"') {
       quote = character;
       started = true;
     } else if (character === '#' && !started) {
@@ -747,8 +828,8 @@ function scanWorkflow(file) {
       addError(`${file} must declare exactly one validate-matrix job`);
     } else {
       const owner = jobs['validate-matrix'];
-      const runSteps = owner.if === false ? [] : (owner.steps ?? [])
-        .filter((step) => step.if !== false && typeof step.run === 'string').map((step) => trimShellWhitespace(step.run));
+      const runSteps = isStaticallyDisabledCondition(owner.if) ? [] : (owner.steps ?? [])
+        .filter((step) => !isStaticallyDisabledCondition(step.if) && typeof step.run === 'string').map((step) => trimShellWhitespace(step.run));
       const matrixOwnerSteps = runSteps.filter((command) =>
         command.includes('validate-matrix')
         && /(?:tools\/test\.sh|tools\/run-test-matrix\.mjs|run-matrix-governance-once\.sh)/u.test(command));
