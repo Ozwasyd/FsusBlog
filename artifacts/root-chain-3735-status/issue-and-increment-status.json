@@ -1,0 +1,143 @@
+{
+  "latestVerifiedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "ownedExecutionIssues": [
+    3735,
+    3736,
+    3738
+  ],
+  "ownedTrackingOnlyIssues": [],
+  "acceptedIssueCount": 0,
+  "wholeChainComplete": false,
+  "statuses": [
+    {
+      "issue": 3735,
+      "status": "OPEN / source WIP",
+      "source": "frozen b304, draftPR3839",
+      "unaccepted": [
+        "independent domain/wire final acceptance",
+        "actual HTTP/Postgres/storage/CAS/session/PoW/no-store/provider lifecycle receipt",
+        "exact-candidate full CI"
+      ]
+    },
+    {
+      "issue": 3736,
+      "status": "OPEN / source WIP",
+      "prerequisites": [
+        3735
+      ],
+      "source": "frozen b304 composition plus separate shared integration increments",
+      "unaccepted": [
+        "real complete remote Canvas authority lifecycle",
+        "full frontend types against actual FsUI",
+        "pre-edit baseline/current rendered keyboard/focus/viewport/theme/reduced-motion/overflow receipts",
+        "independent same-candidate UX acceptance",
+        "exact current-context/reveal/retain/suspend APIs"
+      ]
+    },
+    {
+      "issue": 3738,
+      "status": "OPEN / source WIP",
+      "prerequisites": [
+        3735,
+        3736
+      ],
+      "source": "frozen b304 canonical ArticleService transaction slice",
+      "unaccepted": [
+        "formal current-schema and actual HTTP/session/PoW transaction/CAS/undo/journal/outbox receipt",
+        "actual rendered edge conversion and independent UX",
+        "exact-candidate CI"
+      ]
+    }
+  ],
+  "historicalTests": "Original raw PG/domain positive records stay tied to their original exact source and run; no current source rebind or product acceptance. Current owned bodies/comments re-read and preserved in sibling current-owned-issues.json.",
+  "newIncrements": [
+    {
+      "coverage": "facts-only upload transport",
+      "source": "6edc4e20cc1ce4054c5c5356902dbc3fb9828025",
+      "evidenceHead": "67cebeb0bd666255c50302b9391730783f9db551",
+      "branch": "codex/shared-upload-facts-transport-20261009",
+      "sourceStatus": "implemented; original1975 provider consumption and true eight-field receipt producer remain elsewhere",
+      "actualControls": "protocol52, frontend27, productionnative31 + wrongcount4, products5, sourceStyle7files/0, OpenAPI292 source-observation at4cf; exact immutable bindings retained",
+      "failed": "current6ed strictSDK1529 errors/0changed diagnostics; 9new cases/discoveryUNRUN. Fulltypes4cf290 errors/0changedAPIadapterregistry",
+      "artifacts": "artifacts/shared-upload-facts-transport"
+    },
+    {
+      "coverage": "canonical Graph node source/DI",
+      "source": "08da3894d4b1332933f5fff23c780f3c3821bc0a",
+      "evidenceHead": "f7fefb409d8f891a99ce9865c18f84fd304895f2",
+      "branch": "codex/shared-graph-reader-registration-20261009",
+      "actualControls": "normalproductionServer0errors323warnings0changed diagnostics; originalPGmembership127/1075A527B548; no new PGmanifestneeded",
+      "blocker": "exact canonical adjacency commit/path/API/retained lease and authoritative usage/truncation/runtime coordinates. Source budget1000 fully admitted candidates>=5012 vs4096. Supplier44 and15 separate source/run, not root59PASS",
+      "artifacts": "artifacts/shared-graph-node-registration"
+    },
+    {
+      "coverage": "WritingAid exact startup fixture and JSON refusal source correction",
+      "source": "437ac7280acd37dd0aa61f09e1c5f1e0e94b602f",
+      "evidenceHead": "b1853c7c0ccb80607f222492bb822dc808321881",
+      "branch": "codex/shared-writing-aid-composition-20261009",
+      "actualControls": "normalproductionServer0errors330warnings; soleproductionMap and three existing scoped aliases retained",
+      "blocker": "qualified device mutation authority; current root managed/HTTP/PG bodies unrun. Supplier33 is its own d12c source/run only",
+      "artifacts": "artifacts/shared-writing-aid-final-consumption"
+    },
+    {
+      "coverage": "DocumentExport golden path ordinary source repair",
+      "source": "acf4215a8c61f7bbccb2c98974accf691ec28118",
+      "evidenceHead": "d77fe49153b986f36ab3eb286fbdf80f800136bd",
+      "branch": "codex/shared-document-export-test-paths-20261009",
+      "actualControls": "38originalAssertionlines equal; goldenfixturebyteexact; diffcheck0; no managed bodies, build or held audit",
+      "propertyCompanion": "bdf724ba4f1f25e9f2f433266577b2221b2d1af2 onlypropertytestfile a5ad96032d2fab772d44c720ea0725d4cbefebec->d808a6ab38df9b48f6d4e0749cadddd6a3dd1f15; originalSiteIdentity owner regenerates its inventory",
+      "artifacts": "artifacts/shared-document-export-test-paths"
+    },
+    {
+      "coverage": "Package bounded independent wire module release",
+      "source": "9d1f98d0279bb65c51140a762f7c0b9d75da1614",
+      "branch": "codex/shared-package-wire-release-20261009",
+      "implementationStatus": "precise inactive release option only, no transport orDIactivated",
+      "allocation": "request288/response289 owner allocation only, not active ABI/frame",
+      "blocker": "full exact canonical SiteIdentity SystemService implementation plus qualified lifecycle/scopes; closed nested wire validator missing; frontend revised exact dependencies needed",
+      "artifacts": "artifacts/shared-package-wire-release"
+    },
+    {
+      "coverage": "Vault REQUEST-only typed bounded module",
+      "source": "2de89a7656b4a9a1e0982629b44b45f5999d37a6",
+      "branch": "codex/chain-3735-vault-current-review-wire",
+      "status": "published10NEWpaths; requestpayload3176/whole3192; no global286/287/frame/nativeerror/HTTPregistration",
+      "blocker": "original3582/2120 Shared approved readonly six-field response projection/closed nested validators and actual trusted input acquisition; no opaque JSON/substitute6blobresponse",
+      "managedEvidence": "worker unauthorized alternate project executed31; explicitly excluded, qualifiedManaged0. Project/initialfailure/rawTRX/provenance preserved; execution stopped. This does not substitute original strictSDK",
+      "allowedPayloadEvidence": "worker reports29Node and35native ordinary controls at2de, payload-only; awaiting final artifact/head"
+    }
+  ],
+  "earlierDeliveredSource": {
+    "exportSourceOptions": "source10b33204607627d167e34f7ad69bcfccaee03b2c/evidence61db8354f4047e9aaf36d137658227203b9f6333 implemented frame282-284/error19, originalnativeport not missing; formal generated binding and runtime/UX gates remain",
+    "siteIdentityReadonlyReview": "2db304e19fcd461a483dbac4348394912ef51130 remains frozen clean; reader contract source467857b3cc88aaa2916159552c24088f6f9910b8 known, lifecyclecorrection full supplied SHA/qualification pending; noidentity init/store/defaultscope/DIalias activated"
+  },
+  "frozenWorktreesChecked": [
+    {
+      "worktree": "/workspace/FsusBlog",
+      "head": "b304c494de2d805f9b5b70ce8d738b1f1cb6df94",
+      "clean": true
+    },
+    {
+      "worktree": "/workspace/FsusBlog-registration-current",
+      "head": "39589ec1c4b662db1049c7f223e182ed5f87e00c",
+      "clean": true
+    },
+    {
+      "worktree": "/workspace/FsusBlog-transport-style",
+      "head": "5677d11620648587a411263894dd2ca9042113cc",
+      "clean": true
+    },
+    {
+      "worktree": "/workspace/FsusBlog-protocol-test-sync",
+      "head": "0015897304873f75858e0e5546313b43007834d8",
+      "clean": true
+    },
+    {
+      "worktree": "/workspace/FsusBlog-coordinate-registration",
+      "head": "bdf1c5d793afc09f9f1ed907dcc9f571a5870d39",
+      "clean": true
+    }
+  ],
+  "phaseBarrier": "No cross-chain conflict resolution/merge/masterpush/issueclosure/deploy. No content API writes; parent solewriter HOLD prevents new draft PR creation, existingDraft3839/4052/4094 unchanged.",
+  "createdAtUtc": "2026-10-09T13:33:12.748682+00:00"
+}
