@@ -418,7 +418,8 @@ describe('useImageUploadRuntime', () => {
   it.each(['clone', 'foreign'] as const)('refuses a %s document lease through the real original registry', async kind => {
     const file = fileOf(128)
     const original = boundAttempt(file)
-    const lease = kind === 'clone' ? { ...original.binding.lease,
+    const lease = kind === 'clone' ? { taskRef: original.binding.lease.taskRef,
+      signal: original.binding.lease.signal, envelope: original.binding.lease.envelope,
       isCurrent: () => true, cancel: original.binding.lease.cancel.bind(original.binding.lease),
       complete: original.binding.lease.complete.bind(original.binding.lease),
       accept: original.binding.lease.accept.bind(original.binding.lease) } : boundAttempt(file).binding.lease
@@ -596,6 +597,22 @@ describe('useImageUploadRuntime', () => {
     read.resolve()
     await rejected
     expect(borrow.isCurrent()).toBe(false)
+    expect(runtime.borrowCurrentSession()).toBeNull()
+  })
+
+  it('does not grant a legacy attempt a new deletion action on scope disposal', async () => {
+    const complete = deferred<{ url: string }>()
+    api.completeUpload.mockReturnValue(complete.promise)
+    const scope = effectScope()
+    const runtime = scope.run(() => useImageUploadRuntime())!
+    const upload = runtime.uploadFile(fileOf(128), options)
+    const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
+    await vi.waitFor(() => expect(api.completeUpload).toHaveBeenCalledOnce())
+    scope.stop()
+    complete.resolve({ url: '/uploads/legacy-late.webp' })
+    await rejected
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    expect(localStorage.length).toBe(1)
     expect(runtime.borrowCurrentSession()).toBeNull()
   })
 

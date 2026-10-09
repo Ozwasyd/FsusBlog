@@ -778,10 +778,19 @@ export function useImageUploadRuntime()
         onScopeDispose(() =>
         {
             disposed = true;
-            void abandon().catch(() =>
+            if (ownedAttempt || pendingOwnedInitialization || ownedCommitStateUnknown
+                || pendingAttempt.value?.runtimeOptions.attemptBinding)
             {
-                // Scope disposal cannot acknowledge failed canonical cleanup.
-            });
+                void abandon().catch(() =>
+                {
+                    // Scope disposal cannot acknowledge failed canonical cleanup.
+                });
+            }
+            else
+            {
+                // Legacy attempts retain their original cleanup owner; disposal grants no new deletion.
+                attemptGeneration += 1;
+            }
         });
     }
 
