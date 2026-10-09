@@ -1,0 +1,22 @@
+{
+  "src/frontend/src/services/authoring/articleAttachmentBusinessIntentReader.ts": {
+    "gitBlob": "8d610dfaf775a82a454ad02197948a016137cecd",
+    "sha256": "f9022d9428e0af601e88dfc0666f6cee95a35547b52996d91cbc44b5d0f4ed76",
+    "exactSuppliedPostimage": true
+  },
+  "tests/frontend/unit/authoring/articleAttachmentBusinessIntentReader.test.ts": {
+    "gitBlob": "7febf189626dd60e3f91d36f09fd11f1ef6652a6",
+    "sha256": "6896208345274aa243e830f8771e53c2b769023dcc0fdde8a7a694de51df3244",
+    "exactSuppliedPostimage": true
+  },
+  "src/frontend/src/composables/useAdminArticleWrite.ts": {
+    "gitBlob": "e18a5c976d7bcee4a116bfe9505a725d5b251f9d",
+    "sha256": "f466e9c6dea9b104bd4832d591d248e0fe8525df8d87a7280569ba16730d0f38",
+    "unchangedHostSourceAnd40Controls": true
+  },
+  "tests/frontend/unit/composables/useAdminArticleWrite.previewCurrentAuthorities.test.ts": {
+    "gitBlob": "e6d6331ea362cbb0e1192a7e8a9a1311afd16a6e",
+    "sha256": "1be7104cc8841e206c5f503f405bc519738759ba18e9c8d1fad74f25823f8073",
+    "unchangedHostSourceAnd40Controls": true
+  }
+}

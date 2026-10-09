@@ -1,0 +1,127 @@
+{
+  "observedAt": "c0ef47f21cf2bb83855caf4cde6998b4f660797f",
+  "node": "24.16.0",
+  "platform": "linux",
+  "arch": "x64",
+  "CODEOWNER": "@Ozwasyd",
+  "baselineProducerHistoricalOwnerIssue": 3075,
+  "historicalOwnerState": "CLOSED; does not establish current binding acceptance",
+  "diagnosticContractOwnerIssue": 3640,
+  "diagnosticContractState": "OPEN; full binding refusal is documented behavior",
+  "priorBaselineProducer": "b74b9f08208c4e6faea317432a8c5929f988a721",
+  "priorBaselineProducerAlreadyConsumed": true,
+  "baselinePath": "config/development/frontend-style-baseline.json",
+  "baselineGitBlob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+  "producerPath": "tools/frontend/check-frontend-style.mjs",
+  "producerGitBlob": "fa55a556c43b4caca707138f367f85421789e5fc",
+  "ruleSites": {
+    "configurationDigest": "tools/frontend/check-frontend-style.mjs:496",
+    "sourceStateDigest": "tools/frontend/check-frontend-style.mjs:510",
+    "configurationRefusal": "tools/frontend/check-frontend-style.mjs:568",
+    "sourceStateRefusal": "tools/frontend/check-frontend-style.mjs:572",
+    "generatedFromRefusal": "tools/frontend/check-frontend-style.mjs:576",
+    "updateConfigurationGuard": "tools/frontend/check-frontend-style.mjs:870",
+    "reviewedResidualGuard": "tools/frontend/check-frontend-style.mjs:880"
+  },
+  "originalProducerObservedDigests": {
+    "configuration": "5c5ee11a16d868a95a2698d5e75ec6ab067853bbee530554accea77f3e66cb58",
+    "sourceState": "8fc22b84f7e31a5b7352c5880d873ef6253550c0aac006af10eb80b410a0739a",
+    "stored": {
+      "configuration": "8bc09626eefe96c53c96eaf7a77cf4926ee02ce82eac3203cfa154dcfb8c0b05",
+      "sourceState": "c2912bb087299da5768ba3c9e3ba8474d254f99e66a3227c62abaf1c3238b2c5",
+      "generatedFrom": "source-state:c2912bb087299da5768ba3c9e3ba8474d254f99e66a3227c62abaf1c3238b2c5"
+    }
+  },
+  "observedThrough": "Read-only debugger observation of actual original producer routines at loadBaseline; no digest reimplementation, return mutation, binding bypass or baseline write; original producer exit1",
+  "configurationInputs": {
+    "config/development/frontend-style-baseline.json": {
+      "gitBlob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+      "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+    },
+    "config/development/frontend-style-policy.json": {
+      "gitBlob": "1458b6aaaec756827dabb2c3f08fcc9d31f1ff1e",
+      "sha256": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d"
+    },
+    "config/development/frontend-style-rule-registry.json": {
+      "gitBlob": "459b501e13eb867aa4ba13025408377fefe73432",
+      "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+    },
+    "tools/frontend/style-toolchain/package.json": {
+      "gitBlob": "c1271b1f11feabd7d35c1efb5e287d094d956694",
+      "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+    },
+    "tools/frontend/style-toolchain/package-lock.json": {
+      "gitBlob": "cda087663517c681f64ea2a6facdeae13e3df98d",
+      "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+    },
+    ".editorconfig": {
+      "gitBlob": "7586ef8ba24edd3256e6bde1bfef956ad1babb4d",
+      "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+    },
+    "eslint.config.mjs": {
+      "gitBlob": "f3ddc42af7c5672ae5111a922ed474102637a679",
+      "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+    },
+    "stylelint.config.mjs": {
+      "gitBlob": "25227bcf4f484a48b61336208d0a2728472a524e",
+      "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+    },
+    "src/frontend/eslint.config.mjs": {
+      "gitBlob": "eee9610de4a8a9c4265d90bf48cd7f75e2c84085",
+      "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+    },
+    "src/frontend/stylelint.config.mjs": {
+      "gitBlob": "b6ad9f6941bcab364ce1b3513bda44cf4581728a",
+      "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+    },
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs": {
+      "gitBlob": "d8730667643c4d93b5682263213f1850eb9dfb2e",
+      "sha256": "d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8"
+    },
+    "src/frontend/scripts/fsusui-root.mjs": {
+      "gitBlob": "b8ae455b18dbb36d36987d7ab7c4454138eb5d78",
+      "sha256": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304"
+    },
+    "tools/frontend/check-frontend-style.mjs": {
+      "gitBlob": "fa55a556c43b4caca707138f367f85421789e5fc",
+      "sha256": "5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2"
+    },
+    "tools/frontend/style-toolchain/eslint.config.mjs": {
+      "gitBlob": "fdde159aa5ccb86215492ac9899986b8516c67df",
+      "sha256": "c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a"
+    },
+    "tools/frontend/style-toolchain/stylelint.config.mjs": {
+      "gitBlob": "4c06866913d4d81876d530d2639af0cb6e1a5721",
+      "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+    }
+  },
+  "configurationSourceIncrementAlreadyConsumed": {
+    "suppliedProducer": "9c44531326993f23607295c43b1e644eae5898aa",
+    "consumerCommit": "2367552fa1eb2d5c251ae82451354d49daffd508",
+    "scope": "Original full application config/style integration adds fsusui-root.mjs and run-local-fsusui-typecheck.mjs to configurationSources"
+  },
+  "rules": [
+    "full rejects each of three bindings even for clean selected source",
+    "strict-full has no exemptions and selected source may independently pass; cannot certify full binding",
+    "configuration includes exact Node version, platform and arch",
+    "source-state includes all git tracked/untracked nonignored files except baseline, not only selected lint source; final handoff artifacts change source-state"
+  ],
+  "currentOwningFullLint": {
+    "exitCode": 1,
+    "selectedFiles": 2,
+    "fileLevelFindings": 0,
+    "messages": [
+      "[frontend-style] baseline configuration digest is stale",
+      "[frontend-style] baseline source-state digest is stale",
+      "[frontend-style] baseline generatedFrom does not match the current source-state digest"
+    ]
+  },
+  "currentOwningStrictLint": {
+    "exitCode": 0,
+    "files": 2,
+    "violations": 0,
+    "raw": "[frontend-style] ok files=2 eslint=2 stylelint=0 violations=0 new=0\n"
+  },
+  "smallestOwnerAction": "Coordinator route to existing canonical whole-baseline producer owner. Supply exact reviewed producer commit/branch and full check/update/check evidence bound to actual complete candidate, Node runtime and existing correction/residual authority; do not copy an unrelated branch baseline. No new baseline producer output supplied to this chain beyond already consumed b74. #3640 diagnostic source must retain these full-mode refusals. This consumer cannot self-author a baseline or correction and cannot perform later cross-chain resolution.",
+  "qualification": false
+}

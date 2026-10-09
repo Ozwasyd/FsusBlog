@@ -1,0 +1,65 @@
+{
+  "branch": "codex/chain-2246-writer-intent-verified",
+  "base": "cf842694ef4da9d84e84e4693a7d6d5f334d2c8a",
+  "runtimeTestedSource": "c0ef47f21cf2bb83855caf4cde6998b4f660797f",
+  "suppliedRemote": "f9dbde27caa3f992dfae56b674445a26e7c1209e",
+  "suppliedImplementation": "1acd6f913bfdcac50e2d38e072668d389946e669",
+  "importCommit": "c0ef47f21cf2bb83855caf4cde6998b4f660797f",
+  "onlySourceChange": "exact two supplied reader/test postimages; original host40 source/assertions/hooks unchanged",
+  "actualRuntime": {
+    "Node": "24.16.0",
+    "Vitest": "4.1.5",
+    "FsusUI": "0e5c56050e8dd3e9ca3735078489d35a0bb6e3d2",
+    "upstreamPackage": "real local source alias; not published-package qualification",
+    "runStartUtc": "2026-10-09T10:44:37.191000+00:00"
+  },
+  "ordinaryControls": {
+    "passed": 61,
+    "failed": 0,
+    "skipped": 0,
+    "todo": 0,
+    "hostOriginal": 40,
+    "producerLocallyReexecuted": 21,
+    "nonemptyExactAdmissionAndRuntimeRediscovery": true,
+    "originalHooksPreserved": true
+  },
+  "applicationTypes": {
+    "before": 232,
+    "after": 232,
+    "added": 0,
+    "removed": 0,
+    "exitCode": 2
+  },
+  "owningFullLint": {
+    "exitCode": 1,
+    "sourceFindings": 0,
+    "bindingFindings": 3
+  },
+  "owningStrictLint": {
+    "exitCode": 0,
+    "files": 2,
+    "violations": 0,
+    "fullBindingAcceptance": false
+  },
+  "suppliedNineLintAndBadImport": "resolved by exact supplied source and locally checked; no inherited runtime pass",
+  "SharedHTTPDIowner": "3735; missing export remains refused",
+  "referenceCleanupAuthority": "missing; no receipt/grant invented",
+  "supplierPrivatePackage401": "supplier historical refusal remains separate; no private-registry retry or identity substitute here",
+  "qualification": false,
+  "wholeChainComplete": false,
+  "issues": {
+    "2246": "partial: native scroll/viewport, independent verifier and SOURCE open",
+    "2250": "partial: full context restoration/current business inputs open",
+    "2253": "partial: large-document/device/a11y/runtime matrix open",
+    "2256": "reader/host ordinary scope verified; complete production image inputs and independent governance open",
+    "1809": "tracking OPEN; evidence aggregation only",
+    "2280": "canonical surface/migration terminal qualification open",
+    "2282": "canonical Live/session fallback terminal qualification open",
+    "2284": "canonical compare/sync/context-restoration terminal qualification open",
+    "2286": "canonical user/device preference authority terminal qualification open",
+    "2287": "canonical Focus/Typewriter/native viewport qualification open"
+  },
+  "contentAPIWrites": false,
+  "draftPRCreated": false,
+  "frozenPredecessorsUnchanged": true
+}
