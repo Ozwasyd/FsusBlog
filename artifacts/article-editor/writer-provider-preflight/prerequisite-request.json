@@ -1,0 +1,44 @@
+{
+  "requiredStage": "actual Writer consume supplied upload provider",
+  "providerProducerOwner": 1975,
+  "providerSource": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+  "providerImplementation": "412a7092f195b34263cf1b9e738b4f8449ba13a6",
+  "providerSuppliedRemote": "8fa653df73646f720c735ad4b54b649e869a9b9e",
+  "knownTransportBase": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "transportSourceOwner": 3735,
+  "request1": "Supply exact commit/branch and original guard evidence for announced uploadFacts API-to-adapter import fix and minimal frontend transport closure, preserving285/275 decode registration, original protocol/generator/route/token/admin/PoW/hash semantics. Announced fix accepted as available but its identity not supplied; do not guess or recreate it.",
+  "request2": "Original upload runtime/provider owner must supply a genuine borrowed per-attempt OwnedAttachmentUploadSession input with original token, compressed-file hash and actual byte count, commit-history, current generation/lease/document intent and release/cancel handling. Writer can then bind its original verified handle and current context without reconstructing authority from activeSession, localStorage snapshots or URLs. No original runtime bridge source provided yet.",
+  "requiredPublicProviderInput": [
+    "uploadId",
+    "uploadToken",
+    "sha256",
+    "totalBytes",
+    "commitMayHaveStarted"
+  ],
+  "actualRuntimePublicSession": [
+    "uploadId",
+    "resumeKey",
+    "fileName"
+  ],
+  "currentRuntimeOwnerFiles": {
+    "src/frontend/src/composables/useAdminArticleWrite.ts": {
+      "gitBlob": "e18a5c976d7bcee4a116bfe9505a725d5b251f9d",
+      "sha256": "f466e9c6dea9b104bd4832d591d248e0fe8525df8d87a7280569ba16730d0f38",
+      "unchangedFromFd116": true
+    },
+    "src/frontend/src/composables/useImageUploadRuntime.ts": {
+      "gitBlob": "2c0108fc7a2542ee7f029decbb4f577c86058b9c",
+      "sha256": "71ff08e1d1fe05b17e9e31a26f8cf3299a311a58674475a7a8e703933f90e41e",
+      "unchangedFromFd116": true
+    },
+    "src/frontend/src/composables/useImageUploadFlow.ts": {
+      "gitBlob": "829f0a98b74fa8515c0af6173748eea27fd2313c",
+      "sha256": "4ae323aa8337cc41a6ed4fa936a3f4b1b992f1d476b9bb2ade7fbb68d9e34c53",
+      "unchangedFromFd116": true
+    }
+  },
+  "existingSafetyGuards": "cleanupRequired, shared in-flight abort, replacement blocked until cleanup acknowledgement, late failure supersession; retain all11 original controls",
+  "preserveFactsBoundary": "facts are observations, never referenceReceiptRef/cleanup receipt/preview bytes; original business refusal unchanged",
+  "waitingNotCompleted": true,
+  "crossChainConflictResolution": false
+}

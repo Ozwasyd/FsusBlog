@@ -1,0 +1,60 @@
+{
+  "branch": "codex/chain-2246-writer-provider-preflight",
+  "base": "fd11686a99f7a79d047338b2b4dc681d49d0dbd1",
+  "runtimeTestedSource": "13fdf19fa4989025508d739b468f554842dd225d",
+  "actualRuntime": {
+    "Node": "24.16.0",
+    "Vitest": "4.1.5",
+    "FsusUI": "0e5c56050e8dd3e9ca3735078489d35a0bb6e3d2",
+    "runStartUtc": "2026-10-09T14:17:33.862000+00:00"
+  },
+  "ownedChanges": "one new ordinary Writer input probe file; production/API/provider/runtime/guard/40 host controls unchanged",
+  "ordinarySelectedControls": {
+    "passed": 13,
+    "failed": 0,
+    "skipped": 0,
+    "todo": 0,
+    "newWriterProbes": 2,
+    "originalImageRuntime": 11,
+    "nonemptyExactNameCountAdmissionAndRediscovery": true,
+    "originalHooksUnchanged": true
+  },
+  "actualEvidence": [
+    "20MiB actual Writer -> original image flow -> original image runtime -> controlled init/parts/complete observations; current public session has only3fields and is erased after completion; callback returns only URL; no attachment receipt/source insertion or preview produced",
+    "actual host unmount during completion rejects late success callback",
+    "all11 original runtime cancel/resume/tamper/late-result regressions pass at current candidate"
+  ],
+  "controlledEndpoints": [
+    "upload API",
+    "compression/hash/WASM capability",
+    "original ordinary host bootstrap/recovery/network facts"
+  ],
+  "notRuntimeQualified": [
+    "actual HTTP/PoW/native/WASM/storage/ledger/rights",
+    "supplied facts provider execution on Writer",
+    "production business reference/cleanup grants",
+    "published package/browser/product/held/receipt audit"
+  ],
+  "supplier2And54": "not inherited, not rerun; provider not imported due missing real Writer input and missing exact3735 fix identity",
+  "productionProviderIntegrated": false,
+  "prerequisites": "WAITING: exact3735 API fix source/closure and original owned-session bridge",
+  "fullTypes": "not rerun: production unchanged; fd116232/232 remains predecessor-bound failed evidence",
+  "baselineFullStyle": "not rerun on TS test selection: not covered source set; predecessor exact canonical baseline request stays open, no false0-file lint claim",
+  "issues": {
+    "2246": "partial; native scroll/viewport, independent verifier and SOURCE open",
+    "2250": "partial; restoration and qualified current business inputs open",
+    "2253": "partial; large-document/device/a11y acceptance open",
+    "2256": "intent/reader controls passed previously; entire input/governance acceptance open; does not own bytes/upload",
+    "1809": "tracking OPEN; child/boundary evidence aggregation incomplete",
+    "2280": "surface/migration terminal qualification open",
+    "2282": "Live/session fallback terminal qualification open",
+    "2284": "compare/sync/restoration terminal qualification open",
+    "2286": "user/device preference authority terminal qualification open",
+    "2287": "Focus/Typewriter/native viewport qualification open"
+  },
+  "wholeChainComplete": false,
+  "contentAPIWrites": false,
+  "PRBodyCommentLabelReadyMerge": false,
+  "publishedProviderSourceReadOnly": true,
+  "frozenPredecessor": true
+}

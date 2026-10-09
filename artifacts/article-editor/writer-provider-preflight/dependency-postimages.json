@@ -1,0 +1,63 @@
+{
+  "supplier": "98dc5c4e01f57f3a52443b100d7e8e0df6c8059d",
+  "suppliedTransportBase": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "guardFixIdentity": "not supplied",
+  "paths": [
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "hostBlob": null,
+      "suppliedBaseBlob": "0c16998759e5ee5329a034b9bfea88459b69bf81",
+      "equal": false
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "hostBlob": "97f4056b52a4d6ed6958038898b82c53160bf9f3",
+      "suppliedBaseBlob": "b166ef18ef6cb7ce8c48a0aab75d0cff9fa98296",
+      "equal": false
+    },
+    {
+      "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "hostBlob": "347e5c8dae647276ddaba3466688d004d8d3d4c1",
+      "suppliedBaseBlob": "1b56396b6b7902453170bdf6bdc6eca287a531a9",
+      "equal": false
+    },
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "hostBlob": "47c67ec55408d10af0a858ccd133c0ea5658c100",
+      "suppliedBaseBlob": "7d314a7730688e7562383feefcaacf75e53b9a4b",
+      "equal": false
+    },
+    {
+      "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "hostBlob": "eaf90ebee5b1426af77312c5c8358649c07cef96",
+      "suppliedBaseBlob": "fe5cd0da30829f6c892203bbfe594b2580cf5fbd",
+      "equal": false
+    },
+    {
+      "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "hostBlob": "79ddd37ff815ab507217b698c08778ab2102b134",
+      "suppliedBaseBlob": "1abcba10cef55637091f244b5b2887845abb338c",
+      "equal": false
+    },
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "hostBlob": "f1781f6ec55f05f1fef5c2c263c139bead0af67b",
+      "suppliedBaseBlob": "77708856b5051c94c1cca66e862e64e248a7b283",
+      "equal": false
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "hostBlob": "2c0108fc7a2542ee7f029decbb4f577c86058b9c",
+      "suppliedBaseBlob": "6c79721eee32a1c86cc816cd547f4a2a9643ab29",
+      "equal": false
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "hostBlob": "829f0a98b74fa8515c0af6173748eea27fd2313c",
+      "suppliedBaseBlob": "829f0a98b74fa8515c0af6173748eea27fd2313c",
+      "equal": true
+    }
+  ],
+  "importedSupplierSource": false,
+  "runtimeSafetyGuardsRetained": true
+}
