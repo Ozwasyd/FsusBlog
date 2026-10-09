@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/DataScale/ArticleScaleWriterDifferential.cs",
+                "tools/data-scale/validate-tier.mjs",
+                "tools/governance/check-data-scale-legacy-writes.mjs",
+                "tools/test-fixtures/producers/article-comment-audit-temporal.mjs",
+                "tools/test-fixtures/temporal-business-fields.mjs"
+            ],
+            "reason": "Preserve existing tooling and persistence interface names across the governed consumer paths. Canonical fixture inputs, temporal carrier names and physical column bindings retain their original authority; this diagnostic adds no environment or naming registry."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/data-scale/cleanup.sh",
+                "tools/data-scale/seed.sh"
+            ],
+            "reason": "Retain the original uppercase shell admission environment names while retiring legacy business writes. The existing resource isolation and refusal inputs remain caller-visible and are not renamed or reinterpreted."
+        }
+    ]
+}

@@ -7,7 +7,9 @@ internal sealed record ArticleScaleFieldDifference(
     string Table,
     string RowIdentity,
     string Field,
-    string Kind);
+    string Kind,
+    object? ProductionValue = null,
+    object? BulkValue = null);
 
 internal sealed record ArticleScaleDifferentialIdentityBindings(
     IReadOnlyDictionary<string, IReadOnlyDictionary<long, string>> TableRoles,
@@ -99,7 +101,10 @@ internal static class ArticleScaleWriterDifferential
                     if (!Equals(NormalizeIdentity(left, key, column, leftRow[column], productionIdentities),
                             NormalizeIdentity(right, key, column, rightRow[column], bulkIdentities)))
                     {
-                        differences.Add(new(name, identity, left.Columns[column].Name, "field-mismatch"));
+                        // Retain the independently observed native values for the sole
+                        // field owner. Normalized IDs explain alignment, not new facts.
+                        differences.Add(new(name, identity, left.Columns[column].Name, "field-mismatch",
+                            leftRow[column], rightRow[column]));
                     }
                 }
             }
@@ -124,8 +129,31 @@ internal static class ArticleScaleWriterDifferential
         DbConnection connection,
         DataScaleBulkProvider provider,
         DataScaleArticlePhysicalBatch model,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyCollection<string>? requiredTables = null)
     {
+        // Compile omits kinds with no expected rows (for example scheduled articles
+        // have no publication). Their physical tables must still be independently
+        // checked: absence from the projection is not proof of an empty database.
+        if (requiredTables is not null)
+        {
+            var required = requiredTables.ToHashSet(StringComparer.Ordinal);
+            if (required.Count != requiredTables.Count
+                || !model.Tables.All(table => required.Contains(table.Table)))
+                throw new InvalidOperationException("differential_observation_table_coverage_invalid");
+            foreach (string name in required)
+                DataScaleProviderBulkTransport.ValidateIdentifier(name);
+            foreach (string name in required.Except(model.Tables.Select(table => table.Table)).Order(StringComparer.Ordinal))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await using DbCommand empty = connection.CreateCommand();
+                empty.CommandTimeout = 30;
+                string quoted = provider == DataScaleBulkProvider.MySql ? $"`{name}`" : $"\"{name}\"";
+                empty.CommandText = $"SELECT 1 FROM {quoted} LIMIT 1";
+                if (await empty.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not null)
+                    throw new InvalidOperationException($"differential_unprojected_table_contains_rows:{name}");
+            }
+        }
         var tables = new List<DataScaleBulkTableRows>();
         long totalRows = 0;
         foreach (DataScaleBulkTableRows table in model.Tables)

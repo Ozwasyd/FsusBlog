@@ -20,7 +20,10 @@ public sealed class ArticleScaleWriterDifferentialTests
         ArticleScaleWriterDifferentialResult result = ArticleScaleWriterDifferential.Compare(production, Batch(field, "tampered"));
         Assert.False(result.PhysicalEquivalent);
         Assert.False(result.QualificationEligible);
-        Assert.Equal(field, Assert.Single(result.Differences).Field);
+        ArticleScaleFieldDifference difference = Assert.Single(result.Differences);
+        Assert.Equal(field, difference.Field);
+        Assert.Equal("expected", difference.ProductionValue);
+        Assert.Equal("tampered", difference.BulkValue);
         Assert.NotEqual(result.ProductionDigest, result.BulkDigest);
     }
 
@@ -70,6 +73,58 @@ public sealed class ArticleScaleWriterDifferentialTests
         DataScaleArticlePhysicalBatch observed = await ArticleScaleWriterDifferential.ObserveIsolatedRootAsync(
             connection, DataScaleBulkProvider.Sqlite, model, cancellation.Token);
         Assert.Equal("extra-row", Assert.Single(ArticleScaleWriterDifferential.Compare(model, observed).Differences).Kind);
+    }
+
+    [Fact]
+    public async Task ReadbackChecksUnprojectedPublicationRowsAndPreservesLogicalReferences()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "CREATE TABLE article(Id INTEGER PRIMARY KEY, PayloadJson TEXT); INSERT INTO article VALUES (1, '{}'); CREATE TABLE article_publication(Id INTEGER PRIMARY KEY);";
+        await command.ExecuteNonQueryAsync();
+        DataScaleArticlePhysicalBatch model = Batch("PayloadJson", "{}") with
+        {
+            LogicalReferences = [new(ArticleScaleRowKind.ArticleTaxonomyReference, "canonical/article/1/taxonomy", new Dictionary<string, object?>())]
+        };
+        string[] roster = ["article", "article_publication"];
+        DataScaleArticlePhysicalBatch observed = await ArticleScaleWriterDifferential.ObserveIsolatedRootAsync(
+            connection, DataScaleBulkProvider.Sqlite, model, CancellationToken.None, roster);
+        Assert.Same(model.LogicalReferences, observed.LogicalReferences);
+        Assert.False(ArticleScaleWriterDifferential.Compare(model, observed).QualificationEligible);
+
+        command.CommandText = "INSERT INTO article_publication VALUES (991);";
+        await command.ExecuteNonQueryAsync();
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ArticleScaleWriterDifferential.ObserveIsolatedRootAsync(connection, DataScaleBulkProvider.Sqlite,
+                model, CancellationToken.None, roster));
+        Assert.Equal("differential_unprojected_table_contains_rows:article_publication", failure.Message);
+    }
+
+    [Fact]
+    public async Task ReadbackRefusesIncompleteDuplicateOrUnsafeTableRosters()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        foreach (string[] roster in new[] { Array.Empty<string>(), new[] { "article", "article" } })
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => ArticleScaleWriterDifferential.ObserveIsolatedRootAsync(
+                connection, DataScaleBulkProvider.Sqlite, Batch("PayloadJson", "{}"), CancellationToken.None, roster));
+        }
+        await Assert.ThrowsAsync<ArgumentException>(() => ArticleScaleWriterDifferential.ObserveIsolatedRootAsync(
+            connection, DataScaleBulkProvider.Sqlite, Batch("PayloadJson", "{}"), CancellationToken.None,
+            ["article", "publication; DELETE FROM article"]));
+    }
+
+    [Fact]
+    public async Task UnprojectedTableProbeHonorsCancellation()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ArticleScaleWriterDifferential.ObserveIsolatedRootAsync(
+            connection, DataScaleBulkProvider.Sqlite, Batch("PayloadJson", "{}"), cancellation.Token, ["article", "article_publication"]));
     }
 
     [Fact]

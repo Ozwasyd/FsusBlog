@@ -140,9 +140,11 @@ public sealed class ArticleScaleProductionBulkDifferentialTests(
         await using var productionNative = new NpgsqlConnection(productionConnection);
         await productionNative.OpenAsync();
         DataScaleArticlePhysicalBatch observedProduction = await ArticleScaleWriterDifferential.ObserveIsolatedRootAsync(
-            productionNative, DataScaleBulkProvider.PostgreSql, model, cancellation.Token);
+            productionNative, DataScaleBulkProvider.PostgreSql, model, cancellation.Token,
+            schema.Values.Select(table => table.Table).ToArray());
         DataScaleArticlePhysicalBatch observedBulk = await ArticleScaleWriterDifferential.ObserveIsolatedRootAsync(
-            bulkNative, DataScaleBulkProvider.PostgreSql, model, cancellation.Token);
+            bulkNative, DataScaleBulkProvider.PostgreSql, model, cancellation.Token,
+            schema.Values.Select(table => table.Table).ToArray());
         ArticleScaleWriterDifferentialResult factoryReadback = ArticleScaleWriterDifferential.Compare(model, observedBulk);
         Assert.True(factoryReadback.PhysicalEquivalent);
         ArticleScaleWriterDifferentialResult result = ArticleScaleWriterDifferential.Compare(observedProduction, observedBulk);
