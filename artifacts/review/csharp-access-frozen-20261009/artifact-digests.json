@@ -1,0 +1,37 @@
+[
+  {
+    "path": "README.md",
+    "bytes": 8308,
+    "sha256": "81fa26662bf8f08bfbe92ad156829b9b4811cf5c8bc899a3ef8a6272da1cdd69"
+  },
+  {
+    "path": "complete-source.diff",
+    "bytes": 22774,
+    "sha256": "476b5b4871b0d085c184b6e98bb4f4fb9f4c6d4084dceead83097f5b65f6f44c"
+  },
+  {
+    "path": "frozen-handoff.json",
+    "bytes": 8261,
+    "sha256": "a2223d36b66eeac47e240aa5a6bac786f03283fc338a3b27ad867093667f49f2"
+  },
+  {
+    "path": "historical-binding-refresh.json",
+    "bytes": 697,
+    "sha256": "ac67980f1e1b7549830a2675aff706afea6f300650a44d3b4349c7433d7da991"
+  },
+  {
+    "path": "prepared-pr-body.md",
+    "bytes": 10940,
+    "sha256": "b6a45f8a7ce5dafb5428502c3062a2d4f7df2994c62c5015d05300836b5985d0"
+  },
+  {
+    "path": "producer-observation.json",
+    "bytes": 539,
+    "sha256": "de3502c3f6b88949dba1ec135db257534b28a7c2333b5c325d038ad0a86f66f5"
+  },
+  {
+    "path": "producer.log",
+    "bytes": 258,
+    "sha256": "157534d937de95ebf55a82dd28b4bc038db11618f3e884204af6f1a6310bad43"
+  }
+]

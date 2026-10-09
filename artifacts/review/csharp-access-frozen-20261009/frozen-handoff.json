@@ -1,0 +1,191 @@
+{
+  "kind": "frozen-reviewed-Access-source-and-provenance-handoff-no-new-acceptance",
+  "preparedOn": "2026-10-09",
+  "candidate": "6bce29c5b6c3986e877bb92c3ab9ba5b763db5f4",
+  "sourceBranch": "codex/csharp-access-current-integration-20261008",
+  "frozenReviewBase": "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131",
+  "sourceRange": "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131..6bce29c5b6c3986e877bb92c3ab9ba5b763db5f4",
+  "sourceChangedPathCount": 8,
+  "sourcePaths": [
+    {
+      "path": "artifacts/change-contract/gpu-access-csharp-external-naming.json",
+      "blob": "556fff135ce609af33a9c802293281be3bf79532",
+      "sha256": "1d802f04e27469d6799b2020a862c8783edc24ee204ff0379145798c12ec456c"
+    },
+    {
+      "path": "artifacts/change-contract/gpu-access-csharp-policy-binding.json",
+      "blob": "772f357dc86cf3171d368099990c6477a0354d6f",
+      "sha256": "fa6ab58820bedc8613819288d2f63bb878ed99e2aab7e80d21a35a459387b0cf"
+    },
+    {
+      "path": "config/development/csharp-style-baseline.json",
+      "blob": "7834677659ffbc7a3dd5edfaf90891e6210fff54",
+      "sha256": "1fa5e85aaa16f4a1264f075dee5ecc181e799156ee4f791f96d4e55ae678ed6e"
+    },
+    {
+      "path": "config/development/csharp-style-policy.json",
+      "blob": "822c2219d353530910527cc86d37ceb66bcbfa7a",
+      "sha256": "1c8ded64fa6a603370a946ff5f21608847c2bd495089b620e23eb2f41fd1db2f"
+    },
+    {
+      "path": "docs/development/csharp-style-enforcement.md",
+      "blob": "73e7871cb867d5e29f4f2ccf9983e6d441cd0934",
+      "sha256": "b4ebfd3aca18c51f67349a594b6dff54785a3f7d92a58bbf81e4f28adaa87978"
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "blob": "b841818e101e7d1bd68189a7f3d14d54cd1ebf5b",
+      "sha256": "dad93142464ccff0eeafdb710d429f14e5ddb6489e213dc5444f6a136af65f5e"
+    },
+    {
+      "path": "tests/tools/csharp-style.test.mjs",
+      "blob": "9067e263c6e385efd2975c0ffb51a7ac4232de41",
+      "sha256": "7e2d3c07954ed8b0146a26f3a8eab92b118be0bb4788838b8df5f5d4fa51521e"
+    },
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "blob": "3688b8fa26034bdc831bfe72518e34af32f30cc4",
+      "sha256": "a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23"
+    }
+  ],
+  "sourceDiffSha256": "476b5b4871b0d085c184b6e98bb4f4fb9f4c6d4084dceead83097f5b65f6f44c",
+  "rootReportedSourceReview": {
+    "status": "independent complete-eight-file approval read by coordinating root",
+    "source": "delegated root message 2026-10-09",
+    "sourceThreadId": "01a119bf-286b-7181-a7a2-cab094a6102c",
+    "reviewUrlNotSupplied": true,
+    "newReviewPerformed": false,
+    "doesNotGrantHeldSourceOrRuntimeAcceptance": true
+  },
+  "preservedSeparateHeads": {
+    "originalE6": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+    "delegateReviewedCompleteSix": "ba706b74c4d027b83c54a138ebf114e55fab992d"
+  },
+  "producerCommand": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+  "producerBlob": "3a94146cb8d98aa9ceac65bedcb9e8e183e3aa8d",
+  "producerUnchangedVersusFrozenBase": true,
+  "independentIndexUnchangedVersusFrozenBase": true,
+  "actualProducerObservation": {
+    "kind": "actual-command-observation-not-qualification-receipt",
+    "headBefore": "b1fe2f988310ab5790abee6e0f9fe4e6c25dca9d",
+    "headAfter": "b1fe2f988310ab5790abee6e0f9fe4e6c25dca9d",
+    "argv": [
+      "node",
+      "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "startedAtUtc": "2026-10-08T14:28:07.041265+00:00",
+    "endedAtUtc": "2026-10-08T14:31:06.404651+00:00",
+    "exitCode": 0,
+    "log": "canonical-authority-producer.log",
+    "logSha256": "157534d937de95ebf55a82dd28b4bc038db11618f3e884204af6f1a6310bad43"
+  },
+  "producerActualInputTreeEquivalentToCorrectedMerge": "3346f6a7821e0b3c7c007aa6d358e57411815015",
+  "generatedBinding": {
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+      "tools/dotnet/check-csharp-style.mjs",
+      "config/development/csharp-style-policy.json"
+    ],
+    "outputs": [
+      {
+        "path": "config/development/csharp-style-baseline.json",
+        "sha256": "1fa5e85aaa16f4a1264f075dee5ecc181e799156ee4f791f96d4e55ae678ed6e"
+      },
+      {
+        "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "sha256": "dad93142464ccff0eeafdb710d429f14e5ddb6489e213dc5444f6a136af65f5e"
+      }
+    ]
+  },
+  "fiveHistorical103InputsEquivalent": [
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "coreE6CurrentIdenticalBlob": "3688b8fa26034bdc831bfe72518e34af32f30cc4"
+    },
+    {
+      "path": "tests/tools/csharp-style.test.mjs",
+      "coreE6CurrentIdenticalBlob": "9067e263c6e385efd2975c0ffb51a7ac4232de41"
+    },
+    {
+      "path": "config/development/csharp-style-policy.json",
+      "coreE6CurrentIdenticalBlob": "822c2219d353530910527cc86d37ceb66bcbfa7a"
+    },
+    {
+      "path": "config/development/csharp-style-baseline.json",
+      "coreE6CurrentIdenticalBlob": "7834677659ffbc7a3dd5edfaf90891e6210fff54"
+    },
+    {
+      "path": "docs/development/csharp-style-enforcement.md",
+      "coreE6CurrentIdenticalBlob": "73e7871cb867d5e29f4f2ccf9983e6d441cd0934"
+    }
+  ],
+  "historical103ActualExecutionCore": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+  "authorityOnlyCurrentReviewBaseChangedFields": [
+    {
+      "field": "$.closureFiles[612].contentDigest",
+      "old": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+      "new": "sha256:a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23"
+    },
+    {
+      "field": "$.closureFiles[612].indexDigest",
+      "old": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+      "new": "sha256:a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23"
+    }
+  ],
+  "authorityTargets": 102,
+  "authorityClosureFiles": 1128,
+  "currentPrerequisites": [
+    {
+      "gate": "ordered upstream merge slot",
+      "owner": "coordinating root",
+      "order": [
+        4036,
+        4037,
+        4039
+      ],
+      "status": "waiting for root-supplied completion checkpoint; no individual PR merge state inferred",
+      "requiredHandoff": "exact completed merge commits and exact post-slot origin/master SHA"
+    },
+    {
+      "gate": "Access actual-base synchronization",
+      "owner": "Access source owner after root checkpoint",
+      "status": "not started this turn; no repeated rebase",
+      "prerequisite": "entire ordered root merge slot above"
+    },
+    {
+      "gate": "actual synchronized candidate applicable checks",
+      "owner": "source owner for permitted ordinary scope; root for GitHub CI/metadata/merge",
+      "status": "not executed for a future candidate",
+      "required": "derive affected checks from exact future base/range; if closure changes use existing unmodified canonical producer and output-derived binding only; retain positive allowed-case lists and held exclusions"
+    },
+    {
+      "gate": "held SOURCE/runtime/cohort/receipt/Git-replacement/audit scopes",
+      "owner": "coordinating root for scope authorization/accounting",
+      "status": "not executed or claimed by this package",
+      "constraint": "no bypass, replacement controls or promotion of historical results; aggregate with held members remains unqualified"
+    },
+    {
+      "gate": "remote required checks and GitHub metadata/merge",
+      "owner": "coordinating root only",
+      "status": "not queried or modified by this task; no live pass inferred"
+    }
+  ],
+  "priorPortableFullEvidenceCommit": "38d2e89d2e997885c7a84c64a0309f30ef48dd60",
+  "publicProposedTitle": "fix(governance): classify singular access enums precisely",
+  "publicProposedBody": "prepared-pr-body.md",
+  "bodySha256": "b6a45f8a7ce5dafb5428502c3062a2d4f7df2994c62c5015d05300836b5985d0",
+  "thisTurnActions": {
+    "readOnlyGitIntegrityVerification": true,
+    "testCasesExecuted": 0,
+    "rebase": false,
+    "canonicalProducerRerun": false,
+    "sourceEdits": false,
+    "newReview": false,
+    "GitHubContentApiWrite": false,
+    "mergeOrDeploy": false
+  },
+  "ownedOriginalChainStatus": {
+    "3650": "previously closed/completed; not reopened",
+    "3562": "full acceptance still unaccounted; no new completion claim"
+  }
+}
