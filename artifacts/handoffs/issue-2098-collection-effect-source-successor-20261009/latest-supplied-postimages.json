@@ -1,0 +1,14 @@
+[
+  {
+    "commit": "6e52c9b56e809b0c4695afa6219b3aced48d2c02",
+    "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "rawGitBlob": "dadd74f6a89ceab7f1af28f47ac104bb3b52f2b2",
+    "rawSha256": "94d49625e15d8ebd1e25e4251632cf409f58eb1400a9a8b9f512bb28ebccabf1"
+  },
+  {
+    "commit": "6e52c9b56e809b0c4695afa6219b3aced48d2c02",
+    "path": "tests/tools/layout-collection-source.test.mjs",
+    "rawGitBlob": "2c623a9175fd826d0a56f9fa7ac9036c3aa74e0d",
+    "rawSha256": "bee156177b5709e026adb3c5a36c7745bc5db30b84efcfbbf143a2f6400e385b"
+  }
+]

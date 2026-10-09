@@ -1,0 +1,70 @@
+{
+  "sourceCommit": "01f8524b251edff7f10cbebb9f69bd4a041a2c4a",
+  "artifacts": [
+    {
+      "path": "actual-framework-identities.json",
+      "bytes": 66119,
+      "sha256": "7c244ac2171ac948900e90c2dfff5af7c293e1cfaee51f986f2729cb9ee7226e"
+    },
+    {
+      "path": "clean-successor-914-positive-preflight.json",
+      "bytes": 263754,
+      "sha256": "78e86ad26b365f0008789a065546e9cc97abf5e99c2c2f9cd20dceebae9cbbb1"
+    },
+    {
+      "path": "clean-successor-914-tests.pass.txt",
+      "bytes": 79734,
+      "sha256": "e52ecb0d27b75871c15ad78880e35164ba532f14400ab49a0d8bbd02fd821cd2"
+    },
+    {
+      "path": "clean-successor-914-tests.result.json",
+      "bytes": 65597,
+      "sha256": "047fec19f3f9f589d4f0267123f731e9a6e87414799456a85325155366cd7b23"
+    },
+    {
+      "path": "clean-successor-contract.pass.txt",
+      "bytes": 81,
+      "sha256": "7c3bc8e26690d72722f08fd14f06e103b944b9091f771638e7ef66f9a0dd9f6f"
+    },
+    {
+      "path": "clean-successor-contract.result.json",
+      "bytes": 1573,
+      "sha256": "043ecce610265ceda22abda47b27e5da986f4a1aea26952c814e618e055ab5fb"
+    },
+    {
+      "path": "interface-and-status.json",
+      "bytes": 9106,
+      "sha256": "039983e4799820c7d01257a6c64714c54254432788445f6c2843747fc11e09ff"
+    },
+    {
+      "path": "latest-collection-name-comparison.json",
+      "bytes": 35829,
+      "sha256": "1c06f78efd1d515c6cee20ac9c30f50df6d6b477c825f396e8dff0ec07d890c5"
+    },
+    {
+      "path": "latest-collection-style.pass.txt",
+      "bytes": 68,
+      "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+    },
+    {
+      "path": "latest-collection-style.result.json",
+      "bytes": 1908,
+      "sha256": "5de138b011f2ac4d4d7d01573d3cf78bb0ec79b50794ab5aeaa21641a6dc2213"
+    },
+    {
+      "path": "latest-supplied-postimages.json",
+      "bytes": 567,
+      "sha256": "ae3dc842590bf2d04e5620d2851d0213efbd7f47900cec266abcbe82cb7658ac"
+    },
+    {
+      "path": "successor-sdk-identities.pass.txt",
+      "bytes": 64,
+      "sha256": "9acae093c5cd44e335f454c89849f181f33fd5abcf7c351934f7dd0a399885c0"
+    },
+    {
+      "path": "successor-sdk-identities.result.json",
+      "bytes": 1546,
+      "sha256": "45e2160df45f81a4849ba4a5348b17b870c1145b50a0f29800510f0a8e063aac"
+    }
+  ]
+}
