@@ -1,0 +1,1 @@
+First static preflight exited 1 with AssertionError before running any test bodies. Array extraction split at the first ]) token inside duplicate evidence mutation, selecting 5 of 21 negative labels. Corrected delimiter to the reviewed top-level ]) followed by opening block; no test source or runtime policy change. Test bodies executed: 0.
