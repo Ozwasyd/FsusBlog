@@ -1,5 +1,6 @@
 const { bindTemporalEntityBusinessFields, bindTemporalEntityBatchBusinessFields, iterateTemporalEntityBusinessBatches } = await import(new URL('../test-fixtures/temporal-business-fields.mjs', import.meta.url));
 const { resolveTemporalBusinessFieldStream } = await import(new URL('../test-fixtures/temporal-business-stream.mjs', import.meta.url));
+const { createTemporalBusinessRecordSource } = await import(new URL('../test-fixtures/temporal-business-source.mjs', import.meta.url));
 
 export const dataScaleTemporalFieldMappings = Object.freeze([
     ['row.created-at', 'scale.row-created'],
@@ -36,6 +37,13 @@ export function resolveDataScaleTemporalBusinessStream(input)
         throw new Error('data-scale temporal stream requires scale-data context');
     }
     return resolveTemporalBusinessFieldStream({ ...input, fieldMappings: dataScaleTemporalFieldMappings });
+}
+
+/** Consume explicitly joined seed rows; distribution/ordinal assignment stays upstream. */
+export function resolveDataScaleTemporalBusinessRows(input)
+{
+    const source = createTemporalBusinessRecordSource(input);
+    return resolveDataScaleTemporalBusinessStream({ ...input, source });
 }
 
 /** Transport an already accepted whole plan; this cannot qualify oversized plans. */

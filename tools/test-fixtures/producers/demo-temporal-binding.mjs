@@ -1,5 +1,6 @@
 const { bindTemporalEntityBusinessFields, bindTemporalEntityBatchBusinessFields, iterateTemporalEntityBusinessBatches } = await import(new URL('../temporal-business-fields.mjs', import.meta.url));
 const { resolveTemporalBusinessFieldStream } = await import(new URL('../temporal-business-stream.mjs', import.meta.url));
+const { createTemporalBusinessRecordSource } = await import(new URL('../temporal-business-source.mjs', import.meta.url));
 const { digestCanonical } = await import(new URL('../../test/temporal-context.mjs', import.meta.url));
 const { resolveTemporalRolesForProducer } = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 
@@ -43,6 +44,13 @@ export function resolveDemoTemporalBusinessStream(input)
         throw new Error('demo temporal stream requires development-demo context');
     }
     return resolveTemporalBusinessFieldStream({ ...input, fieldMappings: demoTemporalFieldMappings });
+}
+
+/** Join actual producer rows into canonical input; no endpoint or seed fallback. */
+export function resolveDemoTemporalBusinessRows(input)
+{
+    const source = createTemporalBusinessRecordSource(input);
+    return resolveDemoTemporalBusinessStream({ ...input, source });
 }
 
 /** Explicit source-factory ingress for the registered demo fixture coordinate. */
