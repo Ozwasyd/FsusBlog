@@ -221,10 +221,16 @@ public sealed class ArticleRelationSourceCoordinateAuthorityIntegrationTests(Pos
     public async Task ImportPreservesSuppliedArticleIdentityAndAllocatesLocalRevisionCoordinates()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        (int article, long revision) = await CreateSourceAsync(db);
         string supplied = $"article:{Guid.NewGuid():D}";
         await db.Ado.BeginTranAsync();
-        ArticleRelationRevisionCoordinate saved = await _authority.ProvisionImportedRevisionAsync(db, article, revision, supplied);
+        int article = await CreateArticleAsync(db);
+        ArticleRelationArticleCoordinate binding = await _authority.ProvisionImportedArticleAsync(db, article, supplied);
+        Assert.Equal(new ArticleRelationArticleCoordinate(article, supplied), binding);
+        Assert.Equal(binding, await _authority.ProvisionImportedArticleAsync(db, article, supplied));
+        await AssertCountsAsync(db, 1, 0);
+        long revision = await CreateRevisionAsync(db, article, 1);
+        Assert.Null(await _authority.ReadRevisionAsync(db, article, revision));
+        ArticleRelationRevisionCoordinate saved = await _authority.ProvisionRevisionAsync(db, article, revision);
         await db.Ado.CommitTranAsync();
         Assert.Equal(supplied, saved.ArticleIdentity);
         Assert.Equal(saved, await ProvisionAndCommitAsync(db, article, revision));
@@ -254,6 +260,14 @@ public sealed class ArticleRelationSourceCoordinateAuthorityIntegrationTests(Pos
         ArticleRelationSourceCoordinateException collision = await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
             () => _authority.ProvisionImportedRevisionAsync(db, otherArticle, otherRevision, saved.ArticleIdentity));
         Assert.Equal("article_relation_binding_conflict", collision.Message);
+        await db.Ado.RollbackTranAsync();
+        await db.Ado.BeginTranAsync();
+        await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
+            () => _authority.ProvisionImportedArticleAsync(db, article, $"article:{Guid.NewGuid():D}"));
+        await db.Ado.RollbackTranAsync();
+        await db.Ado.BeginTranAsync();
+        await Assert.ThrowsAsync<ArticleRelationSourceCoordinateException>(
+            () => _authority.ProvisionImportedArticleAsync(db, otherArticle, saved.ArticleIdentity));
         await db.Ado.RollbackTranAsync();
         Assert.Equal(saved, await _authority.ReadRevisionAsync(db, article, revision));
         Assert.Null(await _authority.ReadRevisionAsync(db, article, nextRevision));
