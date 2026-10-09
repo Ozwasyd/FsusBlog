@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { formatPropertyReadTypeScript } from './format-generated-property-value-read-typescript.mjs';
+import { validateDocumentExportRegistration } from './document-export-registration.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const read = file => readFileSync(path.join(root, file), 'utf8');
@@ -25,15 +26,7 @@ for (const [name, fields] of Object.entries(spec.records))
     }
 }
 const protocol = JSON.parse(read('src/shared/Contracts/Validation/aeds-protocol.json'));
-for (const [name, expected] of Object.entries(spec.roots))
-{
-    const active = protocol.frameTypes.find(frame => frame.name === name);
-    const reserved = protocol.reservedFrameValues.find(frame => frame.name === name);
-    if (active ? active.value !== expected.value || active.goldenFamily !== expected.family : !reserved || reserved.value !== expected.value || reserved.ownerIssue !== 3735)
-    {
-        throw new Error(`document-export registration drift:${name}`);
-    }
-}
+validateDocumentExportRegistration(protocol, spec.roots);
 if (spec.payloadRevision !== 1 || spec.identifierMaxUtf16 !== 192 || spec.reasonMaxUtf16 !== 2048 || spec.maxAttempts !== 3 || spec.maxPageSize !== 50 || spec.nativeError.value !== 18)
 {
     throw new Error('document-export bounds drift');

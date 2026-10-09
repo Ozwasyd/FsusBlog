@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "sourceOwnerCommit": "983957a68ff9ed55fc00ec0c70ffd3ee7233aa9d",
+  "byteOrder": "little-endian",
+  "frames": {
+    "WritingAidPreferenceSnapshotResponse": 272,
+    "WritingAidPreferenceUpdateRequest": 273,
+    "WritingAidPreferenceReceiptResponse": 274
+  },
+  "snapshotMaximumPayloadBytes": 612,
+  "updatePayloadBytes": 80,
+  "receiptMaximumPayloadBytes": 1434,
+  "owners": [
+    {
+      "path": "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceContracts.cs",
+      "sha256": "20f0a6044486dd73197ce2f07b7a25699be4459f37ab1f99fcc6fdada4f249f3"
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceValidator.cs",
+      "sha256": "0adbf08462290b90f78fd8963e4d73f2740add891bb6efe596d86e3a448dd8b3"
+    },
+    {
+      "path": "src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs",
+      "sha256": "d706651aeca0556b028774894c49537ca586b97cc954d920e7a4547927539818"
+    },
+    {
+      "path": "src/shared/Contracts/Models/WritingAidPreferencePods.cs",
+      "sha256": "54b3509e33b198909f04b23c859e4c567350505f8aecddab63a447f96b9b598d"
+    },
+    {
+      "path": "src/core/Cache/PodBinaryCodec.WritingAidPreference.cs",
+      "sha256": "6c765f0dff9e01a88ba0693fcc0766c900985ac17efe7f54c89b0e2ffff06ba4"
+    }
+  ],
+  "receipt": {
+    "versionByte": 1,
+    "operationId": "fixed64 canonical lowercase UUID,36ASCII+28zero",
+    "deviceScope": "fixed71 device:64lowerhex",
+    "actionTags": {
+      "update": 0,
+      "initialize": 1
+    },
+    "statusTags": {
+      "committed": 0
+    },
+    "previous": "int32 length then original snapshot POD",
+    "committed": "int32 length then original snapshot POD",
+    "contentDigest": "fixed64 lowercase SHA256"
+  },
+  "digestContract": "Existing Shared validators are sole canonical owner; TS/native recompute exact closed digest arrays without JSON payload/fallback."
+}
