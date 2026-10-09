@@ -1048,30 +1048,32 @@ PrepareBackendPlatformPlan() {
         --run-id "${FSUSBLOG_TEST_RUN_ID:-ordinary-$$}" \
         --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:-$(git -C "$ROOT_DIR" rev-parse HEAD)}" \
         --source-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-$(node --input-type=module -e 'const { snapshotGitWorktree } = await import(process.argv[1] + "/tools/test-matrix/scheduler.mjs"); process.stdout.write((await snapshotGitWorktree(process.argv[1])).fingerprint)' "$ROOT_DIR")}" \
-        --output "$ROOT_DIR/.tmp/$lane/local-redis-membership-plan.json"
-    configuration="$(BackendTestConfiguration)"
-    EnsureBackendFilteredBuild
-    outputDirectory="$(BackendTestRuntimeOutputDirectory)"
+        --output "$ROOT_DIR/.tmp/$lane/local-redis-membership-plan.json" || return $?
+    # Conditional callers suppress Bash errexit throughout this function.
+    # Propagate each preparation failure before any discovery or execution.
+    configuration="$(BackendTestConfiguration)" || return $?
+    EnsureBackendFilteredBuild || return $?
+    outputDirectory="$(BackendTestRuntimeOutputDirectory)" || return $?
     testAssembly="$outputDirectory/FsusBlog.Server.Tests.dll"
     diagnosticRoot="$ROOT_DIR/.tmp/$lane/platform-discovery"
-    planFile="$(BackendPlatformPlanFile "$lane")"
-    runtimePlatform="$("${FSUSBLOG_NODE:-node}" -p 'process.platform')"
-    rm -rf "$diagnosticRoot"
-    rm -f "$planFile" "$(BackendPlatformOutcomeFile "$lane")"
-    mkdir -p "$diagnosticRoot"
+    planFile="$(BackendPlatformPlanFile "$lane")" || return $?
+    runtimePlatform="$("${FSUSBLOG_NODE:-node}" -p 'process.platform')" || return $?
+    rm -rf "$diagnosticRoot" || return $?
+    rm -f "$planFile" "$(BackendPlatformOutcomeFile "$lane")" || return $?
+    mkdir -p "$diagnosticRoot" || return $?
     Log "backend platform discovery: lane=$lane platform=$runtimePlatform"
     "$BUILD_ENV_RUNNER" dotnet vstest "$testAssembly" \
         --ListTests \
         "--TestCaseFilter:$baseFilter" \
         "--Diag:$diagnosticRoot/union.txt" \
-        >"$diagnosticRoot/stdout.txt"
+        >"$diagnosticRoot/stdout.txt" || return $?
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/backend-platform-selection.mjs" plan \
         --platform "$runtimePlatform" \
         --base "$baseFilter" \
         --lane "$lane" \
         --diagnostic-root "$diagnosticRoot" \
         --source "$testAssembly" \
-        --out "$planFile"
+        --out "$planFile" || return $?
 }
 
 FinalizeBackendPlatformOutcome() {

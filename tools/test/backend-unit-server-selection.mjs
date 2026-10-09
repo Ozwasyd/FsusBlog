@@ -127,11 +127,18 @@ function readJson(root, file)
     return JSON.parse(fs.readFileSync(absolute, 'utf8'));
 }
 
+/** Use native path components; canonical filesystem checks remain mandatory at the caller. */
+export function isBackendUnitTemporaryPath(root, file, pathApi = path)
+{
+    const relative = pathApi.relative(pathApi.resolve(root, '.tmp'), pathApi.resolve(root, file));
+    return relative !== '' && !pathApi.isAbsolute(relative) && relative.split(pathApi.sep)[0] !== '..';
+}
+
 function writeNewJson(root, file, value)
 {
     const absolute = path.resolve(root, file);
-    const relative = path.relative(root, absolute);
-    requireCondition(relative.startsWith('.tmp/') && fs.realpathSync(path.dirname(absolute)) === path.dirname(absolute), 'output must use the original repository temporary directory');
+    requireCondition(isBackendUnitTemporaryPath(root, absolute)
+        && fs.realpathSync(path.dirname(absolute)) === path.dirname(absolute), 'output must use the original repository temporary directory');
     fs.writeFileSync(absolute, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 }
 
@@ -167,7 +174,8 @@ export function runBackendUnitServerSelectionAction(args, { root, env })
     }
     const assemblyFile = ownedFile(root, values.get('--source'));
     const diagnosticRoot = path.resolve(root, values.get('--diagnostic-root'));
-    requireCondition(path.relative(root, diagnosticRoot).startsWith('.tmp/') && fs.realpathSync(diagnosticRoot) === diagnosticRoot, 'discovery must use the original repository temporary directory');
+    requireCondition(isBackendUnitTemporaryPath(root, diagnosticRoot)
+        && fs.realpathSync(diagnosticRoot) === diagnosticRoot, 'discovery must use the original repository temporary directory');
     const { file: diagnosticFile, records } = readVstestDiscoveryDiagnostic(diagnosticRoot, { expectedSource: assemblyFile });
     ownedFile(root, diagnosticFile);
     const plan = planBackendUnitServerSelection({ selection, sourceState,

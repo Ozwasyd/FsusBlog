@@ -64,6 +64,16 @@ before SDK/build/test access. Existing scheduler resource/service ownership,
 namespace setup, Server build locks and cancellation remain with their original
 owners; this selection does not authorize alternative service/runner setup.
 
+Preparation explicitly propagates operation failures even when Bash conditional
+dispatch disables implicit errexit. Membership planning, configuration, build,
+runtime output/platform resolution, discovery preparation, VSTest discovery and
+platform planning must succeed before bounded verification or execution.
+Temporary discovery/output containment uses native path components on POSIX and
+Windows, rejects parent escapes, sibling roots and cross-drive/share paths, and
+retains canonical realpath checks against redirected directories. Portable path
+controls exercise `path.posix` and `path.win32`; they are not Windows SDK or
+filesystem runtime acceptance.
+
 The source review controls cover declaration/option semantics, exact synthetic
 discovery metadata and original shell routing only. They execute no real Server
 or Migration case, fixture, SDK or acceptance receipt. The previously published

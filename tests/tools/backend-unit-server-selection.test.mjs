@@ -212,7 +212,7 @@ test('ordinary explicit CLI action validates exact options and source before ret
     }
 });
 
-test('ordinary verify action uses the original completed diagnostic reader and never creates a Migration receipt', (t) =>
+function verificationFixture(t)
 {
     const { root, input, file, env } = filesFixture(t);
     const directory = path.join(root, '.tmp', 'discovery');
@@ -226,11 +226,44 @@ test('ordinary verify action uses the original completed diagnostic reader and n
     const selectionPlan = path.join(root, '.tmp', 'selection-plan.json');
     const args = ['--backend-unit', '--server-selection', file, '--selection-action', 'verify', '--diagnostic-root', directory,
         '--source', input.assemblyFile, '--platform-plan', platformFile, '--selection-plan', selectionPlan];
+    return { root, env, args, selectionPlan, directory };
+}
+
+test('ordinary verify action uses the original completed diagnostic reader and never creates a Migration receipt', (t) =>
+{
+    const { root, env, args, selectionPlan } = verificationFixture(t);
     assert.match(runBackendUnitServerSelectionAction(args, { root, env }), /3 actual discovered cases; Migration not-selected/u);
     const planned = JSON.parse(fs.readFileSync(selectionPlan, 'utf8'));
     assert.equal(planned.qualificationEligible, false);
     assert.equal(fs.existsSync(path.join(root, '.tmp', 'migration-execution')), false);
     assert.throws(() => runBackendUnitServerSelectionAction(args, { root, env }), /EEXIST/u);
+});
+
+test('ordinary temporary guards reject escaped and symlinked discovery and output paths', (t) =>
+{
+    const { root, env, args, directory } = verificationFixture(t);
+    const outside = fs.mkdtempSync(`${root}-outside-`);
+    t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+    const sibling = path.join(root, '.tmp-sibling');
+    fs.mkdirSync(sibling);
+    const redirected = path.join(root, '.tmp', 'redirected');
+    fs.symlinkSync(sibling, redirected, 'junction');
+    for (const [option, files] of [['--diagnostic-root', [root, path.join(root, '.tmp'), sibling,
+        path.join(root, '.tmp', '..', '.tmp-sibling'), outside, redirected]],
+    ['--selection-plan', [path.join(root, 'plan.json'), path.join(sibling, 'plan.json'),
+        path.join(root, '.tmp', '..', '.tmp-sibling', 'plan.json'), path.join(outside, 'plan.json'), path.join(redirected, 'plan.json')]]])
+    {
+        for (const file of files)
+        {
+            const invalid = [...args];
+            invalid[invalid.indexOf(option) + 1] = file;
+            assert.throws(() => runBackendUnitServerSelectionAction(invalid, { root, env }), /original repository temporary directory/u);
+        }
+    }
+    assert.equal(fs.existsSync(path.join(root, 'plan.json')), false);
+    assert.equal(fs.existsSync(path.join(sibling, 'plan.json')), false);
+    assert.equal(fs.existsSync(path.join(outside, 'plan.json')), false);
+    assert.equal(fs.existsSync(path.join(directory, 'plan.json')), false);
 });
 
 test('ordinary direct Migration calls refuse bounded mode before build, engine or execution access', async () =>
@@ -339,4 +372,71 @@ test('ordinary original shell refuses implicit or missing selection before any R
         assert.notEqual(result.status, 0);
         assert.doesNotMatch(result.stdout, /FORBIDDEN_RUN/u);
     }
+});
+
+test('ordinary original preparation propagates build and discovery failures under conditional dispatch', (t) =>
+{
+    const { root } = filesFixture(t);
+    for (const [stage, expectedStatus] of [['membership', 31], ['configuration', 19], ['build', 17],
+        ['output', 21], ['platform', 22], ['diagnostic-cleanup', 24], ['plan-cleanup', 25],
+        ['directory', 26], ['discovery', 23], ['plan', 37]])
+    {
+        const result = spawnSync('bash', ['-c', [
+            'source "$1"',
+            'ROOT_DIR="$2"',
+            'failureStage="$3"',
+            'Log() { :; }',
+            'node() { if [[ "$*" == *"--selection-action filter"* ]]; then printf "EXACT_FILTER"; elif [[ "$*" == *"process.platform"* ]]; then [[ "$failureStage" != platform ]] || return 22; printf "linux"; else printf "EXECUTION_FILTER"; fi; }',
+            'Run() { printf "CALL %s\\n" "$*"; if [[ "$*" == *"--ordinary-plan"* && "$failureStage" == membership ]]; then return 31; fi; if [[ "$*" == *"backend-platform-selection.mjs plan"* && "$failureStage" == plan ]]; then return 37; fi; }',
+            'BackendTestConfiguration() { [[ "$failureStage" != configuration ]] || return 19; printf "Debug"; }',
+            'EnsureBackendFilteredBuild() { printf "BUILD\\n"; [[ "$failureStage" != build ]] || return 17; }',
+            'BackendTestRuntimeOutputDirectory() { [[ "$failureStage" != output ]] || return 21; printf "%s/.tmp/runtime" "$ROOT_DIR"; }',
+            'rm() { if [[ "$failureStage" == diagnostic-cleanup && "$1" == -rf ]]; then return 24; fi; if [[ "$failureStage" == plan-cleanup && "$1" == -f ]]; then return 25; fi; command rm "$@"; }',
+            'mkdir() { [[ "$failureStage" != directory ]] || return 26; command mkdir "$@"; }',
+            'OrdinaryDiscovery() { printf "DISCOVERY\\n" >&2; [[ "$failureStage" != discovery ]] || return 23; }',
+            'BUILD_ENV_RUNNER=OrdinaryDiscovery',
+            'RunBackendDotnetFilterOnly() { printf "FORBIDDEN_ORACLE\\n"; }',
+            'FinalizeBackendPlatformOutcome() { printf "FORBIDDEN_FINALIZE\\n"; }',
+            'WriteBackendSplitSummary() { printf "FORBIDDEN_SUMMARY\\n"; }',
+            'status=0',
+            'RunBackendUnitLane || status=$?',
+            'exit "$status"'
+        ].join('\n'), 'ordinary-preparation-failure', support, root, stage], { env: { ...process.env,
+            FSUSBLOG_NODE: 'node', CURRENT_TIER: 'backend-unit', FSUSBLOG_TEST_SELECTION: 'bounded-server',
+            FSUSBLOG_BACKEND_UNIT_SELECTION_FILE: 'ordinary-fixture.json', FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit,
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint, FSUSBLOG_TEST_RUN_ID: 'ordinary-failure',
+            FSUSBLOG_TEST_NAMESPACE: 'ordinary-failure' }, encoding: 'utf8' });
+        assert.equal(result.status, expectedStatus, `${stage}: ${result.stderr}\n${result.stdout}`);
+        assert.doesNotMatch(result.stdout, /--selection-action verify|--selection-action outcome|FORBIDDEN_|build-migration-tests|generate-migration-assembly-receipt|produce-integrity-proof/u);
+        if (!['discovery', 'plan'].includes(stage))
+        {
+            assert.doesNotMatch(result.stderr, /DISCOVERY/u);
+        }
+        if (stage !== 'plan')
+        {
+            assert.doesNotMatch(result.stdout, /backend-platform-selection\.mjs plan/u);
+        }
+    }
+});
+
+test('ordinary temporary containment uses POSIX and Windows path components without normalizing separators', async () =>
+{
+    const { isBackendUnitTemporaryPath } = await import(new URL('../../tools/test/backend-unit-server-selection.mjs', import.meta.url));
+    for (const [pathApi, root] of [[path.posix, '/ordinary-repository'], [path.win32, 'C:\\ordinary-repository'],
+        [path.win32, '\\\\server\\share\\repository']])
+    {
+        for (const file of [pathApi.join(root, '.tmp', 'plan.json'), pathApi.join(root, '.tmp', 'discovery', 'host.txt'),
+            pathApi.join(root, '.tmp', '..ordinary', 'plan.json')])
+        {
+            assert.equal(isBackendUnitTemporaryPath(root, file, pathApi), true, file);
+        }
+        for (const file of [root, pathApi.join(root, '.tmp'), pathApi.join(root, '.tmp-sibling', 'plan.json'),
+            pathApi.join(root, '.tmp', '..', 'plan.json'), pathApi.join(root, '..', '.tmp', 'plan.json')])
+        {
+            assert.equal(isBackendUnitTemporaryPath(root, file, pathApi), false, file);
+        }
+    }
+    assert.equal(isBackendUnitTemporaryPath('C:\\ordinary-repository', 'D:\\ordinary-repository\\.tmp\\plan.json', path.win32), false);
+    assert.equal(isBackendUnitTemporaryPath('\\\\server\\share\\repository', '\\\\server\\other-share\\repository\\.tmp\\plan.json', path.win32), false);
+    assert.equal(isBackendUnitTemporaryPath('/ordinary-repository', '/ordinary-repository/.tmp\\plan.json', path.posix), false);
 });
