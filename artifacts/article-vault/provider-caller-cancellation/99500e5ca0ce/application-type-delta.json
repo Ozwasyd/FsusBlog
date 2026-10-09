@@ -1,0 +1,37 @@
+{
+  "runs": [
+    {
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "cwd": "/workspace/chain1975-provider-facts-baseline",
+      "sourceSha": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exitCode": 2,
+      "startUtc": "2026-10-09T14:58:39.029064+00:00",
+      "stopUtc": "2026-10-09T14:59:06.317055+00:00",
+      "diagnosticCount": 271
+    },
+    {
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "cwd": "/workspace/chain1975-provider-facts-only",
+      "sourceSha": "6d91f1d038eff2d0d018a1f9ccc549992ae71e6a",
+      "exitCode": 2,
+      "startUtc": "2026-10-09T14:59:06.317098+00:00",
+      "stopUtc": "2026-10-09T14:59:33.456401+00:00",
+      "diagnosticCount": 271
+    }
+  ],
+  "newDiagnostics": [],
+  "removedDiagnostics": [],
+  "fullTypecheckPassed": false,
+  "baselineLinkRemoved": true,
+  "nodeVersion": "v24.16.0",
+  "uiSource": "8db0ac8f49749e3e5f28be5051bb3d3ed71ada71",
+  "qualification": false
+}

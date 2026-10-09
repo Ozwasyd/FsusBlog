@@ -1,0 +1,12 @@
+{
+  "sourceSha": "90b120c6ed15ad1b374fab8d9a2c8447621ecef4",
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "tools/run-test-matrix.mjs",
+    "preflight"
+  ],
+  "startUtc": "2026-10-09T15:40:05.375618+00:00",
+  "stopUtc": "2026-10-09T15:41:32.556411+00:00",
+  "exitCode": 1,
+  "qualification": false
+}

@@ -1,0 +1,20 @@
+{
+  "sourceSha": "90b120c6ed15ad1b374fab8d9a2c8447621ecef4",
+  "parent": "6d91f1d038eff2d0d018a1f9ccc549992ae71e6a",
+  "supplierSource": "c46e7348d7b8c4e05df821152b6184c21542e629",
+  "paths": [
+    "config/schemas/test-execution-envelope-applicability.schema.json",
+    "config/testing/correctness-attempt-producers.json",
+    "config/testing/fixture-consumer-inventory.generated.json",
+    "config/testing/fixture-profile-matrix.generated.json",
+    "config/testing/test-execution-envelope-applicability.json",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "tests/matrix.yml",
+    "tests/tools/execution-envelope-policy.test.mjs",
+    "tests/tools/local-production-profile-resources.test.mjs",
+    "tests/tools/matrix-fixture-profile.test.mjs",
+    "tools/test-matrix/fixture-profile-contract.mjs",
+    "tools/test/bundles/run-bundle.mjs"
+  ],
+  "qualification": false
+}

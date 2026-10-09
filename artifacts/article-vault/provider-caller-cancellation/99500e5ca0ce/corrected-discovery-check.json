@@ -1,0 +1,28 @@
+{
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "node_modules/vitest/vitest.mjs",
+    "list",
+    "--config",
+    "vitest.config.ts",
+    "--json=/workspace/chain-1975-evidence/provider-caller-cancellation/corrected-discovery-61.json",
+    "../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts",
+    "../../tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts",
+    "../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts"
+  ],
+  "testedSource": "99500e5ca0ceeafd9b3ef0791de54b6eb95c972e",
+  "exitCode": 0,
+  "count": 61,
+  "oldCount": 54,
+  "missingOriginalNames": [],
+  "addedNames": [
+    "original upload business provider operations > preserves the original caller cancellation during a coalesced large facts read",
+    "original upload business provider operations > preserves the original caller control of the shared 20971520-byte commit",
+    "original upload business provider operations > preserves the original caller control of the shared 3-byte commit",
+    "original upload business provider operations > rejects a joining caller abort while preserving the original 20971520-byte commit",
+    "original upload business provider operations > rejects a joining caller abort while preserving the original 3-byte commit",
+    "original upload business provider operations > retains each cancelled caller reason when both signals abort the shared attempt",
+    "original upload business provider operations > retains the original shared task after a joining caller abort until transport actually settles"
+  ]
+}

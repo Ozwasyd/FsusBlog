@@ -1,0 +1,13 @@
+{
+  "sourceSha": "6d91f1d038eff2d0d018a1f9ccc549992ae71e6a",
+  "base": "20d8ec6a27a77a75104c9d4ee1eaf99b2047e859",
+  "paths": [
+    "config/testing/correctness-attempt-producers.json",
+    "docs/api/contracts.md",
+    "docs/testing.md",
+    "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts"
+  ],
+  "qualification": false
+}

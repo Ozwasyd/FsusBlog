@@ -1,0 +1,64 @@
+{
+  "testedSource": "99500e5ca0ceeafd9b3ef0791de54b6eb95c972e",
+  "qualification": false,
+  "runs": [
+    {
+      "runId": "chain1975-caller-cancel-99500e5ca0ce-positive",
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts",
+        "--testNamePattern",
+        "(uses actual completion then re-observes original ledger/bytes instead of trusting URL|reads original facts without preview bytes for 20971520-byte committed uploads)$"
+      ],
+      "exitCode": 0,
+      "startUtc": "2026-10-09T16:02:55.715856+00:00",
+      "stopUtc": "2026-10-09T16:02:56.742478+00:00",
+      "passed": 2,
+      "failed": 0,
+      "pendingOrOutsideSelector": 25,
+      "total": 27,
+      "starts": 2,
+      "finishes": 2,
+      "workerPids": [
+        308598
+      ],
+      "workersRemaining": [],
+      "report": "/workspace/chain-1975-evidence/provider-caller-cancellation/current-positive/reports/vitest/unit/unsharded.json"
+    },
+    {
+      "runId": "chain1975-caller-cancel-99500e5ca0ce-focused",
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/services/authoring/articleAttachmentUploadProvider.test.ts",
+        "../../tests/frontend/unit/services/authoring/articleAttachmentFactsBusiness.test.ts",
+        "../../tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts",
+        "../../tests/frontend/unit/api/upload.test.ts"
+      ],
+      "exitCode": 0,
+      "startUtc": "2026-10-09T16:02:56.742998+00:00",
+      "stopUtc": "2026-10-09T16:02:59.478537+00:00",
+      "passed": 61,
+      "failed": 0,
+      "pendingOrOutsideSelector": 0,
+      "total": 61,
+      "starts": 61,
+      "finishes": 61,
+      "workerPids": [
+        308656,
+        308664,
+        308672,
+        308680
+      ],
+      "workersRemaining": [],
+      "report": "/workspace/chain-1975-evidence/provider-caller-cancellation/current-focused/reports/vitest/unit/unsharded.json"
+    }
+  ]
+}

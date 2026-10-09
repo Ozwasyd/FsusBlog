@@ -1,0 +1,27 @@
+{
+  "hostVue": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/index.js",
+  "sourceVue": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/index.js",
+  "pairs": [
+    {
+      "name": "@vue/runtime-dom",
+      "host": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/index.js",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/index.js"
+    },
+    {
+      "name": "@vue/runtime-core",
+      "host": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/index.js",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/index.js"
+    },
+    {
+      "name": "@vue/reactivity",
+      "host": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/index.js",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/index.js"
+    },
+    {
+      "name": "@vue/shared",
+      "host": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/index.js",
+      "source": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/index.js"
+    }
+  ],
+  "physicalVueSingle": true
+}

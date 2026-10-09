@@ -1,0 +1,50 @@
+{
+  "supplierSource": "c46e7348d7b8c4e05df821152b6184c21542e629",
+  "runs": [
+    {
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "tools/testing/generate-fixture-catalog-artifacts.mjs"
+      ],
+      "startUtc": "2026-10-09T15:31:15.864229+00:00",
+      "stopUtc": "2026-10-09T15:31:16.239880+00:00",
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "tools/test/generate-correctness-attempt-producers.mjs",
+        "--write"
+      ],
+      "startUtc": "2026-10-09T15:31:16.239896+00:00",
+      "stopUtc": "2026-10-09T15:31:16.321133+00:00",
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+      ],
+      "startUtc": "2026-10-09T15:31:16.336975+00:00",
+      "stopUtc": "2026-10-09T15:32:41.437841+00:00",
+      "exitCode": 0,
+      "outputSha256": "09d52f86f337c3ee3809af9565012f5251f89b0207db7ef93194094593ab1c7d",
+      "byteFixedPoint": false
+    },
+    {
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+      ],
+      "startUtc": "2026-10-09T15:32:41.483875+00:00",
+      "stopUtc": "2026-10-09T15:34:04.540610+00:00",
+      "exitCode": 0,
+      "outputSha256": "09d52f86f337c3ee3809af9565012f5251f89b0207db7ef93194094593ab1c7d",
+      "byteFixedPoint": true
+    }
+  ],
+  "authorityFixedPoint": true,
+  "supplierGeneratedAuthorityNotCopied": true,
+  "producersUnmodified": true,
+  "qualification": false
+}

@@ -1,0 +1,8 @@
+{
+  "download": "https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-x64.tar.xz",
+  "checksums": "https://nodejs.org/dist/v24.16.0/SHASUMS256.txt",
+  "sha256": "d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9",
+  "version": "v24.16.0",
+  "node": "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+  "utc": "2026-10-09T14:37:35.649651+00:00"
+}

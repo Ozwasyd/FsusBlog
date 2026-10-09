@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/execution-envelope-policy.test.mjs",
+    "tests/tools/local-production-profile-resources.test.mjs",
+    "tests/tools/matrix-fixture-profile.test.mjs",
+    "tests/tools/linux-cgroup-membership-locator.test.mjs"
+  ],
+  "testedSource": "99500e5ca0ceeafd9b3ef0791de54b6eb95c972e",
+  "startUtc": "2026-10-09T16:04:59.611719+00:00",
+  "stopUtc": "2026-10-09T16:05:01.129272+00:00",
+  "exitCode": 0,
+  "counts": {},
+  "qualification": false
+}

@@ -1,0 +1,81 @@
+{
+  "supplierSource": "c46e7348d7b8c4e05df821152b6184c21542e629",
+  "supplierBase": "60d1fb2f92ebffb076fd209036b87c0ae615f40e",
+  "rows": [
+    {
+      "file": "config/schemas/test-execution-envelope-applicability.schema.json",
+      "preimageMatches": true,
+      "alreadyPostimage": false,
+      "baseBlob": "7933df8de2cfa528faec44ffd112b25cd4215c24",
+      "supplierPostimageBlob": "7a6e432542425700bbdde7c2e3ecacc8680927f1",
+      "actualCurrentBlob": "7933df8de2cfa528faec44ffd112b25cd4215c24"
+    },
+    {
+      "file": "config/testing/test-execution-envelope-applicability.json",
+      "preimageMatches": true,
+      "alreadyPostimage": false,
+      "baseBlob": "fc10fc2e4d98939b046e4f5ceee900aaebad1151",
+      "supplierPostimageBlob": "87e089503024cff361ac6f882f11fd3a7ec3549e",
+      "actualCurrentBlob": "fc10fc2e4d98939b046e4f5ceee900aaebad1151"
+    },
+    {
+      "file": "tests/matrix.yml",
+      "preimageMatches": true,
+      "alreadyPostimage": false,
+      "baseBlob": "ae57f8d58eab117b4258375c1f97649b7748b1a8",
+      "supplierPostimageBlob": "a2c09dd3c76943b35581b99bd40ebf5db370d89e",
+      "actualCurrentBlob": "ae57f8d58eab117b4258375c1f97649b7748b1a8"
+    },
+    {
+      "file": "tests/tools/execution-envelope-policy.test.mjs",
+      "preimageMatches": true,
+      "alreadyPostimage": false,
+      "baseBlob": "4b3c68908fa2b54bc025fd9dba16a6f7e04eaf8d",
+      "supplierPostimageBlob": "898954c70b7d671696a64d74e12fd26e7d1fc3a5",
+      "actualCurrentBlob": "4b3c68908fa2b54bc025fd9dba16a6f7e04eaf8d"
+    },
+    {
+      "file": "tests/tools/local-production-profile-resources.test.mjs",
+      "preimageMatches": true,
+      "alreadyPostimage": false,
+      "baseBlob": "9bacbdaa20df539a0166cca0be93426e3f517973",
+      "supplierPostimageBlob": "b38d6b581440c71fcc60bd9df97abe09a2af8f1b",
+      "actualCurrentBlob": "9bacbdaa20df539a0166cca0be93426e3f517973"
+    },
+    {
+      "file": "tests/tools/matrix-fixture-profile.test.mjs",
+      "preimageMatches": true,
+      "alreadyPostimage": false,
+      "baseBlob": "8f434289dc1513b516152a70a3b5b0ac01153906",
+      "supplierPostimageBlob": "2bac298b434a98eebccc50002ef04817518039bd",
+      "actualCurrentBlob": "8f434289dc1513b516152a70a3b5b0ac01153906"
+    },
+    {
+      "file": "tools/test-matrix/fixture-profile-contract.mjs",
+      "preimageMatches": true,
+      "alreadyPostimage": false,
+      "baseBlob": "78283ff7cdad6d43a68a8e3ee395293f51c17784",
+      "supplierPostimageBlob": "f081e3ede96ffe3b5ad6ddc645dacc6a7a03eb6f",
+      "actualCurrentBlob": "78283ff7cdad6d43a68a8e3ee395293f51c17784"
+    },
+    {
+      "file": "tools/test/bundles/run-bundle.mjs",
+      "preimageMatches": true,
+      "alreadyPostimage": false,
+      "baseBlob": "ae75176a583022a73e0c6a8b8de8e1a701dce26a",
+      "supplierPostimageBlob": "b00a818aed30e0f3f4c6ee9646524355adf6b88d",
+      "actualCurrentBlob": "ae75176a583022a73e0c6a8b8de8e1a701dce26a"
+    }
+  ],
+  "lineage": [
+    "94645cf31b5f67fa7f47bf3e602ad47b9476f065 fix(test): align critical source and execution applicability declarations",
+    "947128f6f6bc969c45cabcde088b50a6f411422f build(test): bind regenerated matrix applicability source artifacts",
+    "e564e69b1da4a6165609ccf1fdc41cd6e9fdf781 fix(test): align closed applicability service vocabulary with mysql",
+    "810a6467463a04bf0b659eb101a271f468970e92 build(test): bind actual mysql applicability source closure",
+    "3c9c5bdc59756ffb0181d79a5f4b8a9c5a0b3397 fix(test): execute production declarations before static bundle consumers",
+    "4812da0a908817f438a95b82e2aab58417391731 test(test): execute the canonical declaration hook in production mapping control",
+    "cd5a3ec0aeac48e1c70b1c21074c41539f0f0b7e fix(test): bind real declaration execution to the registered matrix producer",
+    "90b36ed6a8e2475d0d7e3a1ee8eaea43902328b2 build(test): bind the actual production declaration input increment",
+    "c46e7348d7b8c4e05df821152b6184c21542e629 test(test): bind envelope drift negative control to an admitted producer"
+  ]
+}

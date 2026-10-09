@@ -1,0 +1,8 @@
+{
+  "cause": "--json consumed first test path as its output; no tests executed",
+  "selectedFiles": 3,
+  "discovered": 34,
+  "expected": 61,
+  "restoredFrom": "99500e5ca0ceeafd9b3ef0791de54b6eb95c972e",
+  "runtimeControls": "UNRUN at this stopping point"
+}
