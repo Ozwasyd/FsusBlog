@@ -89,7 +89,9 @@ public sealed class ArticleRelationSourceCoordinateAuthorityTests
     private static SqlSugarClient CreateClient(SqlSugar.DbType provider) => new(new ConnectionConfig
     {
         DbType = provider,
-        ConnectionString = "Host=127.0.0.1;Port=1;Database=coordinate_unit;Username=coordinate_unit;Pooling=false",
+        ConnectionString = provider == SqlSugar.DbType.Sqlite
+            ? "Data Source=:memory:"
+            : "Host=127.0.0.1;Port=1;Database=coordinate_unit;Username=coordinate_unit;Pooling=false",
         InitKeyType = InitKeyType.Attribute,
         IsAutoCloseConnection = true
     });
