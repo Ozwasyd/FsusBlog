@@ -215,8 +215,10 @@ public sealed class DocumentExportBinaryCodecTests
 
     private static byte[] Golden(string name)
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("tests/backend/Fixtures/document-export-payload-goldens-v1.json");
-        using var document = JsonDocument.Parse(source);
+        DirectoryInfo root = new(BackendTestPaths.RepositoryRoot);
+        Assert.NotNull(root);
+        using var document = JsonDocument.Parse(BackendTestPaths.ReadAllTextFromRoot(
+            "tests/backend/Fixtures/document-export-payload-goldens-v1.json"));
         string hex = document.RootElement.GetProperty("vectors").EnumerateArray()
             .Single(vector => vector.GetProperty("name").GetString() == name).GetProperty("hex").GetString()!;
         return Convert.FromHexString(hex);
