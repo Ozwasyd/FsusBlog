@@ -29,6 +29,11 @@ public sealed class AuthoringCanvasServiceRegistrationTests
             Assert.Single(scope.ServiceProvider.GetServices<ArticleRelationSourceCoordinateAuthority>()));
         Assert.IsType<SqlArticleGraphAdmissionReader>(
             Assert.Single(scope.ServiceProvider.GetServices<SqlArticleGraphAdmissionReader>()));
+        ArticleGraphCurrentArticleHost graphHost = Assert.IsType<ArticleGraphCurrentArticleHost>(
+            Assert.Single(scope.ServiceProvider.GetServices<ArticleGraphCurrentArticleHost>()));
+        Assert.Null(await graphHost.ReadCurrentAsync(
+            "article:dd90413e-7d50-4264-9910-d89294ac2f18",
+            "revision:aa90413e-7d50-4264-9910-d89294ac2f18"));
         Assert.IsType<ArticlePropertyDefinitionStore>(
             scope.ServiceProvider.GetRequiredService<IArticlePropertyDefinitionStore>());
         Assert.Single(scope.ServiceProvider.GetServices<IAuthorSavedViewDependencyProvider>()

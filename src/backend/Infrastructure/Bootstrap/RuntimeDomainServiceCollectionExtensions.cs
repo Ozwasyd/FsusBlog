@@ -196,6 +196,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
             sp.GetRequiredService<SqlAuthorArticlePinPermissionAuthority>());
         services.AddScoped<IAuthorArticlePinArticleProjectionSource, SqlAuthorArticlePinArticleProjectionSource>();
         services.AddScoped<SqlArticleGraphAdmissionReader>();
+        services.AddScoped<ArticleGraphCurrentArticleHost>();
         services.AddSingleton<IAuthorArticlePinProjectionCache, DirectAuthorArticlePinProjectionCache>();
         services.AddScoped<IAuthorArticlePinReconciliationSink, AuthorArticlePinReconciliationSink>();
         services.AddScoped<IAuthorArticlePinProjectionService, AuthorArticlePinProjectionService>();
