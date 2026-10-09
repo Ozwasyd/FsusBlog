@@ -1,0 +1,65 @@
+{
+  "schema": "fsusblog.observed-sqlsugar-cancellation-api-inspection.v1",
+  "package": "SqlSugarCoreNoDrive",
+  "versionObserved": "5.1.4.213",
+  "originalLockRecord": {
+    "type": "Direct",
+    "requested": "[5.1.4.213, )",
+    "resolved": "5.1.4.213",
+    "contentHash": "8cMUabSSOj6IxU8iq9HFzQmm3bjtKBG4iPJd9trepMPIXXCEACmTAkfe1LsJWVIoeACGwMTux4mwEIb7moI9oA==",
+    "dependencies": {
+      "Newtonsoft.Json": "13.0.2",
+      "SystemCommon": "8.5.0"
+    }
+  },
+  "observedPackageRawArchiveSha512": "haVNkkpTl9GrymH0QAVizlnNmA8XWCO0tY8Gvx2gCnFZ6Z5iYzt3AXamcT+YGPN2AQvZhxis3cRfQ+gwQT4Z0Q==",
+  "rawArchiveSha512EqualsLockContentHash": false,
+  "archiveDllEqualsObservedExtractedDll": true,
+  "dllSha256": "ba53b69b965b6c40a0d394959c228fd1e09f635a890b1699bd3a9282110e02d9",
+  "dllPath": "/tmp/chain-3735-tooling/nuget/sqlsugarcorenodrive/5.1.4.213/lib/netstandard2.1/SqlSugar.dll",
+  "methodEvidence": [
+    {
+      "stateMachine": "<GetDataReaderAsync>d__157",
+      "declaringType": "SqlSugar.AdoProvider",
+      "relevantIlMemberReferences": [
+        {
+          "ilOffset": 697,
+          "op": "callvirt",
+          "member": "get_CancellationToken",
+          "owner": "SqlSugar.AdoProvider",
+          "signatureHex": "2000151180890111808d"
+        },
+        {
+          "ilOffset": 747,
+          "op": "callvirt",
+          "member": "ExecuteReaderAsync",
+          "owner": "System.Data.Common.DbCommand",
+          "signatureHex": "2001151280c901128109118489"
+        },
+        {
+          "ilOffset": 905,
+          "op": "callvirt",
+          "member": "get_CancellationToken",
+          "owner": "SqlSugar.AdoProvider",
+          "signatureHex": "2000151180890111808d"
+        },
+        {
+          "ilOffset": 919,
+          "op": "callvirt",
+          "member": "ExecuteReaderAsync",
+          "owner": "System.Data.Common.DbCommand",
+          "signatureHex": "2002151280c90112810911848911808d"
+        }
+      ]
+    }
+  ],
+  "inspection": "Read actual PE/CLI metadata and IL with Python dnfile/dncil, without executing managed code. The observed AdoProvider state machine reads ADO CancellationToken and calls both DbCommand ExecuteReaderAsync overloads. This supports the chosen API path, not runtime qualification or package trust.",
+  "initialInspectionDriverFailures": [
+    "Initial strict inspection assertion failed; raw archive SHA512 differs from lock contentHash. Preserved the distinct identities and did not claim package trust.",
+    "Use NestedClass row index for declaring-type selection; actual AdoProvider is distinct from another MySqlProvider state machine."
+  ],
+  "officialSourceReference": "https://github.com/DotNetNext/SqlSugar/blob/master/Src/Asp.NetCore2/SqlSugar/Abstract/AdoProvider/AdoProvider.cs",
+  "officialMasterIsNotPinnedPackageQualification": true,
+  "managedExecution": 0,
+  "runtimeQualification": false
+}

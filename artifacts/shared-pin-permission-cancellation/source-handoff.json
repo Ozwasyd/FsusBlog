@@ -1,0 +1,76 @@
+{
+  "schema": "fsusblog.permission-cancellation-source-handoff.v1",
+  "sourceCommit": "92afaf02417caf15c9b0b2c23669576ce2e6aa3b",
+  "base": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "branch": "codex/shared-pin-permission-cancellation-20261009",
+  "checkedSupplierPreimage": "823a99e7f2e791356429b7e44b600c8e78df704e",
+  "changedPaths": [
+    {
+      "path": "src/backend/Services/Authoring/SqlAuthorArticlePinPermissionAuthority.cs",
+      "preimageBlob": "f08576f0b7c0e3f5651ee4ded2917281dafa9f17",
+      "sourceBlob": "cab264aa027d79409a329f7e1794b76eca5f4d54"
+    },
+    {
+      "path": "tests/backend/Integration/AuthorArticlePinProjectionIntegrationTests.cs",
+      "preimageBlob": "bbbda62502ca8d61b9b5503b3dc858336cceec43",
+      "sourceBlob": "2669ac5c17e889fa96db1c8dceff2e1fab315830"
+    }
+  ],
+  "guarantee": "Capture existing caller IAdo, link request and any prior cancellable ADO token, set actual ADO command cancellation before both original reader acquisitions, await command and asynchronous reader disposal, normalize requested cancellation only after completion, restore exact prior ADO state in finally. No client replacement, command abandonment, transaction commit/rollback or second permission authority.",
+  "callerContract": "Caller serializes its borrowed client and owns connection/transaction lifecycle. Native cancellation can leave its transaction aborted or connection unusable. Awaited completion follows native cancellation response policy; no execution deadline or250ms proof. Metadata production guard remains required.",
+  "protectedSourceChecks": {
+    "originalPermissionSessionSiteSqlLiteralsIdentical": true,
+    "allOriginalIntegrationMethodsAssertionsAndHelpersUnchanged": true,
+    "productionReaderDisposalAwaitedSites": 2,
+    "productionWaitAsyncCalls": 0,
+    "sourceDiffWhitespace": "PASS"
+  },
+  "originalRegressionControls": {
+    "project": "tests/backend/FsusBlog.Server.Tests.csproj",
+    "class": "FsusBlog.Server.Tests.Integration.AuthorArticlePinProjectionIntegrationTests",
+    "collection": "SchemaMigrationPostgresCollectionB",
+    "newCases": 14,
+    "newMethods": [
+      "PermissionAuthority_RestoresAdoCancellationAndCallerTransactionAfterSuccess",
+      "PermissionAuthority_CancelsActualBlockedCommandAndAwaitsCompletion",
+      "PermissionAuthority_RestoresAdoCancellationAfterCommandFailure"
+    ],
+    "coverage": "4 success/restoration combinations,8 actual PostgreSQL held-lock command cancellation cases across both SQL phases/request-prior token/caller transaction,2 command-failure restoration cases. Test-only lock released and task drained on failure. Existing cases untouched.",
+    "discovery": "UNRUN",
+    "bodies": "UNRUN",
+    "requiredCanonical3657RosterUpdate": true
+  },
+  "originalPreflightAttempts": [
+    {
+      "sourceCommit": "f4989a7353622093f1f5ff7861cf13f34f84ee30",
+      "argv": [
+        "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "preflight"
+      ],
+      "cwd": "/workspace/FsusBlog-pin-permission-cancellation",
+      "startedAtUtc": "2026-10-09T14:42:53.097865+00:00",
+      "endedAtUtc": "2026-10-09T14:46:19.766777+00:00",
+      "exitCode": 1,
+      "seconds": 206.669,
+      "runtimeQualification": false,
+      "stdoutArtifactLocalOnly": "/workspace/FsusBlog-pin-permission-cancellation/.tmp/pin-permission-cancellation/evidence/mandatory-preflight.log",
+      "failureReason": "correctness attempt producer inventory differs from canonical authorities"
+    }
+  ],
+  "currentCandidateAdmission": "NOT GRANTED; current exact production/control source must pass original preflight before compilation/discovery/test bodies",
+  "coordinateSupplier": {
+    "source": "348c6853d6bcec900734274440fe8f34c1dd7b55",
+    "head": "4177d8ad91f6cbc29a29857f8ead8137e526c7a8",
+    "branch": "codex/article-coordinate-batch-read-20261009",
+    "rootEdits": 0,
+    "sourceConsumptionHere": false,
+    "parentReportedTests": "10unit19integrationUNRUN; supplier production/test project builds only",
+    "consumer": "Original metadata owner consumes exact source separately"
+  },
+  "sdkBuildDiscoveryTestsAfterPreflightFailure": "NOT RUN",
+  "independentReviewRequired": true,
+  "qualification": false,
+  "rawLogsPublished": false,
+  "createdAtUtc": "2026-10-09T14:53:22.446014+00:00"
+}
