@@ -5,7 +5,6 @@ import test from 'node:test';
 
 import { loadCompositionInputs } from '@fsusblog/layout-governance/composition-contracts';
 import { captureCompositionDom } from '@fsusblog/layout-governance/composition-dom';
-
 import { captureCompositionGeometry, probeCompositionGeometryPage } from '@fsusblog/layout-governance/composition-geometry';
 import { captureCompositionOrderGeometry, compareCompositionOrderGeometry } from '@fsusblog/layout-governance/composition-order-geometry';
 
