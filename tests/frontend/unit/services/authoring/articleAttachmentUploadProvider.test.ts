@@ -132,6 +132,23 @@ describe('original upload business provider operations' , () => {
         expect(request).toHaveBeenCalledTimes(6);
         expect(request.mock.calls.some(([call]) => call.requestOptions.method === 'DELETE')).toBe(false);
     });
+    it('retains each cancelled caller reason when both signals abort the shared attempt', async () => {
+        request.mockImplementationOnce(call => new Promise((_, reject) => {
+            call.signal.addEventListener('abort', () => reject(call.signal.reason), { once: true });
+        }));
+        const provider = createArticleAttachmentUploadProvider({ ...session, totalBytes: 20_971_520 });
+        const owner = new AbortController();
+        const joining = new AbortController();
+        const first = provider.retryCommit(owner.signal).catch(error => error);
+        const second = provider.retryCommit(joining.signal).catch(error => error);
+        const ownerReason = new DOMException('Original caller aborted', 'AbortError');
+        const joiningReason = new DOMException('Joining caller aborted', 'AbortError');
+        joining.abort(joiningReason);
+        owner.abort(ownerReason);
+        expect(await first).toBe(ownerReason);
+        expect(await second).toBe(joiningReason);
+        expect(request).toHaveBeenCalledOnce();
+    });
     it('retains uncertainty and never aborts after a possibly committed failed RPC', async () => {
         request.mockRejectedValueOnce(new Error('secret original-secret-token'));
         const provider = createArticleAttachmentUploadProvider(session);
