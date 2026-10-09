@@ -6,7 +6,7 @@ vi.mock('@/composition/binaryTransport', () => ({
 }))
 
 import { requestBinaryOnly } from '@/composition/binaryTransport'
-import { completeUpload, initUploadSession, uploadPart } from '@/api/upload'
+import { completeUpload, initUploadSession, uploadPart, readCommittedUploadPreview } from '@/api/upload'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
@@ -15,6 +15,33 @@ describe('upload API requests', () => {
     vi.clearAllMocks()
     mockBinary.mockResolvedValue({} as never)
   })
+
+  it('preview uses the original protected upload request and verifies actual response bytes', async () => {
+    const uploadId = '0123456789abcdef0123456789abcdef';
+    const sha256 = 'a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89';
+    const response = { uploadId, sha256, bytes: new Uint8Array([255]) };
+    mockBinary.mockResolvedValue(response as never);
+    expect(await readCommittedUploadPreview(uploadId, 'original-token', sha256)).toBe(response);
+    const call = mockBinary.mock.calls[0][0];
+    expect(call.privateScope).toBe('admin');
+    expect(call.requestOptions?.requiresPow).toBe(true);
+    expect(call.frameType).toBe(275);
+    expect(call.binaryRoute).toEqual({ operationId: 'binary_post_upload_uploadId_preview', params: { uploadId } });
+    expect(call.requestOptions?.headers).toMatchObject({ 'X-Fsus-Upload-Token': 'original-token' });
+    expect(readAedsFrame(call.requestOptions?.body).frameType).toBe(FrameType.UploadCompleteRequest);
+    mockBinary.mockResolvedValue({ ...response, bytes: new Uint8Array([0]) } as never);
+    await expect(readCommittedUploadPreview(uploadId, 'original-token', sha256)).rejects.toThrow('upload_asset_preview_bytes_mismatch');
+    mockBinary.mockResolvedValue({ ...response, uploadId: 'different' } as never);
+    await expect(readCommittedUploadPreview(uploadId, 'original-token', sha256)).rejects.toThrow();
+  });
+
+  it('preview refuses URL identity and cancelled late completion', async () => {
+    await expect(readCommittedUploadPreview('/uploads/file.png', 'token', 'a'.repeat(64))).rejects.toThrow();
+    expect(mockBinary).not.toHaveBeenCalled();
+    const abort = new AbortController();
+    mockBinary.mockImplementation(async () => { abort.abort(); return {} as never; });
+    await expect(readCommittedUploadPreview('0123456789abcdef0123456789abcdef', 'token', 'a'.repeat(64), abort.signal)).rejects.toThrow();
+  });
 
   it('initUploadSession sends an UploadInitRequest AEDS frame', async () => {
     await initUploadSession({

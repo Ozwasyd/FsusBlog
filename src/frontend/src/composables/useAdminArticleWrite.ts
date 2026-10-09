@@ -1,4 +1,4 @@
-import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import {
@@ -44,7 +44,7 @@ import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback';
 import { useImageUploadFlow } from '@/composables/useImageUploadFlow';
 import { useImageUploadPreferences } from '@/composables/useImageUploadPreferences';
-import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
+import { useImageUploadRuntime, type ImageUploadSessionBorrow } from '@/composables/useImageUploadRuntime';
 import { usePow } from '@/composables/usePow';
 import { BinaryTransportError } from '@/composition/binaryTransport';
 import { createMarkdownAnchorMap, type MarkdownEditorDispatchResult } from '@/fsusui/articlePositionMaps';
@@ -69,7 +69,8 @@ import {
 } from '@/services/articleRecoveryJournal';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
 import { createArticleAttachmentBusinessIntentReader } from '@/services/authoring/articleAttachmentBusinessIntentReader';
-import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
+import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
+import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
 import {
     articleDocumentContextAuthority,
     type ArticleDocumentContextAdapter
@@ -895,7 +896,12 @@ export function useAdminArticleWrite()
             map: createMarkdownAnchorMap({ identity: articleDocumentContextAdapter.documentIdentity,
                 source: articleForm.content }) })
     };
+    // Only the caller-held original handle and this invocation's loan survive an await.
+    let attachmentUploadAttempt: { handle: ArticleAttachmentPendingHandle; file: File;
+        borrow: ImageUploadSessionBorrow | null; } | null = null;
     const authoringAttachmentRuntime = Object.freeze({
+        observeUpload: (handle: ArticleAttachmentPendingHandle, file: File, signal?: AbortSignal) =>
+            observeOwnedImageUpload(handle, file, signal),
         captureAnchor: (selection: Parameters<ArticleAnchorContextAdapter['capture']>[1],
             options: Parameters<ArticleAnchorContextAdapter['capture']>[2]) => authoringAnchors.capture(attachmentPort.binding(), selection, options),
         capture: (input: Omit<Parameters<ArticleAttachmentContextAdapter['capture']>[0], 'source'>) =>
@@ -1088,6 +1094,29 @@ export function useAdminArticleWrite()
         getWasmOnly: () => wasmOnlyMode.value,
         taskRegistry: articleDocumentContextAdapter,
         taskProducerRef: 'article-write:image-upload',
+        get getAttemptBinding()
+        {
+            return attachmentUploadAttempt ? (file: File) =>
+            {
+                const attempt = attachmentUploadAttempt;
+                return attempt?.file === toRaw(file) ? { owner: authoringAttachments,
+                    documentOwner: articleDocumentContextAdapter, intent: attempt.handle,
+                    getBinding: () => attachmentPort.binding() } : null;
+            } : undefined;
+        },
+        get onSessionReady()
+        {
+            return attachmentUploadAttempt ? (file: File, borrow: ImageUploadSessionBorrow) =>
+            {
+                const attempt = attachmentUploadAttempt;
+                if (attempt?.file !== toRaw(file) || attempt.borrow)
+                {
+                    borrow.release();
+                    throw new Error('article-attachment-upload-attempt-invalid');
+                }
+                attempt.borrow = borrow;
+            } : undefined;
+        },
         notify: {
             success: (message) => toast.success(message),
             warning: (message) => showWarningToast(message, message),
@@ -1095,33 +1124,96 @@ export function useAdminArticleWrite()
         }
     });
 
-    const handleUploadImg = async (
-        files: File[],
-        callback: (urls: string[]) => void,
+    const observeOwnedImageUpload = async (
+        handle: ArticleAttachmentPendingHandle,
+        file: File,
+        signal?: AbortSignal
+    ): Promise<AttachmentUploadObservation> =>
+    {
+        signal?.throwIfAborted();
+        const observation = authoringAttachments.readOwnedIntent(handle, attachmentPort.binding());
+        const candidate = observation?.snapshot.intent.candidate;
+        if (!active || !attachmentEditor || !observation?.current || handle.signal.aborted
+            || candidate?.name !== file.name || candidate.mimeType !== file.type
+            || candidate.byteLength !== file.size)
+        {
+            throw new Error('article-attachment-upload-intent-invalid');
+        }
+        if (attachmentUploadAttempt || imageUploadFlow.pendingContext.value)
+        {
+            throw new Error('article-attachment-upload-busy');
+        }
+        const attempt = { handle, file, borrow: null as ImageUploadSessionBorrow | null };
+        attachmentUploadAttempt = attempt;
+        const outcome: { value: AttachmentUploadObservation | null; error: Error | null; } = { value: null, error: null };
+        const cancel = (): void => imageUploadFlow.cancel();
+        signal?.addEventListener('abort', cancel, { once: true });
+        try
+        {
+            await imageUploadFlow.startUpload({ files: [file], maxFiles: 1,
+                notifyOnSuccess: false, notifyOnError: false,
+                onError: (_message, error) =>
+                {
+                    outcome.error = error instanceof Error ? error : new Error('article-attachment-upload-failed');
+                },
+                onSuccess: async () =>
+                {
+                    if (!attempt.borrow)
+                    {
+                        throw new Error('article-attachment-upload-session-unavailable');
+                    }
+                    // Public runtime session has been cleared. Project named private loan fields
+                    // into the original provider, which freezes enumerable constructor input.
+                    outcome.value = await attempt.borrow.withSession(async (facts, loanSignal) =>
+                    {
+                        const provider = createArticleAttachmentUploadProvider({
+                            uploadId: facts.uploadId, uploadToken: facts.uploadToken,
+                            sha256: facts.sha256, totalBytes: facts.totalBytes,
+                            commitMayHaveStarted: facts.commitMayHaveStarted
+                        });
+                        return await provider.observe(loanSignal);
+                    });
+                }
+            });
+            signal?.throwIfAborted();
+            if (outcome.error)
+            {
+                throw outcome.error;
+            }
+            if (!active || !outcome.value || !authoringAttachments.readOwnedIntent(handle, attachmentPort.binding())?.current)
+            {
+                throw new Error('article-attachment-upload-observation-unavailable');
+            }
+            // Facts are transport observations. A later business-authorized document
+            // transaction must run outside the loan callback and own its own grants.
+            return outcome.value;
+        }
+        finally
+        {
+            signal?.removeEventListener('abort', cancel);
+            attempt.borrow?.release();
+            attachmentUploadAttempt = null;
+            imageUploadFlow.clearPending();
+        }
+    };
+
+    const handleUploadImg = (
+        _files: File[],
+        _callback: (urls: string[]) => void,
         onError: (message: string) => void
     ): Promise<void> =>
     {
-        await imageUploadFlow.startUpload({
-            files,
-            maxFiles: 10,
-            messages: {
-                tooManyFiles: '单次上传资源文件不得超过 10 个',
-                uploadFailed: '图片存储服务不可用',
-                uploadSucceeded: `成功同步 ${files.length} 张资源图片`
-            },
-            onSuccess: (urls) =>
-            {
-                callback(urls);
-            },
-            onError: (message) =>
-            {
-                onError(message);
-            }
-        });
+        // The legacy File[] callback carries no original document-intent capability.
+        onError('article-attachment-upload-intent-required');
+        return Promise.resolve();
     };
 
     const resumeImageUpload = async (): Promise<void> =>
     {
+        if (attachmentUploadAttempt)
+        {
+            throw new Error('article-attachment-upload-busy');
+        }
         await imageUploadFlow.resumeUpload({
             messages: {
                 resumeMissing: '没有可恢复的上传任务',
@@ -1132,6 +1224,10 @@ export function useAdminArticleWrite()
 
     const handleCoverUpload = async (files: File[]): Promise<void> =>
     {
+        if (attachmentUploadAttempt)
+        {
+            throw new Error('article-attachment-upload-busy');
+        }
         if (files.length === 0)
         {
             return;

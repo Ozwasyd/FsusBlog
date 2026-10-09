@@ -301,6 +301,8 @@ enum class FrameType : std::uint16_t
     ArticleCanvasLinkReceipt = 267,
     ArticleCanvasLinkHistoryResponse = 268,
     ArticlePropertyValueReadResponse = 269,
+    UploadAssetPreview = 275,
+    UploadAssetFacts = 285,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -587,6 +589,8 @@ enum class FrameType : std::uint16_t
         case FrameType::ArticleCanvasLinkReceipt:
         case FrameType::ArticleCanvasLinkHistoryResponse:
         case FrameType::ArticlePropertyValueReadResponse:
+        case FrameType::UploadAssetPreview:
+        case FrameType::UploadAssetFacts:
             return true;
         default:
             return false;

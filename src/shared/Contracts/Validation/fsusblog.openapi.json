@@ -98410,6 +98410,353 @@
                 "x-fsus-source-identity": "HTTP: POST api/binary/upload/{uploadId}/complete"
             }
         },
+        "/api/binary/upload/{uploadId}/facts": {
+            "post": {
+                "operationId": "binary_post_upload_uploadId_facts",
+                "tags": [
+                    "Binary"
+                ],
+                "summary": "/upload/{uploadId}/facts",
+                "responses": {
+                    "200": {
+                        "description": "UploadAssetFacts AEDS frame",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "ApiError AEDS error frame (400)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "ApiError AEDS error frame (401)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "ApiError AEDS error frame (403)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "406": {
+                        "description": "ApiError AEDS error frame (406)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "415": {
+                        "description": "ApiError AEDS error frame (415)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "description": "ApiError AEDS error frame (423)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "ApiError AEDS error frame (500)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-fsus-protocol": "AEDS",
+                "x-fsus-aeds-version": 2,
+                "x-fsus-request-frame": "UploadCompleteRequest",
+                "x-fsus-response-frame": "UploadAssetFacts",
+                "x-fsus-error-frame": "ApiError",
+                "x-fsus-auth": "admin",
+                "x-fsus-pow": true,
+                "x-fsus-content-type": "application/octet-stream",
+                "x-fsus-success-status": 200,
+                "x-fsus-cache": "no-store",
+                "x-fsus-rate-limit": "none",
+                "x-fsus-permission": "article.write",
+                "x-fsus-request-contract": {
+                    "Direction": "request",
+                    "Source": "aeds-frame-body",
+                    "SchemaRef": "aeds://request-schema/binary_post_upload_uploadId_facts",
+                    "Encoding": "binary-layout",
+                    "Required": true,
+                    "Nullable": false,
+                    "RequiredFields": [
+                        "sha256"
+                    ],
+                    "Parameters": [
+                        {
+                            "Name": "X-Fsus-Pow-Proof",
+                            "Direction": "request",
+                            "Source": "header",
+                            "SchemaRef": "header://string",
+                            "Required": true,
+                            "Nullable": false,
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            },
+                            "Evidence": [
+                                "compiled-endpoint-filter:FsusBlog.Server.Infrastructure.Filters.RequiresPowFilter"
+                            ]
+                        },
+                        {
+                            "Name": "X-Fsus-Upload-Token",
+                            "Direction": "request",
+                            "Source": "header",
+                            "SchemaRef": "header://string",
+                            "Required": false,
+                            "Nullable": true,
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            },
+                            "Evidence": [
+                                "compiled-il:FsusBlog.Server.Modules.Endpoints.Binary.BinaryEndpoints.ReadUploadToken@16"
+                            ]
+                        },
+                        {
+                            "Name": "uploadId",
+                            "Direction": "request",
+                            "Source": "path",
+                            "SchemaRef": "path://string",
+                            "Required": true,
+                            "Nullable": false,
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            },
+                            "Evidence": [
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.Binary.BinaryEndpoints+<>c.<MapBinaryUploadAssetFactsEndpoints>b__193_0:0"
+                            ]
+                        }
+                    ],
+                    "Properties": {
+                        "sha256": {
+                            "Name": "sha256",
+                            "Type": "string",
+                            "Required": true,
+                            "Nullable": true,
+                            "Format": null,
+                            "SchemaRef": null,
+                            "ItemType": null,
+                            "ItemSchemaRef": null,
+                            "Item": null,
+                            "EnumValues": [],
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            }
+                        }
+                    },
+                    "Definitions": {},
+                    "OneOf": [],
+                    "Discriminator": null,
+                    "Bounds": {},
+                    "FieldSetState": "closed",
+                    "BoundsState": "closed",
+                    "UnionState": "none",
+                    "SchemaDigest": "b44e6afa504002cfc100bcea5f2e91e1409a4b0412c45d8adc7446cded34d1b9",
+                    "SourceTypes": [
+                        "FsusBlog.Core.Mapping.Models.UploadCompleteRequestCoreModel"
+                    ],
+                    "ReaderIdentities": [
+                        "FsusBlog.Core.Cache.PodBinaryCodec.TryDecodeUploadCompleteRequest"
+                    ]
+                },
+                "x-fsus-response-contracts": [
+                    {
+                        "Status": 200,
+                        "Kind": "success",
+                        "SchemaRef": "aeds://frame/UploadAssetFacts",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": null
+                    },
+                    {
+                        "Status": 400,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:400"
+                    },
+                    {
+                        "Status": 401,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+                    },
+                    {
+                        "Status": 403,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+                    },
+                    {
+                        "Status": 406,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+                    },
+                    {
+                        "Status": 415,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:415"
+                    },
+                    {
+                        "Status": 423,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+                    },
+                    {
+                        "Status": 500,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+                    }
+                ],
+                "x-fsus-public-error-refs": [
+                    "configuration-error-security-policy:error-transport-mappings:400",
+                    "configuration-error-security-policy:error-transport-mappings:401",
+                    "configuration-error-security-policy:error-transport-mappings:403",
+                    "configuration-error-security-policy:error-transport-mappings:406",
+                    "configuration-error-security-policy:error-transport-mappings:415",
+                    "configuration-error-security-policy:error-transport-mappings:423",
+                    "configuration-error-security-policy:error-transport-mappings:500"
+                ],
+                "x-fsus-public-error-statuses": [
+                    400,
+                    401,
+                    403,
+                    406,
+                    415,
+                    423,
+                    500
+                ],
+                "x-fsus-public-error-status-evidence": {
+                    "400": [
+                        "compiled-filter:RequiresPowFilter"
+                    ],
+                    "401": [
+                        "compiled-authorization:deny-anonymous",
+                        "compiled-filter:RequiresPowFilter"
+                    ],
+                    "403": [
+                        "compiled-authorization:claim-requirement",
+                        "compiled-filter:RequiresPowFilter"
+                    ],
+                    "406": [
+                        "compiled-middleware:ApiBinaryResponseMiddleware.accept"
+                    ],
+                    "415": [
+                        "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
+                    ],
+                    "423": [
+                        "compiled-middleware:BannedUserMiddleware"
+                    ],
+                    "500": [
+                        "compiled-middleware:GlobalExceptionMiddleware"
+                    ]
+                },
+                "x-fsus-public-error-ref-state": "operation-status-authority-bound",
+                "x-fsus-error-authority-behavior": "configuration-error-security-policy",
+                "x-fsus-result-placement": "aeds.frame.payload",
+                "x-fsus-protocol-state": "active-aeds-only",
+                "x-fsus-source-identity": "HTTP: POST api/binary/upload/{uploadId}/facts"
+            }
+        },
         "/api/binary/upload/{uploadId}/part": {
             "put": {
                 "operationId": "binary_put_upload_uploadId_part",
@@ -98860,6 +99207,353 @@
                 "x-fsus-result-placement": "aeds.frame.payload",
                 "x-fsus-protocol-state": "active-aeds-only",
                 "x-fsus-source-identity": "HTTP: PUT api/binary/upload/{uploadId}/part"
+            }
+        },
+        "/api/binary/upload/{uploadId}/preview": {
+            "post": {
+                "operationId": "binary_post_upload_uploadId_preview",
+                "tags": [
+                    "Binary"
+                ],
+                "summary": "/upload/{uploadId}/preview",
+                "responses": {
+                    "200": {
+                        "description": "UploadAssetPreview AEDS frame",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "ApiError AEDS error frame (400)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "ApiError AEDS error frame (401)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "ApiError AEDS error frame (403)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "406": {
+                        "description": "ApiError AEDS error frame (406)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "415": {
+                        "description": "ApiError AEDS error frame (415)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "423": {
+                        "description": "ApiError AEDS error frame (423)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "ApiError AEDS error frame (500)",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-fsus-protocol": "AEDS",
+                "x-fsus-aeds-version": 2,
+                "x-fsus-request-frame": "UploadCompleteRequest",
+                "x-fsus-response-frame": "UploadAssetPreview",
+                "x-fsus-error-frame": "ApiError",
+                "x-fsus-auth": "admin",
+                "x-fsus-pow": true,
+                "x-fsus-content-type": "application/octet-stream",
+                "x-fsus-success-status": 200,
+                "x-fsus-cache": "no-store",
+                "x-fsus-rate-limit": "none",
+                "x-fsus-permission": "article.write",
+                "x-fsus-request-contract": {
+                    "Direction": "request",
+                    "Source": "aeds-frame-body",
+                    "SchemaRef": "aeds://request-schema/binary_post_upload_uploadId_preview",
+                    "Encoding": "binary-layout",
+                    "Required": true,
+                    "Nullable": false,
+                    "RequiredFields": [
+                        "sha256"
+                    ],
+                    "Parameters": [
+                        {
+                            "Name": "X-Fsus-Pow-Proof",
+                            "Direction": "request",
+                            "Source": "header",
+                            "SchemaRef": "header://string",
+                            "Required": true,
+                            "Nullable": false,
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            },
+                            "Evidence": [
+                                "compiled-endpoint-filter:FsusBlog.Server.Infrastructure.Filters.RequiresPowFilter"
+                            ]
+                        },
+                        {
+                            "Name": "X-Fsus-Upload-Token",
+                            "Direction": "request",
+                            "Source": "header",
+                            "SchemaRef": "header://string",
+                            "Required": false,
+                            "Nullable": true,
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            },
+                            "Evidence": [
+                                "compiled-il:FsusBlog.Server.Modules.Endpoints.Binary.BinaryEndpoints.ReadUploadToken@16"
+                            ]
+                        },
+                        {
+                            "Name": "uploadId",
+                            "Direction": "request",
+                            "Source": "path",
+                            "SchemaRef": "path://string",
+                            "Required": true,
+                            "Nullable": false,
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            },
+                            "Evidence": [
+                                "compiled-handler-path-parser:FsusBlog.Server.Modules.Endpoints.Binary.BinaryEndpoints+<>c.<MapBinaryUploadEndpoints>b__195_5:0"
+                            ]
+                        }
+                    ],
+                    "Properties": {
+                        "sha256": {
+                            "Name": "sha256",
+                            "Type": "string",
+                            "Required": true,
+                            "Nullable": true,
+                            "Format": null,
+                            "SchemaRef": null,
+                            "ItemType": null,
+                            "ItemSchemaRef": null,
+                            "Item": null,
+                            "EnumValues": [],
+                            "Bounds": {
+                                "Minimum": null,
+                                "Maximum": null,
+                                "MinLength": null,
+                                "MaxLength": null,
+                                "MinItems": null,
+                                "MaxItems": null,
+                                "MinProperties": null,
+                                "MaxProperties": null
+                            }
+                        }
+                    },
+                    "Definitions": {},
+                    "OneOf": [],
+                    "Discriminator": null,
+                    "Bounds": {},
+                    "FieldSetState": "closed",
+                    "BoundsState": "closed",
+                    "UnionState": "none",
+                    "SchemaDigest": "f054da1097c2023f930b5e95593a90bcab98b204676e91d9d4e2b7c2150acb11",
+                    "SourceTypes": [
+                        "FsusBlog.Core.Mapping.Models.UploadCompleteRequestCoreModel"
+                    ],
+                    "ReaderIdentities": [
+                        "FsusBlog.Core.Cache.PodBinaryCodec.TryDecodeUploadCompleteRequest"
+                    ]
+                },
+                "x-fsus-response-contracts": [
+                    {
+                        "Status": 200,
+                        "Kind": "success",
+                        "SchemaRef": "aeds://frame/UploadAssetPreview",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": null
+                    },
+                    {
+                        "Status": 400,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:400"
+                    },
+                    {
+                        "Status": 401,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:401"
+                    },
+                    {
+                        "Status": 403,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:403"
+                    },
+                    {
+                        "Status": 406,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:406"
+                    },
+                    {
+                        "Status": 415,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:415"
+                    },
+                    {
+                        "Status": 423,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:423"
+                    },
+                    {
+                        "Status": 500,
+                        "Kind": "error",
+                        "SchemaRef": "aeds://frame/ApiError",
+                        "ContentType": "application/octet-stream",
+                        "ResultPlacement": "aeds.frame.payload",
+                        "Nullable": false,
+                        "PublicErrorRef": "configuration-error-security-policy:error-transport-mappings:500"
+                    }
+                ],
+                "x-fsus-public-error-refs": [
+                    "configuration-error-security-policy:error-transport-mappings:400",
+                    "configuration-error-security-policy:error-transport-mappings:401",
+                    "configuration-error-security-policy:error-transport-mappings:403",
+                    "configuration-error-security-policy:error-transport-mappings:406",
+                    "configuration-error-security-policy:error-transport-mappings:415",
+                    "configuration-error-security-policy:error-transport-mappings:423",
+                    "configuration-error-security-policy:error-transport-mappings:500"
+                ],
+                "x-fsus-public-error-statuses": [
+                    400,
+                    401,
+                    403,
+                    406,
+                    415,
+                    423,
+                    500
+                ],
+                "x-fsus-public-error-status-evidence": {
+                    "400": [
+                        "compiled-filter:RequiresPowFilter"
+                    ],
+                    "401": [
+                        "compiled-authorization:deny-anonymous",
+                        "compiled-filter:RequiresPowFilter"
+                    ],
+                    "403": [
+                        "compiled-authorization:claim-requirement",
+                        "compiled-filter:RequiresPowFilter"
+                    ],
+                    "406": [
+                        "compiled-middleware:ApiBinaryResponseMiddleware.accept"
+                    ],
+                    "415": [
+                        "compiled-middleware:ApiBinaryResponseMiddleware.content-type"
+                    ],
+                    "423": [
+                        "compiled-middleware:BannedUserMiddleware"
+                    ],
+                    "500": [
+                        "compiled-middleware:GlobalExceptionMiddleware"
+                    ]
+                },
+                "x-fsus-public-error-ref-state": "operation-status-authority-bound",
+                "x-fsus-error-authority-behavior": "configuration-error-security-policy",
+                "x-fsus-result-placement": "aeds.frame.payload",
+                "x-fsus-protocol-state": "active-aeds-only",
+                "x-fsus-source-identity": "HTTP: POST api/binary/upload/{uploadId}/preview"
             }
         },
         "/api/binary/upload/{uploadId}/status": {

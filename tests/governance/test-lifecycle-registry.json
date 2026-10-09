@@ -835,8 +835,7 @@
             "lifecycle": "canonical-execution",
             "physicalExecutionCount": 1,
             "classifications": [
-                "source-text",
-                "runtime"
+                "source-text"
             ],
             "staticGovernance": {
                 "id": "canonical-article-lifecycle-authority",
@@ -5080,6 +5079,16 @@
             "classifications": [
                 "source-text",
                 "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/linux-cgroup-membership-locator.test.mjs",
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "behavior"
             ]
         },
         {

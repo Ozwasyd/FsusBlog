@@ -1619,6 +1619,18 @@
             "value": 269,
             "goldenFamily": "article-property-value-read",
             "goldenOrder": 260
+        },
+        {
+            "name": "UploadAssetPreview",
+            "value": 275,
+            "goldenFamily": "upload-response",
+            "goldenOrder": 261
+        },
+        {
+            "name": "UploadAssetFacts",
+            "value": 285,
+            "goldenFamily": "upload-response",
+            "goldenOrder": 262
         }
     ],
     "goldenCatalog": {

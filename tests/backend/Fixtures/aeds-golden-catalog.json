@@ -277,6 +277,8 @@
     { "name": "ArticleCanvasLinkRequest", "value": 266, "family": "article-canvas-link" },
     { "name": "ArticleCanvasLinkReceipt", "value": 267, "family": "article-canvas-link" },
     { "name": "ArticleCanvasLinkHistoryResponse", "value": 268, "family": "article-canvas-link" },
-    { "name": "ArticlePropertyValueReadResponse", "value": 269, "family": "article-property-value-read" }
+    { "name": "ArticlePropertyValueReadResponse", "value": 269, "family": "article-property-value-read" },
+    { "name": "UploadAssetPreview", "value": 275, "family": "upload-response" },
+    { "name": "UploadAssetFacts", "value": 285, "family": "upload-response" }
   ]
 }

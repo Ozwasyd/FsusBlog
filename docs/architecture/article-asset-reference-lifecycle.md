@@ -44,6 +44,25 @@ rights and bind the actual plan, operation and revision through their canonical
 authority. The observation grants no rights, seals no caller-supplied plan and
 does not authorize historical re-use after its observed versions change.
 
+### Writer-owned transport observation
+
+The Writer's `authoringAttachmentRuntime.observeUpload(handle, file, signal)`
+requires the original `capture` / `commitCreated` pending handle, the current
+public position map and the original document owner. The original upload flow
+issues its existing task lease and lends a short-lived per-attempt session.
+After upload completion clears the public runtime session, the Writer projects
+only the five named private session fields inside `withSession` into the original
+upload provider and awaits `observe` with the loan's signal. Credentials and the
+provider do not escape that callback; the loan is released on every exit.
+
+The result is a transport observation only. It neither completes the pending
+source node nor grants article-operation, reference-ledger or cleanup authority.
+A later authorized document transaction runs outside the loan callback. Unknown
+commit outcomes remain recovery-required without automatic retry or deletion.
+The legacy body `File[]` / URL callback lacks this capability and fails closed;
+production input adapters must supply the genuine per-file capture capability
+before this path can accept those inputs.
+
 ## Delete and cleanup protocol
 
 Permanent article deletion and trash clearing load affected AssetIds from `content_asset_reference` and remove the applicable current article/draft sources inside the article transaction. An AssetId is inserted into `content_asset_cleanup_queue` only when the ledger has no remaining row, with a 24-hour grace period. Restoring any source reference cancels that queue row and returns the asset to `active`.

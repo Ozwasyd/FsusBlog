@@ -2,8 +2,9 @@ import { computed, ref } from 'vue';
 
 import type { ImageCompressionOptions } from '@/api/upload';
 import { useAbortableTask } from '@/composables/useAbortableTask';
-import type { useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
+import type { ImageUploadAttemptBinding, ImageUploadRuntimeOptions, ImageUploadSessionBorrow, useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
 import type {
+    ArticleDocumentTaskLease,
     ArticleDocumentTaskRegistry
 } from '@/services/authoring/articleDocumentContext';
 import { showErrorToast } from '@/utils/errorPresentation';
@@ -50,6 +51,8 @@ export interface UseImageUploadFlowOptions {
     notify?: UploadNotify;
     taskRegistry?: ArticleDocumentTaskRegistry;
     taskProducerRef?: string;
+    getAttemptBinding?: (file: File) => Omit<ImageUploadAttemptBinding, 'lease'> | null;
+    onSessionReady?: (file: File, borrow: ImageUploadSessionBorrow) => void | Promise<void>;
 }
 
 interface PendingUploadContext {
@@ -62,8 +65,17 @@ interface PendingUploadContext {
 
 export function useImageUploadFlow(options: UseImageUploadFlowOptions)
 {
+    let currentLease: ArticleDocumentTaskLease | null = null;
     const uploadTask = useAbortableTask({
-        registry: options.taskRegistry,
+        registry: options.taskRegistry ? {
+            beginTask: (...args) =>
+            {
+                // Capture the exact lease issued by the existing owner, without creating another task.
+                const lease = options.taskRegistry!.beginTask(...args);
+                currentLease = lease;
+                return lease;
+            }
+        } : undefined,
         kind: options.taskRegistry ? 'attachment' : undefined,
         producerRef: options.taskProducerRef ?? 'image-upload'
     });
@@ -90,9 +102,24 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             {
                 return;
             }
-            const url = await options.runtime.uploadFile(file, options.getOptions(), {
+            const runtimeOptions: ImageUploadRuntimeOptions = {
                 wasmOnly: options.getWasmOnly()
-            });
+            };
+            if (options.getAttemptBinding || options.onSessionReady)
+            {
+                const binding = options.getAttemptBinding?.(file);
+                const lease = currentLease;
+                if (!binding || lease?.signal !== signal || !lease.isCurrent())
+                {
+                    throw new Error('upload_attempt_binding_unavailable');
+                }
+                runtimeOptions.attemptBinding = Object.freeze({ ...binding, lease });
+                if (options.onSessionReady)
+                {
+                    runtimeOptions.onSessionReady = borrow => options.onSessionReady!(file, borrow);
+                }
+            }
+            const url = await options.runtime.uploadFile(file, options.getOptions(), runtimeOptions);
             urls.push(url);
         }
 
@@ -138,10 +165,12 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             notifyOnError: params.notifyOnError ?? true
         };
 
+        let runSignal: AbortSignal | null = null;
         try
         {
             await uploadTask.run(async (signal) =>
             {
+                runSignal = signal;
                 if (pendingContext.value)
                 {
                     await executeUpload(pendingContext.value, signal);
@@ -150,7 +179,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
         }
         catch (error: unknown)
         {
-            if (!isAbortError(error))
+            if (!isAbortError(error) && !(runSignal as AbortSignal | null)?.aborted)
             {
                 const message = getErrorMessage(error, params.messages?.uploadFailed ?? '文件上传失败');
                 if (params.notifyOnError ?? true)
@@ -176,10 +205,12 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             onError: overrides?.onError ?? context.callbacks?.onError
         };
 
+        let runSignal: AbortSignal | null = null;
         try
         {
             await uploadTask.run(async (signal) =>
             {
+                runSignal = signal;
                 await executeUpload({
                     ...context,
                     callbacks,
@@ -192,7 +223,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
         }
         catch (error: unknown)
         {
-            if (!isAbortError(error))
+            if (!isAbortError(error) && !(runSignal as AbortSignal | null)?.aborted)
             {
                 const message = getErrorMessage(error, overrides?.messages?.resumeFailed ?? context.messages?.resumeFailed ?? '继续上传失败');
                 if (context.notifyOnError)

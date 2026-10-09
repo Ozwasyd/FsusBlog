@@ -58,7 +58,9 @@ const COORDINATION_IDS = new Set([
     'release-final-shard-completeness',
     'rights-v3-test-matrix',
     'runtime-cache-evidence',
+    'source-governance',
     'ux-viewport-plan-progress',
+    'validate-declarations',
     'validate-matrix',
     'visual'
 ]);

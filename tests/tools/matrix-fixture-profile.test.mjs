@@ -239,3 +239,28 @@ test('closed execution-class vocabulary is stable and classification is determin
     assert.equal(classifyTierExecutionClass({ id: 'frontend-build' }), 'build');
     assert.equal(classifyTierExecutionClass({ id: 'fast', executionMode: 'summary' }), 'coordination');
 });
+
+test('source declaration and governance tiers coordinate checks without fixture mutation', () =>
+{
+    const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    for (const id of ['validate-declarations', 'source-governance'])
+    {
+        const tier = matrix.tiers.find((candidate) => candidate.id === id);
+        assert.equal(tier.executionClass, 'coordination');
+        assert.equal(tier.qualificationEligible, false);
+        assert.equal(tier.fixtureProfile, 'none');
+        assert.equal(tier.fixtureMutatorAllowed, false);
+        assert.equal(tier.requiresBootstrap, 'none');
+        assert.equal(tier.requiresDotnet, false);
+        assert.equal(tier.requiresPlaywright, 'none');
+        assert.deepEqual(tier.services, []);
+        assert.equal(classifyTierExecutionClass(tier), 'coordination');
+        assert.equal(expectedFixtureProfileReason(tier), 'none-coordination');
+        assert.deepEqual(errorsFor({ tiers: [tier] }), []);
+        const misclassified = {
+            ...tier, executionClass: 'runtime', fixtureProfileReason: 'none-runtime'
+        };
+        assert.match(errorsFor({ tiers: [misclassified] }).join('\n'), /executionClass must be coordination/u);
+    }
+    assert.equal(classifyTierExecutionClass({ id: 'unregistered', executionClass: 'coordination' }), 'runtime');
+});
