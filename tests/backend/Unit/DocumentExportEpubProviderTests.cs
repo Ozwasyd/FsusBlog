@@ -109,6 +109,16 @@ public sealed class DocumentExportEpubProviderTests
     [InlineData("<time datetime=\"2026-10-08T00:00+24:00\">Text</time>")]
     [InlineData("<time datetime=\"PT\">Text</time>")]
     [InlineData("<time datetime=\"P1DT\">Text</time>")]
+    [InlineData("<time><span>2026-10-08</span></time>")]
+    [InlineData("<time><code>2026-10-08</code></time>")]
+    [InlineData("<time>2026-10-08<span></span></time>")]
+    [InlineData("<time>not-a-date</time>")]
+    [InlineData("<time></time>")]
+    [InlineData("<time>2026-02-30</time>")]
+    [InlineData("<time>1h 2H</time>")]
+    [InlineData("<time>1.5d</time>")]
+    [InlineData("<time>-0000</time>")]
+    [InlineData("<time datetime=\"2026-10-08T00:00-00:00\">Text</time>")]
     public void RefusesInvalidXhtmlInBuilderAndActualPackageEvenWhenFrozenContentMatches(string fragment)
     {
         EpubPublicationMetadata metadata = Metadata();
@@ -158,6 +168,19 @@ public sealed class DocumentExportEpubProviderTests
     [InlineData("<time datetime=\"PT4H18M3.125S\">Text</time>")]
     [InlineData("<time datetime=\"P1DT0S\">Text</time>")]
     [InlineData("<time datetime=\"PT0S\">Text</time>")]
+    [InlineData("<time>2026-10-08</time>")]
+    [InlineData("<time>2000-02-29</time>")]
+    [InlineData("<time>23:59:59.999</time>")]
+    [InlineData("<time>PT0S</time>")]
+    [InlineData("<time>4h 18m 3s</time>")]
+    [InlineData("<time> 1 W\t2d 3H\n4m 5.125s </time>")]
+    [InlineData("<time>10000</time>")]
+    [InlineData("<time>Z</time>")]
+    [InlineData("<time>+23:59</time>")]
+    [InlineData("<time>+0000</time>")]
+    [InlineData("<time>-2359</time>")]
+    [InlineData("<time datetime=\"2026-10-08\"><span>Date</span></time>")]
+    [InlineData("<time datetime=\"2026-10-08\"><strong>Date</strong> label</time>")]
     public void PreservesValidLanguageAndTemporalAttributesInActualPackage(string fragment)
     {
         EpubPublicationMetadata metadata = Metadata();

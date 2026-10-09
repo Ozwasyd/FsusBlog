@@ -65,11 +65,17 @@ public static class DocumentExportEpubPackageValidator
     private const string ClockPattern = @"(?<hour>[0-9]{2}):(?<minute>[0-9]{2})(?::(?<second>[0-9]{2})(?:\.[0-9]{1,3})?)?";
     private static readonly Regex s_temporalValue = new(
         @"\A(?:(?<year>[0-9]{4,})(?:-(?<month>[0-9]{2})(?:-(?<day>[0-9]{2})(?:[T ]" + ClockPattern
-            + @"(?:Z|[+-](?<offsetHour>[0-9]{2}):?(?<offsetMinute>[0-9]{2}))?)?)?|-W(?<week>[0-9]{2}))?"
+            + @"(?:Z|(?<offsetSign>[+-])(?<offsetHour>[0-9]{2}):?(?<offsetMinute>[0-9]{2}))?)?)?|-W(?<week>[0-9]{2}))?"
             + @"|(?:--)?(?<month>[0-9]{2})-(?<day>[0-9]{2})|" + ClockPattern + @")\z",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
     private static readonly Regex s_durationValue = new(
         @"\AP(?:[0-9]+D)?(?:T(?:[0-9]+H)?(?:[0-9]+M)?(?:[0-9]+(?:\.[0-9]{1,3})?S)?)?\z",
+        RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
+    private static readonly Regex s_textDurationComponent = new(
+        @"[ \t\n]*(?:[0-9]+[ \t\n]*(?<unit>[wWdDhHmM])|[0-9]+(?:\.[0-9]{1,3})?[ \t\n]*(?<unit>[sS]))[ \t\n]*",
+        RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
+    private static readonly Regex s_textOffsetValue = new(
+        @"\A(?:Z|(?<offsetSign>[+-])(?<offsetHour>[0-9]{2}):?(?<offsetMinute>[0-9]{2}))\z",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
 
     /// <summary>Rejects invalid, corrupt, unsupported or tampered package bytes; never reads host files or network resources.</summary>
@@ -424,6 +430,8 @@ public static class DocumentExportEpubPackageValidator
                     && children[0].Name.LocalName is "h1" or "h2" or "h3" or "h4" or "h5" or "h6"
                     && HasOnlyInterelementWhitespace(element)),
             "p" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "pre" => HasPhrasingChildren(element),
+            "time" => element.Attribute("datetime") is not null ? HasPhrasingChildren(element)
+                : children.Length == 0 && IsTemporalValue(element.Value, textContent: true),
             "a" or "del" or "ins" => HasFlowChildren(element),
             _ => s_phrasingElements.Contains(name) ? HasPhrasingChildren(element) : HasFlowChildren(element)
         };
@@ -628,18 +636,33 @@ public static class DocumentExportEpubPackageValidator
     }
 
     // Validate calendar/clock components without culture parsing, timezone conversion,
-    // whitespace collapse or DateTime's year/offset limits. Duration support is ISO only.
-    private static bool IsTemporalValue(string value)
+    // whitespace collapse or DateTime's year/offset limits. Plain time text additionally
+    // supports HTML's extended years, timezone offsets and human-readable durations.
+    private static bool IsTemporalValue(string value, bool textContent = false)
     {
         if (value.StartsWith('P'))
         {
             return value.Length > 1 && !value.EndsWith('T') && s_durationValue.IsMatch(value);
         }
+        if (textContent)
+        {
+            if (IsTextDuration(value))
+            {
+                return true;
+            }
+            Match offset = s_textOffsetValue.Match(value);
+            if (offset.Success)
+            {
+                return TemporalPartInRange(offset, "offsetHour", 0, 23)
+                    && TemporalPartInRange(offset, "offsetMinute", 0, 59) && !IsNegativeZeroOffset(offset);
+            }
+        }
         Match match = s_temporalValue.Match(value);
         if (!match.Success || !TemporalPartInRange(match, "month", 1, 12)
             || !TemporalPartInRange(match, "hour", 0, 23) || !TemporalPartInRange(match, "minute", 0, 59)
             || !TemporalPartInRange(match, "second", 0, 59) || !TemporalPartInRange(match, "offsetHour", 0, 23)
-            || !TemporalPartInRange(match, "offsetMinute", 0, 59) || !TemporalPartInRange(match, "week", 1, 53))
+            || !TemporalPartInRange(match, "offsetMinute", 0, 59) || !TemporalPartInRange(match, "week", 1, 53)
+            || IsNegativeZeroOffset(match))
         {
             return false;
         }
@@ -648,7 +671,7 @@ public static class DocumentExportEpubPackageValidator
         {
             string year = match.Groups["year"].Value;
             if (!year.Any(character => character != '0')
-                || !match.Groups["month"].Success && !match.Groups["week"].Success && year.Length != 4)
+                || !textContent && !match.Groups["month"].Success && !match.Groups["week"].Success && year.Length != 4)
             {
                 return false;
             }
@@ -667,6 +690,24 @@ public static class DocumentExportEpubPackageValidator
         }
         return !match.Groups["week"].Success || TemporalPartInRange(match, "week", 1, ISOWeek.GetWeeksInYear(calendarYear));
     }
+
+    private static bool IsTextDuration(string value)
+    {
+        int end = 0;
+        var units = new HashSet<char>();
+        foreach (Match component in s_textDurationComponent.Matches(value))
+        {
+            if (component.Index != end || !units.Add(char.ToUpperInvariant(component.Groups["unit"].Value[0])))
+            {
+                return false;
+            }
+            end += component.Length;
+        }
+        return units.Count > 0 && end == value.Length;
+    }
+
+    private static bool IsNegativeZeroOffset(Match match) => match.Groups["offsetSign"].Value == "-"
+        && match.Groups["offsetHour"].Value == "00" && match.Groups["offsetMinute"].Value == "00";
 
     private static bool TemporalPartInRange(Match match, string name, int minimum, int maximum)
         => !match.Groups[name].Success || IsUnsignedInteger(match.Groups[name].Value, minimum, maximum);
