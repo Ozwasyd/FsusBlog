@@ -442,7 +442,7 @@ export function sourceShellSyntaxArguments(file)
 
 // Fixed repository inputs of the reviewed frontend SOURCE checker/parser contract.
 // These are data/configuration witnesses, never executable child ports.
-export const sourceGovernanceDataInputs = Object.freeze([
+export const sourceFrontendDataInputs = Object.freeze([
     'config/development/frontend-style-policy.json',
     'config/development/frontend-style-rule-registry.json',
     'tools/frontend/style-toolchain/package.json',
@@ -450,7 +450,10 @@ export const sourceGovernanceDataInputs = Object.freeze([
     '.editorconfig', 'eslint.config.mjs', 'stylelint.config.mjs',
     'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
     'tools/frontend/style-toolchain/eslint.config.mjs',
-    'tools/frontend/style-toolchain/stylelint.config.mjs',
+    'tools/frontend/style-toolchain/stylelint.config.mjs'
+]);
+
+export const sourceGovernanceDataInputs = Object.freeze([...sourceFrontendDataInputs,
     'docs/development/native-tooling-style-enforcement.md',
     'tools/governance/javascript-format-parser/package.json',
     'tools/governance/javascript-format-parser/package-lock.json'
@@ -512,7 +515,7 @@ export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
         {
             throw new Error('SOURCE frontend configuration requires the complete policy input set');
         }
-        return new Set([...sourceGovernanceDataInputs, ...policy.configurationSources,
+        return new Set([...sourceFrontendDataInputs, ...policy.configurationSources,
             policy.ruleRegistry, policy.toolchain?.package, policy.toolchain?.lock,
             policy.eslintConfig, policy.stylelintConfig]);
     }
