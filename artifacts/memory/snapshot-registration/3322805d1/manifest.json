@@ -1,0 +1,45 @@
+{
+  "source": "3322805d17a84cd923c446ccafaa934f7571a865",
+  "files": [
+    {
+      "path": "changed-source.txt",
+      "size": 759,
+      "sha256": "2338a53a182bbbc4a71cef3a62dcf2c479f865f0d66ce29c70a8d2c774a984bc"
+    },
+    {
+      "path": "checkpoint.json",
+      "size": 49845,
+      "sha256": "277971f77ce7679f62ca2717302283d7850088ba8c9a2b0caa4253362e40b8ec"
+    },
+    {
+      "path": "discovered-cases.txt",
+      "size": 6421,
+      "sha256": "85e176b439d48fdaf938796bae1d7455a643d57460dff973597a8439d1d96275"
+    },
+    {
+      "path": "filter.txt",
+      "size": 2838,
+      "sha256": "b718e677f7c391137a13cacf67cbe58d96f0dec515f9daa876dbd0e08341a5fd"
+    },
+    {
+      "path": "positive-fqns.txt",
+      "size": 2433,
+      "sha256": "4d47bb935fe7453b59c79fbfb029d031979a3b01c0b8ffaf2d1ba92b3da9b59b"
+    },
+    {
+      "path": "producer.py",
+      "size": 12297,
+      "sha256": "164b85d161a6403087a917accd879772304cd25481ed0ce30c549dfd92638787"
+    },
+    {
+      "path": "selection.json",
+      "size": 19049,
+      "sha256": "eb6f2dd50e1d8c9be9d72a683b97f7c5f00498bb0a277dfd9a46a62b3c06fdf9"
+    },
+    {
+      "path": "source-review.json",
+      "size": 24499,
+      "sha256": "5f4f8544fbb5367f7bbdab4a1a01e1fd5262af6e0f1934745082b78dfcbb44a1"
+    }
+  ]
+}

@@ -1,0 +1,565 @@
+{
+  "policyBase": "c1ac6630e86a899f4acf59283ea10a4fcdd69894",
+  "policySource": "c9b9695b23f0c6aae6a80e61eda0cb172d14f35f",
+  "completePolicyIncrement": [
+    {
+      "path": "docs/architecture/repository-layout.md",
+      "gitBlob": "ca35a119fed052c141ff08bc5decd16d721309e5",
+      "sha256": "8527f512327cb5121c25d3d2c6ebd90a4b4bfdfbc83aaa170d4812ce703a2017",
+      "size": 55752,
+      "status": "modified",
+      "baseGitBlob": "f17ea4c91cdb48d40e133f15d947beaadd545066"
+    },
+    {
+      "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+      "gitBlob": "a8fa54efaa6b794745729dda09926189bae9c0b0",
+      "sha256": "4e15e5eed9e20dba509ee5fb3ef92473f898a688cea0098dcddbb5f7e9683da9",
+      "size": 58999,
+      "status": "modified",
+      "baseGitBlob": "57ddef25235060c98306a9ac00c41db53c5ab7dd"
+    },
+    {
+      "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshot.HostOwnership.cs",
+      "gitBlob": "1d1cf14ad64f0ae52d167406be3f64f487566840",
+      "sha256": "bef737fcc6d2df6493f8afd460995e7b0a87b4380efc282cc75ce324b64a379e",
+      "size": 10626,
+      "status": "modified",
+      "baseGitBlob": "3b27f42ef7d25a0467671b0b08e62345c1439f2d"
+    },
+    {
+      "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "gitBlob": "9c04ac7abc966ee469575e66f58c0327b488d00e",
+      "sha256": "2bde55276e66b5e9f97df05de8c6558325f073a0b063db6e5437f65943b84ac8",
+      "size": 10877,
+      "status": "added",
+      "baseGitBlob": null
+    },
+    {
+      "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.HostOwnership.cs",
+      "gitBlob": "b6bf576f59d070969e2a351d535d5bd855bcbf0c",
+      "sha256": "81171ea453b4d020d0efe5ebfc1ce583ca5d17f2193e406796b1ff622f448467",
+      "size": 7251,
+      "status": "modified",
+      "baseGitBlob": "fdd2f3e6d17963b812dbd227b27639432b66d2f2"
+    },
+    {
+      "path": "tests/backend/Unit/PublicHotReadSnapshotOwnershipPolicyTests.cs",
+      "gitBlob": "bd3784468ff35e3f3a1eb4ed1ed70c9b02a7a6c8",
+      "sha256": "b3a9d0465c0b3e1443ffd45b7dc82d0e7185cde43fc9ba82187167a3718fa325",
+      "size": 26437,
+      "status": "added",
+      "baseGitBlob": null
+    }
+  ],
+  "registrationSource": "3322805d17a84cd923c446ccafaa934f7571a865",
+  "completeRegistrationIncrement": [
+    {
+      "path": "config/application/backend-configuration-contract.json",
+      "gitBlob": "85b731e7dc46ba6d307a1428b97f246a368d96cb",
+      "sha256": "1984e8706af75e8886af2acf8aeb26784bc14d7301a69a82c8fe755372b3383e",
+      "size": 314814
+    },
+    {
+      "path": "docs/configuration/backend-configuration-reference.generated.md",
+      "gitBlob": "9320862f59816015c560bfbe4e7d8c206d133f3b",
+      "sha256": "eb4fd1c6ee47a5d256d030b6475fabc8b76069ca4a585824f6cc31fc9c1691a4",
+      "size": 131983
+    }
+  ],
+  "priorDependenciesBase": "c1ac6630e86a899f4acf59283ea10a4fcdd69894",
+  "priorDependencyFilesUnchanged": [
+    {
+      "path": "src/backend/FsusBlog.Server.csproj",
+      "gitBlob": "c7e38c66b974862cddaef76897c957c9c28a5d81",
+      "sha256": "750dc43234f15be728a4eff93b1df2690d9efff880ecd8f9446aac726aa0bddc",
+      "size": 11273
+    },
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs",
+      "gitBlob": "7d3809a4a54c0418b6eb23f68e603addaf2330cd",
+      "sha256": "14379ad395ca2f0622e647284cfe79e6e5d64dbb2bc7b70133ca79c50c8ecb62",
+      "size": 30861
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Accounting/FrozenDiskPhysicalAllocationPolicy.cs",
+      "gitBlob": "c9deb23a6e4ade00645a1d1629ad9672a651505d",
+      "sha256": "abf86301d7d885e7832c3307eca71f8691ff84c68025239fab95f6d86ae70e09",
+      "size": 2307
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+      "gitBlob": "2b943a073797bc558ff86d0b612737ecc82ab856",
+      "sha256": "eea87e039915ebad6b33898cab9e84d74e7edc47be92c7f0cf1e6b1621493209",
+      "size": 27304
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityControlPolicy.cs",
+      "gitBlob": "523e8ecfaed8039b241b24b89677bcfc17c8c529",
+      "sha256": "a03244b4940095a3473de39fd4959c990f8a0f4a2cfcdb27d11b6d3fdac07c33",
+      "size": 6816
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityController.cs",
+      "gitBlob": "f7684d62952aeabe751db3f5b7df4f04b30a0cbc",
+      "sha256": "0a9ce7e46190180d4802c9a49cc68a71d1002d7e25f6a285bda79b2deeec7360",
+      "size": 31135
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityGpuAllocationPolicy.cs",
+      "gitBlob": "a9a66cdb091aa8ba1ffd1f4857234b7a00fe74ad",
+      "sha256": "fa85883bd9a0b1b93bcf811d14e1d7a1fdb93a03900f3b60de82ef447dd20e5f",
+      "size": 6787
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+      "gitBlob": "7947a604ddfa427e95e991a35b7d4af919e81312",
+      "sha256": "589d105d884d5aac11f06d846254ceb4170579bae8d782b05d0aede523088368",
+      "size": 3182
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicyPlan.cs",
+      "gitBlob": "a584b6bd3df7c21f5e0875e3cff81f8fb720e3df",
+      "sha256": "866f48f2c58149be8520ce72b48188bb496c58db05fe3c9aea857f472088100a",
+      "size": 10037
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+      "gitBlob": "bb78e6dd58df6a199d511b2e60e3786172c146a7",
+      "sha256": "d8d47143c58250148320fef1323a4834c397a749698187b33cbb74261817a15c",
+      "size": 3874
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+      "gitBlob": "63477bad24069ef0ae0e549af558d368e4e6aa6a",
+      "sha256": "a3fa7fce58ce87e67a92035c1a88b49f1e16d3f1729da59ec84a483c420b669d",
+      "size": 2170
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+      "gitBlob": "b0af8166af5ea20a29a308a98e73e40ef760815c",
+      "sha256": "906eb4f8e7a6bf4a335ff381917282e846c1cc88e1a4f1c7e28cffba12bc747b",
+      "size": 1532
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+      "gitBlob": "a0c4d9c403400a2a9cb152e159752a1b50844add",
+      "sha256": "738c50a12419495f231fd38b7055a5aaac0203379d0b3227c240913d7c14d7d4",
+      "size": 1582
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+      "gitBlob": "6dd3db5d42aadd04cc9e4c2f044703c830a37c66",
+      "sha256": "7ff95f5bf330d4a3268a6ff2f8f71ac0af2409f1aaca4edd5a7c115010e8174a",
+      "size": 4486
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Control/MemoryGovernor.cs",
+      "gitBlob": "f399eaf9a4a0ffb2e1ef618d800b5cd07764d29e",
+      "sha256": "c42843acd853c55338664f89b6696f59a095989d5ce7c7c852fac1482c32d582",
+      "size": 18749
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Control/MemoryGovernorPolicy.cs",
+      "gitBlob": "2deb4d0b06caa0a0c11e75d7efd536af7a4ca084",
+      "sha256": "363de92f6711b06d9b394530826cd69656167a7b7f157730fb16023271cd44ed",
+      "size": 4621
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Devices/GpuAllocation.cs",
+      "gitBlob": "0b513a811b83efc444251213c361b8dcc10ecac0",
+      "sha256": "8fe98245e90cdfe73b5b68568a566e0448c47044108d5391d25c10a0c90d3541",
+      "size": 2695
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Devices/GpuDriver.cs",
+      "gitBlob": "7b63ad1b2f780634b3d4b8fa29dc22f89df697cd",
+      "sha256": "be9bef0431a93cde15bba5b726f3507a840a42c64e596ad9811f18997e2a393c",
+      "size": 2308
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Devices/GpuMemoryDevice.cs",
+      "gitBlob": "977057dba9b123e12807855a5bb32c79048bcc7b",
+      "sha256": "b01a2b2ead5c90a8525c9eb8f886580c5876546bc233c704a3c3156dbbf22e6d",
+      "size": 38202
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Devices/GpuPeerCapabilities.cs",
+      "gitBlob": "b6973d087080eebfbffe8328acf3702b67e1e322",
+      "sha256": "6e51e1d5618083fd8d75537293c631d6001582de9dc8a92dfffc6a093ab60e6a",
+      "size": 3930
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Devices/GpuPeerDeviceOperation.cs",
+      "gitBlob": "8dc7edd21c9a859913564b268c7d62fcb3949e24",
+      "sha256": "f2a2debf9b7c70b0ed55619487cd35659339f123004d7709d15e48da59e3a64f",
+      "size": 1404
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Devices/GpuPeerMapping.cs",
+      "gitBlob": "b13cc4081d9aaa97b771ef78f043123238277662",
+      "sha256": "7fc1c22e4271131a8c8902c1fe9a2817e7f2864e17a25c0d24846ebd378c91af",
+      "size": 10411
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Devices/GpuPeerTransfer.cs",
+      "gitBlob": "8137f564bb4b6adac5fa49e1e418718a178b16d0",
+      "sha256": "a1cb4dffe5130b010e3444364211b21a72662df0c14482c3136089aa198331d3",
+      "size": 8105
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Devices/GpuTransferOperation.cs",
+      "gitBlob": "5ec6f6b2ce256adeb4d772091c46a90f0330e461",
+      "sha256": "ef70a0443c7a773c79dd1d98e581a2d20511e55c0ccb5311ea41f4faf0e40f1c",
+      "size": 2581
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Disk/DiskBudgetAdmission.cs",
+      "gitBlob": "7094e3fb6def1f08e152a063aed65b089677356f",
+      "sha256": "8ede048663aa2a33770ca4729efca370d8d93c6650a4578b01fe9181b92d92c9",
+      "size": 10452
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Disk/DiskFileFootprint.cs",
+      "gitBlob": "4a108d7f55e095946b3986c869ad47c5c7580b4f",
+      "sha256": "e9822d5cefcea4cde509df681b62dffd7c187ccbca152fd6e747888f305500c5",
+      "size": 659
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Disk/DiskFileSystemException.cs",
+      "gitBlob": "531a8df42289a5973d505737175ee90d78b6082c",
+      "sha256": "90af4157e45f21feb3c5d8676e5358ce89d1395820a0177b6cb8378229d3648b",
+      "size": 1314
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Disk/DiskPhysicalAllocationPolicy.cs",
+      "gitBlob": "aa8718d447428da4b23b5d87cccd521b5a593cb9",
+      "sha256": "02875704de70f1c5a31bf464208869b30ddd43844c0eead95bd4b39d1d4a3ff2",
+      "size": 856
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentFormat.cs",
+      "gitBlob": "524b423bc0daa28a32586a0bf61cef798eded83b",
+      "sha256": "249168e42b6bf63726b73809bda8d111dbd3d4fe93198505ee769ddcb6d581e5",
+      "size": 13407
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentLease.cs",
+      "gitBlob": "47c057363732dd197e3b9b3c25579b6d15b2957a",
+      "sha256": "9e97acee66637cf906145f354ece0160c863545b29d4e01758fa384e400d06f6",
+      "size": 8475
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentStore.cs",
+      "gitBlob": "2784a4a83767b5fab7e17474a2cd41d2ef44cfcc",
+      "sha256": "abd16892e9f663ea3a22e870b183246e53067e7fcee614213d52132fb0ec197a",
+      "size": 47249
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Disk/DiskSpillEligibility.cs",
+      "gitBlob": "b9d36e45c10d155a87e65d32597477d9dbb73ffd",
+      "sha256": "426f9617c32a7ada1275e09968dd0691f0413432a929ade3b49deafc0c4e10b3",
+      "size": 798
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Disk/DiskSpillInventoryObservation.cs",
+      "gitBlob": "b03c9ceb5c2c04571d31bd0c714f02b66aff115b",
+      "sha256": "db21c50be824253b15578139432128feaa339b67943a1478517b1aa485f9116c",
+      "size": 590
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Disk/OwnedSpillRoot.cs",
+      "gitBlob": "ffe3d776efd871d230b33a1bcb8b496a4471c3a1",
+      "sha256": "07b69033902ea2e9a6a4a5665dcdc6db2b8ab58d4c4e1b869c9277ba4c75457f",
+      "size": 6114
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+      "gitBlob": "b2ea20b5fa483dc0edc5d1329170285d7d807713",
+      "sha256": "a79c6992412fc3a3b7387efe41b4880d1c15af594997106e7556edee0b555b0a",
+      "size": 21833
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/FlatArtifactIndexLayout.cs",
+      "gitBlob": "a12c9dc1cafc87efc6085bb86fed508b5ae95181",
+      "sha256": "a98d8cf906d6e6a696e07d54b9585b0b2f93a3610b93adfff59f41e801a62a9f",
+      "size": 5623
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+      "gitBlob": "c4e2b28a61de23624c580c9bd0e6f233982fedf5",
+      "sha256": "b52077dd21a18ced438486aab111898eab9b15228e4f2368795faf46779d9e93",
+      "size": 1112
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
+      "gitBlob": "693eac4a7fb88037b2e36555d145edfd100b6438",
+      "sha256": "d17ac9ca03ec2e5dfb40bf83a761514e82e711ce25319b7f685bf7a2ba973586",
+      "size": 4677
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaBuilder.cs",
+      "gitBlob": "1a1614deaef1959ca54025d0019eefd44b74bb47",
+      "sha256": "51cdd3a10f08731245066172d16b2c50d3d8bb2c6d6e46c92da1e0c523552746",
+      "size": 9181
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaPolicy.cs",
+      "gitBlob": "bba73e5860dc41d1e1c1f77272ef3dec232df411",
+      "sha256": "26aeb93d64c3efc3764e28236bf030aceced789593d40551941661d1620d8413",
+      "size": 3507
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+      "gitBlob": "cf882e508373cb9e9c790bfd9c78bb2d3f3b46bd",
+      "sha256": "4ec6a62a779ca24c835a465a8cd757df446dcecd4f5a52b37a0a8685bf8653d9",
+      "size": 13899
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Host/ReferenceArtifactIndex.cs",
+      "gitBlob": "0c803a9e3de23420bbc7fec7213a4f1bf4b66a78",
+      "sha256": "f20dd063a6ff8788b3a04c20c07fec709b961e385cd6fed037089e39cc1d8a0c",
+      "size": 1846
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs",
+      "gitBlob": "d9667fed6a480b3a378ff20da99f6b45a4a25018",
+      "sha256": "abd37945c9adf2d2e38e7b346765424eda2dc2e5fad7519415d827b5e651c3ac",
+      "size": 2071
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+      "gitBlob": "f566ba7bb272f529abe4c0137a17e54103e2d512",
+      "sha256": "a21cd1a3e48234715631c96ce40bd17b6d49c91cd75a46d72b4b48cf3cce2ce7",
+      "size": 18610
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs",
+      "gitBlob": "a35dfda6a6e07484ed81f53953373bcdd19b81b8",
+      "sha256": "fe7cb825192c131de69a53dfbd3cf74a3bce44e54d423df7db79968679cdb065",
+      "size": 10317
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs",
+      "gitBlob": "49ec8a1f0e362c375c68f70411d53d3f760a41b1",
+      "sha256": "eb4f0d4249218b090f88da4b5a83a5d95e50cd71f3972ff8d2c27579526551ca",
+      "size": 9240
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuMetalAllocationObservation.cs",
+      "gitBlob": "ece0da7f2c4d746f8168b1849bbba422bedc1e53",
+      "sha256": "c8e9d9b61779364cc3c452d45d7f300585212bd11d0268bd30e2bdad4e6eec6a",
+      "size": 651
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuMetalDiscovery.cs",
+      "gitBlob": "6e8eb5df7cd40e9085ce6c79ad70edafca991885",
+      "sha256": "b714dc0d4987216cdee1afc45cbd6899256e5250c8a4461c276783c6320a78c3",
+      "size": 6926
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs",
+      "gitBlob": "a9a004e88c9ceb6d7119cf07d997cd750e1d43b0",
+      "sha256": "6916590d8be98706d3a38afd6caa3e46d9a1a4eb9ab7d5234db0d2e8108182a8",
+      "size": 11187
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuMetalSession.cs",
+      "gitBlob": "675fae4385d2d2a261ad631fa552f717403d7c24",
+      "sha256": "fcaf96af3a7d433e65ffc47fb45cdf7637af85372cfa0f160098f5819f226e48",
+      "size": 12014
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuNativeDiscovery.cs",
+      "gitBlob": "9a1078f7b9fbb759e8ce68ebd32a0c953a144a6a",
+      "sha256": "ff5375b61f47c28b42b513a937e8410a49c56aa76ce0311206871594df0c7eb7",
+      "size": 8015
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuNativeSession.cs",
+      "gitBlob": "1d3b9946ae45829ac00f4d8ce3bc77dbd366993e",
+      "sha256": "1685bde25ac7c9df32c3b3a85e3264b9b6ba9ddd40372412d05c8ea9ba296144",
+      "size": 18581
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/LinuxCgroupContextReader.cs",
+      "gitBlob": "2c5375d486eb399e4beb77416353c31d4d609b3b",
+      "sha256": "5e0af7c0c08fc39a1471c51d55793d2c29c16892f56741fcc2452b058ee9787b",
+      "size": 10635
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/LinuxCgroupDirectoryReader.cs",
+      "gitBlob": "19a1279918e142ea61c8f061f97ee83f228b2c93",
+      "sha256": "73e595b44e69f71056f84b28bb4ac4f24f5ec8f598da097b543e6dec5e2ae326",
+      "size": 21569
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/LinuxCgroupTimedCounterReader.cs",
+      "gitBlob": "f9cdd57d0bfbac5e010876df5c421274f27eee45",
+      "sha256": "7f675fe5fb84e39957e96a86782849759e58349700e6f7f317f07d08ec204fd2",
+      "size": 8015
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/LinuxOwnedSpillDirectory.cs",
+      "gitBlob": "f06ed6ba61ca5d04ccb463837c5132f765d9a9b6",
+      "sha256": "cc64df493017430c72c48f05c4f6e43e800054032ac00decef2c55a0f3b58431",
+      "size": 16014
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/LinuxProcMemoryPressureSource.cs",
+      "gitBlob": "6bb320704fe449fe9ef46bae19393d92595e6d6e",
+      "sha256": "6ca37780170720df41ae3a89b51bde677d1809bdcff976d758f3bac7217463cf",
+      "size": 10787
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/LinuxVmStatActivityReader.cs",
+      "gitBlob": "ad0d2292dc5ad436a36bec64aa246a78c1a43e68",
+      "sha256": "68eec2938a172eca744442959b6e21734fb2b3c3579743764c7ef521da0b83c7",
+      "size": 5958
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/MacOsSysctlMemoryReader.cs",
+      "gitBlob": "ea2a9c7c1b044febe6bcbb08777f6c4d3bd16140",
+      "sha256": "cce0644c66b50f36dc668e6eed3581133f27fb0b0fc2b5a70e53c77d28cbbf83",
+      "size": 10114
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/OsNumaRangeApi.cs",
+      "gitBlob": "7081473cc6a401abf6a2e923c21a07d7a3ac796f",
+      "sha256": "a730df831a378b3accc6a96a43bf387e009b5a74031121a8faf84cb438c45abf",
+      "size": 1528
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/OsNumaTopologySource.cs",
+      "gitBlob": "a59c90f72b6ee57e038398d9fb661eb284c1b62d",
+      "sha256": "d5b8cf1a2407fcb1cb3558d1db8e9299131aadd8796074c41223cfaf5916c39f",
+      "size": 5550
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/OsPageNativeApi.cs",
+      "gitBlob": "a8031f707c46bb779a756130a68498cb3be8e053",
+      "sha256": "4e2d93c08229da7b641cfc47df5bbc09a71cea4b7351d9a12a8c7136cbb2c9cd",
+      "size": 7997
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/OsPageRegion.cs",
+      "gitBlob": "cf21d452ce9ff83243fe6b74bd44e9951c3e91c3",
+      "sha256": "57bb95ff506e76e30e86c3fc1f770f4c76442b11caaa8d67c5bf9e3e9317ae57",
+      "size": 14836
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/WindowsCurrentJobMemoryReader.cs",
+      "gitBlob": "89ac490cacfff4adbec0bb2f79fb63245edce1ee",
+      "sha256": "bc28f6f2f1b0bec3bb142e8975fbf662af0cdb812bdd4726f2e46b0fd4e39e79",
+      "size": 16275
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/WindowsNativeMemoryPressureReader.cs",
+      "gitBlob": "312584001b415d920e6256b1928c29195cc616c8",
+      "sha256": "0d7f97330f63e27838250c27070f10d8d2d901cf71729adf9cfe6dec9dfeb0b5",
+      "size": 15250
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupCounterNormalizer.cs",
+      "gitBlob": "7f488c19cfd82816b11af62adb0ac1fcd88dd2d3",
+      "sha256": "3339c2aa88baabbb0157d1623f3fdc61ac1de692f35cb8d8f819c6fb40119893",
+      "size": 4251
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupCounterParser.cs",
+      "gitBlob": "d9b1b1756cec162f3359a6a8c599f728699a97db",
+      "sha256": "b1149b320e10328699e36af187d9337bf2ee75bc703380cd1b5ca8947bbb32bb",
+      "size": 6631
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupScopeResolver.cs",
+      "gitBlob": "15756b10fc962d504d32aa9632519cde81e8e1e5",
+      "sha256": "422e190eb2e13bd57b6c703584b8312c688c7690de71606dcf41d79d73a0c0ad",
+      "size": 9982
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupV1StatParser.cs",
+      "gitBlob": "64b8dee8fc67aef981e46bee602d1bce386029eb",
+      "sha256": "114381828bbcbf3e0ce58df66baad854279421fcdc2e54330bb146fa821160f8",
+      "size": 6183
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Pressure/LinuxVmStatActivityParser.cs",
+      "gitBlob": "098d578849986d370b68e373e25cfe66be250abc",
+      "sha256": "dd948a1a5f80f0e4ebe1dd613b935065ef4f041efaa520fccfad467835e949ed",
+      "size": 3967
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Pressure/LinuxZramMemoryStatParser.cs",
+      "gitBlob": "21b980bbf912ec71ba2bd5479a663cf60fd245a6",
+      "sha256": "7068036dee0bae0351d6a34c26a18593785b2b1e740bcc5d151592ee2ecfe322",
+      "size": 4469
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs",
+      "gitBlob": "d9f7c2e0b73ab95f7f506e606a2769324351802f",
+      "sha256": "00d8f9e93de45468330452e3d447a77c5b9e5dfbe0e926c613e5ddc54af4300f",
+      "size": 17243
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Transient/DatabaseMaterializationScope.cs",
+      "gitBlob": "57d923033c9e5cfc82fffd0c75e269518a8a8117",
+      "sha256": "f6dae46ca92f4e19ef9c221b15d6e578764f9902eecf61fe6b42ec291edf9b00",
+      "size": 6995
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Transient/NotificationPayloadLease.cs",
+      "gitBlob": "f4518f042df52276a686e08da01236ba9d19399d",
+      "sha256": "429262109598dba06142c5c8a6e3c42172e6a4d5055bc9882afe0aa91d0a577e",
+      "size": 1661
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Transient/TransientBufferLease.cs",
+      "gitBlob": "bce179f7f10d3491b1de932934a604a404991805",
+      "sha256": "e306036baf38f4aca701e1e85e13e3df028c9c83a9582ba21a637ec48b8d0e52",
+      "size": 4231
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Transient/TransientBufferPool.cs",
+      "gitBlob": "bedecf4ad01cfd3c629ef80503c9938e90519555",
+      "sha256": "7354bcddd321e9108e84bfb579373a23075fc776e29b8fadc2882b652815d8d8",
+      "size": 8950
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Transient/TransientWorkload.cs",
+      "gitBlob": "d2befb813c54664e740369073307c4e8818a7270",
+      "sha256": "6c6962ee70b108bc6bf1ec6564950db7d6e34858681c5e930f80f3cda0059436",
+      "size": 918
+    },
+    {
+      "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+      "gitBlob": "3b73177aeb6cca1303954a072c56462ac5abab79",
+      "sha256": "01109f9199aa0e7484684a9d464b3c2ed5115192e0b3730c995493b499e4cd02",
+      "size": 68883
+    },
+    {
+      "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs",
+      "gitBlob": "f01fba6b1f1e6268a081f2cafcf1536d2315f2e5",
+      "sha256": "8272a9861da2a59f3005d772878cbb219ec7de6301c3577561cb50f023ffb089",
+      "size": 41166
+    },
+    {
+      "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.Runtime.cs",
+      "gitBlob": "52bc83479d992171a946777c596bfb3d14847edb",
+      "sha256": "467a94531021669d0a45de2548ad7884c7bb4a3c1bbeeda957b95b3d90e7b2e9",
+      "size": 8475
+    },
+    {
+      "path": "tests/backend/FsusBlog.Server.Tests.csproj",
+      "gitBlob": "eabae0a574d36a17a9af7885ef2528ec4f010707",
+      "sha256": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c",
+      "size": 2812
+    },
+    {
+      "path": "tests/backend/Unit/OwnedPublicHotReadSnapshotTests.cs",
+      "gitBlob": "b1a68abb524688264fa99623b3fd20343d196104",
+      "sha256": "7f85a7fa25be024b21b0341efa29d0b9fa1d24b1e6dd96831f7344a064a73e39",
+      "size": 25328
+    }
+  ],
+  "priorDependencyInventoryIsNotRuntimeOrQualificationEvidence": true
+}

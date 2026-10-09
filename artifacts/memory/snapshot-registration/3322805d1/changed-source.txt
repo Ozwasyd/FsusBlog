@@ -1,0 +1,11 @@
+Policy increment: c1ac6630e86a899f4acf59283ea10a4fcdd69894..c9b9695b23f0c6aae6a80e61eda0cb172d14f35f
+docs/architecture/repository-layout.md
+src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs
+src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshot.HostOwnership.cs
+src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs
+src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.HostOwnership.cs
+tests/backend/Unit/PublicHotReadSnapshotOwnershipPolicyTests.cs
+
+Registration increment: 9505f974fb4c18830dc0e92e543e54747ac229fb..3322805d17a84cd923c446ccafaa934f7571a865
+config/application/backend-configuration-contract.json
+docs/configuration/backend-configuration-reference.generated.md
