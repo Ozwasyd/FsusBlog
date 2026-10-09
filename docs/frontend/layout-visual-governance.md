@@ -329,6 +329,13 @@ declaration. Duplicate, nested, imported, shadowed or malformed macros and unkno
 defaults or call inputs remain errors. A declaration without actual suppliers
 retains its unbound input error.
 
+Script render conjunctions retain their actual right-hand render source and
+authored guard without choosing a product state. Unknown render targets, children
+and prop spreads remain errors, and route-name guards retain their visual-branch
+rejection. TableV2's conjunction syntax now exposes its actual guarded renderer
+locations; unsupported renderer definitions and scoped slot objects still fail.
+Logical disjunctions and nullish render fallbacks receive no inferred source.
+
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

@@ -1075,6 +1075,15 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     output(node.whenFalse, parentId, ancestors, [...conditional, { name: 'else', expression: node.condition.getText() }], new Set(seen));
                     return;
                 }
+                if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)
+                {
+                    if (branches.usesRouteName(node.left))
+                    {
+                        errors.push({ ...location(record.file, node.getStart()), reason: 'route-name-visual-branch' });
+                    }
+                    output(node.right, parentId, ancestors, [...conditional, { name: 'if', expression: node.left.getText() }], new Set(seen));
+                    return;
+                }
                 if (ts.isArrayLiteralExpression(node))
                 {
                     node.elements.forEach((element) => output(element, parentId, ancestors, conditional, new Set(seen)));
