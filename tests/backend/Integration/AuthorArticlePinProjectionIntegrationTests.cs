@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Security.Claims;
 
 using FsusBlog.Migration.Definitions;
@@ -275,22 +276,27 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
         }
         NpgsqlConnection native = Assert.IsType<NpgsqlConnection>(db.Ado.Connection);
         var transaction = db.Ado.Transaction;
-        await using var blocker = new NpgsqlConnection(native.ConnectionString);
-        await using var observer = new NpgsqlConnection(native.ConnectionString);
+        // The original client configuration retains the fixture's credentials and temporal options.
+        string testConnectionString = db.CurrentConnectionConfig.ConnectionString;
+        var blocker = new NpgsqlConnection(testConnectionString);
+        var observer = new NpgsqlConnection(testConnectionString);
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await blocker.OpenAsync(deadline.Token);
-        await observer.OpenAsync(deadline.Token);
-        await using NpgsqlTransaction blockingTransaction = await blocker.BeginTransactionAsync(deadline.Token);
-        await using (var command = new NpgsqlCommand($"LOCK TABLE {table} IN ACCESS EXCLUSIVE MODE;", blocker, blockingTransaction))
-        {
-            await command.ExecuteNonQueryAsync(deadline.Token);
-        }
         using var prior = new CancellationTokenSource();
         using var requested = new CancellationTokenSource();
-        db.Ado.CancellationToken = prior.Token;
+        NpgsqlTransaction? blockingTransaction = null;
         Task<AuthorArticlePinPermissionSnapshot>? pending = null;
+        ExceptionDispatchInfo? failure = null;
+        var cleanupFailureTypes = new List<string>();
         try
         {
+            await blocker.OpenAsync(deadline.Token);
+            await observer.OpenAsync(deadline.Token);
+            blockingTransaction = await blocker.BeginTransactionAsync(deadline.Token);
+            await using (var command = new NpgsqlCommand($"LOCK TABLE {table} IN ACCESS EXCLUSIVE MODE;", blocker, blockingTransaction))
+            {
+                await command.ExecuteNonQueryAsync(deadline.Token);
+            }
+            db.Ado.CancellationToken = prior.Token;
             pending = CreatePermissionAuthority(db).ResolveAsync(
                 new(s_owner, Guid.CreateVersion7(), [1]), requested.Token);
             while (!await IsWaitingForLockAsync(observer, native.ProcessID, deadline.Token))
@@ -314,26 +320,72 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
                 Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
             }
         }
+        catch (Exception error)
+        {
+            failure = ExceptionDispatchInfo.Capture(error);
+        }
         finally
         {
-            prior.Cancel();
-            requested.Cancel();
-            // Release the test-owned lock before draining a failed negative control's SQL task.
-            await blockingTransaction.RollbackAsync(CancellationToken.None);
+            await CompleteCleanupAsync(() =>
+            {
+                prior.Cancel();
+                return Task.CompletedTask;
+            });
+            await CompleteCleanupAsync(() =>
+            {
+                requested.Cancel();
+                return Task.CompletedTask;
+            });
+            using var cleanupDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            if (blockingTransaction is not null)
+            {
+                await CompleteCleanupAsync(() => blockingTransaction.RollbackAsync(cleanupDeadline.Token));
+            }
+            // Closing only the test-owned blocker also releases its lock if rollback failed.
+            await CompleteCleanupAsync(() => blocker.CloseAsync());
             if (pending is not null)
             {
-                try
+                // Await the actual SQL task even when earlier cleanup failed; never abandon the borrowed client.
+                await CompleteCleanupAsync(async () =>
                 {
                     await pending;
-                }
-                catch (OperationCanceledException)
-                {
-                }
+                }, ignoreCancellation: true);
             }
-            db.Ado.CancellationToken = null;
+            await CompleteCleanupAsync(() =>
+            {
+                db.Ado.CancellationToken = null;
+                return Task.CompletedTask;
+            });
             if (callerTransaction)
             {
-                await db.Ado.RollbackTranAsync();
+                await CompleteCleanupAsync(() => db.Ado.RollbackTranAsync());
+            }
+            if (blockingTransaction is not null)
+            {
+                await CompleteCleanupAsync(() => blockingTransaction.DisposeAsync().AsTask());
+            }
+            await CompleteCleanupAsync(() => observer.DisposeAsync().AsTask());
+            await CompleteCleanupAsync(() => blocker.DisposeAsync().AsTask());
+        }
+        if (failure is not null && cleanupFailureTypes.Count > 0)
+        {
+            failure.SourceException.Data["PermissionCleanupFailureTypes"] = cleanupFailureTypes.ToArray();
+        }
+        failure?.Throw();
+
+        async Task CompleteCleanupAsync(Func<Task> cleanup, bool ignoreCancellation = false)
+        {
+            try
+            {
+                await cleanup();
+            }
+            catch (OperationCanceledException) when (ignoreCancellation)
+            {
+            }
+            catch (Exception error)
+            {
+                failure ??= ExceptionDispatchInfo.Capture(error);
+                cleanupFailureTypes.Add(error.GetType().FullName ?? error.GetType().Name);
             }
         }
     }
