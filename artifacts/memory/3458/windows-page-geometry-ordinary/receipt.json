@@ -1,0 +1,203 @@
+{
+  "evidenceKind": "ordinary-source-and-mapping-controls-only",
+  "sourceCommit": "d9e54fb049c609baf445ca1fb4b63ebcc31c2671",
+  "commonBase": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+  "policyBlob": "7947a604ddfa427e95e991a35b7d4af919e81312",
+  "sourceFiles": {
+    "src/backend/Infrastructure/Memory/Platform/WindowsPageGeometryReader.cs": "3a7ee3ef40e1fa71cc427bc2a5399c9ce7723c829007d503a983e389846596fc",
+    "tests/backend/Unit/WindowsPageGeometryReaderTests.cs": "53218f394dc10aae378385e968bcf078093e6c94cfb922bcd0ad8424c0aac518"
+  },
+  "compiledAssemblies": {
+    "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "bcff715e04dd056a20d3f867362930035c77e50f40c33a0b0b85681f65291657",
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "f24bee23bd8cb321d53bc1039c1d5fd8871a097371c39fd29e8e9da6ef3caebf"
+  },
+  "host": "Debian 13 linux-x64; .NET SDK 10.0.401; runtime 10.0.12",
+  "history": [
+    {
+      "phase": "initialOfflineAttempt",
+      "restore": "FAIL NU1101",
+      "testExecution": "UNRUN before startup",
+      "executedCases": 0
+    },
+    {
+      "phase": "officialFeedRecovery",
+      "restore": "PASS locked official route; audit remained enabled",
+      "testProjectBuild": "PASS 0 errors, 1511 warnings; no warnings in owned source",
+      "tests": "PASS 24 cases / 13 exact methods",
+      "executedOutsideAllowlist": 0,
+      "executedAndExcluded": 0
+    }
+  ],
+  "nugetSetup": {
+    "config": "config/build/backend-restore.xml",
+    "feed": "https://api.nuget.org/v3/index.json",
+    "taskOwnedCache": true,
+    "seed": "copied existing installed cache before normal restore",
+    "trackedProjectLockVersionPolicyCredentialsChanged": false,
+    "audit": "NU1903 for existing SQLitePCLRaw.lib.e_sqlite3 2.1.11 retained"
+  },
+  "packageIdentityProbeHistory": "A supplemental raw-archive-versus-lock comparison failed because it compared distinct signed-archive and NuGet content identities. The corrected check separately matched NuGet contentHash against lock/metadata/assets and raw archive SHA512 against .nupkg.sha512. No package, lock or policy bytes were modified.",
+  "commands": [
+    [
+      "dotnet",
+      "restore",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--locked-mode",
+      "--configfile",
+      "config/build/backend-restore.xml",
+      "--disable-parallel"
+    ],
+    [
+      "dotnet",
+      "build",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "-m:2"
+    ],
+    [
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-build",
+      "--no-restore",
+      "--list-tests",
+      "--filter",
+      "FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.SystemInfoLayoutMatchesSdkFieldWidthsAndPointerAlignment|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ImportsUseExactKernel32ExportsAndSdkSignatures|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.DisabledMakesZeroNativeCalls|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonWindowsIsUnsupportedAndMakesZeroNativeCalls|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.EnabledObservationReadsEachApiOnceAndKeepsByteGranularitiesDistinct|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ReturnedLargePageZeroIsUnsupportedRatherThanMissingOrSuccessful|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.MissingBothApisDoesNotFabricateAnySize|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnsignedSizesArePreservedWithoutSignedOrDwordTruncation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.InvalidModeIsRejectedBeforeAnyNativeCall|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonLoaderFailuresAreNotHiddenAsMissingInformation"
+    ],
+    [
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-build",
+      "--no-restore",
+      "--filter",
+      "FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.SystemInfoLayoutMatchesSdkFieldWidthsAndPointerAlignment|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ImportsUseExactKernel32ExportsAndSdkSignatures|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.DisabledMakesZeroNativeCalls|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonWindowsIsUnsupportedAndMakesZeroNativeCalls|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.EnabledObservationReadsEachApiOnceAndKeepsByteGranularitiesDistinct|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.ReturnedLargePageZeroIsUnsupportedRatherThanMissingOrSuccessful|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnreportedSystemSizesStayIndependentlyUnknown|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableLargePageApiStaysUnknownWithoutErasingSystemSizes|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnavailableSystemInfoApiStaysUnknownWithoutErasingReturnedLargePageZero|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.MissingBothApisDoesNotFabricateAnySize|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.UnsignedSizesArePreservedWithoutSignedOrDwordTruncation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.InvalidModeIsRejectedBeforeAnyNativeCall|FullyQualifiedName=FsusBlog.Server.Tests.Unit.WindowsPageGeometryReaderTests.NonLoaderFailuresAreNotHiddenAsMissingInformation",
+      "--logger",
+      "trx;LogFileName=windows-page-geometry.trx",
+      "--results-directory",
+      "${TASK_EVIDENCE}/ordinary-recovery-results"
+    ]
+  ],
+  "selectionSafety": "Before both selected commands: nonempty exact positive FQNs, 13 unique methods, 24 expected cases, source/import/hook verification. Before execution: discovered list matched all 24 cases. Failures stop the command; no default-suite fallback.",
+  "dynamicLimitations": {
+    "windowsNativeExecution": "UNRUN: no Windows host",
+    "backendQualification": "UNRUN: outside authorized scope",
+    "liveAllocationProtectionNumaHeldAudits": "UNRUN: outside authorized scope",
+    "remoteCi": "not a claimed pass"
+  },
+  "logPublication": "Actual raw logs remain preserved. Published logs replace only checkout/cache/evidence absolute paths with labeled variables; raw and published hashes are both recorded. Initial NU1101/UNRUN evidence is preserved, not rewritten as success. The three published Clang dumps also strip line-end spaces for repository text style; their actual raw originals remain unchanged.",
+  "artifacts": [
+    {
+      "path": "initial-offline-restore.txt",
+      "rawSha256": "40439a35c6d0b1dab34fb54659f8b11280e06fe044da8d87caeacf10e7eed09e",
+      "publishedSha256": "d87ada215bc77fac776e16e0c96f4534890eccf2c346a509fc5406fc696e7014",
+      "rawBytes": 1844,
+      "publishedBytes": 1528
+    },
+    {
+      "path": "initial-test-attempt.txt",
+      "rawSha256": "45192c7898fa00f986ef016959962e0445dab53c6018dbcfaa080728ecc19ac0",
+      "publishedSha256": "2ec574fca819f8ae881194ff1f93bdbfffe879909d9cd6059fdaab9508de3933",
+      "rawBytes": 1163,
+      "publishedBytes": 1003
+    },
+    {
+      "path": "official-locked-restore.txt",
+      "rawSha256": "1e5c0bb3ac5616a6a2abe6184cc46a5d3e68d7994c4a045582eb15e197347d52",
+      "publishedSha256": "ebb3a45a0e8e691c96bf09f134b5364a368b82fc80cd6a85d6aebec999bd40c1",
+      "rawBytes": 1216,
+      "publishedBytes": 982
+    },
+    {
+      "path": "original-test-project-build.txt",
+      "rawSha256": "3b282326307d184035781141b200c93f4fbfd4b3450a45c0a01a946e258d02de",
+      "publishedSha256": "0bb4e7b4e3c2cd2bbc0a935b82b67d125fee1589b490b0bb408388afd4ac9370",
+      "rawBytes": 904076,
+      "publishedBytes": 746880
+    },
+    {
+      "path": "selected-tests-list.txt",
+      "rawSha256": "0e87aa21fe8872f83181400170b64262c721eaa921726d6638d00589b84f7dbd",
+      "publishedSha256": "7c7ae00d5b2879df4eea22da650e83bbbc20e40547ef2b00a5daa1201bd64480",
+      "rawBytes": 3269,
+      "publishedBytes": 3243
+    },
+    {
+      "path": "ordinary-test-results.txt",
+      "rawSha256": "8a6cbd716ba6e92201c3b72b92e4913249931d41a8078e49f03f29a423368b97",
+      "publishedSha256": "a082e9e20f0dbd12e81ee26b3b87d7493555574ee9909e047af306d333db0876",
+      "rawBytes": 407,
+      "publishedBytes": 375
+    },
+    {
+      "path": "ordinary-test-results.trx.xml",
+      "rawSha256": "d959e4a169dfeea0c2093f366087c93117649243dc9a74cb0f263df7734b3321",
+      "publishedSha256": "48a96340f797067092bd0080510593d57d4eacd16c7214507129aeb380033e0e",
+      "rawBytes": 35973,
+      "publishedBytes": 34725
+    },
+    {
+      "path": "selection-preflight.json",
+      "rawSha256": "bd69b3568ab45a575dfbf669a9231a8ef26b06358bc9721648d7cc69804cfb76",
+      "publishedSha256": "bd69b3568ab45a575dfbf669a9231a8ef26b06358bc9721648d7cc69804cfb76",
+      "rawBytes": 3660,
+      "publishedBytes": 3660
+    },
+    {
+      "path": "restored-packages.json",
+      "rawSha256": "8b36f9786296349a8c9f6541f22bfaf9222895be70af22c18db31ac832e08f82",
+      "publishedSha256": "8b36f9786296349a8c9f6541f22bfaf9222895be70af22c18db31ac832e08f82",
+      "rawBytes": 2122,
+      "publishedBytes": 2122
+    },
+    {
+      "path": "verified-test-membership.json",
+      "rawSha256": "aedab5a372ab51a0cdd664acccffb72f35a4dc93be30e74487de21ae3fbce2ec",
+      "publishedSha256": "aedab5a372ab51a0cdd664acccffb72f35a4dc93be30e74487de21ae3fbce2ec",
+      "rawBytes": 8990,
+      "publishedBytes": 8990
+    },
+    {
+      "path": "initial-evidence.json",
+      "rawSha256": "04b04f9e9bbfa5307469409fcdd004a05c7cfc057218915c35b434f49f9a5d51",
+      "publishedSha256": "04b04f9e9bbfa5307469409fcdd004a05c7cfc057218915c35b434f49f9a5d51",
+      "rawBytes": 1581,
+      "publishedBytes": 1581
+    },
+    {
+      "path": "csharp-style.txt",
+      "rawSha256": "bbfb2e234c051cd60397d2f1e4e6e2d51cccf51df4e3d95746c9967ed6234027",
+      "publishedSha256": "bbfb2e234c051cd60397d2f1e4e6e2d51cccf51df4e3d95746c9967ed6234027",
+      "rawBytes": 45,
+      "publishedBytes": 45
+    },
+    {
+      "path": "sdk-layout-control.c.txt",
+      "rawSha256": "6a1ba2d4cd68b28a379899b26444f40b1df9ea8086f3be0d784cc0e6e0b885cd",
+      "publishedSha256": "6a1ba2d4cd68b28a379899b26444f40b1df9ea8086f3be0d784cc0e6e0b885cd",
+      "rawBytes": 1409,
+      "publishedBytes": 1409
+    },
+    {
+      "path": "sdk-layout-x64.txt",
+      "rawSha256": "f4432739eebc8182b15452d30524528c945fe38d29e03d83e346f0aea15142f6",
+      "publishedSha256": "98548842ac8463ae18cee45645d6a31ee5e5515287b65525932e172e470f8df9",
+      "rawBytes": 1666,
+      "publishedBytes": 1633
+    },
+    {
+      "path": "sdk-layout-arm64.txt",
+      "rawSha256": "f4432739eebc8182b15452d30524528c945fe38d29e03d83e346f0aea15142f6",
+      "publishedSha256": "98548842ac8463ae18cee45645d6a31ee5e5515287b65525932e172e470f8df9",
+      "rawBytes": 1666,
+      "publishedBytes": 1633
+    },
+    {
+      "path": "sdk-layout-x86.txt",
+      "rawSha256": "2940578eacecd00433a8a7c646b86aeeb7fa74efddd9f78b0c6f49b1405c763c",
+      "publishedSha256": "6d47731c35475483592c2bf13607fb3f476cdef4d57578cc36c2b229b6cbae75",
+      "rawBytes": 1666,
+      "publishedBytes": 1633
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+
+*** Dumping AST Record Layout
+         0 | struct __NSConstantString_tag
+         0 |   const int * isa
+         8 |   int flags
+        16 |   const char * str
+        24 |   long length
+           | [sizeof=32, align=8]
+
+*** Dumping AST Record Layout
+         0 | struct _SYSTEM_INFO::(unnamed union)::(unnamed at ${TASK_EVIDENCE}/sdk-layout-control.c:16:9)
+         0 |   WORD wProcessorArchitecture
+         2 |   WORD wReserved
+           | [sizeof=4, align=2]
+
+*** Dumping AST Record Layout
+         0 | union _SYSTEM_INFO::(unnamed at ${TASK_EVIDENCE}/sdk-layout-control.c:14:5)
+         0 |   DWORD dwOemId
+         0 |   struct _SYSTEM_INFO::(unnamed union)::(anonymous at ${TASK_EVIDENCE}/sdk-layout-control.c:16:9)
+         0 |     WORD wProcessorArchitecture
+         2 |     WORD wReserved
+           | [sizeof=4, align=4]
+
+*** Dumping AST Record Layout
+         0 | struct _SYSTEM_INFO
+         0 |   union _SYSTEM_INFO::(anonymous at ${TASK_EVIDENCE}/sdk-layout-control.c:14:5)
+         0 |     DWORD dwOemId
+         0 |     struct _SYSTEM_INFO::(anonymous union)::(anonymous at ${TASK_EVIDENCE}/sdk-layout-control.c:16:9)
+         0 |       WORD wProcessorArchitecture
+         2 |       WORD wReserved
+         4 |   DWORD dwPageSize
+         8 |   LPVOID lpMinimumApplicationAddress
+        16 |   LPVOID lpMaximumApplicationAddress
+        24 |   DWORD_PTR dwActiveProcessorMask
+        32 |   DWORD dwNumberOfProcessors
+        36 |   DWORD dwProcessorType
+        40 |   DWORD dwAllocationGranularity
+        44 |   WORD wProcessorLevel
+        46 |   WORD wProcessorRevision
+           | [sizeof=48, align=8]

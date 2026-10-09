@@ -1,0 +1,38 @@
+typedef unsigned long DWORD;
+typedef unsigned short WORD;
+typedef void *LPVOID;
+#ifdef _WIN64
+typedef unsigned __int64 ULONG_PTR;
+#else
+typedef unsigned long ULONG_PTR;
+#endif
+typedef ULONG_PTR DWORD_PTR;
+typedef ULONG_PTR SIZE_T;
+#define DUMMYSTRUCTNAME
+#define DUMMYUNIONNAME
+typedef struct _SYSTEM_INFO {
+    union {
+        DWORD dwOemId;          // Obsolete field...do not use
+        struct {
+            WORD wProcessorArchitecture;
+            WORD wReserved;
+        } DUMMYSTRUCTNAME;
+    } DUMMYUNIONNAME;
+    DWORD dwPageSize;
+    LPVOID lpMinimumApplicationAddress;
+    LPVOID lpMaximumApplicationAddress;
+    DWORD_PTR dwActiveProcessorMask;
+    DWORD dwNumberOfProcessors;
+    DWORD dwProcessorType;
+    DWORD dwAllocationGranularity;
+    WORD wProcessorLevel;
+    WORD wProcessorRevision;
+} SYSTEM_INFO, *LPSYSTEM_INFO;
+_Static_assert(sizeof(DWORD) == 4, "DWORD width");
+_Static_assert(sizeof(WORD) == 2, "WORD width");
+_Static_assert(sizeof(DWORD_PTR) == sizeof(void *), "DWORD_PTR width");
+_Static_assert(sizeof(SIZE_T) == sizeof(void *), "SIZE_T width");
+_Static_assert(__builtin_offsetof(SYSTEM_INFO, dwPageSize) == 4, "page-size offset");
+_Static_assert(sizeof(SYSTEM_INFO) == (sizeof(void *) == 8 ? 48 : 36), "SYSTEM_INFO size");
+_Static_assert(__builtin_offsetof(SYSTEM_INFO, dwAllocationGranularity) == (sizeof(void *) == 8 ? 40 : 28), "granularity offset");
+SYSTEM_INFO observation;
