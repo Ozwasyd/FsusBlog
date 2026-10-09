@@ -1,0 +1,52 @@
+{
+  "schema": "fsusblog.comment-only-source-correction.v1",
+  "sourceCommit": "e1f2a4a7b94d1274744284b944cff591aefee413",
+  "base": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "branch": "codex/shared-font-theme-borrow-comment-20261009",
+  "path": "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp",
+  "beforeBlob": "eb626307a95b52e75ab355f8792dd97ed241d895",
+  "afterBlob": "16fab3c028c2b485aaf611c7e73eec9b2ffcff40",
+  "beforeSha256": "8c2a03ad90b2bf91cf3b1f7e36b6086b69907e120912d6ebd32cd97e6c580d2e",
+  "afterSha256": "f82333e9cf499ce923a53684f5cf288cf3927f98ea309c9c4ace2ee2cf394ff6",
+  "oldComment": "// Borrowed slices only: no allocation or ownership of the caller's payload.",
+  "newComment": "// Borrowed ranges into the caller-owned payload; the caller retains ownership.",
+  "onlyExactCommentReplacement": true,
+  "allOtherBytesIdentical": true,
+  "codeAbiStructureAndAssertionsUnchanged": true,
+  "existingPublishedFixSearch": "Known fetched repository refs: git log --all on exact path returned only original5ba42dbe66f41753b2d1cee50c0eb0c333f2a6af; no newer existing local published source fix found.",
+  "checkerUnchanged": true,
+  "originalCheckerBefore": {
+    "sourceCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+    "argv": [
+      "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/governance/check-code-intent.mjs"
+    ],
+    "cwd": "/workspace/FsusBlog-font-theme-borrow-comment",
+    "startedAtUtc": "2026-10-09T13:57:54.041543+00:00",
+    "endedAtUtc": "2026-10-09T13:58:10.638797+00:00",
+    "exitCode": 1,
+    "seconds": 16.597,
+    "stdoutArtifact": "original-code-intent-before.log",
+    "runtimeQualification": false
+  },
+  "rootQualification": false,
+  "nativeRuntime": "NOT RUN; comment-only request prohibits native runtime/held audits",
+  "contentApiWrites": 0,
+  "createdAtUtc": "2026-10-09T13:59:34.740139+00:00",
+  "originalCheckerAfter": {
+    "sourceCommit": "e1f2a4a7b94d1274744284b944cff591aefee413",
+    "argv": [
+      "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+      "tools/governance/check-code-intent.mjs"
+    ],
+    "cwd": "/workspace/FsusBlog-font-theme-borrow-comment",
+    "startedAtUtc": "2026-10-09T13:59:01.984926+00:00",
+    "endedAtUtc": "2026-10-09T13:59:17.635515+00:00",
+    "exitCode": 0,
+    "seconds": 15.651,
+    "stdoutArtifact": "original-code-intent-after.log",
+    "runtimeQualification": false
+  },
+  "checkedFiles": 5487,
+  "registeredSourceFiles": 19
+}

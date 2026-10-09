@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "e1f2a4a7b94d1274744284b944cff591aefee413",
+  "argv": [
+    "/tmp/chain-3735-tooling/node24.16/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-code-intent.mjs"
+  ],
+  "cwd": "/workspace/FsusBlog-font-theme-borrow-comment",
+  "startedAtUtc": "2026-10-09T13:59:01.984926+00:00",
+  "endedAtUtc": "2026-10-09T13:59:17.635515+00:00",
+  "exitCode": 0,
+  "seconds": 15.651,
+  "stdoutArtifact": "original-code-intent-after.log",
+  "runtimeQualification": false
+}
