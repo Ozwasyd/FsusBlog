@@ -513,6 +513,7 @@ public sealed class ArticleRelationSourceCoordinateAuthorityIntegrationTests(Pos
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Task<IReadOnlyList<ArticleRelationRevisionCoordinate>> read = _authority.ReadRevisionsAsync(
             waiter, new (int, long)[] { (article, revision) }, cancellation.Token);
+        Exception? primaryFailure = null;
         try
         {
             await ObserveBlockedCommandAsync(connectionString, pid, read, cancellation.Token);
@@ -525,17 +526,14 @@ public sealed class ArticleRelationSourceCoordinateAuthorityIntegrationTests(Pos
             await using var command = new NpgsqlCommand("SELECT 1;", connection);
             Assert.Equal(1, await command.ExecuteScalarAsync());
         }
+        catch (Exception exception)
+        {
+            primaryFailure = exception;
+            throw;
+        }
         finally
         {
-            cancellation.Cancel();
-            try
-            {
-                await read;
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            await blocker.Ado.RollbackTranAsync();
+            await ReleaseBlockerAndDrainAsync(blocker, read, cancellation, primaryFailure);
         }
         Assert.Equal(saved, Assert.Single(await _authority.ReadRevisionsAsync(waiter, new (int, long)[] { (article, revision) })));
         await AssertCountsAsync(blocker, 1, 1);
@@ -556,6 +554,7 @@ public sealed class ArticleRelationSourceCoordinateAuthorityIntegrationTests(Pos
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var pairs = new (int, long)[] { (article, revision) };
         Task<IReadOnlyList<ArticleRelationRevisionCoordinate>> read = _authority.ReadRevisionsAsync(waiter, pairs, cancellation.Token);
+        Exception? primaryFailure = null;
         try
         {
             await ObserveBlockedCommandAsync(connectionString, pid, read, cancellation.Token);
@@ -563,22 +562,74 @@ public sealed class ArticleRelationSourceCoordinateAuthorityIntegrationTests(Pos
             await blocker.Ado.RollbackTranAsync();
             Assert.Equal(saved, Assert.Single(await read));
         }
+        catch (Exception exception)
+        {
+            primaryFailure = exception;
+            throw;
+        }
         finally
         {
-            cancellation.Cancel();
-            try
-            {
-                await read;
-            }
-            catch (OperationCanceledException)
-            {
-            }
+            await ReleaseBlockerAndDrainAsync(blocker, read, cancellation, primaryFailure);
+        }
+        await AssertCountsAsync(waiter, 1, 1);
+    }
+
+    private static async Task ReleaseBlockerAndDrainAsync(
+        SqlSugarClient blocker, Task read, CancellationTokenSource cancellation, Exception? primaryFailure)
+    {
+        var cleanupFailures = new List<Exception>();
+        try
+        {
+            // Release this test's lock before awaiting pending work on the borrowed waiter.
             if (blocker.Ado.Transaction is not null)
             {
                 await blocker.Ado.RollbackTranAsync();
             }
         }
-        await AssertCountsAsync(waiter, 1, 1);
+        catch (Exception exception)
+        {
+            cleanupFailures.Add(exception);
+        }
+        finally
+        {
+            try
+            {
+                cancellation.Cancel();
+            }
+            catch (Exception exception)
+            {
+                cleanupFailures.Add(exception);
+            }
+            finally
+            {
+                // A rollback/cancellation error must not let using dispose a still-borrowed client.
+                // Await real completion; do not substitute a timeout or detach the read task.
+                try
+                {
+                    await read;
+                }
+                catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+                {
+                }
+                catch (Exception exception)
+                {
+                    cleanupFailures.Add(exception);
+                }
+            }
+        }
+
+        if (cleanupFailures.Count != 0)
+        {
+            // Keep the original assertion/operation failure and stack; retain every secondary
+            // cleanup error for inspection instead of replacing the primary exception or hiding it.
+            Exception failure = primaryFailure ?? cleanupFailures[0];
+            failure.Data["ArticleRelationSourceCoordinateCleanupFailures"] = cleanupFailures
+                .Where(exception => !ReferenceEquals(exception, failure)).ToArray();
+            if (primaryFailure is null)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+            }
+        }
     }
 
     private static async Task ObserveBlockedCommandAsync(string connectionString, int pid, Task operation, CancellationToken token)
