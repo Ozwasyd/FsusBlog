@@ -1,0 +1,130 @@
+{
+  "checkedAtUtc": "2026-10-09T12:02:17.123819+00:00",
+  "checkedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "reviewPreimageHead": "6e73b124e330b1aa115aa0bf2cfa7cb5f325023c",
+  "mode": "read-only source and ownership preflight; artifact-only update",
+  "parentDecision": "single installation identity, selected; no longer pending product choice",
+  "soleImplementationOwnerThread": "01a12083-5888-74c3-bd48-2d091c82b02d",
+  "waitingFor": [
+    "exact owner contract/source commit",
+    "parent assignment of existing-file integration hunks"
+  ],
+  "ownerExclusivePaths": [
+    {
+      "path": "src/backend/Services/SystemService.SiteIdentity.cs",
+      "existsAtReviewedPreimage": false,
+      "changedByThisReview": false
+    },
+    {
+      "path": "src/backend/Interfaces/ISystemSiteIdentityReader.cs",
+      "existsAtReviewedPreimage": false,
+      "changedByThisReview": false
+    },
+    {
+      "path": "src/backend/Models/ReadModels/SystemSiteIdentityContracts.cs",
+      "existsAtReviewedPreimage": false,
+      "changedByThisReview": false
+    },
+    {
+      "path": "src/migration/Definitions/SystemSiteIdentityMigrationDefinitions.cs",
+      "existsAtReviewedPreimage": false,
+      "changedByThisReview": false
+    },
+    {
+      "path": "tests/backend/Unit/SystemSiteIdentityTests.cs",
+      "existsAtReviewedPreimage": false,
+      "changedByThisReview": false
+    },
+    {
+      "path": "tests/backend/Integration/SystemSiteIdentityIntegrationTests.cs",
+      "existsAtReviewedPreimage": false,
+      "changedByThisReview": false
+    },
+    {
+      "path": "docs/development/system-site-identity.md",
+      "existsAtReviewedPreimage": false,
+      "changedByThisReview": false
+    }
+  ],
+  "sourcePreimages": [
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+      "gitBlob": "6138f3b208d98d1392d6511abfff1985630a5f88",
+      "sha256": "a46863dd512dec5e2e5cd3e373e7a36cbc00fba6c87da646514afad4482ab116"
+    },
+    {
+      "path": "src/backend/Services/SystemService.cs",
+      "gitBlob": "842f13491890fcd203b2b8abf223b619577e6c2b",
+      "sha256": "b918f3ce2f511d19c762fe4f81f1f7223406c59276f94f6fd68b505bfda0803e"
+    },
+    {
+      "path": "src/backend/Interfaces/ISystemService.cs",
+      "gitBlob": "46e146a47542cdbcf942f2e6288c85799107aca4",
+      "sha256": "eab1f21307372b4ccd1795ec80572f5d4080da77524c1156a4dc699c8a34a3c4"
+    },
+    {
+      "path": "src/backend/Infrastructure/CoreBridge/Gateways/SystemCoreGateway.cs",
+      "gitBlob": "ec24ed3f7ed31452363e9224f1e884b93b7873c2",
+      "sha256": "fea2fbf99a0a5a49496a925174c86ecca84b776c274a55fb4fae2e8db7d41738"
+    },
+    {
+      "path": "src/backend/Infrastructure/CoreBridge/Adapters/SystemServiceCoreAdapter.cs",
+      "gitBlob": "a3a69e4343bc067c389b27ed238b5738fff8836c",
+      "sha256": "c33b5de73c514ad63a9ccb50509a9b3b47f209b0701bcf54edd07be6f4f9d1bb"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs",
+      "gitBlob": "59d9c80053585f0947026fcb87ad5e25d75f2a17",
+      "sha256": "53a50482fc4a6f1e734844836647d4e945849c5dc483c1c805130163d4cbedc9"
+    },
+    {
+      "path": "src/migration/PgLegacyNonArticlePreparation.cs",
+      "gitBlob": "7a36a83cd77e941bdfbe66ad43d91ed625cdb194",
+      "sha256": "699da879cbbf66b6eab1f1081ffe7ccddac0fde01c290be7e0122a3b0a6ccc50"
+    },
+    {
+      "path": "src/migration/ArticlePreservationStorageWriter.cs",
+      "gitBlob": "6550749a3b9593d2a9136f5ed590ccf22c4b1100",
+      "sha256": "908cfcd41e77215b90d46d6fd57cbf442afad88a6ca7948d39648b7b2416cef2"
+    }
+  ],
+  "commands": [
+    {
+      "argv": [
+        "rg",
+        "-n",
+        "-i",
+        "systemconfig|sys_systemconfig",
+        "src/backend",
+        "src/migration",
+        "--glob",
+        "*.cs"
+      ],
+      "exitCode": 0,
+      "stdout": "src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:170:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:191:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:219:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:240:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:259:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/migration/OfflineMigrationSourceFingerprints.cs:33:        Table(\"sys_systemconfig\", \"key\", \"key:varchar(255):!\", \"value:text:!\"),\nsrc/backend/Infrastructure/Operations/DeploymentRuntimeState.cs:887:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Infrastructure/Operations/DeploymentRuntimeState.cs:909:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Infrastructure/Operations/DeploymentRuntimeState.cs:931:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/migration/ArticlePreservationStorageWriter.cs:28:    private const string ConfigurationOwner = \"FsusBlog.Server.Entities.SystemConfig\";\nsrc/migration/ArticlePreservationSourceReader.cs:147:                         $\"SELECT value FROM {Table(provider, \"sys_systemconfig\")} WHERE {Quote(provider, \"key\")} = @key\"))\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:312:                            WHERE table_schema = 'public' AND table_name = 'sys_systemconfig' AND column_name = 'key'\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:320:                                FROM sys_systemconfig\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:324:                                    WHERE p.slug = lower(replace(substr(sys_systemconfig.key, 10), '_', '-'))\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:327:                                DELETE FROM sys_systemconfig\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:334:                            FROM sys_systemconfig\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:338:                                RAISE EXCEPTION 'Legacy 20260517 length check failed: table=sys_systemconfig column=key row_count=% max_length=% expected_max=64',\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:343:                            ALTER TABLE sys_systemconfig ALTER COLUMN key TYPE varchar(64);\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:348:                            WHERE table_schema = 'public' AND table_name = 'sys_systemconfig' AND column_name = 'value'\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:352:                            FROM sys_systemconfig\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:356:                                RAISE EXCEPTION 'Legacy 20260517 length check failed: table=sys_systemconfig column=value row_count=% max_length=% expected_max=512',\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:361:                            ALTER TABLE sys_systemconfig ALTER COLUMN value TYPE varchar(512);\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:481:                            WHERE table_schema = 'public' AND table_name = 'sys_systemconfig'\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:485:                            FROM sys_systemconfig s\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:517:                    DELETE FROM sys_systemconfig\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:525:                        IF EXISTS (SELECT 1 FROM sys_systemconfig WHERE key LIKE 'Page_%') THEN\nsrc/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:526:                            RAISE EXCEPTION 'Legacy Page_* entries still exist in sys_systemconfig.';\nsrc/migration/SqliteArticlePreservationSourceReader.cs:93:            + \" FROM main.\\\"sys_systemconfig\\\" WHERE \\\"key\\\"=@author\").ToArray();\nsrc/migration/OfflineMigrationSourceObserver.Providers.cs:396:                            if (table.Name == \"sys_systemconfig\" && column.Name == \"key\")\nsrc/migration/OfflineMigrationSourceObserver.Providers.cs:401:                            if (table.Name == \"sys_systemconfig\" && column.Name == \"value\")\nsrc/migration/OfflineMigrationSourceObserver.Providers.cs:420:                    if (table.Name == \"sys_systemconfig\" && !configPage)\nsrc/migration/OfflineMigrationSourceObserver.Providers.cs:748:        long configKey = await ProviderScalarAsync(connection, transaction, $\"SELECT COUNT(*) FROM sys_systemconfig WHERE {nonPage} AND {length}({key})>64\", budget, cancellationToken).ConfigureAwait(false);\nsrc/migration/OfflineMigrationSourceObserver.Providers.cs:749:        long configValue = await ProviderScalarAsync(connection, transaction, $\"SELECT COUNT(*) FROM sys_systemconfig WHERE {nonPage} AND {length}(value)>512\", budget, cancellationToken).ConfigureAwait(false);\nsrc/migration/PgLegacyNonArticlePreparation.cs:383:            Bind(input, \"SystemConfig\", \"SELECT * FROM \" + Old(\"sys_systemconfig\") + \" s WHERE \" + NonPage(),\nsrc/migration/PgLegacyNonArticlePreparation.cs:386:                \"SELECT lower(replace(substr(\\\"key\\\",6),'_','-')) slug,value content FROM \" + Old(\"sys_systemconfig\") + \" WHERE \\\"key\\\" LIKE 'Page_%'\"\nsrc/migration/PgLegacyNonArticlePreparation.cs:387:                + \" UNION ALL SELECT lower(replace(substr(\\\"key\\\",10),'_','-')),value FROM \" + Old(\"sys_systemconfig\") + \" WHERE \\\"key\\\" LIKE 'sys:page:%'\",\nsrc/migration/OfflineMigrationSourceObserver.cs:436:            $\"SELECT COUNT(*) FROM public.sys_systemconfig WHERE {nonPage} AND LENGTH(\\\"key\\\")>64\", budget, cancellationToken).ConfigureAwait(false);\nsrc/migration/OfflineMigrationSourceObserver.cs:438:            $\"SELECT COUNT(*) FROM public.sys_systemconfig WHERE {nonPage} AND LENGTH(value)>512\", budget, cancellationToken).ConfigureAwait(false);\nsrc/backend/Infrastructure/NotificationStream/NotificationStreamRestartEndpoints.cs:32:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Infrastructure/NotificationStream/NotificationStreamRestartEndpoints.cs:46:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Infrastructure/NotificationStream/NotificationStreamDeploymentDrillEndpoints.cs:37:            .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Infrastructure/Auth/AdminPermissions.cs:16:    public const string SystemConfig = \"system.config\";\nsrc/backend/Infrastructure/Auth/AdminPermissions.cs:29:        SystemConfig,\nsrc/backend/Entities/SystemConfig.cs:8:    [SugarTable(\"sys_systemConfig\")]\nsrc/backend/Entities/SystemConfig.cs:9:    public class SystemConfig\nsrc/backend/Modules/Endpoints/ReleaseSchemaQualificationEndpoints.cs:30:            .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/ReleaseSchemaQualificationEndpoints.cs:34:            .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:335:        .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:342:        .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:387:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:435:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:489:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:536:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:584:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:632:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:651:        .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:661:        .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:671:        .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:681:        .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:695:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:720:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:768:        .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:814:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:844:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:874:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:923:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/FontAdminEndpoints.cs:20:            .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs:208:                !context.User.HasAdminPermission(AdminPermissions.SystemConfig))\nsrc/backend/Modules/Endpoints/CustomizationEndpoints.cs:22:            .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AdminIntegrityConsoleEndpoints.cs:20:            .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/SecurityEndpoints.cs:37:            .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:325:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:333:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:356:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:395:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:421:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:430:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:475:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:496:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:522:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:586:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:708:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:56:        .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:111:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:133:        .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:178:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:223:        .RequireAdminPermission(AdminPermissions.SystemConfig);\nsrc/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:266:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:295:        .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/ThemeAdminEndpoints.cs:20:            .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Modules/Endpoints/ClusterMembershipEndpoints.cs:26:            .RequireAdminPermission(AdminPermissions.SystemConfig)\nsrc/backend/Services/Authoring/PostgresArticleTemplateReferenceAuthority.cs:79:            bool canManageSite = actor.Permissions.Contains(AdminPermissions.SystemConfig);\nsrc/backend/Services/Authoring/ArticleTemplateAuthorityContracts.cs:88:                hasArticleWrite && actor.Permissions.Contains(AdminPermissions.SystemConfig),\nsrc/backend/Services/Distribution/BlogDistributionService.cs:288:            FROM sys_systemconfig\nsrc/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs:67:            : articleWrite && (!manage || actor.Permissions.Contains(AdminPermissions.SystemConfig));\nsrc/backend/Services/SystemService.cs:201:        SystemConfig[] configs =\nsrc/backend/Services/SystemService.cs:280:        SystemConfig[] configs =\nsrc/backend/Services/SystemService.cs:712:        var query = _db.Queryable<SystemConfig>()\nsrc/backend/Services/SystemService.cs:763:        var query = _db.Queryable<SystemConfig>()\n",
+      "stderr": "",
+      "stdoutArtifact": "configuration-writer-search.txt"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "findings": {
+    "DI": "scoped SystemService and separate ISystemService Core adapter; gateway consumes concrete SystemService",
+    "publicConfigWrites": "two fixed SystemConfig arrays (SEO24/compliance14); no arbitrary caller key in reviewed backend C#",
+    "offlineImport": "PgLegacyNonArticlePreparation imports all nonPage configuration with replaceSeedValues true and ON CONFLICT DO UPDATE; owner must prove protected-key behavior",
+    "boundedSearchNotImmutableStorageProof": true
+  },
+  "productionSourceChanges": false,
+  "consumedExternalSource": false,
+  "databaseWrites": false,
+  "tests": "NOT RUN; no production source change",
+  "runtimeOrProductAcceptance": false
+}

@@ -1,0 +1,99 @@
+src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:170:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:191:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:219:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:240:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs:259:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/migration/OfflineMigrationSourceFingerprints.cs:33:        Table("sys_systemconfig", "key", "key:varchar(255):!", "value:text:!"),
+src/backend/Infrastructure/Operations/DeploymentRuntimeState.cs:887:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Infrastructure/Operations/DeploymentRuntimeState.cs:909:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Infrastructure/Operations/DeploymentRuntimeState.cs:931:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/migration/ArticlePreservationStorageWriter.cs:28:    private const string ConfigurationOwner = "FsusBlog.Server.Entities.SystemConfig";
+src/migration/ArticlePreservationSourceReader.cs:147:                         $"SELECT value FROM {Table(provider, "sys_systemconfig")} WHERE {Quote(provider, "key")} = @key"))
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:312:                            WHERE table_schema = 'public' AND table_name = 'sys_systemconfig' AND column_name = 'key'
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:320:                                FROM sys_systemconfig
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:324:                                    WHERE p.slug = lower(replace(substr(sys_systemconfig.key, 10), '_', '-'))
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:327:                                DELETE FROM sys_systemconfig
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:334:                            FROM sys_systemconfig
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:338:                                RAISE EXCEPTION 'Legacy 20260517 length check failed: table=sys_systemconfig column=key row_count=% max_length=% expected_max=64',
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:343:                            ALTER TABLE sys_systemconfig ALTER COLUMN key TYPE varchar(64);
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:348:                            WHERE table_schema = 'public' AND table_name = 'sys_systemconfig' AND column_name = 'value'
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:352:                            FROM sys_systemconfig
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:356:                                RAISE EXCEPTION 'Legacy 20260517 length check failed: table=sys_systemconfig column=value row_count=% max_length=% expected_max=512',
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:361:                            ALTER TABLE sys_systemconfig ALTER COLUMN value TYPE varchar(512);
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:481:                            WHERE table_schema = 'public' AND table_name = 'sys_systemconfig'
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:485:                            FROM sys_systemconfig s
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:517:                    DELETE FROM sys_systemconfig
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:525:                        IF EXISTS (SELECT 1 FROM sys_systemconfig WHERE key LIKE 'Page_%') THEN
+src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs:526:                            RAISE EXCEPTION 'Legacy Page_* entries still exist in sys_systemconfig.';
+src/migration/SqliteArticlePreservationSourceReader.cs:93:            + " FROM main.\"sys_systemconfig\" WHERE \"key\"=@author").ToArray();
+src/migration/OfflineMigrationSourceObserver.Providers.cs:396:                            if (table.Name == "sys_systemconfig" && column.Name == "key")
+src/migration/OfflineMigrationSourceObserver.Providers.cs:401:                            if (table.Name == "sys_systemconfig" && column.Name == "value")
+src/migration/OfflineMigrationSourceObserver.Providers.cs:420:                    if (table.Name == "sys_systemconfig" && !configPage)
+src/migration/OfflineMigrationSourceObserver.Providers.cs:748:        long configKey = await ProviderScalarAsync(connection, transaction, $"SELECT COUNT(*) FROM sys_systemconfig WHERE {nonPage} AND {length}({key})>64", budget, cancellationToken).ConfigureAwait(false);
+src/migration/OfflineMigrationSourceObserver.Providers.cs:749:        long configValue = await ProviderScalarAsync(connection, transaction, $"SELECT COUNT(*) FROM sys_systemconfig WHERE {nonPage} AND {length}(value)>512", budget, cancellationToken).ConfigureAwait(false);
+src/migration/PgLegacyNonArticlePreparation.cs:383:            Bind(input, "SystemConfig", "SELECT * FROM " + Old("sys_systemconfig") + " s WHERE " + NonPage(),
+src/migration/PgLegacyNonArticlePreparation.cs:386:                "SELECT lower(replace(substr(\"key\",6),'_','-')) slug,value content FROM " + Old("sys_systemconfig") + " WHERE \"key\" LIKE 'Page_%'"
+src/migration/PgLegacyNonArticlePreparation.cs:387:                + " UNION ALL SELECT lower(replace(substr(\"key\",10),'_','-')),value FROM " + Old("sys_systemconfig") + " WHERE \"key\" LIKE 'sys:page:%'",
+src/migration/OfflineMigrationSourceObserver.cs:436:            $"SELECT COUNT(*) FROM public.sys_systemconfig WHERE {nonPage} AND LENGTH(\"key\")>64", budget, cancellationToken).ConfigureAwait(false);
+src/migration/OfflineMigrationSourceObserver.cs:438:            $"SELECT COUNT(*) FROM public.sys_systemconfig WHERE {nonPage} AND LENGTH(value)>512", budget, cancellationToken).ConfigureAwait(false);
+src/backend/Infrastructure/NotificationStream/NotificationStreamRestartEndpoints.cs:32:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Infrastructure/NotificationStream/NotificationStreamRestartEndpoints.cs:46:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Infrastructure/NotificationStream/NotificationStreamDeploymentDrillEndpoints.cs:37:            .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Infrastructure/Auth/AdminPermissions.cs:16:    public const string SystemConfig = "system.config";
+src/backend/Infrastructure/Auth/AdminPermissions.cs:29:        SystemConfig,
+src/backend/Entities/SystemConfig.cs:8:    [SugarTable("sys_systemConfig")]
+src/backend/Entities/SystemConfig.cs:9:    public class SystemConfig
+src/backend/Modules/Endpoints/ReleaseSchemaQualificationEndpoints.cs:30:            .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/ReleaseSchemaQualificationEndpoints.cs:34:            .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:335:        .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:342:        .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:387:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:435:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:489:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:536:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:584:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:632:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:651:        .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:661:        .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:671:        .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:681:        .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:695:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:720:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:768:        .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:814:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:844:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:874:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs:923:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/FontAdminEndpoints.cs:20:            .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs:208:                !context.User.HasAdminPermission(AdminPermissions.SystemConfig))
+src/backend/Modules/Endpoints/CustomizationEndpoints.cs:22:            .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AdminIntegrityConsoleEndpoints.cs:20:            .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/SecurityEndpoints.cs:37:            .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:325:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:333:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:356:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:395:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:421:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:430:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:475:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:496:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:522:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:586:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs:708:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:56:        .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:111:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:133:        .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:178:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:223:        .RequireAdminPermission(AdminPermissions.SystemConfig);
+src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:266:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs:295:        .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/ThemeAdminEndpoints.cs:20:            .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Modules/Endpoints/ClusterMembershipEndpoints.cs:26:            .RequireAdminPermission(AdminPermissions.SystemConfig)
+src/backend/Services/Authoring/PostgresArticleTemplateReferenceAuthority.cs:79:            bool canManageSite = actor.Permissions.Contains(AdminPermissions.SystemConfig);
+src/backend/Services/Authoring/ArticleTemplateAuthorityContracts.cs:88:                hasArticleWrite && actor.Permissions.Contains(AdminPermissions.SystemConfig),
+src/backend/Services/Distribution/BlogDistributionService.cs:288:            FROM sys_systemconfig
+src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs:67:            : articleWrite && (!manage || actor.Permissions.Contains(AdminPermissions.SystemConfig));
+src/backend/Services/SystemService.cs:201:        SystemConfig[] configs =
+src/backend/Services/SystemService.cs:280:        SystemConfig[] configs =
+src/backend/Services/SystemService.cs:712:        var query = _db.Queryable<SystemConfig>()
+src/backend/Services/SystemService.cs:763:        var query = _db.Queryable<SystemConfig>()
