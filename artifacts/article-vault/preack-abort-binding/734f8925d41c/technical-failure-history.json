@@ -41,5 +41,33 @@
     }
   ],
   "fullApplicationTypes": "Current/baseline exit2,244/244, zero delta; still FAIL",
-  "fullHistoryFooter": "Whole range exit1 at old9defbe367fc3ce869eef7a41aa29d9be3d1d5c37; not amended"
+  "fullHistoryFooter": "Whole range exit1 at old9defbe367fc3ce869eef7a41aa29d9be3d1d5c37; not amended",
+  "artifactPublicationCorrection": {
+    "firstMetadataCommit": "0d04de6ff6e7974cfe5d6632b91f96c9eca94a12",
+    "ignoredRequiredFiles": [
+      "current-commit-range.log",
+      "discovery.log",
+      "exploratory.log",
+      "exploratory2.log",
+      "exploratory3.log",
+      "exploratory4.log",
+      "focused.log",
+      "positive.log",
+      "prefix-negative.log",
+      "preflight.log",
+      "prerequisites.log",
+      "preserved-controls.log",
+      "source-push.log",
+      "source-style.log",
+      "toolchain.log",
+      "type-delta.log",
+      "types-baseline.log",
+      "types-current.log",
+      "verify-runs.log",
+      "whole-commit-range.log"
+    ],
+    "embeddedPatchWhitespace": "git diff --cached --check reported embedded diff context whitespace; patch bytes preserved as gzip, no source change",
+    "resolution": "Forward-only artifact correction force-adds task-owned ignored evidence and verifies every committed manifest file",
+    "secondCheck": "Staged whitespace check exit2 on raw GitHub push output and preserved whitespace diagnostics; these four logs are preserved byte-exact as gzip, not stripped."
+  }
 }

@@ -1,0 +1,6 @@
+[matrix:evidence] wrote .tmp/release-evidence/test-plan.json
+[matrix:preflight] ok (5 directories, 11 files)
+[matrix:preflight] wrote .tmp/gate-logs/preflight.json
+[matrix:preflight] To reproduce locally: ./tools/test.sh ci-tier validate-matrix
+(node:129521) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

@@ -1,0 +1,48 @@
+✔ canonical execution envelope covers every correctness producer exactly once (33.224804ms)
+✔ canonical mysql applicability binds the registered service and rejects unknown providers (24.778407ms)
+✔ only matrix governance and validation admit the pinned content-field host input (47.442785ms)
+✔ matrix governance runner passes the host input only for the two admitted producers (25.026978ms)
+✔ policy identity binds policy, catalog, and schema content independently (21.905197ms)
+✔ missing, unknown, duplicate, ambiguous, and defaulted policy state fails closed (151.726109ms)
+✔ diagnostic producers remain explicitly excluded from correctness admission (8.531963ms)
+✔ missing and malformed canonical sources fail without fallback values (0.367321ms)
+✔ Inherited locator accepts only the observed static namespace shape (1.886438ms)
+✔ Inherited locator returns only the unique real PID location (1.12062ms)
+✔ Inherited locator rejects missing required location data (0.535218ms)
+✔ Inherited locator rejects ambiguous self membership (0.242096ms)
+✔ Inherited sampler retains visible parent headroom and refuses missing ancestors (1.563993ms)
+✔ collectLogicalTierIds returns the complete dependency and summary authority closure (1.346143ms)
+✔ production profile requires exact fresh logical-tier coverage (1.084316ms)
+✔ production profile rejects the retired five-minute fixture budget (0.164973ms)
+✔ production profile rejects invalid resource declarations (0.432957ms)
+✔ physical bundle creation rejects malformed resolved startup policy (1.845468ms)
+✔ local production derives full CPU, safe memory and launch parallelism from the machine (0.465485ms)
+✔ production bundle resources resolve from each machine and fill its usable capacity (7.151662ms)
+✔ frontend steady admission floor follows machine capacity and cannot deadlock its worker host (0.527888ms)
+✔ declared output digests fail closed for missing direct and wildcard artifacts (2.143907ms)
+✔ artifact substitutions use a parser-compatible flat contract and reject ambiguous mappings (1.766662ms)
+✔ repository production profile maps every logical tier exactly once (755.634975ms)
+ℹ actual declaration CLI exit=0: [matrix] global declarations ok (146 tiers); no execution qualification
+✔ repository production t0 grants scale by weights without exceeding each machine (21.730349ms)
+(node:131756) [DEP0187] DeprecationWarning: Passing invalid argument types to fs.existsSync is deprecated
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✔ every executable matrix step binds exactly one valid fixtureProfile (49.33374ms)
+✔ runtime-cache pagination binds the dedicated deep-keyset fixture profile (25.018631ms)
+✔ missing/null/empty/free-command fixtureProfile fails closed (89.98923ms)
+✔ coordination/static/build-only steps must fix fixtureProfile to none (719.074219ms)
+✔ runtime/browser steps reject unknown, deprecated and tier-name profile values (1.204414ms)
+✔ none is an explicit zero-data contract distinct from a missing declaration (0.552704ms)
+✔ old fixture field, compat alias and second profile table are rejected (99.296746ms)
+✔ new step without declaration and malformed contract fields fail closed (1.604302ms)
+✔ duplicate profile ids fail closed in the canonical catalog validator (273.037977ms)
+✔ inventory digest is stable for identical input and changes with declarations (0.482401ms)
+✔ closed execution-class vocabulary is stable and classification is deterministic (0.164312ms)
+✔ source declaration and governance tiers coordinate checks without fixture mutation (15.747798ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1534.897101
