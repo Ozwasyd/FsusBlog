@@ -706,7 +706,9 @@ describe('useImageUploadRuntime', () => {
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(api.uploadPart).toHaveBeenCalledOnce()
     expect(api.completeUpload).toHaveBeenCalledOnce()
-    await runtime.abandon()
+    await expect(runtime.abandon()).rejects.toThrow('upload_completion_recovery_required')
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    expect(localStorage.length).toBe(1)
   })
 
   it.each(['part', 'complete'] as const)('grants no loan after raw %s failure and cannot mint one from retained state', async stage => {
@@ -751,18 +753,39 @@ describe('useImageUploadRuntime', () => {
     const file = fileOf(73), original = boundAttempt(file)
     const runtime = useImageUploadRuntime()
     let borrow!: ImageUploadSessionBorrow
+    const callbackError = new Error('completion callback failed')
+    let originalSnapshot!: string
     await expect(runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: async value => {
       borrow = value
+      originalSnapshot = localStorage.getItem(storedSnapshot().key)!
       await value.withSession(async facts => { expect(facts.commitMayHaveStarted).toBe(true) })
-      throw new Error('completion callback failed')
-    } })).rejects.toThrow('completion callback failed')
+      throw callbackError
+    } })).rejects.toBe(callbackError)
     expect(api.completeUpload).toHaveBeenCalledOnce()
     expect(borrow.signal.aborted).toBe(true)
     expect(runtime.borrowCurrentSession()).toBeNull()
     await expect(borrow.withSession(async facts => facts.uploadToken)).rejects.toThrow('upload_attempt_superseded')
     expect(storedSnapshot().snapshot.uploadToken).toBe('token-old')
     expect(api.abortUpload).not.toHaveBeenCalled()
-    await runtime.abandon()
+    expect(runtime.activeSession).toEqual({ uploadId: '', resumeKey: '', fileName: '' })
+    expect(runtime.canResume).toBe(false)
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(runtime.errorMessage).toContain('completion callback failed')
+    expect(runtime.statusText).toContain('upload_completion_recovery_required')
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const failure = await runtime.abandon().catch(error => error)
+      expect(failure.message).toBe('upload_completion_recovery_required')
+      expect(failure.cause).toBe(callbackError)
+      expect(failure.details).toContain('completion_acknowledged; generation=1; upload_id=upload-old')
+      expect(failure.details).toContain('result_url=/uploads/complete.webp')
+      expect(api.abortUpload).not.toHaveBeenCalled()
+      expect(localStorage.getItem(storedSnapshot().key)).toBe(originalSnapshot)
+    }
+    await expect(runtime.resumeLatest()).rejects.toThrow('upload_completion_recovery_required')
+    await expect(runtime.uploadFile(fileOf(64, 'replacement.png'), options)).rejects.toThrow('upload_completion_recovery_required')
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.uploadPart).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
     expect(runtime.borrowCurrentSession()).toBeNull()
   })
 
@@ -949,7 +972,14 @@ describe('useImageUploadRuntime', () => {
     expect(runtime.borrowCurrentSession()).toBeNull()
     gate.resolve()
     await failure
-    await runtime.abandon()
+    await expect(runtime.abandon()).rejects.toThrow('upload_completion_recovery_required')
+    await expect(runtime.abandon()).rejects.toThrow('upload_completion_recovery_required')
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    expect(runtime.activeSession.uploadId).toBe('')
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(runtime.canResume).toBe(false)
+    expect(storedSnapshot().snapshot.uploadToken).toBe('token-old')
+    await expect(runtime.resumeLatest()).rejects.toThrow('upload_completion_recovery_required')
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(api.completeUpload).toHaveBeenCalledOnce()
   })
@@ -972,6 +1002,77 @@ describe('useImageUploadRuntime', () => {
     expect(borrow.signal.aborted).toBe(true)
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it.each(['callback', 'returned'] as const)('keeps ACK recovery after disposal of the %s operation without aborting', async stage => {
+    const file = fileOf(73), original = boundAttempt(file), gate = deferred<void>()
+    const scope = effectScope(), runtime = scope.run(() => useImageUploadRuntime())!
+    let borrow!: ImageUploadSessionBorrow
+    const upload = runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: async value => {
+      borrow = value
+      if (stage === 'callback') await value.withSession(async facts => {
+        expect(facts.commitMayHaveStarted).toBe(true)
+        await gate.promise
+        expect(facts.totalBytes).toBe(73)
+      })
+    } })
+    const rejected = stage === 'callback' ? expect(upload).rejects.toThrow('upload_attempt_superseded') : null
+    if (stage === 'returned') await upload
+    else await vi.waitFor(() => expect(borrow).toBeDefined())
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    scope.stop()
+    expect(borrow.signal.aborted).toBe(true)
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    const results = await Promise.allSettled([runtime.abandon(), runtime.abandon()])
+    for (const result of results) {
+      expect(result.status).toBe('rejected')
+      if (result.status === 'rejected') {
+        expect(result.reason.message).toBe('upload_completion_recovery_required')
+        expect(result.reason.details).toContain('completion_acknowledged; generation=1; upload_id=upload-old')
+        expect(result.reason.details).toContain('result_url=/uploads/complete.webp')
+      }
+    }
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    expect(runtime.activeSession).toEqual({ uploadId: '', resumeKey: '', fileName: '' })
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(runtime.canResume).toBe(false)
+    if (stage === 'callback') expect(storedSnapshot().snapshot.uploadToken).toBe('token-old')
+    gate.resolve()
+    if (rejected) await rejected
+    await expect(runtime.resumeLatest()).rejects.toThrow('upload_completion_recovery_required')
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+  })
+
+  it.each(['intent', 'document'] as const)('retains ACK history after original %s invalidation and repeated abandon', async kind => {
+    const file = fileOf(73), original = boundAttempt(file), gate = deferred<void>()
+    const runtime = useImageUploadRuntime()
+    let borrow!: ImageUploadSessionBorrow
+    const upload = runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: async value => {
+      borrow = value
+      await value.withSession(async facts => { expect(facts.commitMayHaveStarted).toBe(true); await gate.promise })
+    } })
+    const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
+    await vi.waitFor(() => expect(borrow).toBeDefined())
+    const snapshot = localStorage.getItem(storedSnapshot().key)
+    if (kind === 'intent') original.binding.intent.cancel()
+    else original.binding.documentOwner.switchDocument({ articleId: 2, draftId: 'article:2', content: original.source(), reason: 'article-switch' })
+    expect(borrow.signal.aborted).toBe(true)
+    gate.resolve()
+    await rejected
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const failure = await runtime.abandon().catch(error => error)
+      expect(failure.message).toBe('upload_completion_recovery_required')
+      expect(failure.cause.message).toBe('upload_attempt_superseded')
+      expect(failure.details).toContain('completion_acknowledged; generation=1; upload_id=upload-old')
+      expect(api.abortUpload).not.toHaveBeenCalled()
+      expect(localStorage.getItem(storedSnapshot().key)).toBe(snapshot)
+    }
+    await expect(runtime.resumeLatest()).rejects.toThrow('upload_completion_recovery_required')
+    await expect(runtime.uploadFile(file, options)).rejects.toThrow('upload_completion_recovery_required')
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(runtime.canResume).toBe(false)
   })
 
   it('rejects a cloned capture owner before capture or upload IO', async () => {
