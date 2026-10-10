@@ -133,9 +133,17 @@ before. Its successful callback is not a canonical recovery or asset-cleanup
 receipt. Only the current operation's generation, upload ID and actual ACK history
 remain privately until replacement or instance release; successful transport
 does not retain snapshot credentials. Later flow consumer failure is a separate
-recovery boundary whose integration remains open. Pre-ACK abort
-token/status qualification and unknown cleanup obligations remain unchanged. Stored snapshots
-cannot mint replacement loans, and unknown commit state never grants deletion.
+recovery boundary whose integration remains open. Pre-ACK cancellation captures a private context from the actual original init
+promise before invalidating its generation. Cancellation before init ACK awaits
+that same promise; retries retain the same obligation and forward its token only
+to the original upload ID through the existing abort API. Public session or stored
+snapshot mutation cannot change this authority. Only an actual same-ID
+`aborted` status response clears local transport and recovery state. Network,
+decoded API errors, wrong IDs and other statuses retain the original obligation.
+A cold stored resume cannot reconstruct private init authority and therefore
+cannot authorize abort here. In-flight or unknown completion still refuses abort;
+acknowledged completion follows the separate recovery boundary above. Stored
+snapshots cannot mint replacement loans, and unknown commit state never grants deletion.
 
 `useImageUploadFlow.startUpload` accepts an optional `attachmentInput` containing
 the real selection anchor, original attachment/document owners and transaction
