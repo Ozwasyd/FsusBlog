@@ -840,6 +840,7 @@ describe('useImageUploadRuntime', () => {
   })
 
   it('grants no loan during original compression, initialization, part or pending completion', async () => {
+    vi.useFakeTimers()
     const file = fileOf(73), original = boundAttempt(file)
     const compressed = deferred<{ file: File; preview: typeof preview }>()
     const init = deferred<{ uploadId: string; uploadToken: string }>()
@@ -869,12 +870,23 @@ describe('useImageUploadRuntime', () => {
     expect(callback).not.toHaveBeenCalled()
     part.resolve({ uploadedBytes: 73 })
     await vi.waitFor(() => expect(api.completeUpload).toHaveBeenCalledOnce())
+    await vi.advanceTimersByTimeAsync(31_001)
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(callback).not.toHaveBeenCalled()
     complete.resolve({ url: '/uploads/ack.webp' })
     expect(await upload).toBe('/uploads/ack.webp')
     expect(callback).toHaveBeenCalledOnce()
     runtime.borrowCurrentSession()!.release()
+  })
+
+  it('cannot acquire a first loan after the original successful operation is inactive', async () => {
+    const file = fileOf(73), original = boundAttempt(file)
+    const runtime = useImageUploadRuntime()
+    await runtime.uploadFile(file, options, { attemptBinding: original.binding })
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(runtime.activeSession.uploadId).toBe('')
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(runtime.borrowCurrentSession()).toBeNull()
   })
 
   it('does not refresh the acquisition deadline when a later access scope starts', async () => {
@@ -906,7 +918,7 @@ describe('useImageUploadRuntime', () => {
     let borrow!: ImageUploadSessionBorrow, access!: ImageUploadSessionAccess
     const upload = runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: value => {
       borrow = value
-      return value.withSession(async facts => { access = facts; await gate.promise; return facts.totalBytes })
+      return value.withSession(async facts => { access = facts; await gate.promise; expect(facts.totalBytes).toBe(73) })
     } })
     const failure = expect(upload).rejects.toThrow('upload_attempt_superseded')
     await vi.waitFor(() => expect(borrow).toBeDefined())
