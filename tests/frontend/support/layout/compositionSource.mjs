@@ -122,8 +122,15 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             fail('supplier graph changed: original source call membership');
         }
         const checked = new Set();
+        const actualOrder = Map.prototype.keys.call(nodes);
         for (const [id, original] of originalCalls)
         {
+            // Membership and identical pointers do not preserve Map iteration
+            // order after delete/reinsert. Supplier order is an original fact.
+            if (actualOrder.next().value !== id)
+            {
+                fail('supplier graph changed: original source call order');
+            }
             const node = nodes.get(id);
             if (!original.sealed || node !== original.node
                 || controlDigest(callFacts(node, new Set(), original.objects)) !== original.factsDigest)
@@ -2538,6 +2545,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         {
             fail('canonical target supplier source changed');
         }
+        assertOriginalCalls(true);
         return structuredClone(context.resolve(node));
     }
     function instrument(file, code)

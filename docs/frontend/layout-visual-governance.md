@@ -175,6 +175,12 @@ compiler. It checks the original source bytes and rejects authored marker
 attributes. It never writes product files. The browser probe retains hidden
 nodes, joins native/component markers to parsed sources, and checks heading,
 action, region, material, nesting, chrome and content-order observations.
+The canonical source boundary also checks original call membership, object
+identity, facts and insertion order before repeated graph construction, target
+supplier resolution and instrumentation. Deleting and reinserting the same
+call through the public node Map cannot reorder suppliers while retaining the
+original file records and markers. Genuine repeated graphs preserve their
+original source order; these checks do not prove runtime execution order.
 Structural conditions inside a public component may be resolved only from that
 exact call's literal props/defaults and statically provided slots, through the
 actual parsed `computed`/`Boolean` expressions. The source graph binds all parsed

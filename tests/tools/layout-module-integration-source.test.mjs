@@ -312,6 +312,74 @@ test('canonical target supplier API returns every actual original call in order 
     assert.equal(inputs[1].target.name, 'a');
 });
 
+function originalSupplierOrderGraph()
+{
+    const parent = resolve(directory, randomUUID());
+    mkdirSync(parent);
+    const owner = resolve(parent, 'Owner.vue');
+    const entry = resolve(parent, 'Entry.vue');
+    const ownerBytes = '<script setup>const props=defineProps({tag:{type:[String,Object],default:"button"}});</script><template><component :is="tag"/></template>';
+    const entryBytes = '<script setup>import Owner from "./Owner.vue";</script><template><Owner tag="a"/><Owner tag="span"/></template>';
+    writeFileSync(owner, ownerBytes);
+    writeFileSync(entry, entryBytes);
+    const s = source();
+    const graph = s.graph([entry]);
+    const target = graph.nodes.find((node) => node.file === owner && node.origin.kind === 'native-prop');
+    assert.deepEqual(graph.errors, []);
+    assert.ok(target);
+    return { s, graph, target, owner, entry, entryBytes };
+}
+
+test('canonical supplier order refuses same pointer call deletion and reinsertion at the public source boundary', () =>
+{
+    const { s, graph, target, owner, entry, entryBytes } = originalSupplierOrderGraph();
+    const before = s.resolveTargetInputs(target, graph);
+    const ids = s.parse(entry).nodes.slice();
+    const instrumentation = s.instrument(entry, entryBytes);
+    const firstCall = graph.nodes.find((node) => node.file === entry && node.definition === owner);
+    assert.deepEqual(before.map((input) => input.target.name), ['a', 'span']);
+    assert.deepEqual(before.map((input) => input.callPath), ids.map((id) => [id]));
+    assert.ok(instrumentation.includes(`data-fsus-composition-call="${firstCall.id}"`));
+    const map = s.nodes;
+    const original = [...map];
+    map.delete(firstCall.id);
+    map.set(firstCall.id, firstCall);
+    assert.equal(map.size, original.length);
+    assert.ok(original.every(([id, node]) => map.get(id) === node));
+    assert.notDeepEqual([...map.keys()], original.map(([id]) => id));
+    assert.deepEqual(s.parse(entry).nodes, ids);
+    assert.throws(() => s.graph([entry]), /supplier graph changed: original source call order/);
+    assert.throws(() => s.resolveTargetInputs(target, graph), /supplier graph changed: original source call order/);
+    assert.throws(() => s.resolveTargetInputs(target, graph.nodes), /supplier graph changed: original source call order/);
+    assert.throws(() => s.instrument(entry, entryBytes), /supplier graph changed: original source call order/);
+    assert.throws(() => s.nodes, /supplier graph changed: original source call order/);
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('canonical supplier order preserves genuine repeated graph inputs records and instrumentation', () =>
+{
+    const { s, graph, target, entry, entryBytes } = originalSupplierOrderGraph();
+    const before = s.resolveTargetInputs(target, graph);
+    const ids = s.parse(entry).nodes.slice();
+    const instrumentation = s.instrument(entry, entryBytes);
+    const map = s.nodes;
+    for (const [id, node] of map)
+    {
+        map.set(id, node);
+    }
+    for (let repeat = 0; repeat < 2; repeat++)
+    {
+        const repeated = s.graph([entry]);
+        assert.deepEqual(repeated.errors, []);
+        assert.deepEqual(repeated.nodes.map((node) => node.id), graph.nodes.map((node) => node.id));
+        assert.deepEqual(s.resolveTargetInputs(target, repeated), before);
+        assert.deepEqual(s.resolveTargetInputs(target, repeated.nodes), before);
+        assert.deepEqual(s.parse(entry).nodes, ids);
+        assert.equal(s.instrument(entry, entryBytes), instrumentation);
+        assert.deepEqual(s.resolver.sourceBindings().errors, []);
+    }
+});
+
 test('canonical target supplier API isolates returned identities from the original resolver graph', () =>
 {
     const { s, graph, node } = targetSupplier();
