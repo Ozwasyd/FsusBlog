@@ -2,7 +2,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-import { decodeDocumentExportRequest } from '@/codecs/binary/documentExportWire.generated';
+import { decodeDocumentExportJobResponse, decodeDocumentExportRequest, encodeDocumentExportJobResponse } from '@/codecs/binary/documentExportWire.generated';
 import { decodeDocumentExportSourceChoicesResponse } from '@/codecs/binary/documentExportSourceOptionsWire.generated';
 import type { useDocumentExport } from '@/composables/useDocumentExport';
 import { FsusUiButton } from '@/fsusui/button';
@@ -184,4 +184,57 @@ it.each([401, 403, 404])('clears private host choices after actual HTTP %s permi
     await flushPromises();
     expect(host.wrapper.findAllComponents(FsusUiClassicSelect)[0]!.props('modelValue')).toBeUndefined();
     expect(writes()).toHaveLength(1);
+});
+
+it('retains the replay identity through confirmation and allocates a new identity only for the next explicit Host submission', async () =>
+{
+    write = async () =>
+    {
+        if (writes().length !== 2)
+        {
+            throw new BinaryRequestError(503, 'controlled unconfirmed write', new ArrayBuffer(0));
+        }
+        // Controlled outer HTTP response: original queued-job golden, with only
+        // the actual replayed request correlation/source/options echoed through
+        // the original Shared codec. No output or native completion is asserted.
+        const replay = submitted(1);
+        const queued = decodeDocumentExportJobResponse(bytes('queued-job-response'));
+        expect(queued.status).toBe(1);
+        expect(queued.output).toBeNull();
+        return encodeAedsFrame(FrameType.DocumentExportJobResponse, encodeDocumentExportJobResponse({
+            ...queued, requestId: replay.requestId, source: replay.source,
+            formatId: replay.formatId, layoutProfile: replay.layoutProfile,
+            themeProfile: replay.themeProfile, locale: replay.locale
+        }));
+    };
+    const host = await prepareHost();
+    await submitFromForm(host);
+    expect(host.state.submission.value.phase).toBe('uncertain');
+    expect(writes()).toHaveLength(1);
+    const original = submitted(0);
+    await reopen(host);
+    await submitFromForm(host);
+    expect(writes()).toHaveLength(1);
+    await host.center.findAllComponents(FsusUiButton).find(button => button.text() === '核实原请求')!.trigger('click');
+    await flushPromises();
+    expect(writes()).toHaveLength(2);
+    expect(writes()[1]![1].body).toEqual(writes()[0]![1].body);
+    expect(submitted(1)).toEqual(original);
+    expect(host.state.submission.value).toMatchObject({
+        phase: 'confirmed', result: { requestId: original.requestId, source: original.source, status: 1, output: null }
+    });
+    await flushPromises();
+    expect(writes()).toHaveLength(2); // Confirmation never automatically starts a new intent.
+    await reopen(host);
+    expect(writes()).toHaveLength(2);
+    await submitFromForm(host);
+    expect(writes()).toHaveLength(3);
+    const next = submitted(2);
+    expect(next.requestId).not.toBe(original.requestId);
+    expect(next.idempotencyKey).not.toBe(original.idempotencyKey);
+    expect({ ...next, requestId: original.requestId, idempotencyKey: original.idempotencyKey }).toEqual(original);
+    expect(submitted(0)).toEqual(original);
+    expect(submitted(1)).toEqual(original);
+    expect(host.state.submission.value.phase).toBe('uncertain');
+    expect(writes()[2]![1]).toMatchObject({ method: 'POST', credentials: 'include', requiresPow: true });
 });
