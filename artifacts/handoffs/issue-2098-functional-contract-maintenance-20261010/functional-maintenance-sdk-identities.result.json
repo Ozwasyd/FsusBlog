@@ -1,0 +1,42 @@
+{
+  "command": [
+    "node",
+    "/workspace/chain-1895-origin-export-successor/evidence/project-framework-identities.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791617935.8098235,
+  "durationSeconds": 1.1727182865142822,
+  "source": {
+    "blog": {
+      "commit": "0f297586d531eaefc0f32cabb126a4652af81602",
+      "tree": "88f41054e969461dfccf45802e62a41e9e08b408",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "0f297586d531eaefc0f32cabb126a4652af81602",
+      "tree": "88f41054e969461dfccf45802e62a41e9e08b408",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/functional-maintenance-sdk-identities.log",
+  "logSha256": "9acae093c5cd44e335f454c89849f181f33fd5abcf7c351934f7dd0a399885c0"
+}

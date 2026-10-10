@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^central unsupported bare functional h shape retains its inherited explicit effects refusal$",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791617843.8067405,
+  "durationSeconds": 0.7893083095550537,
+  "source": {
+    "blog": {
+      "commit": "4c0a152d52c5d6137c817b12fb8bfbca977599a5",
+      "tree": "4cae07c2313e96d89c7083e8834e33c7f5cd9c87",
+      "status": "M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "e2feb1bbc3b078bb19b879a7e7dff3bfe8ab95a8b1bed2132a93a158519cd019"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "4c0a152d52c5d6137c817b12fb8bfbca977599a5",
+      "tree": "4cae07c2313e96d89c7083e8834e33c7f5cd9c87",
+      "status": "M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "e2feb1bbc3b078bb19b879a7e7dff3bfe8ab95a8b1bed2132a93a158519cd019"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/functional-maintenance-focused-corrected.log",
+  "logSha256": "dc0713bdfe2eeef06880f4152cd3941522e242bb67741fd50b05274ba657b2b2"
+}

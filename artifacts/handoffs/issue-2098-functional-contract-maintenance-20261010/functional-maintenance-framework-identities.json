@@ -1,0 +1,1480 @@
+{
+  "blogCommit": "0f297586d531eaefc0f32cabb126a4652af81602",
+  "blogTree": "88f41054e969461dfccf45802e62a41e9e08b408",
+  "fsusUICommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "observedAt": "2026-10-10T07:38:56.900Z",
+  "projections": [
+    {
+      "caller": {
+        "file": "/workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/slider/src/slider.vue",
+        "offset": 6981,
+        "kind": "script-source",
+        "digest": "1f93f8f760d8521e33253b6d9d583d5dcfffc02fb4892c4305f23b3b61866ef0"
+      },
+      "exportIdentity": {
+        "specifier": "vue",
+        "exportedName": "toRefs",
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+        "name": "toRefs",
+        "sourceKind": "declared-frontend-public-esm"
+      },
+      "function": {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+        "offset": 42875,
+        "kind": "script-source",
+        "digest": "463b74c9a7fb37bb7b6e7b8a5f277be468fc98d636a2837597e3ae9540cd95c4"
+      },
+      "edges": [
+        {
+          "file": "/workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/slider/src/slider.vue",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+          "exportedName": "toRefs",
+          "originalImportOrExportAST": {
+            "file": "/workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/slider/src/slider.vue",
+            "offset": 2577,
+            "kind": "script-source",
+            "digest": "e8bcb9552755c763af8e514d3148092ad691af3e849f74484bb7fa5bd308c7fe"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+          "exportedName": "toRefs",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+            "offset": 155,
+            "kind": "script-source",
+            "digest": "20c6c1c44cad5a20dd8614f7606f6fc0ee6f7ceb482fc038eaa853af30684be9"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "exportedName": "toRefs",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+            "offset": 570,
+            "kind": "script-source",
+            "digest": "48d9e8288210eed8476df5e7555b0d5c84354e73ced398bcec14d21808eb66a0"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "exportedName": "toRefs",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+            "offset": 470,
+            "kind": "script-source",
+            "digest": "4a5d224441fa0d8d135808738cd560242c7c7bf96bdd3e476056a7b860c3d973"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "exportedName": "toRefs",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 53701,
+            "kind": "script-source",
+            "digest": "e427ad2abeecb1c61923199c92d80699b957b96675d02436e676a28591f723d3"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isArray",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isArray",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isSymbol",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isSymbol",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isArray",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isArray",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isSymbol",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isSymbol",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isIntegerKey",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isIntegerKey",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        }
+      ],
+      "dependencies": [
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "toRefs",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 42875,
+            "kind": "script-source",
+            "digest": "463b74c9a7fb37bb7b6e7b8a5f277be468fc98d636a2837597e3ae9540cd95c4"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "isProxy",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39262,
+            "kind": "script-source",
+            "digest": "67602755e8d16df731ec5f92170a43429a11fdf0d87377e22f8ecb8ec387005e"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "warn",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 310,
+            "kind": "script-source",
+            "digest": "ee1c52f7d7f5d97e55891924e5d059872fbfcaa0b53189b4d8844f357aa4c5f4"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "propertyToRef",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 44908,
+            "kind": "script-source",
+            "digest": "0ed133a8c4bb080abba0eca8be475a98f460b88a61fcc0b48a28ff66c9f7dcf7"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "class",
+          "name": "ObjectRefImpl",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 43206,
+            "kind": "script-source",
+            "digest": "b0e95dcce71b785571b57f5f83b0f19310cb650640560c86a5b77862f3bd63b1"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1374,
+            "kind": "script-source",
+            "digest": "926f23234f57061a9bbd435ca87e52796bcaa0f061646f5a7df5951efffbcbe0"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "toRaw",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39359,
+            "kind": "script-source",
+            "digest": "32acc8d8d02207a79512329d7b537b073462e1c873facfef76b842aef4d44e78"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1881,
+            "kind": "script-source",
+            "digest": "85f52001b169d1a96e838362611669f4c34271097ef7ad368b1c8c12db2f32fc"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "isShallow",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39162,
+            "kind": "script-source",
+            "digest": "0c44e479924c3f8408d8152d4bc772c0e2046b22e33c26c4bd04a479a25e0fdf"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "unref",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 41674,
+            "kind": "script-source",
+            "digest": "b757b3e074c8673bd6aecc379243412f2fb127d20066f573198e5326ba18a8ae"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "isRef",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39840,
+            "kind": "script-source",
+            "digest": "cd08d2d74bf46de3f154ac5cc42ad44a239902c1d642ab73a5780ee8c96abd22"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "getDepFromReactive",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 17851,
+            "kind": "script-source",
+            "digest": "694c2d24f8a01c07effdd58995d6f4fdb647cdeea0f2dca99fbb9248bbec3b87"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1323,
+            "kind": "script-source",
+            "digest": "94b2e1be1614be42f59eaceeb117f5b40cf5443a92f2c8aa4650cb518f035070"
+          }
+        }
+      ],
+      "actualObjectSetter": {
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "offset": 43943,
+          "kind": "script-source",
+          "digest": "6da887351831f8e245a38ea3794df54f3815f934052d9457e1132f1d7d4dfb0e"
+        },
+        "authoredWrite": "this._object[this._key] = newVal"
+      },
+      "unresolvedDependencies": [
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "name": "isArray",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 43064,
+            "kind": "script-source",
+            "digest": "5d1f9731528c7952e04f6547fcd5fce95a593a0cf920aeae6ca0a4bff5fad14d"
+          },
+          "reason": "[control-legality] dependency has no callable or class definition"
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "name": "Array",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 43086,
+            "kind": "script-source",
+            "digest": "f0cf39d0be3efbb6f86ac2404100ff7e055c17ded946a06808d66f89ca03a811"
+          },
+          "binding": null,
+          "reason": "unbound actual lexical dependency"
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "name": "String",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 43435,
+            "kind": "script-source",
+            "digest": "b2ef230e7f4f315a28cdcc863028da31f7110f3209feb76e76fed0f37b3d8580"
+          },
+          "binding": null,
+          "reason": "unbound actual lexical dependency"
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "name": "isArray",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 43536,
+            "kind": "script-source",
+            "digest": "5d1f9731528c7952e04f6547fcd5fce95a593a0cf920aeae6ca0a4bff5fad14d"
+          },
+          "reason": "[control-legality] dependency has no callable or class definition"
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "name": "parseInt",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1947,
+            "kind": "script-source",
+            "digest": "51a56618bb02fd6433acf296ceb5cd4ac8efdc25218a296b2569b01e88f5d3f0"
+          },
+          "binding": null,
+          "reason": "unbound actual lexical dependency"
+        }
+      ],
+      "inputs": [
+        {
+          "path": "/workspace/chain-1895-component-prop-source/FsusUI/vue/tsconfig.base.json",
+          "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/vue/package.json",
+          "digest": "fec980abfce3f75f81a6d9511de47400bc86a3496fe11620e701ad2590014297"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/package.json",
+          "digest": "02095f564c8610e154d8779cf70cc139548ba27fb7f37d5b5daf8a17c7aa37cf"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/package.json",
+          "digest": "80b00ff1cb3536ca505bd6cd6a0b9c040107b631e8ae48391f26209f55dd19f3"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/package.json",
+          "digest": "bfc0e219248f0ccb9d58c77ab506eb1fbfda546de52b3e59438f0bf6fb17de76"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/package.json",
+          "digest": "480b5f328746546e614d618d2afcf61ef61d61439e9defff5b3a86ec523da607"
+        },
+        {
+          "path": "/workspace/chain-1895-origin-export-successor/FsusBlog/src/frontend/vite.config.ts",
+          "digest": "4e315e62566c772d337ffa845753cc321334168d767424c5915a42a862bf7415"
+        },
+        {
+          "path": "/workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/slider/src/slider.vue",
+          "digest": "26e082a589cf3a3979c0c9e5330e473a708c8aae7105ee0dc8ba1215d8293ec8"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+          "digest": "76ade37fffcfcbb9b2d1f92881d18bd7fa74bd2e60747c51d501437f0650fe48"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+          "digest": "56c720b1c82456a3569d85dc4a45ff95c6503d5bb850f0d07abd61171d578ff4"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "digest": "509c654b2f5d80ca9296f7133c2ed11b33791c8e08e87a80b03fb40ce096c146"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "digest": "5467096d1ed0a057dbe15e8d2b4883c99756d0a55dd440cb097ef1a2d4dbc973"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "digest": "0514e1a91aac3c60886bd4b6d6f2ab48dc0006120aa6d294a6a0a35d4e56563b"
+        }
+      ],
+      "dependencyScope": "actual direct call/new bodies only; indirect and native-value bodies remain unproved",
+      "qualificationEligible": false,
+      "readonlyVerdictProvidedByInterface": false
+    },
+    {
+      "caller": {
+        "file": "/workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/form/src/hooks/use-form-item.ts",
+        "offset": 1531,
+        "kind": "script-source",
+        "digest": "fce209df0469b44d93de747d93f7bb98cdf5e973525697abe91e2ea096474489"
+      },
+      "exportIdentity": {
+        "specifier": "vue",
+        "exportedName": "toRef",
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+        "name": "toRef",
+        "sourceKind": "declared-frontend-public-esm"
+      },
+      "function": {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+        "offset": 44566,
+        "kind": "script-source",
+        "digest": "f4b4e203a2351904143cceb172134e2ddba8e0c42e7da621c92b5f1594c51c2b"
+      },
+      "edges": [
+        {
+          "file": "/workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/form/src/hooks/use-form-item.ts",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+          "exportedName": "toRef",
+          "originalImportOrExportAST": {
+            "file": "/workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/form/src/hooks/use-form-item.ts",
+            "offset": 0,
+            "kind": "script-source",
+            "digest": "772f588bceb22cd3552bf3748ec7d63152b584af39d233a0f1b616c85adbb7e2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+          "exportedName": "toRef",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+            "offset": 155,
+            "kind": "script-source",
+            "digest": "20c6c1c44cad5a20dd8614f7606f6fc0ee6f7ceb482fc038eaa853af30684be9"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "exportedName": "toRef",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+            "offset": 570,
+            "kind": "script-source",
+            "digest": "48d9e8288210eed8476df5e7555b0d5c84354e73ced398bcec14d21808eb66a0"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "exportedName": "toRef",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+            "offset": 470,
+            "kind": "script-source",
+            "digest": "4a5d224441fa0d8d135808738cd560242c7c7bf96bdd3e476056a7b860c3d973"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "exportedName": "toRef",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 53701,
+            "kind": "script-source",
+            "digest": "e427ad2abeecb1c61923199c92d80699b957b96675d02436e676a28591f723d3"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isFunction",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isFunction",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isObject",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isObject",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isSymbol",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isSymbol",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isArray",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isArray",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isSymbol",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isSymbol",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isIntegerKey",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isIntegerKey",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "hasChanged",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "hasChanged",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "extend",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "extend",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "extend",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "extend",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isObject",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isObject",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isObject",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "isObject",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "toRawType",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 105,
+            "kind": "script-source",
+            "digest": "4ddddc897a1a66f422446b0a6b2d27863f3850b9db88c59f154270190794f0d2"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "exportedName": "toRawType",
+          "originalImportOrExportAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 21999,
+            "kind": "script-source",
+            "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+          }
+        }
+      ],
+      "dependencies": [
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "toRef",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 44566,
+            "kind": "script-source",
+            "digest": "f4b4e203a2351904143cceb172134e2ddba8e0c42e7da621c92b5f1594c51c2b"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "isRef",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39840,
+            "kind": "script-source",
+            "digest": "cd08d2d74bf46de3f154ac5cc42ad44a239902c1d642ab73a5780ee8c96abd22"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1270,
+            "kind": "script-source",
+            "digest": "9996da47812840f24ace61d9a53d469822274a279543826184611b1713662325"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "class",
+          "name": "GetterRefImpl",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 44309,
+            "kind": "script-source",
+            "digest": "b28976bac84209053b42eb95d9267a8093deca689b37f2e2ec02cf4627a5e0eb"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1425,
+            "kind": "script-source",
+            "digest": "b55929d1846d73c406eab39e4bc9950f02bec62261ca968ce2555a3b3788b15d"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "propertyToRef",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 44908,
+            "kind": "script-source",
+            "digest": "0ed133a8c4bb080abba0eca8be475a98f460b88a61fcc0b48a28ff66c9f7dcf7"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "ref",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39932,
+            "kind": "script-source",
+            "digest": "15e8b17f43a77f6b8dd8c9f52629f0c19c14bf7c0a6d22b97c9803702ae78399"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "class",
+          "name": "ObjectRefImpl",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 43206,
+            "kind": "script-source",
+            "digest": "b0e95dcce71b785571b57f5f83b0f19310cb650640560c86a5b77862f3bd63b1"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "createRef",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 40078,
+            "kind": "script-source",
+            "digest": "4807437d1cccf45e174bfde4ab546bf9de3ba9ab2cd26084aaad33ee45f879f3"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1374,
+            "kind": "script-source",
+            "digest": "926f23234f57061a9bbd435ca87e52796bcaa0f061646f5a7df5951efffbcbe0"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "toRaw",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39359,
+            "kind": "script-source",
+            "digest": "32acc8d8d02207a79512329d7b537b073462e1c873facfef76b842aef4d44e78"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1881,
+            "kind": "script-source",
+            "digest": "85f52001b169d1a96e838362611669f4c34271097ef7ad368b1c8c12db2f32fc"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "isProxy",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39262,
+            "kind": "script-source",
+            "digest": "67602755e8d16df731ec5f92170a43429a11fdf0d87377e22f8ecb8ec387005e"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "isShallow",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39162,
+            "kind": "script-source",
+            "digest": "0c44e479924c3f8408d8152d4bc772c0e2046b22e33c26c4bd04a479a25e0fdf"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "unref",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 41674,
+            "kind": "script-source",
+            "digest": "b757b3e074c8673bd6aecc379243412f2fb127d20066f573198e5326ba18a8ae"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "getDepFromReactive",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 17851,
+            "kind": "script-source",
+            "digest": "694c2d24f8a01c07effdd58995d6f4fdb647cdeea0f2dca99fbb9248bbec3b87"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "class",
+          "name": "RefImpl",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 40227,
+            "kind": "script-source",
+            "digest": "84ea0bae55bda790a34ac70abc865b84e3cc26a5d564a0e8786c422549660c45"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1323,
+            "kind": "script-source",
+            "digest": "94b2e1be1614be42f59eaceeb117f5b40cf5443a92f2c8aa4650cb518f035070"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "class",
+          "name": "Dep",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 11910,
+            "kind": "script-source",
+            "digest": "b07897c5134463971fcea22877ff59a27a876222d3bf9d8b02602ae738e178d6"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39656,
+            "kind": "script-source",
+            "digest": "3c209f87ad47a2e33a201de5343da0625ae1948ffe18ff08d5f88d102b27d07e"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "isReadonly",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 39060,
+            "kind": "script-source",
+            "digest": "bd4ab9768895371f7ae9f7d5cb1128850669afd49684380aafbf49581befaa3e"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 3097,
+            "kind": "script-source",
+            "digest": "f3af0f31780cb96dec1573cd38598e9ee1e1177b9b839d5a6973ef11112faede"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "class",
+          "name": "Link",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 11699,
+            "kind": "script-source",
+            "digest": "d71b8b30c1d4685c2d23e37f30c47b7930254cef7e03ce843c7d7584f1720a55"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "addSub",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 14547,
+            "kind": "script-source",
+            "digest": "3f11f0a6d9745aa60f8fbaba56bbfdde4689e5b62b67190238105e26388767dd"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "startBatch",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 6990,
+            "kind": "script-source",
+            "digest": "fe79f03efc2e85ccdcaec63139ae29bf7f8f33c7b14d6fc7bbd605c76c1f1c32"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "endBatch",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 7032,
+            "kind": "script-source",
+            "digest": "d6356158856fa906da0a128b5d0d8de40373d5ded509da5d44e983d9d0209813"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "reactive",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 37204,
+            "kind": "script-source",
+            "digest": "427227c5a000b5237ebb003b95b77968a3b23844a85fc707178e8bc919b115c9"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "createReactiveObject",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 38023,
+            "kind": "script-source",
+            "digest": "d291123370fcda9ee48c44818836c8dcd9cffa31d2860b2a25046cddc77351b7"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "warn",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 310,
+            "kind": "script-source",
+            "digest": "ee1c52f7d7f5d97e55891924e5d059872fbfcaa0b53189b4d8844f357aa4c5f4"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "getTargetType",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 37035,
+            "kind": "script-source",
+            "digest": "0035b27722353cc3c5ba4369c2019ef42cee8e17888df3c85a4417d3246073a9"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "kind": "function",
+          "name": "targetTypeMap",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 36760,
+            "kind": "script-source",
+            "digest": "fa204c3006880e23abcfecde8bcab591c215fbb89354941ac4d7baef3a44efd5"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1729,
+            "kind": "script-source",
+            "digest": "a788bf4ddc2bd9162308a1a6ca2eec41cfcccb6f3fa73cc92dcaeb8a47b2e254"
+          }
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "kind": "function",
+          "originalAST": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1672,
+            "kind": "script-source",
+            "digest": "466db864b24c8772dc7cbe90c67927f5346c81612c857c78dc54b78122bbf71a"
+          }
+        }
+      ],
+      "actualObjectSetter": {
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "offset": 43943,
+          "kind": "script-source",
+          "digest": "6da887351831f8e245a38ea3794df54f3815f934052d9457e1132f1d7d4dfb0e"
+        },
+        "authoredWrite": "this._object[this._key] = newVal"
+      },
+      "unresolvedDependencies": [
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "name": "String",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 43435,
+            "kind": "script-source",
+            "digest": "b2ef230e7f4f315a28cdcc863028da31f7110f3209feb76e76fed0f37b3d8580"
+          },
+          "binding": null,
+          "reason": "unbound actual lexical dependency"
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "name": "isArray",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 43536,
+            "kind": "script-source",
+            "digest": "5d1f9731528c7952e04f6547fcd5fce95a593a0cf920aeae6ca0a4bff5fad14d"
+          },
+          "reason": "[control-legality] dependency has no callable or class definition"
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "name": "parseInt",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+            "offset": 1947,
+            "kind": "script-source",
+            "digest": "51a56618bb02fd6433acf296ceb5cd4ac8efdc25218a296b2569b01e88f5d3f0"
+          },
+          "binding": null,
+          "reason": "unbound actual lexical dependency"
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "name": "extend",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 13671,
+            "kind": "script-source",
+            "digest": "bf0bb4ee60e2cd5a1a5283c4858448a1b5582e8d1a14955a6ea3df5ca66d3820"
+          },
+          "reason": "[control-legality] dependency has no callable or class definition"
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "name": "extend",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 14176,
+            "kind": "script-source",
+            "digest": "bf0bb4ee60e2cd5a1a5283c4858448a1b5582e8d1a14955a6ea3df5ca66d3820"
+          },
+          "reason": "[control-legality] dependency has no callable or class definition"
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "name": "String",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 38286,
+            "kind": "script-source",
+            "digest": "b2ef230e7f4f315a28cdcc863028da31f7110f3209feb76e76fed0f37b3d8580"
+          },
+          "binding": null,
+          "reason": "unbound actual lexical dependency"
+        },
+        {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "name": "Proxy",
+          "source": {
+            "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+            "offset": 38683,
+            "kind": "script-source",
+            "digest": "a68ee4167406a050681e0ea3b78907f56b7dd167eff9c9f77dc38026802f0b52"
+          },
+          "binding": null,
+          "reason": "unbound actual lexical dependency"
+        }
+      ],
+      "inputs": [
+        {
+          "path": "/workspace/chain-1895-component-prop-source/FsusUI/vue/tsconfig.base.json",
+          "digest": "9aea15b7d463e28184eb4f5d427d6ffc260c29a2e0a19ea57a60e3858efab349"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/vue/package.json",
+          "digest": "fec980abfce3f75f81a6d9511de47400bc86a3496fe11620e701ad2590014297"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/package.json",
+          "digest": "02095f564c8610e154d8779cf70cc139548ba27fb7f37d5b5daf8a17c7aa37cf"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/package.json",
+          "digest": "80b00ff1cb3536ca505bd6cd6a0b9c040107b631e8ae48391f26209f55dd19f3"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/package.json",
+          "digest": "bfc0e219248f0ccb9d58c77ab506eb1fbfda546de52b3e59438f0bf6fb17de76"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/package.json",
+          "digest": "480b5f328746546e614d618d2afcf61ef61d61439e9defff5b3a86ec523da607"
+        },
+        {
+          "path": "/workspace/chain-1895-origin-export-successor/FsusBlog/src/frontend/vite.config.ts",
+          "digest": "4e315e62566c772d337ffa845753cc321334168d767424c5915a42a862bf7415"
+        },
+        {
+          "path": "/workspace/chain-1895-component-prop-source/FsusUI/vue/packages/components/form/src/hooks/use-form-item.ts",
+          "digest": "cb6289578638665201312dffce484ddcf4276da6dbca658cad251abaa5b938e4"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+          "digest": "76ade37fffcfcbb9b2d1f92881d18bd7fa74bd2e60747c51d501437f0650fe48"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+          "digest": "56c720b1c82456a3569d85dc4a45ff95c6503d5bb850f0d07abd61171d578ff4"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "digest": "509c654b2f5d80ca9296f7133c2ed11b33791c8e08e87a80b03fb40ce096c146"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/reactivity/dist/reactivity.esm-bundler.js",
+          "digest": "5467096d1ed0a057dbe15e8d2b4883c99756d0a55dd440cb097ef1a2d4dbc973"
+        },
+        {
+          "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "digest": "0514e1a91aac3c60886bd4b6d6f2ab48dc0006120aa6d294a6a0a35d4e56563b"
+        }
+      ],
+      "dependencyScope": "actual direct call/new bodies only; indirect and native-value bodies remain unproved",
+      "qualificationEligible": false,
+      "readonlyVerdictProvidedByInterface": false
+    }
+  ],
+  "sourceClosurePaths": [
+    "package.json",
+    "tools/frontend/control-legality/package.json",
+    "tests/frontend/support/layout/compositionAnalyzer.mjs",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "tests/frontend/support/layout/compositionTargetSource.mjs",
+    "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+    "tests/frontend/support/layout/compositionSlotSource.mjs",
+    "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "tests/frontend/support/layout/compositionRoutes.mjs",
+    "tests/frontend/support/layout/compositionDom.mjs",
+    "tests/frontend/support/layout/compositionGeometry.mjs",
+    "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+    "tests/frontend/support/layout/compositionOverflowGeometry.mjs",
+    "tests/frontend/support/layout/compositionChromeGeometry.mjs",
+    "tests/frontend/support/layout/compositionContracts.mjs",
+    "tools/frontend/control-legality/source.mjs",
+    "tools/frontend/control-legality/source-ref-selectors.mjs"
+  ],
+  "transitiveRepositorySourcePaths": [
+    "package.json",
+    "src/frontend/scripts/fsusui-root.mjs",
+    "tests/frontend/support/layout/compositionAnalyzer.mjs",
+    "tests/frontend/support/layout/compositionChromeGeometry.mjs",
+    "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "tests/frontend/support/layout/compositionContracts.mjs",
+    "tests/frontend/support/layout/compositionDom.mjs",
+    "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+    "tests/frontend/support/layout/compositionGeometry.mjs",
+    "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+    "tests/frontend/support/layout/compositionOverflowGeometry.mjs",
+    "tests/frontend/support/layout/compositionRoutes.mjs",
+    "tests/frontend/support/layout/compositionSlotSource.mjs",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "tests/frontend/support/layout/compositionTargetSource.mjs",
+    "tools/frontend/control-legality/package.json",
+    "tools/frontend/control-legality/source-ref-selectors.mjs",
+    "tools/frontend/control-legality/source.mjs",
+    "tools/test-matrix/schema-validator/validate.mjs"
+  ],
+  "repositoryImportEdges": [
+    {
+      "from": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+      "specifier": "./compositionContracts.mjs",
+      "to": "tests/frontend/support/layout/compositionContracts.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionContracts.mjs",
+      "specifier": "@fsusblog/layout-governance/fsusui-source-resolver",
+      "to": "src/frontend/scripts/fsusui-root.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionContracts.mjs",
+      "specifier": "@fsusblog/layout-governance/schema-validator",
+      "to": "tools/test-matrix/schema-validator/validate.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+      "specifier": "./compositionRoutes.mjs",
+      "to": "tests/frontend/support/layout/compositionRoutes.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionRoutes.mjs",
+      "specifier": "@fsusblog/control-legality/source",
+      "to": "tools/frontend/control-legality/source.mjs"
+    },
+    {
+      "from": "tools/frontend/control-legality/source.mjs",
+      "specifier": "./source-ref-selectors.mjs",
+      "to": "tools/frontend/control-legality/source-ref-selectors.mjs"
+    },
+    {
+      "from": "tools/frontend/control-legality/source-ref-selectors.mjs",
+      "specifier": "./source.mjs",
+      "to": "tools/frontend/control-legality/source.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+      "specifier": "./compositionSource.mjs",
+      "to": "tests/frontend/support/layout/compositionSource.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionSource.mjs",
+      "specifier": "@fsusblog/control-legality/source",
+      "to": "tools/frontend/control-legality/source.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionSource.mjs",
+      "specifier": "./compositionCollectionSource.mjs",
+      "to": "tests/frontend/support/layout/compositionCollectionSource.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+      "specifier": "@fsusblog/control-legality/source",
+      "to": "tools/frontend/control-legality/source.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionSource.mjs",
+      "specifier": "./compositionFunctionalSource.mjs",
+      "to": "tests/frontend/support/layout/compositionFunctionalSource.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+      "specifier": "@fsusblog/control-legality/source",
+      "to": "tools/frontend/control-legality/source.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionSource.mjs",
+      "specifier": "./compositionRoutes.mjs",
+      "to": "tests/frontend/support/layout/compositionRoutes.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionSource.mjs",
+      "specifier": "./compositionSlotSource.mjs",
+      "to": "tests/frontend/support/layout/compositionSlotSource.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionSlotSource.mjs",
+      "specifier": "@fsusblog/control-legality/source",
+      "to": "tools/frontend/control-legality/source.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionSource.mjs",
+      "specifier": "./compositionTargetSource.mjs",
+      "to": "tests/frontend/support/layout/compositionTargetSource.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionTargetSource.mjs",
+      "specifier": "@fsusblog/control-legality/source",
+      "to": "tools/frontend/control-legality/source.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionDom.mjs",
+      "specifier": "./compositionContracts.mjs",
+      "to": "tests/frontend/support/layout/compositionContracts.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionGeometry.mjs",
+      "specifier": "./compositionContracts.mjs",
+      "to": "tests/frontend/support/layout/compositionContracts.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionGeometry.mjs",
+      "specifier": "./compositionDom.mjs",
+      "to": "tests/frontend/support/layout/compositionDom.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionChromeGeometry.mjs",
+      "specifier": "./compositionDom.mjs",
+      "to": "tests/frontend/support/layout/compositionDom.mjs"
+    },
+    {
+      "from": "tests/frontend/support/layout/compositionChromeGeometry.mjs",
+      "specifier": "./compositionGeometry.mjs",
+      "to": "tests/frontend/support/layout/compositionGeometry.mjs"
+    }
+  ],
+  "externalImports": [
+    {
+      "from": "tools/test-matrix/schema-validator/validate.mjs",
+      "specifier": "ajv/dist/2020.js",
+      "resolved": "/workspace/chain-1895-origin-export-successor/FsusBlog/tools/test-matrix/schema-validator/node_modules/ajv/dist/2020.js"
+    }
+  ],
+  "closureBoundary": "Canonical analyzer declares 17 files; actual static repository imports add two unchanged helpers. External npm implementation closures and computed/dynamic loads are not certified by this readonly inventory.",
+  "provenance": "Read-only projection of original resolver observations, not another parser or effect checker",
+  "qualificationEligible": false,
+  "productionInventoryRun": false,
+  "runtimeState": "unbound"
+}

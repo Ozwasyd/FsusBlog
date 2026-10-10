@@ -1,0 +1,135 @@
+{
+  "sourceCommit": "0f297586d531eaefc0f32cabb126a4652af81602",
+  "artifacts": [
+    {
+      "path": "bare-h-original-case.test.mjs",
+      "bytes": 3190,
+      "sha256": "d65f239f055115933530074e3a9a6aa578eeb3e09fb3f7cf566188e081e9e09d"
+    },
+    {
+      "path": "functional-maintenance-clean-combined-tests.pass.txt",
+      "bytes": 92692,
+      "sha256": "06361a8363d9bc6aea188febcde0d8abd29251f8c563dc5fe6bc91fa086f484d"
+    },
+    {
+      "path": "functional-maintenance-clean-combined-tests.result.json",
+      "bytes": 76282,
+      "sha256": "f6dee653ddc66924a019ce00a01493051fc9adf6fa7af17ea090dfb2fab3758b"
+    },
+    {
+      "path": "functional-maintenance-clean-contract.pass.txt",
+      "bytes": 81,
+      "sha256": "6c552adde6f9cf4837650711eb4efa12a5d74ad14e027a4ce90ed17a06b6731d"
+    },
+    {
+      "path": "functional-maintenance-clean-contract.result.json",
+      "bytes": 1592,
+      "sha256": "9a4cb06a3b2fb7624a981225f15aeed1ba783038558cd2ab74cfa25754476e12"
+    },
+    {
+      "path": "functional-maintenance-clean-name-comparison.json",
+      "bytes": 83983,
+      "sha256": "0d44b600e3e81abb5110acdba96c9bbda1be1384cb179acdf988555407b708cd"
+    },
+    {
+      "path": "functional-maintenance-clean-positive-preflight.json",
+      "bytes": 305275,
+      "sha256": "6daa4677a0c683a6b3178d0b65ad13c205d4bc8f5019f61f0ff8622cafa65585"
+    },
+    {
+      "path": "functional-maintenance-clean-style.pass.txt",
+      "bytes": 68,
+      "sha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "functional-maintenance-clean-style.result.json",
+      "bytes": 1624,
+      "sha256": "26e19e9c429bd79d072fe1e88abc2da95a953b73ac2516e53755420fb1d2eaf0"
+    },
+    {
+      "path": "functional-maintenance-focused-corrected.pass.txt",
+      "bytes": 225,
+      "sha256": "dc0713bdfe2eeef06880f4152cd3941522e242bb67741fd50b05274ba657b2b2"
+    },
+    {
+      "path": "functional-maintenance-focused-corrected.result.json",
+      "bytes": 1781,
+      "sha256": "023fdf47ad07c5d42630c995155f3926de2b69d7e82a6dc61b68ce979491ba82"
+    },
+    {
+      "path": "functional-maintenance-focused-working.failed.txt",
+      "bytes": 3779,
+      "sha256": "74032c66f88d63b9b22210edd1d254c1d1e96b4f3a462e169744bec119673aa6"
+    },
+    {
+      "path": "functional-maintenance-focused-working.result.json",
+      "bytes": 1778,
+      "sha256": "e6ade47b8bd9fa9a4df7161a14386605a4c4365ec07cab1398fe33c24ead0f56"
+    },
+    {
+      "path": "functional-maintenance-framework-identities.json",
+      "bytes": 72438,
+      "sha256": "0e20992c77983dcaac8e9d15bde5fd593bca1440e419a93127119fc3dd12ee4f"
+    },
+    {
+      "path": "functional-maintenance-original-bare-h-clean-observations.json",
+      "bytes": 1039,
+      "sha256": "7d763bae8aa7fb91a99af1d10b6e91957ad2353844793f127956e8de11f7a957"
+    },
+    {
+      "path": "functional-maintenance-original-bare-h-clean.pass.txt",
+      "bytes": 330,
+      "sha256": "6fc3cdf1b4b6ff41cace72fb8fe79791085265c229ae06e26251dd0d535b587b"
+    },
+    {
+      "path": "functional-maintenance-original-bare-h-clean.result.json",
+      "bytes": 1777,
+      "sha256": "266544bad494429c4818b558bf24fdeb2eb840a997b99de0e5e64cf07d567f3f"
+    },
+    {
+      "path": "functional-maintenance-pre-post-test.json",
+      "bytes": 4971,
+      "sha256": "a2b1dbbfa3ae62ae9233bdeb90bf64b83c06b31e2b4930ccdd81702c96b5dc91"
+    },
+    {
+      "path": "functional-maintenance-sdk-identities.pass.txt",
+      "bytes": 64,
+      "sha256": "9acae093c5cd44e335f454c89849f181f33fd5abcf7c351934f7dd0a399885c0"
+    },
+    {
+      "path": "functional-maintenance-sdk-identities.result.json",
+      "bytes": 1568,
+      "sha256": "a4abdbe2ac76fbefa67711e76640cf4cf8316dcedfbfcc6515a1c8d77bbb2930"
+    },
+    {
+      "path": "functional-maintenance-style-corrected.pass.txt",
+      "bytes": 68,
+      "sha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    },
+    {
+      "path": "functional-maintenance-style-corrected.result.json",
+      "bytes": 1739,
+      "sha256": "dd7a91a821f5493e6e187fbc05b19375073c6656351548716f9b6a7ea3900cad"
+    },
+    {
+      "path": "functional-preflight.mjs",
+      "bytes": 9558,
+      "sha256": "5c66994ee1cf944eb9dff4cc43f529da787b05b6eca602a95867dca921bf548c"
+    },
+    {
+      "path": "interface-and-status.json",
+      "bytes": 17509,
+      "sha256": "45ec7f00ffdfa6add125b1447d82c76e03b795da8128c32e5ba4d04316b2637d"
+    },
+    {
+      "path": "project-framework-identities.mjs",
+      "bytes": 6121,
+      "sha256": "907ebbc3c59523a64a0e6f94c6f940487da1687c7cd5f1f3731c1ebbb2c73ebb"
+    },
+    {
+      "path": "run.py",
+      "bytes": 1343,
+      "sha256": "eaa1bc6ed137133930a1e1e4cb53c9d48db569309bfe09279e7eff4bcada7705"
+    }
+  ]
+}
