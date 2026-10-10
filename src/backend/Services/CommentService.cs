@@ -434,18 +434,15 @@ public partial class CommentCommandService(
                 throw new InvalidOperationException("Failed to create comment id.");
             }
 
-            await db.Insertable(new CommentRevision
-            {
-                CommentId = generatedId,
-                Version = 1,
-                Content = normalizedContent,
-                ContentSha256 = ComputeContentSha256(normalizedContent),
-                Operation = CommentRevisionOperations.Created,
-                CreatedAtUtc = comment.CreateTime,
-                ActorAccountId = actor.UserId,
-                ActorAdminPrincipalId = null,
-                ActorMode = actor.AuthorMode
-            }).ExecuteCommandAsync(cancellationToken);
+            await db.Insertable(BuildRevision(
+                generatedId,
+                1,
+                CommentRevisionOperations.Created,
+                normalizedContent,
+                comment.CreateTime,
+                actor.AuthorMode,
+                actor.UserId,
+                null)).ExecuteCommandAsync(cancellationToken);
 
             await commentModeration.PersistVisibilityAsync(generatedId, regionDecision, cancellationToken);
 
@@ -1208,6 +1205,28 @@ public partial class CommentCommandService(
         CommentModerationStatus ModerationStatus,
         string? ArticleTitle,
         string RowVersion);
+
+    public static CommentRevision BuildRevision(
+        long commentId,
+        int version,
+        string operation,
+        string normalizedContent,
+        DateTime createdAtUtc,
+        string actorMode,
+        int? actorAccountId,
+        long? actorAdminPrincipalId)
+        => new()
+        {
+            CommentId = commentId,
+            Version = version,
+            Content = normalizedContent,
+            ContentSha256 = ComputeContentSha256(normalizedContent),
+            Operation = operation,
+            CreatedAtUtc = createdAtUtc,
+            ActorMode = actorMode,
+            ActorAccountId = actorAccountId,
+            ActorAdminPrincipalId = actorAdminPrincipalId
+        };
 
     public static IReadOnlyList<string> ResolveInitialOutboxEventTypes(
         CommentModerationStatus status,

@@ -5,6 +5,7 @@
             "id": "environment-variable",
             "paths": [
                 "src/backend/Services/ArticleCommentPolicyService.cs",
+                "src/backend/Services/CommentAuthorManagementService.cs",
                 "src/backend/Services/CommentModerationService.cs",
                 "src/backend/Services/CommentService.cs",
                 "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
@@ -20,14 +21,16 @@
                 "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphResolution.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScaleArticleBindingAdapter.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScaleDeliveryBatchReader.cs",
+                "src/backend/Services/Fixtures/DataScale/CommentScaleInitialOutboxGraphAdapter.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScaleMutationSchedule.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScaleNativeBindingAdapter.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScalePlan.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScalePolicyResolver.cs",
+                "src/backend/Services/Fixtures/DataScale/CommentScaleRevisionGraphAdapter.cs",
                 "src/backend/Services/Fixtures/DataScale/DataScaleNativeRoleBindings.cs",
                 "src/backend/Services/Security/AnonymousCommentPolicyService.cs"
             ],
-            "reason": "Consume unchanged original pure policies, mutation/delivery ports and dd4fdd02b article identity map. Owned comment modules validate the one closed plan and ordered reference mutation schedule, call actual original article/content/temporal policies and readers, and retain unresolved native/row/admission authority. No external environment key or private production construction is introduced. Consume byte-identical c2847aa original whole-plan resolved inputs, native role transport and pure article factory/verifier without modifying writer/transaction/checkpoint code; original external strings and existing contracts remain authoritative."
+            "reason": "Consume unchanged original pure policies, mutation/delivery ports and dd4fdd02b article identity map. Owned comment modules validate the one closed plan and ordered reference mutation schedule, call actual original article/content/temporal policies and readers, and retain unresolved native/row/admission authority. No external environment key or private production construction is introduced. Consume byte-identical c2847aa original whole-plan resolved inputs, native role transport and pure article factory/verifier without modifying writer/transaction/checkpoint code; original external strings and existing contracts remain authoritative. Owned continuation composes the actual ef65043da initial-outbox selector/builder through the sole factory and original native bindings; no event rules, revision authority, native allocator or deterministic runtime evidence is invented. Owned revision continuation consumes the unchanged e816562e4 production eight-argument constructor with explicit observed facts and original temporal roles, retaining unpersisted native revision IDs and no private hashing or normalization."
         },
         {
             "id": "json-wire-key",
