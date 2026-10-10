@@ -380,6 +380,249 @@ test('canonical supplier order preserves genuine repeated graph inputs records a
     }
 });
 
+function originalSupplierReadGraph(unknown = false)
+{
+    const parent = resolve(directory, randomUUID());
+    mkdirSync(parent);
+    const owner = resolve(parent, 'Owner.vue');
+    const entry = resolve(parent, 'Entry.vue');
+    const ownerBytes = '<script setup>const props=defineProps({tag:{type:[String,Object],default:"button"}});</script><template><component :is="tag"/></template>';
+    const entryBytes = unknown
+        ? '<script setup>import Owner from "./Owner.vue";</script><template><Owner tag="a"/><Owner :tag="unknown"/></template>'
+        : '<script setup>import Owner from "./Owner.vue";</script><template><Owner tag="a"/><Owner tag="span"/></template>';
+    writeFileSync(owner, ownerBytes);
+    writeFileSync(entry, entryBytes);
+    const s = source();
+    const graph = s.graph([entry]);
+    const target = graph.nodes.find((node) => node.file === owner && node.origin.kind === 'native-prop');
+    const calls = graph.nodes.filter((node) => node.file === entry && node.definition === owner);
+    assert.ok(target);
+    assert.equal(calls.length, 2);
+    return { s, graph, target, entry, entryBytes, calls };
+}
+
+test('canonical supplier reads refuse original values shadow omitting an unknown supplying call', () =>
+{
+    const { s, graph, target, entry, entryBytes, calls } = originalSupplierReadGraph(true);
+    assert.deepEqual(graph.errors.map((error) => error.reason), ['unbound-native-prop-source', 'unbound-target-supplier-source']);
+    assert.throws(() => s.resolveTargetInputs(target, graph), /mutable\/unknown component input/);
+    assert.throws(() => s.resolveTargetInputs(target, graph.nodes), /mutable\/unknown component input/);
+    const recordIds = s.parse(entry).nodes.slice();
+    const instrumentation = s.instrument(entry, entryBytes);
+    const map = s.nodes;
+    const originals = [...Map.prototype.entries.call(map)];
+    map.values = function* ()
+    {
+        yield* [...Map.prototype.values.call(this)].filter((node) => node !== calls[1]);
+    };
+    assert.equal(map.size, originals.length);
+    assert.ok(originals.every(([id, node]) => Map.prototype.get.call(map, id) === node));
+    assert.deepEqual([...Map.prototype.keys.call(map)], originals.map(([id]) => id));
+    assert.throws(() => s.graph([entry]), /original source node Map observation/);
+    assert.throws(() => s.resolveTargetInputs(target, graph), /original source node Map observation/);
+    assert.throws(() => s.resolveTargetInputs(target, graph.nodes), /original source node Map observation/);
+    assert.throws(() => s.instrument(entry, entryBytes), /original source node Map observation/);
+    delete map.values;
+    assert.deepEqual(s.parse(entry).nodes, recordIds);
+    assert.equal(s.instrument(entry, entryBytes), instrumentation);
+    assert.throws(() => s.resolveTargetInputs(target, s.graph([entry])), /mutable\/unknown component input/);
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('canonical supplier reads refuse original values shadow reversing genuine supplying calls', () =>
+{
+    const { s, graph, target, entry, entryBytes } = originalSupplierReadGraph();
+    assert.deepEqual(graph.errors, []);
+    const inputs = s.resolveTargetInputs(target, graph);
+    assert.deepEqual(inputs.map((input) => input.target.name), ['a', 'span']);
+    const map = s.nodes;
+    const originals = [...Map.prototype.entries.call(map)];
+    map.values = function* ()
+    {
+        yield* [...Map.prototype.values.call(this)].reverse();
+    };
+    assert.equal(map.size, originals.length);
+    assert.ok(originals.every(([id, node]) => Map.prototype.get.call(map, id) === node));
+    assert.deepEqual([...Map.prototype.keys.call(map)], originals.map(([id]) => id));
+    assert.throws(() => s.graph([entry]), /original source node Map observation/);
+    assert.throws(() => s.resolveTargetInputs(target, graph), /original source node Map observation/);
+    assert.throws(() => s.resolveTargetInputs(target, graph.nodes), /original source node Map observation/);
+    assert.throws(() => s.instrument(entry, entryBytes), /original source node Map observation/);
+    delete map.values;
+    assert.deepEqual(s.resolveTargetInputs(target, s.graph([entry])), inputs);
+});
+
+test('canonical supplier reads reject public Map method iterator getter and prototype overrides before invocation', () =>
+{
+    for (const property of ['values', 'keys', 'entries', 'get', 'has', 'forEach', 'size', Symbol.iterator, 'prototype'])
+    {
+        const { s, graph, target, entry, entryBytes } = originalSupplierReadGraph();
+        const inputs = s.resolveTargetInputs(target, graph);
+        const map = s.nodes;
+        let trapCalls = 0;
+        const trap = () =>
+        {
+            trapCalls++;
+            throw new Error('public Map read override executed');
+        };
+        if (property === 'prototype')
+        {
+            Object.setPrototypeOf(map, { values: trap });
+        }
+        else
+        {
+            Object.defineProperty(map, property, { configurable: true, get: trap });
+        }
+        assert.throws(() => s.graph([entry]), /original source node Map observation/);
+        assert.throws(() => s.resolveTargetInputs(target, graph), /original source node Map observation/);
+        assert.throws(() => s.resolveTargetInputs(target, graph.nodes), /original source node Map observation/);
+        assert.throws(() => s.instrument(entry, entryBytes), /original source node Map observation/);
+        assert.throws(() => s.parse(entry), /original source node Map observation/);
+        assert.throws(() => s.nodes, /original source node Map observation/);
+        assert.equal(trapCalls, 0);
+        if (property === 'prototype')
+        {
+            Object.setPrototypeOf(map, Map.prototype);
+        }
+        else
+        {
+            delete map[property];
+        }
+        assert.deepEqual(s.resolveTargetInputs(target, s.graph([entry])), inputs);
+        assert.deepEqual(s.resolver.sourceBindings().errors, []);
+    }
+});
+
+test('canonical supplier reads keep detached resolver and file Maps observational while native callbacks remain supported', () =>
+{
+    const { s, graph, target, entry, entryBytes } = originalSupplierReadGraph();
+    const inputs = s.resolveTargetInputs(target, graph);
+    const instrumentation = s.instrument(entry, entryBytes);
+    const originalRecord = s.resolver.parse(entry);
+    const maps = [s.records, originalRecord.imports, originalRecord.variables, originalRecord.registrations, s.resolver.exportsOf(entry)];
+    let trapCalls = 0;
+    for (const map of maps)
+    {
+        map.clear();
+        for (const property of ['values', 'keys', 'entries', 'get', 'has', 'forEach', 'size', Symbol.iterator])
+        {
+            Object.defineProperty(map, property, { configurable: true, get: () =>
+            {
+                trapCalls++;
+                throw new Error('detached Map override executed');
+            } });
+        }
+    }
+    const map = s.nodes;
+    const expected = [...map];
+    assert.deepEqual([...map.entries()], expected);
+    assert.deepEqual([...map.keys()], expected.map(([id]) => id));
+    assert.deepEqual([...map.values()], expected.map(([, node]) => node));
+    const callback = { calls: [] };
+    map.forEach(function(node, id, observed)
+    {
+        assert.equal(this, callback);
+        assert.equal(observed, map);
+        assert.equal(map.get(id), node);
+        assert.ok(map.has(id));
+        this.calls.push([id, node]);
+    }, callback);
+    assert.deepEqual(callback.calls, expected);
+    assert.equal(map.size, expected.length);
+    assert.deepEqual(s.resolveTargetInputs(target, s.graph([entry])), inputs);
+    assert.equal(s.instrument(entry, entryBytes), instrumentation);
+    assert.equal(trapCalls, 0);
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('canonical supplier reads preserve genuine unknown call refusal through repeated original graphs', () =>
+{
+    const { s, graph, target, entry, entryBytes, calls } = originalSupplierReadGraph(true);
+    const errors = graph.errors.map((error) => error.reason);
+    const ids = s.parse(entry).nodes.slice();
+    assert.deepEqual(ids, calls.map((call) => call.id));
+    const instrumentation = s.instrument(entry, entryBytes);
+    for (let repeat = 0; repeat < 2; repeat++)
+    {
+        const repeated = s.graph([entry]);
+        assert.deepEqual(repeated.errors.map((error) => error.reason), errors);
+        assert.deepEqual(repeated.nodes.map((node) => node.id), graph.nodes.map((node) => node.id));
+        assert.throws(() => s.resolveTargetInputs(target, repeated), /mutable\/unknown component input/);
+        assert.throws(() => s.resolveTargetInputs(target, repeated.nodes), /mutable\/unknown component input/);
+        assert.deepEqual(s.parse(entry).nodes, ids);
+        assert.equal(s.instrument(entry, entryBytes), instrumentation);
+        assert.deepEqual(s.resolver.sourceBindings().errors, []);
+    }
+});
+
+test('canonical supplier reads bind the actual resolver methods and observation getters without replacing registration callbacks', () =>
+{
+    const { s, graph, target, entry, entryBytes } = originalSupplierReadGraph();
+    const inputs = s.resolveTargetInputs(target, graph);
+    const instrumentation = s.instrument(entry, entryBytes);
+    const identity = s.resolver.identity;
+    assert.ok(Object.isFrozen(s.resolver));
+    for (const property of ['parse', 'exportsOf', 'sourceBindings', 'addRegistrations', 'identity'])
+    {
+        assert.throws(() => Object.defineProperty(s.resolver, property, { get: () =>
+        {
+            throw new Error('forged resolver observation invoked');
+        } }), TypeError);
+    }
+    const temporary = resolve(repositoryRoot, 'src/frontend/src', `module-integration-${randomUUID()}`);
+    mkdirSync(temporary);
+    try
+    {
+        const registration = resolve(temporary, 'main.ts');
+        writeFileSync(registration, "import {Check} from '@ozwasyd/element-plus/icons-vue';app.component('OriginalCheck', Check);");
+        s.resolver.addRegistrations(registration);
+        assert.equal(s.resolver.resolveTag(entry, 'OriginalCheck').publicName, 'Check');
+        assert.deepEqual(s.resolveTargetInputs(target, s.graph([entry])), inputs);
+        assert.equal(s.instrument(entry, entryBytes), instrumentation);
+        assert.deepEqual(s.resolver.sourceBindings().errors, []);
+    }
+    finally
+    {
+        rmSync(temporary, { recursive: true, force: true });
+    }
+    assert.deepEqual(s.resolver.identity, identity);
+});
+
+test('canonical supplier reads reject shared traversal prototype drift without invoking forged reads', () =>
+{
+    const { s, graph, target, entry, entryBytes } = originalSupplierReadGraph();
+    const inputs = s.resolveTargetInputs(target, graph);
+    const instrumentation = s.instrument(entry, entryBytes);
+    for (const prototype of [Map.prototype, Set.prototype])
+    {
+        for (const property of ['values', 'keys', 'entries', 'has', 'forEach', 'size', Symbol.iterator])
+        {
+            const descriptor = Object.getOwnPropertyDescriptor(prototype, property);
+            let trapCalls = 0;
+            try
+            {
+                Object.defineProperty(prototype, property, { configurable: true, get: () =>
+                {
+                    trapCalls++;
+                    throw new Error('shared traversal read override invoked');
+                } });
+                assert.throws(() => s.graph([entry]), /original source node Map observation traversal prototype/);
+                assert.throws(() => s.resolveTargetInputs(target, graph), /original source node Map observation traversal prototype/);
+                assert.throws(() => s.resolveTargetInputs(target, graph.nodes), /original source node Map observation traversal prototype/);
+                assert.throws(() => s.instrument(entry, entryBytes), /original source node Map observation traversal prototype/);
+                assert.throws(() => s.parse(entry), /original source node Map observation traversal prototype/);
+                assert.equal(trapCalls, 0);
+            }
+            finally
+            {
+                Object.defineProperty(prototype, property, descriptor);
+            }
+            assert.deepEqual(s.resolveTargetInputs(target, s.graph([entry])), inputs);
+            assert.equal(s.instrument(entry, entryBytes), instrumentation);
+        }
+    }
+});
+
 test('canonical target supplier API isolates returned identities from the original resolver graph', () =>
 {
     const { s, graph, node } = targetSupplier();

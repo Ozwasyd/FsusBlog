@@ -181,6 +181,14 @@ supplier resolution and instrumentation. Deleting and reinserting the same
 call through the public node Map cannot reorder suppliers while retaining the
 original file records and markers. Genuine repeated graphs preserve their
 original source order; these checks do not prove runtime execution order.
+Own Map methods, iterators, getters or a substituted Map prototype are rejected
+before canonical reads. Node membership, order and graph projections use the
+original Map intrinsics. Public file and resolver Maps remain detached
+observations; the canonical resolver method/getter facade is immutable while
+its actual registration callbacks remain usable. Private traversal Map/Set
+instances are never exposed as caller-owned observations.
+The original Map/Set traversal prototype descriptors are checked without
+invoking their getters; shared prototype drift cannot redefine private reads.
 Structural conditions inside a public component may be resolved only from that
 exact call's literal props/defaults and statically provided slots, through the
 actual parsed `computed`/`Boolean` expressions. The source graph binds all parsed

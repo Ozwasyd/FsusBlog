@@ -13,6 +13,15 @@ export const compositionNodeAttribute = 'data-fsus-composition-node';
 export const compositionCallAttribute = 'data-fsus-composition-call';
 export const compositionSourceVersion = 'fsusblog.composition-source.v1';
 
+const nodeMapPrototype = Map.prototype;
+const nodeMapGet = Function.prototype.call.bind(Map.prototype.get);
+const nodeMapSet = Function.prototype.call.bind(Map.prototype.set);
+const nodeMapKeys = Function.prototype.call.bind(Map.prototype.keys);
+const nodeMapValues = Function.prototype.call.bind(Map.prototype.values);
+const nodeMapSize = Function.prototype.call.bind(Object.getOwnPropertyDescriptor(Map.prototype, 'size').get);
+const traversalPrototypes = [Map.prototype, Set.prototype].map((prototype) =>
+    ({ prototype, parent: Object.getPrototypeOf(prototype), descriptors: Object.getOwnPropertyDescriptors(prototype) }));
+
 function fail(message)
 {
     throw new Error(`[composition-source] ${message}`);
@@ -21,7 +30,7 @@ function fail(message)
 /** Source identities come from the canonical control resolver, including actual Vite registrations. */
 export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot = repositoryRoot })
 {
-    const resolver = createControlSourceResolver({ repositoryRoot, fsusUIRoot, parserRoot, mode: 'local' });
+    const resolver = Object.freeze(createControlSourceResolver({ repositoryRoot, fsusUIRoot, parserRoot, mode: 'local' }));
     const { ts, dom } = resolver;
     const root = realpathSync(repositoryRoot);
     const upstream = realpathSync(fsusUIRoot);
@@ -103,8 +112,33 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             original.sealed = true;
         }
     }
+    function assertNodeMapObservation()
+    {
+        // Reject all own read surfaces without invoking an accessor or method.
+        // The real Map remains public; its entries still have original guards.
+        if (Object.getPrototypeOf(nodes) !== nodeMapPrototype || Reflect.ownKeys(nodes).length)
+        {
+            fail('supplier graph changed: original source node Map observation');
+        }
+        for (const { prototype, parent, descriptors } of traversalPrototypes)
+        {
+            const keys = Reflect.ownKeys(prototype);
+            if (Object.getPrototypeOf(prototype) !== parent || keys.length !== Reflect.ownKeys(descriptors).length
+                || keys.some((key) =>
+                {
+                    const actual = Object.getOwnPropertyDescriptor(prototype, key);
+                    const original = descriptors[key];
+                    return !original || Reflect.ownKeys(actual).length !== Reflect.ownKeys(original).length
+                        || Reflect.ownKeys(original).some((field) => actual[field] !== original[field]);
+                }))
+            {
+                fail('supplier graph changed: original source node Map observation traversal prototype');
+            }
+        }
+    }
     function assertOriginalCalls(checkBytes = false)
     {
+        assertNodeMapObservation();
         if (records.size !== originalRecords.size)
         {
             fail('supplier graph changed: original source record membership');
@@ -117,12 +151,12 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 fail(`supplier graph changed: original source record ${file}`);
             }
         }
-        if (nodes.size !== originalCalls.size)
+        if (nodeMapSize(nodes) !== originalCalls.size)
         {
             fail('supplier graph changed: original source call membership');
         }
         const checked = new Set();
-        const actualOrder = Map.prototype.keys.call(nodes);
+        const actualOrder = nodeMapKeys(nodes);
         for (const [id, original] of originalCalls)
         {
             // Membership and identical pointers do not preserve Map iteration
@@ -131,7 +165,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             {
                 fail('supplier graph changed: original source call order');
             }
-            const node = nodes.get(id);
+            const node = nodeMapGet(nodes, id);
             if (!original.sealed || node !== original.node
                 || controlDigest(callFacts(node, new Set(), original.objects)) !== original.factsDigest)
             {
@@ -1069,7 +1103,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 sourceSyntax: syntax, renderPaths: [{ parentId, ancestors, conditional,
                     callbackInputs: [...callbackInputs].map(([name, input]) => ({ name, ...('index' in input ? { index: input.index }
                         : { source: resolver.sourceStep(input.file, input.node) }) })) }] };
-            const previous = nodes.get(id);
+            const previous = nodeMapGet(nodes, id);
             if (previous)
             {
                 if (previous.parentId !== parentId || controlDigest(previous.origin) !== controlDigest(origin))
@@ -1081,7 +1115,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     .map((entry) => [controlDigest(entry), entry])).values()];
                 return previous;
             }
-            nodes.set(id, current);
+            nodeMapSet(nodes, id, current);
             observeCall(current, record, node);
             value.nodes.push(id);
             if (definition && !records.has(definition))
@@ -1436,6 +1470,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     }
     function parse(file)
     {
+        assertNodeMapObservation();
         file = realpathSync(file);
         if (records.has(file))
         {
@@ -1679,7 +1714,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 conditional: directives.filter(({ name }) => ['if', 'else-if', 'else', 'show', 'for'].includes(name)),
                 slot: directives.find(({ name }) => name === 'slot') ?? (node.tag === 'slot' ? { name: attributes.name ?? 'default' } : null),
                 teleport: origin.publicName === 'Teleport' };
-            nodes.set(id, current);
+            nodeMapSet(nodes, id, current);
             observeCall(current, record, node);
             value.nodes.push(id);
             for (const child of node.children ?? [])
@@ -1726,16 +1761,16 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             reachable.add(file);
             for (const id of records.get(file)?.nodes ?? [])
             {
-                const definition = nodes.get(id).definition;
+                const definition = nodeMapGet(nodes, id).definition;
                 if (definition)
                 {
                     visit(definition);
                 }
-                nodes.get(id).definitions?.forEach(visit);
+                nodeMapGet(nodes, id).definitions?.forEach(visit);
             }
         }
         entryFiles.forEach(visit);
-        let graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+        let graphNodes = [...nodeMapValues(nodes)].filter((node) => reachable.has(node.file));
         const frameworkTargetBindings = [];
         const frameworkTargetErrors = [];
         if (routes)
@@ -1759,8 +1794,8 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     ownerPaths(call.file, next).map((path) => [call.id, ...path]));
             }
             const selectors = graphNodes.filter((node) => node.tag === 'component'
-                && node.ancestors.some((id) => nodes.get(id)?.origin.package === 'vue-router'
-                    && nodes.get(id)?.origin.publicName === 'RouterView'));
+                && node.ancestors.some((id) => nodeMapGet(nodes, id)?.origin.package === 'vue-router'
+                    && nodeMapGet(nodes, id)?.origin.publicName === 'RouterView'));
             for (const node of selectors)
             {
                 try
@@ -1788,7 +1823,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         sourceNode: node.id, message: error.message });
                 }
             }
-            graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+            graphNodes = [...nodeMapValues(nodes)].filter((node) => reachable.has(node.file));
         }
         const nativePropBindings = [];
         const targetBindings = [];
@@ -2248,7 +2283,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         nativePropBindings.push({ sourceNode: node.id, callNode: call.id, tag: input.target.name,
                             callPath: input.callPath, inputDigests: input.callPath.map((id) =>
                             {
-                                const entry = nodes.get(id);
+                                const entry = nodeMapGet(nodes, id);
                                 return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
                             }), inputDigest: controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }) });
                     }
@@ -2318,7 +2353,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                             return exp && ts.isBinaryExpression(exp) && exp.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
                                 && (requiresInput(exp.left) || requiresInput(exp.right));
                         }
-                        const guard = !target && [node, ...node.ancestors.map((id) => nodes.get(id))]
+                        const guard = !target && [node, ...node.ancestors.map((id) => nodeMapGet(nodes, id))]
                             .filter((entry) => !entry.scopedBindings.includes(node.origin.property))
                             .flatMap((entry) => entry.conditional.map((condition) => ({ ...condition, nodeId: entry.id })))
                             .find((condition) => ['if', 'else-if'].includes(condition.name) && condition.expression
@@ -2336,7 +2371,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         componentPropBindings.push({ sourceNode: node.id, declarationDigest: node.origin.declarationDigest, callNode: call.id, callPath: input.callPath,
                             inputDigests: input.callPath.map((id) =>
                             {
-                                const entry = nodes.get(id);
+                                const entry = nodeMapGet(nodes, id);
                                 return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
                             }), target, definition, absent: guardedAbsent,
                             absenceGuard: guard ? { sourceNode: guard.nodeId, directive: guard.name, expression: guard.expression,
@@ -2381,7 +2416,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         }
                         return ['unknown'];
                     }
-                    const guard = [node, ...node.ancestors.map((id) => nodes.get(id))]
+                    const guard = [node, ...node.ancestors.map((id) => nodeMapGet(nodes, id))]
                         .filter((entry) => !properties.some((property) => entry.scopedBindings.includes(property)))
                         .flatMap((entry) => entry.conditional.map((condition) => ({ ...condition, nodeId: entry.id })))
                         .find((condition) =>
@@ -2402,7 +2437,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     componentPropBindings.push({ sourceNode: node.id, declarationDigest: node.origin.declarationDigest,
                         callNode: call.id, callPath, inputDigests: callPath.map((id) =>
                         {
-                            const entry = nodes.get(id);
+                            const entry = nodeMapGet(nodes, id);
                             return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
                         }), target: null, definition: null, absent: true,
                         absenceGuard: { sourceNode: guard.nodeId, directive: guard.name, expression: guard.expression,
@@ -2417,12 +2452,12 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         // Newly reached component definitions may contain further inputs. An
         // unbound nested edge remains an error; reaching its file is not proof.
-        for (const node of [...nodes.values()].filter((entry) => reachable.has(entry.file)
+        for (const node of [...nodeMapValues(nodes)].filter((entry) => reachable.has(entry.file)
             && ['component-prop', 'component-prop-variants'].includes(entry.origin.kind) && !graphNodes.some((original) => original.id === entry.id)))
         {
             componentPropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-component-prop-source', property: node.origin.property });
         }
-        for (const node of [...nodes.values()].filter((entry) => reachable.has(entry.file)
+        for (const node of [...nodeMapValues(nodes)].filter((entry) => reachable.has(entry.file)
             && entry.origin.kind === 'native-prop' && !graphNodes.some((original) => original.id === entry.id)))
         {
             nativePropErrors.push({ ...location(node.file, node.offset), reason: 'unbound-native-prop-source', property: node.origin.property });
@@ -2431,7 +2466,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         for (const node of graphNodes.filter((node) => !node.structural && node.file.startsWith(upstream + '/')))
         {
             const conditions = node.conditional.filter((condition) => ['if', 'show'].includes(condition.name) && condition.expression);
-            if (conditions.length !== node.conditional.length || node.ancestors.some((id) => nodes.get(id).conditional.length))
+            if (conditions.length !== node.conditional.length || node.ancestors.some((id) => nodeMapGet(nodes, id).conditional.length))
             {
                 continue;
             }
@@ -2456,7 +2491,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         const slotBindings = [];
         const slotErrors = [];
-        const slotGraph = { nodes: [...nodes.values()].filter((node) => reachable.has(node.file)) };
+        const slotGraph = { nodes: [...nodeMapValues(nodes)].filter((node) => reachable.has(node.file)) };
         const slotSource = createCompositionSlotSource({ source: { resolver, nodes, records, componentFile, expression } });
         for (const slot of slotGraph.nodes.filter((node) => node.tag === 'slot'))
         {
@@ -2503,10 +2538,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         const finalBindings = resolver.sourceBindings();
         errors.push(...finalBindings.errors);
-        graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+        graphNodes = [...nodeMapValues(nodes)].filter((node) => reachable.has(node.file));
         const graphResult = { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
             files: [...records.values()].filter((record) => reachable.has(record.file)),
-            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings,
+            nodes: [...nodeMapValues(nodes)].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings,
             targetBindings, frameworkTargetBindings, slotBindings,
             objectKeyAbsenceProofs: [...new Map(objectKeyAbsenceProofs.map((proof) => [proof.proofDigest, proof])).values()], resolverInputs: finalBindings.files,
             errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors, ...slotErrors, ...frameworkTargetErrors],
@@ -2527,8 +2562,9 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     }
     function resolveTargetInputs(node, graph)
     {
+        assertNodeMapObservation();
         const context = targetSuppliers.get(graph);
-        if (!context || !context.nodes().includes(node) || nodes.get(node?.id) !== node || node.origin.kind !== 'native-prop')
+        if (!context || !context.nodes().includes(node) || nodeMapGet(nodes, node?.id) !== node || node.origin.kind !== 'native-prop')
         {
             fail('target supplier requires its actual canonical graph and source node');
         }
@@ -2537,7 +2573,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             fail('canonical target supplier graph changed');
         }
         if (context.graph && (context.graph.nodes !== context.originalNodes || context.graph.nodes.length !== context.nodes().length
-            || context.graph.nodes.some((entry, index) => entry !== context.nodes()[index] || nodes.get(entry.id) !== entry)))
+            || context.graph.nodes.some((entry, index) => entry !== context.nodes()[index] || nodeMapGet(nodes, entry.id) !== entry)))
         {
             fail('canonical target supplier graph node identity changed');
         }
