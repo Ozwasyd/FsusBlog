@@ -76,3 +76,45 @@ test('transition table strings retain delimiter and rejection boundaries', () =>
             (error) => error.code === 'GENERATED_SECTION_RENDERER_SHAPE');
     }
 });
+
+test('JSON table cells keep compound HTTP URLs literal without autolinks', () =>
+{
+    const origins = {
+        identity: 'Fido2:Origins',
+        value: {
+            layers: {
+                'canonical-repository-config': {
+                    layer: 'canonical-repository-config',
+                    value: [
+                        'http://localhost:3000',
+                        'http://localhost:5173',
+                        'http://localhost:7291',
+                        'http://localhost:8080',
+                        'http://127.0.0.1:8080',
+                        'http://localhost:55710',
+                        'http://127.0.0.1:55710'
+                    ]
+                }
+            },
+            nullable: false,
+            secret: false,
+            type: 'array'
+        }
+    };
+    assert.equal(RendererRegistry.render('key-value-table', {
+        origins,
+        protocols: [
+            'https://example.test:443/path',
+            'HTTP://LOCALHOST:3000',
+            'HtTpS://example.test:8443/path',
+            'urn:example:123',
+            'clock:09:30',
+            'http&#58;//already-literal.test'
+        ]
+    }), [
+        '| Key | Value |',
+        '| --- | --- |',
+        '| origins | {"identity":"Fido2:Origins","value":{"layers":{"canonical-repository-config":{"layer":"canonical-repository-config","value":&#91;"http&#58;//localhost:3000","http&#58;//localhost:5173","http&#58;//localhost:7291","http&#58;//localhost:8080","http&#58;//127.0.0.1:8080","http&#58;//localhost:55710","http&#58;//127.0.0.1:55710"&#93;}},"nullable":false,"secret":false,"type":"array"}} |',
+        '| protocols | &#91;"https&#58;//example.test:443/path","HTTP&#58;//LOCALHOST:3000","HtTpS&#58;//example.test:8443/path","urn:example:123","clock:09:30","http&#38;#58;//already-literal.test"&#93; |'
+    ].join('\n'));
+});

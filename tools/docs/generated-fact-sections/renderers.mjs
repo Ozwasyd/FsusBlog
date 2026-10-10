@@ -119,8 +119,10 @@ function serializeLiteralJson(value)
 {
     // Compound observations are JSON text; scalar strings retain their Markdown contract.
     // Entities preserve literal punctuation without activating HTML, links, or escapes.
+    // Escape URL scheme colons after ampersands to preserve their decoded JSON text.
     return normalizeScalarText(JSON.stringify(value)).replace(/[&<>\\`*_[\]~]/gu,
-        (character) => `&#${character.codePointAt(0)};`);
+        (character) => `&#${character.codePointAt(0)};`)
+        .replace(/(https?):\/\//giu, '$1&#58;//');
 }
 
 function markdownTable(headers, rows)
