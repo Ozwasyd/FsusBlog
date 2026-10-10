@@ -44,7 +44,7 @@ import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback';
 import { useImageUploadFlow } from '@/composables/useImageUploadFlow';
 import { useImageUploadPreferences } from '@/composables/useImageUploadPreferences';
-import { useImageUploadRuntime, type ImageUploadSessionBorrow } from '@/composables/useImageUploadRuntime';
+import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
 import { usePow } from '@/composables/usePow';
 import { BinaryTransportError } from '@/composition/binaryTransport';
 import { createMarkdownAnchorMap, type MarkdownEditorDispatchResult } from '@/fsusui/articlePositionMaps';
@@ -70,7 +70,7 @@ import {
 import { ArticlePreviewSourceAdmission, type ArticlePreviewSourceInput } from '@/services/authoring';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
 import { createArticleAttachmentBusinessIntentReader } from '@/services/authoring/articleAttachmentBusinessIntentReader';
-import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
+import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, type ArticleAttachmentTransactionPort, type ArticleAttachmentFilePort } from '@/services/authoring/articleAttachmentContext';
 import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
 import {
     articleDocumentContextAuthority,
@@ -861,8 +861,10 @@ export function useAdminArticleWrite()
     const authoringAnchors = new ArticleAnchorContextAdapter(articleDocumentContextAdapter);
     const authoringAttachments = new ArticleAttachmentContextAdapter(articleDocumentContextAdapter,
         'article-assets', 'article-assets:v1', authoringAnchors);
-    let attachmentEditor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> | null = null;
-    const attachmentPort: ArticleAttachmentTransactionPort = {
+    let attachmentEditor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort> | null = null;
+    const attachmentPort: ArticleAttachmentTransactionPort & ArticleAttachmentFilePort = {
+        withAttachmentFile: (batch, item, consume) => active && !!attachmentEditor
+            && attachmentEditor.withAttachmentFile?.(batch, item, consume) === true,
         dispatch: transaction =>
         {
             if (!active || !attachmentEditor)
@@ -897,8 +899,7 @@ export function useAdminArticleWrite()
                 source: articleForm.content }) })
     };
     // Only the caller-held original handle and this invocation's loan survive an await.
-    let attachmentUploadAttempt: { handle: ArticleAttachmentPendingHandle; file: File;
-        borrow: ImageUploadSessionBorrow | null; } | null = null;
+    let attachmentUploadAttempt: { handle: ArticleAttachmentPendingHandle; file: File; } | null = null;
     const authoringAttachmentRuntime = Object.freeze({
         observeUpload: (handle: ArticleAttachmentPendingHandle, file: File, signal?: AbortSignal) =>
             observeOwnedImageUpload(handle, file, signal),
@@ -906,6 +907,8 @@ export function useAdminArticleWrite()
             options: Parameters<ArticleAnchorContextAdapter['capture']>[2]) => authoringAnchors.capture(attachmentPort.binding(), selection, options),
         capture: (input: Omit<Parameters<ArticleAttachmentContextAdapter['capture']>[0], 'source'>) =>
             authoringAttachments.capture({ ...input, source: articleForm.content }),
+        admitAcceptedCapture: (input: Parameters<ArticleAttachmentContextAdapter['admitAcceptedCapture']>[0]) =>
+            authoringAttachments.admitAcceptedCapture(input, attachmentPort),
         commitCreated: (capture: Parameters<ArticleAttachmentContextAdapter['commitCreated']>[0]) =>
             authoringAttachments.commitCreated(capture, attachmentPort),
         complete: (handle: Parameters<ArticleAttachmentContextAdapter['complete']>[0], result: Parameters<ArticleAttachmentContextAdapter['complete']>[1]) =>
@@ -926,7 +929,7 @@ export function useAdminArticleWrite()
         {
             return authoringAttachments.lifecycleReceipts;
         },
-        bindEditor: (editor: Pick<ArticleAttachmentTransactionPort, 'dispatch'>) =>
+        bindEditor: (editor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort>) =>
         {
             if (!active || attachmentEditor)
             {
@@ -947,13 +950,14 @@ export function useAdminArticleWrite()
     let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
     let releaseEditorRuntime: (() => void) | null = null;
     const authoringEditorRuntime = Object.freeze({
-        bindEditor: (editor: ArticleEditorContinuityPort, options: ArticleEditorRuntimeBindingOptions) =>
+        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions) =>
         {
             if (!active || editorRuntimeBinding)
             {
                 throw new Error('article-editor-runtime-already-bound');
             }
-            const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction) });
+            const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction),
+                withAttachmentFile: (batch, item, consume) => editor.withAttachmentFile?.(batch, item, consume) === true });
             let binding: ArticleEditorRuntimeBinding;
             try
             {
@@ -1104,19 +1108,6 @@ export function useAdminArticleWrite()
                     getBinding: () => attachmentPort.binding() } : null;
             } : undefined;
         },
-        get onSessionReady()
-        {
-            return attachmentUploadAttempt ? (file: File, borrow: ImageUploadSessionBorrow) =>
-            {
-                const attempt = attachmentUploadAttempt;
-                if (attempt?.file !== toRaw(file) || attempt.borrow)
-                {
-                    borrow.release();
-                    throw new Error('article-attachment-upload-attempt-invalid');
-                }
-                attempt.borrow = borrow;
-            } : undefined;
-        },
         notify: {
             success: (message) => toast.success(message),
             warning: (message) => showWarningToast(message, message),
@@ -1134,6 +1125,7 @@ export function useAdminArticleWrite()
         const observation = authoringAttachments.readOwnedIntent(handle, attachmentPort.binding());
         const candidate = observation?.snapshot.intent.candidate;
         if (!active || !attachmentEditor || !observation?.current || handle.signal.aborted
+            || !authoringAttachments.matchesCapturedFile(handle, toRaw(file))
             || candidate?.name !== file.name || candidate.mimeType !== file.type
             || candidate.byteLength !== file.size)
         {
@@ -1143,7 +1135,7 @@ export function useAdminArticleWrite()
         {
             throw new Error('article-attachment-upload-busy');
         }
-        const attempt = { handle, file, borrow: null as ImageUploadSessionBorrow | null };
+        const attempt = { handle, file };
         attachmentUploadAttempt = attempt;
         const outcome: { value: AttachmentUploadObservation | null; error: Error | null; } = { value: null, error: null };
         const cancel = (): void => imageUploadFlow.cancel();
@@ -1156,15 +1148,16 @@ export function useAdminArticleWrite()
                 {
                     outcome.error = error instanceof Error ? error : new Error('article-attachment-upload-failed');
                 },
-                onSuccess: async () =>
+                onFileUploaded: async completion =>
                 {
-                    if (!attempt.borrow)
+                    if (toRaw(completion.file) !== file || completion.intent !== handle
+                        || attachmentUploadAttempt !== attempt)
                     {
                         throw new Error('article-attachment-upload-session-unavailable');
                     }
                     // Public runtime session has been cleared. Project named private loan fields
                     // into the original provider, which freezes enumerable constructor input.
-                    outcome.value = await attempt.borrow.withSession(async (facts, loanSignal) =>
+                    outcome.value = await completion.borrow.withSession(async (facts, loanSignal) =>
                     {
                         const provider = createArticleAttachmentUploadProvider({
                             uploadId: facts.uploadId, uploadToken: facts.uploadToken,
@@ -1191,7 +1184,6 @@ export function useAdminArticleWrite()
         finally
         {
             signal?.removeEventListener('abort', cancel);
-            attempt.borrow?.release();
             attachmentUploadAttempt = null;
             imageUploadFlow.clearPending();
         }

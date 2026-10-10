@@ -180,6 +180,7 @@
                                 @draft-save="saveDraftNow"
                                 @submit="requestSubmit"
                                 @upload-img="handleUploadImg"
+                                @attachment-capture="consumeAcceptedAttachmentCapture"
                                 @transaction="consumeAuthoringTransaction"
                                 @selection-change="consumeAuthoringSelection"
                                 @editor-focus="consumeAuthoringFocus"
@@ -807,10 +808,12 @@ import {
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
 import { useArticleWriteInspectorCommands } from '@/composables/useArticleWriteInspectorCommands';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
 import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection } from '@/fsusui/articlePositionMaps';
 import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
 import { activeLocale, translate } from '@/locales';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
+import type { ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import type { ArticleEditorRuntimeBinding } from '@/services/authoring/articleEditorRuntimeBinding';
 import {
@@ -890,6 +893,7 @@ const {
     authoringDocumentIdentity,
     authoringDocumentContextAdapter,
     authoringEditorRuntime,
+    authoringAttachmentRuntime,
     currentRevisionId,
     currentRevisionNo,
     articleRightsUsingSiteDefaults,
@@ -1158,6 +1162,29 @@ onUnmounted(() =>
     editorRuntimeBinding.value = null;
     boundEditorPort = null;
 });
+
+async function consumeAcceptedAttachmentCapture(batch: MarkdownAttachmentBatchIntent,
+                                                capture: MarkdownAttachmentCaptureObservation | undefined, anchorOptions: ArticleAnchorCaptureOptions): Promise<void>
+{
+    const admitted = authoringAttachmentRuntime.admitAcceptedCapture({ batch, capture, anchorOptions });
+    if (admitted.status !== 'admitted')
+    {
+        showErrorToast(admitted.reason, admitted.reason);
+        return;
+    }
+    for (const item of admitted.items)
+    {
+        try
+        {
+            await authoringAttachmentRuntime.observeUpload(item.handle, item.file, item.handle.signal);
+        }
+        catch (error)
+        {
+            const message = error instanceof Error ? error.message : 'article-attachment-upload-failed';
+            showErrorToast(message, message);
+        }
+    }
+}
 
 function consumeAuthoringTransaction(event: MarkdownEditorDispatchResult): void
 {

@@ -637,3 +637,33 @@ render: enum-set
 - `wasm-fuzz-regression->production-correctness`
 - `wasm-fuzz-regression->release-evidence`
 <!-- FSUSBLOG-GENERATED:END testing.dependency-edges -->
+
+
+### Native attachment capture admission
+
+The article Writer consumes the actual bound FsusUI editor's `upload-image(batch,
+ capture)` and synchronous `withAttachmentFile(batch, item, consume)` public loan.
+Admission compares the callback observation by object identity with the emitted
+observation, then checks the original ordered items/Files, frozen insertion
+placements, accepted plan/transaction/map, document epoch, and current post-dispatch
+source revision. It reserves and consumes the observation in the existing private
+capture registry, issues fresh tasks at that current context, and registers the
+original pending handles. It never recaptures metadata, replans placeholders, or
+performs a second insertion. Authentic equal-byte native replacement can retain
+its revision while supplying a real accepted position map; byte equality alone
+is not admission evidence. The older explicit `capture/commitCreated` route keeps
+its dispatch and revision-advance requirement.
+
+Native signals, document/editor release, and original handle cancellation revoke
+owned File references. Native admissions bind the exact File identity to the
+original pending entry; same metadata, copied handles, copied observations,
+foreign captures, replay and admission reentry cannot mint upload authority.
+The authoring wrapper forwards native input without its legacy picker or paste
+placeholder path; other editor entrypoints retain their existing behavior.
+Writer uploads use the original flow and attempt binding with `maxFiles: 1`,
+and observe the private provider fields only inside each real per-call
+`onFileUploaded` completion's `borrow.withSession`. The Writer stores no
+precompletion borrow. Observed facts remain transport observations; they do not
+resolve the placeholder, create asset/reference grants, authorize cleanup, or
+constitute native/HTTP/ledger/product acceptance. Final runtime lifetime policy
+and upstream reentry repairs require their original owners' source and acceptance.

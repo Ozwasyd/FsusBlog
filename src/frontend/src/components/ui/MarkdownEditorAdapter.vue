@@ -26,6 +26,8 @@
             :authoring-commands="authoringCommands"
             :command-surfaces="commandSurfaces"
             :document-identity="documentIdentity"
+            :native-attachment-input="nativeAttachmentInput"
+            @attachment-capture="handleAttachmentCapture"
             @on-save="emit('save')"
             @on-draft-save="emit('draft-save')"
             @on-submit="emit('submit')"
@@ -41,6 +43,7 @@
 import { computed, ref } from 'vue';
 
 import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
 import type {
     FsusUiAuthoringCommand,
     FsusUiAuthoringDocumentIdentity,
@@ -85,6 +88,7 @@ const props = withDefaults(defineProps<{
     chrome?: MarkdownEditorChrome;
     statusDensity?: MarkdownEditorStatusDensity;
     showModeSwitcher?: boolean;
+    nativeAttachmentInput?: boolean;
     toolbarDensity?: 'minimal' | 'standard' | 'full';
     authoringCommands?: readonly FsusUiAuthoringCommand[];
     commandSurfaces?: FsusUiAuthoringSurfaceOptions;
@@ -104,6 +108,7 @@ const props = withDefaults(defineProps<{
     chrome: 'framed',
     statusDensity: 'minimal',
     showModeSwitcher: true,
+    nativeAttachmentInput: false,
     toolbarDensity: 'standard',
     authoringCommands: () => [],
     commandSurfaces: () => ({
@@ -121,6 +126,7 @@ const emit = defineEmits<{
     (e: 'draft-save'): void;
     (e: 'submit'): void;
     (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
+    (e: 'attachment-capture', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined): void;
     (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
     (e: 'transaction', event: MarkdownEditorTransactionEvent): void;
     (e: 'viewport-change', event: {
@@ -164,6 +170,11 @@ const handleUploadImg = (files: File[], callback: (urls: string[]) => void, onEr
 {
     emit('upload-img', files, callback, onError);
 };
+
+function handleAttachmentCapture(batch: MarkdownAttachmentBatchIntent, capture?: MarkdownAttachmentCaptureObservation): void
+{
+    emit('attachment-capture', batch, capture);
+}
 
 function insertMarkdownAtCursor(markdown: string): boolean
 {

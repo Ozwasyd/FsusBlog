@@ -10,6 +10,9 @@ export {
 
 export type {
     MarkdownAttachmentBatchIntent,
+    MarkdownAttachmentCaptureObservation,
+    MarkdownAttachmentFileConsumer,
+    MarkdownAttachmentItemIntent,
     MarkdownAttachmentCaptureContext,
     MarkdownAttachmentCaptureResult,
     MarkdownAttachmentInputFile,

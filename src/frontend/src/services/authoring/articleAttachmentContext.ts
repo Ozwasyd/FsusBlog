@@ -8,6 +8,9 @@ import {
     resolveMarkdownClipboardPaste,
     type MarkdownAttachmentCaptureContext,
     type MarkdownAttachmentBatchIntent,
+    type MarkdownAttachmentCaptureObservation,
+    type MarkdownAttachmentFileConsumer,
+    type MarkdownAttachmentItemIntent,
     type MarkdownAttachmentInputFile,
     type MarkdownAttachmentJob,
     type MarkdownAttachmentProviderResult,
@@ -20,6 +23,7 @@ import type { MarkdownEditorDispatchResult } from '@/fsusui/articlePositionMaps'
 import {
     validateArticleAnchorContext,
     type ArticleAnchorContext,
+    type ArticleAnchorCaptureOptions,
     type ArticlePositionMapBinding,
     type ArticleAnchorContextAdapter
 } from './articleAnchorContext';
@@ -106,6 +110,17 @@ export interface ArticleAttachmentTransactionPort {
     binding(): ArticlePositionMapBinding;
 }
 
+/** The actual bound editor owns this synchronous native File loan. */
+export interface ArticleAttachmentFilePort {
+    withAttachmentFile(batch: MarkdownAttachmentBatchIntent, item: MarkdownAttachmentItemIntent,
+        consume: MarkdownAttachmentFileConsumer): boolean;
+}
+
+export type ArticleAttachmentAcceptedCapture = {
+    readonly status: 'admitted';
+    readonly items: readonly Readonly<{ item: MarkdownAttachmentItemIntent; file: File; handle: ArticleAttachmentPendingHandle; }>[];
+} | { readonly status: 'rejected'; readonly reason: string; };
+
 export type ArticleAttachmentCapture = {
     readonly status: 'created';
     readonly handles: readonly ArticleAttachmentCreatedHandle[];
@@ -131,6 +146,9 @@ interface PendingInput {
     completedLease?: ArticleDocumentTaskLease;
     sourceUrl?: string;
     removedContext?: ArticleDocumentContext;
+    nativeCapture?: boolean;
+    file?: File;
+    releaseFile?: () => void;
 }
 
 const lifecycleKeys = ['schema', 'intent', 'anchor', 'task', 'predecessorTaskRef', 'state', 'attempt', 'reason', 'transactionRef', 'providerResultDigest', 'contentDigest'];
@@ -216,7 +234,7 @@ export class ArticleAttachmentContextAdapter
     private disposed = false;
     private readonly leases = new Set<ArticleDocumentTaskLease>();
     private captureDocumentId: string;
-    private readonly captured = new WeakMap<object, CapturedInput>();
+    private readonly captured = new WeakMap<object, CapturedInput | { readonly stage: 'accepted'; }>();
     private readonly pending = new Map<string, PendingInput>();
     private readonly pendingHandles = new WeakMap<object, PendingInput>();
     private readonly ownedOperations = new Set<string>();
@@ -469,7 +487,7 @@ export class ArticleAttachmentContextAdapter
     public commitCreated(capture: ArticleAttachmentCapture, port: ArticleAttachmentTransactionPort): readonly ArticleAttachmentPendingHandle[]
     {
         const record = this.captured.get(capture);
-        if (this.disposed || !this.anchors || !record || record.leases.some(lease => !lease.isCurrent()))
+        if (this.disposed || !this.anchors || !record || 'stage' in record || record.leases.some(lease => !lease.isCurrent()))
         {
             throw new Error('attachment-created-admission-invalid');
         }
@@ -514,25 +532,189 @@ export class ArticleAttachmentContextAdapter
             const anchor = this.anchors!.capture(binding, { ...plannedJob.range, direction: 'none' },
                 { affinity: 'after', viewportOffset: handle.intent.anchor.viewportOffset,
                     percentage: handle.intent.anchor.percentage, surface: handle.intent.anchor.surface, tool: handle.intent.anchor.tool });
-            const controller = new AbortController();
-            const lease = this.owner.beginTask('attachment', `attachment-provider:${++this.sequence}`, this.providerVersion);
-            const job = createMarkdownAttachmentJob(handle.intent.itemId, { batchId: record.batch.batchId,
-                itemId: handle.intent.itemId, documentIdentity: this.owner.documentIdentity,
-                revision: this.owner.context.sourceRevision, range: plannedJob.range, signalController: controller });
-            const entry: PendingInput = { intent: handle.intent, controller, lease, job, awaitingMap: false,
-                request: Object.freeze({ batchId: record.batch.batchId, itemId: handle.intent.itemId, requestId: lease.envelope.requestId,
-                    documentIdentity: this.owner.documentIdentity, revision: this.owner.context.sourceRevision }),
-                snapshot: this.sealLifecycle({ schema: articleAttachmentLifecycleSchema, intent: handle.intent,
-                    anchor, task: lease.envelope, predecessorTaskRef: handle.intent.task.taskRef,
-                    state: 'anchored', attempt: 1, reason: null, transactionRef: this.transactionRef(result), providerResultDigest: null }) };
-            this.pending.set(handle.intent.task.taskRef, entry);
-            this.record(entry.snapshot);
-            entry.snapshot = this.sealLifecycle({ ...entry.snapshot, state: 'provider-pending' });
-            this.record(entry.snapshot);
-            return this.pendingHandle(entry);
+            return this.createPending(handle.intent, record.batch, plannedJob.range, anchor, result);
         });
         this.observeTransaction(result, binding);
         return Object.freeze(handles);
+    }
+
+    /** Admit the native dispatch once. Never recapture, replan or dispatch its placeholders. */
+    public admitAcceptedCapture(input: {
+        batch: MarkdownAttachmentBatchIntent;
+        capture: MarkdownAttachmentCaptureObservation | undefined;
+        anchorOptions: ArticleAnchorCaptureOptions;
+    }, port: ArticleAttachmentTransactionPort & Partial<ArticleAttachmentFilePort>): ArticleAttachmentAcceptedCapture
+    {
+        const { batch, capture } = input;
+        const reject = (reason: string): ArticleAttachmentAcceptedCapture => ({ status: 'rejected', reason });
+        if (this.disposed || !this.anchors || !capture || typeof port.withAttachmentFile !== 'function')
+        {
+            return reject('capture-unavailable');
+        }
+        if (this.captured.has(capture))
+        {
+            return reject('capture-already-admitted');
+        }
+        // The same weak registry reserves reentry and retains a consumed tombstone.
+        // This marker conveys no File, pending handle or persistent authority.
+        this.captured.set(capture, { stage: 'accepted' });
+        const files: File[] = [];
+        const handles: ArticleAttachmentPendingHandle[] = [];
+        try
+        {
+            if (capture.batch !== batch || !batch.items.length || batch.signal.aborted)
+            {
+                return reject('capture-not-original');
+            }
+            for (const item of batch.items)
+            {
+                let count = 0;
+                let original = false;
+                const lent = port.withAttachmentFile(batch, item, (file, observation) =>
+                {
+                    count += 1;
+                    original = observation === capture && observation.batch === batch;
+                    if (original)
+                    {
+                        files.push(file);
+                    }
+                });
+                if (!lent || count !== 1 || !original)
+                {
+                    return reject('capture-not-original');
+                }
+            }
+            const result = capture.transaction;
+            const current = this.owner.context;
+            const identity = this.owner.documentIdentity;
+            const sameIdentity = (value: Readonly<{ id: string; epoch: number; }>): boolean =>
+                value.id === identity.id && value.epoch === identity.epoch;
+            if (!sameIdentity(batch.documentIdentity) || !sameIdentity(batch.anchor.documentIdentity)
+                || !sameIdentity(result.documentIdentity) || !result.accepted || !result.positionMap
+                || result.beforeRevision !== batch.revision || batch.anchor.revision !== batch.revision
+                || result.transaction.expectedRevision !== batch.revision
+                || !result.transaction.documentIdentity || !sameIdentity(result.transaction.documentIdentity)
+                || !Number.isSafeInteger(result.revision) || result.revision < result.beforeRevision
+                || current.sourceRevision !== result.revision)
+            {
+                return reject('context-stale');
+            }
+            const binding = port.binding();
+            this.assertCurrentResult(result, binding);
+            if (capture.placements.length !== batch.items.length || capture.plan.jobs.length !== batch.items.length
+                || capture.plan.transaction.changes.length !== result.transaction.changes.length
+                || capture.plan.transaction.changes.some((change, index) =>
+                {
+                    const applied = result.transaction.changes[index];
+                    return change.from !== applied.from || change.to !== applied.to || change.insert !== applied.insert;
+                })
+                || capture.plan.transaction.origin !== result.transaction.origin
+                || capture.plan.transaction.history !== result.transaction.history)
+            {
+                return reject('transaction-invalid');
+            }
+            for (const [index, item] of batch.items.entries())
+            {
+                const placement = capture.placements[index];
+                const job = capture.plan.jobs[index];
+                const file = files[index];
+                if (item.order !== index || item.signal.aborted || !ref(item.name) || !ref(item.mimeType)
+                    || file.name !== item.name || file.type !== item.mimeType || file.size !== item.byteLength
+                    || placement.item !== item || !Object.isFrozen(placement.range)
+                    || job.itemId !== item.itemId || job.batchId !== batch.batchId
+                    || !job.documentIdentity || !sameIdentity(job.documentIdentity) || job.revision !== batch.revision || job.attempt !== 1
+                    || !['pending', 'progress'].includes(job.phase)
+                    || !Number.isSafeInteger(placement.range.start) || !Number.isSafeInteger(placement.range.end)
+                    || placement.range.start < 0 || placement.range.end <= placement.range.start
+                    || placement.range.end > result.value.length)
+                {
+                    return reject('transaction-invalid');
+                }
+            }
+            if (batch.items.length + this.leases.size + this.pending.size > articleAttachmentIntentCapacity)
+            {
+                return reject('capacity-exceeded');
+            }
+            for (const [index, item] of batch.items.entries())
+            {
+                const range = capture.placements[index].range;
+                const anchor = this.anchors.capture(binding, { ...range, direction: 'none' }, input.anchorOptions);
+                // Original issuance at the current post-dispatch context. No pre-context lease is revived.
+                const created = this.owner.beginTask('attachment', `attachment-input:${++this.sequence}`, this.providerVersion);
+                const body = { schema: articleAttachmentIntentSchema, state: 'created' as const, anchor,
+                    task: created.envelope, inputOrigin: batch.sourceKind, batchId: batch.batchId,
+                    itemId: item.itemId, order: item.order,
+                    candidate: Object.freeze({ name: item.name, mimeType: item.mimeType, byteLength: item.byteLength }),
+                    provider: this.provider, providerVersion: this.providerVersion };
+                const intent = Object.freeze({ ...body, contentDigest: calculateOpenArticleDocumentDigest(body) });
+                try
+                {
+                    handles.push(this.createPending(intent, batch, range, anchor, result, files[index], item));
+                }
+                finally
+                {
+                    created.cancel('attachment-input-transferred');
+                }
+            }
+            return Object.freeze({ status: 'admitted', items: Object.freeze(batch.items.map((item, index) =>
+                Object.freeze({ item, file: files[index], handle: handles[index] }))) });
+        }
+        catch
+        {
+            handles.forEach(handle => handle.cancel());
+            return reject('transaction-invalid');
+        }
+    }
+
+    /** Native admissions require the exact File; the original explicit-capture route is unchanged. */
+    public matchesCapturedFile(handle: ArticleAttachmentPendingHandle, file: File): boolean
+    {
+        const entry = this.pendingHandles.get(handle);
+        return !!entry && (!entry.nativeCapture || entry.file === file);
+    }
+
+    private createPending(intent: ArticleAttachmentIntent, batch: MarkdownAttachmentBatchIntent,
+        range: Readonly<{ start: number; end: number; }>, anchor: ArticleAnchorContext,
+        result: MarkdownEditorDispatchResult, file?: File, item?: MarkdownAttachmentItemIntent): ArticleAttachmentPendingHandle
+    {
+        const controller = new AbortController();
+        const lease = this.owner.beginTask('attachment', `attachment-provider:${++this.sequence}`, this.providerVersion);
+        const job = createMarkdownAttachmentJob(intent.itemId, { batchId: batch.batchId, itemId: intent.itemId,
+            documentIdentity: this.owner.documentIdentity, revision: this.owner.context.sourceRevision,
+            range, signalController: controller });
+        const entry: PendingInput = { intent, controller, lease, job, awaitingMap: false,
+            request: Object.freeze({ batchId: batch.batchId, itemId: intent.itemId, requestId: lease.envelope.requestId,
+                documentIdentity: this.owner.documentIdentity, revision: this.owner.context.sourceRevision }),
+            snapshot: this.sealLifecycle({ schema: articleAttachmentLifecycleSchema, intent, anchor,
+                task: lease.envelope, predecessorTaskRef: intent.task.taskRef, state: 'anchored', attempt: 1,
+                reason: null, transactionRef: this.transactionRef(result), providerResultDigest: null }) };
+        this.pending.set(intent.task.taskRef, entry);
+        this.record(entry.snapshot);
+        entry.snapshot = this.sealLifecycle({ ...entry.snapshot, state: 'provider-pending' });
+        this.record(entry.snapshot);
+        if (file && item)
+        {
+            entry.nativeCapture = true;
+            entry.file = file;
+            const cancel = (): void =>
+            {
+                this.finish(entry, 'cancelled', 'attachment-native-input-revoked');
+            };
+            entry.releaseFile = () =>
+            {
+                batch.signal.removeEventListener('abort', cancel);
+                item.signal.removeEventListener('abort', cancel);
+                entry.file = undefined;
+                entry.releaseFile = undefined;
+            };
+            batch.signal.addEventListener('abort', cancel, { once: true });
+            item.signal.addEventListener('abort', cancel, { once: true });
+            if (batch.signal.aborted || item.signal.aborted)
+            {
+                cancel();
+            }
+        }
+        return this.pendingHandle(entry);
     }
 
     /** FsusUI emits transaction before model update; commit through the existing document owner. */
@@ -748,6 +930,7 @@ export class ArticleAttachmentContextAdapter
         entry.snapshot = this.sealLifecycle({ ...entry.snapshot, anchor, task: lease.envelope,
             predecessorTaskRef: predecessor, state: 'transaction-committed', reason: null, ...proof });
         this.pending.delete(entry.intent.task.taskRef);
+        entry.releaseFile?.();
         entry.controller.abort('attachment-completion-committed');
         this.record(entry.snapshot);
         this.observeTransaction(dispatched, binding);
@@ -818,7 +1001,7 @@ export class ArticleAttachmentContextAdapter
     public retry(handle: ArticleAttachmentPendingHandle): ArticleAttachmentPendingHandle
     {
         const previous = this.pendingHandles.get(handle);
-        if (this.disposed || !previous || !['failed', 'cancelled'].includes(previous.snapshot.state)
+        if (this.disposed || !previous || previous.nativeCapture || !['failed', 'cancelled'].includes(previous.snapshot.state)
             || !this.owner.isCurrentContext(previous.snapshot.anchor.document) || this.pending.has(previous.intent.task.taskRef))
         {
             throw new Error('attachment-retry-context-invalid');
@@ -841,6 +1024,10 @@ export class ArticleAttachmentContextAdapter
         port: ArticleAttachmentTransactionPort): readonly ArticleAttachmentPendingHandle[]
     {
         const entry = this.findPending(handle);
+        if (entry.nativeCapture)
+        {
+            throw new Error('attachment-native-capture-required');
+        }
         if (entry.awaitingMap || !this.owner.isCurrentContext(entry.snapshot.anchor.document))
         {
             throw new Error('attachment-replace-context-stale');
@@ -882,6 +1069,7 @@ export class ArticleAttachmentContextAdapter
 
     private finish(entry: PendingInput, state: 'cancelled' | 'stale' | 'removed' | 'failed', reason: string): ArticleAttachmentLifecycleSnapshot
     {
+        entry.releaseFile?.();
         entry.controller.abort(reason);
         entry.lease.cancel(reason);
         entry.awaitingMap = false;

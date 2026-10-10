@@ -33,6 +33,8 @@
             :authoring-commands="authoringCommands"
             :command-surfaces="commandSurfaces"
             :document-identity="documentIdentity"
+            :native-attachment-input="true"
+            @attachment-capture="handleAttachmentCapture"
             @save="$emit('draft-save')"
             @draft-save="$emit('draft-save')"
             @submit="$emit('submit')"
@@ -94,11 +96,13 @@ import {
     useArticleOutline,
     type ArticleOutlineSelection
 } from '@/composables/useArticleOutline';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
 import type {
     FsusUiAuthoringCommand,
     FsusUiAuthoringDocumentIdentity,
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
+import type { ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
 import type { ArticleDocumentContext } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import {
@@ -154,6 +158,7 @@ const emit = defineEmits<{
     (e: 'draft-save'): void;
     (e: 'submit'): void;
     (e: 'transaction', event: MarkdownEditorTransactionEvent): void;
+    (e: 'attachment-capture', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined, options: ArticleAnchorCaptureOptions): void;
     (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
     (e: 'editor-focus', event: 'focusin' | 'focusout'): void;
     (e: 'surface-request', surface: ArticleEditorSurface): void;
@@ -239,6 +244,12 @@ const editorSizingClass = computed(() =>
 
     return 'h-[min(760px,calc(var(--fsus-viewport-block-size)-310px))] min-h-[520px] max-lg:h-[620px] max-lg:min-h-[460px] max-sm:h-[560px] max-sm:min-h-[420px]';
 });
+
+function handleAttachmentCapture(batch: MarkdownAttachmentBatchIntent, capture?: MarkdownAttachmentCaptureObservation): void
+{
+    emit('attachment-capture', batch, capture, { surface: activeSurface.value,
+                                                 tool: sourceCompareOpen.value ? 'source-compare' : 'none', affinity: 'after', viewportOffset: 0, percentage: 0 });
+}
 
 const handleUploadImg = (files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void =>
 {

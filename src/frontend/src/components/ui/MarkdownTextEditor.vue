@@ -66,6 +66,7 @@
         </p>
 
         <input
+            v-if="!nativeAttachmentInput"
             ref="imageInputRef"
             type="file"
             accept="image/*"
@@ -108,6 +109,7 @@ import {
     markdownEditorCommands
 } from '@/components/ui/markdown-editor/commands';
 import { createSnapshot, replaceSelection, type SelectionResult, type SelectionSnapshot } from '@/components/ui/markdown-editor/selection';
+import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
 import {
     mergeFsusUiAuthoringCommands,
     type FsusUiAuthoringCommand,
@@ -163,6 +165,7 @@ const props = withDefaults(defineProps<{
     chrome?: MarkdownEditorChrome;
     statusDensity?: MarkdownEditorStatusDensity;
     showModeSwitcher?: boolean;
+    nativeAttachmentInput?: boolean;
     toolbarDensity?: 'minimal' | 'standard' | 'full';
     toolbarsExclude?: string[];
     saving?: boolean;
@@ -178,6 +181,7 @@ const props = withDefaults(defineProps<{
     chrome: 'framed',
     statusDensity: 'minimal',
     showModeSwitcher: true,
+    nativeAttachmentInput: false,
     toolbarDensity: 'standard',
     toolbarsExclude: () => [],
     saving: false,
@@ -193,6 +197,7 @@ const emit = defineEmits<{
     (e: 'on-draft-save'): void;
     (e: 'on-submit'): void;
     (e: 'on-upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
+    (e: 'attachment-capture', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined): void;
     (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
     (e: 'transaction', event: FsusUiMarkdownEditorTransactionEvent): void;
     (e: 'viewport-change', event: {
@@ -603,8 +608,13 @@ function emitSubmit(): void
     emit('on-submit');
 }
 
-function requestImageUpload(): void
+function requestImageUpload(batch: MarkdownAttachmentBatchIntent, capture?: MarkdownAttachmentCaptureObservation): void
 {
+    if (props.nativeAttachmentInput)
+    {
+        emit('attachment-capture', batch, capture);
+        return;
+    }
     imageInputRef.value?.click();
 }
 
@@ -634,6 +644,10 @@ async function handleImagePick(event: Event): Promise<void>
 
 function handlePaste(event: ClipboardEvent): void
 {
+    if (props.nativeAttachmentInput)
+    {
+        return;
+    }
     const textarea = textareaFromEvent(event);
     if (!textarea)
     {
