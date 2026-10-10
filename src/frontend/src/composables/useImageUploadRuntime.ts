@@ -75,7 +75,8 @@ interface OwnedUploadAttempt {
 
 interface AcknowledgedUploadCompletion {
     readonly generation: number;
-    readonly snapshot: ResumeSessionSnapshot;
+    readonly uploadId: string;
+    snapshot: ResumeSessionSnapshot | null;
     readonly response: Awaited<ReturnType<typeof completeUpload>>;
     transportCompleted: boolean;
     recoveryRequired: boolean;
@@ -276,7 +277,7 @@ export function useImageUploadRuntime()
             cause: acknowledgedCompletion?.callbackError,
             // Diagnostic history only; this is neither an asset receipt nor cleanup authority.
             details: acknowledgedCompletion ? `completion_acknowledged; generation=${acknowledgedCompletion.generation}; `
-                + `upload_id=${acknowledgedCompletion.snapshot.uploadId}; result_url=${acknowledgedCompletion.response.url}` : undefined
+                + `upload_id=${acknowledgedCompletion.uploadId}; result_url=${acknowledgedCompletion.response.url}` : undefined
         });
 
     const retainCompletionRecovery = (error?: unknown): void =>
@@ -711,7 +712,7 @@ export function useImageUploadRuntime()
         if (runtimeOptions.attemptBinding)
         {
             acknowledgedCompletion = {
-                generation, snapshot, response: complete, transportCompleted: false,
+                generation, uploadId, snapshot, response: complete, transportCompleted: false,
                 recoveryRequired: false, callbackError: undefined
             };
         }
@@ -743,6 +744,9 @@ export function useImageUploadRuntime()
         if (acknowledgedCompletion?.generation === generation)
         {
             acknowledgedCompletion.transportCompleted = true;
+            // Normal transport completion retains only bounded current-operation ACK history.
+            // A void callback is not an asset-cleanup receipt; failed callbacks keep their snapshot.
+            acknowledgedCompletion.snapshot = null;
         }
         return complete.url;
     };
