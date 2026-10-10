@@ -186,7 +186,7 @@ it.each([401, 403, 404])('clears private host choices after actual HTTP %s permi
     expect(writes()).toHaveLength(1);
 });
 
-it('retains the replay identity through confirmation and allocates a new identity only for the next explicit Host submission', async () =>
+it('allocates a new frozen request identity only after a verified response and a later explicit submission', async () =>
 {
     write = async () =>
     {
