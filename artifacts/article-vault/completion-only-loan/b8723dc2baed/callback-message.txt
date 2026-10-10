@@ -1,0 +1,6 @@
+test(frontend): verify completion callback failure revokes loans
+
+Check immediate revocation and no reminting while preserving the original
+resumable snapshot and acknowledged completion history.
+
+Refs: #1975

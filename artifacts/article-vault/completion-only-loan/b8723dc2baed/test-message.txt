@@ -1,0 +1,6 @@
+test(frontend): cover pending completion and inactive loan refusal
+
+Preserve original eleven calls and hooks while checking slow acknowledgement
+and refusal to acquire after the original operation becomes inactive.
+
+Refs: #1975

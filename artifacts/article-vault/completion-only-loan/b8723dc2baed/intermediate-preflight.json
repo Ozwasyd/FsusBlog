@@ -1,0 +1,15 @@
+{
+  "label": "mandatory-preflight",
+  "command": [
+    "node",
+    "tools/run-test-matrix.mjs",
+    "preflight"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-10T07:27:50.834034+00:00",
+  "head": "6a037f3b849b479dfab02c2c0a485c97ba8de0ba",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-10T07:29:25.847325+00:00"
+}

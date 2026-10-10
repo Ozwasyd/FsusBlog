@@ -1,0 +1,49 @@
+{
+  "readUtc": "2026-10-10T07:27:05.257Z",
+  "issue": {
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/2258",
+    "title": "feat(article-attachments): 接入 WASM image runtime、resume upload、AssetId 与 reference ledger",
+    "issue_number": 2258,
+    "body": "Parent: #1810\nDepends on: #2256, #1779, #1784\nRelated caption owners: Ozwasyd/FsusUI#314, #1907\n\n## 原子目标\n\n实现article attachment provider业务执行：消费#2256verified intent，复用现有WASM-only图片处理、上传策略/鉴权、resume、AssetId/URL与唯一asset reference ledger，输出可提交的success/failure/cancel/retry state。该issue只负责bytes/provider/upload/ledger，不实现内联呈现、save/prepublish/revision协调或caption。\n\n## 必须交付\n\n1. Provider只接受verifiedattachment intent、file candidate ref与current article/document/source context；禁止直接接收裸selection/DOM/event或自行插入Markdown。\n2. 图片格式/质量/尺寸/alpha/metadata处理严格复用existingWASM runtime/policy，不增加JS/native fallback、server hidden converter或“AI优化”。\n3. Validation覆盖png/jpeg/webp/gif/当前支持格式、unsupported、0-byte、oversize、MIME/extension/content mismatch、malformed与policy limits；失败在upload前fail closed。\n4. Upload/session/chunk/resume/commit只走现有#1779/#1784唯一authority，绑定intent/article/user/site/file digest/idempotency与current grants；禁止direct storage/DB或second upload protocol。\n5. Progress machine-readable来自actual conversion/upload/chunk/commit facts，不用timer/fake percentage；每intent独立progress/cancel/retry/resume。\n6. Cancel/abort终止owned conversion/upload/tasks和session obligations；已committed AssetId有明确reference/cleanup outcome，不能成为silent orphan。\n7. Retry绑定same/new upload session policy、intent generation和file digest，幂等不重复asset bytes/AssetId/ledger refs；changed file/new epoch必须new intent。\n8. Success只在AssetId、public/private URL projection、storage object、metadata、ownership/rights和reference ledger receipt exact一致后输出；URL alone/file exists无效。\n9. Partial multi-file结果逐item独立，source order由#2256creation sequence保持；一个失败不重排或伪造其他success。\n10. Old epoch/stale/removed/undone intent completion即使asset committed也不得提交editor transaction；只产生ledger/orphan cleanup obligation。\n11. Reload/crash recovery只恢复verifiedprovider/upload sessions/receipts；未知进度不能伪装pending，必须failed/retry/recovery-required。\n12. Provider result记录intent/file/WASM/policy/upload/session/chunk/commit/AssetId/URL/ledger/cleanup refs、status/reasons与content digest，不记录file bytes/token。\n13. Independent verifier重算file digest/policy/WASM/output/upload/ledger/idempotency和tamper。\n14. Static governance禁止direct storage/DB、JS converter fallback、URL-only success、fake progress、caption fields/parser与second ledger/provider。\n\n## 固定约束\n\n- 不实现inline media UI，归后续#1810子issue。\n- 不实现save/leave/prepublish/revision rules。\n- 不修改WASM算法、asset ledger/security/CDN semantics。\n- 不实现caption，固定归#314/#1907。\n- 不修改#1794。\n\n## 必须测试\n\n- supported/unsupported/0-byte/oversize/malformed；\n- WASM-only/no fallback；\n- success/fail/cancel/retry/resume；\n- multi-file partial/order；\n- upload/session/chunk/commit failures；\n- duplicate retry/idempotency；\n- stale/undone/removed/old epoch completion；\n- committed asset but editor rejected cleanup；\n- reload/crash verified/unknown state；\n- URL/file-exists-only mutation；\n- direct storage/second ledger mutation；\n- caption scope mutation；\n- result/ledger tamper。\n\n## 验收条件\n\n- [ ] Provider只消费verifiedintent并复用WASM/upload/ledger唯一authorities。\n- [ ] Progress/cancel/retry/resume基于真实状态且逐item幂等。\n- [ ] Success包含AssetId/storage/rights/ledger exact receipt，不是URL/file exists。\n- [ ] Stale/undone completions不写正文且有cleanup obligation。\n- [ ] 本PR不实现UI/save/prepublish/caption。\n\n## 非目标\n\n- 不实现FsusUI attachment intent/transactions。\n- 不显示inline controls。\n- 不修改article draft/revision规则。\n- 不处理caption。",
+    "state": "open",
+    "user": {
+      "login": "Ozwasyd",
+      "name": "Ozwasyd",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/262509976?v=4",
+      "id": 262509976
+    },
+    "assignees": null,
+    "labels": null,
+    "milestone": null,
+    "state_reason": null,
+    "comments": 4,
+    "created_at": "2026-08-04T03:09:38Z",
+    "updated_at": "2026-10-08T05:57:08Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Ozwasyd/FsusBlog/issues/2258",
+    "display_title": "feat(article-attachments): 接入 WASM image runtime、resume upload、AssetId 与 reference ledger"
+  },
+  "comments": [
+    {
+      "id": 6052200865,
+      "url": "https://github.com/Ozwasyd/FsusBlog/issues/2258#issuecomment-6052200865",
+      "body": "独立能力交接，#2258 尚未完成：\n\n- 资产登记/引用/删除开发合同见 #1779 当前交接：已测 `4c715181922de9245aca40a383c9ecb4a608cc33`，相关 backend 资产类型在后续分支无源码差异。导出为 AssetId、AssetStorageKey、AssetRecord、AssetReference、ContentAssetSchemaValidator、PublicAssetUrlCodec、IAssetStore.DeleteAsync(AssetId)。上传真实生产构造函数会登记唯一 content_asset 行，但 UploadCompleteDto 当前不导出 AssetId；必须使用真实登记查询，不能从 URL 猜身份或把 schema-valid 对象当作登记凭证。\n- 公共交付实现已发布于 `896a848508064f955fd0197a6b1fcb4faef900d8`：UseFsusPublicAssets(IApplicationBuilder, ReleaseStoragePaths)、PublicAssetDeliveryPolicy.Default/Parse、PublicAssetAdmission。单一 config/security/public-asset-delivery.json 产生网关与文档；实际 Kestrel GET/HEAD、600 次窗口、拒绝零文件打开、可信代理与不可变上传控制通过。后续 `03a0823fe004d47c97f1e10bbceae966d41ba9ef` 的相关聚焦类合计 165/165 通过，0 skip；这不是完整安全矩阵资格。\n- 本链尚未实现 attachment bridge、资源 activation API、preview coordinator 或 publish fence。#2256/#2261 的真实接口和验证证据仍是必要输入；不会提供猜测模块路径、虚构成功 receipt 或新授权 API。\n- 已执行 FsusUI 当前本地源码 `f2b3bb89ffe5f749da26c388f058efdbb6aee864` 的实际附件模块（对应公共 re-export）：createMarkdownAttachmentBatch、commitMarkdownAttachmentResult。模块控制证明旧文档/epoch/revision、已删除节点及危险结果拒绝；但 resolved payload 接受缺少 AssetId，相同输入产生相同 batch/item ID，commit helper 拒绝旧 revision 并不自动 rebase。该探针不是已安装公开包、浏览器焦点/undo-redo、业务登记或发布验收。\n\n#2258/#2263 的前端能力不能仅凭上述 backend 合同宣布可用；缺口保持明确，后续只消费经确认的真实上游 API。"
+    },
+    {
+      "id": 6052557702,
+      "url": "https://github.com/Ozwasyd/FsusBlog/issues/2258#issuecomment-6052557702",
+      "body": "补充 WIP：已消费可核查的 document/anchor/created-attachment 能力，集成点 source 5a7c0de9ddb6c7332a32b74fc629b1192af5a07c；草稿 PR：https://github.com/Ozwasyd/FsusBlog/pull/3813 ，发布 head 73029492b690d8db1e29849681dad9d3d7e6b485。\n\n实际接口 ArticleAttachmentContextAdapter.capture 返回 created handles、AbortSignal/cancel 与 revision-bound MarkdownEditorTransaction，并直接消费 FsusUI public capture/clipboard/insert-plan API。三个 original static document/anchor/created-attachment/inspector guards 通过，completion lifecycle 明确未资格化。workspace guard 失败于原标题字段缺少 word-break: break-word；未在本票重做该 UI。\n\n该 handoff 没有 pending→upload complete→AssetId 填充、remove/reference cleanup、history/undo-redo 的完整公共生命周期，且 attachment module 尚未由 authoring barrel 导出。不能据此构造第二 context 或猜测 URL→AssetId。npm ci 获取正式 @ozwasyd/element-plus@1.5.1 返回 401，原始真实 anchor boundary probe 因 Vitest ENOENT 记录 blocked；未宣称 frontend unit/browser/runtime 通过。真实 WASM/upload/ledger/lifecycle、权限与全部负例仍待具备原能力后实现和验证。本票保持 open；caption 产品接入归 #1907。"
+    },
+    {
+      "id": 6053183099,
+      "url": "https://github.com/Ozwasyd/FsusBlog/issues/2258#issuecomment-6053183099",
+      "body": "更新 #2258 WIP（纠正旧 handoff 的 created-only/Vitest 不可用状态）：已消费 parent 给出的 #2246 exact 06d000434da9d001b51be852eddc7189ca8c640c 与 #2245 exact 6f5e2a4d4cdc0a2c79b41a732bfc58201b5d1876。现有 useAdminArticleWrite.authoringAttachmentRuntime 已有 capture/commit/complete/remove/replace/retry、真实公共事务/position-map、独立请求租约和 editor binding；不再将它报成缺失 completion API。\n\n已发布取消清理修复 fec17344b842faa1a99e2a04ccc6adab0ff0d2e1：abort 未获服务器确认前保留原 session/recovery snapshot；禁止替换覆盖；共享并发取消并可重试；迟到分片失败不能复活旧 snapshot。23 项 upload/preview 聚焦用例在 25a4f6fc60ccfe8fd88f116d4e19290cd7e03371 通过（0 skip）。此前扩大运行有一项 5 秒 timeout，保留失败，不提升超时门槛。\n\n新增可消费 server port 已发布并远端核实：982430c1c696e51715e1fb9587acbc2f61ec8902，branch codex/chain-1975-backup-evidence，draft PR https://github.com/Ozwasyd/FsusBlog/pull/3813 。IFileService.ObserveCommittedUploadAsync(UploadSessionAccess, sha256) 复用原 owner/token/expiry session，原 AssetId 1779 advisory lock、native regular-file identity owner、实际 SHA/media/dimensions 与唯一账本，返回 UploadAssetObservation 的 AssetRecord、公共 URL projection、完整有界 references、AssetVersionSha256、ReferenceLedgerSha256；missing/tampered/linked bytes、missing ledger、wrong owner/token、pending delete 拒绝。13 新真实 PostgreSQL/上传用例 + 24 original relation cases 在开发源通过，当前提交扩大原资产 suite 继续验证。filesystem-only constructor 明确拒绝 ledger observation。\n\n这是真实当前观察，不是 article/site rights 或 Vault plan/operation/revision receipt；不修改 AEDS/POD upload-complete wire，不从 URL 猜 AssetId，不写第二账本。完整 provider intent→WASM→commit→rights/reference exact receipt、底层转换取消、丢失 init acknowledgment、崩溃恢复、stale committed orphan cleanup 与产品 UI/history/prepublish 仍未资格化。\n\n本地依赖使用原环境真实 Vitest + documented FsusUI aliases，FsusUI exact f2b3bb89ffe5f749da26c388f058efdbb6aee864。45/45 handed-off lifecycle/responsibility/public-consumer 与225/225 authoring相关用例已通过；6/6 原 public anchor transaction boundary 在独立临时配置（避免 symlink config 误解析）通过。私有 registry401只保留为 published qualification gap，未阻止本地开发；无包伪造/发布或 FsUI 源码修改。#2258 仍 open。"
+    },
+    {
+      "id": 6053397222,
+      "url": "https://github.com/Ozwasyd/FsusBlog/issues/2258#issuecomment-6053397222",
+      "body": "当前发布 checkpoint：a367d4d6fd2a9bd0d4c7cbc50c2f56385e8e87f8 / codex/chain-1975-backup-evidence / draft PR3813，远端与 PR head 已核实。服务器资产观察实现仍 exact982430c1c696e51715e1fb9587acbc2f61ec8902，203/203 原资产+新增13真实观察+24 relation 用例0skip；当前本地 public-source authoring/continuity/upload/preview regression 280/280、17 files、0skip、原timeout未变，continuity静态32负例通过。旧并行timeout、全类型148baseline/148candidate/0新增诊断、全后端与全release门禁失败记录全部保留，不冒充完整验收。\n\n已消费 parent d42a49191309b545a8e9b4e60d965162586ef37b continuity 实际能力。统一入口真实存在于 supplied6bac4acc，不再写缺入口；af7e6746 实际三路集成只在 overview 文档冲突，source自动合并无冲突，按父任务规则暂停dependent incorporation并保留冲突证据，详见#2263最新comment。Provider complete rights/intent/ledger receipt、native conversion cancel、lost init acknowledgment、crash/stale committed cleanup、完整产品矩阵仍待实现和验证。#2258保持open，没有影子ledger/provider、fake progress、URL身份或caption实现。"
+    }
+  ]
+}

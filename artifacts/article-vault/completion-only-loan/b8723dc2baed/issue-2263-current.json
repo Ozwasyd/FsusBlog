@@ -1,0 +1,39 @@
+{
+  "readUtc": "2026-10-10T07:27:06.290Z",
+  "issue": {
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/2263",
+    "title": "feat(article-attachments): 将 pending/failed attachment 接入 save、leave、prepublish 与 revision contracts",
+    "issue_number": 2263,
+    "body": "Parent: #1810\nDepends on: #2256, #2258, #2261, #1779, #1809\nRelated caption owners: Ozwasyd/FsusUI#314, #1907\n\n## 原子目标\n\n将article attachment machine state接入现有draft save、autosave、leave-confirm、reload/crash recovery、prepublish、publish preview与revision snapshot contracts，确保pending/failed/stale/removed资源不会被误判为可发布图片，且完成资源的AssetId/引用账本/revision坐标一致。该issue只负责业务协调，不实现intent/provider/UI或caption。\n\n## 必须交付\n\n1. 建立closed/versioned attachment business state projection，逐intent绑定article/document/source revision、node identity、provider result、AssetId/reference ledger、current transaction与status：pending/success/failed/cancelled/stale/removed/recovery-required。\n2. Draft/autosave只保存正文唯一source和必要attachment intent/state refs，不保存fake progress、internal scheme、upload bytes/token或第二正文模型。\n3. Save结果必须说明每个attachment是fully committed、pending、failed、removed或stale；pending/failed不能静默转换为普通image URL或丢失恢复信息。\n4. Leave-confirm将未完成/失败attachment作为明确未确认风险，复用现有dirty/save/conflict authority；不得单独创建第二leave modal或绕过离开保护。\n5. Reload/crash recovery只从verifiedprovider/session/intent/ledger receipts恢复；未知状态显示failed/retry/recovery-required，不伪造仍在上传的progress。\n6. Prepublish规则精确拒绝pending、failed、stale、missing AssetId/ledger、internal placeholder和unverified URL；removed/cancelled且source无引用可pass。\n7. Publish preview只显示fully completed/current revision resources；pending/failed作为明确问题，不显示internal scheme/placeholder为公开内容。\n8. Revision snapshot绑定source revision、image node identity、AssetId、URL/storage projection与reference ledger digest；不得保存临时upload/session token或caption私有状态。\n9. Replace/remove/undo/redo导致reference变化时，通过唯一ledger authority更新ownership/orphan cleanup obligations；revision/history不可被异步completion回写。\n10. Source/document epoch变化后old completion被拒绝时，business state不得标success；已commit asset进入orphan/recovery flow。\n11. Conflict/external draft update/rebase时，attachment nodes和state refs跟随FsusUI transaction/position map结果；Blog不按字符串scheme寻找或合并。\n12. Caption由#1907在stable image node identity上独立transaction，caption状态不得改变attachment success/AssetId ownership；本issue不读取caption语法。\n13. Business receipt记录draft/save/leave/prepublish/preview/revision/ledger states、blocking reasons/actions与content digest，不含secret/file bytes。\n14. Independent verifier对source nodes、provider/ledger/revision facts重算save/prepublish/publish eligibility和tamper。\n15. Static governance禁止URL-only publish success、placeholder-as-image、fake progress recovery、second leave/prepublish rules、caption coupling与direct storage cleanup。\n\n## 固定约束\n\n- 不实现intent/provider/UI。\n- 不修改draft/revision/publish业务核心，只接入attachment状态。\n- 不实现caption，固定归#314/#1907。\n- 不修改asset ledger/upload policies。\n- 不修改#1794。\n\n## 必须测试\n\n- save during pending/success/fail/cancel/stale/removed；\n- leave confirm and save retry/conflict；\n- reload/crash verified/unknown provider state；\n- prepublish all blocking/pass combinations；\n- publish preview current vs old/stale result；\n- revision snapshot AssetId/ledger exactness；\n- replace/remove/undo/redo/orphan cleanup；\n- old epoch completion；\n- external update/rebase；\n- internal scheme/unverified URL mutation；\n- caption state independence；\n- receipt/revision/ledger tamper。\n\n## 验收条件\n\n- [ ] Save/leave/recovery/prepublish/preview/revision共用唯一attachment state facts。\n- [ ] Pending/failed/stale/internal scheme/unverified资源绝不被误判可发布。\n- [ ] Completed resources与AssetId/ledger/revision exact绑定。\n- [ ] Async/undo/replace/remove不改写历史或产生silent orphan。\n- [ ] 本PR不实现caption或重复业务状态机。\n\n## 非目标\n\n- 不实现attachment UI/provider。\n- 不修改公开图片交付/CDN。\n- 不实现caption产品链。\n- 不重做draft/revision系统。",
+    "state": "open",
+    "user": {
+      "login": "Ozwasyd",
+      "name": "Ozwasyd",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/262509976?v=4",
+      "id": 262509976
+    },
+    "assignees": null,
+    "labels": null,
+    "milestone": null,
+    "state_reason": null,
+    "comments": 2,
+    "created_at": "2026-08-04T03:10:50Z",
+    "updated_at": "2026-10-08T05:50:58Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Ozwasyd/FsusBlog/issues/2263",
+    "display_title": "feat(article-attachments): 将 pending/failed attachment 接入 save、leave、prepublish 与 revision contracts"
+  },
+  "comments": [
+    {
+      "id": 6053213624,
+      "url": "https://github.com/Ozwasyd/FsusBlog/issues/2263#issuecomment-6053213624",
+      "body": "有限增量 #2263：已发布 25a4f6fc60ccfe8fd88f116d4e19290cd7e03371 / draft PR3813。useArticlePreviewGeneration 直接消费现有 ArticleDocumentContextAdapter（生产用 existing acquired instance），在 hash await 之后发 RPC 前及响应提交前检查 AbortSignal、generation、真实 context digest。即使正文相同，换 article/document epoch 或 source revision 后旧 RPC/响应不能成为当前预览。新增5个真实 context mutation controls，原有 generation/title/content/summary/cover/sourceIdentity controls 保留；12项预览 +11项上传 isolated regression 在 exact25a4f6fc6 通过0skip。当前 useAdminArticleWrite 公共 consumer 12项也在开发源通过。没有第二context/map/parser或新 preview state authority。\n\n消费 parent exact #2245 6f5e2a4d4cdc0a2c79b41a732bfc58201b5d1876 和 #2246 06d000434da9d001b51be852eddc7189ca8c640c 已允许实际本地 runtime 验证；不再将 last-valid/controlled attachment entry 泛称不存在或用 registry401 阻止本地开发。#2263 的完整 pending/failed save/leave/reload/prepublish/revision/ledger/orphan projection 仍未实现或资格化，必须使用完整 #2258/#2256/#2261 和 #1809 业务能力。当前上传 server observation 982430c1c 只证 ownership/actual bytes/canonical asset+reference version，不证 article rights/revision eligibility。父 tracking 不关闭，caption 固定归 #1907。"
+    },
+    {
+      "id": 6053312444,
+      "url": "https://github.com/Ozwasyd/FsusBlog/issues/2263#issuecomment-6053312444",
+      "body": "新的 parent exact #2246 handoff 6bac4acccd5120e73e9001db06144a216168a9c8 已读取，确认真实统一 authoringEditorRuntime.bindEditor(editor, options) → {binding,release}，live context/render/attachment leases/transaction/selection/focus/refresh/tool leases 及 continuity/anchors 均实际存在，不再按‘缺统一入口’记录。\n\n标准 cherry-pick 在隔离预检副本确认：0c5ab1c7a 与 d42a49191309b545a8e9b4e60d965162586ef37b 可干净纳入；af7e6746db5abe31e11c115d662e533342da04fb 有且仅有 docs/architecture/overview.md 文档内容冲突（当前 upload cleanup/preview guards 两段与 incoming unified runtime 两段插入同一位置）。useAdminArticleWrite.ts 的自动三路合并无冲突。冲突 patch/stage hashes 已保留，预检副本中止并恢复，不编辑冲突或执行跨链最终解决阶段。\n\n按依赖逐 commit 消费规则，先纳入独立 ready 的 d42 continuity 与其元数据并验证；af7 unified binding 和依赖它的后续100-image/navigation commits 暂停。原 owner 提供保留两组真实文档事实的兼容提交，或父协调任务明确该 bounded document overlap 的处理后可继续。source API 已可用但尚未完整 incorporated；不会把祖先交付或接口存在算全验收。"
+    }
+  ]
+}

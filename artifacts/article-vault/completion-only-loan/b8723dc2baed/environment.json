@@ -1,0 +1,10 @@
+{
+  "node": "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+  "nodeVersion": "v24.16.0",
+  "nodeSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+  "fsusuiRoot": "/workspace/chain1975-runtime-borrow-fsusui",
+  "fsusuiSource": "0e5c56050e8dd3e9ca3735078489d35a0bb6e3d2",
+  "latestOriginMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "previousDelivery": "8351d49b0ee2769a1519da58332161950b75cbdb",
+  "qualification": false
+}

@@ -1,0 +1,16 @@
+{
+  "nonempty": true,
+  "discovered": 40,
+  "pattern": "(runs compression and hashing before init, uploads every required part, then completes once|borrows actual compressed facts and retains a bound handle after public session and original lease clear)$",
+  "selected": [
+    {
+      "name": "useImageUploadRuntime > runs compression and hashing before init, uploads every required part, then completes once",
+      "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+    },
+    {
+      "name": "useImageUploadRuntime > borrows actual compressed facts and retains a bound handle after public session and original lease clear",
+      "file": "/workspace/chain1975-runtime-attempt-borrow/tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+    }
+  ],
+  "qualification": false
+}

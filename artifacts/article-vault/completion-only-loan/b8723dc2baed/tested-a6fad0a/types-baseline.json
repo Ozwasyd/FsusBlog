@@ -1,0 +1,15 @@
+{
+  "label": "types-baseline",
+  "command": [
+    "node",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "--application"
+  ],
+  "cwd": "/workspace/chain1975-runtime-borrow-type-baseline",
+  "startUtc": "2026-10-10T07:32:17.043618+00:00",
+  "head": "04195f8a0d2ad16d14c8d66a2f876c428e606f3e",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 2,
+  "stopUtc": "2026-10-10T07:32:47.681883+00:00"
+}

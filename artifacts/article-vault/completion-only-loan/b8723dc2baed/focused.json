@@ -1,0 +1,18 @@
+{
+  "label": "focused",
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-10T07:38:11.343558+00:00",
+  "head": "b8723dc2baedef4c6adccbdd7cc88cae38494176",
+  "runId": "chain1975-completion-b8723dc-focused",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-10T07:38:23.366287+00:00"
+}

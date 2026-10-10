@@ -1,0 +1,33 @@
+{
+  "schema": "fsusblog.ci-preflight.v1",
+  "generatedAt": "2026-10-10T07:36:08.566Z",
+  "ok": true,
+  "node": "24.16.0",
+  "gitHead": "b8723dc2baedef4c6adccbdd7cc88cae38494176",
+  "checkedDirectories": [
+    ".tmp",
+    ".tmp/release-evidence",
+    ".tmp/gate-logs",
+    ".tmp/env",
+    ".tmp/docs"
+  ],
+  "checkedFiles": [
+    "tests/matrix.yml",
+    "tests/matrix.schema.json",
+    "tests/coverage-registry.json",
+    ".github/workflows/quality-gate.yml",
+    "tools/run-test-matrix.mjs",
+    "tools/check-workflow-matrix-sync.mjs",
+    "tools/test.sh",
+    "tools/ci/check-flaky-registry.mjs",
+    "tools/ci/check-flaky-evidence.mjs",
+    "tools/ci/run-flaky-governed.mjs",
+    "tests/flaky.yml"
+  ],
+  "writeChecks": [
+    ".tmp/ci-plan.json",
+    ".tmp/release-evidence/test-plan.json",
+    ".tmp/gate-logs/preflight.json"
+  ],
+  "errors": []
+}

@@ -1,0 +1,19 @@
+{
+  "label": "discovery",
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "node_modules/vitest/vitest.mjs",
+    "list",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "--json=/workspace/chain-1975-evidence/completion-only-loan-20261010/discovery-tests.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-10T07:37:16.065575+00:00",
+  "head": "b8723dc2baedef4c6adccbdd7cc88cae38494176",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-10T07:37:25.568098+00:00"
+}

@@ -1,0 +1,42 @@
+{
+  "source": "a6fad0a8a78d4a3b88d4866858f2d3d8ce6833dc",
+  "inputs": [
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "blob": "a73edccdc99804458c37341832b3ba332b464a17",
+      "sha256": "02f82551be3ebc83109593199eb537f7fde8ed819b9de92dee09bd659c8e040f"
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "blob": "a602b084979ffa33e7eeef5191d770ecbf92ebbb",
+      "sha256": "1881e7ec6dcc2ab5618599bf5552602349bec03c53e1a5fe83a3aaf03c84c944"
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "blob": "b47af2dc888c76cc9f79d749324022587e66e888",
+      "sha256": "9eedde9f035db832fa8450cdde8da2c7cabd5a44219bd6e821d76f9b1c3a3f4f"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "blob": "cdd46c3c7195c3e9bd0945be654a8c91e9f43f6e",
+      "sha256": "41c1ff23c6d091f0788bd1092ab5e92e6bc086fabf18ad651e62f506efae4d91"
+    },
+    {
+      "path": "src/frontend/src/composables/useAdminArticleWrite.ts",
+      "blob": "e18a5c976d7bcee4a116bfe9505a725d5b251f9d",
+      "sha256": "f466e9c6dea9b104bd4832d591d248e0fe8525df8d87a7280569ba16730d0f38"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentContext.ts",
+      "blob": "d1fe3c986a0f2bb4bb3cb03c7b16fc98a57087b0",
+      "sha256": "a2e9ba9e6910e843a79c64b65f777a1f0e39f2b6757202cab248d47e7a4de3df"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "blob": "d17589f25d9faa62b835ef8e4fd593fa34dc7f73",
+      "sha256": "b2bd3f3efa3b8b2590f4ef799499e7a6419b597f1a84e3064178e59f506252c9"
+    }
+  ],
+  "status": "",
+  "qualification": false
+}

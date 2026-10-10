@@ -1,0 +1,7 @@
+fix(frontend): acquire finite upload loans after completion
+
+Keep precompletion state owned by the original operation. Acquire at most one
+loan after its real completion acknowledgement with a fixed 30 second deadline.
+Preserve original upload calls, owner checks and cleanup refusal semantics.
+
+Refs: #1975

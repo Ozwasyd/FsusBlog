@@ -1,0 +1,18 @@
+[
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/runtime-dom",
+    "target": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/runtime-core",
+    "target": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/reactivity",
+    "target": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/shared",
+    "target": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared"
+  }
+]

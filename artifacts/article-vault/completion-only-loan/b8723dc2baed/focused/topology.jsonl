@@ -1,0 +1,82 @@
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_0","name":"runs compression and hashing before init, uploads every required part, then completes once"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_0","name":"runs compression and hashing before init, uploads every required part, then completes once"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_1","name":"pauses after part retry exhaustion while retaining the resumable attempt and snapshot"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_1","name":"pauses after part retry exhaustion while retaining the resumable attempt and snapshot"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_2","name":"resumes the same file and options with the stored identity and uploads only missing parts"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_2","name":"resumes the same file and options with the stored identity and uploads only missing parts"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_3","name":"initializes a new identity when a stored snapshot is tampered"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_3","name":"initializes a new identity when a stored snapshot is tampered"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_4","name":"initializes a new identity when stored-session status lookup fails"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_4","name":"initializes a new identity when stored-session status lookup fails"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_5","name":"clears local state and calls abort once even when abort fails"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_5","name":"clears local state and calls abort once even when abort fails"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_6","name":"shares an in-flight abort and blocks replacement until server cleanup is acknowledged"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_6","name":"shares an in-flight abort and blocks replacement until server cleanup is acknowledged"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_7","name":"a late part failure cannot resurrect a cancelled recovery snapshot"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_7","name":"a late part failure cannot resurrect a cancelled recovery snapshot"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_8","name":"does not call the API when abandoning without an active session"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_8","name":"does not call the API when abandoning without an active session"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_9","name":"does not let a late part acknowledgement overwrite a new upload attempt"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_9","name":"does not let a late part acknowledgement overwrite a new upload attempt"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_10","name":"borrows actual compressed facts and retains a bound handle after public session and original lease clear"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_10","name":"borrows actual compressed facts and retains a bound handle after public session and original lease clear"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_11","name":"refuses a clone pending handle before creating a session"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_11","name":"refuses a clone pending handle before creating a session"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_12","name":"refuses a foreign pending handle before creating a session"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_12","name":"refuses a foreign pending handle before creating a session"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_13","name":"refuses a clone document lease through the real original registry"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_13","name":"refuses a clone document lease through the real original registry"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_14","name":"refuses a foreign document lease through the real original registry"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_14","name":"refuses a foreign document lease through the real original registry"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_15","name":"refuses to mint a borrow from a localStorage-only resumed session"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_15","name":"refuses to mint a borrow from a localStorage-only resumed session"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_16","name":"expires a completed borrow without refreshing it from public state or storage"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_16","name":"expires a completed borrow without refreshing it from public state or storage"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_17","name":"waits for a cancelled original initialization and real cleanup acknowledgement before replacement"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_17","name":"waits for a cancelled original initialization and real cleanup acknowledgement before replacement"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_18","name":"keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_18","name":"keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_19","name":"retains true completion history and unknown cleanup after a cancelled completion without deleting it"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_19","name":"retains true completion history and unknown cleanup after a cancelled completion without deleting it"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_20","name":"uses the existing flow original lease and caller cancellation without creating a second upload"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_20","name":"uses the existing flow original lease and caller cancellation without creating a second upload"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_21","name":"grants no loan on scope disposal and waits for the original part before settling"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_21","name":"grants no loan on scope disposal and waits for the original part before settling"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_22","name":"rereads original document and intent ownership after an asynchronous borrow callback"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_22","name":"rereads original document and intent ownership after an asynchronous borrow callback"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_23","name":"does not grant a legacy attempt a new deletion action on scope disposal"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_23","name":"does not grant a legacy attempt a new deletion action on scope disposal"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_24","name":"invalidates a completed original borrow when a new attempt starts"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_24","name":"invalidates a completed original borrow when a new attempt starts"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_25","name":"revokes returned and captured access immediately after each callback settles"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_25","name":"revokes returned and captured access immediately after each callback settles"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_26","name":"revokes concurrent access scopes independently while awaited use remains valid"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_26","name":"revokes concurrent access scopes independently while awaited use remains valid"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_27","name":"bounds a completed callback and aborts its access signal at the fixed loan deadline"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_27","name":"bounds a completed callback and aborts its access signal at the fixed loan deadline"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_28","name":"grants no loan after raw part failure and cannot mint one from retained state"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_28","name":"grants no loan after raw part failure and cannot mint one from retained state"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_29","name":"grants no loan after raw complete failure and cannot mint one from retained state"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_29","name":"grants no loan after raw complete failure and cannot mint one from retained state"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_30","name":"does not remint an explicitly released loan during the active completed operation"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_30","name":"does not remint an explicitly released loan during the active completed operation"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_31","name":"revokes a newly acquired loan when the original completion callback fails"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_31","name":"revokes a newly acquired loan when the original completion callback fails"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_32","name":"grants no precompletion loan during a slow chunk and expires 30 seconds from actual acquisition"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_32","name":"grants no precompletion loan during a slow chunk and expires 30 seconds from actual acquisition"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_33","name":"captures real per-file handles and consumes slow same-name batch files before advancing"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_33","name":"captures real per-file handles and consumes slow same-name batch files before advancing"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_34","name":"grants no loan during original compression, initialization, part or pending completion"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_34","name":"grants no loan during original compression, initialization, part or pending completion"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_35","name":"cannot acquire a first loan after the original successful operation is inactive"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_35","name":"cannot acquire a first loan after the original successful operation is inactive"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_36","name":"does not refresh the acquisition deadline when a later access scope starts"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_36","name":"does not refresh the acquisition deadline when a later access scope starts"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_37","name":"revokes a granted completion loan when its active original lease is cancelled"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_37","name":"revokes a granted completion loan when its active original lease is cancelled"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_38","name":"releases the per-file loan and stops a batch when its completion consumer fails"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_38","name":"releases the per-file loan and stops a batch when its completion consumer fails"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_0_39","name":"rejects a cloned capture owner before capture or upload IO"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_0_39","name":"rejects a cloned capture owner before capture or upload IO"}}
+{"event":"start","workerProcessId":76933,"task":{"id":"-298466997_1_0","name":"shows resume and abandon only for the corresponding runtime state and wires both actions"}}
+{"event":"finish","workerProcessId":76933,"task":{"id":"-298466997_1_0","name":"shows resume and abandon only for the corresponding runtime state and wires both actions"}}

@@ -1,0 +1,98 @@
+[
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/gsap",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/gsap"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/katex",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/fsusui-local-katex"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/lodash",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/lodash"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/shiki",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/shiki"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/lodash-unified",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/lodash-unified"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/mermaid",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/mermaid"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/dayjs",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/dayjs"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/escape-html",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/escape-html"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/motion-dom",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/motion-dom"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/memoize-one",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/memoize-one"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/normalize-wheel-es",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/normalize-wheel-es"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/lodash-es",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/lodash-es"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/async-validator",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/async-validator"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/vue",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/vue"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@element-plus/icons-vue",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@element-plus/icons-vue"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@types/lodash",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@types/lodash"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@types/lodash-es",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@types/lodash-es"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/runtime-core",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/runtime-core"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/shared",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/shared"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/reactivity",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/reactivity"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/runtime-dom",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/runtime-dom"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@floating-ui/dom",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@floating-ui/dom"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@popperjs/core",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@popperjs/core"
+  },
+  {
+    "link": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@ctrl/tinycolor",
+    "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@ctrl/tinycolor"
+  }
+]

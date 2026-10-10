@@ -1,0 +1,18 @@
+{
+  "label": "prerequisites",
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/execution-envelope-policy.test.mjs",
+    "tests/tools/local-production-profile-resources.test.mjs",
+    "tests/tools/matrix-fixture-profile.test.mjs",
+    "tests/tools/linux-cgroup-membership-locator.test.mjs"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-10T07:37:16.061833+00:00",
+  "head": "b8723dc2baedef4c6adccbdd7cc88cae38494176",
+  "runId": "chain1975-completion-b8723dc-prerequisites",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-10T07:37:17.814149+00:00"
+}
