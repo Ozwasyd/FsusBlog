@@ -2,11 +2,13 @@ using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -17,18 +19,32 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticlePackages;
 
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-/// <summary>Original-project controls; controlled Current observations do not qualify canonical storage or registration.</summary>
+/// <summary>
+/// Original-project controls; controlled Current observations do not qualify canonical storage or registration.
+/// Body-dependent endpoint assertions are retained unchanged as UNRUN/unqualified future integration controls
+/// while the closed pair is inactive. Direct-handler positives do not establish HTTP binding admission.
+/// </summary>
 [Trait("Category", "Unit")]
 public sealed class ArticlePackageCandidateReviewWireValidationTests
 {
+    private const string Route = "/api/binary/author/article-packages/candidate-review";
+    private const string AuthenticationScheme = "controlled-package-unit";
     private const string RequestJson = """
         {"requestId":"wire-read","archiveBytes":"AQ==","requestedMode":"CreateNew","callerPolicyDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","callerPermissionContextDigest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","createdAtUtc":"2026-10-09T01:02:03Z","expiresAtUtc":"2026-10-10T01:02:03Z","requestedTargets":null,"pageIndex":0,"pageSize":50,"expectedPlanDigest":null,"expectedContext":null}
         """;
@@ -217,6 +233,134 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
         await owned.Execute();
         Assert.Equal(400, owned.Context.Response.StatusCode);
         Assert.Equal(0, owned.Reader.Calls);
+        ErrorDetail error = DecodeApiError(((MemoryStream)owned.Context.Response.Body).ToArray());
+        if (contentLength)
+        {
+            Assert.Equal("authoring_binary_body_too_large", error.Message);
+        }
+    }
+
+    [Fact]
+    public async Task EndpointKnownOversize_OriginalApiErrorBeforeAnyBodyReadOrIdentityRead()
+    {
+        await using EndpointCase owned = Endpoint([], false);
+        await owned.Context.Request.Body.DisposeAsync();
+        var unread = new UnreadBody();
+        owned.Context.Request.Body = unread;
+        owned.Context.Request.ContentLength = ArticlePackageCandidateReviewReadLimits.MaxRequestBytes + 1;
+        await owned.Execute();
+        Assert.Equal(400, owned.Context.Response.StatusCode);
+        ErrorDetail error = DecodeApiError(((MemoryStream)owned.Context.Response.Body).ToArray());
+        Assert.Equal("authoring_binary_body_too_large", error.Message);
+        AssertUnread(unread);
+        Assert.Equal(0, owned.Reader.Calls);
+    }
+
+    /// <summary>
+    /// Original inactive admission expectation, now enforced by the owned route's central resolver guard.
+    /// It is not skipped, given an alternate pair, or credited as an executed passing control.
+    /// </summary>
+    [Fact]
+    public async Task EndpointUnregisteredPair_RequiresOriginalRefusalBeforeBodyAndReader()
+    {
+        Assert.False(AuthoringEndpoints.TryResolveRoute(HttpMethods.Post,
+            new PathString("/article-packages/candidate-review"), out _));
+        await using EndpointCase owned = Endpoint([], false);
+        await owned.Context.Request.Body.DisposeAsync();
+        var unread = new UnreadBody();
+        owned.Context.Request.Body = unread;
+        await owned.Execute();
+        Assert.Equal(400, owned.Context.Response.StatusCode);
+        ErrorDetail error = DecodeApiError(((MemoryStream)owned.Context.Response.Body).ToArray());
+        Assert.Equal("authoring_binary_body_not_allowed", error.Message);
+        AssertUnread(unread);
+        Assert.Equal(0, owned.Reader.Calls);
+    }
+
+    [Theory]
+    [InlineData(3, "authoring_binary_body_not_allowed")]
+    [InlineData(1048577, "authoring_binary_body_too_large")]
+    public async Task DisposableOriginalHost_RequiresOriginalInactiveAndOversizeRefusals(int bodyLength, string reason)
+    {
+        Assert.False(AuthoringEndpoints.TryResolveRoute(HttpMethods.Post,
+            new PathString("/article-packages/candidate-review"), out _));
+        var reader = new Reader();
+        using var unread = new UnreadBody();
+        bool authenticated = false;
+        bool permitted = false;
+        long owner = 0;
+        string? session = null;
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = "Test"
+        });
+        builder.WebHost.UseTestServer();
+        builder.Configuration["SITE_BASEURL"] = "https://controlled.example";
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddSingleton<ISystemSiteIdentityReader>(reader);
+        builder.Services.AddSingleton<TimeProvider>(new Clock());
+        builder.Services.AddScoped<ArticlePackageCandidateReviewReadService>();
+        builder.Services.AddSingleton<IAedsEncoder, AedsEncoder>();
+        builder.Services.AddSingleton<IBinaryEndpointRequestContext>(new BinaryEndpointRequestContext(
+            new BinaryRequestBinder(), Substitute.For<IHotArticlesCacheVersionProvider>()));
+        builder.Services.AddAuthentication(AuthenticationScheme)
+            .AddScheme<AuthenticationSchemeOptions, ControlledAuthentication>(AuthenticationScheme,
+                options => options.ClaimsIssuer = AuthenticationScheme);
+        builder.Services.AddAuthorization();
+        await using WebApplication app = builder.Build();
+        Assert.Equal("Test", app.Environment.EnvironmentName);
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.Use(async (context, next) =>
+        {
+            authenticated = context.User.Identity?.IsAuthenticated == true;
+            permitted = context.User.HasAdminPermission(AdminPermissions.ArticleWrite);
+            context.User.TryGetAdminPrincipalId(out owner);
+            session = context.User.GetAdminSessionId();
+            Stream original = context.Request.Body;
+            context.Request.Body = unread;
+            try
+            {
+                await next(context);
+            }
+            finally
+            {
+                context.Request.Body = original;
+            }
+        });
+        // Original TestServer mapping only. The central production hook, resolver and pair
+        // remain inactive; no registry, alias, closed-pair override or binder substitute.
+        AuthoringEndpoints.MapArticlePackageCandidateReviewRoutes(app.MapGroup("/api/binary/author"));
+        await app.StartAsync();
+        try
+        {
+            RouteEndpoint endpoint = Assert.Single(((IEndpointRouteBuilder)app).DataSources
+                .SelectMany(source => source.Endpoints).OfType<RouteEndpoint>(),
+                endpoint => endpoint.RoutePattern.RawText == Route);
+            Assert.Equal("binary_post_author_article_packages_candidate_review",
+                endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName);
+            Assert.NotEmpty(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>());
+            Assert.Null(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+            using HttpClient client = app.GetTestClient();
+            using var body = new ByteArrayContent(new byte[bodyLength]);
+            body.Headers.ContentType = new("application/octet-stream");
+            using HttpResponseMessage response = await client.PostAsync(Route, body);
+            Assert.True(authenticated);
+            Assert.True(permitted);
+            Assert.Equal(73L, owner);
+            Assert.Equal("controlled-session", session);
+            Assert.Equal(400, (int)response.StatusCode);
+            Assert.Equal("application/octet-stream", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("2", Assert.Single(response.Headers.GetValues("X-Fsus-Frame-Version")));
+            ErrorDetail error = DecodeApiError(await response.Content.ReadAsByteArrayAsync());
+            Assert.Equal(reason, error.Message);
+            AssertUnread(unread);
+            Assert.Equal(0, reader.Calls);
+        }
+        finally
+        {
+            await app.StopAsync();
+        }
     }
 
     [Fact]
@@ -406,7 +550,7 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
         owned.Context.User = input == "anonymous" ? new() : new(new ClaimsIdentity(claims, "controlled-unit"));
         await owned.Execute();
         Assert.Equal(status, owned.Context.Response.StatusCode);
-        Assert.Equal(0, unread.Reads);
+        AssertUnread(unread);
         Assert.Equal(0, owned.Reader.Calls);
         var decoded = new AedsEncoder().TryDecode(((MemoryStream)owned.Context.Response.Body).ToArray());
         Assert.True(decoded.IsSuccess);
@@ -433,7 +577,7 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
         }
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             owned.Execute(requestAborted ? CancellationToken.None : cancellation.Token));
-        Assert.Equal(0, unread.Reads);
+        AssertUnread(unread);
         Assert.Equal(0, owned.Reader.Calls);
         Assert.Equal(0, owned.Context.Response.Body.Length);
     }
@@ -503,6 +647,22 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
     private static bool ReadResponse(string json, out ArticlePackageCandidateReviewReadResponse? response)
         => ArticlePackageCandidateReviewWireValidation.TryReadResponse(Encoding.UTF8.GetBytes(json), out response);
 
+    private static ErrorDetail DecodeApiError(byte[] frame)
+    {
+        var decoded = new AedsEncoder().TryDecode(frame);
+        Assert.True(decoded.IsSuccess);
+        Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var error));
+        return PodBinaryCodec.ToErrorDetail(error);
+    }
+
+    private static void AssertUnread(UnreadBody body)
+    {
+        Assert.Equal(0, body.Reads);
+        Assert.Equal(0, body.SynchronousReads);
+        Assert.Equal(0, body.AsynchronousReads);
+    }
+
     private static JsonNode UpdateRequest(string revision)
     {
         JsonNode root = JsonNode.Parse(RequestJson)!;
@@ -546,6 +706,8 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
     {
         var reader = new Reader();
         var context = new DefaultHttpContext();
+        context.Request.Method = HttpMethods.Post;
+        context.Request.Path = Route;
         context.Request.Body = new MemoryStream(frame, writable: false);
         context.Request.ContentType = "application/octet-stream";
         context.Request.ContentLength = contentLength ? frame.Length : null;
@@ -588,11 +750,42 @@ public sealed class ArticlePackageCandidateReviewWireValidationTests
 
     private sealed class UnreadBody : MemoryStream
     {
-        public int Reads { get; private set; }
+        public int Reads => SynchronousReads + AsynchronousReads;
+        public int SynchronousReads { get; private set; }
+        public int AsynchronousReads { get; private set; }
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            SynchronousReads++;
+            throw new InvalidOperationException("Refusal must not read source bytes synchronously.");
+        }
+        public override int Read(Span<byte> buffer)
+        {
+            SynchronousReads++;
+            throw new InvalidOperationException("Refusal must not read source bytes synchronously.");
+        }
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            AsynchronousReads++;
+            throw new InvalidOperationException("Refusal must not read source bytes asynchronously.");
+        }
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
-            Reads++;
-            throw new InvalidOperationException("Identity refusal must not read source bytes.");
+            AsynchronousReads++;
+            throw new InvalidOperationException("Refusal must not read source bytes asynchronously.");
+        }
+    }
+
+    private sealed class ControlledAuthentication(IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger, UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    {
+        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        {
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+            {
+                new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind), new Claim("admin_id", "73"),
+                new Claim("admin_sid", "controlled-session"), new Claim(AdminPermissions.PermissionClaimType, AdminPermissions.ArticleWrite)
+            }, AuthenticationScheme));
+            return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, AuthenticationScheme)));
         }
     }
 
