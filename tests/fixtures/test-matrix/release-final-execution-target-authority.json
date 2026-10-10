@@ -39,6 +39,16 @@
             "indexDigest": "sha256:3e1c46bc2ba6674623ab3bf35f7cadfb1b1e5703e3ff83d006da6dd1020e3140"
         },
         {
+            "path": "cmake/FsusWarnings.cmake",
+            "contentDigest": "sha256:e066e5278cc75bace83fc4f3ecb3a24249c63273e758b0473deadd8ac4b327c0",
+            "indexDigest": "sha256:e066e5278cc75bace83fc4f3ecb3a24249c63273e758b0473deadd8ac4b327c0"
+        },
+        {
+            "path": "CMakeLists.txt",
+            "contentDigest": "sha256:18b6a4cb40e8cb830e1d060b965dcc0e8200e33569558ef7e921bff193c607ca",
+            "indexDigest": "sha256:18b6a4cb40e8cb830e1d060b965dcc0e8200e33569558ef7e921bff193c607ca"
+        },
+        {
             "path": "commitlint.config.mjs",
             "contentDigest": "sha256:32ab46c67fda654e375327f973c6d73f60f44830230836fda6704e8d6f216070",
             "indexDigest": "sha256:32ab46c67fda654e375327f973c6d73f60f44830230836fda6704e8d6f216070"
@@ -70,8 +80,8 @@
         },
         {
             "path": "config/development/native-tooling-style-policy.json",
-            "contentDigest": "sha256:17ef12cad465acc82cbd1e07f0204d34a1dbdc913bfd53df7bce906a52237822",
-            "indexDigest": "sha256:17ef12cad465acc82cbd1e07f0204d34a1dbdc913bfd53df7bce906a52237822"
+            "contentDigest": "sha256:67e25552912b83e6edecf1a7ba3a7f1f910f50dfe92c2432517658e9596202fd",
+            "indexDigest": "sha256:67e25552912b83e6edecf1a7ba3a7f1f910f50dfe92c2432517658e9596202fd"
         },
         {
             "path": "docs/development/native-tooling-style-enforcement.md",
@@ -779,9 +789,39 @@
             "indexDigest": "sha256:85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
         },
         {
+            "path": "src/frontend/wasm/aeds/CMakeLists.txt",
+            "contentDigest": "sha256:d6fe26ca7beff2c1556f375c4770429b1c71c9422a57e3f82d3ee87865dfb28c",
+            "indexDigest": "sha256:d6fe26ca7beff2c1556f375c4770429b1c71c9422a57e3f82d3ee87865dfb28c"
+        },
+        {
             "path": "src/frontend/wasm/build.sh",
             "contentDigest": "sha256:ab06bd0ca65960c5aa66265b73794843202abf943db1e238da8f4a4a2702aa24",
             "indexDigest": "sha256:ab06bd0ca65960c5aa66265b73794843202abf943db1e238da8f4a4a2702aa24"
+        },
+        {
+            "path": "src/frontend/wasm/CMakeLists.txt",
+            "contentDigest": "sha256:2f4229d835f7a8662cdba35c43b4f1513d63d2efbd62432d095839e85c468640",
+            "indexDigest": "sha256:2f4229d835f7a8662cdba35c43b4f1513d63d2efbd62432d095839e85c468640"
+        },
+        {
+            "path": "src/frontend/wasm/comment_privacy/CMakeLists.txt",
+            "contentDigest": "sha256:1f34cc1f701f76e08beffc446bb30af0fc4d945be944cba6f5fd306c53243eff",
+            "indexDigest": "sha256:1f34cc1f701f76e08beffc446bb30af0fc4d945be944cba6f5fd306c53243eff"
+        },
+        {
+            "path": "src/frontend/wasm/image_codec/CMakeLists.txt",
+            "contentDigest": "sha256:6b1791a65c6568dc05e55d4019dd01c6e924dbb02d7e94c7653a80364b2536a5",
+            "indexDigest": "sha256:6b1791a65c6568dc05e55d4019dd01c6e924dbb02d7e94c7653a80364b2536a5"
+        },
+        {
+            "path": "src/frontend/wasm/pow/CMakeLists.txt",
+            "contentDigest": "sha256:b02f58ffde0de393eafe48f7e454787fe7a5429922852fad626ecd6e397875e8",
+            "indexDigest": "sha256:b02f58ffde0de393eafe48f7e454787fe7a5429922852fad626ecd6e397875e8"
+        },
+        {
+            "path": "src/frontend/wasm/search/CMakeLists.txt",
+            "contentDigest": "sha256:5bd13e5be9fa530e3757b05d0edcdec1414fd3c0cfa0f079d50ebfe559c509cb",
+            "indexDigest": "sha256:5bd13e5be9fa530e3757b05d0edcdec1414fd3c0cfa0f079d50ebfe559c509cb"
         },
         {
             "path": "src/frontend/wasm/web/protocol/frame.ts",
@@ -1909,6 +1949,11 @@
             "indexDigest": "sha256:3898b06cdb24a335df1be0606928be45e33a502a2a2086971a07a3ec4ed1b3c4"
         },
         {
+            "path": "tests/native/CMakeLists.txt",
+            "contentDigest": "sha256:85b825a631dc660f1762592d8ba0b803a2cd02f10c52cfd2933b277f52838f9a",
+            "indexDigest": "sha256:85b825a631dc660f1762592d8ba0b803a2cd02f10c52cfd2933b277f52838f9a"
+        },
+        {
             "path": "tests/security/comment-draft-privacy.test.mjs",
             "contentDigest": "sha256:cd9ea557b9833351362a27302b4a537d50cfae3c47cb24536c25fd052a10a9f0",
             "indexDigest": "sha256:cd9ea557b9833351362a27302b4a537d50cfae3c47cb24536c25fd052a10a9f0"
@@ -2175,8 +2220,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:49ad791277743339958d7e28003b69fb2679fa94e8e61151f65e4271161e2243",
-            "indexDigest": "sha256:49ad791277743339958d7e28003b69fb2679fa94e8e61151f65e4271161e2243"
+            "contentDigest": "sha256:fdf898993bdd040e01524c5f6eb4e9f1642f4d993ad6ffdf12a05a30e3bddba1",
+            "indexDigest": "sha256:fdf898993bdd040e01524c5f6eb4e9f1642f4d993ad6ffdf12a05a30e3bddba1"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -2500,8 +2545,8 @@
         },
         {
             "path": "tools/configuration/check-cpp-source.mjs",
-            "contentDigest": "sha256:003d96c7000ff7bb342192ab3ddae93461ec87dadf0459f69c3d44aa31fb0d87",
-            "indexDigest": "sha256:003d96c7000ff7bb342192ab3ddae93461ec87dadf0459f69c3d44aa31fb0d87"
+            "contentDigest": "sha256:91e561e1a607e9c1896bd6d423b6882960b4d6b0d0d44a54d1189951cce14120",
+            "indexDigest": "sha256:91e561e1a607e9c1896bd6d423b6882960b4d6b0d0d44a54d1189951cce14120"
         },
         {
             "path": "tools/configuration/check-solution-source.mjs",
@@ -2517,6 +2562,16 @@
             "path": "tools/configuration/solution-source.test.mjs",
             "contentDigest": "sha256:4764ce7b9ff40ac427a8a4307844170c3deb9ec7e1d1dc2c0f783f00fba91b5a",
             "indexDigest": "sha256:4764ce7b9ff40ac427a8a4307844170c3deb9ec7e1d1dc2c0f783f00fba91b5a"
+        },
+        {
+            "path": "tools/configuration/wasm-cpp-context.mjs",
+            "contentDigest": "sha256:724f31ebf026d6db1b37b4f16212514319e2b931f66fef9b25cb359922f03496",
+            "indexDigest": "sha256:724f31ebf026d6db1b37b4f16212514319e2b931f66fef9b25cb359922f03496"
+        },
+        {
+            "path": "tools/configuration/wasm-cpp-source.test.mjs",
+            "contentDigest": "sha256:085bafe032a9e44abb84ba161134a894349c5f3be1653ef199044f54086c43bf",
+            "indexDigest": "sha256:085bafe032a9e44abb84ba161134a894349c5f3be1653ef199044f54086c43bf"
         },
         {
             "path": "tools/contracts/behavior-contract-catalog.mjs",
@@ -4455,8 +4510,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:70370c5bc48d5ef7e862fe74d2b1f6b2b284a577eaf279bb8cf8d177d77cc32a",
-            "indexDigest": "sha256:70370c5bc48d5ef7e862fe74d2b1f6b2b284a577eaf279bb8cf8d177d77cc32a"
+            "contentDigest": "sha256:98ac51c026f0ad86dfa773813ff03e08c7a2ab508e15f10be9d327508f87e129",
+            "indexDigest": "sha256:98ac51c026f0ad86dfa773813ff03e08c7a2ab508e15f10be9d327508f87e129"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -7032,6 +7087,8 @@
                 ".clang-tidy",
                 ".editorconfig",
                 ".markdownlint-cli2.jsonc",
+                "cmake/FsusWarnings.cmake",
+                "CMakeLists.txt",
                 "commitlint.config.mjs",
                 "config/development/authoritative-development-docs.json",
                 "config/development/frontend-style-policy.json",
@@ -7046,7 +7103,15 @@
                 "src/frontend/scripts/fsusui-root.mjs",
                 "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
                 "src/frontend/stylelint.config.mjs",
+                "src/frontend/wasm/aeds/CMakeLists.txt",
+                "src/frontend/wasm/build.sh",
+                "src/frontend/wasm/CMakeLists.txt",
+                "src/frontend/wasm/comment_privacy/CMakeLists.txt",
+                "src/frontend/wasm/image_codec/CMakeLists.txt",
+                "src/frontend/wasm/pow/CMakeLists.txt",
+                "src/frontend/wasm/search/CMakeLists.txt",
                 "stylelint.config.mjs",
+                "tests/native/CMakeLists.txt",
                 "tests/tools/blame-ignore-source.test.mjs",
                 "tests/tools/native-tooling-style.test.mjs",
                 "tests/tools/package.json",
@@ -7057,6 +7122,8 @@
                 "tools/configuration/check-solution-source.mjs",
                 "tools/configuration/cpp-source.test.mjs",
                 "tools/configuration/solution-source.test.mjs",
+                "tools/configuration/wasm-cpp-context.mjs",
+                "tools/configuration/wasm-cpp-source.test.mjs",
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
                 "tools/contracts/behavior-owner-binding.mjs",
@@ -7096,6 +7163,9 @@
                 "tools/fact-extractors/runner.mjs",
                 "tools/frontend/check-frontend-style-source-base.test.mjs",
                 "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/ensure-binaryen.sh",
+                "tools/frontend/ensure-cmake.sh",
+                "tools/frontend/ensure-wasm.mjs",
                 "tools/frontend/reviewed-residual-classification.mjs",
                 "tools/frontend/source-unit-style-diff.mjs",
                 "tools/frontend/source-unit-style-diff.test.mjs",
@@ -7103,6 +7173,9 @@
                 "tools/frontend/style-toolchain/package-lock.json",
                 "tools/frontend/style-toolchain/package.json",
                 "tools/frontend/style-toolchain/stylelint.config.mjs",
+                "tools/frontend/wasm-build-receipt.mjs",
+                "tools/frontend/wasm-producer-inputs.mjs",
+                "tools/frontend/write-comment-privacy-prover-manifest.mjs",
                 "tools/governance/change-contract-registry.mjs",
                 "tools/governance/change-contract.mjs",
                 "tools/governance/check-monolithic-distributed-architecture.mjs",
@@ -7119,6 +7192,7 @@
                 "tools/release/clean-first-attempt-verifier.mjs",
                 "tools/release/release-domain-final-binding.mjs",
                 "tools/run-test-matrix.mjs",
+                "tools/security/comment-privacy-build-contract.mjs",
                 "tools/style/check-native-tooling-style.mjs",
                 "tools/test-fixtures/receipt/canonical.mjs",
                 "tools/test-fixtures/receipt/comment-cleanup-contract.mjs",

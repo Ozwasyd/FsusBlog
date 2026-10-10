@@ -11,12 +11,15 @@
         "config/testing/release-final-execution-authority-index.json",
         "tests/tools/release-final-static-boundary.test.mjs",
         "tools/style/check-native-tooling-style.mjs",
-        "tests/tools/native-tooling-style.test.mjs"
+        "tests/tools/native-tooling-style.test.mjs",
+        "tools/configuration/wasm-cpp-context.mjs",
+        "tools/configuration/wasm-cpp-source.test.mjs",
+        "config/development/native-tooling-style-policy.json"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "8372c133b09ca17477feb4ef59a2e920f954cd64846d1b24d9e8e100bebe3941"
+            "sha256": "5f36dbe958cbf8bc33317f08becb7b88c77331d3d260ad09cfd1597590c6f8d5"
         }
     ]
 }
