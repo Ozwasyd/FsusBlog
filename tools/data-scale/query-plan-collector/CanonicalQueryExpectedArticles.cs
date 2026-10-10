@@ -10,6 +10,58 @@ internal static class CanonicalQueryExpectedArticles
 {
     private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web);
 
+#if QUERY_PRODUCER_INTAKE_LINKED
+    // One original bounded batch, not a whole-plan receipt or the legacy file model.
+    // Expected content is resealed from pre-sealing inputs, not copied from production.Graphs.
+    internal static IReadOnlyList<ResolvedExpectedArticle> ProjectResolvedBatch(
+        ArticleScalePlan plan, IReadOnlyList<ArticleScaleArticleGraph> factoryBatch,
+        ArticleScaleResolvedGraphBatch resolved, IReadOnlyDictionary<string, ArticleScaleGraphIdentityBindings> nativeBindings,
+        DateTime businessEpochUtc)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(factoryBatch);
+        ArgumentNullException.ThrowIfNull(resolved);
+        ArgumentNullException.ThrowIfNull(nativeBindings);
+        ArticleScalePlanValidator.Validate(plan, plan.Artifacts).ThrowIfInvalid();
+        if (businessEpochUtc.Kind != DateTimeKind.Utc || factoryBatch.Count is < 1 or > 1000
+            || resolved.Coverage.PlanDigest != ArticleScalePlanDigest.Compute(plan)
+            || !factoryBatch.Select(graph => graph.ArticleOrdinal).Order().SequenceEqual(resolved.ArticleOrdinals)
+            || factoryBatch.Select(graph => graph.SemanticArticleId).Distinct().Count() != factoryBatch.Count
+            || !factoryBatch.Select(graph => graph.SemanticArticleId).ToHashSet(StringComparer.Ordinal).SetEquals(nativeBindings.Keys))
+        {
+            throw new InvalidOperationException("query_expected_original_batch_binding_mismatch");
+        }
+        var projected = new List<ResolvedExpectedArticle>();
+        foreach (ArticleScaleArticleGraph coordinate in factoryBatch)
+        {
+            ArticleScaleGraphIdentityBindings bindings = nativeBindings[coordinate.SemanticArticleId];
+            ArticleScaleArticleGraph expected = CanonicalArticleGraphFactory.BuildArticleGraph(plan,
+                coordinate.ArticleOrdinal, coordinate.Variant, ArticleScaleVariantContractCatalog.Get(coordinate.Variant),
+                bindings, resolved);
+            CanonicalArticleGraphVerifier.VerifyArticleGraph(plan, expected).ThrowIfInvalid();
+            ArticleScaleRowPlan article = expected.Rows.Single(row => row.Kind == ArticleScaleRowKind.Article);
+            static DateTime? Time(ArticleScaleRowPlan row, string field)
+                => row.Fields[field] is string text ? DateTimeOffset.Parse(text, CultureInfo.InvariantCulture).UtcDateTime : null;
+            if (!ArticlePublication.IsPubliclyVisible((ArticleStatus)(int)article.Fields["Status"]!,
+                (bool)article.Fields["IsDeleted"]!, Time(article, "PublishedAt"), Time(article, "ScheduledPublishAt"), businessEpochUtc))
+            {
+                continue;
+            }
+            string publicationId = (string?)article.Fields["CurrentPublicationId"]
+                ?? throw new InvalidOperationException("public_canonical_publication_pointer_missing");
+            ArticleScaleRowPlan publication = expected.Rows.Single(row => row.SemanticId == publicationId);
+            ArticleScaleRowPlan revision = expected.Rows.Single(row => row.SemanticId == (string)publication.Fields["RevisionSemanticId"]!);
+            ArticleScaleRowPlan content = expected.Rows.Single(row => row.SemanticId == (string)revision.Fields["ContentBlockSemanticId"]!);
+            projected.Add(new(checked((int)bindings.Resolve(article.SemanticId)),
+                (string)revision.Fields["Title"]!, (string)content.Fields["MarkdownContent"]!,
+                Time(article, "CreateTime")!.Value, (int)revision.Fields["CategoryId"]!,
+                ((string)revision.Fields["TagIds"]!).Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(text => int.Parse(text, CultureInfo.InvariantCulture)).ToArray()));
+        }
+        return projected.AsReadOnly();
+    }
+#endif
+
     internal static async Task ExportAsync(string planPath, string mappingPath, string epoch, string sourceCommit, string outputPath)
     {
         CurrentSchemaTestMaterializer.ValidateAssemblySourceCommit(sourceCommit);
@@ -121,3 +173,8 @@ internal static class CanonicalQueryExpectedArticles
         };
     }
 }
+
+#if QUERY_PRODUCER_INTAKE_LINKED
+internal sealed record ResolvedExpectedArticle(int Id, string Title, string Body, DateTime CreateTime,
+    int CategoryId, IReadOnlyList<int> TagIds);
+#endif

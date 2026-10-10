@@ -2,9 +2,13 @@ import { buildQueryCaseRegistry, requireQueryBinding } from './query-case-regist
 import { computeSha256 } from './runtime-plan.mjs';
 
 /** Compose original-owner expectations. This does not admit or create fixtures. */
-export function mapCanonicalQueryExpectedModel({ articles, comments, canaries, binding })
+export function mapCanonicalQueryExpectedModel({ articles, comments, canaries, binding, registrySchema, threadReplies, relatedReading })
 {
     requireQueryBinding(binding);
+    if ((threadReplies !== undefined || relatedReading !== undefined) && !registrySchema)
+    {
+        throw new Error('thread reply inputs require explicit versioned expected model selection');
+    }
     if (articles?.schema !== 'fsusblog.data-scale-query-expected-articles.v1'
         || articles.factoryId !== 'fsusblog.canonical-article-graph-factory.v1'
         || articles.sourceCommit !== binding.sourceCommit || articles.businessEpochUtc !== binding.businessEpochUtc
@@ -21,7 +25,9 @@ export function mapCanonicalQueryExpectedModel({ articles, comments, canaries, b
         tier: articles.tier,
         articlePlanDigest: articles.planDigest, articleGraphDigest: articles.graphDigest,
         publicArticles: articles.publicArticles, visibleComments: comments.visibleComments,
-        categories: articles.categories, tags: articles.tags, canaries
+        categories: articles.categories, tags: articles.tags, canaries,
+        ...(registrySchema ? { registrySchema, threadReplies: threadReplies ?? null } : {}),
+        ...(relatedReading !== undefined ? { relatedReading } : {})
     };
     if (computeSha256(model) !== binding.expectedModelDigest)
     {

@@ -7,7 +7,7 @@ import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
 import { decodeAedsFrame } from './aeds-decoders.mjs';
-import { assertSameQueryBinding, buildQueryCaseRegistry, queryCaseIds, queryMatrixTiers } from './query-case-registry.mjs';
+import { assertSameQueryBinding, buildQueryCaseRegistry, queryCaseIdsForSchema, queryExecutionBlockers, queryMatrixTiers } from './query-case-registry.mjs';
 import { mapCanonicalQueryExpectedModel } from './query-expected-model.mjs';
 import { evaluateQueryMatrix, validateQueryPolicy } from './query-matrix.mjs';
 import { loadQueryPayloadDecoders } from './query-payload-decoders.mjs';
@@ -16,13 +16,24 @@ import { buildSemanticProofReceipt, verifySemanticProofReceipt } from './semanti
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
-export function failedQueryMatrix(tier, binding, reason)
+export function failedQueryMatrix(tier, binding, reason, registrySchema)
 {
     return {
         schema: 'fsusblog.data-scale-query-matrix-evaluation.v1', tier, binding: binding ?? null,
+        ...(registrySchema && !registrySchema.endsWith('.v1') ? { registrySchema } : {}),
         status: 'failed', qualification: 'not-performed', unknownIds: [],
-        results: queryCaseIds.map((id) => ({ id, status: 'failed', metrics: null, failureReasons: [reason] }))
+        results: queryCaseIdsForSchema(registrySchema).map((id) => ({ id, status: 'failed', metrics: null, failureReasons: [reason] }))
     };
+}
+
+function refuseNativeProducerIntake({ collectorPath, directory, repositoryRoot, binding })
+{
+    execFileSync('dotnet', [collectorPath, '--producer-intake',
+        path.join(directory, 'query-producer-intake.json'), binding.sourceCommit],
+    { cwd: repositoryRoot, timeout: 30_000, stdio: 'pipe' });
+    // The supplied original Inspect contracts unconditionally forbid execution.
+    // A substituted process returning zero cannot admit an expected model here.
+    throw new Error('current_original_producer_intake_cannot_authorize_queries');
 }
 
 /** Read-only product probe; provisioning and qualification remain original-owner operations. */
@@ -38,16 +49,23 @@ export async function runQueryMatrix({ registry, policies, baseUrl, secret, capt
             throw new Error('dedicated live runtime or authenticated observation unavailable');
         }
         await verifyRuntime();
+        const queryCaseIds = queryCaseIdsForSchema(registry.schema);
         if (Object.keys(policies ?? {}).length !== queryCaseIds.length || queryCaseIds.some((id) => !Object.hasOwn(policies, id)))
         {
             throw new Error('complete per-case policies unavailable');
         }
         queryCaseIds.forEach((id) => validateQueryPolicy(policies[id]));
-        const payloadDecoders = decoders ?? await loadQueryPayloadDecoders();
+        const payloadDecoders = decoders ?? await loadQueryPayloadDecoders(registry.schema);
         for (const entry of registry.cases)
         {
             const sample = { id: entry.id, binding: registry.binding, status: 'failed', http: [], queries: [] };
             samples.push(sample);
+            const blockers = queryExecutionBlockers(entry.id);
+            if (blockers.length)
+            {
+                sample.failureReasons = blockers;
+                continue;
+            }
             if (entry.status !== 'ready')
             {
                 continue;
@@ -108,13 +126,15 @@ export async function runQueryMatrix({ registry, policies, baseUrl, secret, capt
     }
     catch
     {
-        return failedQueryMatrix(registry.tier, registry.binding, 'query runner prerequisites or runtime unavailable');
+        return failedQueryMatrix(registry.tier, registry.binding, 'query runner prerequisites or runtime unavailable', registry.schema);
     }
 }
 
-export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = root })
+export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = root,
+    collectorPath = path.join(repositoryRoot, 'tools/data-scale/query-plan-collector/bin/Release/net10.0/QueryPlanCollector.dll') })
 {
     let binding;
+    let registrySchema;
     try
     {
         const read = (name) => JSON.parse(fs.readFileSync(path.join(directory, name), 'utf8'));
@@ -125,6 +145,10 @@ export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = ro
             throw new Error('query runner requires the exact clean source commit');
         }
         const input = read('query-expected-input.json');
+        registrySchema = input.registrySchema;
+        // The actual native intake precedes expected mapping and every HTTP/capture.
+        // It consumes no caller scalar map or verified flag as producer authority.
+        refuseNativeProducerIntake({ collectorPath, directory, repositoryRoot, binding });
         const model = mapCanonicalQueryExpectedModel({ ...input, binding });
         if (model.tier !== tier)
         {
@@ -155,12 +179,12 @@ export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = ro
             baseUrl: runtime.backend.baseUrl, secret: fs.readFileSync(path.join(directory, 'query-observation.secret'), 'utf8').trim(),
             captureDirectory: path.join(directory, 'query-captures'), bindingPath: path.join(directory, 'query-capture-binding.json'),
             connectionPath: path.join(directory, 'query-connection.secret'),
-            collectorPath: path.join(repositoryRoot, 'tools/data-scale/query-plan-collector/bin/Release/net10.0/QueryPlanCollector.dll'),
+            collectorPath,
             verifyRuntime: () => verifyDataScaleRuntimeLiveness({ repositoryRoot, runtimeReceipt: runtime }) });
     }
     catch
     {
-        return failedQueryMatrix(tier, binding, 'canonical model, policy, private capture or current runtime inputs unavailable');
+        return failedQueryMatrix(tier, binding, 'canonical model, policy, private capture or current runtime inputs unavailable', registrySchema);
     }
 }
 

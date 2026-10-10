@@ -11,6 +11,53 @@ using NpgsqlTypes;
 
 try
 {
+#if QUERY_PRODUCER_INTAKE_LINKED
+    if (args.Length == 2 && args[0] == "--producer-adapter-unit-list")
+    {
+        CanonicalQueryProducerIntake.ValidateLinkedQuerySourceCommit(args[1]);
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            sourceCommit = args[1],
+            units = OriginalPostgresQueryAdapterControls.UnitIds
+        }));
+        return 0;
+    }
+    if (args.Length == 4 && args[0] == "--producer-adapter-unit")
+    {
+        await OriginalPostgresQueryAdapterControls.RunAsync(args[1], args[2], args[3]);
+        return 0;
+    }
+#endif
+    if (args.Length == 3 && args[0] == "--producer-intake")
+    {
+        CanonicalQueryProducerIntake.RefuseMissingInputs(args[1], args[2]);
+        return 0;
+    }
+    if (args.Length == 3 && args[0] == "--related-payload-controls")
+    {
+        CollectorControls.RunRelatedPayloadControls(args[1], args[2]);
+        return 0;
+    }
+    if (args.Length == 3 && args[0] == "--search-payload-controls")
+    {
+        CollectorControls.RunSearchPayloadControls(args[1], args[2]);
+        return 0;
+    }
+    if (args.Length == 3 && args[0] == "--thread-payload-controls")
+    {
+        CollectorControls.RunThreadPayloadControls(args[1], args[2]);
+        return 0;
+    }
+    if (args.Length == 4 && args[0] == "--semantic-owner-controls")
+    {
+        await CollectorControls.RunSemanticOwnerControlsAsync(args[1], args[2], args[3]);
+        return 0;
+    }
+    if (args.Length == 4 && args[0] == "--route-controls")
+    {
+        await CollectorControls.RunRouteControlsAsync(args[1], args[2], args[3]);
+        return 0;
+    }
     if (args.Length == 3 && args[0] == "--expected-controls")
     {
         ExpectedArticleControls.Run(args[1], args[2]);
@@ -18,6 +65,7 @@ try
     }
     if (args.Length == 6 && args[0] == "--expected-articles")
     {
+        CanonicalQueryProducerIntake.RefuseMissingInputs(args[5] + ".producer-intake.json", args[4]);
         await CanonicalQueryExpectedArticles.ExportAsync(args[1], args[2], args[3], args[4], args[5]);
         return 0;
     }

@@ -1,5 +1,5 @@
 import { decodeAedsFrame } from './aeds-decoders.mjs';
-import { assertSameQueryBinding, queryCaseIds, queryMatrixTiers, requireQueryBinding } from './query-case-registry.mjs';
+import { assertSameQueryBinding, queryCaseIdsForSchema, queryExecutionBlockers, queryMatrixTiers, requireQueryBinding } from './query-case-registry.mjs';
 import { computeSha256 } from './runtime-plan.mjs';
 
 function sameItems(expected, actual)
@@ -56,6 +56,19 @@ export function verifyQueryTraversal({ coordinate, samples, binding, decode })
             throw new Error('payload frame type mismatch');
         }
         const decoded = decode(frame.payload);
+        if (coordinate.expectedPayloadProjection !== undefined)
+        {
+            if (samples.length !== 1 || coordinate.frameType !== 27
+                || computeSha256(decoded) !== computeSha256(coordinate.expectedPayloadProjection))
+            {
+                throw new Error('related reading membership, role or content projection mismatch');
+            }
+            return { pageCount: 1, itemCount: decoded.related.length + Number(decoded.previous !== null) + Number(decoded.next !== null) };
+        }
+        if (coordinate.threadRootId !== undefined && decoded.rootId !== coordinate.threadRootId)
+        {
+            throw new Error('thread reply envelope root does not match the explicit coordinate');
+        }
         sameItems(expected.slice(offset, offset + pageSize), decoded.items);
         if (coordinate.total !== undefined && decoded.total !== undefined && decoded.total !== coordinate.total)
         {
@@ -67,6 +80,11 @@ export function verifyQueryTraversal({ coordinate, samples, binding, decode })
         if (cursorRead && (decoded.hasMore !== hasMore || (hasMore ? typeof decoded.nextCursor !== 'string' || !decoded.nextCursor : decoded.nextCursor !== null)))
         {
             throw new Error('payload cursor terminal state mismatch');
+        }
+        if (cursorRead && hasMore && coordinate.cursorKind === 'int64-last-item'
+            && decoded.nextCursor !== String(decoded.items.at(-1)?.id))
+        {
+            throw new Error('thread reply cursor must equal the last returned comment ID');
         }
         if (hasMore && (decoded.items.length === 0 || seenCursors.has(decoded.nextCursor)))
         {
@@ -189,6 +207,11 @@ export function evaluateQueryCase({ entry, sample, policy, binding, decode })
     try
     {
         validateQueryPolicy(policy);
+        const blockers = queryExecutionBlockers(entry.id);
+        if (blockers.length)
+        {
+            throw new Error(blockers.join('; '));
+        }
         if (entry.status !== 'ready' || !entry.coordinate)
         {
             throw new Error(`fixture coordinate blocked: ${(entry.failureReasons ?? []).join('; ')}`);
@@ -283,6 +306,7 @@ export function evaluateQueryMatrix({ registry, samples, policies, decoders })
     {
         throw new Error('query matrix registry or samples invalid');
     }
+    const queryCaseIds = queryCaseIdsForSchema(registry.schema);
     const results = queryCaseIds.map((id) =>
     {
         const entries = registry.cases.filter((entry) => entry.id === id);
@@ -296,6 +320,7 @@ export function evaluateQueryMatrix({ registry, samples, policies, decoders })
     const unknownIds = [...registry.cases, ...samples].filter((row) => !queryCaseIds.includes(row.id)).map((row) => row.id);
     return {
         schema: 'fsusblog.data-scale-query-matrix-evaluation.v1',
+        ...(registry.schema.endsWith('.v1') ? {} : { registrySchema: registry.schema }),
         tier: registry.tier,
         binding: registry.binding,
         status: unknownIds.length || results.some((row) => row.status !== 'ok') ? 'failed' : 'ok',
@@ -308,6 +333,12 @@ export function compareQueryTrends(matrices)
 {
     const results = [];
     const failures = [];
+    const registrySchema = matrices[0]?.registrySchema;
+    const queryCaseIds = queryCaseIdsForSchema(registrySchema);
+    if (matrices.some((matrix) => matrix.registrySchema !== registrySchema))
+    {
+        failures.push('cross-tier registry version mismatch');
+    }
     for (const tier of queryMatrixTiers)
     {
         const matches = matrices.filter((matrix) => matrix.tier === tier);
