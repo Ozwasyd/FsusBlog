@@ -70,6 +70,8 @@ interface OwnedUploadAttempt {
     active: boolean;
     completed: boolean;
     borrow: ImageUploadSessionBorrow | null;
+    borrowIssued: boolean;
+    startCompletionWindow: (() => void) | null;
 }
 
 class UploadAttemptSupersededError extends Error
@@ -272,13 +274,19 @@ export function useImageUploadRuntime()
         {
             return attempt.borrow;
         }
+        if (attempt.borrowIssued)
+        {
+            return null;
+        }
         if (!attempt.active)
         {
             discardOwnedAttempt();
             return null;
         }
         const controller = new AbortController();
-        const deadline = performance.now() + SESSION_BORROW_LIFETIME_MS;
+        // Chunk IO belongs to the original task, not to the completion-consumer window.
+        let deadline = Infinity;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         let released = false;
         const current = (): boolean => !released && !disposed && performance.now() < deadline
             && ownedAttempt === attempt && attempt.generation === attemptGeneration && attempt.access !== null
@@ -299,6 +307,7 @@ export function useImageUploadRuntime()
             }
             released = true;
             clearTimeout(timer);
+            attempt.startCompletionWindow = null;
             attempt.binding.lease.signal.removeEventListener('abort', release);
             attempt.binding.intent.signal.removeEventListener('abort', release);
             controller.abort(new DOMException('upload_session_borrow_released', 'AbortError'));
@@ -312,40 +321,77 @@ export function useImageUploadRuntime()
                 }
             }
         };
-        const timer = setTimeout(release, SESSION_BORROW_LIFETIME_MS);
+        const startCompletionWindow = (): void =>
+        {
+            if (released || deadline !== Infinity)
+            {
+                return;
+            }
+            deadline = performance.now() + SESSION_BORROW_LIFETIME_MS;
+            timer = setTimeout(release, SESSION_BORROW_LIFETIME_MS);
+        };
+        attempt.startCompletionWindow = startCompletionWindow;
+        if (attempt.completed)
+        {
+            startCompletionWindow();
+        }
         attempt.binding.lease.signal.addEventListener('abort', release, { once: true });
         attempt.binding.intent.signal.addEventListener('abort', release, { once: true });
-        const access = Object.create(null) as ImageUploadSessionAccess;
-        for (const key of ['uploadId', 'uploadToken', 'sha256', 'totalBytes', 'commitMayHaveStarted'] as const)
-        {
-            Object.defineProperty(access, key, { get: () =>
-            {
-                assertCurrent();
-                return attempt.access!()[key];
-            } });
-        }
-        Object.defineProperty(access, 'toJSON', { value: (): never =>
-        {
-            throw new Error('upload_session_borrow_not_serializable');
-        } });
-        Object.freeze(access);
         const borrow: ImageUploadSessionBorrow = Object.freeze({
             signal: controller.signal,
             isCurrent: current,
             async withSession<T>(read: (session: ImageUploadSessionAccess, signal: AbortSignal) => Promise<T>): Promise<T>
             {
                 assertCurrent();
+                let scopeActive = true;
+                const scopeDeadline = performance.now() + SESSION_BORROW_LIFETIME_MS;
+                const scopeController = new AbortController();
+                const revokeScope = (): void =>
+                {
+                    scopeActive = false;
+                    scopeController.abort(new DOMException('upload_session_access_released', 'AbortError'));
+                };
+                controller.signal.addEventListener('abort', revokeScope, { once: true });
+                const scopeTimer = setTimeout(revokeScope, SESSION_BORROW_LIFETIME_MS);
+                const access = Object.create(null) as ImageUploadSessionAccess;
+                for (const key of ['uploadId', 'uploadToken', 'sha256', 'totalBytes', 'commitMayHaveStarted'] as const)
+                {
+                    Object.defineProperty(access, key, { get: () =>
+                    {
+                        if (!scopeActive || performance.now() >= scopeDeadline)
+                        {
+                            throw new UploadAttemptSupersededError();
+                        }
+                        assertCurrent();
+                        return attempt.access!()[key];
+                    } });
+                }
+                Object.defineProperty(access, 'toJSON', { value: (): never =>
+                {
+                    throw new Error('upload_session_borrow_not_serializable');
+                } });
+                Object.freeze(access);
                 try
                 {
-                    return await read(access, controller.signal);
+                    const result = await read(access, scopeController.signal);
+                    assertCurrent();
+                    if (!scopeActive || performance.now() >= scopeDeadline)
+                    {
+                        throw new UploadAttemptSupersededError();
+                    }
+                    return result;
                 }
                 finally
                 {
-                    assertCurrent();
+                    // Each invocation owns its own scope, including concurrent invocations.
+                    clearTimeout(scopeTimer);
+                    controller.signal.removeEventListener('abort', revokeScope);
+                    revokeScope();
                 }
             },
             release
         });
+        attempt.borrowIssued = true;
         attempt.borrow = borrow;
         return borrow;
     };
@@ -542,7 +588,9 @@ export function useImageUploadRuntime()
                     totalBytes: uploadPayload.file.size, commitMayHaveStarted }),
                 active: true,
                 completed: false,
-                borrow: null
+                borrow: null,
+                borrowIssued: false,
+                startCompletionWindow: null
             };
         }
         if (runtimeOptions.onSessionReady)
@@ -630,6 +678,7 @@ export function useImageUploadRuntime()
         if (ownedAttempt?.generation === generation)
         {
             ownedAttempt.completed = true;
+            ownedAttempt.startCompletionWindow?.();
         }
         phase.value = 'completed';
         progress.value = 100;
@@ -670,9 +719,12 @@ export function useImageUploadRuntime()
         };
         binding?.lease.signal.addEventListener('abort', onAbort, { once: true });
         binding?.intent.signal.addEventListener('abort', onAbort, { once: true });
+        let succeeded = false;
         try
         {
-            return await work;
+            const url = await work;
+            succeeded = true;
+            return url;
         }
         finally
         {
@@ -681,7 +733,7 @@ export function useImageUploadRuntime()
             if (ownedAttempt?.generation === generation)
             {
                 ownedAttempt.active = false;
-                if (!ownedAttempt.borrow?.isCurrent())
+                if (!succeeded || !ownedAttempt.borrow?.isCurrent())
                 {
                     discardOwnedAttempt();
                 }

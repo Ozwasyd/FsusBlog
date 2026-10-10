@@ -107,6 +107,29 @@ boundary does not upload files, parse captions, or migrate legacy placeholders.
 Native product input composition, redo successor admission and independent
 full attachment acceptance remain outstanding.
 
+The original image-upload runtime keeps initialized upload facts private to its
+actual owner, pending intent, document lease and generation. A session loan is
+issued at most once per attempt. Each `withSession` invocation has a separate
+access object and signal; getters are revoked and that signal is aborted when
+the awaited callback settles or its 30-second scope expires. Concurrent scopes
+do not revoke each other. Chunk duration does not consume the completion window:
+the loan's 30-second completion window starts at the original successful complete
+acknowledgement. Raw upload failure releases the loan while retaining the
+original resumable snapshot and any unknown cleanup obligation. Stored snapshots
+cannot mint replacement loans, and unknown commit state never grants deletion.
+
+`useImageUploadFlow.startUpload` accepts an optional `attachmentInput` containing
+the real selection anchor, original attachment/document owners and transaction
+port. It calls their existing capture/commitCreated before starting its original
+task lease and preserves each exact File reference with the corresponding
+original pending handle. `onFileUploaded({ file, intent, borrow, url })` is awaited
+after each raw upload and before starting the next file; the flow releases that
+loan on callback success or failure. Consumers observe within `withSession` and
+pass its callback signal to awaited operations. Batch `onSuccess` does not retain
+earlier loans. An original document transaction invalidates its current lease and
+intent; observed upload facts grant no reference, cleanup or document permission.
+This source API alone does not qualify Writer wiring or product endpoints.
+
 `useAdminArticleWrite.authoringEditorRuntime.bindEditor` composes the existing
 anchor, attachment, render-cache and continuity owners on one actual public editor
 port. The returned `binding` keeps live canonical context, render-state and pending
