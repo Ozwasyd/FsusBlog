@@ -1,7 +1,10 @@
 import { controlDigest } from '@fsusblog/control-legality/source';
 
-/** Bounded AST helpers for the original composition renderer, never a second graph. */
-export function createCompositionFunctionalSource({ resolver })
+/** Bounded AST helpers for the original composition renderer, never a second graph.
+ * vueBinding is the original owner's observation for this same resolver context.
+ * Recognized construction facts do not qualify the framework callable's effects.
+ */
+export function createCompositionFunctionalSource({ resolver, vueBinding })
 {
     const { ts, dom } = resolver;
     const reserved = new Set(['data-fsus-composition-node', 'data-fsus-composition-call']);
@@ -172,7 +175,72 @@ export function createCompositionFunctionalSource({ resolver })
         names(pattern).forEach((identifier) => readonly(record, identifier.text, identifier));
         return pattern;
     }
-    function effects(record, expression, slots = null)
+    function renderCall(record, node, render, calls)
+    {
+        const callee = ts.isCallExpression(node) ? node.expression : null;
+        if (!callee || !vueBinding?.(record, callee, 'h'))
+        {
+            return false;
+        }
+        const imported = record.imports.get(callee.text);
+        // Classify this source construction only after the real export graph
+        // binds its callable. The callable's effects are not qualified here.
+        const declaration = declarations(record, callee.text);
+        readonly(record, callee.text, declaration[0]);
+        resolver.assertImmutableBinding(record.file, callee.text);
+        noEscape(record, callee.text, declaration[0], (entry) =>
+            (ts.isImportSpecifier(entry.parent) || ts.isImportClause(entry.parent))
+            || render && within(entry, render) && !captured(entry, render)
+                && ts.isCallExpression(entry.parent) && entry.parent.expression === entry);
+        if (!render || !within(node, render) || node.questionDotToken || node.typeArguments?.length
+            || node.arguments.length < 2 || node.arguments.length > 3 || node.arguments.some(ts.isSpreadElement))
+        {
+            fail(record, 'unbound functional Vue construction shape');
+        }
+        const [target, props, child] = node.arguments.map(unwrap);
+        if (!ts.isStringLiteral(target) || resolver.resolveTag(record.file, target.text).kind !== 'native'
+            || !ts.isObjectLiteralExpression(props))
+        {
+            fail(record, 'unbound functional Vue construction supplier');
+        }
+        const keys = new Set();
+        for (const property of props.properties)
+        {
+            const name = property.name?.text;
+            if (!name || name === '__proto__' || reserved.has(name) || keys.has(name)
+                || ts.isComputedPropertyName(property.name)
+                || !(ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)))
+            {
+                fail(record, 'unknown/duplicate/reserved functional prop field');
+            }
+            keys.add(name);
+        }
+        if (child && !(ts.isStringLiteral(child) || ts.isNumericLiteral(child)
+            || [ts.SyntaxKind.NullKeyword, ts.SyntaxKind.TrueKeyword, ts.SyntaxKind.FalseKeyword].includes(child.kind)))
+        {
+            fail(record, 'unbound functional Vue construction child');
+        }
+        const framework = resolver.resolveFrameworkExport(record.file, callee);
+        const identity = framework.exportIdentity;
+        if (identity.specifier !== imported.specifier || identity.exportedName !== imported.name
+            || identity.file !== framework.file || framework.qualificationEligible !== false)
+        {
+            fail(record, 'changed canonical Vue construction identity');
+        }
+        const facts = Object.freeze({ source: Object.freeze(step(record, node)), callee: Object.freeze(step(record, callee)),
+            exportIdentity: Object.freeze({ ...identity }), definition: Object.freeze(step(resolver.parse(framework.file), framework.fn)),
+            edges: Object.freeze(framework.edges.map((edge) => Object.freeze({
+                source: Object.freeze(step(resolver.parse(edge.file), edge.originalImportOrExportAST)),
+                resolvedFile: edge.resolvedFile, exportedName: edge.exportedName }))),
+            dependencies: Object.freeze(framework.dependencies.map((dependency) => Object.freeze(
+                step(resolver.parse(dependency.file), dependency.fn ?? dependency.classDeclaration)))),
+            unresolvedDependencies: Object.freeze(framework.unresolvedDependencies.map((dependency) => Object.freeze({ ...dependency,
+                source: Object.freeze({ ...dependency.source }), binding: dependency.binding ? Object.freeze({ ...dependency.binding }) : null }))),
+            dependencyScope: framework.dependencyScope, qualificationEligible: false });
+        calls.set(node, facts);
+        return true;
+    }
+    function effects(record, expression, slots = null, render = null, calls = null)
     {
         function walk(node)
         {
@@ -190,7 +258,8 @@ export function createCompositionFunctionalSource({ resolver })
             }
             if (ts.isTaggedTemplateExpression(node) || ts.isNewExpression(node) || ts.isCallExpression(node) && !(slots
                 && ts.isPropertyAccessExpression(node.expression) && ts.isIdentifier(node.expression.expression)
-                && node.expression.expression.text === slots && !node.arguments.length && !node.typeArguments?.length))
+                && node.expression.expression.text === slots && !node.arguments.length && !node.typeArguments?.length)
+                && !(calls && renderCall(record, node, render, calls)))
             {
                 fail(record, 'unbound functional call effects');
             }
@@ -384,7 +453,8 @@ export function createCompositionFunctionalSource({ resolver })
                         || ts.isPrefixUnaryExpression(parent) && parent.operator === ts.SyntaxKind.ExclamationToken));
             });
         }
-        effects(record, render.body, slots?.text);
+        const renderCalls = new Map();
+        effects(record, render.body, slots?.text, render, renderCalls);
         const closure = dependencies(record, render);
         const branches = [];
         const conditions = [];
@@ -441,11 +511,12 @@ export function createCompositionFunctionalSource({ resolver })
             branches: Object.freeze(branches.map((branch) => Object.freeze({
                 source: branch.node ? Object.freeze(step(record, branch.node)) : null, conditional: branch.conditional }))),
             conditions: Object.freeze(conditions.map((node) => Object.freeze(step(record, node)))),
-            aliases: aliases.facts, dependencies: closure.facts });
+            aliases: aliases.facts, dependencies: closure.facts,
+            ...(renderCalls.size ? { renderCalls: Object.freeze([...renderCalls.values()]) } : {}) });
         const binding = Object.freeze({ call: render, setup: render, render, props, slots: slots?.text ?? null,
             branches: Object.freeze(branches), conditions: Object.freeze(conditions), steps: Object.freeze(steps),
             proofFacts, proofDigest: controlDigest(proofFacts), functional: true });
-        bindings.set(binding, { record, declarations: closure.declarations });
+        bindings.set(binding, { record, declarations: closure.declarations, renderCalls });
         return binding;
     }
     function check(record, node, binding)
@@ -508,7 +579,11 @@ export function createCompositionFunctionalSource({ resolver })
         }
         if (ts.isCallExpression(node) && !slotCall(record, node, binding))
         {
-            fail(record, 'unbound functional output call');
+            const facts = bindings.get(binding).renderCalls.get(node);
+            if (!facts || resolver.sourceBindings().errors.length)
+            {
+                fail(record, 'unbound functional output call');
+            }
         }
         return node;
     }
