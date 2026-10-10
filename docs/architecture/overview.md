@@ -128,8 +128,12 @@ and reports `upload_completion_recovery_required` through its existing error and
 cleanup state. This acknowledged operation cannot resume, recomplete or be
 overwritten while recovery is required. No canonical recovery receiver is wired
 here, so local reset does not acknowledge recovery or committed-asset cleanup.
-Successful raw upload still returns its original URL; later flow consumer failure
-is a separate recovery boundary whose integration remains open. Pre-ACK abort
+Successful raw upload still returns its original URL and clears transport as
+before. Its successful callback is not a canonical recovery or asset-cleanup
+receipt. Only the current operation's generation, upload ID and actual ACK history
+remain privately until replacement or instance release; successful transport
+does not retain snapshot credentials. Later flow consumer failure is a separate
+recovery boundary whose integration remains open. Pre-ACK abort
 token/status qualification and unknown cleanup obligations remain unchanged. Stored snapshots
 cannot mint replacement loans, and unknown commit state never grants deletion.
 
