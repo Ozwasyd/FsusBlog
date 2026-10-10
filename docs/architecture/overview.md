@@ -108,13 +108,18 @@ Native product input composition, redo successor admission and independent
 full attachment acceptance remain outstanding.
 
 The original image-upload runtime keeps initialized upload facts private to its
-actual owner, pending intent, document lease and generation. A session loan is
-issued at most once per attempt. Each `withSession` invocation has a separate
+actual owner, pending intent, document lease and generation. Before completion,
+these remain operation-owned locals and cannot be borrowed. After the original
+successful complete acknowledgement, `onSessionReady` acquires a session loan
+while the original operation and binding are still current, before public session
+cleanup. A loan is issued at most once per attempt and expires 30 seconds from
+that actual acquisition; release, expiry or an inactive operation cannot remint
+or refresh it. Each `withSession` invocation has a separate
 access object and signal; getters are revoked and that signal is aborted when
 the awaited callback settles or its 30-second scope expires. Concurrent scopes
-do not revoke each other. Chunk duration does not consume the completion window:
-the loan's 30-second completion window starts at the original successful complete
-acknowledgement. Raw upload failure releases the loan while retaining the
+do not revoke each other or extend the loan deadline. Slow chunk IO grants no
+precompletion loan. Raw upload failure grants no loan; callback failure releases
+any acquired loan while retaining the
 original resumable snapshot and any unknown cleanup obligation. Stored snapshots
 cannot mint replacement loans, and unknown commit state never grants deletion.
 
