@@ -747,6 +747,25 @@ describe('useImageUploadRuntime', () => {
     expect(api.completeUpload).toHaveBeenCalledOnce()
   })
 
+  it('revokes a newly acquired loan when the original completion callback fails', async () => {
+    const file = fileOf(73), original = boundAttempt(file)
+    const runtime = useImageUploadRuntime()
+    let borrow!: ImageUploadSessionBorrow
+    await expect(runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: async value => {
+      borrow = value
+      await value.withSession(async facts => { expect(facts.commitMayHaveStarted).toBe(true) })
+      throw new Error('completion callback failed')
+    } })).rejects.toThrow('completion callback failed')
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(borrow.signal.aborted).toBe(true)
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    await expect(borrow.withSession(async facts => facts.uploadToken)).rejects.toThrow('upload_attempt_superseded')
+    expect(storedSnapshot().snapshot.uploadToken).toBe('token-old')
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    await runtime.abandon()
+    expect(runtime.borrowCurrentSession()).toBeNull()
+  })
+
   it('grants no precompletion loan during a slow chunk and expires 30 seconds from actual acquisition', async () => {
     vi.useFakeTimers()
     const file = fileOf(73)
