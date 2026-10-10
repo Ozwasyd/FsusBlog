@@ -1,0 +1,29 @@
+[
+  {
+    "path": "tests/frontend/support/layout/compositionSource.mjs",
+    "beforeCommit": "dfcfdcc0c5157d2e01a460d91512fd7fb7927889",
+    "beforeBlob": "d437805c1258ffabd8967a646286d1acea8b9adf",
+    "beforeSHA256": "355c029870c156f7e6f52744d7b57e79acf3511ecf1183ab28ad7ed8b16bead8",
+    "afterSHA256": "efcf833ecc66714e96cf330a48a50e9182d8340866bf40056c054aad16d23976",
+    "afterCommit": "1286f37f5e850fab2e4acffc27d79722cf1b2616",
+    "afterBlob": "ddfb5315d842306e54dc8d027d29c4056d22bfeb"
+  },
+  {
+    "path": "tests/tools/layout-module-integration-source.test.mjs",
+    "beforeCommit": "dfcfdcc0c5157d2e01a460d91512fd7fb7927889",
+    "beforeBlob": "a9f8eeeefbcb8efd880f906df6c55977a8496b25",
+    "beforeSHA256": "b8ebd1aeff4b367a6b9dc6713d1daf262b432977f5a5999879230786c83a1499",
+    "afterSHA256": "7ecabd909b91313a511c0185102a2e9b19759d4d6099e168a150a2e394d026e3",
+    "afterCommit": "1286f37f5e850fab2e4acffc27d79722cf1b2616",
+    "afterBlob": "42f73949f8437de01e751416fc57dd6514f34f98"
+  },
+  {
+    "path": "docs/frontend/layout-visual-governance.md",
+    "beforeCommit": "dfcfdcc0c5157d2e01a460d91512fd7fb7927889",
+    "beforeBlob": "e1636d5f3ef6a552a8c891627ceee5463c6bc732",
+    "beforeSHA256": "bec1811a157b44013641ecdca28b31dca068972c71794ee978b6c528166e32af",
+    "afterSHA256": "390a72d8120e56587634f995a6f4468d804456b635709621d8246a5ba4b8eedb",
+    "afterCommit": "1286f37f5e850fab2e4acffc27d79722cf1b2616",
+    "afterBlob": "90aceec336c7de6eaa407758aa1c40ac6a6df4ee"
+  }
+]

@@ -1,0 +1,33 @@
+{
+  "recordedAt": "2026-10-10T06:36:20.715956+00:00",
+  "reportOrigin": "Coordinating parent message in original thread; not a new locally executed independent review",
+  "donorCommit": "c4e321c5b393bfb75d0848fa7beea440feed6f53",
+  "parentReportedIndependentReview": {
+    "passed": 278,
+    "failed": 0,
+    "skipped": 0,
+    "receiverProbes": "passed",
+    "OF1Probes": "passed",
+    "P2Probes": "passed"
+  },
+  "verifiedPreservedPostimages": [
+    {
+      "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+      "donorBlob": "11ef09b4fedd2bf814d058c74c4d6331234de5e4",
+      "donorSHA256": "5e8fad1c5899d1a88c96eaea6718803713bd4107876bf2d3a1ff216d96ff1890",
+      "consumedSHA256": "5e8fad1c5899d1a88c96eaea6718803713bd4107876bf2d3a1ff216d96ff1890",
+      "difference": "byte-identical module"
+    },
+    {
+      "path": "tests/tools/layout-collection-source.test.mjs",
+      "donorBlob": "c821ea7727887582487130217ae96a117bdb2fee",
+      "donorSHA256": "67da17c264415d9c37e97a08e2283e29a5f4b9edd9e1eb713aebeb49ed47690e",
+      "consumedSHA256": "63deb9d30f38e51127e25a07e754be4bcebacd9b47e1f5d30ae414f5820a278e",
+      "difference": "public canonical package import glue only; no test bodies changed"
+    }
+  ],
+  "I1CanonicalSourceUnchangedFrom12c315": true,
+  "supplierOrderFinding": "Await exact original additional supplier-order mutation fixture; no source repair or inferred acceptance",
+  "newTestsExecuted": false,
+  "qualificationEligible": false
+}

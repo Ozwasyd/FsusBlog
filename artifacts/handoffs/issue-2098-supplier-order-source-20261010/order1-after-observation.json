@@ -1,0 +1,45 @@
+{
+  "exactOwnerBytes": "<script setup>const props=defineProps({tag:{type:[String,Object],default:\"button\"}});</script><template><component :is=\"tag\"/></template>",
+  "exactEntryBytes": "<script setup>import Owner from \"./Owner.vue\";</script><template><Owner tag=\"a\"/><Owner tag=\"span\"/></template>",
+  "finalNewlines": false,
+  "parserRootOverride": false,
+  "priorParseOrResolverCalls": false,
+  "firstCall": "374b4bf563ab07ad24cd1a63",
+  "sameSize": true,
+  "samePointers": true,
+  "sameOrder": false,
+  "before": {
+    "errors": [],
+    "suppliers": [
+      {
+        "target": {
+          "kind": "native",
+          "name": "a"
+        },
+        "callPath": [
+          "374b4bf563ab07ad24cd1a63"
+        ]
+      },
+      {
+        "target": {
+          "kind": "native",
+          "name": "span"
+        },
+        "callPath": [
+          "356aca826b5acedabc36e8aa"
+        ]
+      }
+    ],
+    "recordNodes": [
+      "374b4bf563ab07ad24cd1a63",
+      "356aca826b5acedabc36e8aa"
+    ],
+    "instrumentation": "<script setup>import Owner from \"./Owner.vue\";</script><template><Owner data-fsus-composition-call=\"374b4bf563ab07ad24cd1a63\" tag=\"a\"/><Owner data-fsus-composition-call=\"356aca826b5acedabc36e8aa\" tag=\"span\"/></template>"
+  },
+  "after": {
+    "rejected": true,
+    "message": "[composition-source] supplier graph changed: original source call order"
+  },
+  "assertionsExecuted": false,
+  "qualificationEligible": false
+}

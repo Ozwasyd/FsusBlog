@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^(?:canonical supplier order refuses same pointer call deletion and reinsertion at the public source boundary|canonical supplier order preserves genuine repeated graph inputs records and instrumentation)$",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 1,
+  "startedAtEpoch": 1791614343.1208622,
+  "durationSeconds": 0.6599247455596924,
+  "source": {
+    "blog": {
+      "commit": "dfcfdcc0c5157d2e01a460d91512fd7fb7927889",
+      "tree": "47222bc75f372f4a8642dc23ec6eb01189657997",
+      "status": "M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "8f492f2b3361c5a47e5c1e5e901d6f5de51ff6bf77151f57d9e82b890fe28156"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "dfcfdcc0c5157d2e01a460d91512fd7fb7927889",
+      "tree": "47222bc75f372f4a8642dc23ec6eb01189657997",
+      "status": "M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "8f492f2b3361c5a47e5c1e5e901d6f5de51ff6bf77151f57d9e82b890fe28156"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/order1-original-assertions-before.log",
+  "logSha256": "fdcabe9f2a6d532bc99279e5edd40c765ff9ed7f6697f4ea303bfb08ad5cb89b"
+}

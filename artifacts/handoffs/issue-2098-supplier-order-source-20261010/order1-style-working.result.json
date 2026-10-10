@@ -1,0 +1,48 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791614367.2849653,
+  "durationSeconds": 3.1559784412384033,
+  "source": {
+    "blog": {
+      "commit": "dfcfdcc0c5157d2e01a460d91512fd7fb7927889",
+      "tree": "47222bc75f372f4a8642dc23ec6eb01189657997",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "579f6e557937721e16ed97d8582c03fc3fbadf9e7e569e7024fbfb24fc5c0984"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "dfcfdcc0c5157d2e01a460d91512fd7fb7927889",
+      "tree": "47222bc75f372f4a8642dc23ec6eb01189657997",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "579f6e557937721e16ed97d8582c03fc3fbadf9e7e569e7024fbfb24fc5c0984"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/order1-style-working.log",
+  "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+}
