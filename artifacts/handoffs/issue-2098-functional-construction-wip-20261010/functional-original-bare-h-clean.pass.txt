@@ -1,0 +1,11 @@
+✔ sealed parser genuine fresh JSX sibling (263.36314ms)
+✔ sealed parser genuine repeated Vue h real default slot (416.820421ms)
+✔ sealed parser supported defineComponent Vue h remains separate (220.202723ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 976.667942

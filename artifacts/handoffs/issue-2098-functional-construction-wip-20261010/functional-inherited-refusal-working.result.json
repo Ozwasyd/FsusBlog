@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^central unsupported bare functional h shape retains its inherited explicit effects refusal$",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 1,
+  "startedAtEpoch": 1791616721.2246618,
+  "durationSeconds": 0.6818828582763672,
+  "source": {
+    "blog": {
+      "commit": "4ba576e946de966a6605c5a4a97f842e3cd6415c",
+      "tree": "cefcb46295c7ac625057c363c394d93c6a01aa21",
+      "status": "M tests/frontend/support/layout/compositionFunctionalSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-functional-source.test.mjs",
+      "diffDigest": "2e93a6c0ae8a9302e27822ea79c2c180064a4bc58d124b94667a2224f5fe4328"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "4ba576e946de966a6605c5a4a97f842e3cd6415c",
+      "tree": "cefcb46295c7ac625057c363c394d93c6a01aa21",
+      "status": "M tests/frontend/support/layout/compositionFunctionalSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-functional-source.test.mjs",
+      "diffDigest": "2e93a6c0ae8a9302e27822ea79c2c180064a4bc58d124b94667a2224f5fe4328"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/functional-inherited-refusal-working.log",
+  "logSha256": "a356c5fa3d388658c1506a74fd1f7aeadc29dd91470374e2050ed8a2a718b096"
+}

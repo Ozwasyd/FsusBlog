@@ -1,0 +1,24 @@
+[
+  {
+    "path": "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+    "donorCommit": "0d256a388e303e0da48be4177067d448dfaa79d7",
+    "verifiedBase": "12c3152f6a5ced35784e89400fd8ce98e74d126a",
+    "currentPreimageBlob": "2357dfbc6753c8cd2f3f171ac1fcee99afb6bf8f",
+    "preimageSHA256": "37c4723c422fe437277c938b59ecdff189a12abd5ff2066cfed3b40de19bbc6b",
+    "offeredBlob": "d84c2648a4e9cbad9d3afa3513a763ce5aefdd29",
+    "offeredSHA256": "368af0092b4ec4e67b55134e64ae4f44a3b219f3bc4cb0d1382585021ed45d0a",
+    "consumedSHA256": "368af0092b4ec4e67b55134e64ae4f44a3b219f3bc4cb0d1382585021ed45d0a",
+    "delta": "Exact donor bytes; existing public package imports already match, no glue change needed"
+  },
+  {
+    "path": "tests/tools/layout-functional-source.test.mjs",
+    "donorCommit": "0d256a388e303e0da48be4177067d448dfaa79d7",
+    "verifiedBase": "12c3152f6a5ced35784e89400fd8ce98e74d126a",
+    "currentPreimageBlob": "24679355b7596a5138738b7dbce14763e7c4dde1",
+    "preimageSHA256": "92d6c39903cdc9a31411792126fdd6dc1651c33b6aad4c7021452abe0e782382",
+    "offeredBlob": "d385192dbc90d8a0c29600623a067a561dbc7b56",
+    "offeredSHA256": "d6ed1ea96427499773b7e28d1345a542ff801b6da2305cfb57aab8cec779b5da",
+    "consumedSHA256": "d6ed1ea96427499773b7e28d1345a542ff801b6da2305cfb57aab8cec779b5da",
+    "delta": "Exact donor bytes; existing public package imports already match, no glue change needed"
+  }
+]

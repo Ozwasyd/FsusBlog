@@ -1,0 +1,62 @@
+{
+  "sourceCommit": "7cd5d7cb08da2b870d20c6c2e7f55a44f4cb83f2",
+  "old": {
+    "file": "tests/tools/layout-module-integration-source.test.mjs",
+    "line": 1706,
+    "name": "central unsupported bare functional h shape retains its inherited explicit effects refusal",
+    "exactBytes": "import {h} from \"vue\";export default()=>h(\"button\",{});",
+    "extension": ".ts",
+    "finalNewline": false,
+    "initialization": "source() -> createCompositionSource({repositoryRoot,fsusUIRoot}); no parserRoot override",
+    "fixture": "Original fixture() writes those exact bytes under original module-integration UUID directory.",
+    "assertionBody": "test('central unsupported bare functional h shape retains its inherited explicit effects refusal', () =>\n{\n    const file = fixture('import {h} from \"vue\";export default()=>h(\"button\",{});', 'ts');\n    const graph = source().graph([file]);\n    assert.ok(graph.errors.some((error) => error.reason === 'unknown-ast-parse' && /unbound functional call effects/.test(error.message)));\n});",
+    "expectedReason": "unknown-ast-parse",
+    "expectedMessagePattern": "unbound functional call effects",
+    "actualRecordedResult": {
+      "pass": 0,
+      "fail": 1,
+      "assertion": "assert.ok(graph.errors.some(...))",
+      "actual": false,
+      "expected": true,
+      "error": "AssertionError [ERR_ASSERTION]",
+      "workingExitCode": 1,
+      "finalCombinedExitCode": 1
+    },
+    "actualFullGraphErrorsNotSerializedByOriginalTest": true
+  },
+  "new": {
+    "file": "tests/tools/layout-functional-source.test.mjs",
+    "name": "sealed parser genuine repeated Vue h real default slot",
+    "exactBytes": "import {h} from 'vue';export default()=>h('button',{},'actual');",
+    "extension": ".ts",
+    "finalNewline": false,
+    "initialization": "Original donor createCompositionSource({repositoryRoot:parserRoot,fsusUIRoot}); parserRoot variable defaults to repositoryRoot and FSUSBLOG_FUNCTIONAL_PARSER_ROOT is unset; no parserRoot option passed. Separate original diagnostic invokes exact createCompositionSource({repositoryRoot,fsusUIRoot}).",
+    "assertionBody": "test('sealed parser genuine repeated Vue h real default slot', () =>\n{\n    const content = \"import {h} from 'vue';export default()=>h('button',{},'actual');\";\n    const file = resolve(directory, 'GenuineH.ts');\n    writeFileSync(file, content);\n    assert.equal(readFileSync(file, 'utf8'), content);\n    assert.ok(!content.endsWith('\\n'));\n    const composition = createCompositionSource({ repositoryRoot: parserRoot, fsusUIRoot });\n    const first = composition.graph([file]);\n    assert.deepEqual(first.errors, []);\n    assert.equal(first.nodes.length, 1);\n    assert.equal(first.nodes[0].tag, 'button');\n    assert.deepEqual(first.nodes[0].origin, { kind: 'native', name: 'button' });\n    assert.equal(first.nodes[0].slotInputs.present.default, true);\n    const call = composition.resolver.parse(file).scripts[0].ast.statements[1].expression.body;\n    assert.equal(first.nodes[0].id, controlDigest({ file: `FsusBlog/${relative(parserRoot, file)}`,\n        offset: call.getStart(), source: call.getText() }).slice(0, 24));\n    const second = composition.graph([file]);\n    assert.deepEqual(second.errors, []);\n    assert.deepEqual(second.nodes.map((node) => node.id), first.nodes.map((node) => node.id));\n    assert.equal(second.nodes[0], first.nodes[0]);\n    assert.equal(second.nodes[0].id, first.nodes[0].id);\n    assert.equal(second.sourceDigest, first.sourceDigest);\n    const instrumented = composition.instrument(file, content);\n    assert.ok(instrumented.includes('data-fsus-composition-node'));\n    assert.equal(instrumented, content.replace('{}', `{ 'data-fsus-composition-node': '${first.nodes[0].id}',}`));\n    assert.equal(composition.instrument(file, content), instrumented);\n});",
+    "finalCombinedResult": "PASS within original107 functional controls",
+    "originalSeparateDiagnostic": "Same unchanged 5142 original positive body PASS in original3-case diagnostic at final7cd source",
+    "stages": [
+      {
+        "stage": "original bytes/no-final-newline and fresh first graph errors/native button/default slot",
+        "finalStatus": "PASS; assertions executed",
+        "ownerBeforeWiring": "Initial first graph errors assertion FAIL; later assertions UNRUN"
+      },
+      {
+        "stage": "canonical original AST-derived node ID",
+        "finalStatus": "PASS; assertion executed"
+      },
+      {
+        "stage": "second graph errors, same IDs/pointers/source digest",
+        "finalStatus": "PASS; assertions executed"
+      },
+      {
+        "stage": "instrumentation marker exact placement and repeat equality",
+        "finalStatus": "PASS; assertions executed"
+      }
+    ]
+  },
+  "assertionsChangedOrDropped": false,
+  "testsRerunForStatus": false,
+  "decisionRequired": "Root review of precise old refusal/new bounded source construction compatibility; no gate waiver or expectation edit made.",
+  "reviewLimits": "Parent additionally reports module package-authentication failure. No other reviewer/host substituted; ORDER2 same review blocked before verdict by platform content-risk flag, root holds exact error.",
+  "qualificationEligible": false
+}

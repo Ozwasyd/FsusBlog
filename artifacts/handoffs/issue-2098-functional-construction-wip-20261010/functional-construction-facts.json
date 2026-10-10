@@ -1,0 +1,232 @@
+{
+  "file": "/tmp/central-functional-construction-610ehC/Entry.ts",
+  "exactBytes": "import {h} from 'vue';export default()=>h('button',{},'actual');",
+  "finalNewline": false,
+  "parserRootOverride": false,
+  "graphErrors": [],
+  "construction": {
+    "source": {
+      "file": "/tmp/central-functional-construction-610ehC/Entry.ts",
+      "offset": 40,
+      "kind": "script-source",
+      "digest": "08d11f98dfc1037193bd039aec50162bdc5183a99a88318d8e696105f7ca4a86"
+    },
+    "callee": {
+      "file": "/tmp/central-functional-construction-610ehC/Entry.ts",
+      "offset": 40,
+      "kind": "script-source",
+      "digest": "aaa9402664f1a41f40ebbc52c9993eb66aeb366602958fdfaa283b71e64db123"
+    },
+    "exportIdentity": {
+      "specifier": "vue",
+      "exportedName": "h",
+      "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+      "name": "h",
+      "sourceKind": "declared-frontend-public-esm"
+    },
+    "definition": {
+      "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+      "offset": 262767,
+      "kind": "script-source",
+      "digest": "b84644f7fa0fd84520fed6c67cf2d7b16be422c37dd074251297eec1e7cea774"
+    },
+    "edges": [
+      {
+        "source": {
+          "file": "/tmp/central-functional-construction-610ehC/Entry.ts",
+          "offset": 0,
+          "kind": "script-source",
+          "digest": "4cbeaa4ad14971d1f63325e5e6ede857cfae11ebe3c5bc6dde45eba29462f6cb"
+        },
+        "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+        "exportedName": "h"
+      },
+      {
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+          "offset": 155,
+          "kind": "script-source",
+          "digest": "20c6c1c44cad5a20dd8614f7606f6fc0ee6f7ceb482fc038eaa853af30684be9"
+        },
+        "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+        "exportedName": "h"
+      },
+      {
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+          "offset": 570,
+          "kind": "script-source",
+          "digest": "48d9e8288210eed8476df5e7555b0d5c84354e73ced398bcec14d21808eb66a0"
+        },
+        "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+        "exportedName": "h"
+      },
+      {
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 269407,
+          "kind": "script-source",
+          "digest": "453d880e1f091f93dc0e37aa4683c670aa9e113ab27a05eaf28cef6d602e2265"
+        },
+        "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+        "exportedName": "h"
+      },
+      {
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 863,
+          "kind": "script-source",
+          "digest": "1c48c60b8d57237b44a6ecea7be0691573bc11bed2d20c8b3cfb7f487dbd55c7"
+        },
+        "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+        "exportedName": "isObject"
+      },
+      {
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "offset": 21999,
+          "kind": "script-source",
+          "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+        },
+        "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+        "exportedName": "isObject"
+      },
+      {
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 863,
+          "kind": "script-source",
+          "digest": "1c48c60b8d57237b44a6ecea7be0691573bc11bed2d20c8b3cfb7f487dbd55c7"
+        },
+        "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+        "exportedName": "isArray"
+      },
+      {
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+          "offset": 21999,
+          "kind": "script-source",
+          "digest": "0ae2777acd8f6f5d6214ac09474090ec0cdc7a94629c1da308d550d22782b315"
+        },
+        "resolvedFile": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+        "exportedName": "isArray"
+      }
+    ],
+    "dependencies": [
+      {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+        "offset": 262767,
+        "kind": "script-source",
+        "digest": "b84644f7fa0fd84520fed6c67cf2d7b16be422c37dd074251297eec1e7cea774"
+      },
+      {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+        "offset": 236834,
+        "kind": "script-source",
+        "digest": "63f2aa0890debcb746f9d8c255ab9f19dd3a538d7d6b3895bd5cf8a13a65f105"
+      },
+      {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/shared/dist/shared.esm-bundler.js",
+        "offset": 1425,
+        "kind": "script-source",
+        "digest": "b55929d1846d73c406eab39e4bc9950f02bec62261ca968ce2555a3b3788b15d"
+      },
+      {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+        "offset": 237693,
+        "kind": "script-source",
+        "digest": "00883d6f25c71c6233627dfcc7c56879819eeacd1dcd69112dddbec951b94db4"
+      }
+    ],
+    "unresolvedDependencies": [
+      {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+        "name": "isArray",
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 262938,
+          "kind": "script-source",
+          "digest": "5d1f9731528c7952e04f6547fcd5fce95a593a0cf920aeae6ca0a4bff5fad14d"
+        },
+        "reason": "[control-legality] dependency has no callable or class definition",
+        "binding": null
+      },
+      {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+        "name": "createVNode",
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 263023,
+          "kind": "script-source",
+          "digest": "3ac028f1ab60b6c6afaed02fd22a74e469978eda3455aee049fc7aee8dc23b96"
+        },
+        "binding": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 240652,
+          "kind": "script-source",
+          "digest": "89b4ec9991f62f2cedcfe3e9b1488fddc2d342cd23f394b6b4cc470aec9b0019"
+        },
+        "reason": "actual lexical variable has no callable or class body"
+      },
+      {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+        "name": "createVNode",
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 263092,
+          "kind": "script-source",
+          "digest": "3ac028f1ab60b6c6afaed02fd22a74e469978eda3455aee049fc7aee8dc23b96"
+        },
+        "binding": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 240652,
+          "kind": "script-source",
+          "digest": "89b4ec9991f62f2cedcfe3e9b1488fddc2d342cd23f394b6b4cc470aec9b0019"
+        },
+        "reason": "actual lexical variable has no callable or class body"
+      },
+      {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+        "name": "createVNode",
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 263158,
+          "kind": "script-source",
+          "digest": "3ac028f1ab60b6c6afaed02fd22a74e469978eda3455aee049fc7aee8dc23b96"
+        },
+        "binding": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 240652,
+          "kind": "script-source",
+          "digest": "89b4ec9991f62f2cedcfe3e9b1488fddc2d342cd23f394b6b4cc470aec9b0019"
+        },
+        "reason": "actual lexical variable has no callable or class body"
+      },
+      {
+        "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+        "name": "createVNode",
+        "source": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 263402,
+          "kind": "script-source",
+          "digest": "3ac028f1ab60b6c6afaed02fd22a74e469978eda3455aee049fc7aee8dc23b96"
+        },
+        "binding": {
+          "file": "/workspace/FsusBlog/src/frontend/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+          "offset": 240652,
+          "kind": "script-source",
+          "digest": "89b4ec9991f62f2cedcfe3e9b1488fddc2d342cd23f394b6b4cc470aec9b0019"
+        },
+        "reason": "actual lexical variable has no callable or class body"
+      }
+    ],
+    "dependencyScope": "actual direct call/new definitions; indirect calls and effects remain unproved",
+    "qualificationEligible": false
+  },
+  "resolvedDependencies": 4,
+  "unresolvedDependencies": 5,
+  "sourceBindingErrors": [],
+  "qualificationEligible": false,
+  "runtimeEffects": "unbound",
+  "observationNotAssertionCount": true
+}

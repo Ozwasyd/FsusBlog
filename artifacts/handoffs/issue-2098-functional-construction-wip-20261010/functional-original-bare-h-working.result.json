@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^(?:sealed parser genuine fresh JSX sibling|sealed parser genuine repeated Vue h real default slot|sealed parser supported defineComponent Vue h remains separate)$",
+    "/workspace/chain-1895-origin-export-successor/evidence/bare-h-original-case.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791616720.1296294,
+  "durationSeconds": 1.0512421131134033,
+  "source": {
+    "blog": {
+      "commit": "4ba576e946de966a6605c5a4a97f842e3cd6415c",
+      "tree": "cefcb46295c7ac625057c363c394d93c6a01aa21",
+      "status": "M tests/frontend/support/layout/compositionFunctionalSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-functional-source.test.mjs",
+      "diffDigest": "2e93a6c0ae8a9302e27822ea79c2c180064a4bc58d124b94667a2224f5fe4328"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "4ba576e946de966a6605c5a4a97f842e3cd6415c",
+      "tree": "cefcb46295c7ac625057c363c394d93c6a01aa21",
+      "status": "M tests/frontend/support/layout/compositionFunctionalSource.mjs\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-functional-source.test.mjs",
+      "diffDigest": "2e93a6c0ae8a9302e27822ea79c2c180064a4bc58d124b94667a2224f5fe4328"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/functional-original-bare-h-working.log",
+  "logSha256": "a84f750fad1a5e6a9425994989df56e3d07012a228d823c06d22ea119f557426"
+}

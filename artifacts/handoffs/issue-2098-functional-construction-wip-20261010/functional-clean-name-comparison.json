@@ -1,0 +1,4372 @@
+{
+  "actualCount": 1046,
+  "actualNamesMatchPreflight": true,
+  "perFileOriginalOrder": [
+    {
+      "file": "tests/tools/layout-module-integration-source.test.mjs",
+      "actualCount": 134,
+      "pass": 133,
+      "fail": 1,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/control-legality-ref-selectors.test.mjs",
+      "actualCount": 42,
+      "pass": 42,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-collection-source.test.mjs",
+      "actualCount": 278,
+      "pass": 278,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-slot-source.test.mjs",
+      "actualCount": 50,
+      "pass": 50,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-functional-source.test.mjs",
+      "actualCount": 107,
+      "pass": 107,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-target-source.test.mjs",
+      "actualCount": 58,
+      "pass": 58,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-router-view-source.test.mjs",
+      "actualCount": 20,
+      "pass": 20,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-composition-order-geometry.test.mjs",
+      "actualCount": 13,
+      "pass": 13,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-canonical-context-source.test.mjs",
+      "actualCount": 6,
+      "pass": 6,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-render-conjunction-source.test.mjs",
+      "actualCount": 12,
+      "pass": 12,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-standalone-props-source.test.mjs",
+      "actualCount": 20,
+      "pass": 20,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-render-declarations-source.test.mjs",
+      "actualCount": 8,
+      "pass": 8,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-returned-props-source.test.mjs",
+      "actualCount": 21,
+      "pass": 21,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-object-props-source.test.mjs",
+      "actualCount": 21,
+      "pass": 21,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-object-key-source.test.mjs",
+      "actualCount": 25,
+      "pass": 25,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-component-alternatives-source.test.mjs",
+      "actualCount": 16,
+      "pass": 16,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-script-constants-source.test.mjs",
+      "actualCount": 17,
+      "pass": 17,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-component-member-source.test.mjs",
+      "actualCount": 45,
+      "pass": 45,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-finite-component-source.test.mjs",
+      "actualCount": 23,
+      "pass": 23,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-script-render-source.test.mjs",
+      "actualCount": 33,
+      "pass": 33,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-factory-source.test.mjs",
+      "actualCount": 36,
+      "pass": 36,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-component-props-source.test.mjs",
+      "actualCount": 21,
+      "pass": 21,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-component-guards-source.test.mjs",
+      "actualCount": 10,
+      "pass": 10,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/layout-composition-source.test.mjs",
+      "actualCount": 24,
+      "pass": 24,
+      "fail": 0,
+      "orderMatches": true
+    },
+    {
+      "file": "tests/tools/control-legality.test.mjs",
+      "actualCount": 6,
+      "pass": 6,
+      "fail": 0,
+      "orderMatches": true
+    }
+  ],
+  "globalOrderMatches": false,
+  "heldNamesExecuted": false,
+  "failedNames": [
+    "central unsupported bare functional h shape retains its inherited explicit effects refusal"
+  ],
+  "actualObservedCases": [
+    {
+      "name": "finite selector positive actual ImageViewer shallowRef initializers and every closed modes write",
+      "passed": true
+    },
+    {
+      "name": "finite selector positive actual InspectorRail v-for registry map retains six public icon identities",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative wrong Vue shallowRef import",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative wrong Vue markRaw import",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative late unknown ref write",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative prototype key in modes write",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative unbounded annotated key in modes write",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative out of range modes item",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative ref reassignment",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative escaped ref unknown call",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative escaped ref alias",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative escaped ref closure return",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative mutated selected mode icon",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative modes object mutation",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative template event writes unknown ref value",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative template callback escapes ref",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative unknown registry item despite annotation",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative prototype registry item",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative registry reassignment",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative registry push mutation",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative mapped collection reassignment",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative mapped item icon mutation",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative escaped map callback item",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative unproved imported key helper body",
+      "passed": true
+    },
+    {
+      "name": "finite selector positive canonical direct-entry InspectorRail supplier control",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative escaped registry object alias",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative late mutation inside captured ref writer",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative mutated Object key intrinsic",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative imported icon mutation",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative unknown icon call escape",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative template dynamic argument escapes ref",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative iterator object mutation",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative reference write closure reaches a later unknown key",
+      "passed": true
+    },
+    {
+      "name": "finite selector positive source-proven ref write closure enumerates every reachable mode",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative shadowed imported supplier declaration",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative unbound template local ref name",
+      "passed": true
+    },
+    {
+      "name": "finite selector positive actual iterable binding shadows unrelated script name",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative mismatched canonical v-for supplier",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative unknown actual v-for supplier despite script name",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative template iterable icon mutation",
+      "passed": true
+    },
+    {
+      "name": "finite selector negative template iterable object escape",
+      "passed": true
+    },
+    {
+      "name": "finite selector positive derives iterable supplier from actual canonical v-for AST",
+      "passed": true
+    },
+    {
+      "name": "actual app registration resolves an imported public component and rejects a shadow owner",
+      "passed": true
+    },
+    {
+      "name": "unknown resolver callback and invalid template expressions fail closed",
+      "passed": true
+    },
+    {
+      "name": "positive actual global import and direct adapter resolve the same public declaration",
+      "passed": true
+    },
+    {
+      "name": "dynamic target, aliases, native TS render and parser corruption cannot evade discovery",
+      "passed": true
+    },
+    {
+      "name": "ordinary native document structure is outside interaction registration",
+      "passed": true
+    },
+    {
+      "name": "compiler-owned Vue structure preserves child controls; computed choices and recursion resolve",
+      "passed": true
+    },
+    {
+      "name": "canonical context exposes the actual OnlyChild function AST and source byte step",
+      "passed": true
+    },
+    {
+      "name": "canonical function context follows actual imported useMarks and records its SFC caller offset",
+      "passed": true
+    },
+    {
+      "name": "canonical source steps reject synthetic and foreign AST nodes without borrowing source identity",
+      "passed": true
+    },
+    {
+      "name": "canonical binding helper retains mutable mutated and shadowed binding rejection",
+      "passed": true
+    },
+    {
+      "name": "canonical function helper rejects unknown private and duplicate functions",
+      "passed": true
+    },
+    {
+      "name": "canonical function helper rejects async generators and nonfunction values",
+      "passed": true
+    },
+    {
+      "name": "collection literals preserve every original element AST and canonical input digest",
+      "passed": true
+    },
+    {
+      "name": "collection element steps equal the original canonical sourceStep interface",
+      "passed": true
+    },
+    {
+      "name": "named collection callback uses the original immutable source function binding",
+      "passed": true
+    },
+    {
+      "name": "collection branches retain both alternatives and ordered condition source identities",
+      "passed": true
+    },
+    {
+      "name": "fresh array push preserves statement order and nested branch conditions",
+      "passed": true
+    },
+    {
+      "name": "finite scalar map retains actual callback reads and element bindings without executing it",
+      "passed": true
+    },
+    {
+      "name": "finite filter preserves the authored predicate for every supplied scalar element",
+      "passed": true
+    },
+    {
+      "name": "authored missing input proves only its empty computed branch and retains the provided body",
+      "passed": true
+    },
+    {
+      "name": "actual Slider helper retains its no-marks branch and complete nonempty supplier source",
+      "passed": true
+    },
+    {
+      "name": "actual Slider callers have three absent marks inputs but escaped setup props remain rejected",
+      "passed": true
+    },
+    {
+      "name": "actual TabNav callback retains pane reads index writes slot calls and event escapes",
+      "passed": true
+    },
+    {
+      "name": "actual Tabs panes supplier resolves the original hook and retains runtime identity mutations",
+      "passed": true
+    },
+    {
+      "name": "actual Pagination navigation push plan retains every supplied child and branch",
+      "passed": true
+    },
+    {
+      "name": "actual Pagination information callback and root class helper retain unresolved effects",
+      "passed": true
+    },
+    {
+      "name": "collection rejects an opaque input despite a readonly VNode array annotation",
+      "passed": true
+    },
+    {
+      "name": "collection rejects reassignment of a const array element",
+      "passed": true
+    },
+    {
+      "name": "collection rejects a mutated let array",
+      "passed": true
+    },
+    {
+      "name": "collection rejects deleting a supplied element",
+      "passed": true
+    },
+    {
+      "name": "collection rejects an opaque mutating array method",
+      "passed": true
+    },
+    {
+      "name": "collection rejects a direct escaped array",
+      "passed": true
+    },
+    {
+      "name": "collection rejects an aliased array",
+      "passed": true
+    },
+    {
+      "name": "collection rejects an array identity escaped through a containing array",
+      "passed": true
+    },
+    {
+      "name": "collection rejects an array identity assigned to an outer binding",
+      "passed": true
+    },
+    {
+      "name": "collection rejects a deferred callback push",
+      "passed": true
+    },
+    {
+      "name": "collection rejects a push after its output use",
+      "passed": true
+    },
+    {
+      "name": "collection rejects a sparse authored array",
+      "passed": true
+    },
+    {
+      "name": "collection rejects a spread of an opaque array",
+      "passed": true
+    },
+    {
+      "name": "collection rejects a shadowed array binding",
+      "passed": true
+    },
+    {
+      "name": "collection rejects an array borrowed from another function scope",
+      "passed": true
+    },
+    {
+      "name": "collection rejects an array borrowed from an expired block scope",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects unknown runtime item identity",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects a supplied object item identity",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects callback writes",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects callback escape to an opaque call",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects an opaque captured member read",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects nested event callback item capture",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects callback alias capture",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects index inference across conditional suppliers",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects index inference after a conditional filter",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects an opaque callback even for an empty input",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects a mutated named callback through canonical immutability",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects a callback borrowed from another lexical scope",
+      "passed": true
+    },
+    {
+      "name": "collection map rejects order dependent callback statements",
+      "passed": true
+    },
+    {
+      "name": "empty collection input rejects a supplied nonempty opaque label",
+      "passed": true
+    },
+    {
+      "name": "empty collection input rejects a supplied empty object rather than infer absence",
+      "passed": true
+    },
+    {
+      "name": "empty collection input rejects an opaque spread",
+      "passed": true
+    },
+    {
+      "name": "empty collection input rejects escaped caller props",
+      "passed": true
+    },
+    {
+      "name": "empty collection input rejects mutated helper props",
+      "passed": true
+    },
+    {
+      "name": "empty collection input rejects a prior mutation before the no-marks guard",
+      "passed": true
+    },
+    {
+      "name": "empty collection input rejects an earlier opaque return before the no-marks guard",
+      "passed": true
+    },
+    {
+      "name": "empty collection input rejects a fake computed constructor",
+      "passed": true
+    },
+    {
+      "name": "empty collection input rejects a copied canonical call identity",
+      "passed": true
+    },
+    {
+      "name": "collection proof rejects changed parsed input bytes",
+      "passed": true
+    },
+    {
+      "name": "collection rejects AST nodes created outside the original parser records",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Slider four local helpers close readonly marks parameter effects",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: parameter closure follows the original local helper argument edge",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: parameter closure rejects an alias that carries marks identity",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: parameter closure rejects nested callback marks mutation",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: parameter closure retains the unresolved external reference constructor",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Pagination information map binds all four original table suppliers",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: keyed map rejects a mutated membership Set",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: keyed map rejects an escaped membership Set",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: keyed map rejects an unknown supplied table key",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: keyed map rejects a mutated own table entry",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: keyed map rejects an opaque callback even with an empty key array",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Settings four pane label suppliers bind literal props and absent label slots",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Tabs provider chain links the same source key registry item and navigation prop",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: pane supplier rejects copied canonical caller identity",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: pane supplier rejects a supplied label slot",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: pane supplier rejects an opaque runtime label input",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: pane provider rejects a different actual imported injection key",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Pagination static caller preserves ordered keys and binds first last class values",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Pagination conditional caller retains both ordered input branches",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Pagination default derives the right wrapper total supplier and all guards",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition preserves repeated keys and multiple delimiter transitions",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects an opaque supplied layout",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects an unknown nonempty supplied key",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects a mutated array after the callback",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects an escaped array identity",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects a callback mutation before the delimiter return",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects a late delimiter state overwrite",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: class binding rejects an opaque props argument despite a VNode annotation",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: class binding rejects an opaque class argument despite its string annotation",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: class helper rejects an additional children mutation",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: explicit class binding rejects a copied function AST",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: class binding rejects an accessor props object",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: keyed map rejects a runtime Set constructor parameter",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Slider caller closure isolates precisely the two external reference exports",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Pagination information slot binds the original null fallback for an absent caller slot",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Pagination ordered slot entry preserves the null element and skips guarded class writes",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Pagination rejects a supplied default slot identity",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: actual Pagination rejects a dynamic slot supplier",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects a layout overwrite before key construction",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects props identity forwarded to an opaque mutator",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects reordered keys before its callback",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: class argument binding preserves a literal prior class and the constructor identity obligation",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: class argument binding rejects an opaque prior class conversion despite a string cast",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects an opaque third argument array consumer",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects an incremented delimiter state",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: ordered partition rejects a shadowed key copying constructor",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: class supplier closes a real local primitive function before binding its argument",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: class supplier rejects a mutated method despite its original pure body",
+      "passed": true
+    },
+    {
+      "name": "collection continuation: class supplier rejects its object identity escaped to an opaque consumer",
+      "passed": true
+    },
+    {
+      "name": "probe: parenthesized array escape is rejected",
+      "passed": true
+    },
+    {
+      "name": "probe: parenthesized mutating array receiver is rejected",
+      "passed": true
+    },
+    {
+      "name": "probe: conditional array escape is rejected",
+      "passed": true
+    },
+    {
+      "name": "probe: repeated loop push is rejected as unbounded",
+      "passed": true
+    },
+    {
+      "name": "probe: conditional parameter escape is not readonly",
+      "passed": true
+    },
+    {
+      "name": "probe: spread parameter escape is not readonly",
+      "passed": true
+    },
+    {
+      "name": "probe: helper default parameter mutation is not readonly",
+      "passed": true
+    },
+    {
+      "name": "probe: guarded partition loop keeps its authored condition",
+      "passed": true
+    },
+    {
+      "name": "probe: conditional nested return does not invent a whole-guard else",
+      "passed": true
+    },
+    {
+      "name": "probe: class mutations preserve authored cross-container order",
+      "passed": true
+    },
+    {
+      "name": "probe: unconditional wrapper push survives a no-delimiter input",
+      "passed": true
+    },
+    {
+      "name": "probe: malformed pane provider is rejected",
+      "passed": true
+    },
+    {
+      "name": "probe: pane label rejects changed caller props before record construction",
+      "passed": true
+    },
+    {
+      "name": "probe: keyed table entry escaped before map is rejected",
+      "passed": true
+    },
+    {
+      "name": "probe: keyed map retains callback parameter binding with distinct parameter names",
+      "passed": true
+    },
+    {
+      "name": "probe: class supplier retains an opaque earlier factory return alternative",
+      "passed": true
+    },
+    {
+      "name": "probe: partition callback cannot precede false state initialization",
+      "passed": true
+    },
+    {
+      "name": "probe: copied callback AST is rejected by canonical source ownership",
+      "passed": true
+    },
+    {
+      "name": "repair: satisfies-wrapped collection escape is rejected",
+      "passed": true
+    },
+    {
+      "name": "repair: short-circuit collection escape is rejected",
+      "passed": true
+    },
+    {
+      "name": "repair: while collection multiplicity is rejected",
+      "passed": true
+    },
+    {
+      "name": "repair: switch-dependent collection push is rejected",
+      "passed": true
+    },
+    {
+      "name": "repair: try-dependent collection push is rejected",
+      "passed": true
+    },
+    {
+      "name": "repair: callback conditional and spread arguments retain every actual origin",
+      "passed": true
+    },
+    {
+      "name": "repair: helper default parameter escape stays unresolved",
+      "passed": true
+    },
+    {
+      "name": "repair: guarded partition retains both executed and bypassed paths",
+      "passed": true
+    },
+    {
+      "name": "repair: nested terminal guards retain both surviving control paths",
+      "passed": true
+    },
+    {
+      "name": "repair: callback return before loop does not become a render guard",
+      "passed": true
+    },
+    {
+      "name": "repair: wrapper push keeps its own unknown authored guard",
+      "passed": true
+    },
+    {
+      "name": "repair: late last class write targets wrapper at that program point",
+      "passed": true
+    },
+    {
+      "name": "repair: conditional wrapper omission does not borrow a right-side condition",
+      "passed": true
+    },
+    {
+      "name": "repair: unsupported render loop is rejected before a partition plan",
+      "passed": true
+    },
+    {
+      "name": "repair: wrapped keyed table entry escape is rejected",
+      "passed": true
+    },
+    {
+      "name": "repair: fresh keyed sink cannot escape through a carrier expression",
+      "passed": true
+    },
+    {
+      "name": "repair: distinct keyed parameters preserve exact original binding scopes",
+      "passed": true
+    },
+    {
+      "name": "repair: class factory rejects opaque earlier throw alternative",
+      "passed": true
+    },
+    {
+      "name": "repair: class supplier rejects a projected method escape",
+      "passed": true
+    },
+    {
+      "name": "repair: class supplier rejects an overriding factory spread",
+      "passed": true
+    },
+    {
+      "name": "repair: class supplier rejects an effectful default parameter initializer",
+      "passed": true
+    },
+    {
+      "name": "repair: labeled wrapper push remains unsupported",
+      "passed": true
+    },
+    {
+      "name": "repair: actual pane chain precisely reports the missing central Vue binding interface",
+      "passed": true
+    },
+    {
+      "name": "repair: callback alias effects retain their lexical block identity",
+      "passed": true
+    },
+    {
+      "name": "repair: nested callback parameter does not borrow an outer capture",
+      "passed": true
+    },
+    {
+      "name": "repair: conditional callback aliases preserve writes to both original parameters",
+      "passed": true
+    },
+    {
+      "name": "repair: inner shadowed alias does not create an outer parameter capture",
+      "passed": true
+    },
+    {
+      "name": "repair: callback effects retain opaque free condition reads without inferring values",
+      "passed": true
+    },
+    {
+      "name": "repair: callback type references do not manufacture runtime free reads",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: actual Slider toRefs binds every canonical import export edge and function definition",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: actual ObjectRefImpl setter preserves stored object parameter and both write paths",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: actual Vue native dependency gaps remain explicit after source resolution",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: actual Slider caller now retains both resolved framework bodies and readonly rejection",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: a canonical function body with no effects closes source readonly without name authority",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: default parameter write rejects readonly from the actual initializer source",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: authored class setter maps back to its actual constructor parameter",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: copied named import callee AST is rejected",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: namespace callee cannot replace an actual named import",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: provided unknown marks remains rejected after framework source closure expansion",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: ordinary callback rest parameters remain rejected",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: alias rebinding does not manufacture a write through its borrowed object",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: a string annotation cannot close implicit argument conversion effects",
+      "passed": true
+    },
+    {
+      "name": "framework continuation: constructor field overwrite retains only a possible authored source origin",
+      "passed": true
+    },
+    {
+      "name": "re-review: comma array escape is rejected",
+      "passed": true
+    },
+    {
+      "name": "re-review: comma parameter escape is not readonly",
+      "passed": true
+    },
+    {
+      "name": "re-review: short-circuit class write is rejected or modeled",
+      "passed": true
+    },
+    {
+      "name": "re-review: reassigned callback alias retains actual parameter write",
+      "passed": true
+    },
+    {
+      "name": "re-review boundary: a comma left operand does not supply the returned array identity",
+      "passed": true
+    },
+    {
+      "name": "re-review boundary: a conditional alias assignment retains both actual parameter origins",
+      "passed": true
+    },
+    {
+      "name": "re-review boundary: a later const alias reads the updated source binding",
+      "passed": true
+    },
+    {
+      "name": "re-review boundary: a class write in an initializer cannot disappear from a successful partition plan",
+      "passed": true
+    },
+    {
+      "name": "vue continuation: actual Tabs chain consumes the original public Vue binding interface",
+      "passed": true
+    },
+    {
+      "name": "vue continuation: copied provider call AST cannot gain framework identity",
+      "passed": true
+    },
+    {
+      "name": "vue continuation: a foreign parse record cannot gain original Vue binding identity",
+      "passed": true
+    },
+    {
+      "name": "re-review boundary: nested assignment RHS completes before the outer alias receives its value",
+      "passed": true
+    },
+    {
+      "name": "re-review boundary: reassigned parameter member follows its current actual source origin",
+      "passed": true
+    },
+    {
+      "name": "effect repair FW1: local input alias getter or Proxy read remains unclosed",
+      "passed": true
+    },
+    {
+      "name": "effect repair FW2: unary plus on a string annotated input remains unclosed",
+      "passed": true
+    },
+    {
+      "name": "effect repair FW3: implicit arrow return retains the input escape",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: optional member access preserves unknown getter effects",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: computed member key conversion and Proxy effects remain unclosed",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: conditional alias getter reads retain both original input bindings",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: unary minus on an opaque input remains unclosed",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: bitwise not on an opaque input remains unclosed",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: nested arithmetic retains conversion gaps without inferred constant folding",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: a single literal unary operation closes readonly",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: strict equality on an opaque input has no implicit conversion",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: boolean negation does not invent primitive conversion",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: typeof does not invent primitive conversion",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: loose equality on an opaque input remains unclosed",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: template interpolation on an annotated input remains unclosed",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: spread enumeration on an opaque input remains unclosed",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: object binding getter effects remain explicitly unresolved",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: array binding iterator effects remain explicitly unresolved",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: tagged template dispatch remains explicitly unresolved",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: async thenable result cannot close from a return type",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: generator yield cannot close deferred effects",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: a class expression remains explicitly unsupported",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: implicit aggregate return retains every input reference",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: a cast cannot erase the implicit returned input identity",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: comma return preserves only the final carrier identity",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: assignment expression carrier retains its actual input origin",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: logical alias assignment retains both possible input writes",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: return expression records assignment effects before resolving the final alias",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: default initializer property read remains unclosed",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: short circuit conversion retains the authored unknown path",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: parameter closure rejects an implicit returned input reference",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: parameter closure rejects an unproved coercive consumer",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: type query annotation does not manufacture runtime effects",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: class static initialization remains explicitly unproved",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: await thenable handling remains explicitly unproved",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: opaque computed object key conversion remains unclosed",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: conditional conversion retains the original false arm condition",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: nested callback implicit return preserves its own original parameter binding",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: literal caller partition truthiness retains its source operations without runtime identity",
+      "passed": true
+    },
+    {
+      "name": "effect boundary: opaque partition caller cannot borrow literal operation source bindings",
+      "passed": true
+    },
+    {
+      "name": "effect review EF1: direct await cannot close the original parameter source",
+      "passed": true
+    },
+    {
+      "name": "effect review EF1: deferred async capture cannot close the original parameter source",
+      "passed": true
+    },
+    {
+      "name": "effect review EF2: call arguments retain origins after each earlier argument effect",
+      "passed": true
+    },
+    {
+      "name": "effect review EF2: new arguments retain origins after each earlier argument effect",
+      "passed": true
+    },
+    {
+      "name": "effect review EF3: runtime class heritage cannot be erased as type syntax",
+      "passed": true
+    },
+    {
+      "name": "effect review EF3: runtime enum initialization cannot be erased as type syntax",
+      "passed": true
+    },
+    {
+      "name": "ordered effect: an earlier argument keeps its value when a later argument rebinds the alias",
+      "passed": true
+    },
+    {
+      "name": "ordered effect: aggregate elements retain their individually evaluated source origins",
+      "passed": true
+    },
+    {
+      "name": "ordered effect: object initializer values retain their individually evaluated source origins",
+      "passed": true
+    },
+    {
+      "name": "ordered effect: receiver provenance is captured before argument rebinding",
+      "passed": true
+    },
+    {
+      "name": "ordered effect: computed receiver retains its object before key expression mutation",
+      "passed": true
+    },
+    {
+      "name": "ordered effect: nested calls preserve argument snapshots and source invocation order",
+      "passed": true
+    },
+    {
+      "name": "ordered effect: spread carrier retains its earlier input before a later alias assignment",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: void wrapping cannot hide await from parameter closure",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: tagged template cannot hide a selected parameter consumer",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: runtime heritage remains unknown in parameter closure",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: runtime enum remains unknown in parameter closure",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: runtime namespace initialization remains unknown",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: erased interface and type alias grant no runtime reads",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: erased implements cannot erase actual class heritage",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: ambient type signature creates no runtime declaration effects",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: actual heritage free binding is retained as a runtime read",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: resolved class dependency retains the original runtime heritage gap",
+      "passed": true
+    },
+    {
+      "name": "shared effect boundary: a declaration signature cannot supply an implementation effect contract",
+      "passed": true
+    },
+    {
+      "name": "receiver review OF1: effectful comma receiver read uses the evaluated input source",
+      "passed": true
+    },
+    {
+      "name": "receiver review OF1: effectful comma receiver write uses the evaluated input source",
+      "passed": true
+    },
+    {
+      "name": "receiver positive: unchanged receiver read retains its original other source",
+      "passed": true
+    },
+    {
+      "name": "receiver positive: assignment freezes its other receiver before RHS rebinding",
+      "passed": true
+    },
+    {
+      "name": "receiver order: separate member reads retain their own evaluation snapshots",
+      "passed": true
+    },
+    {
+      "name": "receiver order: computed key mutation cannot replace an already evaluated read receiver",
+      "passed": true
+    },
+    {
+      "name": "receiver order: receiver and computed key effects preserve both authored evaluation points",
+      "passed": true
+    },
+    {
+      "name": "receiver order: computed write freezes the object before key and RHS effects",
+      "passed": true
+    },
+    {
+      "name": "receiver order: compound assignment reads and writes the receiver captured before its RHS",
+      "passed": true
+    },
+    {
+      "name": "receiver order: prefix update evaluates an effectful receiver before GetValue and write",
+      "passed": true
+    },
+    {
+      "name": "receiver order: postfix update evaluates an effectful receiver before GetValue and write",
+      "passed": true
+    },
+    {
+      "name": "receiver order: identifier update cannot leave its old borrowed object available",
+      "passed": true
+    },
+    {
+      "name": "receiver order: delete evaluates its receiver without an outer property GetValue",
+      "passed": true
+    },
+    {
+      "name": "receiver order: plain assignment records a reference without inventing an outer getter read",
+      "passed": true
+    },
+    {
+      "name": "receiver order: nested receiver GetValue remains before the outer plain write",
+      "passed": true
+    },
+    {
+      "name": "receiver order: logical assignment keeps its captured target and both possible later aliases",
+      "passed": true
+    },
+    {
+      "name": "receiver order: effectful method receiver is frozen before argument rebinding",
+      "passed": true
+    },
+    {
+      "name": "receiver order: effectful constructor property is frozen before argument rebinding",
+      "passed": true
+    },
+    {
+      "name": "receiver order: transparent type assertions preserve evaluation order without proving values",
+      "passed": true
+    },
+    {
+      "name": "receiver unknown: direct aggregate contents do not supply their container receiver identity",
+      "passed": true
+    },
+    {
+      "name": "receiver positive: an authored aggregate alias keeps its own source container identity",
+      "passed": true
+    },
+    {
+      "name": "receiver unknown: opaque call results cannot inherit the old borrowed receiver",
+      "passed": true
+    },
+    {
+      "name": "receiver unknown: unsupported destructuring targets invalidate possible stale aliases",
+      "passed": true
+    },
+    {
+      "name": "receiver unknown: a numeric annotation cannot close update conversion effects",
+      "passed": true
+    },
+    {
+      "name": "receiver order: every authored arithmetic and bitwise compound operator freezes the LHS reference",
+      "passed": true
+    },
+    {
+      "name": "receiver order: every authored logical assignment retains its RHS bypass alias alternative",
+      "passed": true
+    },
+    {
+      "name": "receiver order: computed prefix update freezes the receiver before key mutation",
+      "passed": true
+    },
+    {
+      "name": "receiver order: computed delete freezes the receiver before key mutation",
+      "passed": true
+    },
+    {
+      "name": "receiver order: implicit arrow and default-initializer roots start in GetValue mode",
+      "passed": true
+    },
+    {
+      "name": "receiver branch P2 negative: conditional call and escape cannot drop the nonfirst source",
+      "passed": true
+    },
+    {
+      "name": "receiver branch P2 negative: logical call and escape cannot drop the nonfirst source",
+      "passed": true
+    },
+    {
+      "name": "receiver branch positive: a direct receiver retains one call and one escape source",
+      "passed": true
+    },
+    {
+      "name": "receiver branch positive: repeated source alternatives retain their authored conditional site",
+      "passed": true
+    },
+    {
+      "name": "receiver branch order: nested arguments cannot rewrite either previously evaluated receiver",
+      "passed": true
+    },
+    {
+      "name": "receiver branch negative: unknown computed and opaque receiver alternatives remain unresolved",
+      "passed": true
+    },
+    {
+      "name": "receiver branch positive: final proof digest binds every call and escape source alternative",
+      "passed": true
+    },
+    {
+      "name": "receiver branch negative: either possible method call rejects collection callback purity",
+      "passed": true
+    },
+    {
+      "name": "two absent component alternatives require both real inputs and their exact disjunction guard",
+      "passed": true
+    },
+    {
+      "name": "a missing prop uses only its actual imported fallback and a supplied value retains its actual source",
+      "passed": true
+    },
+    {
+      "name": "actual dialog Close fallback binds after its real motion spread excludes the declared prop",
+      "passed": true
+    },
+    {
+      "name": "an actual declared attrs spread excludes the named component input",
+      "passed": true
+    },
+    {
+      "name": "an unknown spread beside an explicit component input remains rejected",
+      "passed": true
+    },
+    {
+      "name": "closed immutable prop spreads inherit the actual component declaration and unknown overrides fail",
+      "passed": true
+    },
+    {
+      "name": "component alternatives reject unknown supplied alternative",
+      "passed": true
+    },
+    {
+      "name": "component alternatives reject only one missing alternative",
+      "passed": true
+    },
+    {
+      "name": "component alternatives reject unrelated disjunction",
+      "passed": true
+    },
+    {
+      "name": "component alternatives reject negated guard",
+      "passed": true
+    },
+    {
+      "name": "component alternatives reject unguarded alternative",
+      "passed": true
+    },
+    {
+      "name": "component alternatives reject duplicate guard input",
+      "passed": true
+    },
+    {
+      "name": "component fallback rejects unknown fallback",
+      "passed": true
+    },
+    {
+      "name": "component fallback rejects mutable destructuring",
+      "passed": true
+    },
+    {
+      "name": "component fallback rejects destructuring default",
+      "passed": true
+    },
+    {
+      "name": "component fallback rejects mutated field import",
+      "passed": true
+    },
+    {
+      "name": "actual Switch action guards remain intact when missing icon alternatives have separate call proof",
+      "passed": true
+    },
+    {
+      "name": "an actual conjunction can prove absence: v-if=\"glyph && state\"",
+      "passed": true
+    },
+    {
+      "name": "an actual conjunction can prove absence: v-if=\"state && (glyph)\"",
+      "passed": true
+    },
+    {
+      "name": "an actual conjunction can prove absence: v-if=\"state && (other && glyph)\"",
+      "passed": true
+    },
+    {
+      "name": "an actual conjunction can prove absence: v-else-if=\"glyph && state\"",
+      "passed": true
+    },
+    {
+      "name": "absence cannot authorize disjunction",
+      "passed": true
+    },
+    {
+      "name": "absence cannot authorize negation",
+      "passed": true
+    },
+    {
+      "name": "absence cannot authorize condition alias",
+      "passed": true
+    },
+    {
+      "name": "absence cannot authorize unguarded else",
+      "passed": true
+    },
+    {
+      "name": "absence cannot authorize unknown supplied input",
+      "passed": true
+    },
+    {
+      "name": "actual Markdown provider binds editor initialization through its imported getter and unchanged identity guard",
+      "passed": true
+    },
+    {
+      "name": "computed object member follows closed field and renamed identity helper without public-name assumptions",
+      "passed": true
+    },
+    {
+      "name": "imported object getter and component keep their actual local ownership",
+      "passed": true
+    },
+    {
+      "name": "computed member unwrapping is limited to the actual Vue template input path",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects mutated direct member import",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects nested computed member value",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects object constructor escape",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects object alias mutation",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects nested object container escape",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects array container escape",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects aggregate call escape",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects computed aggregate escape",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects callback container escape",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects identity constructor escape",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects unknown object method",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects unknown identity argument method",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects unknown member value",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects unknown object initializer",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects missing member",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects mutable object",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects mutated member",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects escaped object",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects escaped computed object",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects unknown object spread",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects computed object key",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects duplicate object key",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects getter member",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects prototype member",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects dynamic function",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects getter arguments",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects getter branch",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects getter side effect",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects async getter",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects mutated getter",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects computed parameters",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects computed block",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects async computed",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects mutable computed",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects identity changed return",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects identity fallthrough",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects identity mutated parameter",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects identity escaped parameter",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects identity dynamic auxiliary argument",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects identity string name",
+      "passed": true
+    },
+    {
+      "name": "component member source rejects mutated identity component import",
+      "passed": true
+    },
+    {
+      "name": "real default and absent guarded props recover only the three exact upstream rows",
+      "passed": true
+    },
+    {
+      "name": "explicit actual public component values bind button and forwarded dropdown calls",
+      "passed": true
+    },
+    {
+      "name": "ordinary static and explicitly imported local sources retain actual ownership",
+      "passed": true
+    },
+    {
+      "name": "ordinary declared component factory defaults follow their actual imported source",
+      "passed": true
+    },
+    {
+      "name": "component props reject unknown supplied icon",
+      "passed": true
+    },
+    {
+      "name": "component props reject unknown supplied loading default override",
+      "passed": true
+    },
+    {
+      "name": "component props reject unknown forwarded dropdown input",
+      "passed": true
+    },
+    {
+      "name": "component props reject mutable supplied component",
+      "passed": true
+    },
+    {
+      "name": "component props reject const alias of mutable input",
+      "passed": true
+    },
+    {
+      "name": "component props reject template shadow of actual import",
+      "passed": true
+    },
+    {
+      "name": "component props reject unknown spread override",
+      "passed": true
+    },
+    {
+      "name": "component props reject dynamic prop key",
+      "passed": true
+    },
+    {
+      "name": "component props reject same prop collision",
+      "passed": true
+    },
+    {
+      "name": "component props reject string name without runtime registration",
+      "passed": true
+    },
+    {
+      "name": "component props reject const string name without runtime registration",
+      "passed": true
+    },
+    {
+      "name": "unknown declared defaults and unguarded missing component inputs remain rejected",
+      "passed": true
+    },
+    {
+      "name": "source-only DOM interface refuses another call, changed inputs and forged declaration identity",
+      "passed": true
+    },
+    {
+      "name": "canonical component input edges require composition call proof",
+      "passed": true
+    },
+    {
+      "name": "reaching a supplied component does not authorize its further unbound input edges",
+      "passed": true
+    },
+    {
+      "name": "forwarded component proof requires the complete ordered rendering call chain",
+      "passed": true
+    },
+    {
+      "name": "shadowed Vue props and attrs cannot borrow the outer supplied component",
+      "passed": true
+    },
+    {
+      "name": "order geometry numeric block flow is diagnostic only",
+      "passed": true
+    },
+    {
+      "name": "order geometry numeric inversion uses bounds despite unchanged DOM order",
+      "passed": true
+    },
+    {
+      "name": "order geometry numeric same row is retained and overlap unresolved",
+      "passed": true
+    },
+    {
+      "name": "order geometry numeric hidden and missing duplicate or unowned regions fail",
+      "passed": true
+    },
+    {
+      "name": "order geometry numeric unsupported arrangements never pass",
+      "passed": true
+    },
+    {
+      "name": "order geometry numeric RTL and vertical block directions are observed",
+      "passed": true
+    },
+    {
+      "name": "order geometry numeric viewport bounds never add scroll offsets",
+      "passed": true
+    },
+    {
+      "name": "order geometry malformed contracts and observations remain explicit",
+      "passed": true
+    },
+    {
+      "name": "order geometry invalid rects and capture correspondence never pass",
+      "passed": true
+    },
+    {
+      "name": "order geometry numeric declared nesting is not flattened into sibling order",
+      "passed": true
+    },
+    {
+      "name": "order geometry numeric nested root and ancestor mixed modes remain unresolved",
+      "passed": true
+    },
+    {
+      "name": "order geometry null and sparse evidence returns malformed diagnostics",
+      "passed": true
+    },
+    {
+      "name": "order geometry pending runtime guard still refuses before browser evaluation",
+      "passed": true
+    },
+    {
+      "name": "public aliases follow the real withInstall property factory and source file",
+      "passed": true
+    },
+    {
+      "name": "public icon star exports reach actual Vue SVG source and bind source path configuration",
+      "passed": true
+    },
+    {
+      "name": "named reexports preserve local ownership instead of laundering a public-looking alias",
+      "passed": true
+    },
+    {
+      "name": "conflicting star exports fail closed instead of choosing an arbitrary component source",
+      "passed": true
+    },
+    {
+      "name": "an explicit Vue script default and the SFC default identify one component",
+      "passed": true
+    },
+    {
+      "name": "public structural conditions bind exact static props and provided slots",
+      "passed": true
+    },
+    {
+      "name": "dynamic props and conditional slots cannot acquire structural proof",
+      "passed": true
+    },
+    {
+      "name": "slot branches, teleport and responsive directives retain concrete node locations",
+      "passed": true
+    },
+    {
+      "name": "malformed Vue AST fails closed",
+      "passed": true
+    },
+    {
+      "name": "unknown component and dynamic source fail closed despite plausible labels",
+      "passed": true
+    },
+    {
+      "name": "finite native component alternatives retain every actual source branch",
+      "passed": true
+    },
+    {
+      "name": "public native tag props bind the real default or exact literal call without a fallback",
+      "passed": true
+    },
+    {
+      "name": "actual public DataList row functions prove all native returns without trusting annotations",
+      "passed": true
+    },
+    {
+      "name": "unknown returns, fallthrough and unsupported native function flow fail closed",
+      "passed": true
+    },
+    {
+      "name": "native function proof rejects mutable, nested and template-shadowed bindings",
+      "passed": true
+    },
+    {
+      "name": "a later unknown props spread cannot inherit proof from an earlier native default",
+      "passed": true
+    },
+    {
+      "name": "actual public withDefaults props bind declared native tags to exact calls",
+      "passed": true
+    },
+    {
+      "name": "withDefaults proof rejects undeclared, spread, computed and shadowed macro inputs",
+      "passed": true
+    },
+    {
+      "name": "closed literal call spreads prove only their exact prop keys and values",
+      "passed": true
+    },
+    {
+      "name": "route-name branching resolves useRoute aliases and computed element access",
+      "passed": true
+    },
+    {
+      "name": "route-name business reads do not become a visual branch without a layout sink",
+      "passed": true
+    },
+    {
+      "name": "destructured route name flowing through class data fails closed",
+      "passed": true
+    },
+    {
+      "name": "imported local wrapper remains local through a public-looking alias",
+      "passed": true
+    },
+    {
+      "name": "instrumentation binds original bytes and rejects authored provenance markers",
+      "passed": true
+    },
+    {
+      "name": "actual Dropdown and RovingFocus factory calls bind their arguments, field and slot render source",
+      "passed": true
+    },
+    {
+      "name": "ordinary local factory aliases keep local ownership and never grant their slot children public identity",
+      "passed": true
+    },
+    {
+      "name": "factory source rejects unknown callee",
+      "passed": true
+    },
+    {
+      "name": "factory source rejects dynamic argument",
+      "passed": true
+    },
+    {
+      "name": "factory source rejects spread arguments",
+      "passed": true
+    },
+    {
+      "name": "factory source rejects extra argument",
+      "passed": true
+    },
+    {
+      "name": "factory source rejects mutable construction",
+      "passed": true
+    },
+    {
+      "name": "factory source rejects destructuring default",
+      "passed": true
+    },
+    {
+      "name": "factory source rejects destructuring rest",
+      "passed": true
+    },
+    {
+      "name": "factory source rejects reassigned result",
+      "passed": true
+    },
+    {
+      "name": "factory source rejects mutated result property",
+      "passed": true
+    },
+    {
+      "name": "factory source rejects unknown external factory",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects opaque initializer",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects mutable function",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects async factory",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects reassigned function",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects branch return",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects computed result key",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects unknown result spread",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects duplicate result key",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects unknown result value",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects non-Vue constructor",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects shadowed Vue import",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects reassigned Vue import",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects dynamic component options",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects render override",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects automatic attrs fallthrough",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects unknown component name",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects unknown render call",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects rendered DOM",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects slot argument substitution",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects slot binding shadow",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects slot escape",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects async setup",
+      "passed": true
+    },
+    {
+      "name": "factory construction rejects async render",
+      "passed": true
+    },
+    {
+      "name": "factory source drift during the same scan remains a graph error",
+      "passed": true
+    },
+    {
+      "name": "actual Progress and Input selectors retain all five and two imported source definitions",
+      "passed": true
+    },
+    {
+      "name": "finite computed block keeps each return and never selects a branch from product state",
+      "passed": true
+    },
+    {
+      "name": "finite local component alternatives retain local ownership through public parent-free calls",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects mutable selector",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects mutated selector",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects unknown selector escape",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects nested selector escape",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects unknown branch",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects unknown block return",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects fallthrough",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects unreachable unknown return",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects async function",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects parameter function",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects loop flow",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects unknown side-effect flow",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects mutable returned alias",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects reassigned returned alias",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects cyclic returned alias",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects shadowed import",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects mutated import",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects shadowed computed constructor",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects mutated computed constructor",
+      "passed": true
+    },
+    {
+      "name": "finite component source rejects dynamic arguments",
+      "passed": true
+    },
+    {
+      "name": "sealed parser genuine repeated Vue h real default slot",
+      "passed": true
+    },
+    {
+      "name": "functional genuine Vue h alias retains original call and canonical export proof",
+      "passed": true
+    },
+    {
+      "name": "actual TableV2 Footer arrow binds lexical props slots and inert displayName source steps",
+      "passed": true
+    },
+    {
+      "name": "actual TableV2 Overlay binds its arrow without using the SimpleFunctionalComponent annotation",
+      "passed": true
+    },
+    {
+      "name": "actual TableV2 Empty retains the imported fallback identity and both authored slot branches",
+      "passed": true
+    },
+    {
+      "name": "actual TableV2 MainTable rest props stay unbound despite its TableV2GridProps annotation",
+      "passed": true
+    },
+    {
+      "name": "actual TableV2 fixed table empty-column returns retain guards and unbound rest suppliers",
+      "passed": true
+    },
+    {
+      "name": "actual TableV2 Row Header Cell and HeaderCell helper suppliers remain rejected",
+      "passed": true
+    },
+    {
+      "name": "functional return flow retains the negative continuation after an early native return",
+      "passed": true
+    },
+    {
+      "name": "functional return flow preserves nested branch paths and explicit empty returns",
+      "passed": true
+    },
+    {
+      "name": "closed JSX spread exposes actual literal const fields with opaque values carrying no identity",
+      "passed": true
+    },
+    {
+      "name": "closed nested literal spreads and destructured lexical prop aliases retain actual field ASTs",
+      "passed": true
+    },
+    {
+      "name": "functional native constant output preserves the original JSX node and source identity",
+      "passed": true
+    },
+    {
+      "name": "destructured lexical prop aliases retain readonly scalar attribute sources",
+      "passed": true
+    },
+    {
+      "name": "block-return proof digest binds the actual module-level VNode constant",
+      "passed": true
+    },
+    {
+      "name": "closed spread proof digest binds a changed module-level title value",
+      "passed": true
+    },
+    {
+      "name": "module constant proof closure follows actual transitive scalar supplier declarations",
+      "passed": true
+    },
+    {
+      "name": "independent refusal: tagged template initializer helper effects",
+      "passed": true
+    },
+    {
+      "name": "independent refusal: tagged template guard helper effects",
+      "passed": true
+    },
+    {
+      "name": "independent refusal: unknown assignment effects in initializer",
+      "passed": true
+    },
+    {
+      "name": "independent refusal: destructured props alias member mutation",
+      "passed": true
+    },
+    {
+      "name": "independent refusal: destructured props alias deletion",
+      "passed": true
+    },
+    {
+      "name": "proofDigest must distinguish dereferenced closed spread field facts",
+      "passed": true
+    },
+    {
+      "name": "block return module constant output facts must affect proofDigest",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects metadata-only object impostor",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects typed runtime call impostor",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects mutable functional declaration",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects reassigned functional declaration",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects overwritten render identity",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects computed metadata mutation",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects effectful displayName value",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped functional identity",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects shadowed props parameter",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects reassigned props parameter",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects mutated props member",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped props context",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped props member",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects reassigned slot context",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects mutated slot callback",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped slot context",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped slot callback",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped slot closure",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects injected slot payload",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects unknown context object",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects default context supplier",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects render fallthrough",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects unknown flow loop",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects async functional render",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects injected prop VNode",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects injected unknown VNode call",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects typed opaque VNode constant",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects mutable VNode constant",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped VNode constant",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects out of scope VNode constant",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects shadowed imported component",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects reassigned imported component",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped imported component",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects metadata-only component target",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects type-only component target",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects open parameter prop spread",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects helper result prop spread",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped closed spread",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects mutated closed spread",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects duplicate spread key",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects computed spread key",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects reserved native provenance marker",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects reserved component provenance marker",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects unknown nested prop spread",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects prototype setter spread",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects unknown initializer call effects",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects unknown initializer constructor effects",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped props callback closure",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects shadowed slot context",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects context rest supplier",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects unbound outer slot context",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects uninitialized VNode constant",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects external package identity impostor",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects tagged template initializer call",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects tagged template return call",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects external member assignment initializer",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects external member delete initializer",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects external member increment initializer",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects destructured prop alias assignment initializer",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects destructured prop alias delete initializer",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects transitive destructured alias delete initializer",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects destructured alias deferred mutation",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects destructured alias deferred delete",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects destructured alias escaped callback",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects module spread supplier tagged call effects",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects module spread supplier assignment effects",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects shadowed genuine h import",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects reassigned genuine h import",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects escaped genuine h import",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects metadata-only h impostor",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects type-only h import",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects non-Vue h impostor",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects genuine h helper child effects",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects genuine h initializer write effects",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects genuine h tagged prop effects",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects genuine h open prop supplier",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects genuine h injected VNode child",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects genuine h captured props callback",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects genuine h forged provenance marker",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects genuine h unknown prop spread",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects genuine h argument spread",
+      "passed": true
+    },
+    {
+      "name": "functional source rejects expression-bodied module constant output remains conservative",
+      "passed": true
+    },
+    {
+      "name": "functional helpers reject foreign AST records and counterfeit bindings",
+      "passed": true
+    },
+    {
+      "name": "canonical package exports and original analyzer closure contain all five actual source modules",
+      "passed": true
+    },
+    {
+      "name": "central actual InspectorRail graph preserves six public icons through its real export star facade",
+      "passed": true
+    },
+    {
+      "name": "central actual ImageViewer graph binds the initial ref and every closed authored mode write",
+      "passed": true
+    },
+    {
+      "name": "central mixed native and local target retains both actual definitions without selecting product state",
+      "passed": true
+    },
+    {
+      "name": "central pure target matching binds the original component child through its actual selector call",
+      "passed": true
+    },
+    {
+      "name": "central target matching rejects a same tag framework or native branch without its rendered supplier",
+      "passed": true
+    },
+    {
+      "name": "central target matching rejects missing calls cloned owners and changed source proof facts",
+      "passed": true
+    },
+    {
+      "name": "central actual Button RouterLink input retains its complete proof while rendered supplier stays rejected",
+      "passed": true
+    },
+    {
+      "name": "central slot invocation binds actual child identity and supplier source without a parent ownership substitution",
+      "passed": true
+    },
+    {
+      "name": "central target ledger retains every real Button supplying call including the unresolved framework branch",
+      "passed": true
+    },
+    {
+      "name": "central scoped slot supplier remains rejected with its exact original call and source location",
+      "passed": true
+    },
+    {
+      "name": "central actual functional Overlay carries its original render proof and lexical slot edge",
+      "passed": true
+    },
+    {
+      "name": "central functional closed spread retains actual field ASTs and native source instrumentation",
+      "passed": true
+    },
+    {
+      "name": "central finite map consumes every actual callback input and retains repeated source render paths",
+      "passed": true
+    },
+    {
+      "name": "central fresh array push retains its authored guard and original element source",
+      "passed": true
+    },
+    {
+      "name": "canonical target supplier API returns every actual original call in order for graph and original nodes",
+      "passed": true
+    },
+    {
+      "name": "canonical supplier order refuses same pointer call deletion and reinsertion at the public source boundary",
+      "passed": true
+    },
+    {
+      "name": "canonical supplier order preserves genuine repeated graph inputs records and instrumentation",
+      "passed": true
+    },
+    {
+      "name": "canonical supplier reads refuse original values shadow omitting an unknown supplying call",
+      "passed": true
+    },
+    {
+      "name": "canonical supplier reads refuse original values shadow reversing genuine supplying calls",
+      "passed": true
+    },
+    {
+      "name": "canonical supplier reads reject public Map method iterator getter and prototype overrides before invocation",
+      "passed": true
+    },
+    {
+      "name": "canonical supplier reads keep detached resolver and file Maps observational while native callbacks remain supported",
+      "passed": true
+    },
+    {
+      "name": "canonical supplier reads preserve genuine unknown call refusal through repeated original graphs",
+      "passed": true
+    },
+    {
+      "name": "canonical supplier reads bind the actual resolver methods and observation getters without replacing registration callbacks",
+      "passed": true
+    },
+    {
+      "name": "canonical supplier reads reject shared traversal prototype drift without invoking forged reads",
+      "passed": true
+    },
+    {
+      "name": "canonical target supplier API isolates returned identities from the original resolver graph",
+      "passed": true
+    },
+    {
+      "name": "canonical target supplier API rejects omitted cloned reordered and foreign graph inputs",
+      "passed": true
+    },
+    {
+      "name": "canonical target supplier API rejects changes to actual call attributes rather than rebinding them",
+      "passed": true
+    },
+    {
+      "name": "canonical target supplier API rejects raw source drift with an unchanged in memory graph",
+      "passed": true
+    },
+    {
+      "name": "canonical target supplier API refuses the whole set when one actual supplying call is unresolved",
+      "passed": true
+    },
+    {
+      "name": "canonical target supplier API preserves complete nested forwarding paths and both real outer suppliers",
+      "passed": true
+    },
+    {
+      "name": "canonical target supplier API rejects a non target owner and another source instance",
+      "passed": true
+    },
+    {
+      "name": "canonical target supplier rejects every conflicting literal and unknown named tag binding before its shortcut",
+      "passed": true
+    },
+    {
+      "name": "canonical target supplier rejects old nodes after a same byte clone replaces actual graph membership",
+      "passed": true
+    },
+    {
+      "name": "canonical SFC source rejects missing named runtime exports instead of borrowing its default template",
+      "passed": true
+    },
+    {
+      "name": "canonical SFC source rejects declared and type only named components while retaining actual default exports",
+      "passed": true
+    },
+    {
+      "name": "canonical actual supplier rejects a type only SFC identity even alongside unrelated rendered gaps",
+      "passed": true
+    },
+    {
+      "name": "canonical SFC source retains a real named facade reexport of another actual default component",
+      "passed": true
+    },
+    {
+      "name": "canonical computed component source rejects a named callback capturing the ref container",
+      "passed": true
+    },
+    {
+      "name": "canonical component member rejects a named callback capturing the original provider object",
+      "passed": true
+    },
+    {
+      "name": "canonical computed component source rejects assignment propagation through an aggregate",
+      "passed": true
+    },
+    {
+      "name": "central template outlet cannot consume a JSX callback supplier without its actual invocation",
+      "passed": true
+    },
+    {
+      "name": "canonical actual Options predicates resolve to original public ESM definitions and metadata inputs",
+      "passed": true
+    },
+    {
+      "name": "canonical public function source follows the actual declared ESM entry without executing require output",
+      "passed": true
+    },
+    {
+      "name": "canonical public function source rejects a same name absent from its actual export",
+      "passed": true
+    },
+    {
+      "name": "canonical public function source rejects ambiguous import conditions and conflicting module entry",
+      "passed": true
+    },
+    {
+      "name": "canonical public function source rejects private subpaths and escaped declared source",
+      "passed": true
+    },
+    {
+      "name": "canonical public function source rejects stale metadata and original function bytes",
+      "passed": true
+    },
+    {
+      "name": "canonical public function source leaves effectful and unavailable imports unqualified",
+      "passed": true
+    },
+    {
+      "name": "canonical framework export binds actual Slider toRefs through public Vue exports and the original ObjectRefImpl setter",
+      "passed": true
+    },
+    {
+      "name": "canonical framework export binds actual useFormItem toRef and preserves original propertyToRef class ownership",
+      "passed": true
+    },
+    {
+      "name": "canonical framework export rejects synthetic cloned and foreign callee ASTs",
+      "passed": true
+    },
+    {
+      "name": "canonical framework export refuses runtime values absent from real public exports and private entry paths",
+      "passed": true
+    },
+    {
+      "name": "canonical framework export rejects stale original source inputs without inventing new class definitions",
+      "passed": true
+    },
+    {
+      "name": "canonical framework export exposes effectful original bodies without classifying them as readonly",
+      "passed": true
+    },
+    {
+      "name": "canonical framework export rejects a real local callee that shadows its public import",
+      "passed": true
+    },
+    {
+      "name": "canonical framework export rejects declared signatures without an actual runtime function body",
+      "passed": true
+    },
+    {
+      "name": "canonical Vue binding exposes the original actual provide inject and reactive imports",
+      "passed": true
+    },
+    {
+      "name": "canonical Vue binding preserves actual aliases and rejects a mismatched export or unrelated import",
+      "passed": true
+    },
+    {
+      "name": "canonical Vue binding rejects cloned and foreign records and synthetic or cloned callee ASTs",
+      "passed": true
+    },
+    {
+      "name": "canonical Vue binding retains the original mutation and shadow rejection",
+      "passed": true
+    },
+    {
+      "name": "canonical Vue binding refuses type only imports without manufacturing a runtime export",
+      "passed": true
+    },
+    {
+      "name": "canonical Vue binding rejects stale source bytes while retaining the original callee",
+      "passed": true
+    },
+    {
+      "name": "canonical import observation mutation cannot turn an actual foreign callee into Vue provide",
+      "passed": true
+    },
+    {
+      "name": "canonical import observation entry mutation cannot substitute a public framework export absent from the original AST",
+      "passed": true
+    },
+    {
+      "name": "canonical import observations retain the actual Vue export after detached map and value writes",
+      "passed": true
+    },
+    {
+      "name": "canonical parser observations refuse original script syntax and record rewrites before framework binding",
+      "passed": true
+    },
+    {
+      "name": "canonical parser observations refuse a rewritten original template before source call publication",
+      "passed": true
+    },
+    {
+      "name": "canonical framework dependency follows the actual nested helper instead of borrowing the module helper",
+      "passed": true
+    },
+    {
+      "name": "canonical framework dependency leaves actual simple and destructured parameters unresolved",
+      "passed": true
+    },
+    {
+      "name": "canonical framework dependency retains the nearest actual block function declaration",
+      "passed": true
+    },
+    {
+      "name": "canonical framework dependency does not borrow a module function through a destructured local binding",
+      "passed": true
+    },
+    {
+      "name": "canonical framework dependency preserves a genuine module helper and its original source step",
+      "passed": true
+    },
+    {
+      "name": "canonical framework dependency does not borrow a module helper through a hoisted branch var or switch binding",
+      "passed": true
+    },
+    {
+      "name": "canonical framework dependency does not treat a class method name as its lexical callable binding",
+      "passed": true
+    },
+    {
+      "name": "canonical RouterView graph refuses an original Other call definition overwritten with an unrelated Outlet",
+      "passed": true
+    },
+    {
+      "name": "canonical RouterView direct public binder refuses a rewritten actual component call path",
+      "passed": true
+    },
+    {
+      "name": "canonical RouterView graph preserves its genuine original source calls across repeated observations",
+      "passed": true
+    },
+    {
+      "name": "central original graph joins actual RouterView route suppliers while retaining unbound rendered and permission gaps",
+      "passed": true
+    },
+    {
+      "name": "central RouterView graph join follows the actual reusable component call to its original route declared owner",
+      "passed": true
+    },
+    {
+      "name": "central RouterView graph join refuses cloned or foreign route observations without borrowing their suppliers",
+      "passed": true
+    },
+    {
+      "name": "central RouterView graph without an actual route observation preserves its original unresolved source",
+      "passed": true
+    },
+    {
+      "name": "central module integration rejects functional unknown helper",
+      "passed": true
+    },
+    {
+      "name": "central module integration rejects functional injected prop VNode",
+      "passed": true
+    },
+    {
+      "name": "central module integration rejects functional open prop spread",
+      "passed": true
+    },
+    {
+      "name": "central module integration rejects functional escaped component",
+      "passed": true
+    },
+    {
+      "name": "central module integration rejects collection opaque array",
+      "passed": true
+    },
+    {
+      "name": "central module integration rejects collection item mutation",
+      "passed": true
+    },
+    {
+      "name": "central module integration rejects collection callback effect",
+      "passed": true
+    },
+    {
+      "name": "central module integration rejects collection unknown output identity",
+      "passed": true
+    },
+    {
+      "name": "central original native target property cannot borrow another actual prop supplier",
+      "passed": true
+    },
+    {
+      "name": "central original native property retains its real supplier across repeated graphs",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed origin default",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed origin additional values",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed slot input membership",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed conditional paths",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed slot identity",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed structural flag",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed teleport flag",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed source syntax",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed render paths",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed slot source",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed location line",
+      "passed": true
+    },
+    {
+      "name": "central original complete call snapshot refuses changed future original observation field",
+      "passed": true
+    },
+    {
+      "name": "central original call snapshot refuses accessors without invoking caller code",
+      "passed": true
+    },
+    {
+      "name": "central original call snapshot refuses inherited facts without borrowing a prototype",
+      "passed": true
+    },
+    {
+      "name": "central public export map replacement cannot remove actual export star ambiguity",
+      "passed": true
+    },
+    {
+      "name": "central public export entry writes cannot alter canonical ambiguity or shared origins",
+      "passed": true
+    },
+    {
+      "name": "central public export observations cannot supply traversal state to poison an initial cache",
+      "passed": true
+    },
+    {
+      "name": "central public export observers preserve the actual shared unambiguous declaration",
+      "passed": true
+    },
+    {
+      "name": "central public identity observations cannot overwrite a subsequent actual export identity",
+      "passed": true
+    },
+    {
+      "name": "central registered identity observations cannot overwrite the original app registration",
+      "passed": true
+    },
+    {
+      "name": "central resolver identity and source input observations cannot rewrite private metadata baselines",
+      "passed": true
+    },
+    {
+      "name": "central detached public package metadata observations cannot hide real source drift",
+      "passed": true
+    },
+    {
+      "name": "central original call facts refuse byte identical nested object replacements",
+      "passed": true
+    },
+    {
+      "name": "central original call facts refuse a proxy replacement before invoking caller traps",
+      "passed": true
+    },
+    {
+      "name": "central instrumentation refuses changed original structural suppression",
+      "passed": true
+    },
+    {
+      "name": "central instrumentation refuses changed original invented marker identity",
+      "passed": true
+    },
+    {
+      "name": "central instrumentation refuses changed original marker offset",
+      "passed": true
+    },
+    {
+      "name": "central instrumentation refuses changed original source syntax",
+      "passed": true
+    },
+    {
+      "name": "central instrumentation refuses changed original call origin",
+      "passed": true
+    },
+    {
+      "name": "central instrumentation refuses changed original slot inputs",
+      "passed": true
+    },
+    {
+      "name": "central probe plugin refuses original call mutation without a repeated graph",
+      "passed": true
+    },
+    {
+      "name": "central instrumentation refuses removed call membership before reading markers",
+      "passed": true
+    },
+    {
+      "name": "central instrumentation refuses changed original file membership and digest observations",
+      "passed": true
+    },
+    {
+      "name": "central public file map observations cannot replace original parser records",
+      "passed": true
+    },
+    {
+      "name": "central fresh and repeated template instrumentation retain actual IDs and structural filtering",
+      "passed": true
+    },
+    {
+      "name": "central repeated JSX and canonical Vue vnode instrumentation preserve original parser locations",
+      "passed": true
+    },
+    {
+      "name": "central instrumentation refuses unchanged argument bytes after the authored file drifts",
+      "passed": true
+    },
+    {
+      "name": "central unsupported bare functional h shape retains its inherited explicit effects refusal",
+      "passed": false
+    },
+    {
+      "name": "central canonical collection instance retains its original methods for both public and render consumers",
+      "passed": true
+    },
+    {
+      "name": "central canonical collection receiver references preserve plain assignment without fabricating getter reads",
+      "passed": true
+    },
+    {
+      "name": "central canonical collection source retains every receiver alternative at one original call site",
+      "passed": true
+    },
+    {
+      "name": "central canonical collection assignment preserves the original receiver across RHS rebinding",
+      "passed": true
+    },
+    {
+      "name": "actual motion object ref proves excluded keys through both real imported helper returns",
+      "passed": true
+    },
+    {
+      "name": "parameterized shape proof follows every closed branch without resolving or admitting its values",
+      "passed": true
+    },
+    {
+      "name": "object key absence follows actual closed immutable spreads and an imported function",
+      "passed": true
+    },
+    {
+      "name": "object ref proof requires one explicit value read or actual template unwrapping",
+      "passed": true
+    },
+    {
+      "name": "actual useAttrs excludes only the component prop declared by the same source",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects private consumer import",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects unknown factory",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects mutable object",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects mutated object",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects escaped object",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects aliased object",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects unknown method",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects computed key",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects getter",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects prototype key",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects unknown spread",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects requested key",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects input determined shape",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects async shape function",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects unknown return branch",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects constructor",
+      "passed": true
+    },
+    {
+      "name": "object key absence rejects nested ref read",
+      "passed": true
+    },
+    {
+      "name": "declared attrs exclusion rejects mutation",
+      "passed": true
+    },
+    {
+      "name": "declared attrs exclusion rejects escape",
+      "passed": true
+    },
+    {
+      "name": "declared attrs exclusion rejects shadowed Vue import",
+      "passed": true
+    },
+    {
+      "name": "actual Dropdown missing buttonProps binds both real Button native tags loading defaults and absent icons",
+      "passed": true
+    },
+    {
+      "name": "actual Dropdown supplied literal object preserves exact imported icon and native tag input",
+      "passed": true
+    },
+    {
+      "name": "null and unshadowed undefined object inputs use only the actual nullish fallback",
+      "passed": true
+    },
+    {
+      "name": "nested object prop forwarding keeps the complete ordered actual call path",
+      "passed": true
+    },
+    {
+      "name": "native object prop proof rejects changed caller inputs and forged legacy digest",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects unknown object",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects unknown field",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects unknown spread",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects mutable object",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects mutated object",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects escaped object",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects aliased object",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects computed key",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects getter field",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects unknown native tag",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects shadowed undefined",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects template shadow",
+      "passed": true
+    },
+    {
+      "name": "an actual unrelated Vue toRef preserves the selected object prop source",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects owner mutation",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects owner escape",
+      "passed": true
+    },
+    {
+      "name": "object prop input rejects selected ref escape",
+      "passed": true
+    },
+    {
+      "name": "actual TableV2 conjunction guards retain functional renderer source and unknown slot body rejection",
+      "passed": true
+    },
+    {
+      "name": "render conjunction retains its exact native branch without selecting product state",
+      "passed": true
+    },
+    {
+      "name": "render conjunction preserves the actual imported public component source",
+      "passed": true
+    },
+    {
+      "name": "nested render conjunctions retain both authored guards",
+      "passed": true
+    },
+    {
+      "name": "render conjunction retains the actual route name visual branch error",
+      "passed": true
+    },
+    {
+      "name": "render conjunction rejects unknown child",
+      "passed": true
+    },
+    {
+      "name": "render conjunction rejects unknown component",
+      "passed": true
+    },
+    {
+      "name": "render conjunction rejects unknown props spread",
+      "passed": true
+    },
+    {
+      "name": "render conjunction rejects mutated branch constant",
+      "passed": true
+    },
+    {
+      "name": "render conjunction rejects unknown helper",
+      "passed": true
+    },
+    {
+      "name": "render conjunction rejects logical disjunction",
+      "passed": true
+    },
+    {
+      "name": "render conjunction rejects nullish fallback",
+      "passed": true
+    },
+    {
+      "name": "actual Options helper declaration is inert while its escaped slot return remains rejected",
+      "passed": true
+    },
+    {
+      "name": "an inert local function declaration does not render its unknown return body",
+      "passed": true
+    },
+    {
+      "name": "a local handler declaration preserves the actual native render source",
+      "passed": true
+    },
+    {
+      "name": "render declaration rejects unknown helper render",
+      "passed": true
+    },
+    {
+      "name": "render declaration rejects helper mutation",
+      "passed": true
+    },
+    {
+      "name": "render declaration rejects helper input escape",
+      "passed": true
+    },
+    {
+      "name": "render declaration rejects shadowed Vue constructor",
+      "passed": true
+    },
+    {
+      "name": "render declaration rejects shadowed public component",
+      "passed": true
+    },
+    {
+      "name": "actual Select returned computed member binds suffixIcon through the actual props argument and exposure",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector follows both finite branches without choosing product state",
+      "passed": true
+    },
+    {
+      "name": "an absent returned prop requires the exact proven selector guard",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects unknown selector branch",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects mutable returned member",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects mutated returned member",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects escaped returned member",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects mutated helper props",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects escaped helper props",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects mutated caller props",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects escaped caller props",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects unknown earlier return",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects unknown object spread",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects getter result",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects undeclared prop",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects empty-only result",
+      "passed": true
+    },
+    {
+      "name": "returned prop selector rejects template shadow",
+      "passed": true
+    },
+    {
+      "name": "ordinary Vue setup must expose the same actual returned selector binding",
+      "passed": true
+    },
+    {
+      "name": "ordinary Vue setup cannot lend a hidden member identity to another exposed value",
+      "passed": true
+    },
+    {
+      "name": "returned selector rejects a props argument without its actual Vue binding",
+      "passed": true
+    },
+    {
+      "name": "returned selector rejects a destructuring default rather than assuming its source",
+      "passed": true
+    },
+    {
+      "name": "real BlogLayout slot retains exact original route suppliers without runtime selection",
+      "passed": true
+    },
+    {
+      "name": "finite route suppliers retain empty views and nested immediate outlets",
+      "passed": true
+    },
+    {
+      "name": "actual slot destructuring aliases keep the Component property supplier",
+      "passed": true
+    },
+    {
+      "name": "named views keep their own original component declaration",
+      "passed": true
+    },
+    {
+      "name": "an imported RouterView alias binds through the actual canonical framework import",
+      "passed": true
+    },
+    {
+      "name": "componentless records pass through while an explicitly empty components object stops the next outlet",
+      "passed": true
+    },
+    {
+      "name": "competing singular and named component declarations retain an explicit refusal",
+      "passed": true
+    },
+    {
+      "name": "real reusable AccountRouteFrame requires its actual route-owner call path",
+      "passed": true
+    },
+    {
+      "name": "unknown route supplier refuses unrelated slot owner",
+      "passed": true
+    },
+    {
+      "name": "unknown route supplier refuses unknown binding",
+      "passed": true
+    },
+    {
+      "name": "unknown route supplier refuses slot default expression",
+      "passed": true
+    },
+    {
+      "name": "unknown route supplier refuses spread selector supplier",
+      "passed": true
+    },
+    {
+      "name": "unknown route supplier refuses shadow loop",
+      "passed": true
+    },
+    {
+      "name": "unknown route supplier refuses unknown view name",
+      "passed": true
+    },
+    {
+      "name": "unknown route supplier refuses custom route override",
+      "passed": true
+    },
+    {
+      "name": "unknown route supplier refuses nested RouterView depth",
+      "passed": true
+    },
+    {
+      "name": "unknown route supplier refuses compound selector",
+      "passed": true
+    },
+    {
+      "name": "route observation cannot be cloned, retargeted or mutated into authority",
+      "passed": true
+    },
+    {
+      "name": "changed router or slot source bytes invalidate the original declaration observation",
+      "passed": true
+    },
+    {
+      "name": "an arbitrary offset cannot select a different slot supplier",
+      "passed": true
+    },
+    {
+      "name": "actual Overlay shorthand vnode props retain both native branches and default slots",
+      "passed": true
+    },
+    {
+      "name": "actual Tabs finite spread resolves header panels and button constants without hiding unknown TabNav output",
+      "passed": true
+    },
+    {
+      "name": "finite JSX array alternatives preserve every reused constant path and one real marker per source",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects alias mutation",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects unknown constant method",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects unknown constant",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects mutable constant",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects mutated constant",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects escaped constant",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects cyclic constant",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects dynamic constant initializer",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects different parent reuse",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects unknown spread source",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects unknown spread branch",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects unknown spread element",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects nested dynamic array spread",
+      "passed": true
+    },
+    {
+      "name": "script constant source rejects reserved shorthand marker",
+      "passed": true
+    },
+    {
+      "name": "actual form label TSX default export binds every native branch and unchanged default slot",
+      "passed": true
+    },
+    {
+      "name": "actual slider marker native h target is proven while its opaque label remains rejected",
+      "passed": true
+    },
+    {
+      "name": "actual imported TSX component remains local and its slot child retains its own source",
+      "passed": true
+    },
+    {
+      "name": "native TS h instrumentation preserves exact source and refuses authored or changed markers",
+      "passed": true
+    },
+    {
+      "name": "TSX instrumentation inserts native and component markers at actual opening tags",
+      "passed": true
+    },
+    {
+      "name": "TSX route-dependent render and class sources remain rejected visual branches",
+      "passed": true
+    },
+    {
+      "name": "script render rejects mutated JSX component import",
+      "passed": true
+    },
+    {
+      "name": "script render rejects shadowed JSX component import",
+      "passed": true
+    },
+    {
+      "name": "script render rejects unknown constructor",
+      "passed": true
+    },
+    {
+      "name": "script render rejects shadowed Vue constructor",
+      "passed": true
+    },
+    {
+      "name": "script render rejects mutated Vue constructor",
+      "passed": true
+    },
+    {
+      "name": "script render rejects unknown options spread",
+      "passed": true
+    },
+    {
+      "name": "script render rejects duplicate setup",
+      "passed": true
+    },
+    {
+      "name": "script render rejects render override",
+      "passed": true
+    },
+    {
+      "name": "script render rejects conditional setup return",
+      "passed": true
+    },
+    {
+      "name": "script render rejects async setup",
+      "passed": true
+    },
+    {
+      "name": "script render rejects async render",
+      "passed": true
+    },
+    {
+      "name": "script render rejects render fallthrough",
+      "passed": true
+    },
+    {
+      "name": "script render rejects unknown render return",
+      "passed": true
+    },
+    {
+      "name": "script render rejects JSX unknown child",
+      "passed": true
+    },
+    {
+      "name": "script render rejects JSX child spread",
+      "passed": true
+    },
+    {
+      "name": "script render rejects JSX prop spread",
+      "passed": true
+    },
+    {
+      "name": "script render rejects slot arguments",
+      "passed": true
+    },
+    {
+      "name": "script render rejects slot shadow",
+      "passed": true
+    },
+    {
+      "name": "script render rejects slot mutation",
+      "passed": true
+    },
+    {
+      "name": "script render rejects slot escape",
+      "passed": true
+    },
+    {
+      "name": "script render rejects mutable exported component",
+      "passed": true
+    },
+    {
+      "name": "script render rejects mutated exported component",
+      "passed": true
+    },
+    {
+      "name": "script render rejects fake h constructor",
+      "passed": true
+    },
+    {
+      "name": "script render rejects unknown h target",
+      "passed": true
+    },
+    {
+      "name": "script render rejects unknown h props",
+      "passed": true
+    },
+    {
+      "name": "script render rejects unknown h children",
+      "passed": true
+    },
+    {
+      "name": "script render rejects unsupported render loop",
+      "passed": true
+    },
+    {
+      "name": "ordinary slot supplier binds actual parent and original native child",
+      "passed": true
+    },
+    {
+      "name": "ordinary slot invocation retains child identity without borrowing parent identity",
+      "passed": true
+    },
+    {
+      "name": "ordinary callback binds actual destructured payload and every executed return",
+      "passed": true
+    },
+    {
+      "name": "ordinary callback uses runtime literal condition rather than its annotation",
+      "passed": true
+    },
+    {
+      "name": "ordinary local helper dependency chain includes actual reexported function source",
+      "passed": true
+    },
+    {
+      "name": "ordinary clone retains original public component and permits own literal title",
+      "passed": true
+    },
+    {
+      "name": "ordinary clone and readonly directive hooks preserve native original identity",
+      "passed": true
+    },
+    {
+      "name": "ordinary clone rejects unknown attrs despite an object annotation",
+      "passed": true
+    },
+    {
+      "name": "ordinary clone rejects spreads reserved props refs and opaque event effects",
+      "passed": true
+    },
+    {
+      "name": "ordinary clone rejects mutated VNodes and aggregate aliases",
+      "passed": true
+    },
+    {
+      "name": "ordinary callback rejects opaque calls and source array mutation",
+      "passed": true
+    },
+    {
+      "name": "ordinary source value rejects an escaped array even when its initializer is closed",
+      "passed": true
+    },
+    {
+      "name": "ordinary callback rejects function name and VNode annotation as runtime authority",
+      "passed": true
+    },
+    {
+      "name": "ordinary callback rejects shadowed Vue APIs and component imports",
+      "passed": true
+    },
+    {
+      "name": "ordinary callback rejects private public-package imports",
+      "passed": true
+    },
+    {
+      "name": "ordinary callback rejects fallthrough rest defaults and asynchronous output",
+      "passed": true
+    },
+    {
+      "name": "ordinary directive rejects opaque setter and unknown lifecycle payload",
+      "passed": true
+    },
+    {
+      "name": "ordinary supplier rejects scoped conditional dynamic and opaque template inputs",
+      "passed": true
+    },
+    {
+      "name": "actual Options supplier retains unproved helper escape without blessing returned children",
+      "passed": true
+    },
+    {
+      "name": "actual OnlyChild clone and directive expression retains unresolved supplier context",
+      "passed": true
+    },
+    {
+      "name": "actual OnlyChild helper source is not admitted by its VNode return annotation",
+      "passed": true
+    },
+    {
+      "name": "actual TableV2 scoped slot objects retain pending callbacks and runtime spreads",
+      "passed": true
+    },
+    {
+      "name": "actual AutoResizer slot payload retains unresolved reactive width and height",
+      "passed": true
+    },
+    {
+      "name": "ordinary local source increment does not modify canonical graph errors or product evidence",
+      "passed": true
+    },
+    {
+      "name": "actual Options nested helper proves finite native descendants and readonly callbacks",
+      "passed": true
+    },
+    {
+      "name": "actual Options label helper proves declared component runtime name and scratch append",
+      "passed": true
+    },
+    {
+      "name": "actual Options helper mutation of supplied children remains rejected",
+      "passed": true
+    },
+    {
+      "name": "ordinary lexical nested helper separates captured collection from same named parameter",
+      "passed": true
+    },
+    {
+      "name": "actual Options comparison helper binds array entries and runtime inequality",
+      "passed": true
+    },
+    {
+      "name": "ordinary helper rejects counterfeit array methods and scratch VNode aliases",
+      "passed": true
+    },
+    {
+      "name": "ordinary lexical callback rejects borrowed captured value under a block shadow",
+      "passed": true
+    },
+    {
+      "name": "ordinary runtime component name rejects an unrelated defineComponent declaration",
+      "passed": true
+    },
+    {
+      "name": "ordinary JSX scoped slot object binds actual supplier and component payload",
+      "passed": true
+    },
+    {
+      "name": "ordinary JSX slot callback preserves own public component instead of supplier owner",
+      "passed": true
+    },
+    {
+      "name": "ordinary JSX slot object rejects mutated supplier and opaque callback effects",
+      "passed": true
+    },
+    {
+      "name": "actual AutoResizer JSX supplier binds while original measurement payload remains unknown",
+      "passed": true
+    },
+    {
+      "name": "ordinary unbound setup parameter rejects borrowed outer constant identity",
+      "passed": true
+    },
+    {
+      "name": "ordinary aggregate escape rejects nested supplied arrays and original VNodes",
+      "passed": true
+    },
+    {
+      "name": "ordinary defineOptions runtime name uses actual macro AST and preserves local identity",
+      "passed": true
+    },
+    {
+      "name": "ordinary helper capture accepts initialized child and rejects temporal dead zone",
+      "passed": true
+    },
+    {
+      "name": "probe setup parameter cannot borrow outer same-name constant",
+      "passed": true
+    },
+    {
+      "name": "probe inline aggregate source escape cannot bless children",
+      "passed": true
+    },
+    {
+      "name": "probe source mutation through inline aggregate escapes cannot bless clones",
+      "passed": true
+    },
+    {
+      "name": "probe inline array source escape cannot bless children",
+      "passed": true
+    },
+    {
+      "name": "probe script setup defineOptions runtime name comes from owned AST",
+      "passed": true
+    },
+    {
+      "name": "probe nested helper evaluates captured locals in each invocation frame",
+      "passed": true
+    },
+    {
+      "name": "boundary top-level lazy dependency must reject pre-initialization helper call",
+      "passed": true
+    },
+    {
+      "name": "boundary supplier factory must preserve captured parent parameter across invokeSlot context",
+      "passed": true
+    },
+    {
+      "name": "boundary setup-local factory preserves captured parent frame across slot invocation",
+      "passed": true
+    },
+    {
+      "name": "ordinary finite slot factory rejects unknown inputs and deferred opaque effects",
+      "passed": true
+    },
+    {
+      "name": "actual PublicReadingPageFrame standalone macro binds only its real default and supplied native tags",
+      "passed": true
+    },
+    {
+      "name": "standalone runtime prop macro uses its authored native default and literal call inputs",
+      "passed": true
+    },
+    {
+      "name": "standalone typed macro preserves the missing supplier error when its component has no actual calls",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects unknown supplied tag",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects unknown supplied spread",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects unknown default",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects undeclared field",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects unknown defaults spread",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects computed default field",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects extra runtime macro argument",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects extra defaults macro argument",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects duplicate macro",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects assigned second macro",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects nested macro",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects ordinary script macro",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects shadowed macro function",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects imported macro lookalike",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects mutated macro",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects shadowed exposed prop",
+      "passed": true
+    },
+    {
+      "name": "standalone prop macro rejects template shadow",
+      "passed": true
+    },
+    {
+      "name": "actual ArticleDetailHeader retains native a and registered RouterLink alternatives",
+      "passed": true
+    },
+    {
+      "name": "actual PublicArticleDetailPageContent retains both authored appendix targets",
+      "passed": true
+    },
+    {
+      "name": "actual OutlineRail retains registered public Drawer and native aside alternatives",
+      "passed": true
+    },
+    {
+      "name": "actual InspectorShell retains registered public Drawer and native aside alternatives",
+      "passed": true
+    },
+    {
+      "name": "mixed target resolution retains repeated authored branches and local component identity",
+      "passed": true
+    },
+    {
+      "name": "actual Button RouterLink import and native literal retain separate call provenance",
+      "passed": true
+    },
+    {
+      "name": "actual ArticleDetailNotFoundState Button retains its actual RouterLink import target",
+      "passed": true
+    },
+    {
+      "name": "a local RouterLink substitution retains local ownership without framework identity",
+      "passed": true
+    },
+    {
+      "name": "mixed target resolution rejects block flow until canonical raw return branches are exposed",
+      "passed": true
+    },
+    {
+      "name": "mixed target resolution rejects an unknown alternative despite a component type annotation",
+      "passed": true
+    },
+    {
+      "name": "mixed target resolution rejects a mutable selector",
+      "passed": true
+    },
+    {
+      "name": "mixed target resolution rejects an unknown Drawer substitution",
+      "passed": true
+    },
+    {
+      "name": "actual BlogLayout RouterView exposed Component remains unbound without its supplier proof",
+      "passed": true
+    },
+    {
+      "name": "actual AccountRouteFrame RouterView permission state remains unbound without its supplier proof",
+      "passed": true
+    },
+    {
+      "name": "target input binding rejects a substituted call path outside the canonical graph",
+      "passed": true
+    },
+    {
+      "name": "target input binding rejects a graph node that is not the actual supplying component call",
+      "passed": true
+    },
+    {
+      "name": "target input binding rejects a cloned owner and unresolved runtime target",
+      "passed": true
+    },
+    {
+      "name": "target source proof rejects source bytes changed after canonical parsing",
+      "passed": true
+    },
+    {
+      "name": "actual ArticleDetailHeader target steps use the canonical original computed script AST",
+      "passed": true
+    },
+    {
+      "name": "target selector proof rejects a synthetic computed AST despite identical target alternatives",
+      "passed": true
+    },
+    {
+      "name": "target selector proof rejects a foreign original AST despite identical source text",
+      "passed": true
+    },
+    {
+      "name": "actual BlogLayout RouterView target binding retains every original supplier alternative and framework VNode identity",
+      "passed": true
+    },
+    {
+      "name": "actual AccountRouteFrame RouterView target binding retains its real AdminWorkspaceFrame call chain",
+      "passed": true
+    },
+    {
+      "name": "RouterView target binding preserves original empty-view alternatives without native or component substitution",
+      "passed": true
+    },
+    {
+      "name": "RouterView target binding preserves the actual imported Outlet alias and exposed View binding",
+      "passed": true
+    },
+    {
+      "name": "actual AccountRouteFrame target binding rejects a missing route-owner call chain",
+      "passed": true
+    },
+    {
+      "name": "actual AccountRouteFrame target binding rejects a substituted dynamic-node call path",
+      "passed": true
+    },
+    {
+      "name": "RouterView target binding rejects unresolved permission and runtime route overrides",
+      "passed": true
+    },
+    {
+      "name": "RouterView target binding rejects an intervening Component loop supplier",
+      "passed": true
+    },
+    {
+      "name": "RouterView target binding rejects a local component named RouterView as a framework supplier",
+      "passed": true
+    },
+    {
+      "name": "RouterView target binding rejects route records observed by a different actual source instance",
+      "passed": true
+    },
+    {
+      "name": "independent nested member escape must refuse a runtime changed alternative",
+      "passed": true
+    },
+    {
+      "name": "independent escaped computed selector must refuse unknown mutation",
+      "passed": true
+    },
+    {
+      "name": "independent actual mutable selector initializer must refuse",
+      "passed": true
+    },
+    {
+      "name": "independent swapped actual supplying call must refuse wrong target provenance",
+      "passed": true
+    },
+    {
+      "name": "independent complete target supplier set must refuse omitted call",
+      "passed": true
+    },
+    {
+      "name": "bounded named selector export must refuse unproven producer escape",
+      "passed": true
+    },
+    {
+      "name": "bounded renamed selector export must refuse unproven producer escape",
+      "passed": true
+    },
+    {
+      "name": "bounded selector alias export must refuse unproven producer escape",
+      "passed": true
+    },
+    {
+      "name": "bounded selector container export must refuse unproven producer escape",
+      "passed": true
+    },
+    {
+      "name": "bounded same-source selector reexport must refuse unproven producer escape",
+      "passed": true
+    },
+    {
+      "name": "bounded indirect same-source selector reexport must refuse unproven producer escape",
+      "passed": true
+    },
+    {
+      "name": "bounded unrelated named export retains finite selector alternatives",
+      "passed": true
+    },
+    {
+      "name": "bounded type-only selector exports retain finite runtime alternatives",
+      "passed": true
+    },
+    {
+      "name": "bounded foreign same-named reexport retains local selector alternatives",
+      "passed": true
+    },
+    {
+      "name": "actual complete target supplier bindings retain every original ordered fact and proof digest",
+      "passed": true
+    },
+    {
+      "name": "complete target supplier binding rejects reversed actual input records",
+      "passed": true
+    },
+    {
+      "name": "complete target supplier binding rejects a duplicated call in place of its real alternative",
+      "passed": true
+    },
+    {
+      "name": "complete target supplier binding rejects a cloned original graph array",
+      "passed": true
+    },
+    {
+      "name": "complete target supplier binding rejects an omitted graph node",
+      "passed": true
+    },
+    {
+      "name": "complete target supplier binding rejects a reordered original graph array",
+      "passed": true
+    },
+    {
+      "name": "complete target supplier binding rejects actual call attributes changed after graph observation",
+      "passed": true
+    },
+    {
+      "name": "complete target supplier binding rejects raw supplier source drift",
+      "passed": true
+    },
+    {
+      "name": "actual complete target suppliers retain both forwarded RouterLink and native call paths",
+      "passed": true
+    },
+    {
+      "name": "actual complete target suppliers retain native default and proven absent spread fields",
+      "passed": true
+    },
+    {
+      "name": "complete target supplier binding refuses a known prefix when another actual supplier is unknown",
+      "passed": true
+    },
+    {
+      "name": "complete target supplier binding refuses a Component union annotation without its actual supplier declaration",
+      "passed": true
+    },
+    {
+      "name": "complete target supplier binding refuses conflicting literal spread and explicit tag values",
+      "passed": true
+    }
+  ]
+}

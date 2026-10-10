@@ -1,0 +1,29 @@
+[
+  {
+    "path": "tests/frontend/support/layout/compositionSource.mjs",
+    "beforeCommit": "4ba576e946de966a6605c5a4a97f842e3cd6415c",
+    "beforeBlob": "1df0a1c449f5a61fcf58db285a595f8bd03cd9a4",
+    "beforeSHA256": "6856713190dc658f67cb5d63e1c3f37350a673588711fbab04d3b6255bc84139",
+    "afterSHA256": "6f4cb36e01d653f78c37eef7949bb4db0403dc6762a2d8a827f8f2f3a6b4b85c",
+    "afterCommit": "7cd5d7cb08da2b870d20c6c2e7f55a44f4cb83f2",
+    "afterBlob": "148603758e62bbbfcf87b452d40c95a342987781"
+  },
+  {
+    "path": "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+    "beforeCommit": "4ba576e946de966a6605c5a4a97f842e3cd6415c",
+    "beforeBlob": "2357dfbc6753c8cd2f3f171ac1fcee99afb6bf8f",
+    "beforeSHA256": "37c4723c422fe437277c938b59ecdff189a12abd5ff2066cfed3b40de19bbc6b",
+    "afterSHA256": "368af0092b4ec4e67b55134e64ae4f44a3b219f3bc4cb0d1382585021ed45d0a",
+    "afterCommit": "7cd5d7cb08da2b870d20c6c2e7f55a44f4cb83f2",
+    "afterBlob": "d84c2648a4e9cbad9d3afa3513a763ce5aefdd29"
+  },
+  {
+    "path": "tests/tools/layout-functional-source.test.mjs",
+    "beforeCommit": "4ba576e946de966a6605c5a4a97f842e3cd6415c",
+    "beforeBlob": "24679355b7596a5138738b7dbce14763e7c4dde1",
+    "beforeSHA256": "92d6c39903cdc9a31411792126fdd6dc1651c33b6aad4c7021452abe0e782382",
+    "afterSHA256": "d6ed1ea96427499773b7e28d1345a542ff801b6da2305cfb57aab8cec779b5da",
+    "afterCommit": "7cd5d7cb08da2b870d20c6c2e7f55a44f4cb83f2",
+    "afterBlob": "d385192dbc90d8a0c29600623a067a561dbc7b56"
+  }
+]

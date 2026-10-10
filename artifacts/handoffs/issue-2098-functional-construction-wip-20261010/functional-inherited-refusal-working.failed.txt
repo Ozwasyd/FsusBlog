@@ -1,0 +1,30 @@
+✖ central unsupported bare functional h shape retains its inherited explicit effects refusal (472.007914ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 560.668684
+
+✖ failing tests:
+
+test at tests/tools/layout-module-integration-source.test.mjs:1706:1
+✖ central unsupported bare functional h shape retains its inherited explicit effects refusal (472.007914ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(graph.errors.some((error) => error.reason === 'unknown-ast-parse' && /unbound functional call effects/.test(error.message)))
+  
+      at TestContext.<anonymous> (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:1710:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.start (node:internal/test_runner/test:1177:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
