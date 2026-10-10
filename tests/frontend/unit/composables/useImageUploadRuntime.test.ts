@@ -8,7 +8,7 @@ import { createMarkdownAnchorMap } from '@ozwasyd/element-plus/markdown-runtime'
 
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
-import { useImageUploadRuntime, type ImageUploadSessionBorrow } from '@/composables/useImageUploadRuntime'
+import { useImageUploadRuntime, type ImageUploadSessionBorrow, type ImageUploadSessionAccess } from '@/composables/useImageUploadRuntime'
 import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext'
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext'
@@ -71,7 +71,7 @@ const borrowCleanup: (() => void)[] = []
 afterEach(() => borrowCleanup.splice(0).forEach(dispose => dispose()))
 
 /** Genuine original pending handle, document lease and upstream source/map dispatch. */
-function boundAttempt(file: File) {
+function attachmentHost() {
   let source = 'paragraph'
   const documentOwner = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1',
     editorSessionId: 'session:runtime-borrow', siteScope: 'site:test', userScope: 'user:test', content: source })
@@ -93,15 +93,21 @@ function boundAttempt(file: File) {
   commands = wrapper.vm as unknown as typeof commands
   const anchor = anchors.capture(getBinding(), { start: 0, end: 0, direction: 'none' },
     { affinity: 'after', viewportOffset: 0, percentage: 0, surface: 'source', tool: 'none' })
-  const captured = owner.capture({ source, origin: 'pick', anchor,
+  borrowCleanup.push(() => { owner.dispose(); documentOwner.dispose(); wrapper.unmount() })
+  return { owner, documentOwner, port, anchor, getBinding, commands, source: () => source }
+}
+
+function boundAttempt(file: File) {
+  const host = attachmentHost()
+  const { owner, documentOwner, port, anchor, getBinding, commands } = host
+  const captured = owner.capture({ source: host.source(), origin: 'pick', anchor,
     files: [{ name: file.name, mimeType: file.type, byteLength: file.size }] })
   if (captured.status !== 'created') throw new Error('capture rejected')
   const intent = owner.commitCreated(captured, port)[0]!
   const lease = documentOwner.beginTask('attachment', 'runtime-borrow')
   const binding = { owner, documentOwner, intent, lease, getBinding }
   expect(owner.readOwnedIntent(intent, getBinding())?.current).toBe(true)
-  borrowCleanup.push(() => { owner.dispose(); documentOwner.dispose(); wrapper.unmount() })
-  return { binding, commands, source: () => source }
+  return { binding, commands, source: host.source }
 }
 
 function storedSnapshot() {
@@ -378,7 +384,8 @@ describe('useImageUploadRuntime', () => {
     await runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: async value => {
       borrow = value
       await value.withSession(async (session, signal) => {
-        expect(signal).toBe(value.signal)
+        expect(signal.aborted).toBe(false)
+        expect(signal).not.toBe(value.signal)
         expect(session.uploadId).toBe('upload-old')
         expect(session.uploadToken).toBe('token-old')
         expect(session.sha256).toBe('a'.repeat(64))
@@ -630,6 +637,213 @@ describe('useImageUploadRuntime', () => {
 })
 
 describe('ImageUploadOptionsPanel upload controls', () => {
+  it('revokes returned and captured access immediately after each callback settles', async () => {
+    const file = fileOf(73)
+    const original = boundAttempt(file)
+    let borrow!: ImageUploadSessionBorrow
+    const runtime = useImageUploadRuntime()
+    await runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: value => { borrow = value } })
+    let captured!: ImageUploadSessionAccess
+    let callbackSignal!: AbortSignal
+    const escaped = await borrow.withSession(async (facts, signal) => {
+      captured = facts; callbackSignal = signal
+      await Promise.resolve()
+      expect(facts.totalBytes).toBe(73)
+      return facts
+    })
+    expect(escaped).toBe(captured)
+    for (const key of ['uploadId', 'uploadToken', 'sha256', 'totalBytes', 'commitMayHaveStarted'] as const)
+      expect(() => escaped[key]).toThrow('upload_attempt_superseded')
+    expect(callbackSignal.aborted).toBe(true)
+    expect(borrow.isCurrent()).toBe(true)
+    await expect(borrow.withSession(async facts => { captured = facts; throw new Error('reader failed') })).rejects.toThrow('reader failed')
+    expect(() => captured.uploadToken).toThrow('upload_attempt_superseded')
+    borrow.release()
+  })
+
+  it('revokes concurrent access scopes independently while awaited use remains valid', async () => {
+    const file = fileOf(73)
+    const original = boundAttempt(file)
+    let borrow!: ImageUploadSessionBorrow
+    const runtime = useImageUploadRuntime()
+    await runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: value => { borrow = value } })
+    const firstGate = deferred<void>(), secondGate = deferred<void>()
+    let first!: ImageUploadSessionAccess, second!: ImageUploadSessionAccess
+    const firstRead = borrow.withSession(async facts => { first = facts; await firstGate.promise; return facts.totalBytes })
+    const secondRead = borrow.withSession(async facts => { second = facts; await secondGate.promise; return facts.totalBytes })
+    firstGate.resolve()
+    expect(await firstRead).toBe(73)
+    expect(() => first.sha256).toThrow('upload_attempt_superseded')
+    expect(second.totalBytes).toBe(73)
+    secondGate.resolve()
+    expect(await secondRead).toBe(73)
+    expect(() => second.sha256).toThrow('upload_attempt_superseded')
+    borrow.release()
+  })
+
+  it('bounds an active callback and aborts its own access signal before chunks begin', async () => {
+    vi.useFakeTimers()
+    const file = fileOf(73)
+    const original = boundAttempt(file)
+    const gate = deferred<void>()
+    let access!: ImageUploadSessionAccess, signal!: AbortSignal
+    const runtime = useImageUploadRuntime()
+    const upload = runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: value =>
+      value.withSession(async (facts, scopedSignal) => { access = facts; signal = scopedSignal; await gate.promise }) })
+    const failure = expect(upload).rejects.toThrow('upload_attempt_superseded')
+    await flushPromises()
+    expect(access.totalBytes).toBe(73)
+    await vi.advanceTimersByTimeAsync(30_001)
+    expect(signal.aborted).toBe(true)
+    expect(() => access.totalBytes).toThrow('upload_attempt_superseded')
+    gate.resolve()
+    await failure
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(api.uploadPart).not.toHaveBeenCalled()
+    await runtime.abandon()
+  })
+
+  it.each(['part', 'complete'] as const)('revokes the existing loan after raw %s failure without reminting it', async stage => {
+    vi.useFakeTimers()
+    const file = fileOf(73)
+    const original = boundAttempt(file)
+    let borrow!: ImageUploadSessionBorrow
+    if (stage === 'part') api.uploadPart.mockRejectedValue(new Error('raw part failed'))
+    else api.completeUpload.mockRejectedValue(new Error('raw complete failed'))
+    const runtime = useImageUploadRuntime()
+    const upload = runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: value => { borrow = value } })
+    const failure = expect(upload).rejects.toThrow(`raw ${stage} failed`)
+    await vi.runAllTimersAsync()
+    await failure
+    expect(original.binding.lease.isCurrent()).toBe(true)
+    expect(borrow.signal.aborted).toBe(true)
+    await expect(borrow.withSession(async facts => facts.uploadToken)).rejects.toThrow('upload_attempt_superseded')
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(storedSnapshot().snapshot.uploadToken).toBe('token-old')
+    if (stage === 'complete') {
+      await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
+      expect(api.abortUpload).not.toHaveBeenCalled()
+    } else {
+      await expect(runtime.resumeLatest()).rejects.toThrow('upload_session_borrow_unavailable')
+      expect(api.initUploadSession).toHaveBeenCalledOnce()
+      await runtime.abandon()
+    }
+  })
+
+  it('does not remint an explicitly released loan during the original active upload', async () => {
+    const file = fileOf(73)
+    const original = boundAttempt(file)
+    const runtime = useImageUploadRuntime()
+    await runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: value => {
+      value.release()
+      expect(runtime.borrowCurrentSession()).toBeNull()
+    } })
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+  })
+
+  it('starts the completion window after a slow original chunk acknowledgement', async () => {
+    vi.useFakeTimers()
+    const file = fileOf(73)
+    const original = boundAttempt(file)
+    const part = deferred<{ uploadedBytes: number }>()
+    api.uploadPart.mockReturnValue(part.promise)
+    let borrow!: ImageUploadSessionBorrow
+    const runtime = useImageUploadRuntime()
+    const upload = runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: value => { borrow = value } })
+    await flushPromises()
+    expect(api.uploadPart).toHaveBeenCalledOnce()
+    await vi.advanceTimersByTimeAsync(60_001)
+    expect(borrow.isCurrent()).toBe(true)
+    part.resolve({ uploadedBytes: 73 })
+    await upload
+    await borrow.withSession(async facts => { expect(facts.commitMayHaveStarted).toBe(true) })
+    await vi.advanceTimersByTimeAsync(29_999)
+    expect(borrow.isCurrent()).toBe(true)
+    await vi.advanceTimersByTimeAsync(2)
+    expect(borrow.isCurrent()).toBe(false)
+    expect(runtime.borrowCurrentSession()).toBeNull()
+  })
+
+  it('captures real per-file handles and consumes slow same-name batch files before advancing', async () => {
+    vi.useFakeTimers()
+    const files = [fileOf(73, 'same.png'), fileOf(73, 'same.png')]
+    const host = attachmentHost()
+    const capture = vi.spyOn(host.owner, 'capture'), commit = vi.spyOn(host.owner, 'commitCreated')
+    const firstConsumer = deferred<void>()
+    const loans: ImageUploadSessionBorrow[] = []
+    const observed: File[] = []
+    const runtime = useImageUploadRuntime()
+    api.initUploadSession.mockImplementation(async () => ({ uploadId: `upload-${api.initUploadSession.mock.calls.length}`, uploadToken: 'token-old' }))
+    api.uploadPart.mockImplementation(async () => { await vi.advanceTimersByTimeAsync(31_001); return { uploadedBytes: 73 } })
+    const onSuccess = vi.fn()
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async ({ file, intent, borrow }) => {
+        const index = observed.length
+        expect(file).toBe(files[index])
+        expect(intent).toBe(commit.mock.results[0]!.value[index])
+        expect(intent.snapshot.intent).toBe(capture.mock.results[0]!.value.handles[index].intent)
+        expect(host.owner.readOwnedIntent(intent, host.getBinding())?.current).toBe(true)
+        if (index) expect(loans[0]!.signal.aborted).toBe(true)
+        observed.push(file); loans.push(borrow)
+        await borrow.withSession(async facts => {
+          expect(facts.commitMayHaveStarted).toBe(true)
+          expect(facts.totalBytes).toBe(73)
+          if (!index) await firstConsumer.promise
+          expect(facts.uploadId).toBe(`upload-${index + 1}`)
+        })
+      } })
+    const upload = flow.startUpload({ files, attachmentInput: { ...host, origin: 'pick' }, onSuccess })
+    await flushPromises()
+    expect(observed).toEqual([files[0]])
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(onSuccess).not.toHaveBeenCalled()
+    firstConsumer.resolve()
+    await upload
+    expect(observed[1]).toBe(files[1])
+    expect(capture).toHaveBeenCalledOnce()
+    expect(commit).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledTimes(2)
+    expect(onSuccess).toHaveBeenCalledWith(['/uploads/complete.webp', '/uploads/complete.webp'], { files })
+    expect(loans.every(loan => loan.signal.aborted)).toBe(true)
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(flow.pendingContext.value).toBeNull()
+    expect(host.owner.currentTaskLeases).toHaveLength(2)
+  })
+
+  it('releases the per-file loan and stops a batch when its completion consumer fails', async () => {
+    const files = [fileOf(73), fileOf(73, 'next.png')]
+    const host = attachmentHost()
+    const runtime = useImageUploadRuntime()
+    const onError = vi.fn(), onSuccess = vi.fn()
+    let borrow!: ImageUploadSessionBorrow
+    const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async completion => {
+        borrow = completion.borrow
+        throw new Error('consumer failed')
+      } })
+    await flow.startUpload({ files, attachmentInput: { ...host, origin: 'pick' }, onError, onSuccess, notifyOnError: false })
+    expect(onError).toHaveBeenCalledOnce()
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(borrow.signal.aborted).toBe(true)
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+  })
+
+  it('rejects a cloned capture owner before capture or upload IO', async () => {
+    const files = [fileOf(73)]
+    const host = attachmentHost()
+    const capture = vi.spyOn(host.owner, 'capture')
+    const onError = vi.fn()
+    const flow = useImageUploadFlow({ runtime: useImageUploadRuntime(), getOptions: () => options, getWasmOnly: () => false,
+      taskRegistry: host.documentOwner, onFileUploaded: async () => {} })
+    await flow.startUpload({ files, attachmentInput: { ...host, owner: { ...host.owner } as typeof host.owner, origin: 'pick' }, onError, notifyOnError: false })
+    expect(onError).toHaveBeenCalledOnce()
+    expect(capture).not.toHaveBeenCalled()
+    expect(api.initUploadSession).not.toHaveBeenCalled()
+  })
+
   it('shows resume and abandon only for the corresponding runtime state and wires both actions', async () => {
     const resume = vi.fn()
     const abandon = vi.fn()
