@@ -634,9 +634,6 @@ describe('useImageUploadRuntime', () => {
     await expect(borrow.withSession(async session => session.uploadToken)).rejects.toThrow('upload_attempt_superseded')
     expect(api.abortUpload).not.toHaveBeenCalled()
   })
-})
-
-describe('ImageUploadOptionsPanel upload controls', () => {
   it('revokes returned and captured access immediately after each callback settles', async () => {
     const file = fileOf(73)
     const original = boundAttempt(file)
@@ -844,6 +841,9 @@ describe('ImageUploadOptionsPanel upload controls', () => {
     expect(api.initUploadSession).not.toHaveBeenCalled()
   })
 
+})
+
+describe('ImageUploadOptionsPanel upload controls', () => {
   it('shows resume and abandon only for the corresponding runtime state and wires both actions', async () => {
     const resume = vi.fn()
     const abandon = vi.fn()
