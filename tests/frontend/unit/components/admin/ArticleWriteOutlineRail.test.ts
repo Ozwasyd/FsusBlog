@@ -2,7 +2,7 @@
 
 import { mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
-import { describe, expect, it, beforeEach } from 'vitest'
+import { describe, expect, it, beforeEach, vi } from 'vitest'
 
 import ArticleWriteOutlineRail from '@/components/admin/article/ArticleWriteOutlineRail.vue'
 import { createArticleOutlineSnapshot } from '@/composables/useArticleOutline'
@@ -84,5 +84,63 @@ describe('ArticleWriteOutlineRail', () => {
     await wrapper.get('[data-article-outline-launcher="true"]').trigger('click')
     expect(wrapper.get('[data-article-outline-status="empty"]').text()).toBe('文章大纲正文中暂无标题。')
     expect(wrapper.find('[role="tree"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('keeps one roving tab stop and announces positions within canonical siblings', async () => {
+    const wrapper = mount(ArticleWriteOutlineRail, {
+      props: { snapshot, activeHeadingId: snapshot?.items[2]?.nodeId },
+      attachTo: document.body,
+      global: { components: { ElIcon: iconStub, ElDrawer: iconStub } },
+    })
+    await wrapper.get('[data-article-outline-launcher="true"]').trigger('click')
+    const items = wrapper.findAll('[role="treeitem"]')
+    expect(wrapper.findAll('[role="treeitem"][tabindex="0"]')).toHaveLength(1)
+    expect(items[0]?.attributes('aria-setsize')).toBe('2')
+    expect(items[1]?.attributes('aria-setsize')).toBe('1')
+    expect(items[1]?.attributes('aria-posinset')).toBe('1')
+    expect(items[2]?.attributes('aria-posinset')).toBe('2')
+    ;(items[0]!.element as HTMLButtonElement).focus()
+    await nextTick()
+    await items[0]!.trigger('keydown', { key: 'ArrowDown' })
+    await nextTick()
+    expect(document.activeElement).toBe(items[1]!.element)
+    expect(wrapper.findAll('[role="treeitem"][tabindex="0"]')).toHaveLength(1)
+    expect(items[1]?.attributes('tabindex')).toBe('0')
+    await wrapper.get('[data-outline-diagnostic="duplicate-h1"]').trigger('keydown', { key: 'Escape' })
+    await nextTick()
+    expect(wrapper.find('[data-article-outline-panel="true"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('defers mobile reveal until Drawer closure and rejects an obsolete revision', async () => {
+    const media = vi.spyOn(window, 'matchMedia').mockReturnValue({
+      matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList)
+    const drawer = defineComponent({
+      props: ['modelValue'], emits: ['closed', 'update:modelValue'],
+      template: '<div><slot v-if="modelValue" /></div>',
+    })
+    const wrapper = mount(ArticleWriteOutlineRail, {
+      props: { snapshot },
+      global: { components: { ElIcon: iconStub, ElDrawer: drawer } },
+    })
+    await wrapper.get('[data-article-outline-launcher="true"]').trigger('click')
+    await wrapper.findAll('[role="treeitem"]')[1]!.trigger('click')
+    expect(wrapper.emitted('reveal-heading')).toBeUndefined()
+    wrapper.findComponent(drawer).vm.$emit('closed')
+    await nextTick()
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+    expect(wrapper.emitted('reveal-heading')).toHaveLength(1)
+
+    await wrapper.get('[data-article-outline-launcher="true"]').trigger('click')
+    await wrapper.findAll('[role="treeitem"]')[1]!.trigger('click')
+    await wrapper.setProps({ snapshot: snapshot ? { ...snapshot, sourceRevision: 1 } : null })
+    wrapper.findComponent(drawer).vm.$emit('closed')
+    await nextTick()
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+    expect(wrapper.emitted('reveal-heading')).toHaveLength(1)
+    wrapper.unmount()
+    media.mockRestore()
   })
 })

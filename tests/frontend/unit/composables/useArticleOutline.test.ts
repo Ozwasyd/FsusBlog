@@ -59,6 +59,7 @@ describe('article outline FsusUI projection adapter', () => {
       articleIdentity: 'article-content-matrix',
       documentIdentity: { id: 'article-content-matrix:tab', epoch: 1 },
       source: [
+        '#',
         '#  ',
         '# 中文标题',
         '# عنوان عربي',
@@ -73,6 +74,7 @@ describe('article outline FsusUI projection adapter', () => {
 
     expect(snapshot?.items.map((item) => item.text)).toEqual([
       '',
+      '',
       '中文标题',
       'عنوان عربي',
       'Emoji 🧭✨',
@@ -81,14 +83,17 @@ describe('article outline FsusUI projection adapter', () => {
       'Setext title',
       'Jumped',
     ])
-    expect(new Set(snapshot?.items.map((item) => item.nodeId)).size).toBe(8)
-    expect(snapshot?.items[5]?.diagnostics).toContainEqual({
+    expect(new Set(snapshot?.items.map((item) => item.nodeId)).size).toBe(9)
+    for (const item of snapshot?.items.slice(0, 2) ?? []) {
+      expect(item.diagnostics).toContainEqual({ code: 'empty-heading', nodeId: item.nodeId })
+    }
+    expect(snapshot?.items[6]?.diagnostics).toContainEqual({
       code: 'duplicate-h1',
-      nodeId: snapshot?.items[5]?.nodeId,
+      nodeId: snapshot?.items[6]?.nodeId,
     })
-    expect(snapshot?.items[7]?.diagnostics).toContainEqual({
+    expect(snapshot?.items[8]?.diagnostics).toContainEqual({
       code: 'heading-layer-jump',
-      nodeId: snapshot?.items[7]?.nodeId,
+      nodeId: snapshot?.items[8]?.nodeId,
     })
   })
 
