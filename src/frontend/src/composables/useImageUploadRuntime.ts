@@ -73,6 +73,17 @@ interface OwnedUploadAttempt {
     borrowIssued: boolean;
 }
 
+/** Authority from one actual init request; public snapshots cannot reconstruct it. */
+interface UploadCancellationContext {
+    readonly generation: number;
+    readonly work: ReturnType<typeof initUploadSession>;
+    readonly resumeKey: string;
+    readonly fileName: string;
+    readonly sha256: string;
+    readonly bound: boolean;
+    acknowledgement: Awaited<ReturnType<typeof initUploadSession>> | null;
+}
+
 interface AcknowledgedUploadCompletion {
     readonly generation: number;
     readonly uploadId: string;
@@ -232,7 +243,9 @@ export function useImageUploadRuntime()
     let disposed = false;
     let ownedCommitStateUnknown = false;
     let acknowledgedCompletion: AcknowledgedUploadCompletion | null = null;
-    let pendingOwnedInitialization: { work: ReturnType<typeof initUploadSession>; resumeKey: string; fileName: string; } | null = null;
+    let pendingOwnedInitialization: UploadCancellationContext | null = null;
+    let cancellationOperation: { generation: number; context: UploadCancellationContext; } | null = null;
+    let cancellationObligation: UploadCancellationContext | null = null;
 
     const bindingIsCurrent = (binding: ImageUploadAttemptBinding, file: File, completed = false): boolean =>
     {
@@ -466,6 +479,10 @@ export function useImageUploadRuntime()
         {
             throw completionRecoveryError();
         }
+        if (ownedCommitStateUnknown)
+        {
+            throw createAppError(AppErrorCode.Conflict, 'upload_commit_state_unknown');
+        }
         if (cleanupRequired.value || abandonPromise)
         {
             throw createAppError(AppErrorCode.Conflict, '上传会话尚未取消，请先重试取消');
@@ -476,6 +493,8 @@ export function useImageUploadRuntime()
         }
         discardOwnedAttempt();
         acknowledgedCompletion = null;
+        const previousCancellation = cancellationOperation;
+        cancellationOperation = null;
         const generation = ++attemptGeneration;
         const ensureCurrentAttempt = (): void =>
         {
@@ -544,6 +563,15 @@ export function useImageUploadRuntime()
                 }
                 uploadId = status.uploadId;
                 uploadToken = snapshot.uploadToken;
+                const original = previousCancellation?.context;
+                if (original?.acknowledgement?.uploadId === uploadId
+                    && original.acknowledgement.uploadToken === uploadToken
+                    && original.resumeKey === resumeKey && original.fileName === snapshot.fileName
+                    && original.sha256 === fullHash)
+                {
+                    // A continuation retains its real original init; storage grants no cleanup authority.
+                    cancellationOperation = { generation, context: original };
+                }
                 if (status.uploadedPartCount > 0)
                 {
                     const map = await getUploadPartMap(snapshot.uploadId);
@@ -573,19 +601,22 @@ export function useImageUploadRuntime()
                 chunkSize: 512 * 1024,
                 sha256: fullHash
             });
-            if (runtimeOptions.attemptBinding)
-            {
-                // Cleanup must await this original request, even if its owner cancels before acknowledgement.
-                pendingOwnedInitialization = { work: initialization, resumeKey, fileName: uploadPayload.file.name };
-            }
+            const cancellationContext: UploadCancellationContext = {
+                generation, work: initialization, resumeKey, fileName: uploadPayload.file.name,
+                sha256: fullHash, bound: Boolean(runtimeOptions.attemptBinding), acknowledgement: null
+            };
+            // Capture the actual promise before cancellation can intentionally invalidate its generation.
+            pendingOwnedInitialization = cancellationContext;
+            cancellationOperation = { generation, context: cancellationContext };
             let init: Awaited<typeof initialization>;
             try
             {
                 init = await initialization;
+                cancellationContext.acknowledgement = { ...init };
             }
             catch (error)
             {
-                if (runtimeOptions.attemptBinding && generation === attemptGeneration)
+                if (generation === attemptGeneration)
                 {
                     cleanupRequired.value = true;
                     phase.value = 'error';
@@ -702,20 +733,29 @@ export function useImageUploadRuntime()
 
         ensureCurrentAttempt();
         commitMayHaveStarted = true;
-        if (runtimeOptions.attemptBinding)
+        ownedCommitStateUnknown = true;
+        let complete: Awaited<ReturnType<typeof completeUpload>>;
+        try
         {
-            ownedCommitStateUnknown = true;
+            complete = await completeUpload(uploadId, uploadToken, fullHash);
         }
-        const complete = await completeUpload(uploadId, uploadToken, fullHash);
+        catch (error)
+        {
+            if (generation === attemptGeneration)
+            {
+                cleanupRequired.value = true;
+                phase.value = 'error';
+                errorMessage.value = toAppError(error, 'upload_commit_state_unknown').message;
+            }
+            throw error;
+        }
         ensureCurrentAttempt();
         ownedCommitStateUnknown = false;
-        if (runtimeOptions.attemptBinding)
-        {
-            acknowledgedCompletion = {
-                generation, uploadId, snapshot, response: complete, transportCompleted: false,
-                recoveryRequired: false, callbackError: undefined
-            };
-        }
+        acknowledgedCompletion = {
+            generation, uploadId, snapshot, response: complete, transportCompleted: false,
+            recoveryRequired: false, callbackError: undefined
+        };
+        cancellationOperation = null;
         if (ownedAttempt?.generation === generation)
         {
             ownedAttempt.completed = true;
@@ -836,9 +876,14 @@ export function useImageUploadRuntime()
             attemptGeneration += 1;
             return Promise.reject(completionRecoveryError());
         }
-        let uploadId = activeSession.uploadId;
-        let resumeKey = activeSession.resumeKey;
         const initialization = pendingOwnedInitialization;
+        const currentCancellation = cancellationOperation?.generation === attemptGeneration
+            ? cancellationOperation.context : null;
+        // An existing obligation survives this intentional invalidation and every genuine retry.
+        cancellationObligation ??= currentCancellation;
+        const cancellation = cancellationObligation;
+        let uploadId = cancellation?.acknowledgement?.uploadId ?? '';
+        let resumeKey = cancellation?.resumeKey ?? activeSession.resumeKey;
         ownedCommitStateUnknown ||= ownedAttempt?.access?.().commitMayHaveStarted === true && !ownedAttempt.completed;
         discardOwnedAttempt();
         attemptGeneration += 1;
@@ -846,7 +891,7 @@ export function useImageUploadRuntime()
         errorMessage.value = '';
         preview.value = null;
         pendingAttempt.value = null;
-        cleanupRequired.value = Boolean(uploadId) || initialization !== null || ownedCommitStateUnknown;
+        cleanupRequired.value = cancellation !== null || Boolean(activeSession.uploadId) || initialization !== null || ownedCommitStateUnknown;
         // Invalidate live work immediately, but retain its original session and
         // recovery evidence until the canonical abort API acknowledges cleanup.
         // Schedule the request after assigning the promise, including sync throws.
@@ -858,22 +903,28 @@ export function useImageUploadRuntime()
                 {
                     throw createAppError(AppErrorCode.Conflict, 'upload_commit_state_unknown');
                 }
-                if (initialization)
+                if (cancellation)
                 {
-                    const initialized = await initialization.work;
-                    if (!initialized.uploadId)
+                    const initialized = cancellation.acknowledgement ?? await cancellation.work;
+                    if (!initialized.uploadId || !initialized.uploadToken)
                     {
                         throw createAppError(AppErrorCode.InfraFailure, '上传初始化状态未知，取消未确认');
                     }
+                    cancellation.acknowledgement ??= { ...initialized };
                     uploadId = initialized.uploadId;
-                    resumeKey = initialization.resumeKey;
+                    resumeKey = cancellation.resumeKey;
                     activeSession.uploadId = uploadId;
                     activeSession.resumeKey = resumeKey;
-                    activeSession.fileName = initialization.fileName;
+                    activeSession.fileName = cancellation.fileName;
+                    const response = await abortUpload(uploadId, undefined, initialized.uploadToken);
+                    if (response.uploadId !== uploadId || response.status !== 'aborted')
+                    {
+                        throw createAppError(AppErrorCode.Conflict, 'upload_abort_not_acknowledged');
+                    }
                 }
-                if (uploadId)
+                else if (cleanupRequired.value)
                 {
-                    await abortUpload(uploadId);
+                    throw createAppError(AppErrorCode.Conflict, 'upload_cleanup_authority_unavailable');
                 }
                 if (resumeKey)
                 {
@@ -883,6 +934,8 @@ export function useImageUploadRuntime()
                 activeSession.resumeKey = '';
                 activeSession.fileName = '';
                 cleanupRequired.value = false;
+                cancellationObligation = null;
+                cancellationOperation = null;
                 if (pendingOwnedInitialization === initialization)
                 {
                     pendingOwnedInitialization = null;
@@ -908,7 +961,7 @@ export function useImageUploadRuntime()
         onScopeDispose(() =>
         {
             disposed = true;
-            if (ownedAttempt || acknowledgedCompletion || pendingOwnedInitialization || ownedCommitStateUnknown
+            if (ownedAttempt || acknowledgedCompletion || pendingOwnedInitialization?.bound || ownedCommitStateUnknown
                 || pendingAttempt.value?.runtimeOptions.attemptBinding)
             {
                 void abandon().catch(() =>
