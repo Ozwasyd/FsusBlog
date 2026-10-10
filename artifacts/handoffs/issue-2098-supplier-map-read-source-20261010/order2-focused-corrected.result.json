@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^(?:canonical supplier reads refuse original values shadow omitting an unknown supplying call|canonical supplier reads refuse original values shadow reversing genuine supplying calls|canonical supplier reads reject public Map method iterator getter and prototype overrides before invocation|canonical supplier reads keep detached resolver and file Maps observational while native callbacks remain supported|canonical supplier reads preserve genuine unknown call refusal through repeated original graphs|canonical supplier reads bind the actual resolver methods and observation getters without replacing registration callbacks)$",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791615907.1078951,
+  "durationSeconds": 2.111481189727783,
+  "source": {
+    "blog": {
+      "commit": "783df107ba294f34a139b1ebfd131e8d2574f688",
+      "tree": "c88f26cf993e1b1925a5980901f958ff6b48b4d6",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "72aad167ba3e64381a045664c654e651758df02415c39c1bb0eb091c196a75fe"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "783df107ba294f34a139b1ebfd131e8d2574f688",
+      "tree": "c88f26cf993e1b1925a5980901f958ff6b48b4d6",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "72aad167ba3e64381a045664c654e651758df02415c39c1bb0eb091c196a75fe"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/order2-focused-corrected.log",
+  "logSha256": "7ef561b39192930ce530189076fa9a5bf8dcc89d31b8d2b6a9d1253b1fb6a52c"
+}

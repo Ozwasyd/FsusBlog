@@ -1,0 +1,105 @@
+{
+  "sourceCommit": "62fa656fb324aab073e3bdd4026581ada5dfd88b",
+  "sourcePath": "tests/frontend/support/layout/compositionSource.mjs",
+  "sourceSHA256": "6856713190dc658f67cb5d63e1c3f37350a673588711fbab04d3b6255bc84139",
+  "scope": "Original canonical composition source only; no alternate graph/map/parser or donor source edits.",
+  "surfaces": [
+    {
+      "publicSurface": "source.nodes: original real Map",
+      "authority": "Private nodes/originalCalls membership, original object pointers, full facts and original key order.",
+      "reads": [
+        "size",
+        "get",
+        "keys",
+        "values",
+        "entries/iterator",
+        "has",
+        "forEach",
+        "prototype"
+      ],
+      "consumers": [
+        "parse writes and render reuse",
+        "graph reachability, repeated projections and graphResult.nodes",
+        "target supplier graph/node-array identity and ordered call inputs",
+        "instrumentation original-call markers",
+        "canonical slot owner consumption"
+      ],
+      "repair": "All central node Map reads/writes bind captured original intrinsics; no remaining polymorphic nodes read. Reject own properties and substituted prototype before consumption without calling traps."
+    },
+    {
+      "publicSurface": "Shared Map/Set traversal prototypes",
+      "authority": "Original module-load prototype parent and own descriptors.",
+      "reads": [
+        "methods",
+        "Symbol.iterator",
+        "size getter",
+        "descriptor/parent identity"
+      ],
+      "consumers": [
+        "original records/calls and private traversal Maps/Sets",
+        "canonical modules reached through graph"
+      ],
+      "repair": "Check complete original descriptor/parent facts at canonical entry before private authoritative reads; never invoke forged getters and never freeze or edit global prototypes."
+    },
+    {
+      "publicSurface": "source.records",
+      "authority": "Private records/originalRecords; stable original record values sealed by private complete snapshots.",
+      "reads": [
+        "returned detached Map methods/size/iterator",
+        "actual record.nodes/digest"
+      ],
+      "consumers": [
+        "graph file projection",
+        "instrumentation record/source checks"
+      ],
+      "repair": "Map is detached per observation; read shadows or clearing cannot change private record membership. Original record value mutations remain rejected by existing full facts/identity guards."
+    },
+    {
+      "publicSurface": "source.resolver parse/exportsOf/identity/sourceBindings/addRegistrations",
+      "authority": "Actual single canonical resolver instance and original parser/export/private metadata closures.",
+      "reads": [
+        "frozen actual method/getter facade",
+        "detached imports, variables, registrations, exports Maps",
+        "detached metadata/sourceBinding outputs"
+      ],
+      "consumers": [
+        "graph source metadata and public identities",
+        "supplier source-binding checks",
+        "instrumentation source checks",
+        "public Vue actual binding and donor modules"
+      ],
+      "repair": "Freeze completed actual resolver facade centrally; original registration callback still executes against private state. Parsed records already frozen and their Maps detached by original resolver; no new cached resolver or source baseline."
+    },
+    {
+      "publicSurface": "graph and graph.nodes arguments",
+      "authority": "Private targetSuppliers WeakMap binds original graph, original node array and node pointers; complete graph digest.",
+      "reads": [
+        "same original array membership/order",
+        "private supplier-context call list"
+      ],
+      "consumers": [
+        "both resolveTargetInputs entry forms"
+      ],
+      "repair": "Both entry forms run Map observation guard before public methods could execute; original full graph/node/byte guards remain."
+    },
+    {
+      "publicSurface": "Private traversal state",
+      "authority": "records, originalCalls/Records, scriptRenders, targetSuppliers, callFacts objects/ancestor Sets, reachable/routeOwners/scopedBindings/seen/callback input Maps/Sets remain closure-local.",
+      "reads": [
+        "get/has/size/values/keys/entries/iterator/add/forEach as used by original algorithms"
+      ],
+      "consumers": [
+        "parsing",
+        "graph construction",
+        "proof matching",
+        "marker/source provenance"
+      ],
+      "repair": "No public handle to these Maps/Sets. Shared Map/Set prototype integrity guard protects their original methods; no second ownership map or Set authority."
+    }
+  ],
+  "separateOwnerLimits": [
+    "Functional bare-h successor0d256a388e303e0da48be4177067d448dfaa79d7 is explicitly unvalidated WIP: initial module-load failure,0 controls run,107 controlsUNRUN. Not fetched/consumed or accepted here; central Vue-binding factory adaptation waits for later exact coordinated intake.",
+    "UI remainsf2 pending sole827 compatible tuple; no missing upstream API invented."
+  ],
+  "qualificationEligible": false
+}

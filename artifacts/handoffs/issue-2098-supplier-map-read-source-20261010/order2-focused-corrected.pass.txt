@@ -1,0 +1,14 @@
+✔ canonical supplier reads refuse original values shadow omitting an unknown supplying call (272.209423ms)
+✔ canonical supplier reads refuse original values shadow reversing genuine supplying calls (103.22269ms)
+✔ canonical supplier reads reject public Map method iterator getter and prototype overrides before invocation (985.097526ms)
+✔ canonical supplier reads keep detached resolver and file Maps observational while native callbacks remain supported (131.713188ms)
+✔ canonical supplier reads preserve genuine unknown call refusal through repeated original graphs (148.732018ms)
+✔ canonical supplier reads bind the actual resolver methods and observation getters without replacing registration callbacks (281.981414ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2010.278158

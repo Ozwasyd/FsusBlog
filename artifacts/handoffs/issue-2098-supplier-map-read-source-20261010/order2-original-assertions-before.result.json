@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^(?:canonical supplier reads refuse original values shadow omitting an unknown supplying call|canonical supplier reads refuse original values shadow reversing genuine supplying calls|canonical supplier reads reject public Map method iterator getter and prototype overrides before invocation|canonical supplier reads keep detached resolver and file Maps observational while native callbacks remain supported|canonical supplier reads preserve genuine unknown call refusal through repeated original graphs)$",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 1,
+  "startedAtEpoch": 1791615738.8401136,
+  "durationSeconds": 0.872208833694458,
+  "source": {
+    "blog": {
+      "commit": "783df107ba294f34a139b1ebfd131e8d2574f688",
+      "tree": "c88f26cf993e1b1925a5980901f958ff6b48b4d6",
+      "status": "M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "b24b9146375910978e8574276f4e2fe06842cc00ff06be6fd1a1b4754b445212"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "783df107ba294f34a139b1ebfd131e8d2574f688",
+      "tree": "c88f26cf993e1b1925a5980901f958ff6b48b4d6",
+      "status": "M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "b24b9146375910978e8574276f4e2fe06842cc00ff06be6fd1a1b4754b445212"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/order2-original-assertions-before.log",
+  "logSha256": "6f8ac5fb66a26f85051d4f827fc758f2970e56744413e21de5e4ffcf5e0260c2"
+}

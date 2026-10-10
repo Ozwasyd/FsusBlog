@@ -1,0 +1,236 @@
+Source 62fa656fb324aab073e3bdd4026581ada5dfd88b; current authoritative/observational read enumeration
+16:const nodeMapPrototype = Map.prototype;
+17:const nodeMapGet = Function.prototype.call.bind(Map.prototype.get);
+18:const nodeMapSet = Function.prototype.call.bind(Map.prototype.set);
+19:const nodeMapKeys = Function.prototype.call.bind(Map.prototype.keys);
+20:const nodeMapValues = Function.prototype.call.bind(Map.prototype.values);
+21:const nodeMapSize = Function.prototype.call.bind(Object.getOwnPropertyDescriptor(Map.prototype, 'size').get);
+22:const traversalPrototypes = [Map.prototype, Set.prototype].map((prototype) =>
+37:    const records = new Map();
+38:    const nodes = new Map();
+40:    const scriptRenders = new Map();
+41:    const targetSuppliers = new WeakMap();
+42:    const originalCalls = new Map();
+43:    const originalRecords = new Map();
+46:    function callFacts(value, ancestors = new Set(), objects = null, capture = false, path = '$')
+62:            else if (objects.get(path) !== value)
+68:        if (Object.getPrototypeOf(value) !== (array ? Array.prototype : Object.prototype) || ancestors.has(value))
+72:        const next = new Set([...ancestors, value]);
+98:        for (const original of originalCalls.values())
+102:                original.objects = new Map();
+103:                original.factsDigest = controlDigest(callFacts(original.node, new Set(), original.objects, true));
+107:        const original = originalRecords.get(file);
+110:            original.objects = new Map();
+111:            original.factsDigest = controlDigest(callFacts(original.record, new Set(), original.objects, true));
+115:    function assertNodeMapObservation()
+118:        // The real Map remains public; its entries still have original guards.
+119:        if (Object.getPrototypeOf(nodes) !== nodeMapPrototype || Reflect.ownKeys(nodes).length)
+121:            fail('supplier graph changed: original source node Map observation');
+123:        for (const { prototype, parent, descriptors } of traversalPrototypes)
+135:                fail('supplier graph changed: original source node Map observation traversal prototype');
+141:        assertNodeMapObservation();
+142:        if (records.size !== originalRecords.size)
+148:            if (!original.sealed || records.get(file) !== original.record
+149:                || controlDigest(callFacts(original.record, new Set(), original.objects)) !== original.factsDigest)
+154:        if (nodeMapSize(nodes) !== originalCalls.size)
+158:        const checked = new Set();
+159:        const actualOrder = nodeMapKeys(nodes);
+162:            // Membership and identical pointers do not preserve Map iteration
+168:            const node = nodeMapGet(nodes, id);
+170:                || controlDigest(callFacts(node, new Set(), original.objects)) !== original.factsDigest)
+174:            if (checkBytes && !checked.has(original.file))
+231:        record.scripts.forEach(({ ast }) => visit(ast));
+243:        const imported = record.imports.get(node.text);
+248:        const bindings = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isImportDeclaration)
+249:            .flatMap((statement) => statement.importClause?.namedBindings && ts.isNamedImports(statement.importClause.namedBindings)
+267:        if (new Set(fields).size !== fields.length || fields.includes('render'))
+298:        setup.body.statements.forEach(setupFlow);
+299:        const previous = scriptRenders.get(record.file);
+310:        const previous = scriptRenders.get(record.file);
+348:    function componentFile(source, seen = new Set())
+357:            source.variantDefinitions = [...new Set(source.variants.map((variant) => componentFile(variant, new Set(seen))))];
+382:        if (seen.has(identity))
+393:            const exported = resolver.exportsOf(file).get(name);
+403:        const exported = resolver.exportsOf(file).get(name);
+416:                const imported = record.imports.get(expression.text);
+421:                const value = record.variables.get(expression.text);
+428:                    const declarations = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isVariableStatement)
+429:                        .flatMap((statement) => statement.declarationList.declarations.filter((declaration) =>
+442:                const factory = record.variables.get(expression.expression.text);
+484:        const defaults = name === 'default' ? record.scripts.flatMap(({ ast }) => ast.statements
+486:        const expression = defaults.length === 1 ? defaults[0].expression : record.variables.get(name);
+489:            const declarations = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isVariableStatement)
+490:                .flatMap((statement) => statement.declarationList.declarations.filter((declaration) =>
+509:            const imported = record.imports.get(name);
+524:        const routeNames = new Set();
+525:        const routeFactories = new Set([...record.imports].filter(([, entry]) => entry.specifier === 'vue-router' && entry.name === 'useRoute').map(([name]) => name));
+528:            if (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && routeFactories.has(value.expression.text))
+533:        const tainted = new Set();
+536:            if ((ts.isPropertyAccessExpression(node) && node.name.text === 'name' && ts.isIdentifier(node.expression) && routeNames.has(node.expression.text))
+537:                || (ts.isElementAccessExpression(node) && ts.isIdentifier(node.expression) && routeNames.has(node.expression.text)
+539:                || (ts.isIdentifier(node) && tainted.has(node.text)))
+554:                && routeFactories.has(node.initializer.expression.text))
+566:        record.scripts.forEach(({ ast }) => bindings(ast));
+573:                if (!tainted.has(name) && usesRouteName(value))
+585:        const standalone = record.scripts.filter(({ setup }) => setup).flatMap(({ ast }) => ast.statements
+591:            return [...record.variables.values()];
+610:        record.scripts.forEach(({ ast }) => visit(ast));
+612:            || ['defineProps', 'withDefaults', property].some((name) => record.imports.has(name) || record.variables.has(name)))
+626:        return [...record.variables.values(), standalone[0]];
+630:        function literal(node, file, seen = new Set())
+651:                if (seen.has(identity))
+657:                const imported = current.imports.get(node.text);
+660:                    return literal(resolver.parse(importFile(file, imported.specifier)).variables.get(imported.name), importFile(file, imported.specifier), seen);
+662:                return literal(current.variables.get(node.text), file, seen);
+666:                const imported = resolver.parse(file).imports.get(node.expression.text);
+678:                return Object.fromEntries(node.properties.filter(ts.isPropertyAssignment).map((property) => [property.name.getText().replaceAll("'", '').replaceAll('"', ''), literal(property.initializer, file, new Set(seen))]));
+688:                if (Array.isArray(prop?.values) && prop.values.length && prop.values.every((tag) => typeof tag === 'string' && dom.parserOptions.isNativeTag(tag))
+689:                    && prop.values.includes(prop.default))
+691:                    return { kind: 'native-variants', values: prop.values, default: prop.default };
+724:        function find(node, file, seen = new Set())
+737:                if (seen.has(identity))
+743:                const imported = current.imports.get(node.text);
+744:                return imported ? find(resolver.parse(importFile(file, imported.specifier)).variables.get(imported.name), importFile(file, imported.specifier), seen)
+745:                    : find(current.variables.get(node.text), file, seen);
+749:                const imported = resolver.parse(file).imports.get(node.expression.text);
+774:                && !record.imports.has('withDefaults') && !record.variables.has('withDefaults')
+775:                && !record.imports.has('defineProps') && !record.variables.has('defineProps'))
+853:        const attributes = Object.keys(call.attributes).filter((attribute) => propName(attribute) === name);
+901:        function evaluate(exp, seen = new Set())
+912:            if (ts.isIdentifier(exp) && !seen.has(exp.text))
+914:                const value = record.variables.get(exp.text);
+916:                    && record.imports.get(value.expression.text)?.specifier === 'vue'
+917:                    && record.imports.get(value.expression.text)?.name === 'computed'
+922:                    return evaluate(value.arguments[0].body, new Set([...seen, exp.text]));
+927:                const variable = record.variables.get(exp.expression.text);
+938:                    const imported = record.imports.get(variable.expression.text);
+946:                && !record.variables.has('Boolean') && !record.imports.has('Boolean')
+975:        const fn = record.variables.get(call.expression.text);
+980:        const declarations = record.scripts.flatMap(({ ast }) => ast.statements
+981:            .filter(ts.isVariableStatement).flatMap((statement) => statement.declarationList.declarations
+984:        if (scopedNames.has(call.expression.text) || declarations.length !== 1
+989:        const values = new Set();
+1047:        return { kind: 'native-variants', values: [...values], function: call.expression.text };
+1054:        let callbackInputs = new Map();
+1106:            const previous = nodeMapGet(nodes, id);
+1114:                previous.conditional = [...new Map([...previous.conditional, ...conditional]
+1115:                    .map((entry) => [controlDigest(entry), entry])).values()];
+1118:            nodeMapSet(nodes, id, current);
+1121:            if (definition && !records.has(definition))
+1137:            if (ts.isIdentifier(node) && record.imports.has(node.text))
+1139:                const identifiers = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isImportDeclaration)
+1140:                    .flatMap((statement) => [statement.importClause?.name,
+1165:            const names = new Set();
+1172:                    || names.has(name) || [compositionNodeAttribute, compositionCallAttribute].includes(name))
+1202:        function output(node, parentId = null, ancestors = [], conditional = [], seen = new Set())
+1205:            if (candidate && ts.isIdentifier(candidate) && callbackInputs.has(candidate.text))
+1207:                const input = callbackInputs.get(candidate.text);
+1236:                    const initializer = unwrap(record.variables.get(node.text));
+1269:                    record.scripts.forEach(({ ast }) => find(ast));
+1270:                    if (seen.has(node.text) || declarations.length !== 1 || !(declarations[0].parent.flags & ts.NodeFlags.Const)
+1271:                        || !declarations[0].initializer || record.imports.has(node.text))
+1276:                    output(declarations[0].initializer, parentId, ancestors, conditional, new Set([...seen, node.text]));
+1297:                            output(child.expression, current.id, [...ancestors, current.id], conditional, new Set(seen));
+1301:                            output(child, current.id, [...ancestors, current.id], conditional, new Set(seen));
+1312:                    output(node.whenTrue, parentId, ancestors, [...conditional, { name: 'if', expression: node.condition.getText() }], new Set(seen));
+1313:                    output(node.whenFalse, parentId, ancestors, [...conditional, { name: 'else', expression: node.condition.getText() }], new Set(seen));
+1322:                    output(node.right, parentId, ancestors, [...conditional, { name: 'if', expression: node.left.getText() }], new Set(seen));
+1375:                        output(node.arguments[2], current.id, [...ancestors, current.id], conditional, new Set(seen));
+1395:                    callbackInputs = new Map([...previous, ...item.bindings]);
+1397:                        [...conditional, ...item.conditions.map(({ name, expression }) => ({ name, expression }))], new Set(seen));
+1432:                node.statements.forEach((statement) =>
+1473:        assertNodeMapObservation();
+1475:        if (records.has(file))
+1477:            return records.get(file);
+1486:            if (!scriptRenders.has(file))
+1488:                exportComponent(file, 'default', new Set());
+1490:            const binding = scriptRenders.get(file);
+1502:        function visit(node, parentId = null, ancestors = [], scopedNames = new Set())
+1516:            const localNames = new Set(scopedNames);
+1542:                binding.parameters.forEach((parameter) => collect(parameter.name));
+1603:                    if (ts.isIdentifier(exp) && localNames.has(exp.text))
+1627:                        if (targets.some((target) => target.selectorSource && localNames.has(target.selectorSource.name)))
+1631:                        if (targets.some((target) => target.kind === 'component-prop' && localNames.has(target.property)))
+1637:                            origin = { kind: 'native-variants', values: [...new Set(targets.map((target) => target.name))] };
+1661:                else if (file.startsWith(upstream + '/') && record.imports.has(node.tag))
+1663:                    const imported = record.imports.get(node.tag);
+1717:            nodeMapSet(nodes, id, current);
+1724:            if (definition && !records.has(definition))
+1730:                if (!records.has(variant))
+1754:        const reachable = new Set();
+1757:            if (reachable.has(file))
+1762:            for (const id of records.get(file)?.nodes ?? [])
+1764:                const definition = nodeMapGet(nodes, id).definition;
+1769:                nodeMapGet(nodes, id).definitions?.forEach(visit);
+1772:        entryFiles.forEach(visit);
+1773:        let graphNodes = [...nodeMapValues(nodes)].filter((node) => reachable.has(node.file));
+1780:            const routeOwners = new Set((routes.routes ?? []).flatMap((route) => (route.matchedRecords ?? [])
+1781:                .flatMap((record) => Object.values(record.componentViews ?? {}))));
+1782:            function ownerPaths(file, seen = new Set())
+1784:                if (seen.has(file))
+1788:                if (routeOwners.has(file))
+1792:                const next = new Set([...seen, file]);
+1793:                return graphNodes.filter((call) => call.definition === file).flatMap((call) =>
+1797:                && node.ancestors.some((id) => nodeMapGet(nodes, id)?.origin.package === 'vue-router'
+1798:                    && nodeMapGet(nodes, id)?.origin.publicName === 'RouterView'));
+1826:            graphNodes = [...nodeMapValues(nodes)].filter((node) => reachable.has(node.file));
+1856:            record.scripts.forEach(({ ast }) => collect(ast));
+1884:            record.scripts.forEach(({ ast }) => escaped(ast));
+1886:        function spreadInput(file, exp, property, seen = new Set())
+1906:                if (exp.text === props?.propsName || (exp.text === '$props' && !record.variables.has('$props') && !record.imports.has('$props')))
+1915:                if (exp.text === props?.attrsName && !record.variables.has(exp.text) && !record.imports.has(exp.text)
+1921:                const value = record.variables.get(exp.text);
+1931:                record.scripts.forEach(({ ast }) => collect(ast));
+1932:                if (!value || seen.has(key) || declarations.length !== 1
+1958:                record.scripts.forEach(({ ast }) => escaped(ast));
+1964:                return spreadInput(file, value, property, new Set([...seen, key]));
+1968:                const imported = record.imports.get(exp.expression.text);
+1984:                        const value = spreadInput(file, field.expression, property, new Set(seen));
+2026:            const attributes = Object.keys(call.attributes).filter((name) => propName(name) === property);
+2069:                && unwrapInput(input.expression).text === 'undefined' && !resolver.parse(input.file).imports.has('undefined')
+2070:                && !resolver.parse(input.file).variables.has('undefined');
+2085:            if (seen.has(identity))
+2089:            const next = new Set([...seen, identity]);
+2095:            return parents.flatMap((parent) =>
+2105:                        : value && ts.isIdentifier(value) && !record.variables.has(value.text) && !record.imports.has(value.text)
+2133:        function componentInput(call, property, seen = new Set(), override = undefined)
+2136:            if (seen.has(key))
+2140:            const next = new Set([...seen, key]);
+2149:                return objectPropInputs(input.objectProp, next).flatMap((entry) => componentInput(call, property, seen, entry.input)
+2169:                return parents.flatMap((parent) => componentInput(parent, edge.property, next));
+2187:                function immutable(exp, file, seen = new Set())
+2193:                        if (record.imports.has(exp.text) || resolver.componentPropDeclaration(file, exp.text))
+2207:                        record.scripts.forEach(({ ast }) => collect(ast));
+2208:                        if (seen.has(identity) || declarations.length !== 1 || !(declarations[0].parent.flags & ts.NodeFlags.Const))
+2212:                        immutable(declarations[0].initializer, file, new Set([...seen, identity]));
+2220:                        && resolver.parse(file).imports.get(exp.expression.text)?.name === '*')
+2243:            return calls.flatMap((call) =>
+2286:                                const entry = nodeMapGet(nodes, id);
+2356:                        const guard = !target && [node, ...node.ancestors.map((id) => nodeMapGet(nodes, id))]
+2358:                            .flatMap((entry) => entry.conditional.map((condition) => ({ ...condition, nodeId: entry.id })))
+2374:                                const entry = nodeMapGet(nodes, id);
+2419:                    const guard = [node, ...node.ancestors.map((id) => nodeMapGet(nodes, id))]
+2421:                        .flatMap((entry) => entry.conditional.map((condition) => ({ ...condition, nodeId: entry.id })))
+2429:                            return leaves.length === properties.length && new Set(leaves).size === properties.length
+2440:                            const entry = nodeMapGet(nodes, id);
+2455:        for (const node of [...nodeMapValues(nodes)].filter((entry) => reachable.has(entry.file)
+2460:        for (const node of [...nodeMapValues(nodes)].filter((entry) => reachable.has(entry.file)
+2469:            if (conditions.length !== node.conditional.length || node.ancestors.some((id) => nodeMapGet(nodes, id).conditional.length))
+2494:        const slotGraph = { nodes: [...nodeMapValues(nodes)].filter((node) => reachable.has(node.file)) };
+2513:                    if (records.get(slot.file).renderSource)
+2515:                        resolver.parse(slot.file).scripts.forEach(({ ast }) => find(ast));
+2541:        graphNodes = [...nodeMapValues(nodes)].filter((node) => reachable.has(node.file));
+2543:            files: [...records.values()].filter((record) => reachable.has(record.file)),
+2544:            nodes: [...nodeMapValues(nodes)].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings,
+2546:            objectKeyAbsenceProofs: [...new Map(objectKeyAbsenceProofs.map((proof) => [proof.proofDigest, proof])).values()], resolverInputs: finalBindings.files,
+2547:            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors, ...slotErrors, ...frameworkTargetErrors],
+2548:            sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })),
+2551:                functionalSources: [...records.values()].filter((record) => reachable.has(record.file) && record.renderSource?.functional)
+2553:                collectionSources: [...records.values()].filter((record) => reachable.has(record.file) && record.collectionSources?.length)
+2565:        assertNodeMapObservation();
+2566:        const context = targetSuppliers.get(graph);
+2567:        if (!context || !context.nodes().includes(node) || nodeMapGet(nodes, node?.id) !== node || node.origin.kind !== 'native-prop')
+2576:            || context.graph.nodes.some((entry, index) => entry !== context.nodes()[index] || nodeMapGet(nodes, entry.id) !== entry)))
+2601:        const edits = [...originalCalls.values()].filter((original) => original.file === file)
+2633:            return new Map(records);
+2651:                || (!source.records.has(id) && extname(id) !== '.vue'))

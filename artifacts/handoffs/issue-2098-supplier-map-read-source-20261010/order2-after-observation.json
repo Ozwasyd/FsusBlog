@@ -1,0 +1,122 @@
+[
+  {
+    "mode": "unknown-omission",
+    "exactOwnerBytes": "<script setup>const props=defineProps({tag:{type:[String,Object],default:\"button\"}});</script><template><component :is=\"tag\"/></template>",
+    "exactEntryBytes": "<script setup>import Owner from \"./Owner.vue\";</script><template><Owner tag=\"a\"/><Owner :tag=\"unknown\"/></template>",
+    "finalNewlines": false,
+    "parserRootOverride": false,
+    "priorParseOrResolverCalls": false,
+    "sameNativeKeys": true,
+    "sameNativeSize": true,
+    "samePointers": true,
+    "before": {
+      "errors": [
+        {
+          "file": "/tmp/central-order2-original-pHnWa3/unknown-omission/Owner.vue",
+          "offset": 104,
+          "line": 1,
+          "reason": "unbound-native-prop-source",
+          "property": "tag",
+          "callNode": "473896bc006e554bf3c4abe4",
+          "message": "[composition-source] mutable/unknown component input 473896bc006e554bf3c4abe4#tag"
+        },
+        {
+          "file": "/tmp/central-order2-original-pHnWa3/unknown-omission/Owner.vue",
+          "offset": 104,
+          "line": 1,
+          "reason": "unbound-target-supplier-source",
+          "property": "tag",
+          "message": "[composition-source] mutable/unknown component input 473896bc006e554bf3c4abe4#tag"
+        }
+      ],
+      "suppliers": {
+        "accepted": false,
+        "message": "[composition-source] mutable/unknown component input 473896bc006e554bf3c4abe4#tag"
+      },
+      "arraySuppliers": {
+        "accepted": false,
+        "message": "[composition-source] mutable/unknown component input 473896bc006e554bf3c4abe4#tag"
+      },
+      "recordNodes": [
+        "2dae793f817629a60ee36f76",
+        "473896bc006e554bf3c4abe4"
+      ],
+      "instrumentation": "<script setup>import Owner from \"./Owner.vue\";</script><template><Owner data-fsus-composition-call=\"2dae793f817629a60ee36f76\" tag=\"a\"/><Owner data-fsus-composition-call=\"473896bc006e554bf3c4abe4\" :tag=\"unknown\"/></template>"
+    },
+    "after": {
+      "rejected": true,
+      "message": "[composition-source] supplier graph changed: original source node Map observation"
+    },
+    "assertionsExecuted": false
+  },
+  {
+    "mode": "reverse-order",
+    "exactOwnerBytes": "<script setup>const props=defineProps({tag:{type:[String,Object],default:\"button\"}});</script><template><component :is=\"tag\"/></template>",
+    "exactEntryBytes": "<script setup>import Owner from \"./Owner.vue\";</script><template><Owner tag=\"a\"/><Owner tag=\"span\"/></template>",
+    "finalNewlines": false,
+    "parserRootOverride": false,
+    "priorParseOrResolverCalls": false,
+    "sameNativeKeys": true,
+    "sameNativeSize": true,
+    "samePointers": true,
+    "before": {
+      "errors": [],
+      "suppliers": {
+        "accepted": true,
+        "inputs": [
+          {
+            "target": {
+              "kind": "native",
+              "name": "a"
+            },
+            "callPath": [
+              "f65fcbe141b219d0f290b58e"
+            ]
+          },
+          {
+            "target": {
+              "kind": "native",
+              "name": "span"
+            },
+            "callPath": [
+              "18df4d0b6b0ed47430c00d36"
+            ]
+          }
+        ]
+      },
+      "arraySuppliers": {
+        "accepted": true,
+        "inputs": [
+          {
+            "target": {
+              "kind": "native",
+              "name": "a"
+            },
+            "callPath": [
+              "f65fcbe141b219d0f290b58e"
+            ]
+          },
+          {
+            "target": {
+              "kind": "native",
+              "name": "span"
+            },
+            "callPath": [
+              "18df4d0b6b0ed47430c00d36"
+            ]
+          }
+        ]
+      },
+      "recordNodes": [
+        "f65fcbe141b219d0f290b58e",
+        "18df4d0b6b0ed47430c00d36"
+      ],
+      "instrumentation": "<script setup>import Owner from \"./Owner.vue\";</script><template><Owner data-fsus-composition-call=\"f65fcbe141b219d0f290b58e\" tag=\"a\"/><Owner data-fsus-composition-call=\"18df4d0b6b0ed47430c00d36\" tag=\"span\"/></template>"
+    },
+    "after": {
+      "rejected": true,
+      "message": "[composition-source] supplier graph changed: original source node Map observation"
+    },
+    "assertionsExecuted": false
+  }
+]

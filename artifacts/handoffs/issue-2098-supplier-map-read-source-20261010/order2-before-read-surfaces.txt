@@ -1,0 +1,380 @@
+28:    const records = new Map();
+29:    const nodes = new Map();
+31:    const scriptRenders = new Map();
+32:    const targetSuppliers = new WeakMap();
+33:    const originalCalls = new Map();
+34:    const originalRecords = new Map();
+37:    function callFacts(value, ancestors = new Set(), objects = null, capture = false, path = '$')
+45:            return [typeof value, value];
+53:            else if (objects.get(path) !== value)
+59:        if (Object.getPrototypeOf(value) !== (array ? Array.prototype : Object.prototype) || ancestors.has(value))
+63:        const next = new Set([...ancestors, value]);
+64:        return [array ? 'array' : 'object', Reflect.ownKeys(value).map((name) =>
+71:            return [name, property.enumerable, property.configurable, property.writable,
+89:        for (const original of originalCalls.values())
+93:                original.objects = new Map();
+94:                original.factsDigest = controlDigest(callFacts(original.node, new Set(), original.objects, true));
+98:        const original = originalRecords.get(file);
+101:            original.objects = new Map();
+102:            original.factsDigest = controlDigest(callFacts(original.record, new Set(), original.objects, true));
+108:        if (records.size !== originalRecords.size)
+114:            if (!original.sealed || records.get(file) !== original.record
+115:                || controlDigest(callFacts(original.record, new Set(), original.objects)) !== original.factsDigest)
+120:        if (nodes.size !== originalCalls.size)
+124:        const checked = new Set();
+125:        const actualOrder = Map.prototype.keys.call(nodes);
+128:            // Membership and identical pointers do not preserve Map iteration
+134:            const node = nodes.get(id);
+136:                || controlDigest(callFacts(node, new Set(), original.objects)) !== original.factsDigest)
+140:            if (checkBytes && !checked.has(original.file))
+158:        return node;
+170:            return node && ts.isIdentifier(node) ? node.text : null;
+197:        record.scripts.forEach(({ ast }) => visit(ast));
+207:            return false;
+209:        const imported = record.imports.get(node.text);
+212:            return false;
+214:        const bindings = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isImportDeclaration)
+215:            .flatMap((statement) => statement.importClause?.namedBindings && ts.isNamedImports(statement.importClause.namedBindings)
+222:        return true;
+233:        if (new Set(fields).size !== fields.length || fields.includes('render'))
+251:        // statement is known. Nested callbacks do not return from setup.
+260:                fail(`conditional script setup return ${record.file}`);
+264:        setup.body.statements.forEach(setupFlow);
+265:        const previous = scriptRenders.get(record.file);
+271:        return record.file;
+276:        const previous = scriptRenders.get(record.file);
+282:        return record.file;
+295:        return realpathSync(found);
+301:            return exact(resolve(dirname(file), specifier));
+305:            return exact(resolve(root, 'src/frontend/src', specifier.slice(2)));
+309:            return resolver.modulePath(specifier, file, true);
+314:    function componentFile(source, seen = new Set())
+319:            return null;
+323:            source.variantDefinitions = [...new Set(source.variants.map((variant) => componentFile(variant, new Set(seen))))];
+328:            return null;
+341:            return null;
+343:        return target;
+348:        if (seen.has(identity))
+356:                return file;
+359:            const exported = resolver.exportsOf(file).get(name);
+365:            return exportComponent(exported.file, exported.name, seen);
+369:        const exported = resolver.exportsOf(file).get(name);
+376:            return exportComponent(exported.file, exported.name, seen);
+382:                const imported = record.imports.get(expression.text);
+385:                    return exportComponent(importFile(file, imported.specifier), imported.name, seen);
+387:                const value = record.variables.get(expression.text);
+392:                        return bindFunctionalRender(record, unwrap(value));
+394:                    const declarations = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isVariableStatement)
+395:                        .flatMap((statement) => statement.declarationList.declarations.filter((declaration) =>
+403:                    return follow(value);
+408:                const factory = record.variables.get(expression.expression.text);
+414:                    return follow(property.initializer);
+418:                    return follow(property.name);
+427:                    return follow(spreads[0].expression);
+435:                    return bindScriptRender(record, expression);
+438:                return follow(expression.arguments[0]);
+442:                return bindFunctionalRender(record, expression);
+446:                return follow(expression.expression);
+450:        const defaults = name === 'default' ? record.scripts.flatMap(({ ast }) => ast.statements
+452:        const expression = defaults.length === 1 ? defaults[0].expression : record.variables.get(name);
+455:            const declarations = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isVariableStatement)
+456:                .flatMap((statement) => statement.declarationList.declarations.filter((declaration) =>
+473:                return factory;
+475:            const imported = record.imports.get(name);
+478:                return exportComponent(importFile(file, imported.specifier), imported.name, seen);
+482:        return follow(expression);
+486:        return resolver.expression(source, file);
+490:        const routeNames = new Set();
+491:        const routeFactories = new Set([...record.imports].filter(([, entry]) => entry.specifier === 'vue-router' && entry.name === 'useRoute').map(([name]) => name));
+494:            if (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && routeFactories.has(value.expression.text))
+499:        const tainted = new Set();
+502:            if ((ts.isPropertyAccessExpression(node) && node.name.text === 'name' && ts.isIdentifier(node.expression) && routeNames.has(node.expression.text))
+503:                || (ts.isElementAccessExpression(node) && ts.isIdentifier(node.expression) && routeNames.has(node.expression.text)
+505:                || (ts.isIdentifier(node) && tainted.has(node.text)))
+507:                return true;
+514:            return found;
+520:                && routeFactories.has(node.initializer.expression.text))
+532:        record.scripts.forEach(({ ast }) => bindings(ast));
+539:                if (!tainted.has(name) && usesRouteName(value))
+546:        return { usesRouteName };
+551:        const standalone = record.scripts.filter(({ setup }) => setup).flatMap(({ ast }) => ast.statements
+557:            return [...record.variables.values()];
+576:        record.scripts.forEach(({ ast }) => visit(ast));
+578:            || ['defineProps', 'withDefaults', property].some((name) => record.imports.has(name) || record.variables.has(name)))
+592:        return [...record.variables.values(), standalone[0]];
+596:        function literal(node, file, seen = new Set())
+600:                return null;
+604:                return literal(node.expression, file, seen);
+608:                return node.text;
+612:                return node.elements.map((item) => literal(item, file, seen));
+617:                if (seen.has(identity))
+619:                    return null;
+623:                const imported = current.imports.get(node.text);
+626:                    return literal(resolver.parse(importFile(file, imported.specifier)).variables.get(imported.name), importFile(file, imported.specifier), seen);
+628:                return literal(current.variables.get(node.text), file, seen);
+632:                const imported = resolver.parse(file).imports.get(node.expression.text);
+635:                    return literal(node.arguments[0], file, seen);
+642:                    return null;
+644:                return Object.fromEntries(node.properties.filter(ts.isPropertyAssignment).map((property) => [property.name.getText().replaceAll("'", '').replaceAll('"', ''), literal(property.initializer, file, new Set(seen))]));
+646:            return null;
+654:                if (Array.isArray(prop?.values) && prop.values.length && prop.values.every((tag) => typeof tag === 'string' && dom.parserOptions.isNativeTag(tag))
+655:                    && prop.values.includes(prop.default))
+657:                    return { kind: 'native-variants', values: prop.values, default: prop.default };
+665:            return { kind: 'native-prop', property: identifier, default: macroDefault };
+679:                return { kind: 'native-prop', property: identifier, default: value };
+682:        return null;
+690:        function find(node, file, seen = new Set())
+694:                return null;
+698:                return find(node.expression, file, seen);
+703:                if (seen.has(identity))
+705:                    return null;
+709:                const imported = current.imports.get(node.text);
+710:                return imported ? find(resolver.parse(importFile(file, imported.specifier)).variables.get(imported.name), importFile(file, imported.specifier), seen)
+711:                    : find(current.variables.get(node.text), file, seen);
+715:                const imported = resolver.parse(file).imports.get(node.expression.text);
+716:                return imported?.name === 'buildProps' && imported.specifier === '@element-plus/utils' ? find(node.arguments[0], file, seen) : null;
+726:                        return null;
+730:                        return { node: property.initializer, file };
+733:                return null;
+735:            return null;
+740:                && !record.imports.has('withDefaults') && !record.variables.has('withDefaults')
+741:                && !record.imports.has('defineProps') && !record.variables.has('defineProps'))
+750:                    return null;
+756:                    return null;
+759:                return { node: member.type, defaultNode: defaultValue?.initializer, file: record.file };
+763:                return find(value.arguments[0], record.file);
+766:        return null;
+772:            return unbound;
+776:            return closedLiteral(node.expression);
+780:            return ts.isStringLiteral(node) ? node.text : Number(node.text);
+784:            return node.kind === ts.SyntaxKind.TrueKeyword;
+788:            return null;
+790:        return unbound;
+797:            return unbound;
+808:                return unbound;
+819:        const attributes = Object.keys(call.attributes).filter((attribute) => propName(attribute) === name);
+822:            return unbound;
+829:            return unbound;
+833:            return spreadValues[0];
+837:            return binding.expression ? closedLiteral(expression(binding.expression, call.file)) : unbound;
+841:            return call.attributes[name];
+845:            return closedLiteral(declaration.defaultNode);
+854:            return unbound;
+857:        return defaultValue ? closedLiteral(defaultValue.initializer) : unbound;
+864:            return Object.hasOwn(call.slotInputs.present, name) ? (call.slotInputs.present[name] === null ? unbound : call.slotInputs.present[name])
+867:        function evaluate(exp, seen = new Set())
+872:                return literal;
+876:                return evaluate(exp.expression, seen);
+878:            if (ts.isIdentifier(exp) && !seen.has(exp.text))
+880:                const value = record.variables.get(exp.text);
+882:                    && record.imports.get(value.expression.text)?.specifier === 'vue'
+883:                    && record.imports.get(value.expression.text)?.name === 'computed'
+888:                    return evaluate(value.arguments[0].body, new Set([...seen, exp.text]));
+893:                const variable = record.variables.get(exp.expression.text);
+896:                    return slots(exp.name.text);
+902:                        return staticPropValue(record, call, exp.name.text);
+904:                    const imported = record.imports.get(variable.expression.text);
+907:                        return slots(exp.name.text);
+912:                && !record.variables.has('Boolean') && !record.imports.has('Boolean')
+917:                return value === unbound ? unbound : Boolean(value);
+924:                    return unbound;
+926:                return exp.operatorToken.kind === ts.SyntaxKind.BarBarToken ? (left || evaluate(exp.right, seen)) : (left && evaluate(exp.right, seen));
+928:            return unbound;
+931:        return value === unbound ? null : { sourceNode: node.id, callNode: call.id, directive: condition.name,
+939:            return null;
+941:        const fn = record.variables.get(call.expression.text);
+944:            return null;
+946:        const declarations = record.scripts.flatMap(({ ast }) => ast.statements
+947:            .filter(ts.isVariableStatement).flatMap((statement) => statement.declarationList.declarations
+950:        if (scopedNames.has(call.expression.text) || declarations.length !== 1
+955:        const values = new Set();
+970:            fail(`unbound native function return ${record.file}#${call.expression.text}`);
+977:                return true;
+988:                return terminal;
+994:                return thenTerminal && elseTerminal;
+998:                return false;
+1013:        return { kind: 'native-variants', values: [...values], function: call.expression.text };
+1020:        let callbackInputs = new Map();
+1072:            const previous = nodes.get(id);
+1080:                previous.conditional = [...new Map([...previous.conditional, ...conditional]
+1081:                    .map((entry) => [controlDigest(entry), entry])).values()];
+1082:                return previous;
+1087:            if (definition && !records.has(definition))
+1091:            return current;
+1097:                return functional.componentOrigin(record, node, jsx);
+1101:                return { kind: 'native', name: node.text };
+1103:            if (ts.isIdentifier(node) && record.imports.has(node.text))
+1105:                const identifiers = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isImportDeclaration)
+1106:                    .flatMap((statement) => [statement.importClause?.name,
+1121:            return origins[0];
+1131:            const names = new Set();
+1138:                    || names.has(name) || [compositionNodeAttribute, compositionCallAttribute].includes(name))
+1166:            return { attributes, directives };
+1168:        function output(node, parentId = null, ancestors = [], conditional = [], seen = new Set())
+1171:            if (candidate && ts.isIdentifier(candidate) && callbackInputs.has(candidate.text))
+1173:                const input = callbackInputs.get(candidate.text);
+1202:                    const initializer = unwrap(record.variables.get(node.text));
+1224:                            return value && ts.isIdentifier(value) ? value.text : null;
+1235:                    record.scripts.forEach(({ ast }) => find(ast));
+1236:                    if (seen.has(node.text) || declarations.length !== 1 || !(declarations[0].parent.flags & ts.NodeFlags.Const)
+1237:                        || !declarations[0].initializer || record.imports.has(node.text))
+1242:                    output(declarations[0].initializer, parentId, ancestors, conditional, new Set([...seen, node.text]));
+1263:                            output(child.expression, current.id, [...ancestors, current.id], conditional, new Set(seen));
+1267:                            output(child, current.id, [...ancestors, current.id], conditional, new Set(seen));
+1278:                    output(node.whenTrue, parentId, ancestors, [...conditional, { name: 'if', expression: node.condition.getText() }], new Set(seen));
+1279:                    output(node.whenFalse, parentId, ancestors, [...conditional, { name: 'else', expression: node.condition.getText() }], new Set(seen));
+1288:                    output(node.right, parentId, ancestors, [...conditional, { name: 'if', expression: node.left.getText() }], new Set(seen));
+1341:                        output(node.arguments[2], current.id, [...ancestors, current.id], conditional, new Set(seen));
+1361:                    callbackInputs = new Map([...previous, ...item.bindings]);
+1363:                        [...conditional, ...item.conditions.map(({ name, expression }) => ({ name, expression }))], new Set(seen));
+1377:                    error(node, 'script render return has no value');
+1383:                return true;
+1393:                return yes && no;
+1398:                node.statements.forEach((statement) =>
+1402:                return terminal;
+1406:                return false;
+1409:            return false;
+1440:        if (records.has(file))
+1442:            return records.get(file);
+1451:            if (!scriptRenders.has(file))
+1453:                exportComponent(file, 'default', new Set());
+1455:            const binding = scriptRenders.get(file);
+1465:            return value;
+1467:        function visit(node, parentId = null, ancestors = [], scopedNames = new Set())
+1481:            const localNames = new Set(scopedNames);
+1507:                binding.parameters.forEach((parameter) => collect(parameter.name));
+1568:                    if (ts.isIdentifier(exp) && localNames.has(exp.text))
+1592:                        if (targets.some((target) => target.selectorSource && localNames.has(target.selectorSource.name)))
+1596:                        if (targets.some((target) => target.kind === 'component-prop' && localNames.has(target.property)))
+1602:                            origin = { kind: 'native-variants', values: [...new Set(targets.map((target) => target.name))] };
+1626:                else if (file.startsWith(upstream + '/') && record.imports.has(node.tag))
+1628:                    const imported = record.imports.get(node.tag);
+1689:            if (definition && !records.has(definition))
+1695:                if (!records.has(variant))
+1703:        return value;
+1719:        const reachable = new Set();
+1722:            if (reachable.has(file))
+1727:            for (const id of records.get(file)?.nodes ?? [])
+1729:                const definition = nodes.get(id).definition;
+1734:                nodes.get(id).definitions?.forEach(visit);
+1737:        entryFiles.forEach(visit);
+1738:        let graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+1745:            const routeOwners = new Set((routes.routes ?? []).flatMap((route) => (route.matchedRecords ?? [])
+1746:                .flatMap((record) => Object.values(record.componentViews ?? {}))));
+1747:            function ownerPaths(file, seen = new Set())
+1749:                if (seen.has(file))
+1753:                if (routeOwners.has(file))
+1755:                    return [[]];
+1757:                const next = new Set([...seen, file]);
+1758:                return graphNodes.filter((call) => call.definition === file).flatMap((call) =>
+1762:                && node.ancestors.some((id) => nodes.get(id)?.origin.package === 'vue-router'
+1763:                    && nodes.get(id)?.origin.publicName === 'RouterView'));
+1791:            graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+1806:            return node;
+1821:            record.scripts.forEach(({ ast }) => collect(ast));
+1830:                return node && (ts.isIdentifier(node) && node.text === name
+1849:            record.scripts.forEach(({ ast }) => escaped(ast));
+1851:        function spreadInput(file, exp, property, seen = new Set())
+1865:                    return { objectProp: { file, property: selected.name.text, key: property, fallback, fallbackFile: file } };
+1871:                if (exp.text === props?.propsName || (exp.text === '$props' && !record.variables.has('$props') && !record.imports.has('$props')))
+1877:                    return { forwarded: { file, property } };
+1880:                if (exp.text === props?.attrsName && !record.variables.has(exp.text) && !record.imports.has(exp.text)
+1883:                    return absent;
+1886:                const value = record.variables.get(exp.text);
+1896:                record.scripts.forEach(({ ast }) => collect(ast));
+1897:                if (!value || seen.has(key) || declarations.length !== 1
+1914:                        return value && ts.isIdentifier(value) ? value.text : null;
+1923:                record.scripts.forEach(({ ast }) => escaped(ast));
+1927:                    return absent;
+1929:                return spreadInput(file, value, property, new Set([...seen, key]));
+1933:                const imported = record.imports.get(exp.expression.text);
+1940:                    return spreadInput(file, body, property, seen);
+1949:                        const value = spreadInput(file, field.expression, property, new Set(seen));
+1952:                            return value;
+1963:                            return { expression: ts.isPropertyAssignment(field) ? field.initializer : field.name, file };
+1968:                return absent;
+1974:                return absent;
+1991:            const attributes = Object.keys(call.attributes).filter((name) => propName(name) === property);
+2029:            return input;
+2034:                && unwrapInput(input.expression).text === 'undefined' && !resolver.parse(input.file).imports.has('undefined')
+2035:                && !resolver.parse(input.file).variables.has('undefined');
+2045:            return input;
+2050:            if (seen.has(identity))
+2054:            const next = new Set([...seen, identity]);
+2060:            return parents.flatMap((parent) =>
+2070:                        : value && ts.isIdentifier(value) && !record.variables.has(value.text) && !record.imports.has(value.text)
+2078:                    return objectPropInputs({ ...edge, ...forwarded }, next)
+2092:                    return objectPropInputs(field.objectProp, next)
+2095:                return [{ input: field, callPath: [parent.id] }];
+2098:        function componentInput(call, property, seen = new Set(), override = undefined)
+2101:            if (seen.has(key))
+2105:            const next = new Set([...seen, key]);
+2114:                return objectPropInputs(input.objectProp, next).flatMap((entry) => componentInput(call, property, seen, entry.input)
+2123:                        return { ...result, callPath: [call.id, ...entry.callPath, ...tail.slice(overlap)] };
+2134:                return parents.flatMap((parent) => componentInput(parent, edge.property, next));
+2152:                function immutable(exp, file, seen = new Set())
+2158:                        if (record.imports.has(exp.text) || resolver.componentPropDeclaration(file, exp.text))
+2172:                        record.scripts.forEach(({ ast }) => collect(ast));
+2173:                        if (seen.has(identity) || declarations.length !== 1 || !(declarations[0].parent.flags & ts.NodeFlags.Const))
+2177:                        immutable(declarations[0].initializer, file, new Set([...seen, identity]));
+2185:                        && resolver.parse(file).imports.get(exp.expression.text)?.name === '*')
+2199:            return results.map((result) => ({ ...result, callPath: [call.id, ...result.callPath] }));
+2206:                fail(`missing actual target supplier ${node.file}#${node.origin.property}`);
+2208:            return calls.flatMap((call) =>
+2216:                    fail(`missing actual target input ${node.file}#${node.origin.property}`);
+2218:                return inputs;
+2246:                            fail(`unbound rendered target supplier ${node.file}#${node.origin.property}`);
+2251:                                const entry = nodes.get(id);
+2252:                                return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
+2257:                        fail(`unbound rendered target supplier ${node.file}#${node.origin.property}`);
+2277:                        fail(`incomplete actual target supplier set ${node.file}#${node.origin.property}`);
+2315:                                return exp.text === node.origin.property || node.origin.selectorSource?.bindingFile === node.file
+2318:                            return exp && ts.isBinaryExpression(exp) && exp.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+2321:                        const guard = !target && [node, ...node.ancestors.map((id) => nodes.get(id))]
+2323:                            .flatMap((entry) => entry.conditional.map((condition) => ({ ...condition, nodeId: entry.id })))
+2339:                                const entry = nodes.get(id);
+2340:                                return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
+2376:                            return [exp.text];
+2380:                            return [...absentDisjunction(exp.left), ...absentDisjunction(exp.right)];
+2382:                        return ['unknown'];
+2384:                    const guard = [node, ...node.ancestors.map((id) => nodes.get(id))]
+2386:                        .flatMap((entry) => entry.conditional.map((condition) => ({ ...condition, nodeId: entry.id })))
+2391:                                return false;
+2394:                            return leaves.length === properties.length && new Set(leaves).size === properties.length
+2405:                            const entry = nodes.get(id);
+2406:                            return controlDigest({ attributes: entry.attributes, directives: entry.directives, slots: entry.slotInputs });
+2420:        for (const node of [...nodes.values()].filter((entry) => reachable.has(entry.file)
+2425:        for (const node of [...nodes.values()].filter((entry) => reachable.has(entry.file)
+2434:            if (conditions.length !== node.conditional.length || node.ancestors.some((id) => nodes.get(id).conditional.length))
+2459:        const slotGraph = { nodes: [...nodes.values()].filter((node) => reachable.has(node.file)) };
+2478:                    if (records.get(slot.file).renderSource)
+2480:                        resolver.parse(slot.file).scripts.forEach(({ ast }) => find(ast));
+2506:        graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+2508:            files: [...records.values()].filter((record) => reachable.has(record.file)),
+2509:            nodes: [...nodes.values()].filter((node) => reachable.has(node.file)), structuralBindings, nativePropBindings, componentPropBindings,
+2511:            objectKeyAbsenceProofs: [...new Map(objectKeyAbsenceProofs.map((proof) => [proof.proofDigest, proof])).values()], resolverInputs: finalBindings.files,
+2512:            errors: [...errors.filter((error) => !error.file || reachable.has(error.file)), ...nativePropErrors, ...componentPropErrors, ...slotErrors, ...frameworkTargetErrors],
+2513:            sourceDigest: controlDigest({ files: [...records.values()].filter((record) => reachable.has(record.file)).map(({ file, digest }) => ({ file, digest })),
+2516:                functionalSources: [...records.values()].filter((record) => reachable.has(record.file) && record.renderSource?.functional)
+2518:                collectionSources: [...records.values()].filter((record) => reachable.has(record.file) && record.collectionSources?.length)
+2526:        return graphResult;
+2530:        const context = targetSuppliers.get(graph);
+2531:        if (!context || !context.nodes().includes(node) || nodes.get(node?.id) !== node || node.origin.kind !== 'native-prop')
+2533:            fail('target supplier requires its actual canonical graph and source node');
+2537:            fail('canonical target supplier graph changed');
+2540:            || context.graph.nodes.some((entry, index) => entry !== context.nodes()[index] || nodes.get(entry.id) !== entry)))
+2542:            fail('canonical target supplier graph node identity changed');
+2546:            fail('canonical target supplier source changed');
+2549:        return structuredClone(context.resolve(node));
+2565:        const edits = [...originalCalls.values()].filter((original) => original.file === file)
+2570:                return { offset: node.sourceSyntax?.markerOffset ?? node.offset + 1 + node.tag.length,
+2579:        return code;
+2592:        return vueBinding(record, node, exportedName);
+2595:        get records()
+2597:            return new Map(records);
+2603:        return nodes;
+2605:    return api;
+2611:    return { name: 'fsusblog-composition-source-probe', enforce: 'pre',
+2615:                || (!source.records.has(id) && extname(id) !== '.vue'))
+2617:                return null;
+2619:            return { code: source.instrument(id, code), map: null };

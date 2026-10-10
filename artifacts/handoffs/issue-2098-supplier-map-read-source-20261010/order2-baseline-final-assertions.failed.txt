@@ -1,0 +1,134 @@
+✖ canonical supplier reads refuse original values shadow omitting an unknown supplying call (271.831094ms)
+✖ canonical supplier reads refuse original values shadow reversing genuine supplying calls (91.815372ms)
+✖ canonical supplier reads reject public Map method iterator getter and prototype overrides before invocation (52.457748ms)
+✔ canonical supplier reads keep detached resolver and file Maps observational while native callbacks remain supported (130.382712ms)
+✔ canonical supplier reads preserve genuine unknown call refusal through repeated original graphs (126.365508ms)
+✖ canonical supplier reads bind the actual resolver methods and observation getters without replacing registration callbacks (56.792342ms)
+✖ canonical supplier reads reject shared traversal prototype drift without invoking forged reads (68.613897ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 2
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 874.943603
+
+✖ failing tests:
+
+test at tests/tools/layout-module-integration-source.test.mjs:404:1
+✖ canonical supplier reads refuse original values shadow omitting an unknown supplying call (271.831094ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:421:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.start (node:internal/test_runner/test:1177:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /original source node Map observation/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/tools/layout-module-integration-source.test.mjs:432:1
+✖ canonical supplier reads refuse original values shadow reversing genuine supplying calls (91.815372ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:447:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /original source node Map observation/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/tools/layout-module-integration-source.test.mjs:455:1
+✖ canonical supplier reads reject public Map method iterator getter and prototype overrides before invocation (52.457748ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /original source node Map observation/. Input:
+  
+  'Error: public Map read override executed'
+  
+      at TestContext.<anonymous> (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:476:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: public Map read override executed
+        at Map.trap (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:466:19)
+        at Object.graph (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/frontend/support/layout/compositionSource.mjs:1738:36)
+        at file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:476:31
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:476:16)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1306:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+        at Test.postRun (node:internal/test_runner/test:1447:19),
+    expected: /original source node Map observation/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/tools/layout-module-integration-source.test.mjs:558:1
+✖ canonical supplier reads bind the actual resolver methods and observation getters without replacing registration callbacks (56.792342ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(Object.isFrozen(s.resolver))
+  
+      at TestContext.<anonymous> (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:564:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/tools/layout-module-integration-source.test.mjs:591:1
+✖ canonical supplier reads reject shared traversal prototype drift without invoking forged reads (68.613897ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /original source node Map observation traversal prototype/. Input:
+  
+  'Error: shared traversal read override invoked'
+  
+      at TestContext.<anonymous> (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:609:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: shared traversal read override invoked
+        at Map.get (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:607:27)
+        at Object.graph (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/frontend/support/layout/compositionSource.mjs:1738:36)
+        at file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:609:39
+        at getActual (node:assert:611:5)
+        at strict.throws (node:assert:759:24)
+        at TestContext.<anonymous> (file:///workspace/chain-1895-origin-export-successor/FsusBlog/tests/tools/layout-module-integration-source.test.mjs:609:24)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1306:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+        at Test.postRun (node:internal/test_runner/test:1447:19),
+    expected: /original source node Map observation traversal prototype/,
+    operator: 'throws',
+    diff: 'simple'
+  }
