@@ -768,12 +768,13 @@ describe('useImageUploadRuntime', () => {
     const host = attachmentHost()
     const capture = vi.spyOn(host.owner, 'capture'), commit = vi.spyOn(host.owner, 'commitCreated')
     const firstConsumer = deferred<void>()
+    const firstPart = deferred<{ uploadedBytes: number }>(), secondPart = deferred<{ uploadedBytes: number }>()
     const loans: ImageUploadSessionBorrow[] = []
     const observed: File[] = []
     const runtime = useImageUploadRuntime()
     api.initUploadSession.mockImplementation(async () => ({ uploadId: `upload-${api.initUploadSession.mock.calls.length}`, uploadToken: 'token-old' }))
-    api.uploadPart.mockImplementation(async () => { await vi.advanceTimersByTimeAsync(31_001); return { uploadedBytes: 73 } })
-    const onSuccess = vi.fn()
+    api.uploadPart.mockReturnValueOnce(firstPart.promise).mockReturnValueOnce(secondPart.promise)
+    const onSuccess = vi.fn(), onError = vi.fn()
     const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
       taskRegistry: host.documentOwner, onFileUploaded: async ({ file, intent, borrow }) => {
         const index = observed.length
@@ -790,13 +791,22 @@ describe('useImageUploadRuntime', () => {
           expect(facts.uploadId).toBe(`upload-${index + 1}`)
         })
       } })
-    const upload = flow.startUpload({ files, attachmentInput: { ...host, origin: 'pick' }, onSuccess })
+    const upload = flow.startUpload({ files, attachmentInput: { ...host, origin: 'pick' }, onSuccess, onError })
+    await flushPromises()
+    expect(api.uploadPart).toHaveBeenCalledOnce()
+    await vi.advanceTimersByTimeAsync(31_001)
+    firstPart.resolve({ uploadedBytes: 73 })
     await flushPromises()
     expect(observed).toEqual([files[0]])
     expect(api.initUploadSession).toHaveBeenCalledOnce()
     expect(onSuccess).not.toHaveBeenCalled()
     firstConsumer.resolve()
+    await flushPromises()
+    expect(api.uploadPart).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(31_001)
+    secondPart.resolve({ uploadedBytes: 73 })
     await upload
+    expect(onError).not.toHaveBeenCalled()
     expect(observed[1]).toBe(files[1])
     expect(capture).toHaveBeenCalledOnce()
     expect(commit).toHaveBeenCalledOnce()
