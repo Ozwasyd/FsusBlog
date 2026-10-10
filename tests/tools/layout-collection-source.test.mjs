@@ -1483,3 +1483,442 @@ test('effect boundary: opaque partition caller cannot borrow literal operation s
     const state = actualPagination(':layout="unknown"');
     assert.throws(() => state.module.partitionCollection(state.file, state.loop, state.componentCall, state.bindings), /nonliteral collection input/u);
 });
+
+test('effect review EF1: direct await cannot close the original parameter source', () =>
+{
+    assert.equal(reviewReadonly('async function owner(props){await props;}').readonly, false);
+});
+test('effect review EF1: deferred async capture cannot close the original parameter source', () =>
+{
+    assert.equal(reviewReadonly('function owner(props){const callback=async()=>{await props;};foreign(callback);}').readonly, false);
+});
+test('effect review EF2: call arguments retain origins after each earlier argument effect', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign(alias=item,alias);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments.map((argument) => argument.path), [['item'], ['item']]);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'call-argument').map((entry) => entry.path), [['item'], ['item']]);
+});
+test('effect review EF2: new arguments retain origins after each earlier argument effect', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;new Unknown(alias=item,alias);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments.map((argument) => argument.path), [['item'], ['item']]);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'call-argument').map((entry) => entry.path), [['item'], ['item']]);
+});
+test('effect review EF3: runtime class heritage cannot be erased as type syntax', () =>
+{
+    unknownFramework('export function wrap(value){class Carrier extends value{}return 1;}');
+});
+test('effect review EF3: runtime enum initialization cannot be erased as type syntax', () =>
+{
+    unknownFramework('export function wrap(value){enum Mode{A=value}return 1;}');
+});
+test('ordered effect: an earlier argument keeps its value when a later argument rebinds the alias', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign(alias,alias=item);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments.map((argument) => argument.path), [['other'], ['item']]);
+});
+test('ordered effect: aggregate elements retain their individually evaluated source origins', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign([alias,alias=item]);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments[0].paths, [['other'], ['item']]);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'call-argument').map((entry) => entry.path), [['other'], ['item']]);
+});
+test('ordered effect: object initializer values retain their individually evaluated source origins', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign({first:alias,next:alias=item});};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments[0].paths, [['other'], ['item']]);
+});
+test('ordered effect: receiver provenance is captured before argument rebinding', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;alias.send(alias=item,alias);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].path, ['other','send']);
+    assert.deepEqual(result.calls[0].arguments.map((argument) => argument.path), [['item'], ['item']]);
+    assert.ok(result.escapes.some((entry) => entry.kind === 'method-receiver' && entry.path.join('.') === 'other.send'));
+});
+test('ordered effect: computed receiver retains its object before key expression mutation', () =>
+{
+    const state = local("const callback=(item,other)=>{let alias=other;alias[(alias=item,'send')](alias);};const children=[];");
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].path, ['other','*']);
+    assert.deepEqual(result.calls[0].arguments[0].path, ['item']);
+});
+test('ordered effect: nested calls preserve argument snapshots and source invocation order', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign(alias,inner(alias=item),alias);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls.map((entry) => entry.expression), ['inner','foreign']);
+    assert.deepEqual(result.calls[0].arguments[0].path, ['item']);
+    assert.deepEqual(result.calls[1].arguments.map((argument) => argument.path), [['other'], null, ['item']]);
+});
+test('ordered effect: spread carrier retains its earlier input before a later alias assignment', () =>
+{
+    const state = local('const callback=(item,other)=>{let alias=other;foreign(...alias,alias=item);};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    assert.deepEqual(result.calls[0].arguments.map((argument) => argument.path), [['other'], ['item']]);
+});
+test('shared effect boundary: void wrapping cannot hide await from parameter closure', () =>
+{
+    assert.equal(reviewReadonly('async function owner(props){void(await props);}').readonly, false);
+});
+test('shared effect boundary: tagged template cannot hide a selected parameter consumer', () =>
+{
+    assert.equal(reviewReadonly('function owner(props){props`text`;}').readonly, false);
+});
+test('shared effect boundary: runtime heritage remains unknown in parameter closure', () =>
+{
+    assert.equal(reviewReadonly('function owner(props){class Carrier extends props{}return 1;}').readonly, false);
+});
+test('shared effect boundary: runtime enum remains unknown in parameter closure', () =>
+{
+    assert.equal(reviewReadonly('function owner(props){enum Mode{A=props}return 1;}').readonly, false);
+});
+test('shared effect boundary: runtime namespace initialization remains unknown', () =>
+{
+    unknownFramework('export function wrap(value){namespace Holder{export const member=value;}return 1;}');
+});
+test('shared effect boundary: erased interface and type alias grant no runtime reads', () =>
+{
+    const result = checkedFramework('export function wrap(value){interface Holder extends Unknown{member:typeof value;}type Alias=typeof value;return 1;}');
+    assert.equal(result.readonly, true);
+    assert.equal(result.closureComplete, true);
+    assert.deepEqual(result.functions[0].effects.freeReads, []);
+});
+test('shared effect boundary: erased implements cannot erase actual class heritage', () =>
+{
+    const result = unknownFramework('export function wrap(value){class Carrier extends value implements Unknown{}return 1;}');
+    assert.ok(result.functions[0].effects.reads.some((entry) => entry.path?.[0] === 'value'));
+    assert.ok(!result.functions[0].effects.freeReads.some((entry) => entry.path?.[0] === 'Unknown'));
+});
+test('shared effect boundary: ambient type signature creates no runtime declaration effects', () =>
+{
+    const result = checkedFramework('declare class Carrier extends Unknown{}export function wrap(value:Carrier){return 1;}');
+    assert.equal(result.readonly, true);
+    assert.equal(result.closureComplete, true);
+});
+test('shared effect boundary: actual heritage free binding is retained as a runtime read', () =>
+{
+    const result = unknownFramework('export function wrap(value){class Carrier extends Unknown{}return 1;}');
+    assert.ok(result.functions[0].effects.freeReads.some((entry) => entry.path?.[0] === 'Unknown'));
+});
+test('shared effect boundary: resolved class dependency retains the original runtime heritage gap', () =>
+{
+    const state = frameworkFixture('export function wrap(value){return new Carrier(value);}class Carrier extends Base{constructor(value){super(value);}}class Base{constructor(value){}}');
+    const actual = state.source.resolver.resolveFrameworkExport(state.file, state.call.expression);
+    const dependency = actual.dependencies.find((entry) => entry.classDeclaration?.heritageClauses?.length);
+    assert.ok(dependency);
+    const result = state.module.frameworkExportEffects(state.file, state.call.expression);
+    const inherited = state.source.resolver.sourceStep(dependency.file, dependency.classDeclaration.heritageClauses[0]);
+    assert.ok(result.openEffects.some((entry) => entry.source?.digest === inherited.digest && entry.required.includes('heritage')));
+    assert.equal(result.closureComplete, false);
+    assert.equal(result.readonly, false);
+});
+test('shared effect boundary: a declaration signature cannot supply an implementation effect contract', () =>
+{
+    const state = context();
+    const file = fixture('declare function owner(props):void;', 'Declared.ts');
+    const record = state.source.resolver.parse(file);
+    const fn = find(record, (node) => state.ts.isFunctionDeclaration(node), state.ts)[0];
+    const effects = state.module.callbackEffects(file, fn);
+    assert.ok(effects.unresolved.some((entry) => entry.required.includes('implementation body')));
+    const result = state.module.parameterClosure(file, fn);
+    assert.equal(result.readonly, false);
+    assert.ok(result.unresolved.some((entry) => entry.required.includes('implementation body')));
+    assert.equal(result.qualificationEligible, false);
+});
+
+function receiverEffects(body)
+{
+    const state = local(`const callback=(item,other)=>{${body}};const children=[];`);
+    return state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+}
+test('receiver review OF1: effectful comma receiver read uses the evaluated input source', () =>
+{
+    const result = receiverEffects('let alias=other;const observed=(alias=item,alias).marks;');
+    assert.deepEqual(result.reads.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['item','marks']]);
+});
+test('receiver review OF1: effectful comma receiver write uses the evaluated input source', () =>
+{
+    const result = receiverEffects('let alias=other;(alias=item,alias).marks=1;');
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'item.marks'));
+});
+test('receiver positive: unchanged receiver read retains its original other source', () =>
+{
+    const result = receiverEffects('let alias=other;const observed=alias.marks;');
+    assert.deepEqual(result.reads.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['other','marks']]);
+});
+test('receiver positive: assignment freezes its other receiver before RHS rebinding', () =>
+{
+    const result = receiverEffects('let alias=other;alias.marks=(alias=item,1);');
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'other.marks'));
+    assert.ok(!result.writes.some((entry) => entry.path?.join('.') === 'item.marks'));
+});
+test('receiver order: separate member reads retain their own evaluation snapshots', () =>
+{
+    const result = receiverEffects('let alias=other;const first=(alias=item,alias).marks;alias=other;const next=alias.marks;');
+    assert.deepEqual(result.reads.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['item','marks'],['other','marks']]);
+});
+test('receiver order: computed key mutation cannot replace an already evaluated read receiver', () =>
+{
+    const result = receiverEffects("let alias=other;const first=alias[(alias=item,'marks')];const next=alias.marks;");
+    assert.deepEqual(result.reads.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['other','*'],['item','marks']]);
+    assert.ok(result.unresolved.some((entry) => entry.required.includes('computed key')));
+});
+test('receiver order: receiver and computed key effects preserve both authored evaluation points', () =>
+{
+    const result = receiverEffects("let alias=other;const first=(alias=item,alias)[(alias=other,'marks')];const next=alias.marks;");
+    assert.deepEqual(result.reads.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['item','*'],['other','marks']]);
+});
+test('receiver order: computed write freezes the object before key and RHS effects', () =>
+{
+    const result = receiverEffects("let alias=other;alias[(alias=item,'marks')]=(alias=other,1);alias.marks=2;");
+    assert.deepEqual(result.writes.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['other','*'],['other','marks']]);
+});
+test('receiver order: compound assignment reads and writes the receiver captured before its RHS', () =>
+{
+    const result = receiverEffects('let alias=other;alias.marks+=(alias=item,1);');
+    assert.deepEqual(result.reads.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['other','marks']]);
+    assert.deepEqual(result.writes.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['other','marks']]);
+});
+test('receiver order: prefix update evaluates an effectful receiver before GetValue and write', () =>
+{
+    const result = receiverEffects('let alias=other;++(alias=item,alias).marks;');
+    assert.deepEqual(result.reads.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['item','marks']]);
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'item.marks' && entry.operator === '++'));
+});
+test('receiver order: postfix update evaluates an effectful receiver before GetValue and write', () =>
+{
+    const result = receiverEffects('let alias=other;(alias=item,alias).marks--;');
+    assert.deepEqual(result.reads.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['item','marks']]);
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'item.marks' && entry.operator === '--'));
+});
+test('receiver order: identifier update cannot leave its old borrowed object available', () =>
+{
+    const result = receiverEffects('let alias=other;alias++;const observed=alias.marks;');
+    assert.ok(!result.reads.some((entry) => entry.path?.join('.') === 'other.marks'));
+    assert.ok(result.reads.some((entry) => entry.path?.join('.') === 'alias.marks' && entry.receiverSourceProven === false));
+    assert.ok(result.unresolved.some((entry) => entry.required.includes('receiver')));
+});
+test('receiver order: delete evaluates its receiver without an outer property GetValue', () =>
+{
+    const result = receiverEffects('let alias=other;delete (alias=item,alias).marks;');
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'item.marks' && entry.operator === 'delete'));
+    assert.ok(!result.reads.some((entry) => entry.path?.length === 2));
+    assert.ok(result.references.some((entry) => entry.path?.join('.') === 'item.marks' && entry.kind === 'property-reference'));
+});
+test('receiver order: plain assignment records a reference without inventing an outer getter read', () =>
+{
+    const result = receiverEffects('let alias=other;alias.marks=1;');
+    assert.ok(!result.reads.some((entry) => entry.path?.length === 2));
+    assert.ok(result.references.some((entry) => entry.path?.join('.') === 'other.marks' && entry.kind === 'property-reference'));
+});
+test('receiver order: nested receiver GetValue remains before the outer plain write', () =>
+{
+    const result = receiverEffects('let alias=other;alias.nested.marks=(alias=item,1);');
+    assert.ok(result.reads.some((entry) => entry.path?.join('.') === 'other.nested'));
+    assert.ok(!result.reads.some((entry) => entry.path?.join('.') === 'other.nested.marks'));
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'other.nested.marks'));
+});
+test('receiver order: logical assignment keeps its captured target and both possible later aliases', () =>
+{
+    const result = receiverEffects('let alias=other;alias.marks&&=(alias=item,1);alias.marks=2;');
+    assert.deepEqual(result.writes.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['other','marks'],['other','marks'],['item','marks']]);
+});
+test('receiver order: effectful method receiver is frozen before argument rebinding', () =>
+{
+    const result = receiverEffects('let alias=other;(alias=item,alias).send(alias=other,alias);');
+    assert.deepEqual(result.calls[0].path, ['item','send']);
+    assert.deepEqual(result.calls[0].arguments.map((entry) => entry.path), [['other'],['other']]);
+});
+test('receiver order: effectful constructor property is frozen before argument rebinding', () =>
+{
+    const result = receiverEffects('let alias=other;new ((alias=item,alias).Ctor)(alias=other,alias);');
+    assert.deepEqual(result.calls[0].path, ['item','Ctor']);
+    assert.deepEqual(result.calls[0].arguments.map((entry) => entry.path), [['other'],['other']]);
+});
+test('receiver order: transparent type assertions preserve evaluation order without proving values', () =>
+{
+    const result = receiverEffects('let alias=other;((alias=item,alias) as Readonly<object>).marks=1;');
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'item.marks'));
+    assert.ok(result.writes.filter((entry) => entry.path?.length === 2).every((entry) => entry.runtimeIdentityProven === false));
+});
+test('receiver unknown: direct aggregate contents do not supply their container receiver identity', () =>
+{
+    const result = receiverEffects('const observed=({item}).marks;');
+    assert.ok(!result.reads.some((entry) => entry.path?.join('.') === 'item.marks'));
+    assert.ok(result.reads.some((entry) => entry.path === null && entry.receiverSourceProven === false));
+    assert.ok(result.unresolved.some((entry) => entry.required.includes('contained references')));
+});
+test('receiver positive: an authored aggregate alias keeps its own source container identity', () =>
+{
+    const result = receiverEffects('const alias={item};alias.marks=1;');
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'alias.marks'));
+    assert.ok(!result.writes.some((entry) => entry.path?.join('.') === 'item.marks'));
+});
+test('receiver unknown: opaque call results cannot inherit the old borrowed receiver', () =>
+{
+    const result = receiverEffects('let alias=other;alias=foreign(item);alias.marks=1;');
+    assert.ok(!result.writes.some((entry) => entry.path?.join('.') === 'other.marks'));
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'alias.marks' && entry.receiverSourceProven === false));
+});
+test('receiver unknown: unsupported destructuring targets invalidate possible stale aliases', () =>
+{
+    const result = receiverEffects('let alias=other;({alias}=item);alias.marks=1;');
+    assert.ok(result.unresolved.some((entry) => entry.required.includes('destructuring')));
+    assert.ok(!result.writes.some((entry) => entry.path?.join('.') === 'other.marks'));
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'alias.marks' && entry.receiverSourceProven === false));
+});
+test('receiver unknown: a numeric annotation cannot close update conversion effects', () =>
+{
+    unknownFramework('export function wrap(value:number){value++;return 1;}');
+});
+test('receiver order: every authored arithmetic and bitwise compound operator freezes the LHS reference', () =>
+{
+    for (const operator of ['+=','-=','*=','/=','%=','**=','<<=','>>=','>>>=','&=','^=','|='])
+    {
+        const result = receiverEffects(`let alias=other;(alias=item,alias).marks${operator}(alias=other,1);`);
+        assert.deepEqual(result.writes.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['item','marks']], operator);
+        assert.ok(result.reads.some((entry) => entry.path?.join('.') === 'item.marks'), operator);
+    }
+});
+test('receiver order: every authored logical assignment retains its RHS bypass alias alternative', () =>
+{
+    for (const operator of ['&&=','||=','??='])
+    {
+        const result = receiverEffects(`let alias=other;alias.marks${operator}(alias=item,1);alias.marks=2;`);
+        assert.deepEqual(result.writes.filter((entry) => entry.path?.length === 2).map((entry) => entry.path),
+            [['other','marks'],['other','marks'],['item','marks']], operator);
+    }
+});
+test('receiver order: computed prefix update freezes the receiver before key mutation', () =>
+{
+    const result = receiverEffects("let alias=other;++alias[(alias=item,'marks')];");
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'other.*' && entry.operator === '++'));
+    assert.ok(!result.writes.some((entry) => entry.path?.join('.') === 'item.*'));
+});
+test('receiver order: computed delete freezes the receiver before key mutation', () =>
+{
+    const result = receiverEffects("let alias=other;delete alias[(alias=item,'marks')];");
+    assert.ok(result.writes.some((entry) => entry.path?.join('.') === 'other.*' && entry.operator === 'delete'));
+    assert.ok(!result.reads.some((entry) => entry.path?.length === 2));
+});
+test('receiver order: implicit arrow and default-initializer roots start in GetValue mode', () =>
+{
+    for (const expression of ['item', 'item.marks', '(other=item,other).marks'])
+    {
+        const state = local(`const callback=(item,other)=>${expression};const children=[];`);
+        const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+        const expected = expression === 'item' ? 'item' : 'item.marks';
+        assert.ok(result.reads.some((entry) => entry.path?.join('.') === expected), expression);
+    }
+    const state = local('const callback=(item,other=item.marks)=>other;const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'), true);
+    assert.ok(result.reads.some((entry) => entry.path?.join('.') === 'item.marks'));
+    assert.ok(result.reads.some((entry) => entry.path?.join('.') === 'other'));
+});
+test('receiver branch P2 negative: conditional call and escape cannot drop the nonfirst source', () =>
+{
+    const state = local('const callback=(item,other)=>{(flag ? item : other).send();};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    const expected = [['item', 'send'], ['other', 'send']];
+    assert.deepEqual(result.calls.map((entry) => entry.path), expected);
+    const escaped = result.escapes.filter((entry) => entry.kind === 'method-receiver');
+    assert.deepEqual(escaped.map((entry) => entry.path), expected);
+    const call = find(state.record, (node) => state.ts.isCallExpression(node)
+        && node.expression.getText() === '(flag ? item : other).send', state.ts)[0];
+    const callStep = state.source.resolver.sourceStep(state.file, call);
+    const receiverStep = state.source.resolver.sourceStep(state.file, call.expression);
+    for (const entry of result.calls)
+    {
+        assert.equal(entry.file, callStep.file);
+        assert.equal(entry.offset, callStep.offset);
+        assert.equal(entry.digest, callStep.digest);
+        assert.equal(entry.runtimeIdentityProven, false);
+    }
+    for (const entry of escaped)
+    {
+        assert.equal(entry.file, receiverStep.file);
+        assert.equal(entry.offset, receiverStep.offset);
+        assert.equal(entry.digest, receiverStep.digest);
+        assert.equal(entry.runtimeIdentityProven, false);
+    }
+});
+test('receiver branch P2 negative: logical call and escape cannot drop the nonfirst source', () =>
+{
+    for (const operator of ['||', '&&', '??'])
+    {
+        const result = receiverEffects(`(item ${operator} other).send();`);
+        const expected = [['item', 'send'], ['other', 'send']];
+        assert.deepEqual(result.calls.map((entry) => entry.path), expected, operator);
+        assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'method-receiver').map((entry) => entry.path), expected, operator);
+    }
+});
+test('receiver branch positive: a direct receiver retains one call and one escape source', () =>
+{
+    const result = receiverEffects('other.send(item);');
+    assert.deepEqual(result.calls.map((entry) => entry.path), [['other', 'send']]);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'method-receiver').map((entry) => entry.path), [['other', 'send']]);
+    assert.deepEqual(result.calls[0].arguments.map((entry) => entry.path), [['item']]);
+    assert.equal(result.escapes.filter((entry) => entry.kind === 'call-argument').length, 1);
+    assert.equal(result.calls[0].receiverSourceProven, true);
+    assert.equal(result.calls[0].runtimeIdentityProven, false);
+});
+test('receiver branch positive: repeated source alternatives retain their authored conditional site', () =>
+{
+    const result = receiverEffects('(flag ? item : item).send();');
+    assert.deepEqual(result.calls.map((entry) => entry.path), [['item', 'send']]);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'method-receiver').map((entry) => entry.path), [['item', 'send']]);
+    assert.equal(result.calls[0].expression, '(flag ? item : item).send');
+    assert.ok(result.freeReads.some((entry) => entry.path?.join('.') === 'flag'));
+});
+test('receiver branch order: nested arguments cannot rewrite either previously evaluated receiver', () =>
+{
+    const result = receiverEffects('let alias=other;(flag ? item : alias).send((alias=item,alias).take(),alias=other);');
+    assert.deepEqual(result.calls.map((entry) => entry.path), [['item', 'take'], ['item', 'send'], ['other', 'send']]);
+    const outer = result.calls.slice(1);
+    assert.ok(outer.every((entry) => entry.arguments.length === 2));
+    assert.ok(outer.every((entry) => entry.arguments[1].path.join('.') === 'other'));
+    assert.deepEqual(outer[0].arguments, outer[1].arguments);
+    assert.equal(result.escapes.filter((entry) => entry.kind === 'call-argument').length, 1);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'method-receiver').map((entry) => entry.path),
+        [['item', 'take'], ['item', 'send'], ['other', 'send']]);
+    for (const entry of outer)
+    {
+        assert.deepEqual(entry.originBindings, result.parameterSources.map((parameter) => parameter.source));
+    }
+});
+test('receiver branch negative: unknown computed and opaque receiver alternatives remain unresolved', () =>
+{
+    const computed = receiverEffects('(flag ? item : other)[key]();');
+    assert.deepEqual(computed.calls.map((entry) => entry.path), [['item', '*'], ['other', '*']]);
+    assert.ok(computed.unresolved.some((entry) => entry.required.includes('computed key')));
+    const opaque = receiverEffects('(flag ? item : foreign(other)).send();');
+    const outer = opaque.calls.filter((entry) => entry.expression.endsWith('.send'));
+    assert.equal(outer.length, 1);
+    assert.equal(outer[0].receiverSourceProven, false);
+    assert.ok(opaque.unresolved.some((entry) => entry.required.includes('receiver')));
+    assert.ok([...computed.calls, ...opaque.calls, ...opaque.escapes.filter((entry) => entry.kind === 'method-receiver')]
+        .every((entry) => entry.runtimeIdentityProven === false));
+});
+test('receiver branch positive: final proof digest binds every call and escape source alternative', async () =>
+{
+    const { controlDigest } = await import('@fsusblog/control-legality/source');
+    const result = receiverEffects('(flag ? item : other).send();');
+    const { proofDigest, ...payload } = result;
+    assert.equal(proofDigest, controlDigest(payload));
+    assert.equal(result.calls.length, 2);
+    assert.notEqual(proofDigest, controlDigest({ ...payload, calls: payload.calls.slice(0, 1) }));
+    assert.notEqual(proofDigest, controlDigest({ ...payload, escapes: payload.escapes.slice(0, 1) }));
+});
+test('receiver branch negative: either possible method call rejects collection callback purity', () =>
+{
+    for (const items of ["['a']", '[]'])
+    {
+        reject(`const children=${items}.map((item,index)=>{(flag ? item : index).send();return item;});`);
+    }
+});

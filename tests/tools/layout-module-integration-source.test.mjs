@@ -1414,3 +1414,49 @@ test('central canonical collection instance retains its original methods for bot
     assert.deepEqual(graph.errors, []);
     assert.equal(graph.nodes.find((node) => node.tag === 'button').renderPaths.length, 2);
 });
+
+test('central canonical collection receiver references preserve plain assignment without fabricating getter reads', () =>
+{
+    const s = source();
+    const text = 'const callback=(item,other)=>{let alias=other;(alias=item,alias).marks=1;};';
+    const file = fixture(text, 'ts');
+    const fn = s.resolver.parse(file).variables.get('callback');
+    const effect = s.collectionSource.callbackEffects(file, fn);
+    assert.ok(effect.references.some((entry) => entry.kind === 'property-reference' && entry.path?.join('.') === 'item.marks'));
+    assert.ok(effect.writes.some((entry) => entry.path?.join('.') === 'item.marks'));
+    assert.ok(!effect.reads.some((entry) => entry.path?.join('.') === 'item.marks'));
+    assert.ok(effect.references.every((entry) => entry.file === file && entry.digest.length === 64 && entry.runtimeIdentityProven === false));
+    const { proofDigest, ...payload } = effect;
+    assert.equal(proofDigest, controlDigest(payload));
+    assert.notEqual(proofDigest, controlDigest({ ...payload, references: [] }));
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('central canonical collection source retains every receiver alternative at one original call site', () =>
+{
+    const s = source();
+    const file = fixture('const callback=(item,other)=>{(flag?item:other).send();};', 'ts');
+    const fn = s.resolver.parse(file).variables.get('callback');
+    const effect = s.collectionSource.callbackEffects(file, fn);
+    assert.deepEqual(effect.calls.map((entry) => entry.path), [['item', 'send'], ['other', 'send']]);
+    assert.deepEqual(effect.escapes.filter((entry) => entry.kind === 'method-receiver').map((entry) => entry.path), [['item', 'send'], ['other', 'send']]);
+    assert.equal(new Set(effect.calls.map((entry) => entry.offset)).size, 1);
+    assert.equal(new Set(effect.calls.map((entry) => entry.digest)).size, 1);
+    assert.ok(effect.calls.every((entry) => entry.file === file && entry.runtimeIdentityProven === false));
+    const { proofDigest, ...payload } = effect;
+    assert.equal(proofDigest, controlDigest(payload));
+    assert.notEqual(proofDigest, controlDigest({ ...payload, calls: payload.calls.slice(0, 1) }));
+    assert.notEqual(proofDigest, controlDigest({ ...payload, escapes: payload.escapes.slice(0, 1) }));
+});
+
+test('central canonical collection assignment preserves the original receiver across RHS rebinding', () =>
+{
+    const s = source();
+    const file = fixture('const callback=(item,other)=>{let alias=other;alias.marks=(alias=item,1);};', 'ts');
+    const fn = s.resolver.parse(file).variables.get('callback');
+    const effect = s.collectionSource.callbackEffects(file, fn);
+    assert.deepEqual(effect.writes.filter((entry) => entry.path?.length === 2).map((entry) => entry.path), [['other', 'marks']]);
+    assert.ok(!effect.reads.some((entry) => entry.path?.length === 2));
+    assert.ok(effect.references.some((entry) => entry.path?.join('.') === 'other.marks' && entry.kind === 'property-reference'));
+    assert.ok(effect.writes.filter((entry) => entry.path?.length === 2).every((entry) => entry.runtimeIdentityProven === false));
+});
