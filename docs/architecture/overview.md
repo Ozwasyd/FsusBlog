@@ -118,9 +118,19 @@ or refresh it. Each `withSession` invocation has a separate
 access object and signal; getters are revoked and that signal is aborted when
 the awaited callback settles or its 30-second scope expires. Concurrent scopes
 do not revoke each other or extend the loan deadline. Slow chunk IO grants no
-precompletion loan. Raw upload failure grants no loan; callback failure releases
-any acquired loan while retaining the
-original resumable snapshot and any unknown cleanup obligation. Stored snapshots
+precompletion loan. Raw upload failure grants no loan. A current operation's
+successful complete acknowledgement is kept separately from loan access. If the
+runtime completion callback fails, is cancelled, or is disposed, the runtime
+revokes access and resets public transport without sending abort. Repeated
+abandon also sends no abort after an acknowledged completion. It retains the
+original recovery snapshot, acknowledgement response and callback error privately
+and reports `upload_completion_recovery_required` through its existing error and
+cleanup state. This acknowledged operation cannot resume, recomplete or be
+overwritten while recovery is required. No canonical recovery receiver is wired
+here, so local reset does not acknowledge recovery or committed-asset cleanup.
+Successful raw upload still returns its original URL; later flow consumer failure
+is a separate recovery boundary whose integration remains open. Pre-ACK abort
+token/status qualification and unknown cleanup obligations remain unchanged. Stored snapshots
 cannot mint replacement loans, and unknown commit state never grants deletion.
 
 `useImageUploadFlow.startUpload` accepts an optional `attachmentInput` containing

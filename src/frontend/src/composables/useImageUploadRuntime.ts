@@ -73,6 +73,15 @@ interface OwnedUploadAttempt {
     borrowIssued: boolean;
 }
 
+interface AcknowledgedUploadCompletion {
+    readonly generation: number;
+    readonly snapshot: ResumeSessionSnapshot;
+    readonly response: Awaited<ReturnType<typeof completeUpload>>;
+    transportCompleted: boolean;
+    recoveryRequired: boolean;
+    callbackError: unknown;
+}
+
 class UploadAttemptSupersededError extends Error
 {
     constructor()
@@ -221,6 +230,7 @@ export function useImageUploadRuntime()
     let ownedAttempt: OwnedUploadAttempt | null = null;
     let disposed = false;
     let ownedCommitStateUnknown = false;
+    let acknowledgedCompletion: AcknowledgedUploadCompletion | null = null;
     let pendingOwnedInitialization: { work: ReturnType<typeof initUploadSession>; resumeKey: string; fileName: string; } | null = null;
 
     const bindingIsCurrent = (binding: ImageUploadAttemptBinding, file: File, completed = false): boolean =>
@@ -259,6 +269,39 @@ export function useImageUploadRuntime()
             attempt.borrow?.release();
             attempt.access = null;
         }
+    };
+
+    const completionRecoveryError = (): ReturnType<typeof createAppError> => createAppError(
+        AppErrorCode.Conflict, 'upload_completion_recovery_required', {
+            cause: acknowledgedCompletion?.callbackError,
+            // Diagnostic history only; this is neither an asset receipt nor cleanup authority.
+            details: acknowledgedCompletion ? `completion_acknowledged; generation=${acknowledgedCompletion.generation}; `
+                + `upload_id=${acknowledgedCompletion.snapshot.uploadId}; result_url=${acknowledgedCompletion.response.url}` : undefined
+        });
+
+    const retainCompletionRecovery = (error?: unknown): void =>
+    {
+        const acknowledged = acknowledgedCompletion;
+        if (!acknowledged)
+        {
+            return;
+        }
+        acknowledged.recoveryRequired = true;
+        if (error !== undefined && acknowledged.callbackError === undefined)
+        {
+            acknowledged.callbackError = error;
+        }
+        discardOwnedAttempt();
+        pendingAttempt.value = null;
+        activeSession.uploadId = '';
+        activeSession.resumeKey = '';
+        activeSession.fileName = '';
+        cleanupRequired.value = true;
+        phase.value = 'error';
+        errorMessage.value = acknowledged.callbackError === undefined ? 'upload_completion_recovery_required'
+            : `${toAppError(acknowledged.callbackError, '上传完成回调失败').message}; upload_completion_recovery_required`;
+        // No receiver exists here. Keep the original snapshot/ACK in this instance;
+        // revoking a loan or clearing public transport is not recovery acknowledgement.
     };
 
     const borrowCurrentSession = (): ImageUploadSessionBorrow | null =>
@@ -418,6 +461,10 @@ export function useImageUploadRuntime()
 
     const performUpload = async (file: File, options: ImageCompressionOptions, runtimeOptions: ImageUploadRuntimeOptions): Promise<string> =>
     {
+        if (acknowledgedCompletion?.recoveryRequired)
+        {
+            throw completionRecoveryError();
+        }
         if (cleanupRequired.value || abandonPromise)
         {
             throw createAppError(AppErrorCode.Conflict, '上传会话尚未取消，请先重试取消');
@@ -427,6 +474,7 @@ export function useImageUploadRuntime()
             throw createAppError(AppErrorCode.Conflict, '上传尝试仍在执行，请先取消并等待清理确认');
         }
         discardOwnedAttempt();
+        acknowledgedCompletion = null;
         const generation = ++attemptGeneration;
         const ensureCurrentAttempt = (): void =>
         {
@@ -660,6 +708,13 @@ export function useImageUploadRuntime()
         const complete = await completeUpload(uploadId, uploadToken, fullHash);
         ensureCurrentAttempt();
         ownedCommitStateUnknown = false;
+        if (runtimeOptions.attemptBinding)
+        {
+            acknowledgedCompletion = {
+                generation, snapshot, response: complete, transportCompleted: false,
+                recoveryRequired: false, callbackError: undefined
+            };
+        }
         if (ownedAttempt?.generation === generation)
         {
             ownedAttempt.completed = true;
@@ -685,6 +740,10 @@ export function useImageUploadRuntime()
         activeSession.uploadId = '';
         activeSession.resumeKey = '';
         activeSession.fileName = '';
+        if (acknowledgedCompletion?.generation === generation)
+        {
+            acknowledgedCompletion.transportCompleted = true;
+        }
         return complete.url;
     };
 
@@ -723,6 +782,14 @@ export function useImageUploadRuntime()
             succeeded = true;
             return url;
         }
+        catch (error)
+        {
+            if (acknowledgedCompletion?.generation === generation && !acknowledgedCompletion.transportCompleted)
+            {
+                retainCompletionRecovery(error);
+            }
+            throw error;
+        }
         finally
         {
             binding?.lease.signal.removeEventListener('abort', onAbort);
@@ -740,6 +807,10 @@ export function useImageUploadRuntime()
 
     const resumeLatest = async (): Promise<string> =>
     {
+        if (acknowledgedCompletion?.recoveryRequired)
+        {
+            throw completionRecoveryError();
+        }
         const attempt = pendingAttempt.value;
         if (!attempt)
         {
@@ -754,6 +825,12 @@ export function useImageUploadRuntime()
         if (abandonPromise)
         {
             return abandonPromise;
+        }
+        if (acknowledgedCompletion)
+        {
+            retainCompletionRecovery();
+            attemptGeneration += 1;
+            return Promise.reject(completionRecoveryError());
         }
         let uploadId = activeSession.uploadId;
         let resumeKey = activeSession.resumeKey;
@@ -827,7 +904,7 @@ export function useImageUploadRuntime()
         onScopeDispose(() =>
         {
             disposed = true;
-            if (ownedAttempt || pendingOwnedInitialization || ownedCommitStateUnknown
+            if (ownedAttempt || acknowledgedCompletion || pendingOwnedInitialization || ownedCommitStateUnknown
                 || pendingAttempt.value?.runtimeOptions.attemptBinding)
             {
                 void abandon().catch(() =>
