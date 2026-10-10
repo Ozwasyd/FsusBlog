@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-
-import { candidateIdentityFields, candidateSchemaDigest, candidatePolicyDigest, createCandidateIdentity,
-    verifyCandidateIdentity, diffCandidateIdentities } from '../../tools/release-candidate/identity-contract.mjs';
+import { URL } from 'node:url';
 
 import { candidatePayload, candidateIdentity, testDigest, otherDigest } from './release-candidate-test-support.mjs';
+
+const { candidateIdentityFields, candidateSchemaDigest, candidatePolicyDigest, createCandidateIdentity,
+    verifyCandidateIdentity, diffCandidateIdentities } = await import(new URL('../../tools/release-candidate/identity-contract.mjs', import.meta.url));
 
 test('candidate identity binds its closed schema and policy content', () =>
 {
