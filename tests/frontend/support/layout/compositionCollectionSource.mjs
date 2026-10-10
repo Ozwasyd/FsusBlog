@@ -703,23 +703,28 @@ export function createCompositionCollectionSource(source)
                 // in order. Freeze each result immediately; a later argument
                 // must not rewrite the provenance of an already-read value.
                 inspectEffects(node.expression);
-                const receiver = receiverValue(node.expression).paths[0] ?? null;
-                const receiverEscape = receiver && entry(node.expression, receiver, { kind: 'method-receiver' });
-                const call = entry(node, receiver, { expression: node.expression.getText(), arguments: [] });
+                const receiver = receiverValue(node.expression);
+                const callArguments = [];
+                const receiverMetadata = { originBindings: receiver.bindings.map((owner) => step(file, owner)),
+                    receiverSourceProven: !receiver.unknown, runtimeIdentityProven: false };
+                // These rows are source alternatives at one actual call site,
+                // not repeated executions or a selected runtime receiver.
+                const alternatives = (receiver.paths.length ? receiver.paths : [null]).map((parts) =>
+                    entry(node, parts, { expression: node.expression.getText(), arguments: callArguments,
+                        ...receiverMetadata }, node.expression));
+                const receiverEscapes = receiver.paths.map((parts) =>
+                    entry(node.expression, parts, { kind: 'method-receiver', ...receiverMetadata }));
                 for (const argument of node.arguments ?? [])
                 {
                     inspectEffects(argument);
-                    call.arguments.push({ ...entry(argument, rooted(argument)), paths: origins(argument), expression: argument.getText() });
+                    callArguments.push({ ...entry(argument, rooted(argument)), paths: origins(argument), expression: argument.getText() });
                     for (const target of origins(argument))
                     {
                         escapes.push(entry(argument, target, { kind: 'call-argument' }));
                     }
                 }
-                if (receiverEscape)
-                {
-                    escapes.push(receiverEscape);
-                }
-                calls.push(call);
+                escapes.push(...receiverEscapes);
+                calls.push(...alternatives);
             }
             else
             {

@@ -1826,3 +1826,104 @@ test('receiver order: implicit arrow and default-initializer roots start in GetV
     assert.ok(result.reads.some((entry) => entry.path?.join('.') === 'item.marks'));
     assert.ok(result.reads.some((entry) => entry.path?.join('.') === 'other'));
 });
+test('receiver branch P2 negative: conditional call and escape cannot drop the nonfirst source', () =>
+{
+    const state = local('const callback=(item,other)=>{(flag ? item : other).send();};const children=[];');
+    const result = state.module.callbackEffects(state.file, state.record.variables.get('callback'));
+    const expected = [['item', 'send'], ['other', 'send']];
+    assert.deepEqual(result.calls.map((entry) => entry.path), expected);
+    const escaped = result.escapes.filter((entry) => entry.kind === 'method-receiver');
+    assert.deepEqual(escaped.map((entry) => entry.path), expected);
+    const call = find(state.record, (node) => state.ts.isCallExpression(node)
+        && node.expression.getText() === '(flag ? item : other).send', state.ts)[0];
+    const callStep = state.source.resolver.sourceStep(state.file, call);
+    const receiverStep = state.source.resolver.sourceStep(state.file, call.expression);
+    for (const entry of result.calls)
+    {
+        assert.equal(entry.file, callStep.file);
+        assert.equal(entry.offset, callStep.offset);
+        assert.equal(entry.digest, callStep.digest);
+        assert.equal(entry.runtimeIdentityProven, false);
+    }
+    for (const entry of escaped)
+    {
+        assert.equal(entry.file, receiverStep.file);
+        assert.equal(entry.offset, receiverStep.offset);
+        assert.equal(entry.digest, receiverStep.digest);
+        assert.equal(entry.runtimeIdentityProven, false);
+    }
+});
+test('receiver branch P2 negative: logical call and escape cannot drop the nonfirst source', () =>
+{
+    for (const operator of ['||', '&&', '??'])
+    {
+        const result = receiverEffects(`(item ${operator} other).send();`);
+        const expected = [['item', 'send'], ['other', 'send']];
+        assert.deepEqual(result.calls.map((entry) => entry.path), expected, operator);
+        assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'method-receiver').map((entry) => entry.path), expected, operator);
+    }
+});
+test('receiver branch positive: a direct receiver retains one call and one escape source', () =>
+{
+    const result = receiverEffects('other.send(item);');
+    assert.deepEqual(result.calls.map((entry) => entry.path), [['other', 'send']]);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'method-receiver').map((entry) => entry.path), [['other', 'send']]);
+    assert.deepEqual(result.calls[0].arguments.map((entry) => entry.path), [['item']]);
+    assert.equal(result.escapes.filter((entry) => entry.kind === 'call-argument').length, 1);
+    assert.equal(result.calls[0].receiverSourceProven, true);
+    assert.equal(result.calls[0].runtimeIdentityProven, false);
+});
+test('receiver branch positive: repeated source alternatives retain their authored conditional site', () =>
+{
+    const result = receiverEffects('(flag ? item : item).send();');
+    assert.deepEqual(result.calls.map((entry) => entry.path), [['item', 'send']]);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'method-receiver').map((entry) => entry.path), [['item', 'send']]);
+    assert.equal(result.calls[0].expression, '(flag ? item : item).send');
+    assert.ok(result.freeReads.some((entry) => entry.path?.join('.') === 'flag'));
+});
+test('receiver branch order: nested arguments cannot rewrite either previously evaluated receiver', () =>
+{
+    const result = receiverEffects('let alias=other;(flag ? item : alias).send((alias=item,alias).take(),alias=other);');
+    assert.deepEqual(result.calls.map((entry) => entry.path), [['item', 'take'], ['item', 'send'], ['other', 'send']]);
+    const outer = result.calls.slice(1);
+    assert.ok(outer.every((entry) => entry.arguments.length === 2));
+    assert.ok(outer.every((entry) => entry.arguments[1].path.join('.') === 'other'));
+    assert.deepEqual(outer[0].arguments, outer[1].arguments);
+    assert.equal(result.escapes.filter((entry) => entry.kind === 'call-argument').length, 1);
+    assert.deepEqual(result.escapes.filter((entry) => entry.kind === 'method-receiver').map((entry) => entry.path),
+        [['item', 'take'], ['item', 'send'], ['other', 'send']]);
+    for (const entry of outer)
+    {
+        assert.deepEqual(entry.originBindings, result.parameterSources.map((parameter) => parameter.source));
+    }
+});
+test('receiver branch negative: unknown computed and opaque receiver alternatives remain unresolved', () =>
+{
+    const computed = receiverEffects('(flag ? item : other)[key]();');
+    assert.deepEqual(computed.calls.map((entry) => entry.path), [['item', '*'], ['other', '*']]);
+    assert.ok(computed.unresolved.some((entry) => entry.required.includes('computed key')));
+    const opaque = receiverEffects('(flag ? item : foreign(other)).send();');
+    const outer = opaque.calls.filter((entry) => entry.expression.endsWith('.send'));
+    assert.equal(outer.length, 1);
+    assert.equal(outer[0].receiverSourceProven, false);
+    assert.ok(opaque.unresolved.some((entry) => entry.required.includes('receiver')));
+    assert.ok([...computed.calls, ...opaque.calls, ...opaque.escapes.filter((entry) => entry.kind === 'method-receiver')]
+        .every((entry) => entry.runtimeIdentityProven === false));
+});
+test('receiver branch positive: final proof digest binds every call and escape source alternative', async () =>
+{
+    const { controlDigest } = await import('@fsusblog/control-legality/source');
+    const result = receiverEffects('(flag ? item : other).send();');
+    const { proofDigest, ...payload } = result;
+    assert.equal(proofDigest, controlDigest(payload));
+    assert.equal(result.calls.length, 2);
+    assert.notEqual(proofDigest, controlDigest({ ...payload, calls: payload.calls.slice(0, 1) }));
+    assert.notEqual(proofDigest, controlDigest({ ...payload, escapes: payload.escapes.slice(0, 1) }));
+});
+test('receiver branch negative: either possible method call rejects collection callback purity', () =>
+{
+    for (const items of ["['a']", '[]'])
+    {
+        reject(`const children=${items}.map((item,index)=>{(flag ? item : index).send();return item;});`);
+    }
+});
