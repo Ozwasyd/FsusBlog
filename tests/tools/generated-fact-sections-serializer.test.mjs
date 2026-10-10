@@ -13,7 +13,7 @@ test('JSON table cells retain compiler-generated names as literal text', () =>
     assert.equal(output, [
         '| Key | Value |',
         '| --- | --- |',
-        '| operation | {"evidence":&#91;"BinaryEndpoints+&#60;CompleteModerationRuntimeMutationAsync&#62;d__13.MoveNext"&#93;} |'
+        '| operation | {"evidence":&#91;"BinaryEndpoints+&#60;CompleteModerationRuntimeMutationAsync&#62;d&#95;&#95;13.MoveNext"&#93;} |'
     ].join('\n'));
 });
 
