@@ -66,6 +66,6 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN configuration.allowed-values -->
 | Key | Value |
 | --- | --- |
-| key_416e7469437261776c65723a4d6f6465 | {"identity":"AntiCrawler:Mode","value":["disabled","observe","enforce","strict","lockdown"]} |
-| key_53656375726974793a416e7469437261776c65723a4d6f6465 | {"identity":"Security:AntiCrawler:Mode","value":["disabled","observe","enforce","strict","lockdown"]} |
+| key_416e7469437261776c65723a4d6f6465 | {"identity":"AntiCrawler:Mode","value":&#91;"disabled","observe","enforce","strict","lockdown"&#93;} |
+| key_53656375726974793a416e7469437261776c65723a4d6f6465 | {"identity":"Security:AntiCrawler:Mode","value":&#91;"disabled","observe","enforce","strict","lockdown"&#93;} |
 <!-- FSUSBLOG-GENERATED:END configuration.allowed-values -->

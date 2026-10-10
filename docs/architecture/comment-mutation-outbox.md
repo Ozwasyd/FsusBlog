@@ -65,12 +65,12 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN content.comment.required-outbox-edges -->
 | Key | Value |
 | --- | --- |
-| CommentCreated | ["audit-projection","cache-version","model-moderation","realtime-stream"] |
-| CommentDeleted | ["audit-projection","cache-version","realtime-stream","site-notification"] |
-| CommentEdited | ["audit-projection","cache-version","realtime-stream"] |
-| CommentModerationChanged | ["audit-projection","cache-version","realtime-stream","site-notification"] |
-| CommentReplyNotificationRequested | ["site-notification"] |
-| CommentVisibilityChanged | ["audit-projection","cache-version","realtime-stream"] |
+| CommentCreated | &#91;"audit-projection","cache-version","model-moderation","realtime-stream"&#93; |
+| CommentDeleted | &#91;"audit-projection","cache-version","realtime-stream","site-notification"&#93; |
+| CommentEdited | &#91;"audit-projection","cache-version","realtime-stream"&#93; |
+| CommentModerationChanged | &#91;"audit-projection","cache-version","realtime-stream","site-notification"&#93; |
+| CommentReplyNotificationRequested | &#91;"site-notification"&#93; |
+| CommentVisibilityChanged | &#91;"audit-projection","cache-version","realtime-stream"&#93; |
 <!-- FSUSBLOG-GENERATED:END content.comment.required-outbox-edges -->
 
 <!-- fsus-doc-claim

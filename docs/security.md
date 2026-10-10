@@ -470,7 +470,7 @@ render: key-value-table
 | cacheExpiry | 2 minutes |
 | cacheExpiryFactId | security.challenge.verify-attempt-cache-expiry |
 | cacheExpiryMilliseconds | 120000 |
-| challengeKinds | ["adminPasskeyStepUpV1","anonymousCredentialProofV1","argon2idPoSpaceV1","humanReadProofV1","passkeyStepUpV1","perceptionCharacterV3","perceptionLocalizationV2","perceptionMicroInteractionV2","recoveryKeyProofV1","sha256PowV1","zkAnonymousCommentProofV1"] |
+| challengeKinds | &#91;"adminPasskeyStepUpV1","anonymousCredentialProofV1","argon2idPoSpaceV1","humanReadProofV1","passkeyStepUpV1","perceptionCharacterV3","perceptionLocalizationV2","perceptionMicroInteractionV2","recoveryKeyProofV1","sha256PowV1","zkAnonymousCommentProofV1"&#93; |
 | challengeManifestVersion | 2026.07.22.1 |
 | closed | true |
 | duration | 2 minutes |
@@ -480,7 +480,7 @@ render: key-value-table
 | failModeFactId | security.challenge.verify-fail-mode |
 | maxAttempts | 3 attempts |
 | maxAttemptsFactId | security.challenge.verify-max-attempts |
-| proofTests | ["SecurityChallengeVerifyRateLimiterTests"] |
+| proofTests | &#91;"SecurityChallengeVerifyRateLimiterTests"&#93; |
 | relation | window-duration-and-cache-expiry-are-distinct-facts-with-equal-current-duration |
 | schema | fsusblog.security-challenge-verification-window.v1 |
 | sourceOwner | src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs |
@@ -502,11 +502,11 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN security.challenge.rate-policies -->
 | Key | Value |
 | --- | --- |
-| fixed_ip | {"codeDefaultPermitLimit":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"requests-per-window","value":100},"failMode":"fail-closed","permitLimitClamp":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"max":100000,"min":1,"unit":"requests-per-window"},"policyId":"fixed_ip","window":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"minutes","value":1}} |
-| notification_stream | {"codeDefaultPermitLimit":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"requests-per-window","value":120},"failMode":"fail-closed","permitLimitClamp":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"max":100000,"min":1,"unit":"requests-per-window"},"policyId":"notification_stream","window":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"minutes","value":1}} |
-| public_read | {"codeDefaultPermitLimit":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"requests-per-window","value":120},"failMode":"fail-closed","permitLimitClamp":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"max":100000,"min":1,"unit":"requests-per-window"},"policyId":"public_read","window":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"minutes","value":1}} |
-| read_proof | {"codeDefaultPermitLimit":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"requests-per-window","value":30},"failMode":"fail-closed","permitLimitClamp":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"max":100000,"min":1,"unit":"requests-per-window"},"policyId":"read_proof","window":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"minutes","value":1}} |
-| security_challenge_verify | {"cacheExpiry":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"minutes","value":2},"cachePolicyId":"SecurityChallengeVerifyRateLimit","failMode":"fail-closed","maxAttempts":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"attempts","value":3},"policyId":"security_challenge_verify"} |
+| fixed_ip | {"codeDefaultPermitLimit":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"requests-per-window","value":100},"failMode":"fail-closed","permitLimitClamp":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"max":100000,"min":1,"unit":"requests-per-window"},"policyId":"fixed&#95;ip","window":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"minutes","value":1}} |
+| notification_stream | {"codeDefaultPermitLimit":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"requests-per-window","value":120},"failMode":"fail-closed","permitLimitClamp":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"max":100000,"min":1,"unit":"requests-per-window"},"policyId":"notification&#95;stream","window":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"minutes","value":1}} |
+| public_read | {"codeDefaultPermitLimit":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"requests-per-window","value":120},"failMode":"fail-closed","permitLimitClamp":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"max":100000,"min":1,"unit":"requests-per-window"},"policyId":"public&#95;read","window":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"minutes","value":1}} |
+| read_proof | {"codeDefaultPermitLimit":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"requests-per-window","value":30},"failMode":"fail-closed","permitLimitClamp":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"max":100000,"min":1,"unit":"requests-per-window"},"policyId":"read&#95;proof","window":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"minutes","value":1}} |
+| security_challenge_verify | {"cacheExpiry":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"minutes","value":2},"cachePolicyId":"SecurityChallengeVerifyRateLimit","failMode":"fail-closed","maxAttempts":{"bound":"inclusive-inclusive","inclusiveMax":true,"inclusiveMin":true,"unit":"attempts","value":3},"policyId":"security&#95;challenge&#95;verify"} |
 <!-- FSUSBLOG-GENERATED:END security.challenge.rate-policies -->
 
 <!-- fsus-doc-claim
