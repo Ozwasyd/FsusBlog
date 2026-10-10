@@ -9,7 +9,7 @@ import { createMarkdownAnchorMap } from '@ozwasyd/element-plus/markdown-runtime'
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useImageUploadRuntime, type ImageUploadSessionBorrow, type ImageUploadSessionAccess } from '@/composables/useImageUploadRuntime'
-import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
+import { useImageUploadFlow, type ImageUploadFileCompletion } from '@/composables/useImageUploadFlow'
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext'
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext'
 import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext'
@@ -776,7 +776,8 @@ describe('useImageUploadRuntime', () => {
     api.uploadPart.mockReturnValueOnce(firstPart.promise).mockReturnValueOnce(secondPart.promise)
     const onSuccess = vi.fn(), onError = vi.fn()
     const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
-      taskRegistry: host.documentOwner, onFileUploaded: async ({ file, intent, borrow }) => {
+      taskRegistry: host.documentOwner })
+    const onFileUploaded = async ({ file, intent, borrow }: ImageUploadFileCompletion) => {
         const index = observed.length
         expect(file).toBe(files[index])
         expect(intent).toBe(commit.mock.results[0]!.value[index])
@@ -790,8 +791,8 @@ describe('useImageUploadRuntime', () => {
           if (!index) await firstConsumer.promise
           expect(facts.uploadId).toBe(`upload-${index + 1}`)
         })
-      } })
-    const upload = flow.startUpload({ files, attachmentInput: { ...host, origin: 'pick' }, onSuccess, onError })
+      }
+    const upload = flow.startUpload({ files, attachmentInput: { ...host, origin: 'pick' }, onFileUploaded, onSuccess, onError })
     await flushPromises()
     expect(api.uploadPart).toHaveBeenCalledOnce()
     await vi.advanceTimersByTimeAsync(31_001)
@@ -816,6 +817,12 @@ describe('useImageUploadRuntime', () => {
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(flow.pendingContext.value).toBeNull()
     expect(host.owner.currentTaskLeases).toHaveLength(2)
+    const legacySuccess = vi.fn()
+    await flow.startUpload({ files: [fileOf(73, 'legacy.png')], onSuccess: legacySuccess })
+    expect(legacySuccess).toHaveBeenCalledWith(['/uploads/complete.webp'], { files: expect.any(Array) })
+    expect(capture).toHaveBeenCalledOnce()
+    expect(observed).toHaveLength(2)
+    expect(api.completeUpload).toHaveBeenCalledTimes(3)
   })
 
   it('releases the per-file loan and stops a batch when its completion consumer fails', async () => {
