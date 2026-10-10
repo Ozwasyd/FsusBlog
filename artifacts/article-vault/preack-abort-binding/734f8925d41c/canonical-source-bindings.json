@@ -1,0 +1,61 @@
+{
+  "source": "734f8925d41c3d089cc039989292c352e0ee741b",
+  "writerReference": "aea5b980bbec19353078386c1796aeab4abe3c40",
+  "inputs": [
+    {
+      "path": "src/frontend/src/composition/binaryTransport.ts",
+      "currentBlob": "380e4e934ce0ce87eeccdc10cf9be1c4c226bded",
+      "preimageBlob": "380e4e934ce0ce87eeccdc10cf9be1c4c226bded",
+      "writerBlob": "380e4e934ce0ce87eeccdc10cf9be1c4c226bded"
+    },
+    {
+      "path": "src/frontend/src/services/binaryTransport.ts",
+      "currentBlob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+      "preimageBlob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+      "writerBlob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994"
+    },
+    {
+      "path": "src/frontend/src/api/binaryApiClient.ts",
+      "currentBlob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+      "preimageBlob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+      "writerBlob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579"
+    },
+    {
+      "path": "src/frontend/src/api/contracts.ts",
+      "currentBlob": "8ccdba6e852270fe2911a245452e37868bbc3109",
+      "preimageBlob": "8ccdba6e852270fe2911a245452e37868bbc3109",
+      "writerBlob": "8ccdba6e852270fe2911a245452e37868bbc3109"
+    },
+    {
+      "path": "src/backend/Services/FileService.cs",
+      "currentBlob": "7b8d15af9b46292b0b1f808e5598f7f4d03da380",
+      "preimageBlob": "7b8d15af9b46292b0b1f808e5598f7f4d03da380",
+      "writerBlob": "7b8d15af9b46292b0b1f808e5598f7f4d03da380"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "currentBlob": "9070d076b8b3c5d94051c436497f5eb5f63d003f",
+      "preimageBlob": "9070d076b8b3c5d94051c436497f5eb5f63d003f",
+      "writerBlob": "9070d076b8b3c5d94051c436497f5eb5f63d003f"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+      "currentBlob": "06ddd49afd88972c6272f2b979fbcfe66ca45d2e",
+      "preimageBlob": "06ddd49afd88972c6272f2b979fbcfe66ca45d2e",
+      "writerBlob": "06ddd49afd88972c6272f2b979fbcfe66ca45d2e"
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "currentBlob": "a602b084979ffa33e7eeef5191d770ecbf92ebbb",
+      "preimageBlob": "a602b084979ffa33e7eeef5191d770ecbf92ebbb",
+      "writerBlob": "a602b084979ffa33e7eeef5191d770ecbf92ebbb"
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "currentBlob": "59ca26d630b74748d7426bfc2bc17ffe9bbf2d76",
+      "preimageBlob": "59ca26d630b74748d7426bfc2bc17ffe9bbf2d76",
+      "writerBlob": "74479976f621373bfdad485a5d65438fd59bc741"
+    }
+  ],
+  "qualification": false
+}

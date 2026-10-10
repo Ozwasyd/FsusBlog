@@ -1,0 +1,32 @@
+{
+  "baselineHead": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+  "testSource": "734f8925d41c3d089cc039989292c352e0ee741b",
+  "ordinaryFixtureOverlayOnly": true,
+  "inputs": [
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "source": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+      "blob": "486962f888f3b71b59976b554e2394b27a7454fd",
+      "sha256": "65d17c8e04abd1a864a91e34fca1e1120d1b7407c0b445c991ce69806f839681"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "source": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+      "blob": "97f4056b52a4d6ed6958038898b82c53160bf9f3",
+      "sha256": "df45033412c1b46d4c15205249eae970e875e7234624d88ea2e94981bf762503"
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "source": "734f8925d41c3d089cc039989292c352e0ee741b",
+      "blob": "f88a945c19197c11b84199869a269d8957797e01",
+      "sha256": "923e578c8e56b1dc55a1bfd878f0e01d8f0934648e1d9413efaf2f27c0091095"
+    },
+    {
+      "path": "tests/frontend/unit/api/upload.test.ts",
+      "source": "734f8925d41c3d089cc039989292c352e0ee741b",
+      "blob": "6f77e2e5cc4e18ae9da4a4434002028a0ff83351",
+      "sha256": "be9f4a37b17b91d48b6020dbfb6724d205bab17635bebc752e862468ea5d23b5"
+    }
+  ],
+  "qualification": false
+}

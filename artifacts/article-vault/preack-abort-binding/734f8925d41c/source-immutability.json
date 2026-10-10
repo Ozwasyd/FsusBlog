@@ -1,0 +1,43 @@
+{
+  "source": "734f8925d41c3d089cc039989292c352e0ee741b",
+  "tree": "df64893b639655cb638ce06a0e35272052a1a88a",
+  "clean": true,
+  "paths": [
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "preBlob": "486962f888f3b71b59976b554e2394b27a7454fd",
+      "preSha256": "65d17c8e04abd1a864a91e34fca1e1120d1b7407c0b445c991ce69806f839681",
+      "postBlob": "ebe292ab80707afd97ccdc6b6eb1c8271c89d3a2",
+      "postSha256": "1d6bec6a812447d0020339724f11287348a4573317528a30e839d5e1bf351144"
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "preBlob": "cb6510aed051a07b5666d2a76b7f465524bbb16f",
+      "preSha256": "68eaf45c94b7d8b345c68b5a515c0f8e88d95e78e8e9cf939f13979c7af10458",
+      "postBlob": "f88a945c19197c11b84199869a269d8957797e01",
+      "postSha256": "923e578c8e56b1dc55a1bfd878f0e01d8f0934648e1d9413efaf2f27c0091095"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "preBlob": "62c4b3093d1bcd5a9ba02f1a63d6f446253bf2b9",
+      "preSha256": "b919c1b37312feed020066b9c91d9437a785413524f94582d804ef4a4f56858e",
+      "postBlob": "22bae415c8473ce6d34c202c1bc27eca370d7094",
+      "postSha256": "a54a38bea70d397a4d2e90ee1f11abf80c815928b3dbadee5830e3a3322d5f6f"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "preBlob": "97f4056b52a4d6ed6958038898b82c53160bf9f3",
+      "preSha256": "df45033412c1b46d4c15205249eae970e875e7234624d88ea2e94981bf762503",
+      "postBlob": "58bb3f06fced57162c348ad261d81c234a00f79c",
+      "postSha256": "83a05f99050bea4e2d63ac1a646df218cab845b00e0e94adf630bd0650d41207"
+    },
+    {
+      "path": "tests/frontend/unit/api/upload.test.ts",
+      "preBlob": "3cae16cae706ec0780ded4af8b524e369bf2392b",
+      "preSha256": "f660fd33de400f661069d0a7a5a760f1512974d091c5c4a9f993dc789ead3a9e",
+      "postBlob": "6f77e2e5cc4e18ae9da4a4434002028a0ff83351",
+      "postSha256": "be9f4a37b17b91d48b6020dbfb6724d205bab17635bebc752e862468ea5d23b5"
+    }
+  ],
+  "qualification": false
+}

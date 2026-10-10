@@ -1,0 +1,16 @@
+{
+  "label": "whole-commit-range",
+  "command": [
+    "node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "04195f8a0d2ad16d14c8d66a2f876c428e606f3e..HEAD"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-10T09:15:54.234541+00:00",
+  "head": "734f8925d41c3d089cc039989292c352e0ee741b",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 1,
+  "stopUtc": "2026-10-10T09:15:55.449933+00:00"
+}

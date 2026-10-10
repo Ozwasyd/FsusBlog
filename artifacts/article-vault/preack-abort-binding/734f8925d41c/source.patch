@@ -1,0 +1,710 @@
+diff --git a/docs/architecture/overview.md b/docs/architecture/overview.md
+index 62c4b3093..22bae415c 100644
+--- a/docs/architecture/overview.md
++++ b/docs/architecture/overview.md
+@@ -133,9 +133,17 @@ before. Its successful callback is not a canonical recovery or asset-cleanup
+ receipt. Only the current operation's generation, upload ID and actual ACK history
+ remain privately until replacement or instance release; successful transport
+ does not retain snapshot credentials. Later flow consumer failure is a separate
+-recovery boundary whose integration remains open. Pre-ACK abort
+-token/status qualification and unknown cleanup obligations remain unchanged. Stored snapshots
+-cannot mint replacement loans, and unknown commit state never grants deletion.
++recovery boundary whose integration remains open. Pre-ACK cancellation captures a private context from the actual original init
++promise before invalidating its generation. Cancellation before init ACK awaits
++that same promise; retries retain the same obligation and forward its token only
++to the original upload ID through the existing abort API. Public session or stored
++snapshot mutation cannot change this authority. Only an actual same-ID
++`aborted` status response clears local transport and recovery state. Network,
++decoded API errors, wrong IDs and other statuses retain the original obligation.
++A cold stored resume cannot reconstruct private init authority and therefore
++cannot authorize abort here. In-flight or unknown completion still refuses abort;
++acknowledged completion follows the separate recovery boundary above. Stored
++snapshots cannot mint replacement loans, and unknown commit state never grants deletion.
+ 
+ `useImageUploadFlow.startUpload` accepts an optional `attachmentInput` containing
+ the real selection anchor, original attachment/document owners and transaction
+diff --git a/src/frontend/src/api/upload.ts b/src/frontend/src/api/upload.ts
+index 97f4056b5..58bb3f06f 100644
+--- a/src/frontend/src/api/upload.ts
++++ b/src/frontend/src/api/upload.ts
+@@ -134,7 +134,7 @@ export function completeUpload(uploadId: string, uploadToken: string, sha256?: s
+     });
+ }
+ 
+-export function abortUpload(uploadId: string, signal?: AbortSignal): Promise<UploadStatusViewModel>
++export function abortUpload(uploadId: string, signal?: AbortSignal, uploadToken?: string): Promise<UploadStatusViewModel>
+ {
+     return requestBinaryOnly<UploadStatusViewModel>({
+         binaryUrl: `/api/binary/upload/${uploadId}`,
+@@ -143,7 +143,8 @@ export function abortUpload(uploadId: string, signal?: AbortSignal): Promise<Upl
+         signal,
+         requestOptions: {
+             method: 'DELETE',
+-            requiresPow: true
++            requiresPow: true,
++            headers: uploadToken ? { 'X-Fsus-Upload-Token': uploadToken } : undefined
+         }
+     });
+ }
+diff --git a/src/frontend/src/composables/useImageUploadRuntime.ts b/src/frontend/src/composables/useImageUploadRuntime.ts
+index 486962f88..ebe292ab8 100644
+--- a/src/frontend/src/composables/useImageUploadRuntime.ts
++++ b/src/frontend/src/composables/useImageUploadRuntime.ts
+@@ -73,6 +73,17 @@ interface OwnedUploadAttempt {
+     borrowIssued: boolean;
+ }
+ 
++/** Authority from one actual init request; public snapshots cannot reconstruct it. */
++interface UploadCancellationContext {
++    readonly generation: number;
++    readonly work: ReturnType<typeof initUploadSession>;
++    readonly resumeKey: string;
++    readonly fileName: string;
++    readonly sha256: string;
++    readonly bound: boolean;
++    acknowledgement: Awaited<ReturnType<typeof initUploadSession>> | null;
++}
++
+ interface AcknowledgedUploadCompletion {
+     readonly generation: number;
+     readonly uploadId: string;
+@@ -232,7 +243,9 @@ export function useImageUploadRuntime()
+     let disposed = false;
+     let ownedCommitStateUnknown = false;
+     let acknowledgedCompletion: AcknowledgedUploadCompletion | null = null;
+-    let pendingOwnedInitialization: { work: ReturnType<typeof initUploadSession>; resumeKey: string; fileName: string; } | null = null;
++    let pendingOwnedInitialization: UploadCancellationContext | null = null;
++    let cancellationOperation: { generation: number; context: UploadCancellationContext; } | null = null;
++    let cancellationObligation: UploadCancellationContext | null = null;
+ 
+     const bindingIsCurrent = (binding: ImageUploadAttemptBinding, file: File, completed = false): boolean =>
+     {
+@@ -466,6 +479,10 @@ export function useImageUploadRuntime()
+         {
+             throw completionRecoveryError();
+         }
++        if (ownedCommitStateUnknown)
++        {
++            throw createAppError(AppErrorCode.Conflict, 'upload_commit_state_unknown');
++        }
+         if (cleanupRequired.value || abandonPromise)
+         {
+             throw createAppError(AppErrorCode.Conflict, '上传会话尚未取消，请先重试取消');
+@@ -476,6 +493,8 @@ export function useImageUploadRuntime()
+         }
+         discardOwnedAttempt();
+         acknowledgedCompletion = null;
++        const previousCancellation = cancellationOperation;
++        cancellationOperation = null;
+         const generation = ++attemptGeneration;
+         const ensureCurrentAttempt = (): void =>
+         {
+@@ -544,6 +563,15 @@ export function useImageUploadRuntime()
+                 }
+                 uploadId = status.uploadId;
+                 uploadToken = snapshot.uploadToken;
++                const original = previousCancellation?.context;
++                if (original?.acknowledgement?.uploadId === uploadId
++                    && original.acknowledgement.uploadToken === uploadToken
++                    && original.resumeKey === resumeKey && original.fileName === snapshot.fileName
++                    && original.sha256 === fullHash)
++                {
++                    // A continuation retains its real original init; storage grants no cleanup authority.
++                    cancellationOperation = { generation, context: original };
++                }
+                 if (status.uploadedPartCount > 0)
+                 {
+                     const map = await getUploadPartMap(snapshot.uploadId);
+@@ -573,19 +601,22 @@ export function useImageUploadRuntime()
+                 chunkSize: 512 * 1024,
+                 sha256: fullHash
+             });
+-            if (runtimeOptions.attemptBinding)
+-            {
+-                // Cleanup must await this original request, even if its owner cancels before acknowledgement.
+-                pendingOwnedInitialization = { work: initialization, resumeKey, fileName: uploadPayload.file.name };
+-            }
++            const cancellationContext: UploadCancellationContext = {
++                generation, work: initialization, resumeKey, fileName: uploadPayload.file.name,
++                sha256: fullHash, bound: Boolean(runtimeOptions.attemptBinding), acknowledgement: null
++            };
++            // Capture the actual promise before cancellation can intentionally invalidate its generation.
++            pendingOwnedInitialization = cancellationContext;
++            cancellationOperation = { generation, context: cancellationContext };
+             let init: Awaited<typeof initialization>;
+             try
+             {
+                 init = await initialization;
++                cancellationContext.acknowledgement = { ...init };
+             }
+             catch (error)
+             {
+-                if (runtimeOptions.attemptBinding && generation === attemptGeneration)
++                if (generation === attemptGeneration)
+                 {
+                     cleanupRequired.value = true;
+                     phase.value = 'error';
+@@ -702,20 +733,29 @@ export function useImageUploadRuntime()
+ 
+         ensureCurrentAttempt();
+         commitMayHaveStarted = true;
+-        if (runtimeOptions.attemptBinding)
++        ownedCommitStateUnknown = true;
++        let complete: Awaited<ReturnType<typeof completeUpload>>;
++        try
+         {
+-            ownedCommitStateUnknown = true;
++            complete = await completeUpload(uploadId, uploadToken, fullHash);
+         }
+-        const complete = await completeUpload(uploadId, uploadToken, fullHash);
+-        ensureCurrentAttempt();
+-        ownedCommitStateUnknown = false;
+-        if (runtimeOptions.attemptBinding)
++        catch (error)
+         {
+-            acknowledgedCompletion = {
+-                generation, uploadId, snapshot, response: complete, transportCompleted: false,
+-                recoveryRequired: false, callbackError: undefined
+-            };
++            if (generation === attemptGeneration)
++            {
++                cleanupRequired.value = true;
++                phase.value = 'error';
++                errorMessage.value = toAppError(error, 'upload_commit_state_unknown').message;
++            }
++            throw error;
+         }
++        ensureCurrentAttempt();
++        ownedCommitStateUnknown = false;
++        acknowledgedCompletion = {
++            generation, uploadId, snapshot, response: complete, transportCompleted: false,
++            recoveryRequired: false, callbackError: undefined
++        };
++        cancellationOperation = null;
+         if (ownedAttempt?.generation === generation)
+         {
+             ownedAttempt.completed = true;
+@@ -836,9 +876,14 @@ export function useImageUploadRuntime()
+             attemptGeneration += 1;
+             return Promise.reject(completionRecoveryError());
+         }
+-        let uploadId = activeSession.uploadId;
+-        let resumeKey = activeSession.resumeKey;
+         const initialization = pendingOwnedInitialization;
++        const currentCancellation = cancellationOperation?.generation === attemptGeneration
++            ? cancellationOperation.context : null;
++        // An existing obligation survives this intentional invalidation and every genuine retry.
++        cancellationObligation ??= currentCancellation;
++        const cancellation = cancellationObligation;
++        let uploadId = cancellation?.acknowledgement?.uploadId ?? '';
++        let resumeKey = cancellation?.resumeKey ?? activeSession.resumeKey;
+         ownedCommitStateUnknown ||= ownedAttempt?.access?.().commitMayHaveStarted === true && !ownedAttempt.completed;
+         discardOwnedAttempt();
+         attemptGeneration += 1;
+@@ -846,7 +891,7 @@ export function useImageUploadRuntime()
+         errorMessage.value = '';
+         preview.value = null;
+         pendingAttempt.value = null;
+-        cleanupRequired.value = Boolean(uploadId) || initialization !== null || ownedCommitStateUnknown;
++        cleanupRequired.value = cancellation !== null || Boolean(activeSession.uploadId) || initialization !== null || ownedCommitStateUnknown;
+         // Invalidate live work immediately, but retain its original session and
+         // recovery evidence until the canonical abort API acknowledges cleanup.
+         // Schedule the request after assigning the promise, including sync throws.
+@@ -858,22 +903,28 @@ export function useImageUploadRuntime()
+                 {
+                     throw createAppError(AppErrorCode.Conflict, 'upload_commit_state_unknown');
+                 }
+-                if (initialization)
++                if (cancellation)
+                 {
+-                    const initialized = await initialization.work;
+-                    if (!initialized.uploadId)
++                    const initialized = cancellation.acknowledgement ?? await cancellation.work;
++                    if (!initialized.uploadId || !initialized.uploadToken)
+                     {
+                         throw createAppError(AppErrorCode.InfraFailure, '上传初始化状态未知，取消未确认');
+                     }
++                    cancellation.acknowledgement ??= { ...initialized };
+                     uploadId = initialized.uploadId;
+-                    resumeKey = initialization.resumeKey;
++                    resumeKey = cancellation.resumeKey;
+                     activeSession.uploadId = uploadId;
+                     activeSession.resumeKey = resumeKey;
+-                    activeSession.fileName = initialization.fileName;
++                    activeSession.fileName = cancellation.fileName;
++                    const response = await abortUpload(uploadId, undefined, initialized.uploadToken);
++                    if (response.uploadId !== uploadId || response.status !== 'aborted')
++                    {
++                        throw createAppError(AppErrorCode.Conflict, 'upload_abort_not_acknowledged');
++                    }
+                 }
+-                if (uploadId)
++                else if (cleanupRequired.value)
+                 {
+-                    await abortUpload(uploadId);
++                    throw createAppError(AppErrorCode.Conflict, 'upload_cleanup_authority_unavailable');
+                 }
+                 if (resumeKey)
+                 {
+@@ -883,6 +934,8 @@ export function useImageUploadRuntime()
+                 activeSession.resumeKey = '';
+                 activeSession.fileName = '';
+                 cleanupRequired.value = false;
++                cancellationObligation = null;
++                cancellationOperation = null;
+                 if (pendingOwnedInitialization === initialization)
+                 {
+                     pendingOwnedInitialization = null;
+@@ -908,7 +961,7 @@ export function useImageUploadRuntime()
+         onScopeDispose(() =>
+         {
+             disposed = true;
+-            if (ownedAttempt || acknowledgedCompletion || pendingOwnedInitialization || ownedCommitStateUnknown
++            if (ownedAttempt || acknowledgedCompletion || pendingOwnedInitialization?.bound || ownedCommitStateUnknown
+                 || pendingAttempt.value?.runtimeOptions.attemptBinding)
+             {
+                 void abandon().catch(() =>
+diff --git a/tests/frontend/unit/api/upload.test.ts b/tests/frontend/unit/api/upload.test.ts
+index 3cae16cae..6f77e2e5c 100644
+--- a/tests/frontend/unit/api/upload.test.ts
++++ b/tests/frontend/unit/api/upload.test.ts
+@@ -1,4 +1,4 @@
+-import { beforeEach, describe, expect, it, vi } from 'vitest'
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+ import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
+ 
+ vi.mock('@/composition/binaryTransport', () => ({
+@@ -6,7 +6,16 @@ vi.mock('@/composition/binaryTransport', () => ({
+ }))
+ 
+ import { requestBinaryOnly } from '@/composition/binaryTransport'
+-import { completeUpload, initUploadSession, uploadPart } from '@/api/upload'
++import { abortUpload, completeUpload, initUploadSession, uploadPart } from '@/api/upload'
++
++import { decode } from '@wasm/aeds'
++import { encodeAedsFrame } from '@/api/binaryFrame'
++import { privateRequestRuntime } from '@/services/privateRequestRuntime'
++
++vi.mock('@/composables/usePow', () => ({
++  usePow: () => ({ calculate: vi.fn().mockResolvedValue({ nonce: 'ordinary-test-nonce', duration: 1 }) })
++}))
++vi.mock('@/utils/fingerprint', () => ({ getBrowserFp: () => 'ordinary-test-browser' }))
+ 
+ const mockBinary = vi.mocked(requestBinaryOnly)
+ 
+@@ -64,6 +73,19 @@ describe('upload API requests', () => {
+     expect(call.requestOptions?.body).toBe(chunk)
+   })
+ 
++  it('abort forwards the optional third token without changing its existing signal contract', async () => {
++    const signal = new AbortController().signal
++    await abortUpload('upload-1', signal, 'original-init-token')
++    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
++      binaryUrl: '/api/binary/upload/upload-1', privateScope: 'admin', signal,
++      frameType: FrameType.UploadStatus,
++      requestOptions: { method: 'DELETE', requiresPow: true,
++        headers: { 'X-Fsus-Upload-Token': 'original-init-token' } }
++    }))
++    await abortUpload('upload-1', signal)
++    expect(mockBinary.mock.lastCall?.[0].requestOptions?.headers).toBeUndefined()
++  })
++
+   it('completeUpload sends an UploadCompleteRequest AEDS frame', async () => {
+     await completeUpload('upload-1', 'upload-token-1', 'abcdef')
+ 
+@@ -112,3 +134,72 @@ function readFixedUtf8(bytes: Uint8Array, offset: number, length: number): strin
+   const end = slice.indexOf(0)
+   return new TextDecoder().decode(end >= 0 ? slice.subarray(0, end) : slice)
+ }
++
++// Ordinary native-decoder fixture boundary; the API, transport, headers and fetch path are real.
++function transportFrame(frameType: FrameType, uploadId = 'upload-1', status = 'aborted') {
++  const bytes = new Uint8Array(frameType === FrameType.UploadStatus ? 136 : 584)
++  const put = (offset: number, size: number, value: string) => bytes.set(new TextEncoder().encode(value).subarray(0, size), offset)
++  if (frameType === FrameType.UploadStatus) {
++    put(0, 64, uploadId); put(64, 32, status)
++  } else {
++    bytes[0] = 1; bytes[1] = 1
++    new DataView(bytes.buffer).setInt32(4, 403, true)
++    put(8, 256, 'original-abort-denied'); put(264, 256, 'ordinary-test-denial'); put(520, 64, 'ordinary-trace')
++  }
++  return encodeAedsFrame(frameType, bytes)
++}
++
++function ordinaryPowFrame() {
++  const bytes = new Uint8Array(204)
++  bytes.set(new TextEncoder().encode('ordinary-salt'), 0)
++  bytes.set(new TextEncoder().encode('ordinary-signature'), 76)
++  return encodeAedsFrame(FrameType.PowChallenge, bytes)
++}
++
++describe('abort API through the actual binary transport and intercepted fetch', () => {
++  beforeEach(async () => {
++    privateRequestRuntime.resetForTests()
++    const actual = await vi.importActual<typeof import('@/composition/binaryTransport')>('@/composition/binaryTransport')
++    mockBinary.mockImplementation(actual.requestBinaryOnly)
++    vi.mocked(decode).mockImplementation(buffer => {
++      const bytes = new Uint8Array(buffer), view = new DataView(buffer)
++      if (view.getUint32(0, true) !== AEDS_MAGIC || view.getUint8(4) !== AEDS_VERSION)
++        throw new Error('invalid ordinary AEDS fixture')
++      const payloadView = bytes.subarray(AEDS_HEADER_LENGTH)
++      return { ok: true, frameType: view.getUint16(8, true), payload: payloadView, payloadView, textBlob: '', error: '' }
++    })
++  })
++  afterEach(() => { vi.unstubAllGlobals(); privateRequestRuntime.resetForTests() })
++
++  it.each(['aborted', 'uploading'])('forwards the original token to DELETE and decodes the actual %s response', async status => {
++    const intercepted = vi.fn(async (url: string, init?: RequestInit) => {
++      if (url.includes('/auth/pow-challenge')) return new Response(ordinaryPowFrame())
++      expect(new URL(url).pathname).toBe('/api/binary/upload/upload-1')
++      expect(init?.method).toBe('DELETE')
++      expect(init?.credentials).toBe('include')
++      const headers = new Headers(init?.headers)
++      expect(headers.get('X-Fsus-Upload-Token')).toBe('original-init-token')
++      expect(headers.get('X-Fsus-Pow-Proof')).toBeTruthy()
++      return new Response(transportFrame(FrameType.UploadStatus, 'upload-1', status))
++    })
++    vi.stubGlobal('fetch', intercepted)
++    await expect(abortUpload('upload-1', undefined, 'original-init-token')).resolves.toMatchObject({ uploadId: 'upload-1', status })
++    expect(intercepted).toHaveBeenCalledTimes(2)
++  })
++
++  it('propagates a genuinely decoded ApiError instead of an abort acknowledgement', async () => {
++    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/auth/pow-challenge')
++      ? new Response(ordinaryPowFrame()) : new Response(transportFrame(FrameType.ApiError), { status: 403 })))
++    await expect(abortUpload('upload-1', undefined, 'original-init-token')).rejects.toMatchObject({
++      name: 'BinaryTransportError', message: expect.stringContaining('original-abort-denied'), status: 403
++    })
++  })
++
++  it('propagates an actual intercepted DELETE network failure', async () => {
++    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
++      if (url.includes('/auth/pow-challenge')) return new Response(ordinaryPowFrame())
++      throw new Error('ordinary-delete-network-failure')
++    }))
++    await expect(abortUpload('upload-1', undefined, 'original-init-token')).rejects.toThrow('ordinary-delete-network-failure')
++  })
++})
+diff --git a/tests/frontend/unit/composables/useImageUploadRuntime.test.ts b/tests/frontend/unit/composables/useImageUploadRuntime.test.ts
+index cb6510aed..f88a945c1 100644
+--- a/tests/frontend/unit/composables/useImageUploadRuntime.test.ts
++++ b/tests/frontend/unit/composables/useImageUploadRuntime.test.ts
+@@ -13,6 +13,10 @@ import { useImageUploadFlow, type ImageUploadFileCompletion } from '@/composable
+ import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext'
+ import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext'
+ import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext'
++import { decode } from '@wasm/aeds'
++import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
++import { encodeAedsFrame } from '@/api/binaryFrame'
++import { privateRequestRuntime } from '@/services/privateRequestRuntime'
+ import type { ImageCompressionOptions } from '@/api/upload'
+ 
+ const api = vi.hoisted(() => ({
+@@ -30,6 +34,10 @@ const compression = vi.hoisted(() => ({
+ }))
+ 
+ vi.mock('@/api/upload', () => api)
++vi.mock('@/composables/usePow', () => ({
++  usePow: () => ({ calculate: vi.fn().mockResolvedValue({ nonce: 'ordinary-test-nonce', duration: 1 }) })
++}))
++vi.mock('@/utils/fingerprint', () => ({ getBrowserFp: () => 'ordinary-test-browser' }))
+ vi.mock('@/utils/imageCompression', () => compression)
+ vi.mock('@/utils/wasmImageCodec', () => ({
+   getWasmSupportedFormats: vi.fn().mockResolvedValue(['png', 'webp'])
+@@ -147,7 +155,7 @@ describe('useImageUploadRuntime', () => {
+       uploadedBytes: offset + chunk.size
+     }))
+     api.completeUpload.mockResolvedValue({ url: '/uploads/complete.webp' })
+-    api.abortUpload.mockResolvedValue({ uploadId: 'upload-old', uploadedPartCount: 0 })
++    api.abortUpload.mockResolvedValue({ uploadId: 'upload-old', status: 'aborted', uploadedPartCount: 0 })
+   })
+ 
+   afterEach(() => {
+@@ -282,7 +290,7 @@ describe('useImageUploadRuntime', () => {
+ 
+     await expect(runtime.abandon()).rejects.toThrow('abort unavailable')
+     expect(api.abortUpload).toHaveBeenCalledOnce()
+-    expect(api.abortUpload).toHaveBeenCalledWith('upload-old')
++    expect(api.abortUpload).toHaveBeenCalledWith('upload-old', undefined, 'token-old')
+     expect(runtime.phase).toBe('error')
+     expect(runtime.progress).toBe(0)
+     expect(runtime.errorMessage).toBe('abort unavailable')
+@@ -297,7 +305,7 @@ describe('useImageUploadRuntime', () => {
+     await expect(upload).rejects.toThrow('upload_attempt_superseded')
+     expect(api.completeUpload).not.toHaveBeenCalled()
+     await expect(runtime.resumeLatest()).rejects.toThrow('没有可恢复的上传任务')
+-    api.abortUpload.mockResolvedValue({ uploadId: 'upload-old', uploadedPartCount: 0 })
++    api.abortUpload.mockResolvedValue({ uploadId: 'upload-old', status: 'aborted', uploadedPartCount: 0 })
+     await runtime.abandon()
+     expect(api.abortUpload).toHaveBeenCalledTimes(2)
+     expect(runtime.cleanupRequired).toBe(false)
+@@ -309,7 +317,7 @@ describe('useImageUploadRuntime', () => {
+   it('shares an in-flight abort and blocks replacement until server cleanup is acknowledged', async () => {
+     const runtime = useImageUploadRuntime()
+     await exhaustPartRetries(runtime, fileOf(128))
+-    const abort = deferred<{ uploadId: string; uploadedPartCount: number }>()
++    const abort = deferred<{ uploadId: string; status: string; uploadedPartCount: number }>()
+     api.abortUpload.mockReturnValue(abort.promise)
+     const first = runtime.abandon()
+     const second = runtime.abandon()
+@@ -320,7 +328,7 @@ describe('useImageUploadRuntime', () => {
+     expect(runtime.canResume).toBe(false)
+     await expect(runtime.uploadFile(fileOf(64, 'new.png'), options)).rejects.toThrow('上传会话尚未取消')
+     expect(api.initUploadSession).toHaveBeenCalledOnce()
+-    abort.resolve({ uploadId: 'upload-old', uploadedPartCount: 0 })
++    abort.resolve({ uploadId: 'upload-old', status: 'aborted', uploadedPartCount: 0 })
+     await Promise.all([first, second])
+     expect(runtime.cleanupRequired).toBe(false)
+     expect(localStorage.length).toBe(0)
+@@ -453,7 +461,9 @@ describe('useImageUploadRuntime', () => {
+     expect(api.initUploadSession).toHaveBeenCalledOnce()
+     expect(api.completeUpload).not.toHaveBeenCalled()
+     expect(runtime.borrowCurrentSession()).toBeNull()
+-    await runtime.abandon()
++    await expect(runtime.abandon()).rejects.toThrow('upload_cleanup_authority_unavailable')
++    expect(runtime.cleanupRequired).toBe(true)
++    expect(api.abortUpload).not.toHaveBeenCalled()
+   })
+ 
+   it('expires a completed borrow without refreshing it from public state or storage', async () => {
+@@ -475,7 +485,7 @@ describe('useImageUploadRuntime', () => {
+     const file = fileOf(128)
+     const original = boundAttempt(file)
+     const init = deferred<{ uploadId: string; uploadToken: string }>()
+-    const abort = deferred<{ uploadId: string; uploadedPartCount: number }>()
++    const abort = deferred<{ uploadId: string; status: string; uploadedPartCount: number }>()
+     api.initUploadSession.mockReturnValue(init.promise)
+     api.abortUpload.mockReturnValue(abort.promise)
+     const runtime = useImageUploadRuntime()
+@@ -489,10 +499,10 @@ describe('useImageUploadRuntime', () => {
+     await expect(runtime.uploadFile(file, options)).rejects.toThrow('上传会话尚未取消')
+     init.resolve({ uploadId: 'late-original', uploadToken: 'late-original-token' })
+     await rejected
+-    await vi.waitFor(() => expect(api.abortUpload).toHaveBeenCalledWith('late-original'))
++    await vi.waitFor(() => expect(api.abortUpload).toHaveBeenCalledWith('late-original', undefined, 'late-original-token'))
+     expect(runtime.cleanupRequired).toBe(true)
+     expect(runtime.activeSession.uploadId).toBe('late-original')
+-    abort.resolve({ uploadId: 'late-original', uploadedPartCount: 0 })
++    abort.resolve({ uploadId: 'late-original', status: 'aborted', uploadedPartCount: 0 })
+     await cleanup
+     expect(runtime.cleanupRequired).toBe(false)
+     expect(api.uploadPart).not.toHaveBeenCalled()
+@@ -1088,6 +1098,212 @@ describe('useImageUploadRuntime', () => {
+     expect(api.initUploadSession).not.toHaveBeenCalled()
+   })
+ 
++  it.each([
++    { uploadId: 'other-generation', status: 'aborted' },
++    { uploadId: 'upload-old', status: 'uploading' },
++    { uploadId: 'upload-old', status: undefined }
++  ])('retains the genuine cancellation obligation on invalid ACK $uploadId/$status', async response => {
++    const part = deferred<{ uploadedBytes: number }>()
++    api.uploadPart.mockReturnValue(part.promise)
++    const runtime = useImageUploadRuntime()
++    const upload = runtime.uploadFile(fileOf(128), options)
++    const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
++    await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
++    const saved = localStorage.getItem(localStorage.key(0)!)
++    api.abortUpload.mockResolvedValue(response)
++    await expect(runtime.abandon()).rejects.toThrow('upload_abort_not_acknowledged')
++    expect(runtime.cleanupRequired).toBe(true)
++    expect(runtime.activeSession.uploadId).toBe('upload-old')
++    expect(localStorage.getItem(localStorage.key(0)!)).toBe(saved)
++    await expect(runtime.uploadFile(fileOf(64, 'replacement.png'), options)).rejects.toThrow('上传会话尚未取消')
++    api.abortUpload.mockResolvedValue({ uploadId: 'upload-old', status: 'aborted' })
++    await runtime.abandon()
++    expect(api.abortUpload.mock.calls).toEqual([
++      ['upload-old', undefined, 'token-old'], ['upload-old', undefined, 'token-old']
++    ])
++    expect(runtime.cleanupRequired).toBe(false)
++    expect(localStorage.length).toBe(0)
++    part.resolve({ uploadedBytes: 128 }); await rejected
++  })
++
++  it('ignores public session and copied snapshot authority while retaining the original cleanup retry', async () => {
++    const part = deferred<{ uploadedBytes: number }>()
++    api.uploadPart.mockReturnValue(part.promise)
++    const runtime = useImageUploadRuntime()
++    const upload = runtime.uploadFile(fileOf(128), options)
++    const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
++    await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
++    const key = localStorage.key(0)!
++    const snapshot = decodePublicAotPayload<Record<string, unknown>>(localStorage.getItem(key)!)
++    runtime.activeSession.uploadId = 'copied-new-generation'
++    runtime.activeSession.resumeKey = 'copied-key'
++    localStorage.setItem(key, encodePublicAotPayload({ ...snapshot, uploadId: 'copied-new-generation', uploadToken: 'copied-token' }))
++    api.abortUpload.mockRejectedValueOnce(new Error('genuine-cleanup-failed'))
++    await expect(runtime.abandon()).rejects.toThrow('genuine-cleanup-failed')
++    await runtime.abandon()
++    expect(api.abortUpload.mock.calls).toEqual([
++      ['upload-old', undefined, 'token-old'], ['upload-old', undefined, 'token-old']
++    ])
++    expect(localStorage.length).toBe(0)
++    part.resolve({ uploadedBytes: 128 }); await rejected
++  })
++
++  it('retains actual original init authority across a genuine resume generation without reminting it', async () => {
++    const runtime = useImageUploadRuntime()
++    await exhaustPartRetries(runtime, fileOf(128))
++    const part = deferred<{ uploadedBytes: number }>()
++    api.uploadPart.mockReset().mockReturnValue(part.promise)
++    const upload = runtime.resumeLatest()
++    const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
++    await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
++    await runtime.abandon()
++    expect(api.initUploadSession).toHaveBeenCalledOnce()
++    expect(api.abortUpload).toHaveBeenCalledWith('upload-old', undefined, 'token-old')
++    expect(runtime.cleanupRequired).toBe(false)
++    part.resolve({ uploadedBytes: 128 }); await rejected
++  })
++
++  it('retains an original init with missing credentials instead of sending an unbound abort', async () => {
++    api.initUploadSession.mockResolvedValue({ uploadId: 'upload-old', uploadToken: '' })
++    const runtime = useImageUploadRuntime()
++    await expect(runtime.uploadFile(fileOf(128), options)).rejects.toThrow('上传初始化缺少恢复凭证')
++    await expect(runtime.abandon()).rejects.toThrow('上传初始化状态未知')
++    await expect(runtime.abandon()).rejects.toThrow('上传初始化状态未知')
++    expect(runtime.cleanupRequired).toBe(true)
++    expect(api.initUploadSession).toHaveBeenCalledOnce()
++    expect(api.abortUpload).not.toHaveBeenCalled()
++  })
++
++  it('keeps old cancellation references from acquiring a replacement generation token', async () => {
++    const part = deferred<{ uploadedBytes: number }>()
++    api.uploadPart.mockReturnValueOnce(part.promise)
++    const runtime = useImageUploadRuntime()
++    const old = runtime.uploadFile(fileOf(128), options)
++    const oldRejection = expect(old).rejects.toThrow('upload_attempt_superseded')
++    await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
++    const oldCancellation = runtime.abandon()
++    await oldCancellation
++    api.initUploadSession.mockResolvedValue({ uploadId: 'upload-new', uploadToken: 'token-new' })
++    await expect(runtime.uploadFile(fileOf(64, 'next.png'), options)).resolves.toBe('/uploads/complete.webp')
++    await oldCancellation
++    part.resolve({ uploadedBytes: 128 }); await oldRejection
++    expect(api.abortUpload.mock.calls).toEqual([['upload-old', undefined, 'token-old']])
++    await expect(runtime.abandon()).rejects.toThrow('upload_completion_recovery_required')
++    expect(api.abortUpload).toHaveBeenCalledOnce()
++  })
++
++  it('awaits only the original unbound init and authenticates cancellation before its ACK', async () => {
++    const init = deferred<{ uploadId: string; uploadToken: string }>()
++    api.initUploadSession.mockReturnValueOnce(init.promise)
++    const runtime = useImageUploadRuntime()
++    const upload = runtime.uploadFile(fileOf(128), options)
++    const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
++    await vi.waitFor(() => expect(api.initUploadSession).toHaveBeenCalledOnce())
++    const cleanup = runtime.abandon()
++    runtime.activeSession.uploadId = 'forged-upload'
++    await expect(runtime.uploadFile(fileOf(64, 'other.png'), options)).rejects.toThrow('上传会话尚未取消')
++    expect(api.abortUpload).not.toHaveBeenCalled()
++    init.resolve({ uploadId: 'original-late', uploadToken: 'original-late-token' })
++    api.abortUpload.mockResolvedValue({ uploadId: 'original-late', status: 'aborted' })
++    await cleanup; await rejected
++    expect(api.abortUpload).toHaveBeenCalledWith('original-late', undefined, 'original-late-token')
++    expect(api.initUploadSession).toHaveBeenCalledOnce()
++    expect(api.uploadPart).not.toHaveBeenCalled()
++    expect(runtime.phase).toBe('idle')
++  })
++
++  it('refuses abort for an unbound in-flight completion and retains its unknown obligation', async () => {
++    const completion = deferred<{ url: string }>()
++    api.completeUpload.mockReturnValue(completion.promise)
++    const runtime = useImageUploadRuntime()
++    const upload = runtime.uploadFile(fileOf(128), options)
++    const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
++    await vi.waitFor(() => expect(api.completeUpload).toHaveBeenCalledOnce())
++    await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
++    completion.resolve({ url: '/uploads/late.webp' }); await rejected
++    await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
++    expect(api.abortUpload).not.toHaveBeenCalled()
++    expect(runtime.cleanupRequired).toBe(true)
++  })
++
++  it.each([false, true])('retains a rejected completion with bound=%s before any cancellation or replacement', async bound => {
++    const error = new Error('actual-completion-network-failure')
++    api.completeUpload.mockRejectedValue(error)
++    const file = fileOf(128)
++    const runtime = useImageUploadRuntime()
++    await expect(runtime.uploadFile(file, options, bound ? { attemptBinding: boundAttempt(file).binding } : {})).rejects.toBe(error)
++    expect(runtime.cleanupRequired).toBe(true)
++    expect(runtime.canResume).toBe(false)
++    await expect(runtime.resumeLatest()).rejects.toThrow('upload_commit_state_unknown')
++    await expect(runtime.uploadFile(fileOf(64, 'other.png'), options)).rejects.toThrow('upload_commit_state_unknown')
++    await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
++    expect(api.abortUpload).not.toHaveBeenCalled()
++    expect(api.completeUpload).toHaveBeenCalledOnce()
++    expect(api.initUploadSession).toHaveBeenCalledOnce()
++    expect(localStorage.length).toBe(1)
++  })
++
++  it.each(['api-error', 'network', 'same-id-aborted'] as const)(
++    'uses the actual abort transport for %s and retains failure evidence until genuine ACK', async outcome => {
++      const part = deferred<{ uploadedBytes: number }>()
++      api.uploadPart.mockReturnValue(part.promise)
++      const runtime = useImageUploadRuntime()
++      const upload = runtime.uploadFile(fileOf(128), options)
++      const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
++      await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
++      const originalKey = localStorage.key(0)!
++      const originalSnapshot = localStorage.getItem(originalKey)
++      const actual = await vi.importActual<typeof import('@/api/upload')>('@/api/upload')
++      api.abortUpload.mockImplementation(actual.abortUpload)
++      privateRequestRuntime.resetForTests()
++      vi.mocked(decode).mockImplementation(buffer => {
++        const bytes = new Uint8Array(buffer), view = new DataView(buffer)
++        expect(view.getUint32(0, true)).toBe(AEDS_MAGIC)
++        expect(view.getUint8(4)).toBe(AEDS_VERSION)
++        const payloadView = bytes.subarray(AEDS_HEADER_LENGTH)
++        return { ok: true, frameType: view.getUint16(8, true), payload: payloadView, payloadView, textBlob: '', error: '' }
++      })
++      let responseKind: string = outcome
++      const intercepted = vi.fn(async (url: string, init?: RequestInit) => {
++        if (url.includes('/auth/pow-challenge')) {
++          const bytes = new Uint8Array(204)
++          bytes.set(new TextEncoder().encode('ordinary-salt'), 0)
++          bytes.set(new TextEncoder().encode('ordinary-signature'), 76)
++          return new Response(encodeAedsFrame(FrameType.PowChallenge, bytes))
++        }
++        expect(new URL(url).pathname).toBe('/api/binary/upload/upload-old')
++        expect(init?.method).toBe('DELETE')
++        expect(new Headers(init?.headers).get('X-Fsus-Upload-Token')).toBe('token-old')
++        if (responseKind === 'network') throw new Error('ordinary-delete-network-failure')
++        const bytes = new Uint8Array(responseKind === 'api-error' ? 584 : 136)
++        const put = (offset: number, value: string) => bytes.set(new TextEncoder().encode(value), offset)
++        if (responseKind === 'api-error') {
++          bytes[0] = 1; bytes[1] = 1
++          new DataView(bytes.buffer).setInt32(4, 403, true)
++          put(8, 'original-abort-denied'); put(264, 'ordinary-test-denial'); put(520, 'ordinary-trace')
++        } else { put(0, 'upload-old'); put(64, 'aborted') }
++        return new Response(encodeAedsFrame(responseKind === 'api-error' ? FrameType.ApiError : FrameType.UploadStatus, bytes),
++          { status: responseKind === 'api-error' ? 403 : 200 })
++      })
++      vi.stubGlobal('fetch', intercepted)
++      try {
++        if (outcome !== 'same-id-aborted') {
++          await expect(runtime.abandon()).rejects.toThrow(outcome === 'api-error' ? 'original-abort-denied' : 'ordinary-delete-network-failure')
++          expect(runtime.cleanupRequired).toBe(true)
++          expect(runtime.activeSession.uploadId).toBe('upload-old')
++          expect(localStorage.getItem(originalKey)).toBe(originalSnapshot)
++          await expect(runtime.uploadFile(fileOf(64, 'other.png'), options)).rejects.toThrow('上传会话尚未取消')
++          responseKind = 'same-id-aborted'
++        }
++        await runtime.abandon()
++        expect(runtime.cleanupRequired).toBe(false)
++        expect(runtime.phase).toBe('idle')
++        expect(localStorage.getItem(originalKey)).toBeNull()
++        expect(intercepted.mock.calls.filter(([, init]) => init?.method === 'DELETE')).toHaveLength(outcome === 'same-id-aborted' ? 1 : 2)
++      } finally { vi.unstubAllGlobals(); privateRequestRuntime.resetForTests() }
++      part.resolve({ uploadedBytes: 128 }); await rejected
++    })
++
+ })
+ 
+ describe('ImageUploadOptionsPanel upload controls', () => {
+@@ -1131,4 +1347,5 @@ describe('ImageUploadOptionsPanel upload controls', () => {
+     expect(wrapper.text()).not.toContain('继续上传')
+     expect(wrapper.text()).not.toContain('中止上传')
+   })
++
+ })

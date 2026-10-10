@@ -1,0 +1,14 @@
+{"event":"start","workerProcessId":132119,"task":{"id":"1154655295_1_0","name":"forwards the original token to DELETE and decodes the actual aborted response"}}
+{"event":"finish","workerProcessId":132119,"task":{"id":"1154655295_1_0","name":"forwards the original token to DELETE and decodes the actual aborted response"}}
+{"event":"start","workerProcessId":132119,"task":{"id":"1154655295_1_1","name":"forwards the original token to DELETE and decodes the actual uploading response"}}
+{"event":"finish","workerProcessId":132119,"task":{"id":"1154655295_1_1","name":"forwards the original token to DELETE and decodes the actual uploading response"}}
+{"event":"start","workerProcessId":132121,"task":{"id":"-298466997_0_44","name":"retains the genuine cancellation obligation on invalid ACK 'other-generation'/'aborted'"}}
+{"event":"finish","workerProcessId":132121,"task":{"id":"-298466997_0_44","name":"retains the genuine cancellation obligation on invalid ACK 'other-generation'/'aborted'"}}
+{"event":"start","workerProcessId":132121,"task":{"id":"-298466997_0_45","name":"retains the genuine cancellation obligation on invalid ACK 'upload-old'/'uploading'"}}
+{"event":"finish","workerProcessId":132121,"task":{"id":"-298466997_0_45","name":"retains the genuine cancellation obligation on invalid ACK 'upload-old'/'uploading'"}}
+{"event":"start","workerProcessId":132121,"task":{"id":"-298466997_0_46","name":"retains the genuine cancellation obligation on invalid ACK 'upload-old'/undefined"}}
+{"event":"finish","workerProcessId":132121,"task":{"id":"-298466997_0_46","name":"retains the genuine cancellation obligation on invalid ACK 'upload-old'/undefined"}}
+{"event":"start","workerProcessId":132121,"task":{"id":"-298466997_0_47","name":"ignores public session and copied snapshot authority while retaining the original cleanup retry"}}
+{"event":"finish","workerProcessId":132121,"task":{"id":"-298466997_0_47","name":"ignores public session and copied snapshot authority while retaining the original cleanup retry"}}
+{"event":"start","workerProcessId":132121,"task":{"id":"-298466997_0_51","name":"awaits only the original unbound init and authenticates cancellation before its ACK"}}
+{"event":"finish","workerProcessId":132121,"task":{"id":"-298466997_0_51","name":"awaits only the original unbound init and authenticates cancellation before its ACK"}}

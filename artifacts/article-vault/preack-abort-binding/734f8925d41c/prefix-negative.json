@@ -1,0 +1,23 @@
+{
+  "label": "prefix-negative",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts",
+    "-t",
+    "(retains the genuine cancellation obligation on invalid ACK|ignores public session and copied snapshot authority|awaits only the original unbound init|forwards the original token to DELETE)",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/preack-abort-binding-20261010/prefix-report.json"
+  ],
+  "cwd": "/workspace/chain1975-preack-negative/src/frontend",
+  "startUtc": "2026-10-10T09:15:11.884990+00:00",
+  "head": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+  "runId": "chain1975-preack-prefix-01636576",
+  "qualification": false,
+  "exitCode": 1,
+  "stopUtc": "2026-10-10T09:15:22.004923+00:00"
+}

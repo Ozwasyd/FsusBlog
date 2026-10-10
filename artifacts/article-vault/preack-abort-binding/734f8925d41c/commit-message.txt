@@ -1,0 +1,5 @@
+fix(frontend): bind precompletion cancellation to original init
+
+Require the original init credential and matching aborted acknowledgement before local cleanup. Retain failed and unknown obligations without borrowing completion access.
+
+Refs: #1975

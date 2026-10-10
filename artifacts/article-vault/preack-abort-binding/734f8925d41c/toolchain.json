@@ -1,0 +1,14 @@
+{
+  "label": "toolchain",
+  "command": [
+    "node",
+    "/workspace/chain-1975-evidence/preack-abort-binding-20261010/verify-toolchain.cjs"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-10T09:18:21.862132+00:00",
+  "head": "734f8925d41c3d089cc039989292c352e0ee741b",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-10T09:18:22.048920+00:00"
+}

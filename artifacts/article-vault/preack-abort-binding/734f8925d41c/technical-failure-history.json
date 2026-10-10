@@ -1,0 +1,45 @@
+{
+  "qualification": false,
+  "currentCandidate": "734f8925d41c3d089cc039989292c352e0ee741b",
+  "exploratory": [
+    {
+      "label": "exploratory",
+      "result": "63 setup-hook failures: omitted task-owned topology parent directory; no test body acceptance",
+      "exit": 1
+    },
+    {
+      "label": "exploratory2",
+      "result": "56 passed/7 failed: absolute transport URL, trace-suffixed ApiError message and unbound cold-storage cancellation expectation",
+      "exit": 1
+    },
+    {
+      "label": "exploratory3",
+      "result": "61 passed/2 failed: error telemetry also persists ordinary non-upload evidence; corrected assertions target original upload key",
+      "exit": 1
+    },
+    {
+      "label": "exploratory4",
+      "result": "65 passed/0 failed before final unknown-completion controls, uncommitted preliminary only",
+      "exit": 0
+    }
+  ],
+  "historyImmutable": [
+    {
+      "source": "9461d18fb5fd010ad69c14ca76fc1ddee4ac4a18",
+      "path": "artifacts/article-vault/runtime-review-repair/9461d18fb5fd",
+      "status": "Rejected Infinity attempt; prior35P/1F and2/36/37 preserved"
+    },
+    {
+      "source": "b8723dc2baedef4c6adccbdd7cc88cae38494176",
+      "path": "artifacts/article-vault/completion-only-loan/b8723dc2baed",
+      "status": "Prior2/41/37 preserved"
+    },
+    {
+      "source": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+      "path": "artifacts/article-vault/post-ack-local-reset/01636576e8f9",
+      "status": "Prior2/45/37 preserved"
+    }
+  ],
+  "fullApplicationTypes": "Current/baseline exit2,244/244, zero delta; still FAIL",
+  "fullHistoryFooter": "Whole range exit1 at old9defbe367fc3ce869eef7a41aa29d9be3d1d5c37; not amended"
+}
