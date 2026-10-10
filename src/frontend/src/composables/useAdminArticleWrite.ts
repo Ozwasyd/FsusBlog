@@ -83,7 +83,7 @@ import { ArticleEditorSurfaceRuntime } from '@/services/authoring/articleEditorS
 import { ArticleLiveCapabilitySession } from '@/services/authoring/articleLiveCapability';
 import type { ArticlePreviewAttachmentPort } from '@/services/authoring/articlePreviewAttachments';
 import { createArticlePreviewCurrentAuthorities } from '@/services/authoring/articlePreviewCurrentAuthorities';
-import { ArticlePreviewSourceAdmission, type ArticlePreviewSourceInput } from '@/services/authoring/articlePreviewSourceAdmission';
+import { ArticlePreviewSourceAdmission, type ArticlePreviewSourceInput } from '@/services/authoring';
 import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';

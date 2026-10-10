@@ -5,5 +5,6 @@ export * from './articleDocumentContext';
 export * from './articleAnchorContext';
 export * from './articleRenderCache';
 export * from './articleRenderRefreshPolicy';
+export * from './articlePreviewSourceAdmission';
 export * from './articleEditorContinuity';
 export * from './articleEditorRuntimeBinding';
