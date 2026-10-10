@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import test from 'node:test';
 
 import { controlDigest } from '@fsusblog/control-legality/source';
@@ -71,12 +71,17 @@ test('sealed parser genuine repeated Vue h real default slot', () =>
     assert.equal(first.nodes[0].tag, 'button');
     assert.deepEqual(first.nodes[0].origin, { kind: 'native', name: 'button' });
     assert.equal(first.nodes[0].slotInputs.present.default, true);
+    const call = composition.resolver.parse(file).scripts[0].ast.statements[1].expression.body;
+    assert.equal(first.nodes[0].id, controlDigest({ file: `FsusBlog/${relative(parserRoot, file)}`,
+        offset: call.getStart(), source: call.getText() }).slice(0, 24));
     const second = composition.graph([file]);
     assert.deepEqual(second.errors, []);
+    assert.deepEqual(second.nodes.map((node) => node.id), first.nodes.map((node) => node.id));
     assert.equal(second.nodes[0], first.nodes[0]);
     assert.equal(second.nodes[0].id, first.nodes[0].id);
     assert.equal(second.sourceDigest, first.sourceDigest);
     const instrumented = composition.instrument(file, content);
+    assert.ok(instrumented.includes('data-fsus-composition-node'));
     assert.equal(instrumented, content.replace('{}', `{ 'data-fsus-composition-node': '${first.nodes[0].id}',}`));
     assert.equal(composition.instrument(file, content), instrumented);
 });
