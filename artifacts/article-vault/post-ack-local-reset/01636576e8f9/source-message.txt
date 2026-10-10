@@ -1,0 +1,7 @@
+fix(frontend): retain acknowledged upload recovery without abort
+
+Keep actual completion history independent of revoked loans. Callback failure,
+cancellation and disposal reset local transport and retain original recovery
+facts without calling upload abort or claiming committed asset cleanup.
+
+Refs: #1975

@@ -1,0 +1,47 @@
+{
+  "source": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+  "clean": true,
+  "inputs": [
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "unchanged": true,
+      "sha256": "65d17c8e04abd1a864a91e34fca1e1120d1b7407c0b445c991ce69806f839681"
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "unchanged": true,
+      "sha256": "1881e7ec6dcc2ab5618599bf5552602349bec03c53e1a5fe83a3aaf03c84c944"
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "unchanged": true,
+      "sha256": "68eaf45c94b7d8b345c68b5a515c0f8e88d95e78e8e9cf939f13979c7af10458"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "unchanged": true,
+      "sha256": "b919c1b37312feed020066b9c91d9437a785413524f94582d804ef4a4f56858e"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentContext.ts",
+      "unchanged": true,
+      "sha256": "a2e9ba9e6910e843a79c64b65f777a1f0e39f2b6757202cab248d47e7a4de3df"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "unchanged": true,
+      "sha256": "b2bd3f3efa3b8b2590f4ef799499e7a6419b597f1a84e3064178e59f506252c9"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "unchanged": true,
+      "sha256": "df45033412c1b46d4c15205249eae970e875e7234624d88ea2e94981bf762503"
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "unchanged": true,
+      "sha256": "8e92009dcffb98908c8c78eefaf5a184bc23b5b26abece70c748fc830748fdf6"
+    }
+  ],
+  "qualification": false
+}

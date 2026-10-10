@@ -1,0 +1,4 @@
+{"event":"start","workerProcessId":106784,"task":{"id":"-298466997_0_0","name":"runs compression and hashing before init, uploads every required part, then completes once"}}
+{"event":"finish","workerProcessId":106784,"task":{"id":"-298466997_0_0","name":"runs compression and hashing before init, uploads every required part, then completes once"}}
+{"event":"start","workerProcessId":106784,"task":{"id":"-298466997_0_10","name":"borrows actual compressed facts and retains a bound handle after public session and original lease clear"}}
+{"event":"finish","workerProcessId":106784,"task":{"id":"-298466997_0_10","name":"borrows actual compressed facts and retains a bound handle after public session and original lease clear"}}

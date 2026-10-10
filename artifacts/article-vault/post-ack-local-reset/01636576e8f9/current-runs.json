@@ -1,0 +1,426 @@
+{
+  "testedSource": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+  "qualification": false,
+  "runs": [
+    {
+      "label": "positive",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+        "--testNamePattern",
+        "(runs compression and hashing before init, uploads every required part, then completes once|borrows actual compressed facts and retains a bound handle after public session and original lease clear)$"
+      ],
+      "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+      "startUtc": "2026-10-10T08:28:15.706574+00:00",
+      "head": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+      "runId": "chain1975-postack-01636576e-positive",
+      "qualification": false,
+      "exitCode": 0,
+      "stopUtc": "2026-10-10T08:28:24.698918+00:00",
+      "passed": 2,
+      "failed": 0,
+      "outsideSelector": 43,
+      "starts": 2,
+      "finishes": 2,
+      "workerPids": [
+        106784
+      ],
+      "workersRemaining": [],
+      "cases": [
+        {
+          "name": "useImageUploadRuntime runs compression and hashing before init, uploads every required part, then completes once",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime pauses after part retry exhaustion while retaining the resumable attempt and snapshot",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime resumes the same file and options with the stored identity and uploads only missing parts",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime initializes a new identity when a stored snapshot is tampered",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime initializes a new identity when stored-session status lookup fails",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime clears local state and calls abort once even when abort fails",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime shares an in-flight abort and blocks replacement until server cleanup is acknowledged",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime a late part failure cannot resurrect a cancelled recovery snapshot",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime does not call the API when abandoning without an active session",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime does not let a late part acknowledgement overwrite a new upload attempt",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime borrows actual compressed facts and retains a bound handle after public session and original lease clear",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime refuses a clone pending handle before creating a session",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime refuses a foreign pending handle before creating a session",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime refuses a clone document lease through the real original registry",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime refuses a foreign document lease through the real original registry",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime refuses to mint a borrow from a localStorage-only resumed session",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime expires a completed borrow without refreshing it from public state or storage",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime waits for a cancelled original initialization and real cleanup acknowledgement before replacement",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime retains true completion history and unknown cleanup after a cancelled completion without deleting it",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime uses the existing flow original lease and caller cancellation without creating a second upload",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime grants no loan on scope disposal and waits for the original part before settling",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime rereads original document and intent ownership after an asynchronous borrow callback",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime does not grant a legacy attempt a new deletion action on scope disposal",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime invalidates a completed original borrow when a new attempt starts",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime revokes returned and captured access immediately after each callback settles",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime revokes concurrent access scopes independently while awaited use remains valid",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime bounds a completed callback and aborts its access signal at the fixed loan deadline",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime grants no loan after raw part failure and cannot mint one from retained state",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime grants no loan after raw complete failure and cannot mint one from retained state",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime does not remint an explicitly released loan during the active completed operation",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime revokes a newly acquired loan when the original completion callback fails",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime grants no precompletion loan during a slow chunk and expires 30 seconds from actual acquisition",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime captures real per-file handles and consumes slow same-name batch files before advancing",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime grants no loan during original compression, initialization, part or pending completion",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime cannot acquire a first loan after the original successful operation is inactive",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime does not refresh the acquisition deadline when a later access scope starts",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime revokes a granted completion loan when its active original lease is cancelled",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime releases the per-file loan and stops a batch when its completion consumer fails",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime keeps ACK recovery after disposal of the callback operation without aborting",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime keeps ACK recovery after disposal of the returned operation without aborting",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime retains ACK history after original intent invalidation and repeated abandon",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime retains ACK history after original document invalidation and repeated abandon",
+          "status": "skipped"
+        },
+        {
+          "name": "useImageUploadRuntime rejects a cloned capture owner before capture or upload IO",
+          "status": "skipped"
+        },
+        {
+          "name": "ImageUploadOptionsPanel upload controls shows resume and abandon only for the corresponding runtime state and wires both actions",
+          "status": "skipped"
+        }
+      ]
+    },
+    {
+      "label": "focused",
+      "command": [
+        "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.config.ts",
+        "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+      ],
+      "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+      "startUtc": "2026-10-10T08:29:58.569973+00:00",
+      "head": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+      "runId": "chain1975-postack-01636576e-focused-correct-cwd",
+      "qualification": false,
+      "exitCode": 0,
+      "stopUtc": "2026-10-10T08:30:08.613469+00:00",
+      "passed": 45,
+      "failed": 0,
+      "outsideSelector": 0,
+      "starts": 45,
+      "finishes": 45,
+      "workerPids": [
+        107744
+      ],
+      "workersRemaining": [],
+      "cases": [
+        {
+          "name": "useImageUploadRuntime runs compression and hashing before init, uploads every required part, then completes once",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime pauses after part retry exhaustion while retaining the resumable attempt and snapshot",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime resumes the same file and options with the stored identity and uploads only missing parts",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime initializes a new identity when a stored snapshot is tampered",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime initializes a new identity when stored-session status lookup fails",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime clears local state and calls abort once even when abort fails",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime shares an in-flight abort and blocks replacement until server cleanup is acknowledged",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime a late part failure cannot resurrect a cancelled recovery snapshot",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime does not call the API when abandoning without an active session",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime does not let a late part acknowledgement overwrite a new upload attempt",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime borrows actual compressed facts and retains a bound handle after public session and original lease clear",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime refuses a clone pending handle before creating a session",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime refuses a foreign pending handle before creating a session",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime refuses a clone document lease through the real original registry",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime refuses a foreign document lease through the real original registry",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime refuses to mint a borrow from a localStorage-only resumed session",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime expires a completed borrow without refreshing it from public state or storage",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime waits for a cancelled original initialization and real cleanup acknowledgement before replacement",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime retains true completion history and unknown cleanup after a cancelled completion without deleting it",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime uses the existing flow original lease and caller cancellation without creating a second upload",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime grants no loan on scope disposal and waits for the original part before settling",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime rereads original document and intent ownership after an asynchronous borrow callback",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime does not grant a legacy attempt a new deletion action on scope disposal",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime invalidates a completed original borrow when a new attempt starts",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime revokes returned and captured access immediately after each callback settles",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime revokes concurrent access scopes independently while awaited use remains valid",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime bounds a completed callback and aborts its access signal at the fixed loan deadline",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime grants no loan after raw part failure and cannot mint one from retained state",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime grants no loan after raw complete failure and cannot mint one from retained state",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime does not remint an explicitly released loan during the active completed operation",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime revokes a newly acquired loan when the original completion callback fails",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime grants no precompletion loan during a slow chunk and expires 30 seconds from actual acquisition",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime captures real per-file handles and consumes slow same-name batch files before advancing",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime grants no loan during original compression, initialization, part or pending completion",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime cannot acquire a first loan after the original successful operation is inactive",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime does not refresh the acquisition deadline when a later access scope starts",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime revokes a granted completion loan when its active original lease is cancelled",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime releases the per-file loan and stops a batch when its completion consumer fails",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime keeps ACK recovery after disposal of the callback operation without aborting",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime keeps ACK recovery after disposal of the returned operation without aborting",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime retains ACK history after original intent invalidation and repeated abandon",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime retains ACK history after original document invalidation and repeated abandon",
+          "status": "passed"
+        },
+        {
+          "name": "useImageUploadRuntime rejects a cloned capture owner before capture or upload IO",
+          "status": "passed"
+        },
+        {
+          "name": "ImageUploadOptionsPanel upload controls shows resume and abandon only for the corresponding runtime state and wires both actions",
+          "status": "passed"
+        }
+      ]
+    }
+  ]
+}

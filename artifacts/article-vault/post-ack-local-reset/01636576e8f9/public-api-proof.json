@@ -1,0 +1,13 @@
+{
+  "source": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+  "base": "b8723dc2baedef4c6adccbdd7cc88cae38494176",
+  "parser": "6.0.3",
+  "publicInterfaces": [
+    "ImageUploadAttemptBinding",
+    "ImageUploadSessionAccess",
+    "ImageUploadSessionBorrow",
+    "ImageUploadRuntimeOptions"
+  ],
+  "unchanged": true,
+  "qualification": false
+}

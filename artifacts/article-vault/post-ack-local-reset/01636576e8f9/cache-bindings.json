@@ -1,0 +1,22 @@
+[
+  {
+    "path": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/package.json",
+    "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+    "matchesLockedCache": true
+  },
+  {
+    "path": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/package-lock.json",
+    "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+    "matchesLockedCache": true
+  },
+  {
+    "path": "/workspace/chain1975-runtime-borrow-type-baseline/src/frontend/package.json",
+    "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+    "matchesLockedCache": true
+  },
+  {
+    "path": "/workspace/chain1975-runtime-borrow-type-baseline/src/frontend/package-lock.json",
+    "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+    "matchesLockedCache": true
+  }
+]

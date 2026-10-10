@@ -1,0 +1,30 @@
+{
+  "preSource": "b8723dc2baedef4c6adccbdd7cc88cae38494176",
+  "preTree": "8d92dfde1eaa9025b62a4f90c8bf6f0d93ab9fcd",
+  "postSource": "01636576e8f92151b2a1a1e429bae6dd2b860f05",
+  "postTree": "548d0b629ad613b7b023378fcf3c5765dd5835a6",
+  "paths": [
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "preBlob": "a73edccdc99804458c37341832b3ba332b464a17",
+      "sha256": "02f82551be3ebc83109593199eb537f7fde8ed819b9de92dee09bd659c8e040f",
+      "postBlob": "486962f888f3b71b59976b554e2394b27a7454fd",
+      "postSha256": "65d17c8e04abd1a864a91e34fca1e1120d1b7407c0b445c991ce69806f839681"
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "preBlob": "a31207f7c381526abebe86d05ddc336a48a6e5bd",
+      "sha256": "3311493845131a3c76c50522d3de4334f3821d86fdf660216708cec5e634c12d",
+      "postBlob": "cb6510aed051a07b5666d2a76b7f465524bbb16f",
+      "postSha256": "68eaf45c94b7d8b345c68b5a515c0f8e88d95e78e8e9cf939f13979c7af10458"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "preBlob": "cdd46c3c7195c3e9bd0945be654a8c91e9f43f6e",
+      "sha256": "41c1ff23c6d091f0788bd1092ab5e92e6bc086fabf18ad651e62f506efae4d91",
+      "postBlob": "62c4b3093d1bcd5a9ba02f1a63d6f446253bf2b9",
+      "postSha256": "b919c1b37312feed020066b9c91d9437a785413524f94582d804ef4a4f56858e"
+    }
+  ],
+  "qualification": false
+}

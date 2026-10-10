@@ -1,0 +1,22 @@
+{
+  "source": "b8723dc2baedef4c6adccbdd7cc88cae38494176",
+  "tree": "8d92dfde1eaa9025b62a4f90c8bf6f0d93ab9fcd",
+  "actualStartingHead": "8097ef44da01235c9305e2ecc1418f46c6c62925",
+  "sourceOffer": [
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "preBlob": "a73edccdc99804458c37341832b3ba332b464a17",
+      "sha256": "02f82551be3ebc83109593199eb537f7fde8ed819b9de92dee09bd659c8e040f"
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "preBlob": "a31207f7c381526abebe86d05ddc336a48a6e5bd",
+      "sha256": "3311493845131a3c76c50522d3de4334f3821d86fdf660216708cec5e634c12d"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "preBlob": "cdd46c3c7195c3e9bd0945be654a8c91e9f43f6e",
+      "sha256": "41c1ff23c6d091f0788bd1092ab5e92e6bc086fabf18ad651e62f506efae4d91"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+fix(frontend): retire successful transport recovery credentials
+
+Keep only current operation identity and acknowledgement history after normal
+completion. Failed completion retains its original private recovery snapshot.
+
+Refs: #1975

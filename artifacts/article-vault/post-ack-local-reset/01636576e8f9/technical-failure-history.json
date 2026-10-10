@@ -1,0 +1,21 @@
+{
+  "retained": [
+    {
+      "stage": "first scratch source binding",
+      "observedError": "FileNotFoundError: [Errno 2] No such file or directory: 'src/frontend/src/composables/useImageUploadRuntime.ts'",
+      "cause": "helper ran from frontend cwd using repository-relative paths",
+      "exitNotSeparatelyCaptured": true
+    },
+    {
+      "stage": "second scratch source binding",
+      "observedError": "fatal: path 'src/frontend/src/views/admin/Writer.vue' does not exist in 'HEAD'",
+      "exitCode": 1,
+      "gitSubprocessExit": 128,
+      "cause": "incorrect remembered Writer path"
+    }
+  ],
+  "source": "original tool transcripts",
+  "correction": "use actual repository paths; captured clean hashes before focused; completed positive not duplicated",
+  "sourceEdited": false,
+  "qualification": false
+}
