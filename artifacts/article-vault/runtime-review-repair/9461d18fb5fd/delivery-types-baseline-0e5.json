@@ -1,0 +1,15 @@
+{
+  "label": "delivery-types-baseline-0e5",
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "--application"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-10T06:26:55.273142+00:00",
+  "head": "9461d18fb5fd010ad69c14ca76fc1ddee4ac4a18",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 2,
+  "stopUtc": "2026-10-10T06:27:25.005664+00:00"
+}

@@ -1,0 +1,65 @@
+{
+  "qualification": false,
+  "retained": [
+    {
+      "stage": "original local FsUSUI install",
+      "exitCode": 1,
+      "observedStderr": "AssertionError [ERR_ASSERTION]: source package dependency directory already exists",
+      "rawStderrLocation": "original tool transcript; initial stdout file was empty",
+      "cause": "previous teardown left only empty scoped directories",
+      "correction": "inspected and removed empty directories using rmdir, reran the unchanged original helper"
+    },
+    {
+      "stage": "first draft source style",
+      "status": "FAILED",
+      "violationCount": 3,
+      "toolExitNotSeparatelyCaptured": true,
+      "log": "source-style.log.gz",
+      "correction": "fixed import order and two unnecessary assertions; final locked/style gate passes"
+    },
+    {
+      "stage": "first discovery at4c",
+      "status": "nonempty36; new controls had incorrect panel suite placement",
+      "correction": "moved only new controls to original runtime suite so original fixtures/hooks apply"
+    },
+    {
+      "stage": "focused5117273d4814",
+      "exitCode": 1,
+      "passed": 35,
+      "failed": 1,
+      "log": "focused.log.gz",
+      "report": "failed-focused-5117273d4814/reports/vitest/unit/unsharded.json",
+      "cause": "new slow batch test asserted before its asynchronous timer-advance mock had acknowledged a chunk",
+      "correction": "explicit original chunk acknowledgement gates; both >30s waits and blocked-next-file assertion retained"
+    },
+    {
+      "stage": "readonly Writer35a fetch before publication",
+      "status": "not our ref",
+      "record": "readonly-writer-availability.json",
+      "correction": "later parent supplied published branch78d; fetched and read its exact source"
+    },
+    {
+      "stage": "application types",
+      "exitCode": 2,
+      "current": 244,
+      "baseline": 244,
+      "added": 0,
+      "removed": 0,
+      "currentSource": "9461d18fb5fd010ad69c14ca76fc1ddee4ac4a18"
+    },
+    {
+      "stage": "whole published commit range",
+      "exitCode": 1,
+      "badCommit": "9defbe367fc3ce869eef7a41aa29d9be3d1d5c37",
+      "reason": "missing separate Refs footer",
+      "rewritten": false
+    },
+    {
+      "stage": "early style environment",
+      "inheritedFsusUiRoot": "/workspace/FsusUI",
+      "correction": "reran original style with explicit own0e5 root and official Node PATH, then ran application types serially against same root",
+      "authoritativeStyleRecord": "delivery-locked-source-style.json",
+      "authoritativeTypesRecord": "delivery-types-baseline-0e5.json"
+    }
+  ]
+}

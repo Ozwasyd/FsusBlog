@@ -1,0 +1,15 @@
+{
+  "label": "candidate-mandatory-preflight",
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "tools/run-test-matrix.mjs",
+    "preflight"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-10T06:09:21.084344+00:00",
+  "head": "4483d8b2c33d5aa6a6153d598c09c6eadd1b6967",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-10T06:10:48.288346+00:00"
+}

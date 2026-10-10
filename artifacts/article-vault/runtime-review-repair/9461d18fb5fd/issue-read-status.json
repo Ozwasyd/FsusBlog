@@ -1,0 +1,51 @@
+[
+  {
+    "number": 1970,
+    "state": "CLOSED",
+    "bodySha256": "b70e48d8c4a81162ab7c25d9d50c7e5cc5ba39419501c454e1d7c9935af04c35",
+    "commentCount": 1,
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1970"
+  },
+  {
+    "number": 1971,
+    "state": "CLOSED",
+    "bodySha256": "1911ccec2dada223e9eeae66e11b9bef9583390e8f9b610f068771ea30c0fea7",
+    "commentCount": 0,
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1971"
+  },
+  {
+    "number": 1972,
+    "state": "CLOSED",
+    "bodySha256": "a68d651d17126ba390360d07713e4669eda24813d4d1ddad9d39aa86c4b8ce95",
+    "commentCount": 1,
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1972"
+  },
+  {
+    "number": 1973,
+    "state": "CLOSED",
+    "bodySha256": "db9009d56a5b9b04591ab6c37ba120d16b27169145237d5d8d19b708ced060b9",
+    "commentCount": 0,
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1973"
+  },
+  {
+    "number": 1974,
+    "state": "CLOSED",
+    "bodySha256": "657d098f6c372878ede3dd078e0c5d13b7438f41110431b7383977e2453c892e",
+    "commentCount": 1,
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1974"
+  },
+  {
+    "number": 1975,
+    "state": "OPEN",
+    "bodySha256": "bfc77640287a0f9c481dbe7652fb89b7eeb743f271a6d1fa448d35b3ebdd4751",
+    "commentCount": 4,
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1975"
+  },
+  {
+    "number": 1976,
+    "state": "OPEN",
+    "bodySha256": "e4aba67312f96033277eb3434db4a04fc2cd896125ec7bd87611e93f24fce25d",
+    "commentCount": 0,
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1976"
+  }
+]

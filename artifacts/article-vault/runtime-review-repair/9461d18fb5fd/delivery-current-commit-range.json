@@ -1,0 +1,16 @@
+{
+  "label": "delivery-current-commit-range",
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "6f6312e42fa41acb294f871689eaa42f7e92d442..HEAD"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-10T06:25:19.310340+00:00",
+  "head": "9461d18fb5fd010ad69c14ca76fc1ddee4ac4a18",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-10T06:25:20.491011+00:00"
+}

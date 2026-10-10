@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="36" failures="1" errors="0" time="1.860561149">
+    <testsuite name="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" timestamp="2026-10-10T06:07:38.350Z" hostname="7c2e346d91ff" tests="36" failures="1" errors="0" skipped="0" time="1.860561149">
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; runs compression and hashing before init, uploads every required part, then completes once" time="0.007314138">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; pauses after part retry exhaustion while retaining the resumable attempt and snapshot" time="0.004179844">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; resumes the same file and options with the stored identity and uploads only missing parts" time="0.00289329">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; initializes a new identity when a stored snapshot is tampered" time="0.00139282">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; initializes a new identity when stored-session status lookup fails" time="0.001207057">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; clears local state and calls abort once even when abort fails" time="0.052778581">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; shares an in-flight abort and blocks replacement until server cleanup is acknowledged" time="0.0013314">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; a late part failure cannot resurrect a cancelled recovery snapshot" time="0.552837585">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; does not call the API when abandoning without an active session" time="0.000579944">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; does not let a late part acknowledgement overwrite a new upload attempt" time="0.051142585">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; borrows actual compressed facts and retains a bound handle after public session and original lease clear" time="0.073363037">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; refuses a clone pending handle before creating a session" time="0.014563541">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; refuses a foreign pending handle before creating a session" time="0.02536964">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; refuses a clone document lease through the real original registry" time="0.013294102">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; refuses a foreign document lease through the real original registry" time="0.020319526">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; refuses to mint a borrow from a localStorage-only resumed session" time="0.013621704">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; expires a completed borrow without refreshing it from public state or storage" time="0.028564533">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; waits for a cancelled original initialization and real cleanup acknowledgement before replacement" time="0.064291843">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement" time="0.061427585">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; retains true completion history and unknown cleanup after a cancelled completion without deleting it" time="0.063184044">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; uses the existing flow original lease and caller cancellation without creating a second upload" time="0.0633544">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; revokes a borrow on scope disposal and waits for the original part before settling" time="0.068218883">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; rereads original document and intent ownership after an asynchronous borrow callback" time="0.022805461">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; does not grant a legacy attempt a new deletion action on scope disposal" time="0.051656243">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; invalidates a completed original borrow when a new attempt starts" time="0.019982506">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; revokes returned and captured access immediately after each callback settles" time="0.024378948">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; revokes concurrent access scopes independently while awaited use remains valid" time="0.02572498">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; bounds an active callback and aborts its own access signal before chunks begin" time="0.029097246">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; revokes the existing loan after raw part failure without reminting it" time="0.026271214">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; revokes the existing loan after raw complete failure without reminting it" time="0.013038599">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; does not remint an explicitly released loan during the original active upload" time="0.011302313">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; starts the completion window after a slow original chunk acknowledgement" time="0.013221379">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; captures real per-file handles and consumes slow same-name batch files before advancing" time="0.026280248">
+            <failure message="expected [] to deeply equal [ …(1) ]" type="AssertionError">
+AssertionError: expected [] to deeply equal [ …(1) ]
+
+- Expected
++ Received
+
+- [
+-   File {
+-     &quot;lastModified&quot;: 1700000000000,
+-     &quot;name&quot;: &quot;same.png&quot;,
+-     &quot;type&quot;: &quot;image/png&quot;,
+-     Symbol(buffer): {
+-       &quot;data&quot;: [
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-         0,
+-       ],
+-       &quot;type&quot;: &quot;Buffer&quot;,
+-     },
+-   },
+- ]
++ []
+
+ ❯ ../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts:795:22
+            </failure>
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; releases the per-file loan and stops a batch when its completion consumer fails" time="0.013625794">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="useImageUploadRuntime &gt; rejects a cloned capture owner before capture or upload IO" time="0.004965572">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts" name="ImageUploadOptionsPanel upload controls &gt; shows resume and abandon only for the corresponding runtime state and wires both actions" time="0.020327352">
+        </testcase>
+    </testsuite>
+</testsuites>

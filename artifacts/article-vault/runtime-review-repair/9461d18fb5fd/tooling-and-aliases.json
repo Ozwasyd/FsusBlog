@@ -1,0 +1,43 @@
+{
+  "node": "v24.16.0",
+  "nodeExecutable": "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+  "nodeSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+  "typescript": "6.0.3",
+  "vitest": "4.1.11",
+  "vue": "3.5.33",
+  "fsusui": "0e5c56050e8dd3e9ca3735078489d35a0bb6e3d2",
+  "physicalModules": [
+    {
+      "name": "vue",
+      "frontend": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/index.js",
+      "fsusui": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/vue/index.js",
+      "onePhysicalModule": true
+    },
+    {
+      "name": "@vue/runtime-dom",
+      "frontend": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/index.js",
+      "fsusui": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-dom/index.js",
+      "onePhysicalModule": true
+    },
+    {
+      "name": "@vue/runtime-core",
+      "frontend": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/index.js",
+      "fsusui": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/runtime-core/index.js",
+      "onePhysicalModule": true
+    },
+    {
+      "name": "@vue/reactivity",
+      "frontend": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/index.js",
+      "fsusui": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/reactivity/index.js",
+      "onePhysicalModule": true
+    },
+    {
+      "name": "@vue/shared",
+      "frontend": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/index.js",
+      "fsusui": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules/@vue/shared/index.js",
+      "onePhysicalModule": true
+    }
+  ],
+  "newNativeBuild": false,
+  "qualification": false
+}

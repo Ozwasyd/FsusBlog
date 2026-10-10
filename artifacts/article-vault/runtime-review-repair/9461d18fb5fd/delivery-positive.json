@@ -1,0 +1,20 @@
+{
+  "label": "delivery-positive",
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "--testNamePattern",
+    "(runs compression and hashing before init, uploads every required part, then completes once|borrows actual compressed facts and retains a bound handle after public session and original lease clear)$"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-10T06:23:21.813962+00:00",
+  "head": "9461d18fb5fd010ad69c14ca76fc1ddee4ac4a18",
+  "runId": "chain1975-runtime-repair-9461d18fb5fd-positive",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-10T06:23:30.381109+00:00"
+}

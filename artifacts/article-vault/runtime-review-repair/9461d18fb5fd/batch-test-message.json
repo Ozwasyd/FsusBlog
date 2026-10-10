@@ -1,0 +1,16 @@
+{
+  "label": "batch-test-message",
+  "command": [
+    "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--message-file",
+    "/workspace/chain-1975-evidence/runtime-review-repair-20261010/batch-test-message.txt"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-10T06:09:20.500673+00:00",
+  "head": "5117273d481455445ede8fe0a22607339e938d31",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-10T06:09:20.546233+00:00"
+}

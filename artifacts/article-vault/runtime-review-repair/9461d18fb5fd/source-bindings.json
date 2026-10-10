@@ -1,0 +1,63 @@
+{
+  "testedSource": "9461d18fb5fd010ad69c14ca76fc1ddee4ac4a18",
+  "fetchedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "startingHead": "6f6312e42fa41acb294f871689eaa42f7e92d442",
+  "sourceCommits": [
+    "4c62095a294ac7e23cbb21a6af5b622fe6a0dedc",
+    "5117273d481455445ede8fe0a22607339e938d31",
+    "4483d8b2c33d5aa6a6153d598c09c6eadd1b6967",
+    "9461d18fb5fd010ad69c14ca76fc1ddee4ac4a18"
+  ],
+  "changedInputs": [
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "gitBlob": "acfd552c6434d606c86350ff4b3b8956797e28df",
+      "sha256": "a1a331604e7ce789f45c22f0d3ef67f1c1b0293706d2c8f24714442be9ecab19"
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "gitBlob": "a602b084979ffa33e7eeef5191d770ecbf92ebbb",
+      "sha256": "1881e7ec6dcc2ab5618599bf5552602349bec03c53e1a5fe83a3aaf03c84c944"
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "gitBlob": "2d56c01072ac9904fb0ae9291e4769a99792322d",
+      "sha256": "be328c52e7be5afb04d278567bb26aca45376d5c25c5e879f663a46d63b8be4c"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "gitBlob": "8c9811f170814059acf6045543f749aa7f3d6cd3",
+      "sha256": "ba249ce6d9d53dbcca5f023db4efee9d2d6d2bd8df690bd98c09e5eb16b5220e"
+    }
+  ],
+  "sourceRemoteVerified": "9461d18fb5fd010ad69c14ca76fc1ddee4ac4a18",
+  "readonlyWriter": {
+    "branch": "codex/chain-2246-preview-source-integration",
+    "head": "78d1f6d3be02a577e7d1fb6c68721a7f263788e6",
+    "blob": "a14cbc4726f04d9d2741792b278e81349ebee54a",
+    "prior35aIsAncestor": true,
+    "consumed": false,
+    "canonicalOwners": [
+      {
+        "path": "src/frontend/src/services/authoring/articleAttachmentContext.ts",
+        "runtimeBlob": "d1fe3c986a0f2bb4bb3cb03c7b16fc98a57087b0",
+        "writerBlob": "d1fe3c986a0f2bb4bb3cb03c7b16fc98a57087b0",
+        "exact": true
+      },
+      {
+        "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+        "runtimeBlob": "d17589f25d9faa62b835ef8e4fd593fa34dc7f73",
+        "writerBlob": "d17589f25d9faa62b835ef8e4fd593fa34dc7f73",
+        "exact": true
+      },
+      {
+        "path": "src/frontend/src/services/authoring/articleAnchorContext.ts",
+        "runtimeBlob": "b9f3e7f06d78b7569cc87f8fa243f97376559f2d",
+        "writerBlob": "b9f3e7f06d78b7569cc87f8fa243f97376559f2d",
+        "exact": true
+      }
+    ]
+  },
+  "unchangedLocalWriterBlob": "e18a5c976d7bcee4a116bfe9505a725d5b251f9d",
+  "qualification": false
+}
