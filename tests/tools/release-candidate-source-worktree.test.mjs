@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-
-import { digestCanonical, sealContentDigest } from '../../tools/test/attempt-provenance.mjs';
-import { snapshotRepositorySourceIdentity, verifyRepositorySourceSnapshot, diffRepositorySourceSnapshots }
-    from '../../tools/test/repository-source-snapshot.mjs';
+import { URL } from 'node:url';
 
 import { gitFixture, sourcePolicy } from './repository-source-snapshot-test-support.mjs';
+
+const { digestCanonical, sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
+const { snapshotRepositorySourceIdentity, verifyRepositorySourceSnapshot, diffRepositorySourceSnapshots } = await import(new URL('../../tools/test/repository-source-snapshot.mjs', import.meta.url));
 
 function snapshot(root, policy = sourcePolicy)
 {
