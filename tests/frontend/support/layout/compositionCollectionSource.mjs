@@ -157,6 +157,16 @@ export function createCompositionCollectionSource(source)
         {
             return 'actual runtime declaration, heritage, decorator or static initialization effects remain unproved';
         }
+        if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+            && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment && !referenceTarget(node.left))
+        {
+            return 'actual unsupported assignment reference/destructuring target and value flow remain unproved';
+        }
+        if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+            && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) && !scalar(node.operand))
+        {
+            return 'actual update primitive conversion/value effects remain unproved; annotations grant no runtime values';
+        }
         if (ts.isExpressionNode(node) && !expressionKinds.has(node.kind)
             || ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node) || ts.isWithStatement(node)
             || ts.isFunctionLike(node) && (node.asteriskToken
@@ -165,6 +175,11 @@ export function createCompositionCollectionSource(source)
             return 'actual unsupported expression, binding or deferred effects and value flow remain unproved';
         }
         return null;
+    }
+    function referenceTarget(node)
+    {
+        node = unwrap(node);
+        return ts.isIdentifier(node) || ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node);
     }
     function declaration(file, name, use)
     {
@@ -258,11 +273,14 @@ export function createCompositionCollectionSource(source)
         const escapes = [];
         const calls = [];
         const unresolved = [];
+        const references = [];
         const bindings = new Set();
         const aliases = new Map();
         const aliasBindings = new Map();
         const evaluatedValues = new WeakMap();
         const evaluatedBindings = new WeakMap();
+        const evaluatedReceivers = new WeakMap();
+        const receiverAliases = new Map();
         const parameters = fn.parameters.map((parameter) =>
         {
             if (!ts.isIdentifier(parameter.name) || !openParameters && (parameter.initializer || parameter.dotDotDotToken))
@@ -334,7 +352,7 @@ export function createCompositionCollectionSource(source)
                 const key = ts.isPropertyAccessExpression(node) ? node.name : unwrap(node.argumentExpression);
                 const name = ts.isPropertyAccessExpression(node) || key && (ts.isStringLiteral(key) || ts.isNumericLiteral(key))
                     ? key.text : '*';
-                return origins(node.expression).map((origin) => [...origin, name]);
+                return receiverValue(node.expression).paths.map((origin) => [...origin, name]);
             }
             const parts = path(node);
             if (parts)
@@ -380,6 +398,62 @@ export function createCompositionCollectionSource(source)
             return [];
         }
         const rooted = (node) => origins(node)[0] ?? null;
+        function receiverValue(node)
+        {
+            node = unwrap(node);
+            if (!node)
+            {
+                return { paths: [], bindings: [], unknown: true };
+            }
+            if (evaluatedReceivers.has(node))
+            {
+                return evaluatedReceivers.get(node);
+            }
+            if (ts.isIdentifier(node))
+            {
+                const binding = lexicalBinding(node);
+                return receiverAliases.get(binding) ?? { paths: origins(node), bindings: originBindings(node),
+                    unknown: !binding || !ts.isParameter(binding) };
+            }
+            if (node.kind === ts.SyntaxKind.ThisKeyword)
+            {
+                return { paths: [['this']], bindings: [], unknown: false };
+            }
+            if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+            {
+                const base = receiverValue(node.expression);
+                const key = ts.isPropertyAccessExpression(node) ? node.name : unwrap(node.argumentExpression);
+                const name = ts.isPropertyAccessExpression(node) || key && (ts.isStringLiteral(key) || ts.isNumericLiteral(key))
+                    ? key.text : '*';
+                return { ...base, paths: base.paths.map((parts) => [...parts, name]) };
+            }
+            if (ts.isBinaryExpression(node) && [ts.SyntaxKind.EqualsToken, ts.SyntaxKind.CommaToken].includes(node.operatorToken.kind))
+            {
+                return receiverValue(node.right);
+            }
+            if (ts.isCommaListExpression(node))
+            {
+                return receiverValue(node.elements.at(-1));
+            }
+            if (ts.isConditionalExpression(node))
+            {
+                return mergeReceivers(receiverValue(node.whenTrue), receiverValue(node.whenFalse));
+            }
+            if (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken,
+                ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+                ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken].includes(node.operatorToken.kind))
+            {
+                return mergeReceivers(receiverValue(node.left), receiverValue(node.right));
+            }
+            // Aggregate references are contained values, not the identity of
+            // their new container. Await/call/new result identities stay open.
+            return { paths: [], bindings: [], unknown: true };
+        }
+        function mergeReceivers(left, right)
+        {
+            return { paths: [...new Map([...left.paths, ...right.paths].map((parts) => [parts.join('.'), parts])).values()],
+                bindings: [...new Set([...left.bindings, ...right.bindings])], unknown: left.unknown || right.unknown };
+        }
         function originBindings(node)
         {
             node = unwrap(node);
@@ -393,7 +467,7 @@ export function createCompositionCollectionSource(source)
             }
             if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
             {
-                return originBindings(node.expression);
+                return receiverValue(node.expression).bindings;
             }
             const root = rootIdentifier(node);
             if (root)
@@ -443,6 +517,18 @@ export function createCompositionCollectionSource(source)
         {
             const next = origins(value);
             const nextBindings = originBindings(value);
+            const unwrapped = unwrap(value);
+            let receiver = receiverValue(value);
+            if (unwrapped && (ts.isArrayLiteralExpression(unwrapped) || ts.isObjectLiteralExpression(unwrapped)))
+            {
+                receiver = { paths: [[binding.name.text]], bindings: [binding], unknown: false };
+            }
+            else if (!receiver.paths.length)
+            {
+                receiver = { ...receiver, paths: [[binding.name.text]], bindings: [binding], unknown: true };
+            }
+            receiverAliases.set(binding, guarded ? mergeReceivers(receiverAliases.get(binding)
+                ?? { paths: [[binding.name.text]], bindings: [binding], unknown: true }, receiver) : receiver);
             if (guarded)
             {
                 const possible = [...(aliases.get(binding) ?? [[binding.name.text]]), ...(next.length ? next : [[binding.name.text]])];
@@ -467,7 +553,8 @@ export function createCompositionCollectionSource(source)
                 if (ts.isIfStatement(owner) || ts.isConditionalExpression(owner) || ts.isIterationStatement(owner, false)
                     || ts.isSwitchStatement(owner) || ts.isTryStatement(owner) || ts.isFunctionLike(owner) && owner !== fn
                     || ts.isBinaryExpression(owner) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken,
-                        ts.SyntaxKind.QuestionQuestionToken].includes(owner.operatorToken.kind))
+                        ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+                        ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken].includes(owner.operatorToken.kind))
                 {
                     return true;
                 }
@@ -486,6 +573,15 @@ export function createCompositionCollectionSource(source)
                 originBindings: [...new Set(originBindings(originNode))].map((owner) => step(file, owner)), ...extra };
         };
         const writeOrigins = (node) => ts.isIdentifier(unwrap(node)) ? [[unwrap(node).text]] : origins(node);
+        function writeReference(node, target, extra)
+        {
+            const value = unwrap(target);
+            const member = ts.isPropertyAccessExpression(value) || ts.isElementAccessExpression(value);
+            const receiver = member ? receiverValue(value) : null;
+            return (referenceTarget(value) && writeOrigins(value).length ? writeOrigins(value) : [null]).map((parts) =>
+                entry(node, parts, { ...extra, ...(member ? { originBindings: receiver.bindings.map((owner) => step(file, owner)),
+                    receiverSourceProven: !receiver.unknown, runtimeIdentityProven: false } : {}) }, target));
+        }
         function returned(expression, kind = 'return')
         {
             for (const target of origins(expression))
@@ -493,7 +589,7 @@ export function createCompositionCollectionSource(source)
                 escapes.push(entry(expression, target, { kind }));
             }
         }
-        function inspectEffects(node)
+        function inspectEffects(node, referenceMode = 'value')
         {
             if (typeOnly(node))
             {
@@ -505,38 +601,7 @@ export function createCompositionCollectionSource(source)
                 unresolved.push({ ...step(file, node), kind: ts.SyntaxKind[node.kind],
                     required: unsupported });
             }
-            if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
-                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
-            {
-                for (const target of writeOrigins(node.left).length ? writeOrigins(node.left) : [null])
-                {
-                    writes.push(entry(node, target, { operator: node.operatorToken.getText(), value: step(file, node.right) }, node.left));
-                }
-            }
-            if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
-                && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator))
-            {
-                for (const target of writeOrigins(node.operand).length ? writeOrigins(node.operand) : [null])
-                {
-                    writes.push(entry(node, target, { operator: ts.tokenToString(node.operator) }, node.operand));
-                }
-            }
-            if (ts.isDeleteExpression(node))
-            {
-                for (const target of writeOrigins(node.expression).length ? writeOrigins(node.expression) : [null])
-                {
-                    writes.push(entry(node, target, { operator: 'delete' }, node.expression));
-                }
-            }
-            if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
-                && !((ts.isPropertyAccessExpression(node.parent) || ts.isElementAccessExpression(node.parent)) && node.parent.expression === node))
-            {
-                for (const target of origins(node).length ? origins(node) : [null])
-                {
-                    reads.push(entry(node, target));
-                }
-            }
-            if (ts.isIdentifier(node) && bindings.has(node.text) && node.parent.name !== node
+            if (referenceMode === 'value' && ts.isIdentifier(node) && bindings.has(node.text) && node.parent.name !== node
                 && !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node))
             {
                 reads.push(entry(node, rooted(node)));
@@ -573,13 +638,72 @@ export function createCompositionCollectionSource(source)
                     }
                 }
             }
-            if (ts.isCallExpression(node) || ts.isNewExpression(node))
+            if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
+            {
+                // Evaluate the reference (including receiver and key) before
+                // RHS effects. PutValue uses that frozen reference afterward.
+                inspectEffects(node.left, node.operatorToken.kind === ts.SyntaxKind.EqualsToken ? 'reference' : 'value');
+                const targets = writeReference(node, node.left, { operator: node.operatorToken.getText(), value: step(file, node.right) });
+                inspectEffects(node.right);
+                writes.push(...targets);
+            }
+            else if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+                && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator))
+            {
+                inspectEffects(node.operand);
+                writes.push(...writeReference(node, node.operand, { operator: ts.tokenToString(node.operator) }));
+                const binding = ts.isIdentifier(unwrap(node.operand)) && lexicalBinding(unwrap(node.operand));
+                if (binding)
+                {
+                    updateAlias(binding, null, guardedAssignment(node, binding));
+                }
+            }
+            else if (ts.isDeleteExpression(node))
+            {
+                inspectEffects(node.expression, 'reference');
+                writes.push(...writeReference(node, node.expression, { operator: 'delete' }));
+            }
+            else if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
+            {
+                inspectEffects(node.expression);
+                if (ts.isElementAccessExpression(node) && node.argumentExpression)
+                {
+                    inspectEffects(node.argumentExpression);
+                    const key = unwrap(node.argumentExpression);
+                    if (!ts.isStringLiteral(key) && !ts.isNumericLiteral(key))
+                    {
+                        unresolved.push({ ...step(file, node.argumentExpression),
+                            required: 'actual computed key value/conversion remains unproved' });
+                    }
+                }
+                const receiver = receiverValue(node);
+                const captured = (receiver.paths.length ? receiver.paths : [null]).map((parts) => entry(node, parts,
+                    { kind: referenceMode === 'value' ? 'get-value' : 'property-reference',
+                        originBindings: receiver.bindings.map((owner) => step(file, owner)), receiverSourceProven: !receiver.unknown,
+                        runtimeIdentityProven: false }));
+                references.push(...captured);
+                if (referenceMode === 'value')
+                {
+                    reads.push(...captured);
+                }
+                if (receiver.unknown)
+                {
+                    unresolved.push({ ...step(file, node), receiver: step(file, node.expression),
+                        required: 'actual member receiver value/binding remains unproved; contained references grant no receiver identity' });
+                }
+            }
+            else if (node !== unwrap(node))
+            {
+                inspectEffects(node.expression, referenceMode);
+            }
+            else if (ts.isCallExpression(node) || ts.isNewExpression(node))
             {
                 // The callee/receiver is evaluated first, then each argument
                 // in order. Freeze each result immediately; a later argument
                 // must not rewrite the provenance of an already-read value.
                 inspectEffects(node.expression);
-                const receiver = rooted(node.expression);
+                const receiver = receiverValue(node.expression).paths[0] ?? null;
                 const receiverEscape = receiver && entry(node.expression, receiver, { kind: 'method-receiver' });
                 const call = entry(node, receiver, { expression: node.expression.getText(), arguments: [] });
                 for (const argument of node.arguments ?? [])
@@ -631,14 +755,29 @@ export function createCompositionCollectionSource(source)
                     updateAlias(binding, node.operatorToken.kind === ts.SyntaxKind.EqualsToken || logical ? node.right : null,
                         logical || guardedAssignment(node, binding));
                 }
+                else if (!referenceTarget(assigned))
+                {
+                    // Unsupported targets cannot leave a stale borrowed alias
+                    // available to later supported references. Keep possible
+                    // affected local bindings unknown; no destructuring model.
+                    walkRuntime(assigned, (reference) =>
+                    {
+                        const possible = ts.isIdentifier(reference) && lexicalBinding(reference);
+                        if (possible)
+                        {
+                            updateAlias(possible, null);
+                        }
+                    });
+                }
             }
             if (ts.isExpressionNode(node))
             {
+                evaluatedReceivers.set(node, receiverValue(node));
                 evaluatedBindings.set(node, [...originBindings(node)]);
                 evaluatedValues.set(node, origins(node).map((origin) => [...origin]));
             }
         }
-        effectRegions(fn).forEach(inspectEffects);
+        effectRegions(fn).forEach((region) => inspectEffects(region));
         if (ts.isArrowFunction(fn) && !ts.isBlock(fn.body))
         {
             returned(fn.body);
@@ -651,7 +790,7 @@ export function createCompositionCollectionSource(source)
         }
         return proof({ parameters, parameterSources: fn.parameters.map((parameter) => ({ source: step(file, parameter),
             rest: !!parameter.dotDotDotToken, initializer: parameter.initializer ? step(file, parameter.initializer) : null })),
-        reads, freeReads, writes, escapes, calls, unresolved }, [step(file, fn)]);
+        reads, freeReads, writes, escapes, calls, references, unresolved }, [step(file, fn)]);
     }
     function readonlyReferences(file, name, allowed = new Set())
     {
@@ -798,13 +937,19 @@ export function createCompositionCollectionSource(source)
                 const effect = callbackEffects(file, fn);
                 // Calls, item writes and captures are never pure by a function
                 // name or a VNode/readonly annotation.
-                if (effect.unresolved.length || effect.writes.length || effect.calls.length || effect.escapes.some((entry) => entry.kind !== 'return'))
+                if (effect.writes.length || effect.calls.length || effect.escapes.some((entry) => entry.kind !== 'return'))
                 {
                     fail(`effectful collection callback ${file}:${fn.getStart()}`);
                 }
                 if (effect.reads.some((entry) => !entry.path || entry.path.length !== 1 || !effect.parameters.includes(entry.path[0])))
                 {
                     fail(`unbound collection callback read ${file}:${fn.getStart()}`);
+                }
+                // Preserve the original unbound-read diagnostic when the same
+                // read also carries an explicit receiver/key uncertainty.
+                if (effect.unresolved.length)
+                {
+                    fail(`effectful collection callback ${file}:${fn.getStart()}`);
                 }
                 effects.push({ kind: node.expression.name.text, ...effect });
                 let returned = unwrap(fn.body);
