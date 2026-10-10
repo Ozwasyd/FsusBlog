@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import test from 'node:test';
 
-import { controlDigest, createControlSourceResolver } from '@fsusblog/control-legality/source';
+import { controlDigest } from '@fsusblog/control-legality/source';
 import { createCompositionFunctionalSource } from '@fsusblog/layout-governance/composition-functional-source';
+import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
 const fsusUIRoot = process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT;
@@ -17,9 +18,10 @@ test.after(() => rmSync(directory, { recursive: true, force: true }));
 
 function source(file)
 {
-    const resolver = createControlSourceResolver({ repositoryRoot, fsusUIRoot, parserRoot, mode: 'local' });
+    const composition = createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot });
+    const { resolver } = composition;
     const record = resolver.parse(file);
-    const functional = createCompositionFunctionalSource({ resolver });
+    const functional = createCompositionFunctionalSource({ resolver, vueBinding: composition.vueBinding });
     const ts = resolver.ts;
     const exports = record.scripts.flatMap(({ ast }) => ast.statements.filter(ts.isExportAssignment));
     const exported = exports[0]?.expression;
@@ -54,6 +56,59 @@ function opening(s)
 {
     return find(s, (node) => s.ts.isJsxOpeningElement(node) || s.ts.isJsxSelfClosingElement(node))[0];
 }
+
+test('sealed parser genuine repeated Vue h real default slot', () =>
+{
+    const content = "import {h} from 'vue';export default()=>h('button',{},'actual');";
+    const file = resolve(directory, 'GenuineH.ts');
+    writeFileSync(file, content);
+    assert.equal(readFileSync(file, 'utf8'), content);
+    assert.ok(!content.endsWith('\n'));
+    const composition = createCompositionSource({ repositoryRoot: parserRoot, fsusUIRoot });
+    const first = composition.graph([file]);
+    assert.deepEqual(first.errors, []);
+    assert.equal(first.nodes.length, 1);
+    assert.equal(first.nodes[0].tag, 'button');
+    assert.deepEqual(first.nodes[0].origin, { kind: 'native', name: 'button' });
+    assert.equal(first.nodes[0].slotInputs.present.default, true);
+    const call = composition.resolver.parse(file).scripts[0].ast.statements[1].expression.body;
+    assert.equal(first.nodes[0].id, controlDigest({ file: `FsusBlog/${relative(parserRoot, file)}`,
+        offset: call.getStart(), source: call.getText() }).slice(0, 24));
+    const second = composition.graph([file]);
+    assert.deepEqual(second.errors, []);
+    assert.deepEqual(second.nodes.map((node) => node.id), first.nodes.map((node) => node.id));
+    assert.equal(second.nodes[0], first.nodes[0]);
+    assert.equal(second.nodes[0].id, first.nodes[0].id);
+    assert.equal(second.sourceDigest, first.sourceDigest);
+    const instrumented = composition.instrument(file, content);
+    assert.ok(instrumented.includes('data-fsus-composition-node'));
+    assert.equal(instrumented, content.replace('{}', `{ 'data-fsus-composition-node': '${first.nodes[0].id}',}`));
+    assert.equal(composition.instrument(file, content), instrumented);
+});
+
+test('functional genuine Vue h alias retains original call and canonical export proof', () =>
+{
+    const s = fixture('import {h as vnode} from "vue"; export default()=>vnode("button",{title:"actual"},"actual");');
+    const binding = s.binding();
+    const call = s.render.body;
+    assert.equal(s.functional.outputValue(s.record, call, binding), call);
+    const facts = binding.proofFacts.renderCalls[0];
+    const framework = s.resolver.resolveFrameworkExport(s.record.file, call.expression);
+    assert.deepEqual(facts.exportIdentity, framework.exportIdentity);
+    assert.deepEqual(facts.source, s.resolver.sourceStep(s.record.file, call));
+    assert.deepEqual(facts.callee, s.resolver.sourceStep(s.record.file, call.expression));
+    assert.deepEqual(facts.definition, s.resolver.sourceStep(framework.file, framework.fn));
+    assert.deepEqual(facts.edges.map((edge) => edge.source), framework.edges.map((edge) =>
+        s.resolver.sourceStep(edge.file, edge.originalImportOrExportAST)));
+    assert.deepEqual(facts.dependencies, framework.dependencies.map((dependency) =>
+        s.resolver.sourceStep(dependency.file, dependency.fn ?? dependency.classDeclaration)));
+    assert.ok(Object.isFrozen(facts) && Object.isFrozen(facts.exportIdentity) && Object.isFrozen(facts.definition));
+    assert.ok(facts.unresolvedDependencies.length > 0);
+    assert.equal(facts.qualificationEligible, false);
+    assert.equal(binding.proofDigest, controlDigest(binding.proofFacts));
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+    assert.deepEqual(s.functional.fields(s.record, call.arguments[1].properties, binding).map((field) => field.name.text), ['title']);
+});
 
 test('actual TableV2 Footer arrow binds lexical props slots and inert displayName source steps', () =>
 {
@@ -359,7 +414,23 @@ const negatives = [
     ['destructured alias deferred delete', 'export default (props)=> { const {child}=props; const callback=()=>delete child.flag; return <div/>; };', 'bind'],
     ['destructured alias escaped callback', 'export default (props)=> { const {child}=props; const callback=()=>consume(child); return <div/>; };', 'bind'],
     ['module spread supplier tagged call effects', 'const extra={title:mutator`payload`}; export default ()=> { return <div {...extra}/>; };', 'bind'],
-    ['module spread supplier assignment effects', 'const extra={title:(external.flag=true)}; export default ()=> { return <div {...extra}/>; };', 'bind']
+    ['module spread supplier assignment effects', 'const extra={title:(external.flag=true)}; export default ()=> { return <div {...extra}/>; };', 'bind'],
+    ['shadowed genuine h import', 'import {h} from "vue"; export default(h)=>h("button",{},"actual");', 'bind'],
+    ['reassigned genuine h import', 'import {h} from "vue"; h=other; export default()=>h("button",{},"actual");', 'bind'],
+    ['escaped genuine h import', 'import {h} from "vue"; consume(h); export default()=>h("button",{},"actual");', 'bind'],
+    ['metadata-only h impostor', 'const h=(...args)=>unknown(...args); h.displayName="h"; export default()=>h("button",{},"actual");', 'bind'],
+    ['type-only h import', 'import type {h} from "vue"; export default()=>h("button",{},"actual");', 'bind'],
+    ['non-Vue h impostor', 'import {h} from "./Impostor.ts"; export default()=>h("button",{},"actual");', 'bind'],
+    ['genuine h helper child effects', 'import {h} from "vue"; export default()=>h("button",{},unknown());', 'bind'],
+    ['genuine h initializer write effects', 'import {h} from "vue"; export default()=>h("button",{title:(external.flag=true)},"actual");', 'bind'],
+    ['genuine h tagged prop effects', 'import {h} from "vue"; export default()=>h("button",{title:unknown`payload`},"actual");', 'bind'],
+    ['genuine h open prop supplier', 'import {h} from "vue"; export default(props)=>h("button",props,"actual");', 'bind'],
+    ['genuine h injected VNode child', 'import {h} from "vue"; export default()=>h("button",{},unknownVNode);', 'bind'],
+    ['genuine h captured props callback', 'import {h} from "vue"; export default(props)=>h("button",{onClick:()=>consume(props)},"actual");', 'bind'],
+    ['genuine h forged provenance marker', 'import {h} from "vue"; export default()=>h("button",{"data-fsus-composition-node":"forged"},"actual");', 'bind'],
+    ['genuine h unknown prop spread', 'import {h} from "vue"; export default()=>h("button",{...unknown},"actual");', 'bind'],
+    ['genuine h argument spread', 'import {h} from "vue"; export default()=>h("button",...unknown);', 'bind'],
+    ['expression-bodied module constant output remains conservative', 'const child=<div/>; export default()=>child;', 'output']
 ];
 for (const [name, text, operation] of negatives)
 {

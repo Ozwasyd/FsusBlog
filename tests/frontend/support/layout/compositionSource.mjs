@@ -41,7 +41,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     const targetSuppliers = new WeakMap();
     const originalCalls = new Map();
     const originalRecords = new Map();
-    const functional = createCompositionFunctionalSource({ resolver });
+    const functional = createCompositionFunctionalSource({ resolver, vueBinding: publicVueBinding });
     const collections = Object.freeze(createCompositionCollectionSource({ resolver, nodes, expression, importFile, vueBinding: publicVueBinding }));
     function callFacts(value, ancestors = new Set(), objects = null, capture = false, path = '$')
     {
