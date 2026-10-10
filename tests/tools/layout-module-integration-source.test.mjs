@@ -1705,9 +1705,65 @@ test('central instrumentation refuses unchanged argument bytes after the authore
 
 test('central unsupported bare functional h shape retains its inherited explicit effects refusal', () =>
 {
-    const file = fixture('import {h} from "vue";export default()=>h("button",{});', 'ts');
-    const graph = source().graph([file]);
-    assert.ok(graph.errors.some((error) => error.reason === 'unknown-ast-parse' && /unbound functional call effects/.test(error.message)));
+    const code = 'import {h} from "vue";export default()=>h("button",{});';
+    const file = fixture(code, 'ts');
+    assert.equal(readFileSync(file, 'utf8'), code);
+    assert.ok(!code.endsWith('\n'));
+    const s = source();
+    const graph = s.graph([file]);
+    assert.deepEqual(graph.errors, []);
+    assert.equal(graph.nodes.length, 1);
+    const node = graph.nodes[0];
+    const record = s.resolver.parse(file);
+    const call = record.scripts[0].ast.statements[1].expression.body;
+    assert.ok(s.resolver.ts.isCallExpression(call));
+    assert.equal(call.getText(), 'h("button",{})');
+    assert.equal(node.file, file);
+    assert.equal(node.tag, 'button');
+    assert.deepEqual(node.origin, { kind: 'native', name: 'button' });
+    assert.equal(node.definition, null);
+    assert.deepEqual(node.attributes, {});
+    assert.deepEqual(node.directives, []);
+    assert.equal(node.slotInputs.present.default, false);
+    assert.deepEqual(graph.nativePropBindings, []);
+    assert.throws(() => s.resolveTargetInputs(node, graph), /actual canonical graph and source node/);
+    assert.equal(node.id, controlDigest({ file: `FsusBlog/${file.slice(repositoryRoot.length + 1)}`,
+        offset: call.getStart(), source: call.getText() }).slice(0, 24));
+    assert.equal(node.sourceDigest, controlDigest(call.getText()));
+    assert.equal(s.nodes.get(node.id), node);
+    assert.deepEqual(s.parse(file).nodes, [node.id]);
+    const { proofDigest, ...proof } = s.parse(file).renderSource.functional;
+    assert.equal(proofDigest, controlDigest(proof));
+    assert.equal(proof.renderCalls.length, 1);
+    const construction = proof.renderCalls[0];
+    const framework = s.resolver.resolveFrameworkExport(file, call.expression);
+    assert.deepEqual(construction.source, s.resolver.sourceStep(file, call));
+    assert.deepEqual(construction.callee, s.resolver.sourceStep(file, call.expression));
+    assert.deepEqual(construction.exportIdentity, framework.exportIdentity);
+    assert.equal(construction.exportIdentity.specifier, 'vue');
+    assert.equal(construction.exportIdentity.exportedName, 'h');
+    assert.deepEqual(construction.definition, s.resolver.sourceStep(framework.file, framework.fn));
+    assert.deepEqual(construction.edges.map((edge) => edge.source), framework.edges.map((edge) =>
+        s.resolver.sourceStep(edge.file, edge.originalImportOrExportAST)));
+    assert.deepEqual(construction.dependencies, framework.dependencies.map((dependency) =>
+        s.resolver.sourceStep(dependency.file, dependency.fn ?? dependency.classDeclaration)));
+    assert.deepEqual(construction.unresolvedDependencies, framework.unresolvedDependencies.map((dependency) =>
+        ({ ...dependency, binding: dependency.binding ?? null })));
+    assert.equal(construction.dependencies.length, 4);
+    assert.equal(construction.unresolvedDependencies.length, 5);
+    assert.equal(construction.qualificationEligible, false);
+    assert.equal(framework.qualificationEligible, false);
+    const repeated = s.graph([file]);
+    assert.deepEqual(repeated.errors, []);
+    assert.deepEqual(repeated.nodes.map((entry) => entry.id), graph.nodes.map((entry) => entry.id));
+    assert.equal(repeated.nodes[0], node);
+    assert.equal(repeated.sourceDigest, graph.sourceDigest);
+    assert.equal(s.resolver.parse(file), record);
+    assert.equal(record.scripts[0].ast.statements[1].expression.body, call);
+    const instrumented = s.instrument(file, code);
+    assert.equal(instrumented, code.replace('{}', `{ 'data-fsus-composition-node': '${node.id}',}`));
+    assert.equal(s.instrument(file, code), instrumented);
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
 });
 
 test('central canonical collection instance retains its original methods for both public and render consumers', () =>
