@@ -1,0 +1,197 @@
+{
+  "sourceCommit": "12c3152f6a5ced35784e89400fd8ce98e74d126a",
+  "sourceTree": "66abe3ef7b65eb2f1550888589ed3e1724a8e657",
+  "branch": "codex/chain-1895-origin-export-successor-20261009",
+  "baseEvidenceHead": "eb38199a3af2a9142a486a5c04324d792560fa1b",
+  "fsusUICommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "fsusUITree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+  "controls": {
+    "centralPass": 122,
+    "fail": 0,
+    "skip": 0,
+    "cancelled": 0,
+    "centralAdded": 15,
+    "exactNamesAndOrder": true,
+    "cleanSource": true,
+    "result": "clean-instrumentation-central-122.result.json",
+    "preflight": "instrumentation-central-122-preflight.json",
+    "combinedOrdinaryRunAtThisSource": false
+  },
+  "implementation": [
+    "Instrumentation verifies original private call and file observations before parsing/marker consumption; direct probe plugin transforms use the same check.",
+    "Original file records have private complete snapshots and detached public map observations; marker membership derives from original calls, not a caller-written file list.",
+    "Canonical collection instance receives actual resolver/nodes/expression(sourceText,file)/importFile(file,specifier)/vueBinding(record,actualCalleeAST,exportedName), is method-immutable and is the exact same instance exposed as collectionSource. No reference/read concatenation or second parser/checker."
+  ],
+  "sourceClosure": [
+    {
+      "path": "package.json",
+      "gitBlob": "2f5a557c2e46d0996e0ccc0d6d0382bc6771f3a1",
+      "sha256": "4d79b89ab9b88c01eb973acff15f7d8e24a5448e641d23cb2e19f1692df0071f"
+    },
+    {
+      "path": "src/frontend/scripts/fsusui-root.mjs",
+      "gitBlob": "b8ae455b18dbb36d36987d7ab7c4454138eb5d78",
+      "sha256": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionAnalyzer.mjs",
+      "gitBlob": "97a5cd80474f5b208ff0c8d81f870033e9bf3522",
+      "sha256": "0bced4b3f02c91e7012761b5d742ea9b344ef0019df97c486715def9db7791f0"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionChromeGeometry.mjs",
+      "gitBlob": "2a63860caa19272e5359cf20b1e01335743c9048",
+      "sha256": "31e0de2dfcded482485dc75f23dd3f79b070ba10f0a0cf8d85e44c15e7d5f9b0"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+      "gitBlob": "dadd74f6a89ceab7f1af28f47ac104bb3b52f2b2",
+      "sha256": "94d49625e15d8ebd1e25e4251632cf409f58eb1400a9a8b9f512bb28ebccabf1"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionContracts.mjs",
+      "gitBlob": "1adb993bfa122172289e30005b64b3a88995c449",
+      "sha256": "bf5752f757afbf9e3e168469b972a230923166e76dff9c8b56595ae2f7a0ef5b"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionDom.mjs",
+      "gitBlob": "b21593f64878ab31805c31c5cfd3cf10bc03a473",
+      "sha256": "31b2808fc5bd83cf327737bfdc4850f2f8f44be1c965dc38f5100323d5d7a871"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+      "gitBlob": "2357dfbc6753c8cd2f3f171ac1fcee99afb6bf8f",
+      "sha256": "37c4723c422fe437277c938b59ecdff189a12abd5ff2066cfed3b40de19bbc6b"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionGeometry.mjs",
+      "gitBlob": "50c2d022a456b04ab2780b245af31b89d065870f",
+      "sha256": "ea79af0e94df0f36201e2755b6fd79272fae15bb8c59f3de286cc5a8f572666f"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionOrderGeometry.mjs",
+      "gitBlob": "55083898e574ff99771f0935823fe516c7aafcce",
+      "sha256": "b0e6d43aaea70f272efcdf7a8f17dd52c9e3e1cc6381dbc56868330356d89b79"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionOverflowGeometry.mjs",
+      "gitBlob": "dd622765dee9eb731a8e930bee1e1680def0e1f0",
+      "sha256": "91d3dbb3578170c4e4fee60b0c1b40441b585763999b8ef8fdb5e4dde6d9e4aa"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionRoutes.mjs",
+      "gitBlob": "f9b62fbc1af8aa10b447dc162765ccdb9f954645",
+      "sha256": "f244d6aaacc23ebf7352efeeda0b27a5e19d5c533d7909c4eeab20a6edfcf066"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionSlotSource.mjs",
+      "gitBlob": "8a08155e9f0c62fd996792efdc4b4d0a03246263",
+      "sha256": "05ce3baa528237a59c9669f8ce692182e5f117676de8103e511ebbaeb40d8947"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionSource.mjs",
+      "gitBlob": "d437805c1258ffabd8967a646286d1acea8b9adf",
+      "sha256": "355c029870c156f7e6f52744d7b57e79acf3511ecf1183ab28ad7ed8b16bead8"
+    },
+    {
+      "path": "tests/frontend/support/layout/compositionTargetSource.mjs",
+      "gitBlob": "9fc305fbeab708789d5982b08767a140a2ab1a2a",
+      "sha256": "f2a3c9a660e134b1f044d451d4912af43d421757dea94604eadb7bac67022655"
+    },
+    {
+      "path": "tools/frontend/control-legality/package.json",
+      "gitBlob": "d8a692c7304e4cb47ebbfbb4ddebf02180073b98",
+      "sha256": "f5e01b121d4dd36d6f6a30b94673d021492998b6d1983a978be99236b6c9f5ac"
+    },
+    {
+      "path": "tools/frontend/control-legality/source-ref-selectors.mjs",
+      "gitBlob": "a7097b6e635ae43d50f357baadf26fa592503c32",
+      "sha256": "78a9d4b38cf6fa5cf99a56ed105f0427d53f2770b589cb297ca5a925d7a057bf"
+    },
+    {
+      "path": "tools/frontend/control-legality/source.mjs",
+      "gitBlob": "cd5be935bad610b2acb9851322362f03bf317805",
+      "sha256": "b3b85df5980407b740495a24eb60d841c57231b6906ea23ea4141867cff3e39b"
+    },
+    {
+      "path": "tools/test-matrix/schema-validator/validate.mjs",
+      "gitBlob": "b7fd00f3a868bfecd6e99aa076825e795efae906",
+      "sha256": "5c0129205799e39dc20f0a2b19498b26a04962b5577d1c59da4adefc4e5dec2c"
+    }
+  ],
+  "closureBoundary": "Canonical analyzer declares 17 files; actual static repository imports add two unchanged helpers. External npm implementation closures and computed/dynamic loads are not certified by this readonly inventory.",
+  "independentReview": {
+    "R1R2": "Parent reports exactd058 original940PASS0FAIL0SKIP0CANCELLED, all19 static blobs/SHA256 match and unchanged bytes; original R1/R2 closed. This is not a940 receipt for12c.",
+    "I1": "Parent independently observed original structural=true suppression and invented id markers on unchanged bytes; current ordinary controls refuse both and direct plugin bypass. New repair awaits same-review confirmation.",
+    "additional11": "Parent independent additional assertions10PASS1FAIL: inherited unsupported bare functional h shape also refused by11246. Original failing expectation has not been supplied here or weakened; not closed.",
+    "observations": "45 historical and three new instrumentation probes are observations, not PASS counts."
+  },
+  "preservedFailures": {
+    "instrumentation-focused-working": "Own newly constructed diagnostic expected unknown-render-source and unbound functional effects; actual source returns unknown-ast-parse/unbound functional call effects. First run13PASS1FAIL retained; own diagnostic now asserts actual explicit refusal. This is separate from the independent additional11 inherited positive-shape failure, which remains open.",
+    "style": "Unused own readFileSync import and inline mutation assertion formatting failed; import used for actual authored bytes and assertion reformatted. Original failed logs retained."
+  },
+  "moduleInputs": {
+    "target": "2c37518230c4a10d83edbec9ec73d3cc737b2c28",
+    "collection": "6e52c9b56e809b0c4695afa6219b3aced48d2c02",
+    "functional": "02121572e3c392f950dcfb3fb6b43ce182f86c93",
+    "slot": "1d49b3d38ec0dcc007190cab39487f0bd3af2138",
+    "finiteRefs": "8c9273b7fe122b064615ed69863df282a64c3324",
+    "routes": "fc21ca28d43314a3c49adf1ab75deeeb77a48c37",
+    "orderGeometry": "f59cc26892c68798298369badb82003e154b4ac4"
+  },
+  "offeredCollection": {
+    "commit": "c0db933d63a30988fe9591412af27125609f4287",
+    "branch": "codex/collection-source-receiver-of1-20261009",
+    "base": "bfada179a364d01e2d8e86637b5ab610fe964b40",
+    "postimages": [
+      {
+        "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+        "offeredGitBlob": "e8bd6fac224eaa8f2ba3f031287b9a9c46dddc72",
+        "offeredSha256": "2817d3f9a4e75e51c022ef87bffbf0134b37672b221ae71da83d31be2b555162",
+        "installed": false,
+        "currentGitBlob": "dadd74f6a89ceab7f1af28f47ac104bb3b52f2b2"
+      },
+      {
+        "path": "tests/tools/layout-collection-source.test.mjs",
+        "offeredGitBlob": "e3426f40bbc31dcad2c32e5046bd6224787ab32e",
+        "offeredSha256": "5243103ef9cf37784e0d7fd4b5adf3b03eb30a679d54d89d8eec1ba754433f00",
+        "installed": false,
+        "currentGitBlob": "af886053f4527feb299d9797f1080b10ddd8c6a8"
+      }
+    ],
+    "parentReportedSameReview": "270PASS0FAIL0SKIP and4of4originalOF1probes pass. NewP2 conditional/logical receiver branches omitted from nonfirst calls/method-receiver escapes; additional6probes4PASS2FAIL. Sole author repairing. No full module acceptance.",
+    "consumption": "Prepared raw postimages only, not installed. Wait for true final exact module source/API before final combined ordinary regression. Current source module remains6e52c; no future count inferred."
+  },
+  "incrementContract": {
+    "range": "eb38199a3af2a9142a486a5c04324d792560fa1b..12c3152f6a5ced35784e89400fd8ce98e74d126a",
+    "exitCode": 0,
+    "waivesLegacy2993": false
+  },
+  "legacyArtifactContract": {
+    "commit": "2993f604b9b33e2e21c4992e5e82760635965a51",
+    "status": "failed",
+    "reason": "commit scope evidence is outside repository allowed scopes",
+    "exitCode": 1,
+    "result": "legacy-published-artifact-contract-failed.result.json",
+    "historyRewritten": false,
+    "sourceRepairRangeContract": "232f7c86cedd5fe30a4f266de18330d63f9a412b..b7c26f4062c7c510e8ab43ccf74488fe37461e7f passed; does not waive legacy range failure"
+  },
+  "heldTestsExcluded": [
+    "all twelve fixtures bind to actual router AST/import graph without a second map",
+    "actual contract, design and FsusUI digests are bound to the current run",
+    "order geometry real Chromium fixtures observe responsive flow and explicit limits"
+  ],
+  "productionInventoryRun": false,
+  "browserOrNativeRun": false,
+  "contentAPIWrites": false,
+  "qualificationEligible": false,
+  "matrixAndRolesChanged": false,
+  "91pending79nullCleared": false,
+  "fullGeometryVerified": false,
+  "runtimeEffects": "unbound",
+  "issueStatus": {
+    "1894": "Full acceptance open on frozen cab9382452ff0ebdd22e2751a519555cc6073c38 / FsusUI7e52be36eb8c359dbb0897ef738df2e2cfc2f54e pair; no new runtime claim.",
+    "1895": "Full gate open: same-task1894 acceptance and qualified exact external1889/1891/1892 evidence absent; closed1888/1890/1893/1896/1898 combined current runtime boundaries remain unconfirmed under hold.",
+    "2098": "Current source increments tested; combined independent review, broader original graph joins and runtime/product acceptance remain open."
+  }
+}

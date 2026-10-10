@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "eb38199a3af2a9142a486a5c04324d792560fa1b..HEAD"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 0,
+  "startedAtEpoch": 1791612669.5463867,
+  "durationSeconds": 0.9161875247955322,
+  "source": {
+    "blog": {
+      "commit": "12c3152f6a5ced35784e89400fd8ce98e74d126a",
+      "tree": "66abe3ef7b65eb2f1550888589ed3e1724a8e657",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "12c3152f6a5ced35784e89400fd8ce98e74d126a",
+      "tree": "66abe3ef7b65eb2f1550888589ed3e1724a8e657",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/clean-instrumentation-contract.log",
+  "logSha256": "4af9459104c44ae5f760bff620d6a2eaa3d671b1dc68e1ec4674522561cdf4ee"
+}

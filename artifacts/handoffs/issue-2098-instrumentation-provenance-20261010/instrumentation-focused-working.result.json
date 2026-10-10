@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^central (instrumentation|probe plugin|public file map|fresh and repeated template|repeated JSX|unsupported bare)",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 1,
+  "startedAtEpoch": 1791612375.2644167,
+  "durationSeconds": 1.3931443691253662,
+  "source": {
+    "blog": {
+      "commit": "eb38199a3af2a9142a486a5c04324d792560fa1b",
+      "tree": "48fcdd1a10acf1355adde9b604c06231b36056a8",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "4a58cc802073676334946bd4c3ff41547d3ceafc63177a1b6ad7a7ba1196ac1a"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "eb38199a3af2a9142a486a5c04324d792560fa1b",
+      "tree": "48fcdd1a10acf1355adde9b604c06231b36056a8",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "4a58cc802073676334946bd4c3ff41547d3ceafc63177a1b6ad7a7ba1196ac1a"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/instrumentation-focused-working.log",
+  "logSha256": "5263cb65a0b9843a99213f1b6e9247a457e4aacb88a8258af922d7d9b2acc705"
+}

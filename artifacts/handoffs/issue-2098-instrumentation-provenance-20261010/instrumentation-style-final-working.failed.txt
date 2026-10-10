@@ -1,0 +1,4 @@
+[frontend-style] tests/tools/layout-module-integration-source.test.mjs:1408:25 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] tests/tools/layout-module-integration-source.test.mjs:1408:25 eslint/@stylistic/brace-style: Statement inside of curly braces should be on next line.
+[frontend-style] tests/tools/layout-module-integration-source.test.mjs:1408:27 eslint/@stylistic/max-statements-per-line: This line has 2 statements. Maximum allowed is 1.
+[frontend-style] tests/tools/layout-module-integration-source.test.mjs:1408:87 eslint/@stylistic/brace-style: Closing curly brace should be on the same line as opening curly brace or on the line after the previous block.

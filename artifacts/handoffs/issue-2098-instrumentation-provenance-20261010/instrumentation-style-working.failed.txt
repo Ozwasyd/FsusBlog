@@ -1,0 +1,1 @@
+[frontend-style] tests/tools/layout-module-integration-source.test.mjs:3:21 eslint/no-unused-vars: 'readFileSync' is defined but never used.

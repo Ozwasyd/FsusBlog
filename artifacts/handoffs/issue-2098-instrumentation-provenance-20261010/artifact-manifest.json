@@ -1,0 +1,110 @@
+{
+  "sourceCommit": "12c3152f6a5ced35784e89400fd8ce98e74d126a",
+  "artifacts": [
+    {
+      "path": "clean-instrumentation-central-122.pass.txt",
+      "bytes": 13167,
+      "sha256": "07ecd78be5b0d85cd38a5171a5315688626da7bf83725e959cbbcc48bddf5980"
+    },
+    {
+      "path": "clean-instrumentation-central-122.result.json",
+      "bytes": 15037,
+      "sha256": "a9328fdefc4b796650859c7cbfda30c34e390d5bc78f9f25406095a4ec56ece4"
+    },
+    {
+      "path": "clean-instrumentation-contract.pass.txt",
+      "bytes": 81,
+      "sha256": "4af9459104c44ae5f760bff620d6a2eaa3d671b1dc68e1ec4674522561cdf4ee"
+    },
+    {
+      "path": "clean-instrumentation-contract.result.json",
+      "bytes": 1585,
+      "sha256": "82c09c6b6f615428ac3aaf771501a054f7b1da8e4711f3c613d9f45b14aea233"
+    },
+    {
+      "path": "instrumentation-central-122-preflight.json",
+      "bytes": 44948,
+      "sha256": "c0a29e5d3d0ddcd9cbc67056c3616864544398fdbe4fdcfb3d7b96ea8d1292c5"
+    },
+    {
+      "path": "instrumentation-docs-corrected.pass.txt",
+      "bytes": 108,
+      "sha256": "d3bbb3c1bdcf620c3588aea235fce4ed3d1ebfa33dd1d1ccf55f27c2c808a95e"
+    },
+    {
+      "path": "instrumentation-docs-corrected.result.json",
+      "bytes": 1978,
+      "sha256": "cd252f777f6e5cf9e48d721ac1f6bf92c2a6c1c5b9280d4693cba52f2e50cb9a"
+    },
+    {
+      "path": "instrumentation-focused-working.failed.txt",
+      "bytes": 2571,
+      "sha256": "5263cb65a0b9843a99213f1b6e9247a457e4aacb88a8258af922d7d9b2acc705"
+    },
+    {
+      "path": "instrumentation-focused-working.result.json",
+      "bytes": 1997,
+      "sha256": "8b4af52cf972f8dbe3d758f4f2b09643a5fa93a713b6ced4458a1c4c6cfb5bfc"
+    },
+    {
+      "path": "instrumentation-framework-identities.json",
+      "bytes": 72438,
+      "sha256": "f336b7b9e895fcee1bf3f65d7be89c62123d47fa395c5b4f58b716bb6a05bdbe"
+    },
+    {
+      "path": "instrumentation-sdk-identities.pass.txt",
+      "bytes": 64,
+      "sha256": "9acae093c5cd44e335f454c89849f181f33fd5abcf7c351934f7dd0a399885c0"
+    },
+    {
+      "path": "instrumentation-sdk-identities.result.json",
+      "bytes": 1561,
+      "sha256": "c222e059a174fc6d893776e58122b3bcd6c1f601ca8569bf295d51da492e10ef"
+    },
+    {
+      "path": "instrumentation-style-corrected.pass.txt",
+      "bytes": 68,
+      "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+    },
+    {
+      "path": "instrumentation-style-corrected.result.json",
+      "bytes": 2009,
+      "sha256": "8b05a525c1427e54668ca896448297ae5efd23a906c594ef5abcb0e49703a7fe"
+    },
+    {
+      "path": "instrumentation-style-final-working.failed.txt",
+      "bytes": 741,
+      "sha256": "043339bb51be9a8af9fadcb3c8db56b5116013dd7df5fd9403098b7a0ccfb3dc"
+    },
+    {
+      "path": "instrumentation-style-final-working.result.json",
+      "bytes": 2013,
+      "sha256": "22d598d4752fdf0a7598b197ae41c2e63659c6f29165d5453484aa6e961b1d30"
+    },
+    {
+      "path": "instrumentation-style-working.failed.txt",
+      "bytes": 141,
+      "sha256": "646ece8e9ee67fbe2779ae30891f07414972bf76ed98d6e541def5b555c01ca7"
+    },
+    {
+      "path": "instrumentation-style-working.result.json",
+      "bytes": 2005,
+      "sha256": "f58dc11405c49221ec947cac004be8a0ef488701a374587c2b5b2658d6966f95"
+    },
+    {
+      "path": "interface-and-status.json",
+      "bytes": 10950,
+      "sha256": "ebf0c4a0921e64ebd1f4929318c822ced89b9759f83fc51281e0d645ef394208"
+    },
+    {
+      "path": "project-framework-identities.mjs",
+      "bytes": 6121,
+      "sha256": "907ebbc3c59523a64a0e6f94c6f940487da1687c7cd5f1f3731c1ebbb2c73ebb"
+    },
+    {
+      "path": "run.py",
+      "bytes": 1343,
+      "sha256": "eaa1bc6ed137133930a1e1e4cb53c9d48db569309bfe09279e7eff4bcada7705"
+    }
+  ]
+}

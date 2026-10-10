@@ -1,0 +1,48 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "tests/frontend/support/layout/compositionSource.mjs",
+    "--file",
+    "tests/tools/layout-module-integration-source.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 1,
+  "startedAtEpoch": 1791612547.6228116,
+  "durationSeconds": 3.8692634105682373,
+  "source": {
+    "blog": {
+      "commit": "eb38199a3af2a9142a486a5c04324d792560fa1b",
+      "tree": "48fcdd1a10acf1355adde9b604c06231b36056a8",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "84c9f3b4be81d5eec4736d3a60ec1cb81c8825ee742fee66a39e65f54c9605af"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "eb38199a3af2a9142a486a5c04324d792560fa1b",
+      "tree": "48fcdd1a10acf1355adde9b604c06231b36056a8",
+      "status": "M docs/frontend/layout-visual-governance.md\n M tests/frontend/support/layout/compositionSource.mjs\n M tests/tools/layout-module-integration-source.test.mjs",
+      "diffDigest": "84c9f3b4be81d5eec4736d3a60ec1cb81c8825ee742fee66a39e65f54c9605af"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/instrumentation-style-final-working.log",
+  "logSha256": "043339bb51be9a8af9fadcb3c8db56b5116013dd7df5fd9403098b7a0ccfb3dc"
+}
