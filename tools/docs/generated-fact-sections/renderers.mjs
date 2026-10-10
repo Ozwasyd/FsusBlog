@@ -115,6 +115,14 @@ function escapeTableCell(value)
     return normalizeScalarText(value).replace(/\|/gu, '\\|').replace(/\r?\n/gu, ' ');
 }
 
+function serializeLiteralJson(value)
+{
+    // Compound observations are JSON text; scalar strings retain their Markdown contract.
+    // Entities preserve literal punctuation without activating HTML, links, or escapes.
+    return normalizeScalarText(JSON.stringify(value)).replace(/[&<>\\`*_[\]~]/gu,
+        (character) => `&#${character.codePointAt(0)};`);
+}
+
 function markdownTable(headers, rows)
 {
     const headerLine = `| ${headers.map(escapeTableCell).join(' | ')} |`;
@@ -233,7 +241,7 @@ function renderKeyValueTable(value, options = {})
             ? formatDurationLike(entryValue, options.unit)
             : normalizeScalarText(typeof entryValue === 'string' || typeof entryValue === 'number' || typeof entryValue === 'boolean'
                 ? entryValue
-                : JSON.stringify(entryValue));
+                : serializeLiteralJson(entryValue));
         return [key, rendered];
     });
     return markdownTable(['Key', 'Value'], rows);
