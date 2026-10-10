@@ -71,7 +71,6 @@ interface OwnedUploadAttempt {
     completed: boolean;
     borrow: ImageUploadSessionBorrow | null;
     borrowIssued: boolean;
-    startCompletionWindow: (() => void) | null;
 }
 
 class UploadAttemptSupersededError extends Error
@@ -265,7 +264,17 @@ export function useImageUploadRuntime()
     const borrowCurrentSession = (): ImageUploadSessionBorrow | null =>
     {
         const attempt = ownedAttempt;
-        if (!attempt?.access || !bindingIsCurrent(attempt.binding, attempt.file, attempt.completed))
+        if (!attempt || !bindingIsCurrent(attempt.binding, attempt.file, attempt.completed))
+        {
+            discardOwnedAttempt();
+            return null;
+        }
+        // Before the actual completion acknowledgement these are operation locals only.
+        if (!attempt.completed)
+        {
+            return null;
+        }
+        if (!attempt.access)
         {
             discardOwnedAttempt();
             return null;
@@ -284,9 +293,7 @@ export function useImageUploadRuntime()
             return null;
         }
         const controller = new AbortController();
-        // Chunk IO belongs to the original task, not to the completion-consumer window.
-        let deadline = Infinity;
-        let timer: ReturnType<typeof setTimeout> | undefined;
+        const deadline = performance.now() + SESSION_BORROW_LIFETIME_MS;
         let released = false;
         const current = (): boolean => !released && !disposed && performance.now() < deadline
             && ownedAttempt === attempt && attempt.generation === attemptGeneration && attempt.access !== null
@@ -307,7 +314,6 @@ export function useImageUploadRuntime()
             }
             released = true;
             clearTimeout(timer);
-            attempt.startCompletionWindow = null;
             attempt.binding.lease.signal.removeEventListener('abort', release);
             attempt.binding.intent.signal.removeEventListener('abort', release);
             controller.abort(new DOMException('upload_session_borrow_released', 'AbortError'));
@@ -321,20 +327,7 @@ export function useImageUploadRuntime()
                 }
             }
         };
-        const startCompletionWindow = (): void =>
-        {
-            if (released || deadline !== Infinity)
-            {
-                return;
-            }
-            deadline = performance.now() + SESSION_BORROW_LIFETIME_MS;
-            timer = setTimeout(release, SESSION_BORROW_LIFETIME_MS);
-        };
-        attempt.startCompletionWindow = startCompletionWindow;
-        if (attempt.completed)
-        {
-            startCompletionWindow();
-        }
+        const timer = setTimeout(release, SESSION_BORROW_LIFETIME_MS);
         attempt.binding.lease.signal.addEventListener('abort', release, { once: true });
         attempt.binding.intent.signal.addEventListener('abort', release, { once: true });
         const borrow: ImageUploadSessionBorrow = Object.freeze({
@@ -579,29 +572,21 @@ export function useImageUploadRuntime()
 
         if (runtimeOptions.attemptBinding && initializedByThisAttempt)
         {
-            // Access closes over this original operation's locals, never a stored snapshot.
+            // Keep original operation ownership without granting precompletion access.
             ownedAttempt = {
                 generation,
                 file,
                 binding: runtimeOptions.attemptBinding,
-                access: () => ({ uploadId, uploadToken, sha256: fullHash,
-                    totalBytes: uploadPayload.file.size, commitMayHaveStarted }),
+                access: null,
                 active: true,
                 completed: false,
                 borrow: null,
-                borrowIssued: false,
-                startCompletionWindow: null
+                borrowIssued: false
             };
         }
-        if (runtimeOptions.onSessionReady)
+        if (runtimeOptions.onSessionReady && !ownedAttempt)
         {
-            const borrow = borrowCurrentSession();
-            if (!borrow)
-            {
-                throw createAppError(AppErrorCode.Conflict, 'upload_session_borrow_unavailable');
-            }
-            await runtimeOptions.onSessionReady(borrow);
-            ensureCurrentAttempt();
+            throw createAppError(AppErrorCode.Conflict, 'upload_session_borrow_unavailable');
         }
 
         const chunkSize = 512 * 1024;
@@ -678,7 +663,19 @@ export function useImageUploadRuntime()
         if (ownedAttempt?.generation === generation)
         {
             ownedAttempt.completed = true;
-            ownedAttempt.startCompletionWindow?.();
+            // Only actual successful completion exposes the fresh initialization facts.
+            ownedAttempt.access = () => ({ uploadId, uploadToken, sha256: fullHash,
+                totalBytes: uploadPayload.file.size, commitMayHaveStarted });
+        }
+        if (runtimeOptions.onSessionReady)
+        {
+            const borrow = borrowCurrentSession();
+            if (!borrow)
+            {
+                throw createAppError(AppErrorCode.Conflict, 'upload_session_borrow_unavailable');
+            }
+            await runtimeOptions.onSessionReady(borrow);
+            ensureCurrentAttempt();
         }
         phase.value = 'completed';
         progress.value = 100;

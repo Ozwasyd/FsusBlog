@@ -390,7 +390,10 @@ describe('useImageUploadRuntime', () => {
         expect(session.uploadToken).toBe('token-old')
         expect(session.sha256).toBe('a'.repeat(64))
         expect(session.totalBytes).toBe(73)
-        expect(session.commitMayHaveStarted).toBe(false)
+        expect(session.commitMayHaveStarted).toBe(true)
+        expect(api.completeUpload).toHaveBeenCalledOnce()
+        expect(runtime.activeSession.uploadId).toBe('upload-old')
+        expect(localStorage.length).toBe(1)
         expect(Object.keys(session)).toEqual([])
         expect(() => JSON.stringify(session)).toThrow('upload_session_borrow_not_serializable')
       })
@@ -520,7 +523,7 @@ describe('useImageUploadRuntime', () => {
     const original = boundAttempt(file)
     const complete = deferred<{ url: string }>()
     api.completeUpload.mockReturnValue(complete.promise)
-    let borrow!: ImageUploadSessionBorrow
+    let borrow: ImageUploadSessionBorrow | undefined
     let unavailableMap = false
     const runtime = useImageUploadRuntime()
     const upload = runtime.uploadFile(file, options, { attemptBinding: { ...original.binding, getBinding: () => {
@@ -529,12 +532,14 @@ describe('useImageUploadRuntime', () => {
     } }, onSessionReady: value => { borrow = value } })
     const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
     await vi.waitFor(() => expect(api.completeUpload).toHaveBeenCalledOnce())
-    await borrow.withSession(async session => { expect(session.commitMayHaveStarted).toBe(true) })
+    expect(borrow).toBeUndefined()
+    expect(runtime.borrowCurrentSession()).toBeNull()
     unavailableMap = true
     expect(runtime.borrowCurrentSession()).toBeNull()
     original.binding.lease.cancel()
     await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
-    expect(borrow.signal.aborted).toBe(true)
+    expect(borrow).toBeUndefined()
+    expect(runtime.borrowCurrentSession()).toBeNull()
     complete.resolve({ url: '/uploads/late.webp' })
     await rejected
     expect(runtime.cleanupRequired).toBe(true)
@@ -551,7 +556,7 @@ describe('useImageUploadRuntime', () => {
     const begin = vi.spyOn(original.binding.documentOwner, 'beginTask')
     const onSuccess = vi.fn()
     const onError = vi.fn()
-    let borrow!: ImageUploadSessionBorrow
+    let borrow: ImageUploadSessionBorrow | undefined
     const runtime = useImageUploadRuntime()
     const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
       taskRegistry: original.binding.documentOwner, getAttemptBinding: () => original.binding,
@@ -559,32 +564,35 @@ describe('useImageUploadRuntime', () => {
     const work = flow.startUpload({ files: [file], onSuccess, onError, notifyOnSuccess: false })
     await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
     expect(begin).toHaveBeenCalledOnce()
-    expect(borrow.isCurrent()).toBe(true)
+    expect(borrow).toBeUndefined()
+    expect(runtime.borrowCurrentSession()).toBeNull()
     flow.cancel()
     await runtime.abandon()
     part.resolve({ uploadedBytes: 128 })
     await work
-    expect(borrow.signal.aborted).toBe(true)
+    expect(borrow).toBeUndefined()
+    expect(runtime.borrowCurrentSession()).toBeNull()
     expect(onSuccess).not.toHaveBeenCalled()
     expect(onError).not.toHaveBeenCalled()
     expect(api.completeUpload).not.toHaveBeenCalled()
     expect(api.abortUpload).toHaveBeenCalledOnce()
   })
 
-  it('revokes a borrow on scope disposal and waits for the original part before settling', async () => {
+  it('grants no loan on scope disposal and waits for the original part before settling', async () => {
     const file = fileOf(128)
     const original = boundAttempt(file)
     const part = deferred<{ uploadedBytes: number }>()
     api.uploadPart.mockReturnValue(part.promise)
     const scope = effectScope()
     const runtime = scope.run(() => useImageUploadRuntime())!
-    let borrow!: ImageUploadSessionBorrow
+    let borrow: ImageUploadSessionBorrow | undefined
     const upload = runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: value => { borrow = value } })
     const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
     await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
     scope.stop()
     await runtime.abandon()
-    expect(borrow.signal.aborted).toBe(true)
+    expect(borrow).toBeUndefined()
+    expect(runtime.borrowCurrentSession()).toBeNull()
     part.resolve({ uploadedBytes: 128 })
     await rejected
     await expect(runtime.uploadFile(file, options)).rejects.toThrow('upload_attempt_superseded')
@@ -678,7 +686,7 @@ describe('useImageUploadRuntime', () => {
     borrow.release()
   })
 
-  it('bounds an active callback and aborts its own access signal before chunks begin', async () => {
+  it('bounds a completed callback and aborts its access signal at the fixed loan deadline', async () => {
     vi.useFakeTimers()
     const file = fileOf(73)
     const original = boundAttempt(file)
@@ -696,15 +704,16 @@ describe('useImageUploadRuntime', () => {
     gate.resolve()
     await failure
     expect(runtime.borrowCurrentSession()).toBeNull()
-    expect(api.uploadPart).not.toHaveBeenCalled()
+    expect(api.uploadPart).toHaveBeenCalledOnce()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
     await runtime.abandon()
   })
 
-  it.each(['part', 'complete'] as const)('revokes the existing loan after raw %s failure without reminting it', async stage => {
+  it.each(['part', 'complete'] as const)('grants no loan after raw %s failure and cannot mint one from retained state', async stage => {
     vi.useFakeTimers()
     const file = fileOf(73)
     const original = boundAttempt(file)
-    let borrow!: ImageUploadSessionBorrow
+    let borrow: ImageUploadSessionBorrow | undefined
     if (stage === 'part') api.uploadPart.mockRejectedValue(new Error('raw part failed'))
     else api.completeUpload.mockRejectedValue(new Error('raw complete failed'))
     const runtime = useImageUploadRuntime()
@@ -713,8 +722,7 @@ describe('useImageUploadRuntime', () => {
     await vi.runAllTimersAsync()
     await failure
     expect(original.binding.lease.isCurrent()).toBe(true)
-    expect(borrow.signal.aborted).toBe(true)
-    await expect(borrow.withSession(async facts => facts.uploadToken)).rejects.toThrow('upload_attempt_superseded')
+    expect(borrow).toBeUndefined()
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(storedSnapshot().snapshot.uploadToken).toBe('token-old')
     if (stage === 'complete') {
@@ -727,7 +735,7 @@ describe('useImageUploadRuntime', () => {
     }
   })
 
-  it('does not remint an explicitly released loan during the original active upload', async () => {
+  it('does not remint an explicitly released loan during the active completed operation', async () => {
     const file = fileOf(73)
     const original = boundAttempt(file)
     const runtime = useImageUploadRuntime()
@@ -739,7 +747,7 @@ describe('useImageUploadRuntime', () => {
     expect(api.completeUpload).toHaveBeenCalledOnce()
   })
 
-  it('starts the completion window after a slow original chunk acknowledgement', async () => {
+  it('grants no precompletion loan during a slow chunk and expires 30 seconds from actual acquisition', async () => {
     vi.useFakeTimers()
     const file = fileOf(73)
     const original = boundAttempt(file)
@@ -751,7 +759,9 @@ describe('useImageUploadRuntime', () => {
     await flushPromises()
     expect(api.uploadPart).toHaveBeenCalledOnce()
     await vi.advanceTimersByTimeAsync(60_001)
-    expect(borrow.isCurrent()).toBe(true)
+    expect(borrow).toBeUndefined()
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(api.completeUpload).not.toHaveBeenCalled()
     part.resolve({ uploadedBytes: 73 })
     await upload
     await borrow.withSession(async facts => { expect(facts.commitMayHaveStarted).toBe(true) })
@@ -796,6 +806,8 @@ describe('useImageUploadRuntime', () => {
     await flushPromises()
     expect(api.uploadPart).toHaveBeenCalledOnce()
     await vi.advanceTimersByTimeAsync(31_001)
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(observed).toHaveLength(0)
     firstPart.resolve({ uploadedBytes: 73 })
     await flushPromises()
     expect(observed).toEqual([files[0]])
@@ -805,6 +817,8 @@ describe('useImageUploadRuntime', () => {
     await flushPromises()
     expect(api.uploadPart).toHaveBeenCalledTimes(2)
     await vi.advanceTimersByTimeAsync(31_001)
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(observed).toHaveLength(1)
     secondPart.resolve({ uploadedBytes: 73 })
     await upload
     expect(onError).not.toHaveBeenCalled()
@@ -823,6 +837,90 @@ describe('useImageUploadRuntime', () => {
     expect(capture).toHaveBeenCalledOnce()
     expect(observed).toHaveLength(2)
     expect(api.completeUpload).toHaveBeenCalledTimes(3)
+  })
+
+  it('grants no loan during original compression, initialization, part or pending completion', async () => {
+    const file = fileOf(73), original = boundAttempt(file)
+    const compressed = deferred<{ file: File; preview: typeof preview }>()
+    const init = deferred<{ uploadId: string; uploadToken: string }>()
+    const part = deferred<{ uploadedBytes: number }>(), complete = deferred<{ url: string }>()
+    compression.compressImageFileWithRuntime.mockReturnValue(compressed.promise)
+    api.initUploadSession.mockReturnValue(init.promise)
+    api.uploadPart.mockReturnValue(part.promise)
+    api.completeUpload.mockReturnValue(complete.promise)
+    const runtime = useImageUploadRuntime()
+    const callback = vi.fn(async (value: ImageUploadSessionBorrow) => {
+      expect(api.completeUpload).toHaveBeenCalledOnce()
+      expect(original.binding.lease.isCurrent()).toBe(true)
+      expect(runtime.activeSession.uploadId).toBe('upload-ack')
+      expect(localStorage.length).toBe(1)
+      await value.withSession(async facts => { expect(facts.commitMayHaveStarted).toBe(true) })
+    })
+    const upload = runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: callback })
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(callback).not.toHaveBeenCalled()
+    compressed.resolve({ file, preview })
+    await vi.waitFor(() => expect(api.initUploadSession).toHaveBeenCalledOnce())
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(callback).not.toHaveBeenCalled()
+    init.resolve({ uploadId: 'upload-ack', uploadToken: 'token-ack' })
+    await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(callback).not.toHaveBeenCalled()
+    part.resolve({ uploadedBytes: 73 })
+    await vi.waitFor(() => expect(api.completeUpload).toHaveBeenCalledOnce())
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(callback).not.toHaveBeenCalled()
+    complete.resolve({ url: '/uploads/ack.webp' })
+    expect(await upload).toBe('/uploads/ack.webp')
+    expect(callback).toHaveBeenCalledOnce()
+    runtime.borrowCurrentSession()!.release()
+  })
+
+  it('does not refresh the acquisition deadline when a later access scope starts', async () => {
+    vi.useFakeTimers()
+    const file = fileOf(73), original = boundAttempt(file)
+    const runtime = useImageUploadRuntime()
+    let borrow!: ImageUploadSessionBorrow
+    await runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: value => { borrow = value } })
+    await vi.advanceTimersByTimeAsync(29_000)
+    const gate = deferred<void>()
+    let access!: ImageUploadSessionAccess, signal!: AbortSignal
+    const read = borrow.withSession(async (facts, scopedSignal) => {
+      access = facts; signal = scopedSignal; await gate.promise; return facts.totalBytes
+    })
+    const failure = expect(read).rejects.toThrow('upload_attempt_superseded')
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(borrow.signal.aborted).toBe(true)
+    expect(signal.aborted).toBe(true)
+    expect(() => access.totalBytes).toThrow('upload_attempt_superseded')
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    gate.resolve()
+    await failure
+    expect(runtime.borrowCurrentSession()).toBeNull()
+  })
+
+  it('revokes a granted completion loan when its active original lease is cancelled', async () => {
+    const file = fileOf(73), original = boundAttempt(file)
+    const runtime = useImageUploadRuntime(), gate = deferred<void>()
+    let borrow!: ImageUploadSessionBorrow, access!: ImageUploadSessionAccess
+    const upload = runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: value => {
+      borrow = value
+      return value.withSession(async facts => { access = facts; await gate.promise; return facts.totalBytes })
+    } })
+    const failure = expect(upload).rejects.toThrow('upload_attempt_superseded')
+    await vi.waitFor(() => expect(borrow).toBeDefined())
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(access.commitMayHaveStarted).toBe(true)
+    original.binding.lease.cancel()
+    expect(borrow.signal.aborted).toBe(true)
+    expect(() => access.uploadToken).toThrow('upload_attempt_superseded')
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    gate.resolve()
+    await failure
+    await runtime.abandon()
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
   })
 
   it('releases the per-file loan and stops a batch when its completion consumer fails', async () => {
