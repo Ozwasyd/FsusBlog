@@ -1,0 +1,44 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=^(?:sealed parser genuine fresh JSX sibling|sealed parser genuine repeated Vue h real default slot|sealed parser supported defineComponent Vue h remains separate)$",
+    "/workspace/chain-1895-origin-export-successor/evidence/bare-h-original-case.test.mjs"
+  ],
+  "cwd": "/workspace/chain-1895-origin-export-successor/FsusBlog",
+  "exitCode": 1,
+  "startedAtEpoch": 1791613237.4496064,
+  "durationSeconds": 0.5292434692382812,
+  "source": {
+    "blog": {
+      "commit": "990c79e4ff1e0a32075b09243c44ef2fb1705398",
+      "tree": "203208c9b2054e147d0a0a8788370247c5c129ed",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceAfter": {
+    "blog": {
+      "commit": "990c79e4ff1e0a32075b09243c44ef2fb1705398",
+      "tree": "203208c9b2054e147d0a0a8788370247c5c129ed",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ui": {
+      "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+      "tree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+      "status": "",
+      "diffDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "sourceUnchanged": true,
+  "qualificationEligible": false,
+  "log": "/workspace/chain-1895-origin-export-successor/evidence/bare-h-original-assertions.log",
+  "logSha256": "7df6470abb8272db947188ce87108498f8a67442fb312621487b0aba4280984f"
+}

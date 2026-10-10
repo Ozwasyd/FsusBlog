@@ -1,0 +1,30 @@
+{
+  "testedEvidenceHead": "990c79e4ff1e0a32075b09243c44ef2fb1705398",
+  "artifacts": [
+    {
+      "path": "bare-h-original-assertions.failed.txt",
+      "bytes": 1707,
+      "sha256": "7df6470abb8272db947188ce87108498f8a67442fb312621487b0aba4280984f"
+    },
+    {
+      "path": "bare-h-original-assertions.result.json",
+      "bytes": 1759,
+      "sha256": "c12bd837b8b7f58981b5d2433e72e4f9a9dfacea76c79b229eb2581123b58a6d"
+    },
+    {
+      "path": "bare-h-original-case.test.mjs",
+      "bytes": 3190,
+      "sha256": "d65f239f055115933530074e3a9a6aa578eeb3e09fb3f7cf566188e081e9e09d"
+    },
+    {
+      "path": "bare-h-original-observations.json",
+      "bytes": 1282,
+      "sha256": "38d6717553f785b7dbbe458faa3a0b993d871c4baa3eb841dfc03bb2b0503b5e"
+    },
+    {
+      "path": "source-boundary-and-status.json",
+      "bytes": 4222,
+      "sha256": "ca2005ee1304f01f7a5aae4820ff9a58fc22ea301f2690232159e3cc8a2ea7cc"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "testedEvidenceHead": "990c79e4ff1e0a32075b09243c44ef2fb1705398",
+  "centralSourceCommit": "12c3152f6a5ced35784e89400fd8ce98e74d126a",
+  "testedTree": "203208c9b2054e147d0a0a8788370247c5c129ed",
+  "fsusUICommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "fsusUITree": "2adf025d6874fe626b95d03538f3148cfd71a911",
+  "diagnosticAssertions": {
+    "pass": 2,
+    "fail": 1,
+    "skip": 0,
+    "cancelled": 0,
+    "exitCode": 1,
+    "sourceUnchanged": true,
+    "combinedRegression": false,
+    "notAddedTo122Or940": true
+  },
+  "originalFailingCase": {
+    "name": "sealed parser genuine repeated Vue h real default slot",
+    "extension": ".ts",
+    "text": "import {h} from 'vue';export default()=>h('button',{},'actual');",
+    "utf8Bytes": 64,
+    "utf8Sha256": "51c98828b046c4dfe8540deed3df7f27d0407c6d794585e6d1b2fae5669d35f7",
+    "trailingNewline": false,
+    "initialization": "fresh createCompositionSource({repositoryRoot,fsusUIRoot}); no parserRoot and no prior parse/resolver calls",
+    "assertion": "assert.deepEqual(first.errors, [])",
+    "failure": "graph returns one unknown-ast-parse error and nodeCount0; positive assertion fails, not assert.throws success",
+    "laterAssertions": {
+      "secondGraphErrors": "UNRUN",
+      "repeatedNodeIDs": "UNRUN",
+      "instrumentationMarker": "UNRUN"
+    }
+  },
+  "separatePositiveControls": [
+    {
+      "name": "preceding fresh JSX sibling",
+      "extension": ".tsx",
+      "text": "export default()=> <button><span>actual</span></button>;",
+      "utf8Sha256": "5ef290fe437a1063972714999814dacfcd4ddccda83c24e8ae2070672d92afbc",
+      "nodeCount": 2,
+      "errors": []
+    },
+    {
+      "name": "separate supported defineComponent Vue h",
+      "extension": ".ts",
+      "text": "import {defineComponent, Fragment, h, renderSlot} from 'vue'; export default defineComponent({setup(_, {slots}) { return () => {return h('button', {}, 'actual');}; }});",
+      "utf8Sha256": "7df5077db9bef1e249eb40a0697f567cc87422dd60c4c3aa34d6f3271aeaf7ab",
+      "nodeCount": 1,
+      "errors": []
+    }
+  ],
+  "sourceBoundary": {
+    "owner": "Existing sole functional module owner; coordinating parent routes repair. No functional implementation changed by central owner.",
+    "module": "tests/frontend/support/layout/compositionFunctionalSource.mjs",
+    "blob": "2357dfbc6753c8cd2f3f171ac1fcee99afb6bf8f",
+    "sha256": "37c4723c422fe437277c938b59ecdff189a12abd5ff2066cfed3b40de19bbc6b",
+    "ownedInputCommit": "02121572e3c392f950dcfb3fb6b43ce182f86c93",
+    "effectsDefinitionLine": 175,
+    "callRefusalLine": 191,
+    "bindEffectsInvocationLine": 390,
+    "centralDelegate": "compositionSource.mjs:266 bindFunctionalRender calls functional.bind(record,expression); graph catches parse failure as unknown-ast-parse before the output visitor can handle actual Vue h.",
+    "requiredHandoff": "Provide exact sole-owner repaired module/source tests and ordinary evidence preserving this original positive assertion, both separate positives, and unknown/mutable/foreign/escaped effect negatives. If new binding callback is needed, return the actual API contract for narrow canonical central wiring; original source.vueBinding(record,actualCalleeAST,exportedName) already exists. No h-name purity whitelist or second parser."
+  },
+  "prior11246": {
+    "sameFunctionalBlob": true,
+    "parentReportedComparison": "Identical bytes in own.ts file observed same refusal/nodeCount0.",
+    "assertionsExecuted": false,
+    "sameFailingAssertionExecutionClaimed": false
+  },
+  "independentHistoricalAccounting": "Ten additional-interface cases9PASS1FAIL plus separateSupported.ts1PASS = eleven10PASS1FAIL; original940 is distinct.45historical and3instrumentation probes remain observations, notPASS counts.",
+  "assertionsWeakened": false,
+  "productOrModuleSourceChanged": false,
+  "heldTestsRun": false,
+  "qualificationEligible": false,
+  "runtimeEffects": "unbound",
+  "91pending79nullCleared": false,
+  "fullGeometryVerified": false,
+  "legacyContractFail": {
+    "commit": "2993f604b9b33e2e21c4992e5e82760635965a51",
+    "waived": false
+  },
+  "collection": "No collection writes or intake; P2 true-source successor still awaited under latest parent handoff."
+}

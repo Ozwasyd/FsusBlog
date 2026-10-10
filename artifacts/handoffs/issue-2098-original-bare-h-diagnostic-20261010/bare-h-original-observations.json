@@ -1,0 +1,33 @@
+[
+  {
+    "name": "preceding fresh JSX sibling",
+    "entry": "/tmp/central-original-bare-h-IIKJ1e/Sibling.tsx",
+    "text": "export default()=> <button><span>actual</span></button>;",
+    "errors": [],
+    "nodeCount": 2
+  },
+  {
+    "name": "sealed parser genuine repeated Vue h real default slot",
+    "entry": "/tmp/central-original-bare-h-IIKJ1e/Entry.ts",
+    "text": "import {h} from 'vue';export default()=>h('button',{},'actual');",
+    "errors": [
+      {
+        "file": "/tmp/central-original-bare-h-IIKJ1e/Entry.ts",
+        "reason": "unknown-ast-parse",
+        "message": "[composition-source] unbound functional call effects /tmp/central-original-bare-h-IIKJ1e/Entry.ts"
+      }
+    ],
+    "nodeCount": 0,
+    "assertionAboutToExecute": "assert.deepEqual(first.errors, [])",
+    "laterAssertions": "UNRUN if the first assertion fails",
+    "parserRootOverride": false,
+    "priorParseOrResolverCalls": false
+  },
+  {
+    "name": "separate supported defineComponent Vue h",
+    "entry": "/tmp/central-original-bare-h-IIKJ1e/Supported.ts",
+    "text": "import {defineComponent, Fragment, h, renderSlot} from 'vue'; export default defineComponent({setup(_, {slots}) { return () => {return h('button', {}, 'actual');}; }});",
+    "errors": [],
+    "nodeCount": 1
+  }
+]
