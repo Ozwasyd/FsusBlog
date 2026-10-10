@@ -31,8 +31,9 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     const scriptRenders = new Map();
     const targetSuppliers = new WeakMap();
     const originalCalls = new Map();
+    const originalRecords = new Map();
     const functional = createCompositionFunctionalSource({ resolver });
-    const collections = createCompositionCollectionSource({ resolver, nodes });
+    const collections = Object.freeze(createCompositionCollectionSource({ resolver, nodes, expression, importFile, vueBinding: publicVueBinding }));
     function callFacts(value, ancestors = new Set(), objects = null, capture = false, path = '$')
     {
         if (value === null || typeof value !== 'object')
@@ -94,9 +95,28 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 original.sealed = true;
             }
         }
+        const original = originalRecords.get(file);
+        if (original && !original.sealed)
+        {
+            original.objects = new Map();
+            original.factsDigest = controlDigest(callFacts(original.record, new Set(), original.objects, true));
+            original.sealed = true;
+        }
     }
     function assertOriginalCalls(checkBytes = false)
     {
+        if (records.size !== originalRecords.size)
+        {
+            fail('supplier graph changed: original source record membership');
+        }
+        for (const [file, original] of originalRecords)
+        {
+            if (!original.sealed || records.get(file) !== original.record
+                || controlDigest(callFacts(original.record, new Set(), original.objects)) !== original.factsDigest)
+            {
+                fail(`supplier graph changed: original source record ${file}`);
+            }
+        }
         if (nodes.size !== originalCalls.size)
         {
             fail('supplier graph changed: original source call membership');
@@ -1417,6 +1437,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         const record = resolver.parse(file);
         const value = { file, digest: controlDigest(record.content), nodes: [], imports: [...record.imports], template: Boolean(record.template) };
         records.set(file, value);
+        originalRecords.set(file, { record: value, sealed: false });
         const branches = routeBranch(record);
         if (!record.template)
         {
@@ -2521,13 +2542,20 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     }
     function instrument(file, code)
     {
+        assertOriginalCalls(true);
         file = realpathSync(file);
-        const record = parse(file);
-        if (controlDigest(code) !== record.digest)
+        parse(file);
+        assertOriginalCalls(true);
+        if (controlDigest(code) !== controlDigest(resolver.parse(file).content))
         {
             fail(`source changed before instrumentation ${file}`);
         }
-        const edits = record.nodes.map((id) => nodes.get(id)).filter((node) => !node.structural)
+        if (resolver.sourceBindings().errors.length)
+        {
+            fail(`source inputs changed before instrumentation ${file}`);
+        }
+        const edits = [...originalCalls.values()].filter((original) => original.file === file)
+            .map((original) => original.node).filter((node) => !node.structural)
             .map((node) =>
             {
                 const attribute = ['native', 'native-variants', 'native-prop'].includes(node.origin.kind) ? compositionNodeAttribute : compositionCallAttribute;
@@ -2555,8 +2583,12 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         return vueBinding(record, node, exportedName);
     }
-    const api = { resolver, parse, graph, instrument, importFile, componentFile, expression, records, errors,
-        resolveTargetInputs, vueBinding: publicVueBinding };
+    const api = { resolver, parse, graph, instrument, importFile, componentFile, expression, errors,
+        get records()
+        {
+            return new Map(records);
+        },
+        resolveTargetInputs, vueBinding: publicVueBinding, collectionSource: collections };
     Object.defineProperty(api, 'nodes', { enumerable: true, get: () =>
     {
         assertOriginalCalls();

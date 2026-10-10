@@ -468,6 +468,11 @@ own cache and traversal state, so observation writes cannot remove export-star
 ambiguity or change a subsequent source identity.
 Identity metadata and source input lists are also detached; changing an observed
 digest cannot reset the resolver's original source drift baseline.
+Instrumentation checks those same private original calls and file observations
+before selecting or inserting markers, including direct probe-plugin transforms
+without a prior graph. It never accepts a caller's replacement marker identity,
+structural flag or file membership list. Repeated lawful graph and instrumentation
+calls retain the original parser identities and unchanged input bytes.
 
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state

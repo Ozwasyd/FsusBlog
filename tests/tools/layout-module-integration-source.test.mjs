@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
@@ -12,7 +12,7 @@ import { matchCompositionTargetVariant } from '@fsusblog/layout-governance/compo
 import { createCompositionFunctionalSource } from '@fsusblog/layout-governance/composition-functional-source';
 import { resolveCompositionRoutes } from '@fsusblog/layout-governance/composition-routes';
 import { createCompositionSlotSource } from '@fsusblog/layout-governance/composition-slot-source';
-import { createCompositionSource } from '@fsusblog/layout-governance/composition-source';
+import { compositionProbePlugin, createCompositionSource } from '@fsusblog/layout-governance/composition-source';
 import { bindCompositionRouterViewTargets, resolveCompositionTargetOrigin } from '@fsusblog/layout-governance/composition-target-source';
 
 const repositoryRoot = resolve(import.meta.dirname, '../..');
@@ -1258,4 +1258,159 @@ test('central original call facts refuse a proxy replacement before invoking cal
     } });
     assert.throws(() => s.graph([entry]), /supplier graph changed: original source call object identity/);
     assert.equal(invoked, 0);
+});
+
+for (const [label, field, value] of [
+    ['structural suppression', 'structural', true],
+    ['invented marker identity', 'id', 'invented'],
+    ['marker offset', 'offset', 0],
+    ['source syntax', 'sourceSyntax', { kind: 'vue-vnode', markerOffset: 1 }],
+    ['call origin', 'origin', { kind: 'framework-structure', package: 'vue', publicName: 'template' }],
+    ['slot inputs', 'slotInputs', { present: { default: true }, unknown: false }]
+])
+{
+    test(`central instrumentation refuses changed original ${label}`, () =>
+    {
+        const s = source();
+        const code = '<template><button/></template>';
+        const file = fixture(code);
+        const graph = s.graph([file]);
+        assert.deepEqual(graph.errors, []);
+        graph.nodes[0][field] = value;
+        assert.throws(() => s.instrument(file, code), /supplier graph changed: original source call/);
+        assert.deepEqual(s.resolver.sourceBindings().errors, []);
+    });
+}
+
+test('central probe plugin refuses original call mutation without a repeated graph', () =>
+{
+    const s = source();
+    const code = '<template><button/></template>';
+    const file = fixture(code);
+    const graph = s.graph([file]);
+    graph.nodes[0].id = 'invented';
+    assert.throws(() => compositionProbePlugin(s).transform(code, file), /supplier graph changed: original source call/);
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('central instrumentation refuses removed call membership before reading markers', () =>
+{
+    const s = source();
+    const code = '<template><button/></template>';
+    const file = fixture(code);
+    const graph = s.graph([file]);
+    const node = graph.nodes[0];
+    const observation = s.nodes;
+    observation.delete(node.id);
+    assert.throws(() => s.instrument(file, code), /original source call membership/);
+    observation.set(node.id, node);
+    assert.ok(s.instrument(file, code).includes(`data-fsus-composition-node="${node.id}"`));
+});
+
+test('central instrumentation refuses changed original file membership and digest observations', () =>
+{
+    for (const field of ['nodes', 'digest'])
+    {
+        const s = source();
+        const code = '<template><button/></template>';
+        const file = fixture(code);
+        s.graph([file]);
+        const record = s.parse(file);
+        record[field] = field === 'nodes' ? [] : controlDigest(code + ' ');
+        assert.throws(() => s.instrument(file, code), /supplier graph changed: original source (call object identity|record)/);
+        assert.throws(() => s.graph([file]), /supplier graph changed: original source (call object identity|record)/);
+    }
+});
+
+test('central public file map observations cannot replace original parser records', () =>
+{
+    const s = source();
+    const code = '<template><button/></template>';
+    const file = fixture(code);
+    const graph = s.graph([file]);
+    const observation = s.records;
+    observation.set(file, { file, nodes: [], digest: controlDigest(code) });
+    observation.clear();
+    assert.equal(s.records.get(file), s.parse(file));
+    assert.ok(s.instrument(file, code).includes(`data-fsus-composition-node="${graph.nodes[0].id}"`));
+    assert.deepEqual(s.graph([file]).errors, []);
+});
+
+test('central fresh and repeated template instrumentation retain actual IDs and structural filtering', () =>
+{
+    const s = source();
+    const code = '<template><template v-if="visible"><button/></template></template>';
+    const file = fixture(code);
+    const first = s.instrument(file, readFileSync(file, 'utf8'));
+    const graph = s.graph([file]);
+    assert.deepEqual(graph.errors, []);
+    const button = graph.nodes.find((node) => node.tag === 'button');
+    const structural = graph.nodes.find((node) => node.structural);
+    assert.ok(button && structural);
+    assert.ok(first.includes(`data-fsus-composition-node="${button.id}"`));
+    assert.ok(!first.includes(`data-fsus-composition-call="${structural.id}"`));
+    assert.equal(s.instrument(file, code), first);
+    assert.equal(compositionProbePlugin(s).transform(code, file).code, first);
+    assert.throws(() => s.instrument(file, first), /source changed before instrumentation/);
+    assert.equal(s.instrument(file, code), first);
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('central repeated JSX and canonical Vue vnode instrumentation preserve original parser locations', () =>
+{
+    for (const text of [
+        'import {defineComponent} from "vue";export default defineComponent({setup(){return()=> <button/>;}});',
+        'import {defineComponent,h} from "vue";export default defineComponent({setup(){return()=>h("button",{},"Actual");}});'
+    ])
+    {
+        const s = source();
+        const file = fixture(text, 'tsx');
+        const graph = s.graph([file]);
+        assert.deepEqual(graph.errors, []);
+        const button = graph.nodes.find((node) => node.tag === 'button');
+        assert.ok(button);
+        const actual = s.instrument(file, text);
+        assert.ok(actual.includes(button.id));
+        assert.ok(actual.includes('data-fsus-composition-node'));
+        assert.equal(compositionProbePlugin(s).transform(text, file).code, actual);
+        assert.equal(s.instrument(file, text), actual);
+        assert.deepEqual(s.graph([file]).errors, []);
+    }
+});
+
+test('central instrumentation refuses unchanged argument bytes after the authored file drifts', () =>
+{
+    const s = source();
+    const code = '<template><button/></template>';
+    const file = fixture(code);
+    s.graph([file]);
+    writeFileSync(file, code + ' ');
+    assert.throws(() => s.instrument(file, code), /supplier source changed: original source call/);
+    assert.ok(s.resolver.sourceBindings().errors.some((error) => error.path === file));
+    writeFileSync(file, code);
+    assert.ok(s.instrument(file, code).includes('data-fsus-composition-node'));
+    assert.deepEqual(s.resolver.sourceBindings().errors, []);
+});
+
+test('central unsupported bare functional h shape retains its inherited explicit effects refusal', () =>
+{
+    const file = fixture('import {h} from "vue";export default()=>h("button",{});', 'ts');
+    const graph = source().graph([file]);
+    assert.ok(graph.errors.some((error) => error.reason === 'unknown-ast-parse' && /unbound functional call effects/.test(error.message)));
+});
+
+test('central canonical collection instance retains its original methods for both public and render consumers', () =>
+{
+    const s = source();
+    const original = s.collectionSource;
+    assert.equal(s.collectionSource, original);
+    assert.ok(Object.isFrozen(original));
+    assert.throws(() =>
+    {
+        original.collect = () => ({ outputs: [], accepted: true });
+    }, TypeError);
+    const file = fixture('import {defineComponent} from "vue";export default defineComponent({setup(){return()=>[1,2].map(item=><button>{item}</button>);}});', 'tsx');
+    const graph = s.graph([file]);
+    assert.deepEqual(graph.errors, []);
+    assert.equal(graph.nodes.find((node) => node.tag === 'button').renderPaths.length, 2);
 });
