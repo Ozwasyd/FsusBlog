@@ -269,7 +269,7 @@ function parseTransition(entry)
         failShape('transition-table', 'transition must be string or object');
     }
     // Supports "Action:From->To" and "From->To[:guard]" forms.
-    const withAction = entry.match(/^(?:([^:]+):)?([^:>\-]+)->([^:]+)(?::(.+))?$/u);
+    const withAction = entry.match(/^(?:([^:]+):)?([^:>-]+)->([^:]+)(?::(.+))?$/u);
     if (!withAction)
     {
         failShape('transition-table', `unparseable transition ${entry}`);

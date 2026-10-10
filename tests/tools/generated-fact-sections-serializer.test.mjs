@@ -58,3 +58,21 @@ test('string table cells preserve intentional links markup and existing escaping
         '| quantity | 5 minutes |'
     ].join('\n'));
 });
+
+test('transition table strings retain delimiter and rejection boundaries', () =>
+{
+    assert.equal(RendererRegistry.render('transition-table', [
+        'Publish:Draft->Published:permission.allowed',
+        'Draft->Draft'
+    ]), [
+        '| From | To | Guard |',
+        '| --- | --- | --- |',
+        '| Draft | Draft | - |',
+        '| Draft | Published | permission.allowed |'
+    ].join('\n'));
+    for (const invalid of ['Draft-Review->Published', 'Draft>Review->Published', 'Draft-Published'])
+    {
+        assert.throws(() => RendererRegistry.render('transition-table', [invalid]),
+            (error) => error.code === 'GENERATED_SECTION_RENDERER_SHAPE');
+    }
+});
