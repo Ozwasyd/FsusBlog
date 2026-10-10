@@ -1,0 +1,20 @@
+[
+  {
+    "path": "tests/frontend/support/layout/compositionCollectionSource.mjs",
+    "parentSuppliedCommit": "c4e321c5b393bfb75d0848fa7beea440feed6f53",
+    "verifiedPreimage": "6e52c9b56e809b0c4695afa6219b3aced48d2c02",
+    "rawGitBlob": "11ef09b4fedd2bf814d058c74c4d6331234de5e4",
+    "rawSha256": "5e8fad1c5899d1a88c96eaea6718803713bd4107876bf2d3a1ff216d96ff1890",
+    "consumedSha256": "5e8fad1c5899d1a88c96eaea6718803713bd4107876bf2d3a1ff216d96ff1890",
+    "delta": "byte-identical module"
+  },
+  {
+    "path": "tests/tools/layout-collection-source.test.mjs",
+    "parentSuppliedCommit": "c4e321c5b393bfb75d0848fa7beea440feed6f53",
+    "verifiedPreimage": "6e52c9b56e809b0c4695afa6219b3aced48d2c02",
+    "rawGitBlob": "c821ea7727887582487130217ae96a117bdb2fee",
+    "rawSha256": "67da17c264415d9c37e97a08e2283e29a5f4b9edd9e1eb713aebeb49ed47690e",
+    "consumedSha256": "63deb9d30f38e51127e25a07e754be4bcebacd9b47e1f5d30ae414f5820a278e",
+    "delta": "public canonical package import glue only; no test bodies changed"
+  }
+]
