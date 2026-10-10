@@ -18,6 +18,7 @@ interface UploadContext {
 interface UploadCallbacks {
     onSuccess?: (urls: string[], context: UploadContext) => void | Promise<void>;
     onError?: (message: string, error: unknown, context: UploadContext) => void | Promise<void>;
+    onFileUploaded?: (completion: ImageUploadFileCompletion) => Promise<void>;
 }
 
 interface UploadMessages {
@@ -115,6 +116,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
     const executeUpload = async (context: PendingUploadContext, signal: AbortSignal): Promise<void> =>
     {
         const urls: string[] = [];
+        const onFileUploaded = context.callbacks?.onFileUploaded ?? options.onFileUploaded;
         for (const [index, file] of context.files.entries())
         {
             if (signal.aborted)
@@ -126,7 +128,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             };
             let borrow: ImageUploadSessionBorrow | null = null;
             let intent: ImageUploadAttemptBinding['intent'] | null = null;
-            if (context.attempts || options.getAttemptBinding || options.onSessionReady || options.onFileUploaded)
+            if (context.attempts || options.getAttemptBinding || options.onSessionReady || onFileUploaded)
             {
                 const attempt = context.attempts?.[index];
                 if (context.attempts && attempt?.file !== file)
@@ -141,7 +143,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
                 }
                 runtimeOptions.attemptBinding = Object.freeze({ ...binding, lease });
                 intent = binding.intent;
-                if (options.onSessionReady || options.onFileUploaded)
+                if (options.onSessionReady || onFileUploaded)
                 {
                     runtimeOptions.onSessionReady = async value =>
                     {
@@ -153,20 +155,20 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             try
             {
                 const url = await options.runtime.uploadFile(file, options.getOptions(), runtimeOptions);
-                if (options.onFileUploaded)
+                if (onFileUploaded)
                 {
                     const completedBorrow = borrow as ImageUploadSessionBorrow | null;
                     if (!completedBorrow?.isCurrent() || !intent || signal.aborted)
                     {
                         throw new Error('upload_session_borrow_unavailable');
                     }
-                    await options.onFileUploaded(Object.freeze({ file, intent, borrow: completedBorrow, url }));
+                    await onFileUploaded(Object.freeze({ file, intent, borrow: completedBorrow, url }));
                 }
                 urls.push(url);
             }
             finally
             {
-                if (options.onFileUploaded)
+                if (onFileUploaded)
                 {
                     (borrow as ImageUploadSessionBorrow | null)?.release();
                 }
@@ -208,7 +210,8 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             files: [...params.files],
             callbacks: {
                 onSuccess: params.onSuccess,
-                onError: params.onError
+                onError: params.onError,
+                onFileUploaded: params.onFileUploaded
             },
             messages: params.messages,
             notifyOnSuccess: params.notifyOnSuccess ?? true,
@@ -221,7 +224,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
             const input = params.attachmentInput;
             if (input)
             {
-                if (!options.taskRegistry || !options.onFileUploaded
+                if (!options.taskRegistry || !(params.onFileUploaded ?? options.onFileUploaded)
                     || !(input.owner instanceof ArticleAttachmentContextAdapter)
                     || !(input.documentOwner instanceof ArticleDocumentContextAdapter)
                     || !input.documentOwner.isCurrentContext(input.anchor.document))
@@ -291,7 +294,8 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
 
         const callbacks: UploadCallbacks = {
             onSuccess: overrides?.onSuccess ?? context.callbacks?.onSuccess,
-            onError: overrides?.onError ?? context.callbacks?.onError
+            onError: overrides?.onError ?? context.callbacks?.onError,
+            onFileUploaded: overrides?.onFileUploaded ?? context.callbacks?.onFileUploaded
         };
 
         let runSignal: AbortSignal | null = null;

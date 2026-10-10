@@ -122,7 +122,8 @@ cannot mint replacement loans, and unknown commit state never grants deletion.
 the real selection anchor, original attachment/document owners and transaction
 port. It calls their existing capture/commitCreated before starting its original
 task lease and preserves each exact File reference with the corresponding
-original pending handle. `onFileUploaded({ file, intent, borrow, url })` is awaited
+original pending handle. The per-call `onFileUploaded({ file, intent, borrow, url })`
+(or flow option when supplied) is awaited
 after each raw upload and before starting the next file; the flow releases that
 loan on callback success or failure. Consumers observe within `withSession` and
 pass its callback signal to awaited operations. Batch `onSuccess` does not retain
