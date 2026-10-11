@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using FsusBlog.Contracts.Articles;
 
 namespace FsusBlog.Server.Services.Authoring;
@@ -124,11 +126,14 @@ public sealed class AuthorArticleQuerySourceInspection(
         CancellationToken cancellationToken = default)
     {
         AuthorArticleQueryContract.ValidateRequest(request);
+        request = FreezeRequest(request);
+        AuthorArticleQueryContract.ValidateRequest(request);
         ArgumentOutOfRangeException.ThrowIfNegative(afterArticleId);
         cancellationToken.ThrowIfCancellationRequested();
         var owner = new AuthorRecentArticleHistoryOwner(request.Owner.AdminPrincipalId, request.Owner.SiteScope);
         AuthorRecentArticleHistoryPermissionSnapshot preflight = await permission.ResolveAsync(
             new(owner, request.RequestId, []), cancellationToken).ConfigureAwait(false);
+        preflight = FreezePermission(preflight);
         if (!ValidPermission(preflight, owner, []))
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionUnavailable);
@@ -168,13 +173,13 @@ public sealed class AuthorArticleQuerySourceInspection(
             }
         }
 
-        AuthorArticleQueryStatus[] statuses = request.Statuses.Where(status => request.Buckets.Contains(status switch
+        ImmutableArray<AuthorArticleQueryStatus> statuses = request.Statuses.Where(status => request.Buckets.Contains(status switch
         {
             AuthorArticleQueryStatus.Draft => AuthorArticleQueryBucket.Draft,
             AuthorArticleQueryStatus.Published => AuthorArticleQueryBucket.Published,
             AuthorArticleQueryStatus.Scheduled => AuthorArticleQueryBucket.Scheduled,
             _ => throw new InvalidOperationException("author_article_query_source_status_unavailable")
-        })).ToArray();
+        })).ToImmutableArray();
         AuthorArticleQuerySourceBatch batch;
         try
         {
@@ -187,6 +192,7 @@ public sealed class AuthorArticleQuerySourceInspection(
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceWindowUnavailable);
         }
+        batch = FreezeBatch(batch);
         if (!ValidCoordinates(batch.Coordinates, statuses)
             || batch.Coordinates.Any(coordinate => coordinate.ArticleId <= afterArticleId)
             || (batch.HasMore && batch.Coordinates.Count != MaxBatchSize))
@@ -196,7 +202,8 @@ public sealed class AuthorArticleQuerySourceInspection(
         var coordinatesById = batch.Coordinates.ToDictionary(static coordinate => coordinate.ArticleId);
         if (historyIdentity is not null && historyIdentity.Ordinals.Count > 0)
         {
-            int[] historyIds = historyIdentity.Ordinals.Select(static ordinal => ordinal.ArticleId).Order().ToArray();
+            ImmutableArray<int> historyIds = historyIdentity.Ordinals.Select(static ordinal => ordinal.ArticleId).Order()
+                .ToImmutableArray();
             AuthorArticleQuerySourceBatch recent;
             try
             {
@@ -207,6 +214,7 @@ public sealed class AuthorArticleQuerySourceInspection(
             {
                 return Unavailable(AuthorArticleQuerySourceUnavailableReason.VerifiedRecentSourceUnavailable);
             }
+            recent = FreezeBatch(recent);
             if (recent.HasMore || !ValidCoordinates(recent.Coordinates, request.Statuses)
                 || recent.Coordinates.Any(coordinate => !historyIds.Contains(coordinate.ArticleId)))
             {
@@ -227,21 +235,22 @@ public sealed class AuthorArticleQuerySourceInspection(
         }
         AuthorArticleQuerySourceCoordinate[] coordinates = coordinatesById.Values.OrderBy(
             static coordinate => coordinate.ArticleId).ToArray();
-        int[] ids = coordinates.Select(static coordinate => coordinate.ArticleId).ToArray();
+        ImmutableArray<int> ids = coordinates.Select(static coordinate => coordinate.ArticleId).ToImmutableArray();
         AuthorRecentArticleHistoryPermissionSnapshot admitted = await permission.ResolveAsync(
             new(owner, request.RequestId, ids), cancellationToken).ConfigureAwait(false);
+        admitted = FreezePermission(admitted);
         if (!ValidPermission(admitted, owner, ids) || !SameAuthority(preflight, admitted))
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionChanged);
         }
-        int[] admittedIds = admitted.Decisions.Where(static decision => decision.CanProject && decision.CanWrite)
-            .Select(static decision => decision.ArticleId).Order().ToArray();
-        IReadOnlyList<AuthorArticleQuerySourceFields> fields = admittedIds.Length == 0
-            ? []
-            : await source.ReadFieldsAsync(admittedIds, cancellationToken).ConfigureAwait(false);
+        ImmutableArray<int> admittedIds = admitted.Decisions.Where(static decision => decision.CanProject && decision.CanWrite)
+            .Select(static decision => decision.ArticleId).Order().ToImmutableArray();
         Dictionary<int, AuthorArticleQuerySourceCoordinate> expected = coordinates
             .Where(coordinate => admittedIds.Contains(coordinate.ArticleId))
             .ToDictionary(static coordinate => coordinate.ArticleId);
+        IReadOnlyList<AuthorArticleQuerySourceFields> fields = admittedIds.Length == 0
+            ? []
+            : await source.ReadFieldsAsync(admittedIds, cancellationToken).ConfigureAwait(false);
         if (fields.Count != admittedIds.Length
             || fields.Select(static field => field.Coordinate.ArticleId).Distinct().Count() != fields.Count
             || fields.Any(field => !expected.TryGetValue(field.Coordinate.ArticleId, out var coordinate)
@@ -249,9 +258,12 @@ public sealed class AuthorArticleQuerySourceInspection(
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceChanged);
         }
+        fields = FreezeFields(fields);
         AuthorRecentArticleHistoryPermissionSnapshot after = await permission.ResolveAsync(
             new(owner, request.RequestId, ids), cancellationToken).ConfigureAwait(false);
-        if (!ValidPermission(after, owner, ids) || after.ContentDigest != admitted.ContentDigest)
+        after = FreezePermission(after);
+        if (!ValidPermission(after, owner, ids) || after.ContentDigest != admitted.ContentDigest
+            || !AdmitsFields(after, admittedIds))
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionChanged);
         }
@@ -287,6 +299,8 @@ public sealed class AuthorArticleQuerySourceInspection(
         int afterArticleId,
         CancellationToken cancellationToken = default)
     {
+        AuthorArticleQueryContract.ValidateRequest(request);
+        request = FreezeRequest(request);
         AuthorArticleQuerySourceInspectionResult first = await InspectPageAsync(request, afterArticleId, cancellationToken)
             .ConfigureAwait(false);
         if (first.UnavailableReason != AuthorArticleQuerySourceUnavailableReason.SlugUnavailable
@@ -299,13 +313,14 @@ public sealed class AuthorArticleQuerySourceInspection(
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionUnavailable);
         }
-        AuthorArticleQuerySourceFields[] observed = first.ObservedFields
-            .Select(static field => field with { Tags = field.Tags.ToArray() }).ToArray();
-        int[] ownerIds = anchor.Decisions.Select(static decision => decision.ArticleId).Order().ToArray();
-        int[] admittedIds = observed.Select(static field => field.Coordinate.ArticleId).Order().ToArray();
+        ImmutableArray<AuthorArticleQuerySourceFields> observed = FreezeFields(first.ObservedFields);
+        ImmutableArray<int> ownerIds = anchor.Decisions.Select(static decision => decision.ArticleId).Order().ToImmutableArray();
+        ImmutableArray<int> admittedIds = observed.Select(static field => field.Coordinate.ArticleId).Order().ToImmutableArray();
         AuthorRecentArticleHistoryPermissionSnapshot admitted = await permission.ResolveAsync(
             new(anchor.Owner, request.RequestId, ownerIds), cancellationToken).ConfigureAwait(false);
-        if (!ValidPermission(admitted, anchor.Owner, ownerIds) || admitted.ContentDigest != anchor.ContentDigest)
+        admitted = FreezePermission(admitted);
+        if (!ValidPermission(admitted, anchor.Owner, ownerIds) || admitted.ContentDigest != anchor.ContentDigest
+            || !AdmitsFields(admitted, admittedIds))
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionChanged);
         }
@@ -319,6 +334,7 @@ public sealed class AuthorArticleQuerySourceInspection(
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.SourceWindowUnavailable);
         }
+        current = FreezeBatch(current);
         if (current.HasMore || !ValidCoordinates(current.Coordinates, request.Statuses)
             || !current.Coordinates.SequenceEqual(observed.Select(static field => field.Coordinate)
                 .OrderBy(static coordinate => coordinate.ArticleId)))
@@ -333,7 +349,9 @@ public sealed class AuthorArticleQuerySourceInspection(
         }
         AuthorRecentArticleHistoryPermissionSnapshot after = await permission.ResolveAsync(
             new(anchor.Owner, request.RequestId, ownerIds), cancellationToken).ConfigureAwait(false);
-        if (!ValidPermission(after, anchor.Owner, ownerIds) || after.ContentDigest != admitted.ContentDigest)
+        after = FreezePermission(after);
+        if (!ValidPermission(after, anchor.Owner, ownerIds) || after.ContentDigest != admitted.ContentDigest
+            || !AdmitsFields(after, admittedIds))
         {
             return Unavailable(AuthorArticleQuerySourceUnavailableReason.PermissionChanged);
         }
@@ -353,6 +371,34 @@ public sealed class AuthorArticleQuerySourceInspection(
             ObservedPermission = after
         };
     }
+
+    private static AuthorArticleQueryRequest FreezeRequest(AuthorArticleQueryRequest request)
+        => request with
+        {
+            Statuses = request.Statuses.ToImmutableArray(),
+            Buckets = request.Buckets.ToImmutableArray()
+        };
+
+    private static AuthorArticleQuerySourceBatch FreezeBatch(AuthorArticleQuerySourceBatch batch)
+        => batch with
+        {
+            Coordinates = batch.Coordinates.Take(MaxBatchSize + 1).ToImmutableArray()
+        };
+
+    private static AuthorRecentArticleHistoryPermissionSnapshot FreezePermission(
+        AuthorRecentArticleHistoryPermissionSnapshot snapshot)
+        => snapshot with
+        {
+            Decisions = snapshot.Decisions.Take(MaxBatchSize + 1).ToImmutableArray()
+        };
+
+    private static ImmutableArray<AuthorArticleQuerySourceFields> FreezeFields(
+        IReadOnlyList<AuthorArticleQuerySourceFields> fields)
+        => fields.Select(static field => field with { Tags = field.Tags.ToImmutableArray() }).ToImmutableArray();
+
+    private static bool AdmitsFields(AuthorRecentArticleHistoryPermissionSnapshot snapshot, IReadOnlyList<int> articleIds)
+        => snapshot.Decisions.Where(static decision => decision.CanProject && decision.CanWrite)
+            .Select(static decision => decision.ArticleId).Order().SequenceEqual(articleIds.Order());
 
     private static bool SameFields(
         IReadOnlyList<AuthorArticleQuerySourceFields> left,

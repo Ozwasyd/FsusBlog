@@ -235,6 +235,108 @@ public sealed class AuthorArticleQuerySourceStabilityTests
         Assert.Equal(AuthorArticleQuerySourceUnavailableReason.SlugUnavailable, result.UnavailableReason);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Stability_SourceCannotReplaceDeniedIdentityThroughBorrowedIds(bool stable)
+    {
+        var fixture = new Fixture();
+        fixture.Source.IncludeSecond = true;
+        fixture.Permission.DeniedId = 2;
+        bool changedIds = false;
+        fixture.Source.FirstFieldsOverride = ids =>
+        {
+            if (ids is IList<int> mutable)
+            {
+                try
+                {
+                    mutable[0] = 2;
+                    changedIds = true;
+                }
+                catch (NotSupportedException)
+                {
+                    // A source callback cannot replace the owned admitted-ID snapshot.
+                }
+            }
+            return [new(Coordinate(2), "title", "category", fixture.Source.Tags)];
+        };
+
+        AuthorArticleQuerySourceInspectionResult result = stable
+            ? await fixture.Inspection.InspectStablePageAsync(Request(), 0)
+            : await fixture.Inspection.InspectAsync(Request());
+
+        Assert.False(changedIds);
+        Assert.Equal(AuthorArticleQuerySourceUnavailableReason.SourceChanged, result.UnavailableReason);
+        AssertClosed(result);
+        Assert.Equal(0, fixture.Source.CoordinateRechecks);
+    }
+
+    [Theory]
+    [InlineData("permission")]
+    [InlineData("history")]
+    public async Task Stability_FirstMetadataSnapshotPrecedesPostReadCallbacks(string callback)
+    {
+        var fixture = new Fixture(withHistory: callback == "history");
+        if (callback == "permission")
+        {
+            fixture.Permission.BeforeResolve = call =>
+            {
+                if (call == 3)
+                {
+                    fixture.Source.Tags[0] = "changed-tag";
+                }
+            };
+        }
+        else
+        {
+            fixture.BeforeHistorySnapshot = () =>
+            {
+                if (fixture.Source.FieldReads == 1)
+                {
+                    fixture.Source.Tags[0] = "changed-tag";
+                }
+            };
+        }
+        AuthorArticleQueryRequest request = callback == "history"
+            ? Request() with
+            {
+                Buckets = [AuthorArticleQueryBucket.Recent]
+            }
+            : Request();
+
+        AuthorArticleQuerySourceInspectionResult result = await fixture.Inspection.InspectStablePageAsync(request, 0);
+
+        Assert.Equal("changed-tag", fixture.Source.Tags[0]);
+        Assert.Equal(2, fixture.Source.FieldReads);
+        Assert.Equal(AuthorArticleQuerySourceUnavailableReason.SourceChanged, result.UnavailableReason);
+        AssertClosed(result);
+    }
+
+    [Fact]
+    public async Task Stability_PermissionObservationOwnsDecisionCollection()
+    {
+        var fixture = new Fixture();
+        fixture.Source.IncludeSecond = true;
+        fixture.Permission.DeniedId = 2;
+
+        AuthorArticleQuerySourceInspectionResult result = await fixture.Inspection.InspectStablePageAsync(Request(), 0);
+
+        Assert.Equal(AuthorArticleQuerySourceUnavailableReason.SlugUnavailable, result.UnavailableReason);
+        AuthorRecentArticleHistoryPermissionSnapshot observed = Assert.IsType<AuthorRecentArticleHistoryPermissionSnapshot>(
+            result.ObservedPermission);
+        var borrowed = Assert.IsType<AuthorRecentArticleHistoryPermissionDecision[]>(fixture.Permission.Snapshots[^1].Decisions);
+        borrowed[1] = borrowed[1] with
+        {
+            CanProject = true,
+            CanWrite = true
+        };
+        AuthorRecentArticleHistoryPermissionDecision denied = Assert.Single(observed.Decisions,
+            static decision => decision.ArticleId == 2);
+        Assert.False(denied.CanProject);
+        Assert.False(denied.CanWrite);
+        Assert.Equal(new[] { 1 }, result.ObservedFields.Select(static field => field.Coordinate.ArticleId));
+    }
+
     private static void AssertClosed(AuthorArticleQuerySourceInspectionResult result)
     {
         Assert.Empty(result.ObservedFields);
@@ -269,6 +371,10 @@ public sealed class AuthorArticleQuerySourceStabilityTests
 
     private sealed class Fixture
     {
+        public Action? BeforeHistorySnapshot
+        {
+            get; set;
+        }
         public Source Source { get; } = new();
         public Permission Permission { get; } = new();
         public AuthorRecentArticleHistoryCollectionSnapshot HistorySnapshot { get; set; } = Snapshot(1);
@@ -286,7 +392,11 @@ public sealed class AuthorArticleQuerySourceStabilityTests
             }
             var store = Substitute.For<IAuthorRecentArticleHistoryStore>();
             store.GetAuthoritySnapshotAsync(Arg.Any<AuthorRecentArticleHistoryOwner>(), Arg.Any<CancellationToken>())
-                .Returns(_ => Task.FromResult(HistorySnapshot));
+                .Returns(_ =>
+                {
+                    BeforeHistorySnapshot?.Invoke();
+                    return Task.FromResult(HistorySnapshot);
+                });
             store.VerifyAsync(Arg.Any<AuthorRecentArticleHistoryOwner>(), Arg.Any<CancellationToken>())
                 .Returns(_ => Task.FromResult(new AuthorRecentArticleHistoryVerificationResult(
                     true, [], HistorySnapshot.Revision, HistorySnapshot.ItemCount, HistorySnapshot.ContentDigest)));
@@ -299,6 +409,11 @@ public sealed class AuthorArticleQuerySourceStabilityTests
 
     private sealed class Permission : IAuthorRecentArticleHistoryPermissionProjectionProvider
     {
+        public Action<int>? BeforeResolve
+        {
+            get; set;
+        }
+        public List<AuthorRecentArticleHistoryPermissionSnapshot> Snapshots { get; } = [];
         public int Calls
         {
             get; private set;
@@ -326,6 +441,7 @@ public sealed class AuthorArticleQuerySourceStabilityTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             Calls++;
+            BeforeResolve?.Invoke(Calls);
             Requests.Add(request);
             bool fault = Calls == FaultCall;
             var snapshot = new AuthorRecentArticleHistoryPermissionSnapshot(
@@ -339,11 +455,13 @@ public sealed class AuthorArticleQuerySourceStabilityTests
                 request.ArticleIds.Select(id => new AuthorRecentArticleHistoryPermissionDecision(id,
                     id != DeniedId, id != DeniedId && !(fault && Fault == "write"),
                     Hash(fault && Fault == "decision" ? $"changed-{id}" : $"decision-{id}"))).ToArray(), string.Empty);
-            return Task.FromResult(snapshot with
+            snapshot = snapshot with
             {
                 ContentDigest = fault && Fault == "digest" ? Hash("invalid-digest")
                     : AuthorRecentArticleHistoryContract.ComputePermissionDigest(snapshot)
-            });
+            };
+            Snapshots.Add(snapshot);
+            return Task.FromResult(snapshot);
         }
     }
 
@@ -360,6 +478,10 @@ public sealed class AuthorArticleQuerySourceStabilityTests
 
     private sealed class Source : IAuthorArticleQuerySourceReader
     {
+        public Func<IReadOnlyList<int>, IReadOnlyList<AuthorArticleQuerySourceFields>>? FirstFieldsOverride
+        {
+            get; set;
+        }
         public bool Empty
         {
             get; set;
@@ -437,6 +559,10 @@ public sealed class AuthorArticleQuerySourceStabilityTests
             cancellationToken.ThrowIfCancellationRequested();
             FieldReads++;
             LastFieldIds = admittedArticleIds.ToArray();
+            if (FieldReads == 1 && FirstFieldsOverride is not null)
+            {
+                return Task.FromResult(FirstFieldsOverride(admittedArticleIds));
+            }
             bool second = FieldReads == 2;
             if (second && MetadataFault == "mutable-tags")
             {

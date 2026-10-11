@@ -383,6 +383,108 @@ public sealed class AuthorArticleQuerySourceReaderTests
         Assert.True(fixture.Reader!.IsClosed);
     }
 
+    [Theory]
+    [InlineData("ids")]
+    [InlineData("statuses")]
+    [InlineData("oversized-ids")]
+    public async Task HistoryCoordinates_OwnsInputsWhileOriginalGateWaits(string mutation)
+    {
+        var gate = new PausedGate();
+        DataTable rows = Coordinates();
+        rows.Rows.Add(7, 70L, "row-7", 0);
+        var fixture = new ReaderFixture(rows, gate);
+        List<int> ids = [7];
+        AuthorArticleQueryStatus[] statuses = [AuthorArticleQueryStatus.Draft];
+        Task<AuthorArticleQuerySourceBatch> pending = fixture.Source.ReadCoordinatesForIdsAsync(statuses, ids, default);
+        try
+        {
+            await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            if (mutation == "ids")
+            {
+                ids[0] = 8;
+            }
+            else if (mutation == "statuses")
+            {
+                statuses[0] = (AuthorArticleQueryStatus)4;
+            }
+            else
+            {
+                ids.AddRange(Enumerable.Range(8, AuthorArticleQuerySourceInspection.MaxBatchSize));
+            }
+        }
+        finally
+        {
+            gate.Release.TrySetResult();
+        }
+        AuthorArticleQuerySourceBatch batch = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(new[] { 7 }, batch.Coordinates.Select(static coordinate => coordinate.ArticleId));
+        Assert.Equal(new[] { 7 }, Assert.IsType<int[]>(fixture.Parameter("@ArticleIds").Value));
+        Assert.Equal(new[] { 0 }, fixture.Statuses());
+    }
+
+    [Fact]
+    public async Task Fields_OwnsIdsWhileOriginalGateWaits()
+    {
+        var gate = new PausedGate();
+        DataTable rows = Fields();
+        rows.Rows.Add(7, 70L, "row-7", 0, "title", "category", new[] { "tag" });
+        var fixture = new ReaderFixture(rows, gate);
+        int[] ids = [7];
+        Task<IReadOnlyList<AuthorArticleQuerySourceFields>> pending = fixture.Source.ReadFieldsAsync(ids, default);
+        try
+        {
+            await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            ids[0] = 8;
+        }
+        finally
+        {
+            gate.Release.TrySetResult();
+        }
+        IReadOnlyList<AuthorArticleQuerySourceFields> fields = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(7, Assert.Single(fields).Coordinate.ArticleId);
+        Assert.Equal(new[] { 7 }, Assert.IsType<int[]>(fixture.Parameter("@ArticleIds").Value));
+    }
+
+    [Fact]
+    public async Task Continuation_OwnsStatusesWhileOriginalGateWaits()
+    {
+        var gate = new PausedGate();
+        var fixture = new ReaderFixture(Coordinates(), gate);
+        AuthorArticleQueryStatus[] statuses = [AuthorArticleQueryStatus.Draft];
+        Task<AuthorArticleQuerySourceBatch> pending = fixture.Source.ReadCoordinatesAfterAsync(statuses, 7, default);
+        try
+        {
+            await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            statuses[0] = (AuthorArticleQueryStatus)4;
+        }
+        finally
+        {
+            gate.Release.TrySetResult();
+        }
+        await pending.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(new[] { 0 }, fixture.Statuses());
+        Assert.Equal(7, fixture.Parameter("@AfterArticleId").Value);
+    }
+
+    private sealed class PausedGate : IDbConcurrencyGate
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public DbConcurrencyGateSnapshot GetSnapshot() => new(1, 0, 0);
+
+        public async Task<T> ExecuteAsync<T>(string operation, Func<CancellationToken, Task<T>> action,
+            Func<CancellationToken, Task<T>> onTimeout, CancellationToken cancellationToken = default)
+        {
+            Entered.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken);
+            return await action(cancellationToken);
+        }
+    }
+
     private static ReaderFixture PagedFixture(int count)
     {
         var fixture = new ReaderFixture(Coordinates());
@@ -439,7 +541,7 @@ public sealed class AuthorArticleQuerySourceReaderTests
             get; private set;
         }
 
-        public ReaderFixture(DataTable rows)
+        public ReaderFixture(DataTable rows, IDbConcurrencyGate? gate = null)
         {
             var db = Substitute.For<ISqlSugarClient>();
             db.Ado.Returns(Ado);
@@ -459,7 +561,7 @@ public sealed class AuthorArticleQuerySourceReaderTests
                 _stringReader: Substitute.For<ICacheStringReader>(),
                 _stringWriter: Substitute.For<ICacheStringWriter>(),
                 _cacheMissCoordinator: Substitute.For<ICacheMissCoordinator>(),
-                _dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
+                _dbConcurrencyGate: gate ?? new ImmediateDbConcurrencyGate(),
                 _runtimeKeyScope: Substitute.For<IRuntimeKeyScope>(),
                 _httpContextAccessor: Substitute.For<IHttpContextAccessor>(),
                 _logger: NullLogger<ArticleService>.Instance,

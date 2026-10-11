@@ -187,6 +187,33 @@ public sealed class AuthorArticleQuerySourceContinuationTests
         Assert.Equal(0, source.PageReads);
     }
 
+    [Theory]
+    [InlineData("forward")]
+    [InlineData("backward")]
+    public async Task Page_OwnsValidatedPositionBeforePermissionCallback(string mutation)
+    {
+        Source source = FullPage();
+        int expectedPosition = source.Coordinates[^1].ArticleId;
+        var permission = new Permission
+        {
+            BeforeResolve = call =>
+            {
+                if (call == 2)
+                {
+                    source.Coordinates[^1] = Coordinate(mutation == "forward" ? 3000 : 1001);
+                }
+            }
+        };
+        var inspection = new AuthorArticleQuerySourceInspection(permission, source);
+
+        AuthorArticleQuerySourceInspectionResult result = await inspection.InspectPageAsync(Request(), 1000);
+
+        Assert.Equal(AuthorArticleQuerySourceUnavailableReason.SlugUnavailable, result.UnavailableReason);
+        Assert.True(result.HasMore);
+        Assert.Equal(expectedPosition, result.NextAfterArticleId);
+        Assert.Equal(expectedPosition, result.ObservedFields[^1].Coordinate.ArticleId);
+    }
+
     private static void AssertClosed(AuthorArticleQuerySourceInspectionResult page)
     {
         Assert.Empty(page.ObservedFields);
@@ -211,6 +238,10 @@ public sealed class AuthorArticleQuerySourceContinuationTests
 
     private sealed class Permission : IAuthorRecentArticleHistoryPermissionProjectionProvider
     {
+        public Action<int>? BeforeResolve
+        {
+            get; init;
+        }
         public int Calls
         {
             get; private set;
@@ -237,6 +268,7 @@ public sealed class AuthorArticleQuerySourceContinuationTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             Calls++;
+            BeforeResolve?.Invoke(Calls);
             var snapshot = new AuthorRecentArticleHistoryPermissionSnapshot(
                 Unavailable ? AuthorRecentArticleHistoryPermissionSnapshotStatus.Unavailable
                     : AuthorRecentArticleHistoryPermissionSnapshotStatus.Current, request.Owner,

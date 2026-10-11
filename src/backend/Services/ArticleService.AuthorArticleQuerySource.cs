@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Data.Common;
 
 using FsusBlog.Contracts.Articles;
@@ -26,6 +27,7 @@ public partial class ArticleService : IAuthorArticleQuerySourceReader
         CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(afterArticleId);
+        statuses = statuses.ToImmutableArray();
         if (statuses.Count == 0)
         {
             return new([], false);
@@ -75,6 +77,8 @@ public partial class ArticleService : IAuthorArticleQuerySourceReader
         IReadOnlyList<int> articleIds,
         CancellationToken cancellationToken)
     {
+        statuses = statuses.ToImmutableArray();
+        articleIds = articleIds.Take(AuthorArticleQuerySourceInspection.MaxBatchSize + 1).ToImmutableArray();
         if (articleIds.Count is < 1 or > AuthorArticleQuerySourceInspection.MaxBatchSize
             || articleIds.Any(static id => id <= 0) || articleIds.Distinct().Count() != articleIds.Count)
         {
@@ -124,6 +128,7 @@ public partial class ArticleService : IAuthorArticleQuerySourceReader
         IReadOnlyList<int> admittedArticleIds,
         CancellationToken cancellationToken)
     {
+        admittedArticleIds = admittedArticleIds.Take(AuthorArticleQuerySourceInspection.MaxBatchSize + 1).ToImmutableArray();
         if (admittedArticleIds.Count is < 1 or > AuthorArticleQuerySourceInspection.MaxBatchSize
             || admittedArticleIds.Any(static id => id <= 0)
             || admittedArticleIds.Distinct().Count() != admittedArticleIds.Count)
