@@ -1099,7 +1099,7 @@ export class OpenArticleDocumentRegistry
             || !Number.isSafeInteger(state.historyCapacity) || state.historyCapacity < 1
             || state.layoutState !== (state.groups.length === 2 ? 'horizontal-two-group' : 'single-group')
             || state.effectiveLayoutState !== (state.collapsedByViewportRef ? 'single-group' : state.layoutState)
-            || state.effectiveFocusedGroupId !== (state.collapsedByViewportRef ? state.activeGroupId : state.focusedGroupId)
+            || state.effectiveFocusedGroupId !== state.focusedGroupId
             || !Array.isArray(state.focusHistory) || Object.keys(state.focusHistory).length !== state.focusHistory.length
             || state.focusHistory.length > state.historyCapacity || new Set(state.focusHistory).size !== state.focusHistory.length
             || state.focusHistory.some(id => !state.groups.some(group => group.groupId === id))

@@ -78,6 +78,82 @@ function move(groups: AuthoringTabGroupRegistry): AuthoringTabGroupCommand
 }
 
 describe('AuthoringTabGroupRegistry ordinary source controls (#2298)', () => {
+    it('collapses active A and focused B to visual B while preserving canonical entries and replay', () => {
+        const { articles, groups } = fixture();
+        const create: AuthoringTabGroupCommand = { ...commandBase(groups.exportState()), kind: 'create-second-group', groupId: 'group-secondary' };
+        const created = groups.execute(create);
+        expect(created.status).toBe('applied');
+        const relocation = move(groups);
+        const moved = groups.execute(relocation);
+        expect(moved.status).toBe('applied');
+        const focus: AuthoringTabGroupCommand = { ...commandBase(groups.exportState()), kind: 'focus-group', groupId: 'group-secondary' };
+        const focused = groups.execute(focus);
+        expect(focused.status).toBe('applied');
+        const before = groups.exportProjection();
+        const articleBefore = articles.exportState();
+        expect(before.state.activeGroupId).toBe('group-primary');
+        expect(before.state.focusedGroupId).toBe('group-secondary');
+        const collapse: AuthoringTabGroupCommand = { ...commandBase(before.state), kind: 'set-effective-single',
+            enabled: true, viewportStateRef: 'viewport-focused-collapse' };
+        const collapsed = groups.execute(collapse);
+        const articleAfter = articles.exportState();
+        expect(collapsed.status).toBe('applied');
+        expect(collapsed.after.effectiveLayoutState).toBe('single-group');
+        expect(collapsed.after.effectiveFocusedGroupId).toBe('group-secondary');
+        expect(groups.exportState().effectiveFocusedGroupId).toBe('group-secondary');
+        expect(collapsed.after.activeGroupId).toBe('group-primary');
+        expect(collapsed.after.groups).toEqual(before.state.groups);
+        expect(collapsed.after.focusHistory).toEqual(before.state.focusHistory);
+        expect(articleAfter.entries).toEqual(articleBefore.entries);
+        expect(verifyAuthoringTabGroupRegistryState(collapsed.after, articleAfter)).toBe(true);
+        expect(verifyAuthoringTabGroupResult(collapsed, articleBefore, articleAfter, collapse)).toBe(true);
+        const tampered = structuredClone(collapsed);
+        tampered.after.effectiveFocusedGroupId = 'group-primary';
+        const { contentDigest: _stateDigest, ...stateBody } = tampered.after;
+        tampered.after.contentDigest = calculateOpenArticleDocumentDigest(stateBody);
+        const { contentDigest: _resultDigest, ...resultBody } = tampered;
+        tampered.contentDigest = calculateOpenArticleDocumentDigest(resultBody);
+        expect(verifyAuthoringTabGroupRegistryState(tampered.after, articleAfter)).toBe(false);
+        expect(verifyAuthoringTabGroupResult(tampered, articleBefore, articleAfter, collapse)).toBe(false);
+        const replayed = groups.execute(collapse);
+        expect(replayed.status).toBe('replayed');
+        expect(replayed.after).toEqual(collapsed.after);
+        expect(articles.exportState()).toEqual(articleAfter);
+        const expand: AuthoringTabGroupCommand = { ...commandBase(groups.exportState()), kind: 'set-effective-single',
+            enabled: false, viewportStateRef: 'viewport-focused-expand' };
+        const expanded = groups.execute(expand);
+        expect(expanded.status).toBe('applied');
+        expect(expanded.after.effectiveLayoutState).toBe('horizontal-two-group');
+        expect(expanded.after.effectiveFocusedGroupId).toBe('group-secondary');
+        expect(expanded.after.groups).toEqual(before.state.groups);
+        expect(expanded.after.focusHistory).toEqual(before.state.focusHistory);
+        expect(articles.exportState().entries).toEqual(articleBefore.entries);
+        expect(groups.exportProjection().splitRatioRef).toBe(before.splitRatioRef);
+        const replayRegistry = new OpenArticleDocumentRegistry();
+        replayRegistry.execute(open(1, 0));
+        replayRegistry.execute(open(2, 1));
+        expect(replayAuthoringTabGroupCommands(replayRegistry, ratioOptions(),
+            [create, relocation, focus, collapse, collapse, expand], [created, moved, focused, collapsed, replayed, expanded]).accepted).toBe(true);
+    });
+
+    it('updates visual focus inside a collapsed workspace without activating an inactive group', () => {
+        const { articles, groups } = fixture();
+        expect(addSecond(groups).status).toBe('applied');
+        expect(groups.execute(move(groups)).status).toBe('applied');
+        expect(groups.execute({ ...commandBase(groups.exportState()), kind: 'set-effective-single', enabled: true,
+            viewportStateRef: 'viewport-before-focus' }).status).toBe('applied');
+        const articleBefore = articles.exportState();
+        const command: AuthoringTabGroupCommand = { ...commandBase(groups.exportState()), kind: 'focus-group', groupId: 'group-secondary' };
+        const focused = groups.execute(command);
+        expect(focused.status).toBe('applied');
+        expect(focused.after.activeGroupId).toBe('group-primary');
+        expect(focused.after.focusedGroupId).toBe('group-secondary');
+        expect(focused.after.effectiveFocusedGroupId).toBe('group-secondary');
+        expect(groups.exportState().effectiveFocusedGroupId).toBe('group-secondary');
+        expect(articles.exportState().entries).toEqual(articleBefore.entries);
+        expect(verifyAuthoringTabGroupResult(focused, articleBefore, articles.exportState(), command)).toBe(true);
+    });
+
     it('binds only its actual canonical Registry instance despite identical exported state', () => {
         const owned = fixture();
         const foreign = fixture();

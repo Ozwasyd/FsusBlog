@@ -630,7 +630,7 @@ export class AuthoringTabGroupRegistry
         const active = entries.find(entry => entry.isActive);
         state.activeGroupId = active?.owningGroupId ?? state.activeGroupId;
         state.articleRegistryRevision = this.#articleRegistry.getRevision();
-        state.effectiveFocusedGroupId = state.collapsedByViewportRef ? state.activeGroupId : state.focusedGroupId;
+        state.effectiveFocusedGroupId = state.focusedGroupId;
         state.activationHistory = state.activationHistory.filter(ref => state.groups.some(group =>
             group.groupId === ref.groupId && group.tabs.some(tab => tab.tabId === ref.tabId && tab.editorSessionRef === ref.editorSessionRef)));
         return sealState(withoutDigest(state));
@@ -785,7 +785,7 @@ export class AuthoringTabGroupRegistry
         }
         next.layoutState = next.groups.length === 2 ? 'horizontal-two-group' : 'single-group';
         next.effectiveLayoutState = next.collapsedByViewportRef ? 'single-group' : next.layoutState;
-        next.effectiveFocusedGroupId = next.collapsedByViewportRef ? next.activeGroupId : next.focusedGroupId;
+        next.effectiveFocusedGroupId = next.focusedGroupId;
         return null;
     }
 
@@ -850,7 +850,7 @@ function verifyGroupState(state: AuthoringTabGroupRegistryState, article: OpenAr
     if (state.layoutState !== physical || state.effectiveLayoutState !== (state.collapsedByViewportRef ? 'single-group' : physical)
         || !state.groups.some(group => group.groupId === state.activeGroupId)
         || !state.groups.some(group => group.groupId === state.focusedGroupId)
-        || state.effectiveFocusedGroupId !== (state.collapsedByViewportRef ? state.activeGroupId : state.focusedGroupId))
+        || state.effectiveFocusedGroupId !== state.focusedGroupId)
     {
         return false;
     }
@@ -1170,7 +1170,7 @@ function matchesGroupCommandTransition(result: AuthoringTabGroupCommandResult, c
     expected.articleRegistryRevision = articleBefore.revision + 1;
     expected.layoutState = expected.groups.length === 2 ? 'horizontal-two-group' : 'single-group';
     expected.effectiveLayoutState = expected.collapsedByViewportRef ? 'single-group' : expected.layoutState;
-    expected.effectiveFocusedGroupId = expected.collapsedByViewportRef ? expected.activeGroupId : expected.focusedGroupId;
+    expected.effectiveFocusedGroupId = expected.focusedGroupId;
     return calculateOpenArticleDocumentDigest(withoutDigest(expected)) === result.after.contentDigest;
 }
 
