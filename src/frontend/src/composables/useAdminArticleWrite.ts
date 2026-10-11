@@ -1,4 +1,4 @@
-import { computed, effectScope, onMounted, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch, type EffectScope } from 'vue';
+import { computed, effectScope, onMounted, onScopeDispose, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch, type EffectScope } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import {
@@ -869,6 +869,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             ? null
             : (window as Window & { BroadcastChannel?: typeof BroadcastChannel; }).BroadcastChannel ?? null
     });
+    // Also reclaim the actual channel if original owner acquisition refuses during setup.
+    onScopeDispose(() => recoveryCoordinator.dispose());
     // Canonical author endpoints resolve the primary site; a browser host is not its authority.
     const documentSiteScope = 'primary-site';
     const documentPrincipalIdentityId = adminStore.adminPrincipal?.id?.trim() ?? null;
