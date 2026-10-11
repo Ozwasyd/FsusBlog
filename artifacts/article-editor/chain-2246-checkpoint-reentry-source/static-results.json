@@ -1,0 +1,81 @@
+{
+  "testedSource": "3d6589208a1409fa806a06c99a14c0d04a6a5304",
+  "implementationSource": "32ba255c6",
+  "composableBlob": "66384d779a67763f38f0f07480db8513a6f1f994",
+  "unrunControlBlob": "d4b262489fdb269ed025eeb9949456d1efa01448",
+  "actualFrontendSourceFilesMatched": 727,
+  "actualTypeCount": 234,
+  "actualTypeAdded": [],
+  "actualTypeRemoved": [],
+  "projectionTypeCount": 227,
+  "projectionTypeAdded": [],
+  "projectionTypeRemoved": [],
+  "runs": {
+    "actual-main-type": {
+      "kind": "type",
+      "command": [
+        "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+      "exitCode": 2,
+      "seconds": 30.137,
+      "log": "/workspace/.tmp/chain2246-checkpoint-reentry/actual-main-type.log",
+      "actualSource": "3d6589208a1409fa806a06c99a14c0d04a6a5304",
+      "oldJournalSourceRetained": true,
+      "canonicalConfigOverlay": "69992a0769a896434028d2b16776423f31c6c7d0",
+      "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+      "runtimeQualification": false,
+      "sourceBinding": "727 actual frontend source postimages checked for byte equality before compilation",
+      "diagnosticCount": 234,
+      "logSha256": "aec5735f0fb6233107fd97bb9d0467803c06f0ab1ca34f4cf46ae493579967f5"
+    },
+    "reentry-type": {
+      "label": "reentry",
+      "kind": "type",
+      "command": [
+        "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+      "exitCode": 2,
+      "seconds": 31.205,
+      "log": "/workspace/.tmp/chain2246-checkpoint-reentry/reentry-type.log",
+      "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+      "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+      "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+      "projectionOnly": true,
+      "actualSource": "3d6589208a1409fa806a06c99a14c0d04a6a5304",
+      "logSha256": "cd1b85e2599b23c12b3bab508fef476abaff0ac71d6c3411cf6708621d6b5023"
+    },
+    "reentry-style": {
+      "label": "reentry",
+      "kind": "style",
+      "command": [
+        "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/frontend/src/composables/useAdminArticleWrite.ts"
+      ],
+      "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+      "exitCode": 0,
+      "seconds": 13.681,
+      "log": "/workspace/.tmp/chain2246-checkpoint-reentry/reentry-style.log",
+      "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+      "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+      "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+      "projectionOnly": true,
+      "actualSource": "3d6589208a1409fa806a06c99a14c0d04a6a5304",
+      "logSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca"
+    }
+  },
+  "projectionOriginalJournal": "61c156009ee7b2bc540b5efd84071adf171d679e",
+  "journalP2AndStableRefStillPending": true,
+  "wholeApplicationPass": false,
+  "testsListCollectionMountNativeProduct": "NOT RUN / HELD",
+  "frozenAuthorityRefreshed": false
+}
