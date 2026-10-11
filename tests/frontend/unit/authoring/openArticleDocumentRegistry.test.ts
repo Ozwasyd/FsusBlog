@@ -102,6 +102,39 @@ function registryWithTwoTabs(): OpenArticleDocumentRegistry
 }
 
 describe('OpenArticleDocumentRegistry exact ownership set (#2298)', () => {
+    it('replays a saved exact ownership set after a member legally closes', () => {
+        const registry = registryWithTwoTabs();
+        const command = ownershipSet(registry);
+        const result = registry.execute(command);
+        expect(result.status).toBe('applied');
+        const tabId = command.tabs[0].tabId;
+        expect(registry.execute({ ...commandBase('request-close', registry.getRevision()), tabId }).status).toBe('applied');
+        expect(registry.execute({ ...commandBase('detach-on-final-close', registry.getRevision()), tabId,
+            closeDecisionRef: 'ownership-set-close-decision' }).status).toBe('applied');
+        const afterClose = registry.exportState();
+        expect(afterClose.entries).toHaveLength(1);
+        const replay = registry.execute(command);
+        expect(replay.status).toBe('replayed');
+        expect(replay.revisionBefore).toBe(result.revisionBefore);
+        expect(replay.revisionAfter).toBe(result.revisionAfter);
+        expect(replay.ownershipChanges).toEqual(result.ownershipChanges);
+        expect(verifyOpenArticleDocumentResult(replay, command)).toBe(true);
+        expect(registry.exportState()).toEqual(afterClose);
+    });
+
+    it('reports a changed payload using a saved key as a conflict after a member closes', () => {
+        const registry = registryWithTwoTabs();
+        const command = ownershipSet(registry);
+        expect(registry.execute(command).status).toBe('applied');
+        const tabId = command.tabs[0].tabId;
+        expect(registry.execute({ ...commandBase('request-close', registry.getRevision()), tabId }).status).toBe('applied');
+        expect(registry.execute({ ...commandBase('detach-on-final-close', registry.getRevision()), tabId,
+            closeDecisionRef: 'ownership-set-close-decision' }).status).toBe('applied');
+        const afterClose = registry.exportState();
+        expect(registry.execute({ ...command, targetGroupId: 'group-third' }).status).toBe('rejected-idempotency-conflict');
+        expect(registry.exportState()).toEqual(afterClose);
+    });
+
     it('commits every exact tab in one revision while preserving identity, session, epoch and history refs', () => {
         const registry = registryWithTwoTabs();
         const before = registry.exportState();

@@ -688,7 +688,9 @@ export class OpenArticleDocumentRegistry
             return makeRejectedResult(command, 'rejected-state', this.revision, 'ownership-transaction-pending');
         }
         const commandDigest = calculateOpenArticleDocumentDigest(command);
-        if (!isValidCommand(command, this.entriesByTabId.size))
+        // Shape validation is independent of the current live membership. A
+        // saved success remains replayable after members have legally closed.
+        if (!isValidCommand(command))
         {
             return makeRejectedResult(
                 command,
@@ -714,6 +716,11 @@ export class OpenArticleDocumentRegistry
             }
 
             return this.asReplay(processed.result);
+        }
+
+        if (!isValidCommand(command, this.entriesByTabId.size))
+        {
+            return makeRejectedResult(command, 'rejected-invalid-command', this.revision, 'command-schema-invalid', commandDigest);
         }
 
         if (command.expectedRevision !== this.revision)
