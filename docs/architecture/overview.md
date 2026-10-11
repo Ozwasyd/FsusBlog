@@ -699,9 +699,12 @@ and upstream reentry repairs require their original owners' source and acceptanc
 Writer attachment upload consumption is single-use for each genuine pending
 handle. Its original owner retains the exact settled observation or interrupted
 attempt; neither the busy marker's release nor a later File call resets that
-consumption. Noncommitted outcomes retain the original flow context and an
-explicit Writer obligation. They refuse reupload, resume, replacement, completion,
-and retry until a genuine recovery handoff exists; no clear API, session token,
+consumption. Noncommitted outcomes retain an explicit Writer obligation, and
+Writer does not clear any pending context still held by the original flow. The
+flow itself retires its context when its completion callback returns normally;
+retaining the Writer observation is not a transfer of that context or session.
+Unresolved attempts refuse reupload, resume, replacement, completion and retry
+until a genuine recovery handoff exists; no clear API, session token,
 cleanup receipt or asset/reference authority is synthesized. Normal committed
 transport observations leave distinct file handles independent. The actual Write
 handler surfaces noncommitted observations and stops the admitted batch rather
