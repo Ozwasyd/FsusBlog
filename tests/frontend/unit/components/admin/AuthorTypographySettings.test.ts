@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { defineComponent, h } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
-import { ElButton, ElForm, ElMarkdownEditor, ElMarkdownRenderer, ElSelect } from '@ozwasyd/element-plus';
-import { afterEach, describe, expect, it } from 'vitest';
+import { ElButton, ElForm, ElFormItem, ElMarkdownEditor, ElMarkdownRenderer, ElOption, ElSelect } from '@ozwasyd/element-plus';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import AuthorTypographySettings from '@/components/admin/article/AuthorTypographySettings.vue';
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue';
@@ -18,10 +18,11 @@ const observation: AuthorTypographySettingsView = Object.freeze({
     designDefault: 'verified', font: 'unavailable'
 });
 const cleanups: (() => void)[] = [];
-function open(view = observation)
+const publicControls = { ElButton, ElForm, ElFormItem, ElOption, ElSelect };
+function open(view = observation, registerControls = true)
 {
     const wrapper = mount(AuthorTypographySettings, {
-        props: { view }, global: { components: { ElMarkdownRenderer } }
+        props: { view }, global: { components: { ElMarkdownRenderer, ...(registerControls ? publicControls : {}) } }
     });
     cleanups.push(() => wrapper.unmount());
     return wrapper;
@@ -30,6 +31,23 @@ afterEach(() => cleanups.splice(0).forEach(cleanup => cleanup()));
 
 describe('AuthorTypographySettings with the real local FsusUI', () =>
 {
+    it('requires the public control registration when the production resolver is absent', () =>
+    {
+        const warnings = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try
+        {
+            const wrapper = open(observation, false);
+            for (const [name, control] of Object.entries(publicControls))
+            {
+                expect(warnings.mock.calls.some(([message]) => String(message).includes(`Failed to resolve component: ${name}`))).toBe(true);
+                expect(wrapper.findComponent(control).exists()).toBe(false);
+            }
+            expect(wrapper.emitted('change')).toBeUndefined();
+            expect(wrapper.emitted('reset')).toBeUndefined();
+        }
+        finally { warnings.mockRestore(); }
+    });
+
     it('projects exactly five current choices, associated labels and actual unavailable mapping', async () =>
     {
         const wrapper = open();
@@ -123,7 +141,7 @@ describe('AuthorTypographySettings with the real local FsusUI', () =>
     {
         const parent = mount(defineComponent({
             setup: () => () => h('div', [h(AuthorTypographySettings, { view: observation }), h(AuthorTypographySettings, { view: observation })])
-        }), { global: { components: { ElMarkdownRenderer } } });
+        }), { global: { components: { ElMarkdownRenderer, ...publicControls } } });
         try
         {
             const ids = parent.findAllComponents(ElSelect).map(select => select.props('id'));

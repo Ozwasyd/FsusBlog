@@ -72,7 +72,6 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElForm, ElFormItem, ElOption, ElSelect } from '@ozwasyd/element-plus';
 import { computed, useId } from 'vue';
 
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue';
