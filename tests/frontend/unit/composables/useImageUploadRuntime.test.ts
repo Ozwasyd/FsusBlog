@@ -65,6 +65,34 @@ function fileOf(size: number, name = 'cover.png'): File {
   return new File([new Uint8Array(size)], name, { type: 'image/png', lastModified: 1_700_000_000_000 })
 }
 
+const uploadIds = {
+  old: '11111111111111111111111111111111', fresh: '22222222222222222222222222222222',
+  new: '33333333333333333333333333333333', ack: '44444444444444444444444444444444',
+  late: '55555555555555555555555555555555', originalLate: '66666666666666666666666666666666'
+}
+
+// Complete typed wire fixtures; safety oracles below still assert the original IO and lifecycle.
+function initReply(input: { fileName?: string; name?: string; mimeType?: string; type?: string; totalBytes?: number; size?: number; targetFormat?: string },
+  uploadId = uploadIds.old, uploadToken = 'token-old') {
+  const totalBytes = input.totalBytes ?? input.size!
+  return { uploadId, uploadToken, fileName: input.fileName ?? input.name!, mimeType: input.mimeType ?? input.type!,
+    targetFormat: input.targetFormat ?? 'webp', totalBytes, chunkSize: 524_288,
+    totalParts: Math.ceil(totalBytes / 524_288), expiresAt: '2099-01-01T00:00:00Z' }
+}
+function partReply(uploadId: string, partNumber: number, offset: number, size: number,
+  uploadedBytes = offset + size, uploadedPartCount = partNumber + 1) {
+  return { uploadId, partNumber, offset, size, uploadedBytes, uploadedPartCount }
+}
+function completeReply(uploadId: string, totalBytes: number, url = '/uploads/complete.webp', mimeType = 'image/png') {
+  return { uploadId, totalBytes, url, relativeUrl: url, mimeType }
+}
+function statusReply(totalBytes: number, uploadedPartCount = 0, uploadedBytes = 0, nextPartHint = 0) {
+  return { uploadId: uploadIds.old, status: uploadedPartCount ? 'uploading' : 'pending', totalBytes,
+    chunkSize: 524_288, totalParts: Math.ceil(totalBytes / 524_288), uploadedPartCount, uploadedBytes, nextPartHint,
+    expiresAt: '2099-01-01T00:00:00Z' }
+}
+function originalInitRequest() { return api.initUploadSession.mock.calls.at(-1)![0] }
+
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void
@@ -148,14 +176,13 @@ describe('useImageUploadRuntime', () => {
     localStorage.clear()
     compression.compressImageFileWithRuntime.mockImplementation(async (file: File) => ({ file, preview }))
     compression.sha256Hex.mockImplementation(async (blob: Blob) => `sha256-${blob.size}`)
-    api.initUploadSession.mockResolvedValue({ uploadId: 'upload-old', uploadToken: 'token-old' })
-    api.getUploadStatus.mockResolvedValue({ uploadId: 'upload-old', uploadedPartCount: 0 })
-    api.getUploadPartMap.mockResolvedValue({ uploadId: 'upload-old', uploadedRanges: [] })
-    api.uploadPart.mockImplementation(async (_uploadId: string, _token: string, _part: number, offset: number, chunk: Blob) => ({
-      uploadedBytes: offset + chunk.size
-    }))
-    api.completeUpload.mockResolvedValue({ url: '/uploads/complete.webp' })
-    api.abortUpload.mockResolvedValue({ uploadId: 'upload-old', status: 'aborted', uploadedPartCount: 0 })
+    api.initUploadSession.mockImplementation(async request => initReply(request))
+    api.getUploadStatus.mockImplementation(async () => statusReply(originalInitRequest().totalBytes))
+    api.getUploadPartMap.mockResolvedValue({ uploadId: uploadIds.old, uploadedRanges: [] })
+    api.uploadPart.mockImplementation(async (uploadId: string, _token: string, part: number, offset: number, chunk: Blob) =>
+      partReply(uploadId, part, offset, chunk.size))
+    api.completeUpload.mockImplementation(async uploadId => completeReply(uploadId, originalInitRequest().totalBytes, '/uploads/complete.webp', originalInitRequest().mimeType))
+    api.abortUpload.mockResolvedValue({ uploadId: uploadIds.old, status: 'aborted', uploadedPartCount: 0 })
   })
 
   afterEach(() => {
@@ -176,25 +203,25 @@ describe('useImageUploadRuntime', () => {
     })
     api.initUploadSession.mockImplementation(async () => {
       events.push('init')
-      return { uploadId: 'upload-fresh', uploadToken: 'token-fresh' }
+      return initReply(file, uploadIds.fresh, 'token-fresh')
     })
     api.uploadPart.mockImplementation(async (_id: string, _token: string, part: number, offset: number, chunk: Blob) => {
       events.push(`part-${part}`)
-      return { uploadedBytes: offset + chunk.size }
+      return partReply(_id, part, offset, chunk.size)
     })
     api.completeUpload.mockImplementation(async () => {
       events.push('complete')
-      return { url: '/uploads/fresh.webp' }
+      return completeReply(uploadIds.fresh, file.size, '/uploads/fresh.webp')
     })
 
     const runtime = useImageUploadRuntime()
     await expect(runtime.uploadFile(file, options, { wasmOnly: true })).resolves.toBe('/uploads/fresh.webp')
 
     expect(events).toEqual(['compress', 'hash-file', 'init', 'hash-part', 'part-0', 'hash-part', 'part-1', 'complete'])
-    expect(api.uploadPart).toHaveBeenNthCalledWith(1, 'upload-fresh', 'token-fresh', 0, 0, expect.any(Blob), 'sha256-524288')
-    expect(api.uploadPart).toHaveBeenNthCalledWith(2, 'upload-fresh', 'token-fresh', 1, 524_288, expect.any(Blob), 'sha256-75712')
+    expect(api.uploadPart).toHaveBeenNthCalledWith(1, uploadIds.fresh, 'token-fresh', 0, 0, expect.any(Blob), 'sha256-524288')
+    expect(api.uploadPart).toHaveBeenNthCalledWith(2, uploadIds.fresh, 'token-fresh', 1, 524_288, expect.any(Blob), 'sha256-75712')
     expect(api.completeUpload).toHaveBeenCalledOnce()
-    expect(api.completeUpload).toHaveBeenCalledWith('upload-fresh', 'token-fresh', 'sha256-600000')
+    expect(api.completeUpload).toHaveBeenCalledWith(uploadIds.fresh, 'token-fresh', 'sha256-600000')
     expect(runtime.phase).toBe('completed')
     expect(runtime.progress).toBe(100)
     expect(runtime.activeSession.uploadId).toBe('')
@@ -211,8 +238,8 @@ describe('useImageUploadRuntime', () => {
     expect(runtime.phase).toBe('paused')
     expect(runtime.errorMessage).toContain('part unavailable')
     expect(runtime.canResume).toBe(true)
-    expect(runtime.activeSession.uploadId).toBe('upload-old')
-    expect(storedSnapshot().snapshot).toMatchObject({ uploadId: 'upload-old', uploadToken: 'token-old' })
+    expect(runtime.activeSession.uploadId).toBe(uploadIds.old)
+    expect(storedSnapshot().snapshot).toMatchObject({ uploadId: uploadIds.old, uploadToken: 'token-old' })
   })
 
   it('resumes the same file and options with the stored identity and uploads only missing parts', async () => {
@@ -220,7 +247,7 @@ describe('useImageUploadRuntime', () => {
     const runtime = useImageUploadRuntime()
     vi.useFakeTimers()
     api.uploadPart
-      .mockResolvedValueOnce({ uploadedBytes: 524_288 })
+      .mockResolvedValueOnce(partReply(uploadIds.old, 0, 0, 524_288))
       .mockRejectedValue(new Error('part one unavailable'))
     const firstUpload = runtime.uploadFile(file, options, { wasmOnly: true })
     const firstRejection = expect(firstUpload).rejects.toThrow('part one unavailable')
@@ -229,59 +256,69 @@ describe('useImageUploadRuntime', () => {
     vi.useRealTimers()
 
     const firstStorageKey = storedSnapshot().key
-    api.uploadPart.mockReset().mockResolvedValue({ uploadedBytes: 600_000 })
-    api.getUploadStatus.mockResolvedValue({ uploadId: 'upload-old', uploadedPartCount: 1 })
-    api.getUploadPartMap.mockResolvedValue({ uploadId: 'upload-old', uploadedRanges: [{ start: 0, end: 0 }] })
+    api.uploadPart.mockReset().mockResolvedValue(partReply(uploadIds.old, 1, 524_288, 75_712))
+    api.getUploadStatus.mockResolvedValue(statusReply(600_000, 1, 524_288, 1))
+    api.getUploadPartMap.mockResolvedValue({ uploadId: uploadIds.old, uploadedRanges: [{ start: 0, end: 0 }] })
 
     await expect(runtime.resumeLatest()).resolves.toBe('/uploads/complete.webp')
 
     expect(compression.compressImageFileWithRuntime).toHaveBeenLastCalledWith(file, options, { wasmOnly: true })
     expect(api.initUploadSession).toHaveBeenCalledOnce()
-    expect(api.getUploadStatus).toHaveBeenCalledWith('upload-old')
-    expect(api.getUploadPartMap).toHaveBeenCalledWith('upload-old')
+    expect(api.getUploadStatus).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
+    expect(api.getUploadPartMap).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
     expect(api.uploadPart).toHaveBeenCalledOnce()
-    expect(api.uploadPart).toHaveBeenCalledWith('upload-old', 'token-old', 1, 524_288, expect.any(Blob), 'sha256-75712')
-    expect(api.completeUpload).toHaveBeenCalledWith('upload-old', 'token-old', 'sha256-600000')
+    expect(api.uploadPart).toHaveBeenCalledWith(uploadIds.old, 'token-old', 1, 524_288, expect.any(Blob), 'sha256-75712')
+    expect(api.completeUpload).toHaveBeenCalledWith(uploadIds.old, 'token-old', 'sha256-600000')
     expect(Object.keys(localStorage)).not.toContain(firstStorageKey)
   })
 
   it('initializes a new identity when a stored snapshot is tampered', async () => {
+    // Retain this regression identity; unknown identity now preserves its real original obligation.
     const file = fileOf(128)
     const runtime = useImageUploadRuntime()
     await exhaustPartRetries(runtime, file)
     const { key, snapshot } = storedSnapshot()
-    localStorage.setItem(key, encodePublicAotPayload({ ...snapshot, uploadId: 'upload-tampered' }))
+    const tampered = encodePublicAotPayload({ ...snapshot, uploadId: uploadIds.new })
+    localStorage.setItem(key, tampered)
     api.getUploadStatus.mockClear()
-    api.initUploadSession.mockResolvedValue({ uploadId: 'upload-new', uploadToken: 'token-new' })
-    api.uploadPart.mockReset().mockResolvedValue({ uploadedBytes: 128 })
-
-    await runtime.resumeLatest()
-
-    expect(api.getUploadStatus).toHaveBeenCalledWith('upload-tampered')
-    expect(api.initUploadSession).toHaveBeenCalledTimes(2)
-    expect(api.uploadPart).toHaveBeenLastCalledWith('upload-new', 'token-new', 0, 0, expect.any(Blob), 'sha256-128')
-    expect(api.completeUpload).toHaveBeenLastCalledWith('upload-new', 'token-new', 'sha256-128')
+    api.uploadPart.mockClear()
+    await expect(runtime.resumeLatest()).rejects.toThrow('upload_resume_snapshot_mismatch')
+    expect(api.getUploadStatus).not.toHaveBeenCalled()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.uploadPart).not.toHaveBeenCalled()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(runtime.activeSession.uploadId).toBe(uploadIds.old)
+    expect(localStorage.getItem(key)).toBe(tampered)
+    expect(runtime.cleanupRequired).toBe(true)
+    await runtime.abandon()
+    expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
   })
 
   it('initializes a new identity when stored-session status lookup fails', async () => {
+    // Retain this regression identity; failed lookup cannot prove the original session is absent.
     const file = fileOf(128)
     const runtime = useImageUploadRuntime()
     await exhaustPartRetries(runtime, file)
-    api.getUploadStatus.mockRejectedValue(new Error('stale session'))
-    api.initUploadSession.mockResolvedValue({ uploadId: 'upload-new', uploadToken: 'token-new' })
-    api.uploadPart.mockReset().mockResolvedValue({ uploadedBytes: 128 })
-
-    await runtime.resumeLatest()
-
-    expect(api.getUploadStatus).toHaveBeenCalledWith('upload-old')
-    expect(api.uploadPart).toHaveBeenLastCalledWith('upload-new', 'token-new', 0, 0, expect.any(Blob), 'sha256-128')
-    expect(api.completeUpload).toHaveBeenLastCalledWith('upload-new', 'token-new', 'sha256-128')
+    const { key } = storedSnapshot()
+    const before = localStorage.getItem(key)
+    const failure = new Error('stale session')
+    api.getUploadStatus.mockRejectedValue(failure)
+    api.uploadPart.mockClear()
+    await expect(runtime.resumeLatest()).rejects.toBe(failure)
+    expect(api.getUploadStatus).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.uploadPart).not.toHaveBeenCalled()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(localStorage.getItem(key)).toBe(before)
+    await runtime.abandon()
+    expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
   })
 
   it('clears local state and calls abort once even when abort fails', async () => {
     // Keep this canonical regression identity. Cancelled live work is cleared,
     // while failed server cleanup must retain its separate session obligation.
-    const part = deferred<{ uploadedBytes: number }>()
+    const part = deferred<ReturnType<typeof partReply>>()
     api.uploadPart.mockReturnValue(part.promise)
     api.abortUpload.mockRejectedValue(new Error('abort unavailable'))
     const runtime = useImageUploadRuntime()
@@ -290,22 +327,22 @@ describe('useImageUploadRuntime', () => {
 
     await expect(runtime.abandon()).rejects.toThrow('abort unavailable')
     expect(api.abortUpload).toHaveBeenCalledOnce()
-    expect(api.abortUpload).toHaveBeenCalledWith('upload-old', undefined, 'token-old')
+    expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
     expect(runtime.phase).toBe('error')
     expect(runtime.progress).toBe(0)
     expect(runtime.errorMessage).toBe('abort unavailable')
     expect(runtime.preview).toBeNull()
-    expect(runtime.activeSession.uploadId).toBe('upload-old')
+    expect(runtime.activeSession.uploadId).toBe(uploadIds.old)
     expect(runtime.cleanupRequired).toBe(true)
     expect(runtime.canResume).toBe(false)
-    expect(storedSnapshot().snapshot.uploadId).toBe('upload-old')
+    expect(storedSnapshot().snapshot.uploadId).toBe(uploadIds.old)
     await expect(runtime.uploadFile(fileOf(64, 'new.png'), options)).rejects.toThrow('上传会话尚未取消')
 
-    part.resolve({ uploadedBytes: 128 })
+    part.resolve(partReply(uploadIds.old, 0, 0, 128))
     await expect(upload).rejects.toThrow('upload_attempt_superseded')
     expect(api.completeUpload).not.toHaveBeenCalled()
     await expect(runtime.resumeLatest()).rejects.toThrow('没有可恢复的上传任务')
-    api.abortUpload.mockResolvedValue({ uploadId: 'upload-old', status: 'aborted', uploadedPartCount: 0 })
+    api.abortUpload.mockResolvedValue({ uploadId: uploadIds.old, status: 'aborted', uploadedPartCount: 0 })
     await runtime.abandon()
     expect(api.abortUpload).toHaveBeenCalledTimes(2)
     expect(runtime.cleanupRequired).toBe(false)
@@ -324,18 +361,18 @@ describe('useImageUploadRuntime', () => {
     expect(first).toBe(second)
     await flushPromises()
     expect(api.abortUpload).toHaveBeenCalledOnce()
-    expect(runtime.activeSession.uploadId).toBe('upload-old')
+    expect(runtime.activeSession.uploadId).toBe(uploadIds.old)
     expect(runtime.canResume).toBe(false)
     await expect(runtime.uploadFile(fileOf(64, 'new.png'), options)).rejects.toThrow('上传会话尚未取消')
     expect(api.initUploadSession).toHaveBeenCalledOnce()
-    abort.resolve({ uploadId: 'upload-old', status: 'aborted', uploadedPartCount: 0 })
+    abort.resolve({ uploadId: uploadIds.old, status: 'aborted', uploadedPartCount: 0 })
     await Promise.all([first, second])
     expect(runtime.cleanupRequired).toBe(false)
     expect(localStorage.length).toBe(0)
   })
 
   it('a late part failure cannot resurrect a cancelled recovery snapshot', async () => {
-    const part = deferred<{ uploadedBytes: number }>()
+    const part = deferred<ReturnType<typeof partReply>>()
     api.uploadPart.mockReturnValue(part.promise)
     const runtime = useImageUploadRuntime()
     const upload = runtime.uploadFile(fileOf(128), options)
@@ -357,26 +394,26 @@ describe('useImageUploadRuntime', () => {
   })
 
   it('does not let a late part acknowledgement overwrite a new upload attempt', async () => {
-    const latePart = deferred<{ uploadedBytes: number }>()
+    const latePart = deferred<ReturnType<typeof partReply>>()
     api.initUploadSession
-      .mockResolvedValueOnce({ uploadId: 'upload-old', uploadToken: 'token-old' })
-      .mockResolvedValueOnce({ uploadId: 'upload-new', uploadToken: 'token-new' })
+      .mockImplementationOnce(async request => initReply(request))
+      .mockImplementationOnce(async request => initReply(request, uploadIds.new, 'token-new'))
     api.uploadPart
       .mockReturnValueOnce(latePart.promise)
-      .mockResolvedValueOnce({ uploadedBytes: 64 })
-    api.completeUpload.mockResolvedValue({ url: '/uploads/new.webp' })
+      .mockResolvedValueOnce(partReply(uploadIds.new, 0, 0, 64))
+    api.completeUpload.mockResolvedValue(completeReply(uploadIds.new, 64, '/uploads/new.webp'))
     const runtime = useImageUploadRuntime()
     const oldUpload = runtime.uploadFile(fileOf(128, 'old.png'), options)
     await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
 
     await runtime.abandon()
     await expect(runtime.uploadFile(fileOf(64, 'new.png'), options)).resolves.toBe('/uploads/new.webp')
-    latePart.resolve({ uploadedBytes: 128 })
+    latePart.resolve(partReply(uploadIds.old, 0, 0, 128))
     await expect(oldUpload).rejects.toThrow('upload_attempt_superseded')
 
     expect(api.abortUpload).toHaveBeenCalledOnce()
     expect(api.completeUpload).toHaveBeenCalledOnce()
-    expect(api.completeUpload).toHaveBeenCalledWith('upload-new', 'token-new', 'sha256-64')
+    expect(api.completeUpload).toHaveBeenCalledWith(uploadIds.new, 'token-new', 'sha256-64')
     expect(runtime.phase).toBe('completed')
     expect(runtime.progress).toBe(100)
   })
@@ -394,13 +431,13 @@ describe('useImageUploadRuntime', () => {
       await value.withSession(async (session, signal) => {
         expect(signal.aborted).toBe(false)
         expect(signal).not.toBe(value.signal)
-        expect(session.uploadId).toBe('upload-old')
+        expect(session.uploadId).toBe(uploadIds.old)
         expect(session.uploadToken).toBe('token-old')
         expect(session.sha256).toBe('a'.repeat(64))
         expect(session.totalBytes).toBe(73)
         expect(session.commitMayHaveStarted).toBe(true)
         expect(api.completeUpload).toHaveBeenCalledOnce()
-        expect(runtime.activeSession.uploadId).toBe('upload-old')
+        expect(runtime.activeSession.uploadId).toBe(uploadIds.old)
         expect(localStorage.length).toBe(1)
         expect(Object.keys(session)).toEqual([])
         expect(() => JSON.stringify(session)).toThrow('upload_session_borrow_not_serializable')
@@ -415,7 +452,7 @@ describe('useImageUploadRuntime', () => {
       expect(session.totalBytes).toBe(73)
       expect(session.sha256).toBe('a'.repeat(64))
     })
-    expect(api.completeUpload).toHaveBeenCalledWith('upload-old', 'token-old', 'a'.repeat(64))
+    expect(api.completeUpload).toHaveBeenCalledWith(uploadIds.old, 'token-old', 'a'.repeat(64))
     borrow.release()
     expect(borrow.signal.aborted).toBe(true)
     expect(runtime.borrowCurrentSession()).toBeNull()
@@ -451,7 +488,7 @@ describe('useImageUploadRuntime', () => {
     const file = fileOf(128)
     const legacy = useImageUploadRuntime()
     await exhaustPartRetries(legacy, file)
-    api.uploadPart.mockReset().mockResolvedValue({ uploadedBytes: 128 })
+    api.uploadPart.mockReset().mockResolvedValue(partReply(uploadIds.old, 0, 0, 128))
     const original = boundAttempt(file)
     const callback = vi.fn()
     const runtime = useImageUploadRuntime()
@@ -484,7 +521,7 @@ describe('useImageUploadRuntime', () => {
   it('waits for a cancelled original initialization and real cleanup acknowledgement before replacement', async () => {
     const file = fileOf(128)
     const original = boundAttempt(file)
-    const init = deferred<{ uploadId: string; uploadToken: string }>()
+    const init = deferred<ReturnType<typeof initReply>>()
     const abort = deferred<{ uploadId: string; status: string; uploadedPartCount: number }>()
     api.initUploadSession.mockReturnValue(init.promise)
     api.abortUpload.mockReturnValue(abort.promise)
@@ -497,12 +534,12 @@ describe('useImageUploadRuntime', () => {
     const cleanup = runtime.abandon()
     expect(runtime.cleanupRequired).toBe(true)
     await expect(runtime.uploadFile(file, options)).rejects.toThrow('上传会话尚未取消')
-    init.resolve({ uploadId: 'late-original', uploadToken: 'late-original-token' })
+    init.resolve(initReply(file, uploadIds.late, 'late-original-token'))
     await rejected
-    await vi.waitFor(() => expect(api.abortUpload).toHaveBeenCalledWith('late-original', undefined, 'late-original-token'))
+    await vi.waitFor(() => expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.late, undefined, 'late-original-token'))
     expect(runtime.cleanupRequired).toBe(true)
-    expect(runtime.activeSession.uploadId).toBe('late-original')
-    abort.resolve({ uploadId: 'late-original', status: 'aborted', uploadedPartCount: 0 })
+    expect(runtime.activeSession.uploadId).toBe(uploadIds.late)
+    abort.resolve({ uploadId: uploadIds.late, status: 'aborted', uploadedPartCount: 0 })
     await cleanup
     expect(runtime.cleanupRequired).toBe(false)
     expect(api.uploadPart).not.toHaveBeenCalled()
@@ -512,7 +549,7 @@ describe('useImageUploadRuntime', () => {
   it('keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement', async () => {
     const file = fileOf(128)
     const original = boundAttempt(file)
-    const init = deferred<{ uploadId: string; uploadToken: string }>()
+    const init = deferred<ReturnType<typeof initReply>>()
     api.initUploadSession.mockReturnValue(init.promise)
     const runtime = useImageUploadRuntime()
     const upload = runtime.uploadFile(file, options, { attemptBinding: original.binding })
@@ -531,7 +568,7 @@ describe('useImageUploadRuntime', () => {
   it('retains true completion history and unknown cleanup after a cancelled completion without deleting it', async () => {
     const file = fileOf(128)
     const original = boundAttempt(file)
-    const complete = deferred<{ url: string }>()
+    const complete = deferred<ReturnType<typeof completeReply>>()
     api.completeUpload.mockReturnValue(complete.promise)
     let borrow: ImageUploadSessionBorrow | undefined
     let unavailableMap = false
@@ -550,7 +587,7 @@ describe('useImageUploadRuntime', () => {
     await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
     expect(borrow).toBeUndefined()
     expect(runtime.borrowCurrentSession()).toBeNull()
-    complete.resolve({ url: '/uploads/late.webp' })
+    complete.resolve(completeReply(uploadIds.old, 128, '/uploads/late.webp'))
     await rejected
     expect(runtime.cleanupRequired).toBe(true)
     expect(localStorage.length).toBe(1)
@@ -561,7 +598,7 @@ describe('useImageUploadRuntime', () => {
   it('uses the existing flow original lease and caller cancellation without creating a second upload', async () => {
     const file = fileOf(128)
     const original = boundAttempt(file)
-    const part = deferred<{ uploadedBytes: number }>()
+    const part = deferred<ReturnType<typeof partReply>>()
     api.uploadPart.mockReturnValue(part.promise)
     const begin = vi.spyOn(original.binding.documentOwner, 'beginTask')
     const onSuccess = vi.fn()
@@ -578,7 +615,7 @@ describe('useImageUploadRuntime', () => {
     expect(runtime.borrowCurrentSession()).toBeNull()
     flow.cancel()
     await runtime.abandon()
-    part.resolve({ uploadedBytes: 128 })
+    part.resolve(partReply(uploadIds.old, 0, 0, 128))
     await work
     expect(borrow).toBeUndefined()
     expect(runtime.borrowCurrentSession()).toBeNull()
@@ -591,7 +628,7 @@ describe('useImageUploadRuntime', () => {
   it('grants no loan on scope disposal and waits for the original part before settling', async () => {
     const file = fileOf(128)
     const original = boundAttempt(file)
-    const part = deferred<{ uploadedBytes: number }>()
+    const part = deferred<ReturnType<typeof partReply>>()
     api.uploadPart.mockReturnValue(part.promise)
     const scope = effectScope()
     const runtime = scope.run(() => useImageUploadRuntime())!
@@ -603,7 +640,7 @@ describe('useImageUploadRuntime', () => {
     await runtime.abandon()
     expect(borrow).toBeUndefined()
     expect(runtime.borrowCurrentSession()).toBeNull()
-    part.resolve({ uploadedBytes: 128 })
+    part.resolve(partReply(uploadIds.old, 0, 0, 128))
     await rejected
     await expect(runtime.uploadFile(file, options)).rejects.toThrow('upload_attempt_superseded')
     expect(api.completeUpload).not.toHaveBeenCalled()
@@ -626,7 +663,7 @@ describe('useImageUploadRuntime', () => {
   })
 
   it('does not grant a legacy attempt a new deletion action on scope disposal', async () => {
-    const complete = deferred<{ url: string }>()
+    const complete = deferred<ReturnType<typeof completeReply>>()
     api.completeUpload.mockReturnValue(complete.promise)
     const scope = effectScope()
     const runtime = scope.run(() => useImageUploadRuntime())!
@@ -634,7 +671,7 @@ describe('useImageUploadRuntime', () => {
     const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
     await vi.waitFor(() => expect(api.completeUpload).toHaveBeenCalledOnce())
     scope.stop()
-    complete.resolve({ url: '/uploads/legacy-late.webp' })
+    complete.resolve(completeReply(uploadIds.old, 128, '/uploads/legacy-late.webp'))
     await rejected
     expect(api.abortUpload).not.toHaveBeenCalled()
     expect(localStorage.length).toBe(1)
@@ -786,7 +823,7 @@ describe('useImageUploadRuntime', () => {
       const failure = await runtime.abandon().catch(error => error)
       expect(failure.message).toBe('upload_completion_recovery_required')
       expect(failure.cause).toBe(callbackError)
-      expect(failure.details).toContain('completion_acknowledged; generation=1; upload_id=upload-old')
+      expect(failure.details).toContain(`completion_acknowledged; generation=1; upload_id=${uploadIds.old}`)
       expect(failure.details).toContain('result_url=/uploads/complete.webp')
       expect(api.abortUpload).not.toHaveBeenCalled()
       expect(localStorage.getItem(storedSnapshot().key)).toBe(originalSnapshot)
@@ -803,7 +840,7 @@ describe('useImageUploadRuntime', () => {
     vi.useFakeTimers()
     const file = fileOf(73)
     const original = boundAttempt(file)
-    const part = deferred<{ uploadedBytes: number }>()
+    const part = deferred<ReturnType<typeof partReply>>()
     api.uploadPart.mockReturnValue(part.promise)
     let borrow!: ImageUploadSessionBorrow
     const runtime = useImageUploadRuntime()
@@ -814,7 +851,7 @@ describe('useImageUploadRuntime', () => {
     expect(borrow).toBeUndefined()
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(api.completeUpload).not.toHaveBeenCalled()
-    part.resolve({ uploadedBytes: 73 })
+    part.resolve(partReply(uploadIds.old, 0, 0, 73))
     await upload
     await borrow.withSession(async facts => { expect(facts.commitMayHaveStarted).toBe(true) })
     await vi.advanceTimersByTimeAsync(29_999)
@@ -830,11 +867,11 @@ describe('useImageUploadRuntime', () => {
     const host = attachmentHost()
     const capture = vi.spyOn(host.owner, 'capture'), commit = vi.spyOn(host.owner, 'commitCreated')
     const firstConsumer = deferred<void>()
-    const firstPart = deferred<{ uploadedBytes: number }>(), secondPart = deferred<{ uploadedBytes: number }>()
+    const firstPart = deferred<ReturnType<typeof partReply>>(), secondPart = deferred<ReturnType<typeof partReply>>()
     const loans: ImageUploadSessionBorrow[] = []
     const observed: File[] = []
     const runtime = useImageUploadRuntime()
-    api.initUploadSession.mockImplementation(async () => ({ uploadId: `upload-${api.initUploadSession.mock.calls.length}`, uploadToken: 'token-old' }))
+    api.initUploadSession.mockImplementation(async request => initReply(request, String(api.initUploadSession.mock.calls.length).padStart(32, '0')))
     api.uploadPart.mockReturnValueOnce(firstPart.promise).mockReturnValueOnce(secondPart.promise)
     const onSuccess = vi.fn(), onError = vi.fn()
     const flow = useImageUploadFlow({ runtime, getOptions: () => options, getWasmOnly: () => false,
@@ -851,7 +888,7 @@ describe('useImageUploadRuntime', () => {
           expect(facts.commitMayHaveStarted).toBe(true)
           expect(facts.totalBytes).toBe(73)
           if (!index) await firstConsumer.promise
-          expect(facts.uploadId).toBe(`upload-${index + 1}`)
+          expect(facts.uploadId).toBe(String(index + 1).padStart(32, '0'))
         })
       }
     const upload = flow.startUpload({ files, attachmentInput: { ...host, origin: 'pick' }, onFileUploaded, onSuccess, onError })
@@ -860,7 +897,7 @@ describe('useImageUploadRuntime', () => {
     await vi.advanceTimersByTimeAsync(31_001)
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(observed).toHaveLength(0)
-    firstPart.resolve({ uploadedBytes: 73 })
+    firstPart.resolve(partReply('00000000000000000000000000000001', 0, 0, 73))
     await flushPromises()
     expect(observed).toEqual([files[0]])
     expect(api.initUploadSession).toHaveBeenCalledOnce()
@@ -871,7 +908,7 @@ describe('useImageUploadRuntime', () => {
     await vi.advanceTimersByTimeAsync(31_001)
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(observed).toHaveLength(1)
-    secondPart.resolve({ uploadedBytes: 73 })
+    secondPart.resolve(partReply('00000000000000000000000000000002', 0, 0, 73))
     await upload
     expect(onError).not.toHaveBeenCalled()
     expect(observed[1]).toBe(files[1])
@@ -895,8 +932,8 @@ describe('useImageUploadRuntime', () => {
     vi.useFakeTimers()
     const file = fileOf(73), original = boundAttempt(file)
     const compressed = deferred<{ file: File; preview: typeof preview }>()
-    const init = deferred<{ uploadId: string; uploadToken: string }>()
-    const part = deferred<{ uploadedBytes: number }>(), complete = deferred<{ url: string }>()
+    const init = deferred<ReturnType<typeof initReply>>()
+    const part = deferred<ReturnType<typeof partReply>>(), complete = deferred<ReturnType<typeof completeReply>>()
     compression.compressImageFileWithRuntime.mockReturnValue(compressed.promise)
     api.initUploadSession.mockReturnValue(init.promise)
     api.uploadPart.mockReturnValue(part.promise)
@@ -905,7 +942,7 @@ describe('useImageUploadRuntime', () => {
     const callback = vi.fn(async (value: ImageUploadSessionBorrow) => {
       expect(api.completeUpload).toHaveBeenCalledOnce()
       expect(original.binding.lease.isCurrent()).toBe(true)
-      expect(runtime.activeSession.uploadId).toBe('upload-ack')
+      expect(runtime.activeSession.uploadId).toBe(uploadIds.ack)
       expect(localStorage.length).toBe(1)
       await value.withSession(async facts => { expect(facts.commitMayHaveStarted).toBe(true) })
     })
@@ -916,16 +953,16 @@ describe('useImageUploadRuntime', () => {
     await vi.waitFor(() => expect(api.initUploadSession).toHaveBeenCalledOnce())
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(callback).not.toHaveBeenCalled()
-    init.resolve({ uploadId: 'upload-ack', uploadToken: 'token-ack' })
+    init.resolve(initReply(file, uploadIds.ack, 'token-ack'))
     await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(callback).not.toHaveBeenCalled()
-    part.resolve({ uploadedBytes: 73 })
+    part.resolve(partReply(uploadIds.ack, 0, 0, 73))
     await vi.waitFor(() => expect(api.completeUpload).toHaveBeenCalledOnce())
     await vi.advanceTimersByTimeAsync(31_001)
     expect(runtime.borrowCurrentSession()).toBeNull()
     expect(callback).not.toHaveBeenCalled()
-    complete.resolve({ url: '/uploads/ack.webp' })
+    complete.resolve(completeReply(uploadIds.ack, 73, '/uploads/ack.webp'))
     expect(await upload).toBe('/uploads/ack.webp')
     expect(callback).toHaveBeenCalledOnce()
     runtime.borrowCurrentSession()!.release()
@@ -1038,7 +1075,7 @@ describe('useImageUploadRuntime', () => {
       expect(result.status).toBe('rejected')
       if (result.status === 'rejected') {
         expect(result.reason.message).toBe('upload_completion_recovery_required')
-        expect(result.reason.details).toContain('completion_acknowledged; generation=1; upload_id=upload-old')
+        expect(result.reason.details).toContain(`completion_acknowledged; generation=1; upload_id=${uploadIds.old}`)
         expect(result.reason.details).toContain('result_url=/uploads/complete.webp')
       }
     }
@@ -1074,7 +1111,7 @@ describe('useImageUploadRuntime', () => {
       const failure = await runtime.abandon().catch(error => error)
       expect(failure.message).toBe('upload_completion_recovery_required')
       expect(failure.cause.message).toBe('upload_attempt_superseded')
-      expect(failure.details).toContain('completion_acknowledged; generation=1; upload_id=upload-old')
+      expect(failure.details).toContain(`completion_acknowledged; generation=1; upload_id=${uploadIds.old}`)
       expect(api.abortUpload).not.toHaveBeenCalled()
       expect(localStorage.getItem(storedSnapshot().key)).toBe(snapshot)
     }
@@ -1100,10 +1137,10 @@ describe('useImageUploadRuntime', () => {
 
   it.each([
     { uploadId: 'other-generation', status: 'aborted' },
-    { uploadId: 'upload-old', status: 'uploading' },
-    { uploadId: 'upload-old', status: undefined }
+    { uploadId: uploadIds.old, status: 'uploading' },
+    { uploadId: uploadIds.old, status: undefined }
   ])('retains the genuine cancellation obligation on invalid ACK $uploadId/$status', async response => {
-    const part = deferred<{ uploadedBytes: number }>()
+    const part = deferred<ReturnType<typeof partReply>>()
     api.uploadPart.mockReturnValue(part.promise)
     const runtime = useImageUploadRuntime()
     const upload = runtime.uploadFile(fileOf(128), options)
@@ -1113,21 +1150,21 @@ describe('useImageUploadRuntime', () => {
     api.abortUpload.mockResolvedValue(response)
     await expect(runtime.abandon()).rejects.toThrow('upload_abort_not_acknowledged')
     expect(runtime.cleanupRequired).toBe(true)
-    expect(runtime.activeSession.uploadId).toBe('upload-old')
+    expect(runtime.activeSession.uploadId).toBe(uploadIds.old)
     expect(localStorage.getItem(localStorage.key(0)!)).toBe(saved)
     await expect(runtime.uploadFile(fileOf(64, 'replacement.png'), options)).rejects.toThrow('上传会话尚未取消')
-    api.abortUpload.mockResolvedValue({ uploadId: 'upload-old', status: 'aborted' })
+    api.abortUpload.mockResolvedValue({ uploadId: uploadIds.old, status: 'aborted' })
     await runtime.abandon()
     expect(api.abortUpload.mock.calls).toEqual([
-      ['upload-old', undefined, 'token-old'], ['upload-old', undefined, 'token-old']
+      [uploadIds.old, undefined, 'token-old'], [uploadIds.old, undefined, 'token-old']
     ])
     expect(runtime.cleanupRequired).toBe(false)
     expect(localStorage.length).toBe(0)
-    part.resolve({ uploadedBytes: 128 }); await rejected
+    part.resolve(partReply(uploadIds.old, 0, 0, 128)); await rejected
   })
 
   it('ignores public session and copied snapshot authority while retaining the original cleanup retry', async () => {
-    const part = deferred<{ uploadedBytes: number }>()
+    const part = deferred<ReturnType<typeof partReply>>()
     api.uploadPart.mockReturnValue(part.promise)
     const runtime = useImageUploadRuntime()
     const upload = runtime.uploadFile(fileOf(128), options)
@@ -1142,29 +1179,29 @@ describe('useImageUploadRuntime', () => {
     await expect(runtime.abandon()).rejects.toThrow('genuine-cleanup-failed')
     await runtime.abandon()
     expect(api.abortUpload.mock.calls).toEqual([
-      ['upload-old', undefined, 'token-old'], ['upload-old', undefined, 'token-old']
+      [uploadIds.old, undefined, 'token-old'], [uploadIds.old, undefined, 'token-old']
     ])
     expect(localStorage.length).toBe(0)
-    part.resolve({ uploadedBytes: 128 }); await rejected
+    part.resolve(partReply(uploadIds.old, 0, 0, 128)); await rejected
   })
 
   it('retains actual original init authority across a genuine resume generation without reminting it', async () => {
     const runtime = useImageUploadRuntime()
     await exhaustPartRetries(runtime, fileOf(128))
-    const part = deferred<{ uploadedBytes: number }>()
+    const part = deferred<ReturnType<typeof partReply>>()
     api.uploadPart.mockReset().mockReturnValue(part.promise)
     const upload = runtime.resumeLatest()
     const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
     await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
     await runtime.abandon()
     expect(api.initUploadSession).toHaveBeenCalledOnce()
-    expect(api.abortUpload).toHaveBeenCalledWith('upload-old', undefined, 'token-old')
+    expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
     expect(runtime.cleanupRequired).toBe(false)
-    part.resolve({ uploadedBytes: 128 }); await rejected
+    part.resolve(partReply(uploadIds.old, 0, 0, 128)); await rejected
   })
 
   it('retains an original init with missing credentials instead of sending an unbound abort', async () => {
-    api.initUploadSession.mockResolvedValue({ uploadId: 'upload-old', uploadToken: '' })
+    api.initUploadSession.mockImplementation(async request => initReply(request, uploadIds.old, ''))
     const runtime = useImageUploadRuntime()
     await expect(runtime.uploadFile(fileOf(128), options)).rejects.toThrow('上传初始化缺少恢复凭证')
     await expect(runtime.abandon()).rejects.toThrow('上传初始化状态未知')
@@ -1175,7 +1212,7 @@ describe('useImageUploadRuntime', () => {
   })
 
   it('keeps old cancellation references from acquiring a replacement generation token', async () => {
-    const part = deferred<{ uploadedBytes: number }>()
+    const part = deferred<ReturnType<typeof partReply>>()
     api.uploadPart.mockReturnValueOnce(part.promise)
     const runtime = useImageUploadRuntime()
     const old = runtime.uploadFile(fileOf(128), options)
@@ -1183,17 +1220,17 @@ describe('useImageUploadRuntime', () => {
     await vi.waitFor(() => expect(api.uploadPart).toHaveBeenCalledOnce())
     const oldCancellation = runtime.abandon()
     await oldCancellation
-    api.initUploadSession.mockResolvedValue({ uploadId: 'upload-new', uploadToken: 'token-new' })
+    api.initUploadSession.mockImplementation(async request => initReply(request, uploadIds.new, 'token-new'))
     await expect(runtime.uploadFile(fileOf(64, 'next.png'), options)).resolves.toBe('/uploads/complete.webp')
     await oldCancellation
-    part.resolve({ uploadedBytes: 128 }); await oldRejection
-    expect(api.abortUpload.mock.calls).toEqual([['upload-old', undefined, 'token-old']])
+    part.resolve(partReply(uploadIds.old, 0, 0, 128)); await oldRejection
+    expect(api.abortUpload.mock.calls).toEqual([[uploadIds.old, undefined, 'token-old']])
     await expect(runtime.abandon()).rejects.toThrow('upload_completion_recovery_required')
     expect(api.abortUpload).toHaveBeenCalledOnce()
   })
 
   it('awaits only the original unbound init and authenticates cancellation before its ACK', async () => {
-    const init = deferred<{ uploadId: string; uploadToken: string }>()
+    const init = deferred<ReturnType<typeof initReply>>()
     api.initUploadSession.mockReturnValueOnce(init.promise)
     const runtime = useImageUploadRuntime()
     const upload = runtime.uploadFile(fileOf(128), options)
@@ -1203,24 +1240,24 @@ describe('useImageUploadRuntime', () => {
     runtime.activeSession.uploadId = 'forged-upload'
     await expect(runtime.uploadFile(fileOf(64, 'other.png'), options)).rejects.toThrow('上传会话尚未取消')
     expect(api.abortUpload).not.toHaveBeenCalled()
-    init.resolve({ uploadId: 'original-late', uploadToken: 'original-late-token' })
-    api.abortUpload.mockResolvedValue({ uploadId: 'original-late', status: 'aborted' })
+    init.resolve(initReply(fileOf(128), uploadIds.originalLate, 'original-late-token'))
+    api.abortUpload.mockResolvedValue({ uploadId: uploadIds.originalLate, status: 'aborted' })
     await cleanup; await rejected
-    expect(api.abortUpload).toHaveBeenCalledWith('original-late', undefined, 'original-late-token')
+    expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.originalLate, undefined, 'original-late-token')
     expect(api.initUploadSession).toHaveBeenCalledOnce()
     expect(api.uploadPart).not.toHaveBeenCalled()
     expect(runtime.phase).toBe('idle')
   })
 
   it('refuses abort for an unbound in-flight completion and retains its unknown obligation', async () => {
-    const completion = deferred<{ url: string }>()
+    const completion = deferred<ReturnType<typeof completeReply>>()
     api.completeUpload.mockReturnValue(completion.promise)
     const runtime = useImageUploadRuntime()
     const upload = runtime.uploadFile(fileOf(128), options)
     const rejected = expect(upload).rejects.toThrow('upload_attempt_superseded')
     await vi.waitFor(() => expect(api.completeUpload).toHaveBeenCalledOnce())
     await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
-    completion.resolve({ url: '/uploads/late.webp' }); await rejected
+    completion.resolve(completeReply(uploadIds.old, 128, '/uploads/late.webp')); await rejected
     await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
     expect(api.abortUpload).not.toHaveBeenCalled()
     expect(runtime.cleanupRequired).toBe(true)
@@ -1245,7 +1282,7 @@ describe('useImageUploadRuntime', () => {
 
   it.each(['api-error', 'network', 'same-id-aborted'] as const)(
     'uses the actual abort transport for %s and retains failure evidence until genuine ACK', async outcome => {
-      const part = deferred<{ uploadedBytes: number }>()
+      const part = deferred<ReturnType<typeof partReply>>()
       api.uploadPart.mockReturnValue(part.promise)
       const runtime = useImageUploadRuntime()
       const upload = runtime.uploadFile(fileOf(128), options)
@@ -1271,7 +1308,7 @@ describe('useImageUploadRuntime', () => {
           bytes.set(new TextEncoder().encode('ordinary-signature'), 76)
           return new Response(encodeAedsFrame(FrameType.PowChallenge, bytes))
         }
-        expect(new URL(url).pathname).toBe('/api/binary/upload/upload-old')
+        expect(new URL(url).pathname).toBe(`/api/binary/upload/${uploadIds.old}`)
         expect(init?.method).toBe('DELETE')
         expect(new Headers(init?.headers).get('X-Fsus-Upload-Token')).toBe('token-old')
         if (responseKind === 'network') throw new Error('ordinary-delete-network-failure')
@@ -1281,7 +1318,7 @@ describe('useImageUploadRuntime', () => {
           bytes[0] = 1; bytes[1] = 1
           new DataView(bytes.buffer).setInt32(4, 403, true)
           put(8, 'original-abort-denied'); put(264, 'ordinary-test-denial'); put(520, 'ordinary-trace')
-        } else { put(0, 'upload-old'); put(64, 'aborted') }
+        } else { put(0, uploadIds.old); put(64, 'aborted') }
         return new Response(encodeAedsFrame(responseKind === 'api-error' ? FrameType.ApiError : FrameType.UploadStatus, bytes),
           { status: responseKind === 'api-error' ? 403 : 200 })
       })
@@ -1290,7 +1327,7 @@ describe('useImageUploadRuntime', () => {
         if (outcome !== 'same-id-aborted') {
           await expect(runtime.abandon()).rejects.toThrow(outcome === 'api-error' ? 'original-abort-denied' : 'ordinary-delete-network-failure')
           expect(runtime.cleanupRequired).toBe(true)
-          expect(runtime.activeSession.uploadId).toBe('upload-old')
+          expect(runtime.activeSession.uploadId).toBe(uploadIds.old)
           expect(localStorage.getItem(originalKey)).toBe(originalSnapshot)
           await expect(runtime.uploadFile(fileOf(64, 'other.png'), options)).rejects.toThrow('上传会话尚未取消')
           responseKind = 'same-id-aborted'
@@ -1301,7 +1338,207 @@ describe('useImageUploadRuntime', () => {
         expect(localStorage.getItem(originalKey)).toBeNull()
         expect(intercepted.mock.calls.filter(([, init]) => init?.method === 'DELETE')).toHaveLength(outcome === 'same-id-aborted' ? 1 : 2)
       } finally { vi.unstubAllGlobals(); privateRequestRuntime.resetForTests() }
-      part.resolve({ uploadedBytes: 128 }); await rejected
+      part.resolve(partReply(uploadIds.old, 0, 0, 128)); await rejected
+    })
+
+  it.each([
+    ['id', { uploadId: 'not-a-guid' }], ['empty-id', { uploadId: '' }],
+    ['file', { fileName: 'other.png' }], ['mime', { mimeType: 'image/jpeg' }],
+    ['format', { targetFormat: 'png' }], ['bytes', { totalBytes: 129 }],
+    ['chunk', { chunkSize: 65_536 }], ['parts', { totalParts: 2 }],
+    ['fraction', { totalBytes: 128.5 }], ['token', { uploadToken: ' ' }]
+  ])('rejects uncorrelated init %s before part IO or completion access', async (_field, mismatch) => {
+    const file = fileOf(128), original = boundAttempt(file)
+    const response = { ...initReply(file), ...mismatch }
+    api.initUploadSession.mockResolvedValue(response)
+    const callback = vi.fn()
+    const runtime = useImageUploadRuntime()
+    await expect(runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: callback })).rejects.toThrow()
+    expect(api.uploadPart).not.toHaveBeenCalled()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(callback).not.toHaveBeenCalled()
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(runtime.cleanupRequired).toBe(true)
+    await expect(runtime.abandon()).rejects.toThrow()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['id', { uploadId: uploadIds.new }], ['status', { status: 'aborted' }],
+    ['bytes', { totalBytes: 129 }], ['chunk', { chunkSize: 65_536 }], ['parts', { totalParts: 2 }],
+    ['negative', { uploadedBytes: -1 }], ['overflow', { uploadedBytes: 129 }],
+    ['count', { uploadedPartCount: 2 }], ['fraction', { uploadedPartCount: 0.5 }],
+    ['hint', { nextPartHint: 1 }], ['state', { status: 'uploaded' }]
+  ])('retains the original session on uncorrelated status %s without fresh init', async (_field, mismatch) => {
+    const runtime = useImageUploadRuntime()
+    await exhaustPartRetries(runtime, fileOf(128))
+    const { key } = storedSnapshot(), saved = localStorage.getItem(key)
+    api.getUploadStatus.mockResolvedValue({ ...statusReply(128), ...mismatch })
+    api.uploadPart.mockClear()
+    await expect(runtime.resumeLatest()).rejects.toThrow()
+    expect(api.getUploadStatus).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
+    expect(api.uploadPart).not.toHaveBeenCalled()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(localStorage.getItem(key)).toBe(saved)
+    expect(runtime.cleanupRequired).toBe(true)
+    await runtime.abandon()
+    expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
+  })
+
+  it.each([
+    ['id', { uploadId: uploadIds.new, uploadedRanges: [{ start: 0, end: 0 }] }],
+    ['negative', { uploadedRanges: [{ start: -1, end: 0 }] }],
+    ['fraction', { uploadedRanges: [{ start: 0, end: 0.5 }] }],
+    ['unbounded', { uploadedRanges: [{ start: 0, end: Infinity }] }],
+    ['reversed', { uploadedRanges: [{ start: 1, end: 0 }] }],
+    ['out-of-bounds', { uploadedRanges: [{ start: 0, end: 2 }] }],
+    ['overlap', { uploadedRanges: [{ start: 0, end: 0 }, { start: 0, end: 0 }] }],
+    ['unsorted', { uploadedRanges: [{ start: 1, end: 1 }, { start: 0, end: 0 }] }],
+    ['missing', { uploadedRanges: [] }], ['wrong-count', { uploadedRanges: [{ start: 0, end: 1 }] }],
+    ['wrong-bytes', { uploadedRanges: [{ start: 1, end: 1 }] }], ['absent-ranges', { uploadedRanges: undefined }]
+  ])('rejects invalid part-map %s before skipping any part or minting a new session', async (_field, mismatch) => {
+    const runtime = useImageUploadRuntime()
+    await exhaustPartRetries(runtime, fileOf(600_000))
+    const { key } = storedSnapshot(), saved = localStorage.getItem(key)
+    api.getUploadStatus.mockResolvedValue(statusReply(600_000, 1, 524_288, 1))
+    api.getUploadPartMap.mockResolvedValue({ uploadId: uploadIds.old, ...mismatch })
+    api.uploadPart.mockClear()
+    await expect(runtime.resumeLatest()).rejects.toThrow()
+    expect(api.getUploadPartMap).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
+    expect(api.uploadPart).not.toHaveBeenCalled()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(localStorage.getItem(key)).toBe(saved)
+    expect(runtime.cleanupRequired).toBe(true)
+    await runtime.abandon()
+    expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
+  })
+
+  it.each([
+    ['id', { uploadId: uploadIds.new }], ['index', { partNumber: 1 }], ['offset', { offset: 1 }],
+    ['size', { size: 127 }], ['bytes', { uploadedBytes: 129 }], ['count', { uploadedPartCount: 2 }],
+    ['fraction', { offset: 0.5 }]
+  ])('rejects uncorrelated part ACK %s without publishing progress or completing', async (_field, mismatch) => {
+    const file = fileOf(128), original = boundAttempt(file)
+    api.uploadPart.mockResolvedValue({ ...partReply(uploadIds.old, 0, 0, 128), ...mismatch })
+    const callback = vi.fn(), runtime = useImageUploadRuntime()
+    await expect(runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: callback }))
+      .rejects.toThrow('upload_part_ack_mismatch')
+    expect(api.uploadPart).toHaveBeenCalledOnce()
+    expect(runtime.progress).toBe(0)
+    expect(runtime.phase).toBe('paused')
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(callback).not.toHaveBeenCalled()
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(localStorage.length).toBe(1)
+    await runtime.abandon()
+    expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
+  })
+
+  it.each([
+    ['id', { uploadId: uploadIds.new }], ['bytes', { totalBytes: 129 }],
+    ['mime', { mimeType: 'image/jpeg' }], ['url', { url: '' }], ['relative-url', { relativeUrl: '' }]
+  ])('retains unknown completion on uncorrelated complete ACK %s without a loan or abort', async (_field, mismatch) => {
+    const file = fileOf(128), original = boundAttempt(file)
+    api.completeUpload.mockResolvedValue({ ...completeReply(uploadIds.old, 128), ...mismatch })
+    const callback = vi.fn(), runtime = useImageUploadRuntime()
+    await expect(runtime.uploadFile(file, options, { attemptBinding: original.binding, onSessionReady: callback }))
+      .rejects.toThrow('upload_complete_ack_mismatch')
+    const { key } = storedSnapshot(), saved = localStorage.getItem(key)
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(runtime.borrowCurrentSession()).toBeNull()
+    expect(callback).not.toHaveBeenCalled()
+    await expect(runtime.resumeLatest()).rejects.toThrow('upload_commit_state_unknown')
+    await expect(runtime.uploadFile(fileOf(64, 'replacement.png'), options)).rejects.toThrow('upload_commit_state_unknown')
+    await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
+    await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    expect(api.completeUpload).toHaveBeenCalledOnce()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(localStorage.getItem(key)).toBe(saved)
+  })
+
+  it('refuses abort when an authenticated resumed status reports completion without the original complete ACK', async () => {
+    const runtime = useImageUploadRuntime()
+    await exhaustPartRetries(runtime, fileOf(128))
+    api.getUploadStatus.mockResolvedValue({ ...statusReply(128), status: 'completed' })
+    await expect(runtime.resumeLatest()).rejects.toThrow('upload_commit_state_unknown')
+    await expect(runtime.abandon()).rejects.toThrow('upload_commit_state_unknown')
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.completeUpload).not.toHaveBeenCalled()
+    expect(localStorage.length).toBe(1)
+  })
+
+  it('keeps malformed cold storage unresolved after public fields are erased and repeated abandon', async () => {
+    const legacy = useImageUploadRuntime()
+    await exhaustPartRetries(legacy, fileOf(128))
+    const { key } = storedSnapshot()
+    localStorage.setItem(key, 'unparseable-upload-evidence')
+    const runtime = useImageUploadRuntime()
+    await expect(runtime.uploadFile(fileOf(128), options, { wasmOnly: true })).rejects.toThrow('upload_resume_snapshot_invalid')
+    runtime.activeSession.uploadId = ''
+    await expect(runtime.abandon()).rejects.toThrow('upload_cleanup_authority_unavailable')
+    await expect(runtime.abandon()).rejects.toThrow('upload_cleanup_authority_unavailable')
+    expect(runtime.cleanupRequired).toBe(true)
+    expect(api.initUploadSession).toHaveBeenCalledOnce()
+    expect(api.abortUpload).not.toHaveBeenCalled()
+    expect(localStorage.getItem(key)).toBe('unparseable-upload-evidence')
+  })
+
+  it.each([['status', '404'], ['status', 'network'], ['map', '404'], ['map', 'network']] as const)(
+    'retains original obligations through the actual %s transport on %s', async (stage, outcome) => {
+      const runtime = useImageUploadRuntime()
+      await exhaustPartRetries(runtime, fileOf(600_000))
+      const { key } = storedSnapshot(), saved = localStorage.getItem(key)
+      api.getUploadStatus.mockResolvedValue(statusReply(600_000, 1, 524_288, 1))
+      const actual = await vi.importActual<typeof import('@/api/upload')>('@/api/upload')
+      if (stage === 'status') api.getUploadStatus.mockImplementation(actual.getUploadStatus)
+      else api.getUploadPartMap.mockImplementation(actual.getUploadPartMap)
+      privateRequestRuntime.resetForTests()
+      vi.mocked(decode).mockImplementation(buffer => {
+        const bytes = new Uint8Array(buffer), view = new DataView(buffer)
+        expect(view.getUint32(0, true)).toBe(AEDS_MAGIC)
+        expect(view.getUint8(4)).toBe(AEDS_VERSION)
+        const payloadView = bytes.subarray(AEDS_HEADER_LENGTH)
+        return { ok: true, frameType: view.getUint16(8, true), payload: payloadView, payloadView, textBlob: '', error: '' }
+      })
+      const intercepted = vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.includes('/auth/pow-challenge')) {
+          const bytes = new Uint8Array(204)
+          bytes.set(new TextEncoder().encode('ordinary-salt'), 0)
+          bytes.set(new TextEncoder().encode('ordinary-signature'), 76)
+          return new Response(encodeAedsFrame(FrameType.PowChallenge, bytes))
+        }
+        expect(new URL(url).pathname).toBe(`/api/binary/upload/${uploadIds.old}/status${stage === 'map' ? '/parts' : ''}`)
+        expect(init?.method).toBe('GET')
+        expect(new Headers(init?.headers).get('X-Fsus-Upload-Token')).toBe('token-old')
+        if (outcome === 'network') throw new Error('original-lookup-network-failure')
+        const bytes = new Uint8Array(584)
+        bytes[0] = 1; bytes[1] = 1
+        new DataView(bytes.buffer).setInt32(4, 404, true)
+        bytes.set(new TextEncoder().encode('UPLOAD_SESSION_NOT_FOUND'), 8)
+        bytes.set(new TextEncoder().encode('ordinary-hidden-owner-or-token'), 264)
+        return new Response(encodeAedsFrame(FrameType.ApiError, bytes), { status: 404 })
+      })
+      vi.stubGlobal('fetch', intercepted)
+      api.uploadPart.mockClear()
+      try {
+        await expect(runtime.resumeLatest()).rejects.toThrow(outcome === '404' ? 'UPLOAD_SESSION_NOT_FOUND' : 'original-lookup-network-failure')
+        expect(runtime.cleanupRequired).toBe(true)
+        expect(runtime.activeSession.uploadId).toBe(uploadIds.old)
+        expect(localStorage.getItem(key)).toBe(saved)
+        expect(api.initUploadSession).toHaveBeenCalledOnce()
+        expect(api.uploadPart).not.toHaveBeenCalled()
+        expect(api.completeUpload).not.toHaveBeenCalled()
+        await expect(runtime.uploadFile(fileOf(64, 'replacement.png'), options)).rejects.toThrow('上传会话尚未取消')
+        await runtime.abandon()
+        expect(api.abortUpload).toHaveBeenCalledWith(uploadIds.old, undefined, 'token-old')
+        expect(localStorage.getItem(key)).toBeNull()
+        expect(intercepted.mock.calls.filter(([, init]) => init?.method === 'GET')).toHaveLength(1)
+      } finally { vi.unstubAllGlobals(); privateRequestRuntime.resetForTests() }
     })
 
 })

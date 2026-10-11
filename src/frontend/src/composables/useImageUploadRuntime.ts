@@ -7,6 +7,8 @@ import {
     getUploadStatus,
     initUploadSession,
     type ImageCompressionOptions,
+    type UploadSessionInitRequest,
+    type UploadInitViewModel,
     uploadPart
 } from '@/api/upload';
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload';
@@ -35,6 +37,7 @@ interface PendingAttempt {
 
 const STORAGE_PREFIX = 'fsus:image-upload-session:';
 const MAX_RETRIES = 3;
+const UPLOAD_CHUNK_SIZE = 512 * 1024;
 const SESSION_BORROW_LIFETIME_MS = 30_000;
 
 /** Original caller-held objects; a serialized intent is not an attempt binding. */
@@ -80,6 +83,7 @@ interface UploadCancellationContext {
     readonly resumeKey: string;
     readonly fileName: string;
     readonly sha256: string;
+    readonly request: UploadSessionInitRequest;
     readonly bound: boolean;
     acknowledgement: Awaited<ReturnType<typeof initUploadSession>> | null;
 }
@@ -142,17 +146,22 @@ function readSnapshot(resumeKey: string): ResumeSessionSnapshot | null
         return null;
     }
     const raw = window.localStorage.getItem(STORAGE_PREFIX + resumeKey);
-    if (!raw)
+    if (raw === null)
     {
         return null;
     }
     try
     {
-        return decodePublicAotPayload<ResumeSessionSnapshot>(raw);
+        const snapshot = decodePublicAotPayload<ResumeSessionSnapshot>(raw);
+        if (!snapshot || typeof snapshot !== 'object')
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, 'upload_resume_snapshot_invalid');
+        }
+        return snapshot;
     }
-    catch
+    catch (error)
     {
-        return null;
+        throw createAppError(AppErrorCode.ProtocolFailure, 'upload_resume_snapshot_invalid', { cause: error });
     }
 }
 
@@ -165,29 +174,55 @@ function clearSnapshot(resumeKey: string): void
     window.localStorage.removeItem(STORAGE_PREFIX + resumeKey);
 }
 
-function expandUploadedRanges(ranges: readonly { start: number; end: number; }[] | null | undefined): Set<number>
+function validUploadId(uploadId: unknown): uploadId is string
+{
+    return typeof uploadId === 'string' && /^[0-9a-f]{32}$/.test(uploadId);
+}
+
+function assertUploadGeometry(totalBytes: number, chunkSize: number, totalParts: number, expectedBytes: number): void
+{
+    if (!Number.isSafeInteger(totalBytes) || totalBytes <= 0 || totalBytes !== expectedBytes
+        || chunkSize !== UPLOAD_CHUNK_SIZE || totalParts !== Math.ceil(expectedBytes / UPLOAD_CHUNK_SIZE))
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'upload_geometry_mismatch');
+    }
+}
+
+function assertInitialization(init: UploadInitViewModel, request: UploadSessionInitRequest): void
+{
+    if (!init.uploadToken?.trim())
+    {
+        throw createAppError(AppErrorCode.InfraFailure, '上传初始化缺少恢复凭证');
+    }
+    if (!validUploadId(init.uploadId) || init.fileName !== request.fileName
+        || init.mimeType !== request.mimeType.trim() || init.targetFormat !== request.targetFormat)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'upload_init_response_mismatch');
+    }
+    assertUploadGeometry(init.totalBytes, init.chunkSize, init.totalParts, request.totalBytes);
+}
+
+function expandUploadedRanges(ranges: readonly { start: number; end: number; }[], totalParts: number): Set<number>
 {
     const uploadedParts = new Set<number>();
-    if (!Array.isArray(ranges))
+    if (!Array.isArray(ranges) || ranges.length > totalParts)
     {
-        return uploadedParts;
+        throw createAppError(AppErrorCode.ProtocolFailure, 'upload_part_map_invalid');
     }
-
-    for (const range of ranges as readonly { start: number; end: number; }[])
+    let previousEnd = -1;
+    for (const range of ranges)
     {
-        const start = Number(range.start);
-        const end = Number(range.end);
-        if (!Number.isFinite(start) || !Number.isFinite(end) || end < start)
+        if (!Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end)
+            || range.start <= previousEnd || range.end < range.start || range.end >= totalParts)
         {
-            continue;
+            throw createAppError(AppErrorCode.ProtocolFailure, 'upload_part_map_invalid');
         }
-
-        for (let value = start; value <= end; value += 1)
+        for (let value = range.start; value <= range.end; value += 1)
         {
             uploadedParts.add(value);
         }
+        previousEnd = range.end;
     }
-
     return uploadedParts;
 }
 
@@ -242,6 +277,7 @@ export function useImageUploadRuntime()
     let ownedAttempt: OwnedUploadAttempt | null = null;
     let disposed = false;
     let ownedCommitStateUnknown = false;
+    let resumeLookupUnresolved = false;
     let acknowledgedCompletion: AcknowledgedUploadCompletion | null = null;
     let pendingOwnedInitialization: UploadCancellationContext | null = null;
     let cancellationOperation: { generation: number; context: UploadCancellationContext; } | null = null;
@@ -494,8 +530,8 @@ export function useImageUploadRuntime()
         discardOwnedAttempt();
         acknowledgedCompletion = null;
         const previousCancellation = cancellationOperation;
-        cancellationOperation = null;
         const generation = ++attemptGeneration;
+        cancellationOperation = previousCancellation ? { generation, context: previousCancellation.context } : null;
         const ensureCurrentAttempt = (): void =>
         {
             if (disposed || generation !== attemptGeneration
@@ -533,77 +569,113 @@ export function useImageUploadRuntime()
         const resumeKey = buildResumeKey(file, options, runtimeOptions);
         const fullHash = await sha256Hex(uploadPayload.file);
         ensureCurrentAttempt();
-        let snapshot = readSnapshot(resumeKey);
+        let snapshot: ResumeSessionSnapshot | null = null;
         let uploadId = '';
         let uploadToken = '';
         let initializedByThisAttempt = false;
         let commitMayHaveStarted = false;
         let uploadedParts = new Set<number>();
-
-        if (snapshot && (
-            snapshot.sha256 !== fullHash
-      || snapshot.resumeKey !== resumeKey
-      || snapshot.fileName !== uploadPayload.file.name
-      || !snapshot.uploadId
-      || !snapshot.uploadToken
-        ))
+        try
         {
-            snapshot = null;
-        }
-
-        if (snapshot)
-        {
-            try
+            snapshot = readSnapshot(resumeKey);
+            const original = previousCancellation?.context;
+            if ((snapshot && (snapshot.sha256 !== fullHash || snapshot.resumeKey !== resumeKey
+                || snapshot.fileName !== uploadPayload.file.name || !validUploadId(snapshot.uploadId)
+                || !snapshot.uploadToken?.trim()))
+                || (original && (!snapshot || original.resumeKey !== resumeKey || original.sha256 !== fullHash
+                    || original.fileName !== uploadPayload.file.name
+                    || original.acknowledgement?.uploadId !== snapshot.uploadId
+                    || original.acknowledgement.uploadToken !== snapshot.uploadToken)))
             {
-                const status = await getUploadStatus(snapshot.uploadId);
+                throw createAppError(AppErrorCode.ProtocolFailure, 'upload_resume_snapshot_mismatch');
+            }
+            if (snapshot)
+            {
+                activeSession.uploadId = snapshot.uploadId;
+                activeSession.resumeKey = resumeKey;
+                activeSession.fileName = uploadPayload.file.name;
+                const status = await getUploadStatus(snapshot.uploadId, undefined, snapshot.uploadToken);
                 ensureCurrentAttempt();
                 if (status.uploadId !== snapshot.uploadId)
                 {
-                    throw createAppError(AppErrorCode.Validation, '上传会话身份不匹配');
+                    throw createAppError(AppErrorCode.ProtocolFailure, 'upload_status_identity_mismatch');
                 }
-                uploadId = status.uploadId;
-                uploadToken = snapshot.uploadToken;
-                const original = previousCancellation?.context;
-                if (original?.acknowledgement?.uploadId === uploadId
-                    && original.acknowledgement.uploadToken === uploadToken
-                    && original.resumeKey === resumeKey && original.fileName === snapshot.fileName
-                    && original.sha256 === fullHash)
+                if (status.status === 'completed')
                 {
-                    // A continuation retains its real original init; storage grants no cleanup authority.
-                    cancellationOperation = { generation, context: original };
+                    ownedCommitStateUnknown = true;
+                    throw createAppError(AppErrorCode.Conflict, 'upload_commit_state_unknown');
+                }
+                assertUploadGeometry(status.totalBytes, status.chunkSize, status.totalParts, uploadPayload.file.size);
+                if (!['pending', 'uploading', 'uploaded'].includes(status.status)
+                    || !Number.isSafeInteger(status.uploadedPartCount) || status.uploadedPartCount < 0
+                    || status.uploadedPartCount > status.totalParts
+                    || !Number.isSafeInteger(status.uploadedBytes) || status.uploadedBytes < 0
+                    || status.uploadedBytes > status.totalBytes
+                    || (status.status === 'pending' && status.uploadedPartCount !== 0)
+                    || (status.status === 'uploading' && (status.uploadedPartCount === 0 || status.uploadedPartCount === status.totalParts))
+                    || (status.status === 'uploaded' && status.uploadedPartCount !== status.totalParts))
+                {
+                    throw createAppError(AppErrorCode.ProtocolFailure, 'upload_status_progress_mismatch');
                 }
                 if (status.uploadedPartCount > 0)
                 {
-                    const map = await getUploadPartMap(snapshot.uploadId);
+                    const map = await getUploadPartMap(snapshot.uploadId, undefined, snapshot.uploadToken);
                     ensureCurrentAttempt();
-                    uploadedParts = expandUploadedRanges(map.uploadedRanges);
+                    if (map.uploadId !== snapshot.uploadId)
+                    {
+                        throw createAppError(AppErrorCode.ProtocolFailure, 'upload_part_map_identity_mismatch');
+                    }
+                    uploadedParts = expandUploadedRanges(map.uploadedRanges, status.totalParts);
                 }
-            }
-            catch (error)
-            {
-                ensureCurrentAttempt();
-                if (error instanceof UploadAttemptSupersededError)
+                let mappedBytes = 0;
+                let nextPartHint = 0;
+                uploadedParts.forEach(part => mappedBytes += Math.min(UPLOAD_CHUNK_SIZE, status.totalBytes - part * UPLOAD_CHUNK_SIZE));
+                while (uploadedParts.has(nextPartHint))
                 {
-                    throw error;
+                    nextPartHint += 1;
                 }
-                snapshot = null;
+                if (uploadedParts.size !== status.uploadedPartCount || mappedBytes !== status.uploadedBytes
+                    || nextPartHint !== status.nextPartHint)
+                {
+                    throw createAppError(AppErrorCode.ProtocolFailure, 'upload_part_map_progress_mismatch');
+                }
+                uploadId = status.uploadId;
+                uploadToken = snapshot.uploadToken;
             }
+        }
+        catch (error)
+        {
+            ensureCurrentAttempt();
+            cleanupRequired.value = true;
+            resumeLookupUnresolved = true;
+            phase.value = 'error';
+            errorMessage.value = toAppError(error, 'upload_resume_lookup_failed').message;
+            // Lookup failures, including obscured 404, acknowledge neither absence nor cleanup.
+            const original = previousCancellation?.context;
+            if (original)
+            {
+                activeSession.uploadId = original.acknowledgement?.uploadId ?? '';
+                activeSession.resumeKey = original.resumeKey;
+                activeSession.fileName = original.fileName;
+            }
+            throw error;
         }
 
         if (!snapshot || !uploadId)
         {
             ensureCurrentAttempt();
-            const initialization = initUploadSession({
+            const initializationRequest: UploadSessionInitRequest = {
                 fileName: uploadPayload.file.name,
                 mimeType: uploadPayload.file.type,
                 targetFormat: uploadTargetFormat,
                 totalBytes: uploadPayload.file.size,
-                chunkSize: 512 * 1024,
+                chunkSize: UPLOAD_CHUNK_SIZE,
                 sha256: fullHash
-            });
+            };
+            const initialization = initUploadSession(initializationRequest);
             const cancellationContext: UploadCancellationContext = {
                 generation, work: initialization, resumeKey, fileName: uploadPayload.file.name,
-                sha256: fullHash, bound: Boolean(runtimeOptions.attemptBinding), acknowledgement: null
+                sha256: fullHash, request: initializationRequest, bound: Boolean(runtimeOptions.attemptBinding), acknowledgement: null
             };
             // Capture the actual promise before cancellation can intentionally invalidate its generation.
             pendingOwnedInitialization = cancellationContext;
@@ -613,6 +685,8 @@ export function useImageUploadRuntime()
             {
                 init = await initialization;
                 cancellationContext.acknowledgement = { ...init };
+                ensureCurrentAttempt();
+                assertInitialization(init, initializationRequest);
             }
             catch (error)
             {
@@ -620,7 +694,7 @@ export function useImageUploadRuntime()
                 {
                     cleanupRequired.value = true;
                     phase.value = 'error';
-                    errorMessage.value = '上传初始化状态未知，取消未确认';
+                    errorMessage.value = toAppError(error, '上传初始化状态未知，取消未确认').message;
                 }
                 throw error;
             }
@@ -669,7 +743,7 @@ export function useImageUploadRuntime()
             throw createAppError(AppErrorCode.Conflict, 'upload_session_borrow_unavailable');
         }
 
-        const chunkSize = 512 * 1024;
+        const chunkSize = UPLOAD_CHUNK_SIZE;
         const totalParts = Math.ceil(uploadPayload.file.size / chunkSize);
         let uploadedBytes = 0;
         uploadedParts.forEach((partNumber) =>
@@ -711,6 +785,12 @@ export function useImageUploadRuntime()
                 );
                 ensureCurrentAttempt();
 
+                if (ack.uploadId !== uploadId || ack.partNumber !== partNumber || ack.offset !== start
+                    || ack.size !== chunk.size || ack.uploadedBytes !== uploadedBytes + chunk.size
+                    || ack.uploadedPartCount !== uploadedParts.size + 1)
+                {
+                    throw createAppError(AppErrorCode.ProtocolFailure, 'upload_part_ack_mismatch');
+                }
                 uploadedBytes = ack.uploadedBytes;
                 progress.value = Math.min(99, Math.round((uploadedBytes / uploadPayload.file.size) * 100));
                 phase.value = 'uploading';
@@ -738,6 +818,14 @@ export function useImageUploadRuntime()
         try
         {
             complete = await completeUpload(uploadId, uploadToken, fullHash);
+            ensureCurrentAttempt();
+            if (complete.uploadId !== uploadId || complete.totalBytes !== uploadPayload.file.size
+                || complete.mimeType !== uploadPayload.file.type.trim()
+                || typeof complete.url !== 'string' || !complete.url.trim()
+                || typeof complete.relativeUrl !== 'string' || !complete.relativeUrl.trim())
+            {
+                throw createAppError(AppErrorCode.ProtocolFailure, 'upload_complete_ack_mismatch');
+            }
         }
         catch (error)
         {
@@ -891,7 +979,7 @@ export function useImageUploadRuntime()
         errorMessage.value = '';
         preview.value = null;
         pendingAttempt.value = null;
-        cleanupRequired.value = cancellation !== null || Boolean(activeSession.uploadId) || initialization !== null || ownedCommitStateUnknown;
+        cleanupRequired.value = cancellation !== null || Boolean(activeSession.uploadId) || initialization !== null || ownedCommitStateUnknown || resumeLookupUnresolved;
         // Invalidate live work immediately, but retain its original session and
         // recovery evidence until the canonical abort API acknowledges cleanup.
         // Schedule the request after assigning the promise, including sync throws.
@@ -911,6 +999,7 @@ export function useImageUploadRuntime()
                         throw createAppError(AppErrorCode.InfraFailure, '上传初始化状态未知，取消未确认');
                     }
                     cancellation.acknowledgement ??= { ...initialized };
+                    assertInitialization(initialized, cancellation.request);
                     uploadId = initialized.uploadId;
                     resumeKey = cancellation.resumeKey;
                     activeSession.uploadId = uploadId;
@@ -934,6 +1023,7 @@ export function useImageUploadRuntime()
                 activeSession.resumeKey = '';
                 activeSession.fileName = '';
                 cleanupRequired.value = false;
+                resumeLookupUnresolved = false;
                 cancellationObligation = null;
                 cancellationOperation = null;
                 if (pendingOwnedInitialization === initialization)

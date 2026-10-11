@@ -6,7 +6,7 @@ vi.mock('@/composition/binaryTransport', () => ({
 }))
 
 import { requestBinaryOnly } from '@/composition/binaryTransport'
-import { abortUpload, completeUpload, initUploadSession, uploadPart } from '@/api/upload'
+import { abortUpload, getUploadStatus, getUploadPartMap, completeUpload, initUploadSession, uploadPart } from '@/api/upload'
 
 import { decode } from '@wasm/aeds'
 import { encodeAedsFrame } from '@/api/binaryFrame'
@@ -85,6 +85,18 @@ describe('upload API requests', () => {
     await abortUpload('upload-1', signal)
     expect(mockBinary.mock.lastCall?.[0].requestOptions?.headers).toBeUndefined()
   })
+
+  it.each([['status', getUploadStatus, FrameType.UploadStatus], ['status/parts', getUploadPartMap, FrameType.UploadPartMap]] as const)(
+    'forwards the original token and existing signal for %s', async (path, request, frameType) => {
+      const signal = new AbortController().signal
+      await request('upload-1', signal, 'original-init-token')
+      expect(mockBinary.mock.lastCall?.[0]).toEqual({ binaryUrl: `/api/binary/upload/upload-1/${path}`,
+        privateScope: 'admin', frameType, signal, requestOptions: {
+          method: 'GET', requiresPow: true, headers: { 'X-Fsus-Upload-Token': 'original-init-token' }
+        } })
+      await request('upload-1', signal)
+      expect(mockBinary.mock.lastCall?.[0].requestOptions?.headers).toBeUndefined()
+    })
 
   it('completeUpload sends an UploadCompleteRequest AEDS frame', async () => {
     await completeUpload('upload-1', 'upload-token-1', 'abcdef')
@@ -186,6 +198,30 @@ describe('abort API through the actual binary transport and intercepted fetch', 
     await expect(abortUpload('upload-1', undefined, 'original-init-token')).resolves.toMatchObject({ uploadId: 'upload-1', status })
     expect(intercepted).toHaveBeenCalledTimes(2)
   })
+
+  it.each([['status', getUploadStatus, FrameType.UploadStatus], ['status/parts', getUploadPartMap, FrameType.UploadPartMap]] as const)(
+    'carries the original token through the real GET %s transport and decoder', async (path, request, frameType) => {
+      const intercepted = vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.includes('/auth/pow-challenge')) return new Response(ordinaryPowFrame())
+        expect(new URL(url).pathname).toBe(`/api/binary/upload/upload-1/${path}`)
+        expect(init?.method).toBe('GET')
+        expect(init?.credentials).toBe('include')
+        const headers = new Headers(init?.headers)
+        expect(headers.get('X-Fsus-Upload-Token')).toBe('original-init-token')
+        expect(headers.get('X-Fsus-Pow-Proof')).toBeTruthy()
+        if (frameType === FrameType.UploadStatus) return new Response(transportFrame(frameType))
+        const bytes = new Uint8Array(80)
+        bytes.set(new TextEncoder().encode('upload-1'))
+        const view = new DataView(bytes.buffer)
+        view.setInt32(64, 1, true); view.setInt32(72, 0, true); view.setInt32(76, 0, true)
+        return new Response(encodeAedsFrame(frameType, bytes))
+      })
+      vi.stubGlobal('fetch', intercepted)
+      const response = await request('upload-1', undefined, 'original-init-token')
+      expect(response.uploadId).toBe('upload-1')
+      if (path === 'status/parts') expect(response).toEqual({ uploadId: 'upload-1', uploadedRanges: [{ start: 0, end: 0 }] })
+      expect(intercepted).toHaveBeenCalledTimes(2)
+    })
 
   it('propagates a genuinely decoded ApiError instead of an abort acknowledgement', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/auth/pow-challenge')

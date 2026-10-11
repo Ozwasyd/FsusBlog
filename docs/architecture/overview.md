@@ -141,7 +141,15 @@ snapshot mutation cannot change this authority. Only an actual same-ID
 `aborted` status response clears local transport and recovery state. Network,
 decoded API errors, wrong IDs and other statuses retain the original obligation.
 A cold stored resume cannot reconstruct private init authority and therefore
-cannot authorize abort here. In-flight or unknown completion still refuses abort;
+cannot authorize abort here. Authenticated status and part-map queries carry the
+original snapshot token; obscured 404, failed lookup and malformed stored identity
+retain the original obligation and cannot initialize a replacement. The runtime
+validates canonical init identity and requested file/geometry, status/map identity,
+bounded ordered ranges, exact counts/bytes/next-part hint, and each part ACK's
+identity/index/offset/size/progress before changing progress. Complete ACK must
+match the original ID, bytes and media type and supply its result URLs before
+unknown completion is released or a loan becomes available. An uncorrelated
+complete ACK remains unknown and cannot authorize abort or replacement. In-flight or unknown completion still refuses abort;
 acknowledged completion follows the separate recovery boundary above. Stored
 snapshots cannot mint replacement loans, and unknown commit state never grants deletion.
 

@@ -56,7 +56,7 @@ export function initUploadSession(payload: UploadSessionInitRequest, signal?: Ab
     });
 }
 
-export function getUploadStatus(uploadId: string, signal?: AbortSignal): Promise<UploadStatusViewModel>
+export function getUploadStatus(uploadId: string, signal?: AbortSignal, uploadToken?: string): Promise<UploadStatusViewModel>
 {
     return requestBinaryOnly<UploadStatusViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}/status`,
@@ -65,12 +65,13 @@ export function getUploadStatus(uploadId: string, signal?: AbortSignal): Promise
         signal,
         requestOptions: {
             method: 'GET',
-            requiresPow: true
+            requiresPow: true,
+            headers: uploadToken ? { 'X-Fsus-Upload-Token': uploadToken } : undefined
         }
     });
 }
 
-export function getUploadPartMap(uploadId: string, signal?: AbortSignal): Promise<UploadPartMapViewModel>
+export function getUploadPartMap(uploadId: string, signal?: AbortSignal, uploadToken?: string): Promise<UploadPartMapViewModel>
 {
     return requestBinaryOnly<UploadPartMapViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}/status/parts`,
@@ -79,7 +80,8 @@ export function getUploadPartMap(uploadId: string, signal?: AbortSignal): Promis
         signal,
         requestOptions: {
             method: 'GET',
-            requiresPow: true
+            requiresPow: true,
+            headers: uploadToken ? { 'X-Fsus-Upload-Token': uploadToken } : undefined
         }
     });
 }
