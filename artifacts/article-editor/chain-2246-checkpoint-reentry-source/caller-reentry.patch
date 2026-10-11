@@ -124,7 +124,7 @@ index 9dc98ced0..d4b262489 100644
 +++ b/tests/frontend/unit/composables/articleWriterComposedLifecycleRegression.test.ts
 @@ -11,11 +11,15 @@ import { defineComponent, nextTick } from 'vue';
  import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
- 
+
  import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
 +import { articleRecoveryJournal } from '@/services/articleRecoveryJournal';
  import {
@@ -137,12 +137,12 @@ index 9dc98ced0..d4b262489 100644
 +import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
 +import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/articleWriterMountedEditorSource';
 +import { calculateOpenArticleDocumentDigest as digest, openArticleDocumentCommandSchema } from '@/services/authoring/openArticleDocumentRegistry';
- 
+
  // Only network/bootstrap dependencies are replaced. The writer, document,
  // attachment, continuity, cache, render producer and public editor are real.
 @@ -100,8 +104,7 @@ async function openWriter()
      }, { timeout: 3000 });
- 
+
      type Session = ReturnType<typeof authoring.authoringEditorRuntime.bindEditor>;
 -    type Commands = {
 -        dispatchTransaction(transaction: MarkdownEditorTransaction): MarkdownEditorDispatchResult;
@@ -197,7 +197,7 @@ index 9dc98ced0..d4b262489 100644
              return session.binding;
 @@ -194,6 +226,69 @@ async function openWriter()
  }
- 
+
  describe('Writer composed attachment/tool/owner lifecycle regression', () => {
 +    // Source controls only: NOT RUN under the current product/mount/native holds.
 +    // Real Writer/mounted editor/registry/journal binding; no token/persistence result is fabricated.
