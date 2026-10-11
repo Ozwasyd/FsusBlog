@@ -115,6 +115,16 @@ settlement removes pending work. Original Group cell/startup guard/ratio publica
 CAS/idempotency/history, public issuer and server/persistence contracts remain.
 These repairs still require independent exact-head review and held qualification.
 
+Document mutation also blocks new task issuance until its actual revision is
+published, including a new producer key requested by the final external guard.
+Nested retirement closes the actual target owner/preparation admission before
+returning; canonical notifications and cleanup remain deferred obligations.
+`inspect().admissionClosed` reports that owner fact separately from the Registry's
+current member state. Readonly inspection never fabricates a Registry terminal
+state to represent queued cleanup. Adapter/consumer admission rechecks local
+retirement after external readers. Existing tasks remain pending until real
+cancellation/cleanup and explicit producer settlement; stale is not settled.
+
 This source capability implements #2302–#2305 domain code under #1856. It is not
 terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
 migration registration, article/session/router/group owners and the live shell.

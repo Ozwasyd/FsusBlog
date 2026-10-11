@@ -71,7 +71,7 @@ publication and native mount/restoration remain original-owner integration work.
 ## Original complete test entrances: UNRUN / HOLD
 
 Existing original document-context source file has 14 cases. New Registry handle
-source file has 10 cases; new retained-authority source file has 23 cases. Counts
+source file has 10 cases; new retained-authority source file has 26 cases. Counts
 come from source inspection, not Vitest list/discovery. Existing original cases
 are unchanged. All files remain complete; no `-t`, skip, mock/config replacement,
 timeout increase, worker override, coverage threshold or runner substitution is
@@ -168,7 +168,7 @@ Latest compiler-only and four-file AST results are retained separately in the
 task-owned `.tmp/retained-document-authority/` directory. Complete original full
 application RED is not waived; previous fixed-baseline comparison is 255 versus
 249 diagnostics with no added complete headline messages. No test/qualification
-was run. Source tests are 23 retained-authority and 10 Registry-handle controls,
+was run. Source tests are 26 retained-authority and 10 Registry-handle controls,
 counted by pure TypeScript AST reading. Original context/Registry tests unchanged.
 
 ## Independent review repair source increment
@@ -211,3 +211,34 @@ Original Group startup cell/guard, joint ownership/ratio publication, ownership-
 and exact projection method texts compare byte-for-byte with8769 and remain
 unchanged, preserving a27a. Runtime and independent repaired-head review remain
 required.
+
+## Second Document P2 source repair
+
+Fixed reviewed base9e7b9de1cee9925f78ade7e6a24b2cc01882fe8e. Registry's five
+findings were independently source-closed; Registry/Group/ratio/Snapshot bytes
+remain exactly the fixed base. This increment changes only Document authority,
+its dedicated source controls and nearest explanations.
+
+New task issuance checks the real context-mutation reservation before any external
+guard, preventing a new producer key from escaping cancelAll at the old revision.
+Actual target owner/preparation admission closes synchronously when another scope
+retirement is queued. Canonical notification and cleanup still drain later. Local
+admission facts are checked before/after external readers; the actual Registry
+observation remains truthful and separate. inspect().admissionClosed reports the
+real owner fact, not write/restore permission or a fabricated terminal receipt.
+Existing running work is preserved pending actual cancellation and explicit real
+producer settlement; stale never counts as settlement.
+
+Three complete source cases cover final source/draft guard new-key issuance,
+B task/source/draft/consumer denial immediately after queued B retirement within
+A's callback, pending-resource retention/deferred cleanup, and retirement inside
+the actual borrowed reader. Authority controls26, Registry controls10, all UNRUN.
+Original lint/type/AST/diff checks are static only. Repaired-head independent
+review is required; no closed source counterexample is reclassified as runtime
+acceptance, and all original HOLD gates remain.
+
+Second P2 static recheck: original strict-full2files/0violations; original full
+application exits2, fixed9e7b baseline249/current249 diagnostics with zero added/
+removed complete headline messages. Owned source diagnostics0. Two changed code/
+source-test files parse without diagnostics; frozen Registry/Group/ratio/Snapshot
+postimages match9e7b byte-for-byte. No runtime/test/list/discovery executed.

@@ -446,4 +446,111 @@ describe('original retained document authority source controls', () =>
         expect(invalidations).toBe(1);
         expect(retained.inspect().pendingTaskRefs).toContain(pending.taskRef);
     });
+
+    it('refuses new-key task issuance from the final source or draft mutation guard', () =>
+    {
+        for (const mutation of ['source', 'draft'] as const)
+        {
+            const authority = new ArticleDocumentContextAuthority();
+            const registry = new OpenArticleDocumentRegistry();
+            let guardReads = 0;
+            let armed = false;
+            let refused = false;
+            const readers = { ...scope, readPrincipalIdentityId: () =>
+            {
+                if (armed)
+                {
+                    guardReads += 1;
+                    if (guardReads === 2)
+                    {
+                        expect(() => retained.adapter.beginTask('render', 'producer:new-key')).toThrow('mutation-in-progress');
+                        refused = true;
+                    }
+                }
+                return 'test';
+            } };
+            const prepared = authority.prepareRetainedDocument(registry, input(1), readers);
+            const retained = authority.acquireRetainedDocument(admit(registry, prepared.context, 'first'), prepared);
+            const old = retained.adapter.beginTask('attachment', 'producer:old');
+            armed = true;
+            if (mutation === 'source') retained.adapter.updateSource('# next');
+            else retained.adapter.updateDraftRevision('draft:next');
+            armed = false;
+            expect(refused).toBe(true);
+            expect(old.signal.aborted).toBe(true);
+            expect(retained.adapter.activeTaskRefs).toEqual([]);
+            expect(retained.inspect().pendingTaskRefs).toEqual([old.taskRef]);
+            old.settle();
+            expect(retained.inspect().pendingTaskRefs).toEqual([]);
+        }
+    });
+
+    it('closes another scope admission synchronously and defers its actual cleanup until drain', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        const first = create(authority, registry, 1, 'first');
+        const otherScope = { ...scope, readPrincipalIdentityId: () => 'other' };
+        const prepared = authority.prepareRetainedDocument(registry, { ...input(2), userScope: 'user:other' }, otherScope);
+        const second = authority.acquireRetainedDocument(admit(registry, prepared.context, 'second'), prepared);
+        const initial = second.adapter.context;
+        const pending = second.adapter.beginTask('attachment', 'producer:other');
+        let invalidations = 0;
+        const secondFactory = () => ({ invalidateDocument: () => { invalidations += 1; } });
+        second.attachConsumer(secondFactory);
+        let callbackCompleted = false;
+        first.attachConsumer(() => ({ invalidateDocument: () =>
+        {
+            authority.revokeRetainedScope('site:test', 'other');
+            expect(second.inspect().admissionClosed).toBe(true);
+            expect(second.inspect().registry.state).toBe('live');
+            expect(pending.isCurrent()).toBe(false);
+            expect(pending.signal.aborted).toBe(false);
+            expect(second.inspect().pendingTaskRefs).toContain(pending.taskRef);
+            expect(invalidations).toBe(0);
+            expect(() => second.adapter.beginTask('render', 'producer:forbidden')).toThrow('owner-unavailable');
+            expect(() => second.adapter.updateSource('# forbidden')).toThrow('owner-unavailable');
+            expect(() => second.adapter.updateDraftRevision('draft:forbidden')).toThrow('owner-unavailable');
+            expect(() => second.attachConsumer(secondFactory)).toThrow('consumer-unavailable');
+            expect(second.adapter.context).toBe(initial);
+            callbackCompleted = true;
+        } }));
+        authority.revokeRetainedScope('site:test', 'test');
+        expect(callbackCompleted).toBe(true);
+        expect(first.inspect().invalidationFailed).toBe(false);
+        expect(second.inspect().registry.state).toBe('revoked');
+        expect(pending.signal.aborted).toBe(true);
+        expect(invalidations).toBe(1);
+        expect(second.inspect().pendingTaskRefs).toContain(pending.taskRef);
+    });
+
+    it('rechecks synchronous retirement that occurs inside the borrowed scope reader', () =>
+    {
+        const authority = new ArticleDocumentContextAuthority();
+        const registry = new OpenArticleDocumentRegistry();
+        const first = create(authority, registry, 1, 'first');
+        let retireFromRead = false;
+        const readers = { ...scope, readPrincipalIdentityId: () =>
+        {
+            if (retireFromRead)
+            {
+                retireFromRead = false;
+                authority.revokeRetainedScope('site:test', 'other');
+            }
+            return 'other';
+        } };
+        const prepared = authority.prepareRetainedDocument(registry, { ...input(2), userScope: 'user:other' }, readers);
+        const second = authority.acquireRetainedDocument(admit(registry, prepared.context, 'second'), prepared);
+        let refused = false;
+        first.attachConsumer(() => ({ invalidateDocument: () =>
+        {
+            retireFromRead = true;
+            expect(() => second.adapter.beginTask('render', 'producer:read-window')).toThrow('owner-unavailable');
+            refused = true;
+        } }));
+        authority.revokeRetainedScope('site:test', 'test');
+        expect(refused).toBe(true);
+        expect(second.inspect().registry.state).toBe('revoked');
+        expect(second.adapter.pendingTaskRefs).toEqual([]);
+    });
 });
