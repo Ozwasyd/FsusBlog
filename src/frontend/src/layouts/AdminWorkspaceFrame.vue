@@ -7,6 +7,7 @@
         :motion-policy="motionPolicy"
         :route-view-key="articleRouteViewKey"
         :route-outlet-enabled="!isArticleWorkspaceRouteValue || workspaceStartupState !== 'starting'"
+        @route-outlet="captureRouteOutlet"
     >
         <template #before-content="{ mobileNavigationActive }">
             <ArticleWorkspaceTabStrip v-if="isArticleWorkspaceRouteValue && workspaceStartupState !== 'starting'" />
@@ -39,7 +40,7 @@
 </template>
 
 <script lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, provide, ref, shallowReadonly, shallowRef, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { defaultWorkspaceSnapshotLayout } from '@/api/authoringWorkspaceSnapshot';
@@ -68,6 +69,8 @@ import {
     type ArticleWorkspaceRouterReceipt
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import { AuthoringTabGroupRegistry, type AuthoringTabGroupOptions, type AuthoringGroupCommandIdentity, type AuthoringTabGroupStartupCustody } from '@/services/authoring/authoringTabGroupRegistry';
+import { authoringWorkspaceLayoutSourceKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import type { AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import { connectAuthoringWorkspaceSessionSource, type AuthoringWorkspaceSessionSource } from '@/services/authoring/authoringWorkspaceSessionSource';
 import { prepareAuthoringWorkspaceSnapshotBootstrap, bindAuthoringWorkspaceSnapshotBootstrapGroups } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
 import { applyAuthoringWorkspaceSnapshotRestore, type AuthoringWorkspaceSnapshotRestoreCommands, type AuthoringWorkspaceSnapshotRestorePlan } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
@@ -87,6 +90,11 @@ export interface AdminArticleWorkspaceStartupPorts {
     readonly assertRuntimeCapability: AuthoringWorkspaceSnapshotRestoreCommands['assertRuntimeCapability'];
     readonly applyShell: AuthoringWorkspaceSnapshotRestoreCommands['applyShell'];
     readonly isCurrent: AuthoringWorkspaceSnapshotRestoreCommands['isCurrent'];
+    /** Actual layout authority: real measurements, identities and synchronous before/after notifications. */
+    readonly layout?: Omit<AuthoringWorkspaceLayoutSource, 'groups' | 'sessions' | 'mountedEditors' | 'measure'> & {
+        measure(projection: Parameters<AuthoringWorkspaceLayoutSource['measure']>[0],
+            mountedLayout: AuthoringWorkspaceLayoutPort): ReturnType<AuthoringWorkspaceLayoutSource['measure']>;
+    };
 }
 
 // One original router/Registry has one startup installation, independent of route remounts.
@@ -95,6 +103,7 @@ let workspaceInstallation: {
     failed: boolean;
     retirementFailure?: unknown;
     groupRetirementFailure?: unknown;
+    layoutInvalidationFailure?: unknown;
     stopObservingCancellation?: () => void;
     /** Retain the exact original owners, their custody handle and the actual in-flight task. */
     readonly resources: {
@@ -102,6 +111,7 @@ let workspaceInstallation: {
         custody: AuthoringTabGroupStartupCustody | null;
         resolver: ArticleWorkspaceMountedEditorResolver | null;
         sessions: AuthoringWorkspaceSessionSource | null;
+        readonly invalidateLayouts: Set<() => void>;
     };
     readonly task: Promise<{
         readonly plan: AuthoringWorkspaceSnapshotRestorePlan;
@@ -217,7 +227,8 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
         groups: null,
         custody: null,
         resolver: null,
-        sessions: null
+        sessions: null,
+        invalidateLayouts: new Set()
     };
     // Reserve the sole installation before any original capability callback can re-enter it.
     const task = Promise.resolve().then(() => startArticleWorkspace(ports, resources)).catch((error: unknown) =>
@@ -241,6 +252,18 @@ function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPort
 {
     if (workspaceInstallation?.ports === ports)
     {
+        // Revoke visual consumers synchronously before original Group/Host retirement.
+        for (const invalidate of [...workspaceInstallation.resources.invalidateLayouts])
+        {
+            try
+            {
+                invalidate();
+            }
+            catch (error: unknown)
+            {
+                workspaceInstallation.layoutInvalidationFailure = error;
+            }
+        }
         workspaceInstallation.failed = true;
         const custody = workspaceInstallation.resources.custody;
         if (custody?.inspect().status === 'handed-off')
@@ -296,9 +319,151 @@ const emit = defineEmits<{
 const route = useRoute();
 const workspaceStartupState = ref<'unavailable' | 'starting' | 'started'>('unavailable');
 const startupPorts = props.workspaceStartup;
+const layoutPorts = startupPorts?.layout;
+const workspaceLayoutSource = shallowRef<AuthoringWorkspaceLayoutSource | null>(null);
+// Keep original owner objects unproxied while preventing descendants from replacing the ref.
+provide(authoringWorkspaceLayoutSourceKey, shallowReadonly(workspaceLayoutSource));
+const layoutInvalidationListeners = new Set<() => void>();
+const routeOutletInstance = shallowRef<unknown>(null);
 let mounted = true;
+function notifyWorkspaceLayoutInvalidation(): void
+{
+    // These are visual revocation subscribers only, never another group/session authority.
+    for (const listener of [...layoutInvalidationListeners])
+    {
+        try
+        {
+            listener();
+        }
+        catch (error: unknown)
+        {
+            const installation = workspaceInstallation;
+            if (installation && installation.ports === startupPorts)
+            {
+                installation.layoutInvalidationFailure = error;
+            }
+        }
+    }
+}
+function invalidateWorkspaceLayout(): void
+{
+    notifyWorkspaceLayoutInvalidation();
+    workspaceLayoutSource.value = null;
+    notifyWorkspaceLayoutInvalidation();
+}
+function captureRouteOutlet(instance: unknown): void
+{
+    if (routeOutletInstance.value !== instance)
+    {
+        notifyWorkspaceLayoutInvalidation();
+        routeOutletInstance.value = instance;
+        notifyWorkspaceLayoutInvalidation();
+    }
+}
+function hasPublicWorkspaceLayout(value: unknown): value is { getAuthoringWorkspaceLayoutPort(): unknown; }
+{
+    return !!value && typeof value === 'object' && 'getAuthoringWorkspaceLayoutPort' in value
+        && typeof value.getAuthoringWorkspaceLayoutPort === 'function';
+}
+function isPublicWorkspaceLayoutPort(value: unknown): value is AuthoringWorkspaceLayoutPort
+{
+    return !!value && typeof value === 'object' && 'refresh' in value && typeof value.refresh === 'function'
+        && 'invalidate' in value && typeof value.invalidate === 'function'
+        && 'readFrameRect' in value && typeof value.readFrameRect === 'function'
+        && 'readSeparatorRect' in value && typeof value.readSeparatorRect === 'function';
+}
+function readMountedWorkspaceLayout(): AuthoringWorkspaceLayoutPort
+{
+    const outlet = routeOutletInstance.value;
+    const port = hasPublicWorkspaceLayout(outlet) ? outlet.getAuthoringWorkspaceLayoutPort() : null;
+    if (routeOutletInstance.value !== outlet || !isPublicWorkspaceLayoutPort(port))
+    {
+        throw new Error('article-workspace-layout-public-mount-unavailable');
+    }
+    return port;
+}
+function createWorkspaceLayoutSource(sessions: AuthoringWorkspaceSessionSource): AuthoringWorkspaceLayoutSource | null
+{
+    if (!startupPorts || !layoutPorts)
+    {
+        return null;
+    }
+    const ports = startupPorts;
+    const layout = layoutPorts;
+    const requireOwner = (): void =>
+    {
+        ports.signal.throwIfAborted();
+        if (!mounted || props.workspaceStartup !== ports || ports.layout !== layout
+            || workspaceInstallation?.ports !== ports || workspaceInstallation.failed
+            || workspaceInstallation.resources.sessions !== sessions)
+        {
+            throw new Error('article-workspace-layout-original-source-unavailable');
+        }
+    };
+    return Object.freeze<AuthoringWorkspaceLayoutSource>({
+        groups: sessions.groups,
+        sessions,
+        mountedEditors: ports.mountedEditors,
+        reserveOperationIdentity: (projection) =>
+        {
+            requireOwner();
+            const identity = layout.reserveOperationIdentity(projection);
+            requireOwner();
+            return identity;
+        },
+        measure: (projection) =>
+        {
+            requireOwner();
+            const port = readMountedWorkspaceLayout();
+            const frame = port.readFrameRect();
+            const separator = port.readSeparatorRect();
+            const measured = layout.measure(projection, port);
+            requireOwner();
+            const currentFrame = port.readFrameRect();
+            const currentSeparator = port.readSeparatorRect();
+            if (readMountedWorkspaceLayout() !== port || !frame || !separator || !currentFrame || !currentSeparator
+                || frame.left !== currentFrame.left || frame.top !== currentFrame.top
+                || frame.width !== currentFrame.width || frame.height !== currentFrame.height
+                || separator.left !== currentSeparator.left || separator.top !== currentSeparator.top
+                || separator.width !== currentSeparator.width || separator.height !== currentSeparator.height
+                || measured.frame.left !== frame.left || measured.frame.top !== frame.top
+                || measured.frame.width !== frame.width || measured.frame.height !== frame.height
+                || measured.splitterFootprintCssPx !== separator.width)
+            {
+                throw new Error('article-workspace-layout-current-measurement-unavailable');
+            }
+            requireOwner();
+            return measured;
+        },
+        subscribeInvalidation: (listener) =>
+        {
+            requireOwner();
+            layoutInvalidationListeners.add(listener);
+            let release: (() => void) | undefined;
+            try
+            {
+                // The original owner must notify before mutations and again after publication.
+                release = layout.subscribeInvalidation(listener);
+                requireOwner();
+            }
+            catch (error: unknown)
+            {
+                layoutInvalidationListeners.delete(listener);
+                release?.();
+                throw error;
+            }
+            const releaseOriginal = release;
+            return () =>
+            {
+                layoutInvalidationListeners.delete(listener);
+                releaseOriginal();
+            };
+        }
+    });
+}
 function markWorkspaceStartupUnavailable(): void
 {
+    invalidateWorkspaceLayout();
     workspaceStartupState.value = 'unavailable';
     if (startupPorts)
     {
@@ -320,6 +485,7 @@ if (startupPorts)
         {
             throw new Error('article-workspace-startup-owner-changed');
         }
+        const layoutSource = createWorkspaceLayoutSource(sessions);
         requireCurrentStartup(startupPorts, plan);
         startupPorts.assertRuntimeCapability();
         const resources = workspaceInstallation.resources;
@@ -339,20 +505,32 @@ if (startupPorts)
         }
         resources.custody.sealHandoff();
         workspaceInstallation.stopObservingCancellation?.();
+        workspaceLayoutSource.value = layoutSource;
         workspaceStartupState.value = 'started';
         // Hand the layout owner the same original group/host, never a reconstructed projection.
         emit('workspaceStarted', sessions);
     }).catch(() =>
     {
+        invalidateWorkspaceLayout();
         markWorkspaceInstallationFailed(startupPorts);
         if (mounted)
         {
             workspaceStartupState.value = 'unavailable';
         }
     });
+    workspaceInstallation?.resources.invalidateLayouts.add(invalidateWorkspaceLayout);
 }
+watch(() => props.workspaceStartup, () =>
+{
+    if (props.workspaceStartup !== startupPorts)
+    {
+        markWorkspaceStartupUnavailable();
+    }
+}, { flush: 'sync' });
 onBeforeUnmount(() =>
 {
+    invalidateWorkspaceLayout();
+    workspaceInstallation?.resources.invalidateLayouts.delete(invalidateWorkspaceLayout);
     mounted = false;
     startupPorts?.signal.removeEventListener('abort', markWorkspaceStartupUnavailable);
 });
