@@ -234,13 +234,15 @@ describe('workspace separator synchronous invalidation source regressions', () =
     {
         const { adapter, state } = fixture();
         expect(adapter.start(pointer(500))).toBe(true);
+        const observations: { start: boolean; binding: string; proposal: string; }[] = [];
         state.onCancel = () =>
         {
-            expect(adapter.start(pointer(500))).toBe(false);
-            expect(adapter.readBinding()).toEqual({ status: 'blocked' });
-            expect(adapter.proposal(pointer(600))).toBe('refused');
+            observations.push({ start: adapter.start(pointer(500)), binding: adapter.readBinding().status,
+                proposal: adapter.proposal(pointer(600)) });
         };
         adapter.invalidate();
+        // Assert outside cancel: the production cleanup intentionally catches callback failures.
+        expect(observations).toEqual([{ start: false, binding: 'blocked', proposal: 'refused' }]);
         expect(state.publications).toBe(0);
         expect(adapter.start(pointer(500))).toBe(true);
     });
