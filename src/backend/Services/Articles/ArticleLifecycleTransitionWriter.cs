@@ -531,7 +531,10 @@ public static class ArticleLifecycleTransitionWriter
             db,
             request.ArticleId,
             revision.Id,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            preferCurrentSnapshots: request.Operation is ArticleStatusTransitionOperation.TriageInbox
+                or ArticleStatusTransitionOperation.ArchiveInbox or ArticleStatusTransitionOperation.RestoreArchived)
+            .ConfigureAwait(false);
         ArticleMutationOutboxEvent outbox = ArticleMutationOutboxProducer.Create(
             request.ArticleId,
             request.OutboxEventType ?? ArticleMutationEventTypes.Updated,
@@ -1214,7 +1217,8 @@ public static class ArticleLifecycleTransitionWriter
         int articleId,
         long? expectedRevisionId,
         CancellationToken cancellationToken,
-        bool lockArticle = false)
+        bool lockArticle = false,
+        bool preferCurrentSnapshots = false)
     {
         string lockClause = lockArticle ? "FOR UPDATE OF article" : string.Empty;
         ArticleLifecycleCoordinates? coordinates = null;
@@ -1232,9 +1236,15 @@ public static class ArticleLifecycleTransitionWriter
                    article.pending_publication_at,
                    article.deleted_at,
                    article.previous_editable_status,
-                   COALESCE(CASE WHEN article.status <> @Inbox THEN publication.rights_snapshot_id END,
+                   COALESCE(CASE WHEN NOT @PreferCurrentSnapshots AND article.status <> @Inbox
+                       AND (article.status <> @Archived OR article.previous_editable_status IS NULL
+                           OR article.previous_editable_status <> @Inbox)
+                       THEN publication.rights_snapshot_id END,
                        rights.id) AS rights_snapshot_id,
-                   COALESCE(CASE WHEN article.status <> @Inbox THEN publication.responsibility_snapshot_id END,
+                   COALESCE(CASE WHEN NOT @PreferCurrentSnapshots AND article.status <> @Inbox
+                       AND (article.status <> @Archived OR article.previous_editable_status IS NULL
+                           OR article.previous_editable_status <> @Inbox)
+                       THEN publication.responsibility_snapshot_id END,
                        responsibility.id) AS responsibility_snapshot_id,
                    responsibility.responsibility_version
             FROM article
@@ -1257,6 +1267,8 @@ public static class ArticleLifecycleTransitionWriter
                   AND snapshot.article_revision_id = revision.id
                   AND (
                       article.status = @Inbox
+                      OR @PreferCurrentSnapshots
+                      OR (article.status = @Archived AND article.previous_editable_status = @Inbox)
                       OR publication.responsibility_snapshot_id IS NULL
                       OR snapshot.id = publication.responsibility_snapshot_id
                   )
@@ -1267,7 +1279,9 @@ public static class ArticleLifecycleTransitionWriter
             {lockClause};
             """,
             new SugarParameter("@ArticleId", articleId),
-            new SugarParameter("@Inbox", (int)ArticleStatus.Inbox)).ConfigureAwait(false))
+            new SugarParameter("@Inbox", (int)ArticleStatus.Inbox),
+            new SugarParameter("@Archived", (int)ArticleStatus.Archived),
+            new SugarParameter("@PreferCurrentSnapshots", preferCurrentSnapshots)).ConfigureAwait(false))
         {
             if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
