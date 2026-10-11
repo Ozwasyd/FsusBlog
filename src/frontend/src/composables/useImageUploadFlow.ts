@@ -1,4 +1,4 @@
-import { computed, shallowRef } from 'vue';
+import { computed, shallowRef, type ShallowRef } from 'vue';
 
 import type { ImageCompressionOptions } from '@/api/upload';
 import { useAbortableTask } from '@/composables/useAbortableTask';
@@ -6,9 +6,9 @@ import type { ImageUploadAttemptBinding, ImageUploadRuntimeOptions, ImageUploadS
 import type { ArticleAnchorContext } from '@/services/authoring/articleAnchorContext';
 import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
 import { ArticleDocumentContextAdapter, type ArticleDocumentTaskLease, type ArticleDocumentTaskRegistry } from '@/services/authoring/articleDocumentContext';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 import { showErrorToast } from '@/utils/errorPresentation';
 import { getErrorMessage, isAbortError } from '@/utils/errors';
-import { AppErrorCode, createAppError } from '@/utils/appError';
 
 type UploadRuntime = ReturnType<typeof useImageUploadRuntime>;
 
@@ -102,7 +102,7 @@ export function useImageUploadFlow(options: UseImageUploadFlowOptions)
     });
     const pendingContext = shallowRef<PendingUploadContext | null>(null);
     // This identifies a still-awaited local execution, never a business receipt or release ACK.
-    const activeRun = shallowRef<object | null>(null);
+    const activeRun: ShallowRef<object | null> = shallowRef<object | null>(null);
 
     const canResume = computed(() => pendingContext.value !== null && activeRun.value === null && !options.runtime.cleanupRequired);
     const admissionError = (): ReturnType<typeof createAppError> | null => activeRun.value !== null
