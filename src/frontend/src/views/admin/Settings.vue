@@ -716,7 +716,9 @@
                                                     class="mt-1 h-2 w-2 shrink-0 rounded-[var(--fsus-radius-pill)]"
                                                     :class="item.done ? 'bg-[var(--fsusblog-color-success)]' : 'bg-[var(--fsusblog-text-muted)]'"
                                                 />
-                                                <span :class="item.done ? 'text-[var(--fsusblog-text-primary)]' : 'text-[var(--fsusblog-text-muted)]'">{{ item.label }}</span>
+                                                <span :class="item.done ? 'text-[var(--fsusblog-text-primary)]' : 'text-[var(--fsusblog-text-muted)]'">
+                                                    {{ item.done ? '已完成' : '待完成' }}：{{ item.label }}
+                                                </span>
                                             </li>
                                         </ul>
                                     </section>
