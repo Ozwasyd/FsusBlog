@@ -114,7 +114,7 @@ export async function createRevisionFragmentProposal(
     {
         fail('selection_invalid');
     }
-    const current = captureCurrent(readCurrent, selected.articleId);
+    // Own and validate the original authorized input before allowing host reentrancy.
     const snapshot = sourceSnapshot(presentation);
     const { plan, diff, baseBytes, compareBytes } = snapshot;
     const receipt = diff.receipt;
@@ -133,8 +133,7 @@ export async function createRevisionFragmentProposal(
         const bytes = side === 'base' ? baseBytes : compareBytes;
         if (!(bytes instanceof Uint8Array) || reference.packageDigest !== plan[`${side}PackageDigest`]
             || !hash(reference.sourceDigest) || reference.sourceDigest !== receipt[`${side}SourceDigest`]
-            || reference.sourceByteLength !== bytes.length || receipt[`${side}SourceByteCount`] !== bytes.length
-            || await revisionSourceDigest(bytes) !== reference.sourceDigest)
+            || reference.sourceByteLength !== bytes.length || receipt[`${side}SourceByteCount`] !== bytes.length)
         {
             fail('source_stale');
         }
@@ -169,6 +168,15 @@ export async function createRevisionFragmentProposal(
         fail('range_outside_hunk');
     }
     const fragmentBytes = bytes.slice(selected.range.offset, selected.range.end);
+    const current = captureCurrent(readCurrent, selected.articleId);
+    for (const side of ['base', 'compare'] as const)
+    {
+        const originalBytes = side === 'base' ? baseBytes : compareBytes;
+        if (await revisionSourceDigest(originalBytes) !== plan[`${side}PackageReference`].sourceDigest)
+        {
+            fail('source_stale');
+        }
+    }
     const fragmentDigest = await revisionSourceDigest(fragmentBytes);
     signal?.throwIfAborted();
     // No await after these final checks: reject switching, edits, selection movement and

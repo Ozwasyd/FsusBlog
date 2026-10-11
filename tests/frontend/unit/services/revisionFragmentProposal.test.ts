@@ -110,6 +110,35 @@ describe('unexecuted exact historical fragment proposal', () => {
                 () => ++captures === 1 ? current() : { ...current(), selection } as RevisionFragmentCurrentSnapshot)).rejects.toThrow('current_stale');
         });
 
+    it('rejects first-capture reentrancy that manufactures a changed hunk with the same chunk digest', async () => {
+        const input = await fixture();
+        const chunk = input.presentation.response.sourceDiff.chunks[0];
+        const originalChunkDigest = chunk.contentDigest;
+        const originalBytes = input.presentation.compareBytes.slice();
+        chunk.hunks[0].kind = 0;
+        let captures = 0;
+        await expect(createRevisionFragmentProposal(input.presentation, input.selection, () => {
+            if (++captures === 1) chunk.hunks[0].kind = 3;
+            return current();
+        })).rejects.toThrow('hunk_invalid');
+        expect(captures).toBe(0);
+        expect(chunk.hunks[0].kind).toBe(0);
+        expect(chunk.contentDigest).toBe(originalChunkDigest);
+        expect(input.presentation.compareBytes).toEqual(originalBytes);
+
+        // A valid original hunk is also bound before the first host capture.
+        // Both captures return the same context/selection; source drift alone rejects.
+        chunk.hunks[0].kind = 3;
+        captures = 0;
+        await expect(createRevisionFragmentProposal(input.presentation, input.selection, () => {
+            if (++captures === 1) chunk.hunks[0].kind = 1;
+            return current();
+        })).rejects.toThrow('source_stale');
+        expect(captures).toBe(2);
+        expect(chunk.contentDigest).toBe(originalChunkDigest);
+        expect(input.presentation.compareBytes).toEqual(originalBytes);
+    });
+
     it('rejects mutable package, bytes and action request drift while hashing', async () => {
         for (const mutate of ['package', 'bytes', 'action']) {
             const input = await fixture();
