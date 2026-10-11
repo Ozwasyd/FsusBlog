@@ -312,4 +312,58 @@ describe('Assets ordinary public TableV2 consumer', () =>
         expect(mocks.confirm).toHaveBeenCalledWith('确认删除该孤儿文件？', '删除服务器文件', expect.any(Object));
         expect(mocks.deleteImage).not.toHaveBeenCalled();
     });
+
+    it.each([
+        { label: 'alphabetic suffix', input: '42oops' },
+        { label: 'decimal', input: '42.9' },
+        { label: 'exponent', input: '1e3' },
+        { label: 'empty', input: '' },
+        { label: 'whitespace', input: '   ' },
+        { label: 'zero', input: '0' },
+        { label: 'negative', input: '-1' },
+        { label: 'plus sign', input: '+42' },
+        { label: 'hexadecimal', input: '0x2a' },
+        { label: 'internal whitespace', input: '4 2' },
+        { label: 'above Int32', input: '2147483648' },
+        { label: 'unsafe integer', input: '9007199254740992' },
+        { label: 'rounded unsafe integer', input: '9007199254740993' }
+    ])('rejects $label article ID before invoking reindex', async ({ input }) =>
+    {
+        const view = mountAssets();
+        await flushPromises();
+        await view.get('input[placeholder="输入文章 ID"]').setValue(input);
+        const reindex = view.findAllComponents(ElButton).find((button) => button.text() === '重建文章引用');
+        expect(reindex).toBeDefined();
+        await reindex?.trigger('click');
+        await flushPromises();
+        expect(mocks.reindex).not.toHaveBeenCalled();
+        expect(mocks.warning).toHaveBeenCalledWith('请输入有效文章 ID', '请输入有效文章 ID');
+        expect(mocks.success).not.toHaveBeenCalled();
+        expect(mocks.list).toHaveBeenCalledTimes(1);
+        expect(reindex?.props('loading')).toBe(false);
+    });
+
+    it.each([
+        { label: '42', input: '42', articleId: 42 },
+        { label: 'trimmed 42', input: ' 42 ', articleId: 42 },
+        { label: 'lower Int32 boundary', input: '1', articleId: 1 },
+        { label: 'upper Int32 boundary', input: '2147483647', articleId: 2147483647 },
+        { label: 'leading-zero decimal', input: '00042', articleId: 42 }
+    ])('reindexes valid $label article ID without changing its value', async ({ input, articleId }) =>
+    {
+        const view = mountAssets();
+        await flushPromises();
+        await view.get('input[placeholder="输入文章 ID"]').setValue(input);
+        const reindex = view.findAllComponents(ElButton).find((button) => button.text() === '重建文章引用');
+        expect(reindex).toBeDefined();
+        await reindex?.trigger('click');
+        await flushPromises();
+        expect(mocks.reindex).toHaveBeenCalledTimes(1);
+        expect(mocks.reindex).toHaveBeenCalledWith(articleId);
+        expect(mocks.warning).not.toHaveBeenCalled();
+        expect(mocks.error).not.toHaveBeenCalled();
+        expect(mocks.success).toHaveBeenCalledWith('文章资产引用已重建');
+        expect(mocks.list).toHaveBeenCalledTimes(2);
+        expect(reindex?.props('loading')).toBe(false);
+    });
 });

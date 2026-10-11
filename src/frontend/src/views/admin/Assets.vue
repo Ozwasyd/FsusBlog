@@ -410,8 +410,15 @@ const loadAssets = async (): Promise<void> =>
 
 const parseArticleId = (): number | null =>
 {
-    const parsed = Number.parseInt(reindexArticleId.value.trim(), 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    const text = reindexArticleId.value.trim();
+    if (!/^\d+$/.test(text))
+    {
+        return null;
+    }
+
+    // Keep leading-zero decimal IDs valid within the route's Int32 range.
+    const parsed = Number(text);
+    return Number.isSafeInteger(parsed) && parsed > 0 && parsed <= 2147483647 ? parsed : null;
 };
 
 const reindexCurrentArticle = async (): Promise<void> =>
