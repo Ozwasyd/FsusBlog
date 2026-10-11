@@ -189,3 +189,42 @@ Slot/layout admission, model/command composition, production read grants, full
 resource/UI/scale qualification and snapshot reference reconciliation remain
 open. Local fixture provenance and test admission are not production or terminal
 acceptance evidence.
+
+## Public editor session source dependency (#2294/#2295)
+
+`fsusUiEditorSessionFactory.ts` resolves the actual mounted editor only through an
+explicit callback supplied by the existing editor/document owner. It compares
+article/draft/document identity, document epoch and source/draft revision refs,
+binds the real FsusUI `getSession` once, and rechecks the owner after a retained
+snapshot. No route traversal, component-tree discovery, second article/session
+index, body store or second history owner is introduced. The existing
+`MarkdownTextEditor` and `MarkdownEditorAdapter` forward this actual public API;
+missing mounted instances fail explicitly.
+
+The upstream retained snapshot is a real transaction-owner/view checkpoint, but
+it cannot yet satisfy `AuthoringSessionSnapshotRefs`: the public renderer has no
+last-valid-render checkpoint, provider resources lack complete census and
+reversible pause/resume, and no recoverable-disposal owner exists. Draft and crash
+journal refs also need their existing application owners. Full host snapshot
+capture therefore refuses before replacing a retained snapshot. Resource methods
+delegate to the actual FsusUI session; they never return synthetic zero counts.
+Full restoration reports blocked with both proof flags false. No disposal or
+snapshot failure is relabeled as successful lifecycle admission.
+
+`installArticleWorkspaceEditorSessions` is the sole composition function: with
+an explicit real resolver it creates one instance of the existing
+`AuthoringSessionHost` and installs the existing `createArticleWorkspaceSessionPort`
+bridge on the singleton router. Repeated calls with the same resolver return that
+host; a different resolver is rejected. It has no automatic bootstrap call yet:
+the current writing route still owns one route-mounted editor and does not supply
+a retained per-session mount owner. The existing immediate fallback remains in
+the unchanged router source. Thus production composition is **UNWIRED**, not ready.
+The integration owner must supply the mounted-session owner and complete upstream
+snapshot/resource participants before activating this composition in production.
+
+This source is intended for the local FsusUI alias only. No package publication,
+authority refresh, qualified runtime/test discovery, server/browser/native
+execution, issue closure or merge is included. Security/privacy/receipt/native/
+race/backuprestore/IME holds continue to apply. Current source and draft revision
+refs must come from the original document owner, not from copying the requested
+registry entry into the resolver's answer.

@@ -40,6 +40,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type {
+    MarkdownEditorSessionExpose,
     MarkdownEditorOutlineRange,
     MarkdownEditorRevealOptions,
     MarkdownEditorRevealResult,
@@ -125,7 +126,7 @@ const emit = defineEmits<{
 }>();
 
 const provider = computed(() => resolveMarkdownEditorProvider());
-const editorRef = ref<{
+const editorRef = ref<MarkdownEditorSessionExpose & {
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     revealHeading?: (
@@ -180,7 +181,17 @@ function revealSourceRange(
     return editorRef.value?.revealSourceRange?.(range, options) ?? 'not-found';
 }
 
+function getSession(editorSessionRef: string)
+{
+    if (!editorRef.value)
+    {
+        throw new Error('public-editor-mounted-owner-unavailable');
+    }
+    return editorRef.value.getSession(editorSessionRef);
+}
+
 defineExpose({
+    getSession,
     insertMarkdownAtCursor,
     openCommandPalette,
     revealHeading,

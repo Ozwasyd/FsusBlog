@@ -84,6 +84,7 @@ import {
     type MarkdownEditorCommand as FsusUiMarkdownEditorCommand,
     type MarkdownEditorCommandContext as FsusUiMarkdownEditorCommandContext,
     type MarkdownEditorMode as FsusUiMarkdownEditorMode,
+    type MarkdownEditorSessionExpose,
     type MarkdownEditorOutlineRange,
     type MarkdownEditorRevealOptions,
     type MarkdownEditorRevealResult,
@@ -123,7 +124,7 @@ import type {
     MarkdownEditorStatusDensity
 } from '@/ui-contracts/markdownEditor';
 
-type FsusUiMarkdownEditorExpose = Readonly<{
+type FsusUiMarkdownEditorExpose = MarkdownEditorSessionExpose & Readonly<{
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     revealHeading?: (
@@ -743,7 +744,17 @@ watch(() => props.documentIdentity, () =>
     currentAuthoringBinding.value = null;
 });
 
+function getSession(editorSessionRef: string)
+{
+    if (!editorRef.value)
+    {
+        throw new Error('public-editor-mounted-owner-unavailable');
+    }
+    return editorRef.value.getSession(editorSessionRef);
+}
+
 defineExpose({
+    getSession,
     insertMarkdownAtCursor,
     openCommandPalette,
     revealHeading,

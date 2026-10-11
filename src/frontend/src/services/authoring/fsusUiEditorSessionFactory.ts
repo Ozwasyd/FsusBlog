@@ -1,0 +1,158 @@
+import type {
+    MarkdownEditorSession,
+    MarkdownEditorSessionExpose,
+    MarkdownEditorSessionSnapshot
+} from '@ozwasyd/element-plus';
+
+import {
+    type AuthoringSessionSnapshotContext,
+    type FsusUiPublicEditorSession,
+    type FsusUiPublicEditorSessionFactory
+} from './authoringSessionHost';
+import {
+    calculateOpenArticleDocumentDigest,
+    type ArticleDocumentContextRef,
+    type ArticleDocumentIdentity,
+    type OpenArticleDocumentEntry
+} from './openArticleDocumentRegistry';
+
+/** Supplied by the existing mounted editor/document owner, never route discovery. */
+export interface ArticleWorkspaceMountedEditorBinding {
+    readonly editor: MarkdownEditorSessionExpose;
+    readonly identity: ArticleDocumentIdentity;
+    readonly documentContext: ArticleDocumentContextRef;
+    readonly editorRevision: number;
+}
+
+export type ArticleWorkspaceMountedEditorResolver = (
+    entry: OpenArticleDocumentEntry
+) => ArticleWorkspaceMountedEditorBinding | null;
+
+export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
+    captureRetainedSnapshot(entry: OpenArticleDocumentEntry): MarkdownEditorSessionSnapshot;
+}
+
+function assertBinding(
+    binding: ArticleWorkspaceMountedEditorBinding,
+    identity: ArticleDocumentIdentity,
+    context: ArticleDocumentContextRef
+): void
+{
+    if (binding.identity.articleId !== identity.articleId
+        || binding.identity.draftId !== identity.draftId
+        || binding.identity.documentId !== identity.documentId)
+    {
+        throw new Error('public-editor-document-identity-mismatch');
+    }
+    if (binding.documentContext.documentEpoch !== context.documentEpoch)
+    {
+        throw new Error('public-editor-document-epoch-mismatch');
+    }
+    if (binding.documentContext.sourceRevision !== context.sourceRevision
+        || binding.documentContext.draftRevision !== context.draftRevision)
+    {
+        throw new Error('public-editor-source-revision-mismatch');
+    }
+}
+
+/**
+ * Uses the real public FsusUI session, with no body/history store or session index.
+ * The retained upstream API currently cannot issue the complete #2294 snapshot.
+ */
+export function createFsusUiEditorSessionFactory(
+    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver
+): ArticleWorkspaceFsusUiEditorSessionFactory
+{
+    function resolveSession(entry: OpenArticleDocumentEntry): {
+        binding: ArticleWorkspaceMountedEditorBinding;
+        session: MarkdownEditorSession;
+    }
+    {
+        const binding = resolveMountedEditor(entry);
+        if (!binding)
+        {
+            throw new Error('public-editor-mounted-owner-unavailable');
+        }
+        assertBinding(binding, entry.identity, entry.documentContext);
+        const session = binding.editor.getSession(entry.editorSessionRef);
+        if (session.editorSessionRef !== entry.editorSessionRef)
+        {
+            throw new Error('public-editor-session-ref-mismatch');
+        }
+        return { binding, session };
+    }
+
+    function assertCurrent(
+        entry: OpenArticleDocumentEntry,
+        session: MarkdownEditorSession,
+        context: AuthoringSessionSnapshotContext
+    ): void
+    {
+        if (context.editorSessionRef !== session.editorSessionRef)
+        {
+            throw new Error('public-editor-session-ref-mismatch');
+        }
+        const current = resolveSession(entry);
+        if (current.session !== session)
+        {
+            throw new Error('public-editor-session-owner-replaced');
+        }
+        assertBinding(current.binding, context.identity, context.documentContext);
+        if (context.permission !== entry.status.permission
+            || context.permissionRef !== entry.status.statusRef)
+        {
+            throw new Error('public-editor-permission-context-mismatch');
+        }
+    }
+
+    return {
+        captureRetainedSnapshot(entry)
+        {
+            const { binding, session } = resolveSession(entry);
+            const snapshot = session.captureSnapshot(calculateOpenArticleDocumentDigest);
+            // Re-resolve after the digest callback; a document replacement must
+            // not be silently accepted as the requested registry session.
+            const current = resolveSession(entry);
+            if (current.session !== session
+                || snapshot.documentIdentity.id !== binding.identity.documentId
+                || snapshot.documentIdentity.epoch !== binding.documentContext.documentEpoch
+                || snapshot.revision !== binding.editorRevision
+                || current.binding.editorRevision !== snapshot.revision)
+            {
+                throw new Error('public-editor-retained-snapshot-stale');
+            }
+            return snapshot;
+        },
+        createSession(entry): FsusUiPublicEditorSession
+        {
+            const { session } = resolveSession(entry);
+            return {
+                editorSessionRef: session.editorSessionRef,
+                captureSnapshot(context)
+                {
+                    assertCurrent(entry, session, context);
+                    // Upstream retains actual transaction/view state, but has
+                    // no renderer checkpoint or application draft/journal refs.
+                    // Refuse before capture so an existing snapshot is preserved.
+                    throw new Error('public-editor-full-snapshot-owner-unavailable:renderer,draft,crash-journal');
+                },
+                inspectResources: () => session.inspectResources(),
+                pauseResources: () => session.pauseResources(),
+                resumeResources: () => session.resumeResources(),
+                restoreSnapshot(snapshot, context)
+                {
+                    assertCurrent(entry, session, context);
+                    return {
+                        status: 'blocked',
+                        snapshotRef: snapshot.snapshotRef,
+                        snapshotDigest: snapshot.snapshotDigest,
+                        identityValidated: false,
+                        refsValidated: false,
+                        reason: 'public-editor-full-snapshot-owner-unavailable:renderer,draft,crash-journal'
+                    };
+                },
+                disposeAfterSnapshot: snapshotRef => session.disposeAfterSnapshot(snapshotRef)
+            };
+        }
+    };
+}
