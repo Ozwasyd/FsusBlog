@@ -1,0 +1,40 @@
+{
+  "base": "c18bae42513578fd69a54f2040b0986ea05521c3",
+  "donor": "02cfd1a9919d6008ff203fe377e01d29abb236cc",
+  "files": [
+    {
+      "path": "src/frontend/src/services/articleRecoveryJournal.ts",
+      "beforeBlob": "2c8df95d2403a62330a8a32153b5b8895871266a",
+      "donorBlob": "bcea5a14ecd76362e4da73081fc2ea253d516cf9",
+      "beforeSha256": "60ec7b50ef0aa76e328727c7073817ac3f14064f3124a0c7032cfe298f3a9050",
+      "afterSha256": "e065d6b7b0465159530a43024666bf3438085fb891669af5fb2adb45da8ae935"
+    },
+    {
+      "path": "src/frontend/src/services/privateStorageRegistry.ts",
+      "beforeBlob": "25f67cfbeb5203678f2142fd36d50824ef4d8dca",
+      "donorBlob": "c944d72c12d6d8ef604074872c84850395ec5803",
+      "beforeSha256": "03594779fdc68fdd1273436a5349680da98bf3ebb646eb5866581ef13cd757e4",
+      "afterSha256": "292ab13d25380bcf5ca2e7713331989bc5b2128766795d10eb4d1c88f27c9ccd"
+    },
+    {
+      "path": "tests/frontend/unit/services/articleRecoveryJournal.test.ts",
+      "beforeBlob": "d19b549635cfa5fd2448521049951c6c6647c87b",
+      "donorBlob": "7517fa5f9427d99d619950389b65a20ecb88cc9a",
+      "beforeSha256": "cf18fbc273f277556f8915ab753476dbf578614e201ad56b380b7ba1afc18ddd",
+      "afterSha256": "65df8719f474b79041ca14e8bb70723d993849c5d1ba5e2ca292390e6a040cd2"
+    },
+    {
+      "path": "docs/security/private-surface-runtime.md",
+      "beforeBlob": "70190231dbebcb2a2d2369a7c3aeb6b7a5361e46",
+      "donorBlob": "1bcd90fd47f3fb973d8a2af44aac89343e57353c",
+      "beforeSha256": "cad0237e3457a52d2901f4e4d429fcd711d32f2d9011cd9394f779e76fbb853d",
+      "afterSha256": "ac61444ce25f2c99fd0055512b3293da613e7819e6fab8c4626c58e04aba3097"
+    }
+  ],
+  "applyCheck": 0,
+  "apply": 0,
+  "reverseCheck": 0,
+  "docsOriginalPrefixRetained": true,
+  "controls": "NOT RUN",
+  "runtimeQualification": false
+}

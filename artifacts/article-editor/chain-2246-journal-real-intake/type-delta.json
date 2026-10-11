@@ -1,0 +1,14 @@
+{
+  "beforeErrors": 234,
+  "afterErrors": 227,
+  "added": [],
+  "removed": [
+    "src/composables/useAdminArticleWrite.ts(line,column): error TS2724: '\"@/services/articleRecoveryJournal\"' has no exported member named 'ArticleRecoveryJournalCheckpointBinding'. Did you mean 'ArticleRecoveryJournalRecord'?",
+    "src/composables/useAdminArticleWrite.ts(line,column): error TS2724: '\"@/services/articleRecoveryJournal\"' has no exported member named 'ArticleRecoveryJournalCheckpointSource'. Did you mean 'ArticleRecoveryJournalRecord'?",
+    "src/composables/useAdminArticleWrite.ts(line,column): error TS2339: Property 'bindCheckpointSource' does not exist on type 'ArticleRecoveryJournal'.",
+    "src/composables/useAdminArticleWrite.ts(line,column): error TS7006: Parameter 'signal' implicitly has an 'any' type.",
+    "src/composables/useAdminArticleWrite.ts(line,column): error TS7006: Parameter 'token' implicitly has an 'any' type.",
+    "src/composables/useAdminArticleWrite.ts(line,column): error TS7006: Parameter 'token' implicitly has an 'any' type.",
+    "src/composables/useAdminArticleWrite.ts(line,column): error TS7006: Parameter 'token' implicitly has an 'any' type."
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "testedSource": "4fb995cbf11be6cab84299c321a6a3ce6a9079d3",
+  "actualJournalOwner": "02cfd1a9919d6008ff203fe377e01d29abb236cc",
+  "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+  "node": "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+  "env": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-static-06d-2246"
+  },
+  "type": {
+    "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+    "exitCode": 2,
+    "diagnostics": 227,
+    "added": 0,
+    "removed": 7
+  },
+  "style": {
+    "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file src/frontend/src/composables/useAdminArticleWrite.ts --file src/frontend/src/services/articleRecoveryJournal.ts --file src/frontend/src/services/privateStorageRegistry.ts",
+    "exitCode": 0,
+    "violations": 0
+  },
+  "projectionOnly": false,
+  "runtimeQualification": false,
+  "controls": "NOT RUN; listing/collection/mount/native/backend/product holds remain"
+}

@@ -1,0 +1,9 @@
+{
+  "testedSource": "4fb995cbf11be6cab84299c321a6a3ce6a9079d3",
+  "totalFrontendFiles": 727,
+  "mismatch": [],
+  "actualJournalOwner": "02cfd1a9919d6008ff203fe377e01d29abb236cc",
+  "projectionOnly": false,
+  "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+  "configOverlay": "69992a0769a896434028d2b16776423f31c6c7d0"
+}

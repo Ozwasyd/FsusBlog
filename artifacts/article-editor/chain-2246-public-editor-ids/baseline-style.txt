@@ -1,0 +1,65 @@
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteEditor.vue:161:78 eslint/@typescript-eslint/no-redundant-type-constituents: 'MarkdownAttachmentCaptureObservation' is an 'error' type that acts as 'any' and overrides all other types in this union type.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:86:1 eslint/import-x/order: There should be at least one empty line between import groups
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:120:28 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:129:39 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:130:34 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:134:80 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:135:55 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:142:65 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:143:26 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:144:13 eslint/@typescript-eslint/no-floating-promises: Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:150:97 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:152:47 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:156:67 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:158:103 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:162:24 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:166:32 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:185:87 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:187:21 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:187:58 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:193:86 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:195:21 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:195:28 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:269:69 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:290:25 eslint/@stylistic/comma-dangle: Unexpected trailing comma.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:291:1 eslint/vue/script-indent: Expected indentation of 20 spaces but found 12 spaces.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:337:101 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:339:72 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:340:33 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:341:43 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:356:10 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:362:42 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:372:55 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:373:40 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:374:9 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:376:5 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:376:13 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:381:43 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:382:40 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:383:9 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:386:5 eslint/@stylistic/brace-style: Closing curly brace appears on the same line as the subsequent block.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:386:13 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:391:26 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:392:18 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:395:17 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:400:35 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:401:30 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:403:25 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:404:31 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:408:98 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:416:30 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:421:34 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:422:24 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:425:27 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:428:58 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:429:18 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:436:34 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:437:26 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:440:46 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:442:27 eslint/curly: Expected { after 'if' condition.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:443:10 eslint/curly: Expected { after 'else'.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:447:66 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:451:64 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:658:8 stylelint/media-feature-range-notation: Expected "context" media feature range notation (media-feature-range-notation)
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:664:6 stylelint/@stylistic/indentation: Expected indentation of 4 spaces (@stylistic/indentation)
+[frontend-style] src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue:665:2 stylelint/@stylistic/indentation: Expected indentation of 0 spaces (@stylistic/indentation)
