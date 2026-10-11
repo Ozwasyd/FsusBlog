@@ -1,0 +1,60 @@
+--- a/src/frontend/src/layouts/AdminWorkspaceFrame.vue
++++ b/src/frontend/src/layouts/AdminWorkspaceFrame.vue
+@@ -60,6 +60,7 @@
+     type AccountPageKind
+ } from '@/router/accountRouteMeta';
+ import { installArticleWorkspaceEditorSessions, retireArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
++import type { ArticleWorkspaceRetainedRecoveryPort } from '@/services/authoring/articleWorkspaceRetainedRecoverySnapshot';
+ import { createArticleWorkspaceMountedEditorResolver, type ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
+ import {
+     articleWorkspaceTabRouter,
+@@ -562,6 +563,49 @@
+     return port;
+ }
+ 
++/** Borrow the real original Write partial port AFTER this original installation has published. */
++function getArticleWorkspaceRetainedRecoveryPort(): ArticleWorkspaceRetainedRecoveryPort | null
++{
++    const outlet = routeOutletInstance.value;
++    const expectedEpoch = layoutEpoch;
++    const publication = workspaceLayoutSource.value;
++    const ports = startupPorts;
++    const verify = (): void =>
++    {
++        const checkLocal = (): void =>
++        {
++            if (!ports || !mounted || layoutRevoking || layoutRevoked || layoutEpoch !== expectedEpoch
++                || workspaceStartupState.value !== 'started' || !publication
++                || workspaceLayoutSource.value !== publication || routeOutletInstance.value !== outlet
++                || startupSignal?.aborted || props.workspaceStartup !== ports
++                || workspaceInstallation?.ports !== ports || workspaceInstallation.failed)
++            {
++                throw new Error('article-workspace-recovery-publication-unavailable');
++            }
++        };
++        checkLocal();
++        if (ports) requireStartupAdmission(ports);
++        checkLocal();
++    };
++    verify();
++    if (!outlet || (typeof outlet !== 'object' && typeof outlet !== 'function')) return null;
++    const read = Reflect.get(outlet, 'getArticleWorkspaceRetainedRecoveryPort');
++    verify();
++    if (typeof read !== 'function') return null;
++    const value: unknown = read.call(outlet);
++    verify();
++    if (!value || typeof value !== 'object') return null;
++    const prepare: unknown = Reflect.get(value, 'prepareSnapshot');
++    verify();
++    const restore: unknown = Reflect.get(value, 'restoreSnapshot');
++    verify();
++    // This is the same Write-issued actual port, never a reconstructed host or ready receipt.
++    return typeof prepare === 'function' && typeof restore === 'function'
++        ? value as ArticleWorkspaceRetainedRecoveryPort : null;
++}
++
++defineExpose({ getArticleWorkspaceRetainedRecoveryPort });
++
+ function createWorkspaceLayoutSource(sessions: AuthoringWorkspaceSessionSource, verifyStartup: () => void): AuthoringWorkspaceLayoutSource | null
+ {
+     if (!startupPorts || !layoutPorts)
