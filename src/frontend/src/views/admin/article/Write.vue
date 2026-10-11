@@ -166,11 +166,15 @@
                             :secondary-label="translate('admin.workspaceLayout.trailing')"
                             :separator-label="translate('admin.workspaceLayout.resize')"
                         >
-                            <template #retained="{ projection, leadingRegion, trailingRegion }">
+                            <template #retained="{ expectation, placementRoot, leadingRegion, trailingRegion, ownsRegion, containsPlacementNode, revokePlacement }">
                                 <AuthoringWorkspaceSessionOutlet
-                                    :projection="projection"
+                                    :expectation="expectation"
+                                    :placement-root="placementRoot"
                                     :leading-region="leadingRegion"
                                     :trailing-region="trailingRegion"
+                                    :owns-region="ownsRegion"
+                                    :contains-placement-node="containsPlacementNode"
+                                    :revoke-placement="revokePlacement"
                                     :read-entry="readPrimaryWorkspaceEntry"
                                     :primary="true"
                                 >
@@ -821,7 +825,7 @@ import {
     type ArticleWorkspaceStatusSummary
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/articleWriterMountedEditorSource';
-import { authoringWorkspaceLayoutSourceKey, type AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import { authoringWorkspaceLayoutSourceKey, type AuthoringWorkspaceLayoutPort, type AuthoringWorkspaceOutletExpectation } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import {
     calculateOpenArticleDocumentDigest,
     type ArticleDocumentContextRef,
@@ -998,7 +1002,7 @@ const workspaceStatus = computed<ArticleWorkspaceStatusSummary>(() => ({
 }));
 const workspaceTabId = shallowRef<string | null>(null);
 /** Read only the original entry associated with this actual bound primary native editor. */
-function readPrimaryWorkspaceEntry(): OpenArticleDocumentEntry | null
+function readPrimaryWorkspaceEntry(expected: AuthoringWorkspaceOutletExpectation): OpenArticleDocumentEntry | null
 {
     const tabId = workspaceTabId.value;
     const source = workspaceMountedSource.value;
@@ -1007,20 +1011,46 @@ function readPrimaryWorkspaceEntry(): OpenArticleDocumentEntry | null
         return null;
     }
     const registry = articleWorkspaceTabRouter.getRegistry();
-    const revision = registry.getRevision();
+    const groups = workspaceLayoutSource.value?.groups;
+    const isCurrentExpectation = (): boolean =>
+    {
+        if (!groups || registry !== expected.registry || groups !== expected.groups
+            || articleWorkspaceTabRouter.getRegistry() !== registry || workspaceLayoutSource.value?.groups !== groups
+            || !groups.verifyBinding(registry) || registry.getRevision() !== expected.projection.state.articleRegistryRevision)
+        {
+            return false;
+        }
+        const current = groups.exportProjection();
+        return current.ratioScope === expected.projection.ratioScope && current.splitRatioRef === expected.projection.splitRatioRef
+            && current.state.revision === expected.projection.state.revision
+            && current.state.articleRegistryRevision === expected.projection.state.articleRegistryRevision
+            && current.state.contentDigest === expected.projection.state.contentDigest;
+    };
+    if (!isCurrentExpectation())
+    {
+        return null;
+    }
     const entry = registry.getEntry(tabId);
     if (!entry)
     {
         return null;
     }
-    const owner = source.readDocumentBinding(entry.editorSessionRef);
     const identity = workspaceIdentity.value;
     const context = workspaceDocumentContext.value;
+    const owner = source.readDocumentBinding(entry.editorSessionRef);
     if (workspaceMountedSource.value !== source || workspaceTabId.value !== tabId
-        || articleWorkspaceTabRouter.getRegistry() !== registry || registry.getRevision() !== revision
+        || workspaceIdentity.value !== identity || workspaceDocumentContext.value !== context || !isCurrentExpectation()
         || owner?.identity.articleId !== identity.articleId || owner.identity.draftId !== identity.draftId
         || owner.identity.documentId !== identity.documentId || owner.documentContext.documentEpoch !== context.documentEpoch
         || owner.documentContext.sourceRevision !== context.sourceRevision || owner.documentContext.draftRevision !== context.draftRevision)
+    {
+        return null;
+    }
+    if (owner.identity.articleId !== entry.identity.articleId || owner.identity.draftId !== entry.identity.draftId
+        || owner.identity.documentId !== entry.identity.documentId
+        || owner.documentContext.documentEpoch !== entry.documentContext.documentEpoch
+        || owner.documentContext.sourceRevision !== entry.documentContext.sourceRevision
+        || owner.documentContext.draftRevision !== entry.documentContext.draftRevision)
     {
         return null;
     }

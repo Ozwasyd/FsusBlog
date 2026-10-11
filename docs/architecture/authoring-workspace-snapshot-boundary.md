@@ -720,3 +720,34 @@ offer unique public per-session IDs before rendering two actual wrappers.
 No missing producer API or DOM-ID prop is assumed available. The current actual
 mount is one primary editor; second binding/IDs/lifecycle remain blocked and all
 runtime qualification stays UNRUN.
+
+The independent 3cd15 outlet review found three new source defects. Their
+counterexamples are source-reasoned only, never executed qualification:
+
+- A group/registry publication advances revisions while this entry's coordinates
+  stay unchanged. The old no-argument reader accepted the current stable read
+  against stale rendered projection. Placement now carries the actual captured
+  group and registry objects with the frozen projection. Write checks exact
+  canonical instance binding, expected article/group revisions, state digest and
+  opaque ratio scope/ref before and after native reads. Equal entry fields cannot
+  admit a different owner or advanced publication.
+- Native/Write context is newer while registry entry still has old document
+  coordinates. Comparing native only to Write previously missed this. The reader
+  now additionally compares entry/native article/draft/document identity and
+  document epoch/source/draft revisions; Write context/mount/entry owner and
+  expectation remain current across the call. Old entry/new native is refused.
+- A captured target is removed, reparented or replaced during/after the reader
+  callback. A nonnull node used to remain accepted, including detached leading
+  fallback. Layout now verifies its actual connected region refs, owner document,
+  configured region ID, parent container/frame and containment. Outlet captures
+  target/root/parking/callback identities and checks them before and after calls.
+  A real DOM observer revokes invalid targets and the old layout observation even
+  when props retain node pointers. The same Teleport subtree parks in its own
+  connected in-frame origin when no valid region remains; if the entire frame is
+  disconnected, it is hidden/unavailable while its component identity is retained.
+
+These guards issue no ownership, permission, session, native retention or geometry
+receipt. The existing 57b3 frozen state and cross-authority fallback remain intact.
+The second genuine Writer binding, wrapper public IDs and original frame/route
+lifetime are still producer blockers. All 30 controls/tests/list/browser/selection/
+IME/native/race/privacy/security qualifications remain UNRUN.

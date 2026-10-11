@@ -76,12 +76,28 @@ for (const tree of [script, controllerTree, outletTree])
     });
 }
 for (const required of ['<Teleport', ':to="placement.target"', ':hidden="!placement.visible"',
-    'props.readEntry()', 'tab.editorSessionRef === entry.editorSessionRef', 'tab.documentEpoch === entry.documentContext.documentEpoch',
-    'tab.lifecycleRevision === entry.lifecycleRevision'])
+    'value.readEntry(expected)', 'tab.editorSessionRef === entry.editorSessionRef', 'tab.documentEpoch === entry.documentContext.documentEpoch',
+    'tab.lifecycleRevision === entry.lifecycleRevision', 'value.root?.isConnected', 'node?.isConnected',
+    'value.ownsRegion(index, node)', 'isCurrent(value)', 'observer?.disconnect()', 'ref="parkingElement"'])
 {
     if (!outlet.includes(required))
     {
         failures.push(`missing-real-persistent-outlet:${required}`);
+    }
+}
+for (const required of ['groups !== expected.groups', 'registry !== expected.registry', '!groups.verifyBinding(registry)',
+    'registry.getRevision() !== expected.projection.state.articleRegistryRevision',
+    'current.state.revision === expected.projection.state.revision',
+    'current.state.contentDigest === expected.projection.state.contentDigest',
+    'owner.identity.articleId !== entry.identity.articleId', 'owner.identity.draftId !== entry.identity.draftId',
+    'owner.identity.documentId !== entry.identity.documentId',
+    'owner.documentContext.documentEpoch !== entry.documentContext.documentEpoch',
+    'owner.documentContext.sourceRevision !== entry.documentContext.sourceRevision',
+    'owner.documentContext.draftRevision !== entry.documentContext.draftRevision'])
+{
+    if (!writer.includes(required))
+    {
+        failures.push(`missing-original-expected-placement-or-native-coordinate:${required}`);
     }
 }
 if (/\bv-if\b|\bv-for\b|:key=|\bnew Map\b|\bnew WeakMap\b/u.test(outlet)

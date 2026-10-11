@@ -1,5 +1,7 @@
+import type { AuthoringTabGroupRegistry } from './authoringTabGroupRegistry';
 import type { AuthoringWorkspaceRect } from './authoringWorkspaceGeometryPolicy';
-import type { AuthoringWorkspaceLayoutSource } from './authoringWorkspaceLayoutController';
+import type { AuthoringWorkspaceLayoutProjection, AuthoringWorkspaceLayoutSource } from './authoringWorkspaceLayoutController';
+import type { OpenArticleDocumentRegistry } from './openArticleDocumentRegistry';
 import type { InjectionKey, ShallowRef } from 'vue';
 
 /** Borrow the actual mounted layout; these observations issue no readiness or receipt. */
@@ -8,6 +10,13 @@ export interface AuthoringWorkspaceLayoutPort {
     invalidate(): void;
     readFrameRect(): AuthoringWorkspaceRect | null;
     readSeparatorRect(): AuthoringWorkspaceRect | null;
+}
+
+/** Captured real owners and revisions; this is an observation fence, never a receipt issuer. */
+export interface AuthoringWorkspaceOutletExpectation {
+    readonly groups: AuthoringTabGroupRegistry;
+    readonly registry: OpenArticleDocumentRegistry;
+    readonly projection: AuthoringWorkspaceLayoutProjection;
 }
 
 

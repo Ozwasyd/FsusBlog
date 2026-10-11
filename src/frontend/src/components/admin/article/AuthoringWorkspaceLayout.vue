@@ -6,6 +6,7 @@
         :data-layout-block-reason="observation.reason ?? undefined"
     >
         <div
+            ref="regionContainer"
             class="authoring-workspace-layout__regions"
             :style="regionStyle"
         >
@@ -69,9 +70,13 @@
         </div>
         <slot
             name="retained"
-            :projection="slotProjection"
+            :expectation="outletExpectation"
+            :placement-root="frameElement"
             :leading-region="leadingRegion"
             :trailing-region="trailingRegion"
+            :owns-region="ownsRegion"
+            :contains-placement-node="containsPlacementNode"
+            :revoke-placement="invalidate"
         />
         <slot
             name="unavailable"
@@ -85,8 +90,9 @@
 import { FsusResizeSeparator } from '@ozwasyd/element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue';
 
+import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
 import type { AuthoringWorkspaceGeometryPlan } from '@/services/authoring/authoringWorkspaceGeometryPolicy';
-import type { AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import type { AuthoringWorkspaceLayoutPort, AuthoringWorkspaceOutletExpectation } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import { copyAuthoringWorkspaceLayoutObservation, copyAuthoringWorkspaceLayoutProjection, createAuthoringWorkspaceLayoutController, unavailableAuthoringWorkspaceLayout } from '@/services/authoring/authoringWorkspaceLayoutController';
 import type { AuthoringWorkspaceLayoutObservation, AuthoringWorkspaceLayoutProjection, AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import type { AuthoringWorkspaceSeparatorProps } from '@/services/authoring/authoringWorkspaceSeparatorAdapter';
@@ -107,6 +113,7 @@ const emit = defineEmits<{
     observation: [value: AuthoringWorkspaceLayoutObservation];
 }>();
 const frameElement = shallowRef<HTMLElement | null>(null);
+const regionContainer = shallowRef<HTMLElement | null>(null);
 const leadingRegion = shallowRef<HTMLElement | null>(null);
 const trailingRegion = shallowRef<HTMLElement | null>(null);
 const separatorRegion = shallowRef<HTMLElement | null>(null);
@@ -117,18 +124,25 @@ type RenderState = Readonly<{
     geometry: AuthoringWorkspaceGeometryPlan | null;
     separatorProps: AuthoringWorkspaceSeparatorProps | null;
     localOffset: Readonly<{ left: number; top: number; }>;
+    outletOwners: Readonly<Pick<AuthoringWorkspaceOutletExpectation, 'groups' | 'registry'>> | null;
 }>;
 // Region DOM remains mounted independently of observations. Revocation clears all
 // authority-bound presentation so the leading default editor becomes available again.
 function fallbackRenderState(value: AuthoringWorkspaceLayoutObservation = unavailableAuthoringWorkspaceLayout()): RenderState
 {
-    return Object.freeze({ observation: value, projection: null, geometry: null,
+    return Object.freeze({ observation: value, projection: null, geometry: null, outletOwners: null,
                            separatorProps: null, localOffset: Object.freeze({ left: 0, top: 0 }) });
 }
 const renderState = shallowRef<RenderState>(fallbackRenderState());
 const observation = computed(() => renderState.value.observation);
 const projection = computed(() => renderState.value.projection);
 const slotProjection = computed(() => projection.value ? copyAuthoringWorkspaceLayoutProjection(projection.value) : null);
+const outletExpectation = computed<AuthoringWorkspaceOutletExpectation | null>(() =>
+{
+    const view = slotProjection.value;
+    const owners = renderState.value.outletOwners;
+    return view && owners ? Object.freeze({ groups: owners.groups, registry: owners.registry, projection: view }) : null;
+});
 const geometry = computed(() => renderState.value.geometry);
 const separatorProps = computed(() => renderState.value.separatorProps);
 let controller: ReturnType<typeof createAuthoringWorkspaceLayoutController> | null = null;
@@ -137,6 +151,21 @@ let generation = 0;
 let disposed = false;
 let invalidating = false;
 let resizeObserver: ResizeObserver | null = null;
+
+function containsPlacementNode(node: HTMLElement): boolean
+{
+    const frame = frameElement.value;
+    return !!frame?.isConnected && node.isConnected && node.ownerDocument === frame.ownerDocument && frame.contains(node);
+}
+
+function ownsRegion(index: 0 | 1, node: HTMLElement): boolean
+{
+    const frame = frameElement.value;
+    const container = regionContainer.value;
+    return containsPlacementNode(node) && !!container?.isConnected && container.parentElement === frame
+        && node.parentElement === container && node === (index === 0 ? leadingRegion.value : trailingRegion.value)
+        && node.id === (index === 0 ? props.primaryRegionId : props.secondaryRegionId);
+}
 
 // Check only the documented public cancel capability on the actual root component
 // ref. This is a consumer requirement, not a fabricated SDK declaration or receipt.
@@ -161,8 +190,12 @@ function refresh(): void
         return;
     }
     const expected = generation;
+    const source = props.source;
+    const groups = source?.groups ?? null;
+    const registry = articleWorkspaceTabRouter.getRegistry();
     let value = controller?.refresh() ?? unavailableAuthoringWorkspaceLayout();
-    if (disposed || generation !== expected)
+    if (disposed || generation !== expected || props.source !== source || props.source?.groups !== groups && groups !== null
+        || articleWorkspaceTabRouter.getRegistry() !== registry)
     {
         return;
     }
@@ -185,6 +218,7 @@ function refresh(): void
     }
     renderState.value = value.status === 'planned'
         ? Object.freeze({ observation: value, projection: value.projection, geometry: value.geometry,
+                          outletOwners: groups ? Object.freeze({ groups, registry }) : null,
                           separatorProps: value.separator.status === 'planned' ? value.separator.props : null,
                           localOffset: frame && available
                               ? Object.freeze({ left: available.left - frame.left, top: available.top - frame.top }) : Object.freeze({ left: 0, top: 0 }) })
