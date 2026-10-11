@@ -2,6 +2,8 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 
 import type { AuthoringTabGroupRegistryState, AuthoringTabGroupCommandResult } from './authoringTabGroupRegistry';
+import { authoringWorkspaceRatioOwner, authoringWorkspaceRatioPolicy, isAuthoringWorkspaceRatioPermille } from './authoringWorkspaceRatioOwner';
+import type { AuthoringWorkspaceRatioScope, AuthoringWorkspaceRatioRef, AuthoringWorkspaceRatioChange } from './authoringWorkspaceRatioOwner';
 
 export const openArticleDocumentRegistrySchema = 'fsusblog.open-article-document-registry.v1' as const;
 export const openArticleDocumentEntrySchema = 'fsusblog.open-article-document-entry.v1' as const;
@@ -163,11 +165,16 @@ export interface UpdateArticleGroupOwnershipTransactionCommand extends RegistryC
     groupStateBeforeDigest: string;
     groupStateAfterDigest: string;
     groupCommandDigest: string;
+    ratioRevisionBefore: number;
+    ratioRevisionAfter: number;
+    splitRatioPermille: number;
 }
 
 export interface ArticleGroupOwnershipPublication {
     state: AuthoringTabGroupRegistryState;
     commandHistory: Map<string, { digest: string; result: AuthoringTabGroupCommandResult; }>;
+    ratioScope: AuthoringWorkspaceRatioScope;
+    splitRatioRef: AuthoringWorkspaceRatioRef;
 }
 
 /** Created by the canonical owner, retained privately by the unique group owner. */
@@ -327,7 +334,7 @@ const commandKeys: Record<OpenArticleDocumentCommand['kind'], readonly string[]>
     'update-group-ownership-transaction': [
         'schema', 'kind', 'commandId', 'idempotencyKey', 'expectedRevision', 'tabs', 'targetGroupIds',
         'activeTabId', 'ownershipTransactionRef', 'expectedGroupRevision', 'groupStateBeforeDigest',
-        'groupStateAfterDigest', 'groupCommandDigest'
+        'groupStateAfterDigest', 'groupCommandDigest', 'ratioRevisionBefore', 'ratioRevisionAfter', 'splitRatioPermille'
     ]
 };
 
@@ -541,7 +548,10 @@ function isValidCommand(command: unknown, ownershipMemberLimit = Number.MAX_SAFE
                 && isStableId(record.ownershipTransactionRef) && Number.isSafeInteger(record.expectedGroupRevision) && Number(record.expectedGroupRevision) >= 0
                 && typeof record.groupStateBeforeDigest === 'string' && digestPattern.test(record.groupStateBeforeDigest)
                 && typeof record.groupStateAfterDigest === 'string' && digestPattern.test(record.groupStateAfterDigest)
-                && typeof record.groupCommandDigest === 'string' && digestPattern.test(record.groupCommandDigest);
+                && typeof record.groupCommandDigest === 'string' && digestPattern.test(record.groupCommandDigest)
+                && Number.isSafeInteger(record.ratioRevisionBefore) && Number(record.ratioRevisionBefore) >= 0
+                && Number.isSafeInteger(record.ratioRevisionAfter) && Number(record.ratioRevisionAfter) >= Number(record.ratioRevisionBefore)
+                && isAuthoringWorkspaceRatioPermille(record.splitRatioPermille);
         }
     }
 }
@@ -624,27 +634,37 @@ export class OpenArticleDocumentRegistry
     private tabIdBySessionRef = new Map<string, string>();
     private processedCommands = new Map<string, ProcessedCommand>();
     private revision = 0;
-    private ownershipTransactionPending = false;
-    private groupOwnershipCell: ArticleGroupOwnershipCell | null = null;
+    #ownershipTransactionPending = false;
+    #groupOwnershipCell: ArticleGroupOwnershipCell | null = null;
 
     public createGroupOwnershipCell(initial: ArticleGroupOwnershipPublication): ArticleGroupOwnershipCell
     {
-        if (this.groupOwnershipCell) throw new Error('article-group-owner-already-attached');
+        if (this.#groupOwnershipCell) throw new Error('article-group-owner-already-attached');
         const active = [...this.entriesByTabId.values()].find(entry => entry.isActive)?.tabId ?? null;
         if (!initial || !(initial.commandHistory instanceof Map) || initial.commandHistory.size !== 0
             || initial.state.revision !== 0 || initial.state.articleRegistryRevision !== this.revision
             || calculateOpenArticleDocumentDigest(omitContentDigest(initial.state)) !== initial.state.contentDigest
             || !this.isExactGroupProjection(initial.state, this.entriesByTabId, active))
             throw new Error('article-group-initial-publication-invalid');
-        const cell = { value: cloneValue(initial) };
-        this.groupOwnershipCell = cell;
+        const ratio = authoringWorkspaceRatioOwner.resolve(initial.ratioScope, initial.splitRatioRef);
+        if (initial.state.splitRatio.revision !== ratio.revision || initial.state.splitRatio.splitRatioPermille !== ratio.splitRatioPermille)
+            throw new Error('article-group-initial-ratio-invalid');
+        const cell = { value: this.cloneGroupPublication(initial) };
+        this.#groupOwnershipCell = cell;
         return cell;
     }
 
     public executeGroupOwnershipTransaction(command: UpdateArticleGroupOwnershipTransactionCommand,
-        expected: ArticleGroupOwnershipPublication, next: ArticleGroupOwnershipPublication): OpenArticleDocumentCommandResult
+        expected: ArticleGroupOwnershipPublication, next: ArticleGroupOwnershipPublication,
+        ratioChange?: AuthoringWorkspaceRatioChange): OpenArticleDocumentCommandResult
     {
-        return this.executeCore(command, { expected, next });
+        return this.executeCore(command, { expected, next, ratioChange });
+    }
+
+    private cloneGroupPublication(publication: ArticleGroupOwnershipPublication): ArticleGroupOwnershipPublication
+    {
+        return { ...cloneValue({ state: publication.state, commandHistory: publication.commandHistory }),
+            ratioScope: publication.ratioScope, splitRatioRef: publication.splitRatioRef };
     }
 
     public getRevision(): number
@@ -681,9 +701,10 @@ export class OpenArticleDocumentRegistry
         return this.executeCore(command);
     }
 
-    private executeCore(command: unknown, groupPublication?: { expected: ArticleGroupOwnershipPublication; next: ArticleGroupOwnershipPublication; }): OpenArticleDocumentCommandResult
+    private executeCore(command: unknown, groupPublication?: { expected: ArticleGroupOwnershipPublication;
+        next: ArticleGroupOwnershipPublication; ratioChange?: AuthoringWorkspaceRatioChange; }): OpenArticleDocumentCommandResult
     {
-        if (this.ownershipTransactionPending)
+        if (this.#ownershipTransactionPending)
         {
             return makeRejectedResult(command, 'rejected-state', this.revision, 'ownership-transaction-pending');
         }
@@ -731,27 +752,27 @@ export class OpenArticleDocumentRegistry
         if (command.kind === 'update-group-ownership-transaction')
         {
             if (!groupPublication) return makeRejectedResult(command, 'rejected-state', this.revision, 'joint-group-publication-required', commandDigest);
-            this.ownershipTransactionPending = true;
+            this.#ownershipTransactionPending = true;
             try
             {
-                return this.applyGroupOwnershipTransaction(command, commandDigest, groupPublication.expected, groupPublication.next);
+                return this.applyGroupOwnershipTransaction(command, commandDigest, groupPublication.expected, groupPublication.next, groupPublication.ratioChange);
             }
             finally
             {
-                this.ownershipTransactionPending = false;
+                this.#ownershipTransactionPending = false;
             }
         }
 
         if (command.kind === 'update-group-ownership-set')
         {
-            this.ownershipTransactionPending = true;
+            this.#ownershipTransactionPending = true;
             try
             {
                 return this.applyOwnershipSet(command, commandDigest);
             }
             finally
             {
-                this.ownershipTransactionPending = false;
+                this.#ownershipTransactionPending = false;
             }
         }
 
@@ -915,9 +936,10 @@ export class OpenArticleDocumentRegistry
     }
 
     private applyGroupOwnershipTransaction(command: UpdateArticleGroupOwnershipTransactionCommand, commandDigest: string,
-        expected: ArticleGroupOwnershipPublication, next: ArticleGroupOwnershipPublication): OpenArticleDocumentCommandResult
+        expected: ArticleGroupOwnershipPublication, next: ArticleGroupOwnershipPublication,
+        ratioChange?: AuthoringWorkspaceRatioChange): OpenArticleDocumentCommandResult
     {
-        const cell = this.groupOwnershipCell;
+        const cell = this.#groupOwnershipCell;
         if (!cell || cell.value !== expected || expected.state.revision !== command.expectedGroupRevision
             || expected.state.contentDigest !== command.groupStateBeforeDigest)
         {
@@ -929,6 +951,14 @@ export class OpenArticleDocumentRegistry
         }
         try
         {
+            const currentRatio = authoringWorkspaceRatioOwner.resolve(expected.ratioScope, expected.splitRatioRef);
+            const proposedRatio = ratioChange ? authoringWorkspaceRatioOwner.readPrepared(expected.ratioScope, ratioChange) : currentRatio;
+            if (next.ratioScope !== expected.ratioScope || next.splitRatioRef !== proposedRatio.ratioRef
+                || ratioChange && 'expectedRatioRef' in proposedRatio && proposedRatio.expectedRatioRef !== expected.splitRatioRef
+                || command.ratioRevisionBefore !== currentRatio.revision || command.ratioRevisionAfter !== proposedRatio.revision
+                || command.splitRatioPermille !== proposedRatio.splitRatioPermille
+                || next.state.splitRatio.revision !== proposedRatio.revision || next.state.splitRatio.splitRatioPermille !== proposedRatio.splitRatioPermille)
+                return makeRejectedResult(command, 'rejected-cas', this.revision, 'ratio-publication-mismatch', commandDigest);
             const changes: ArticleGroupOwnershipChange[] = [];
             const nextEntries = new Map(this.entriesByTabId);
             for (const reference of command.tabs)
@@ -963,14 +993,26 @@ export class OpenArticleDocumentRegistry
             }
             if (!(next.commandHistory instanceof Map)) return makeRejectedResult(command, 'rejected-state', this.revision, 'group-idempotency-publication-mismatch', commandDigest);
             const cached = next.commandHistory.get(command.idempotencyKey);
+            const currentActiveTabId = [...this.entriesByTabId.values()].find(entry => entry.isActive)?.tabId ?? null;
             if (next.commandHistory.size !== expected.commandHistory.size + 1
                 || [...expected.commandHistory].some(([key, value]) => next.commandHistory.get(key) !== value)
-                || !cached || cached.digest !== command.groupCommandDigest || cached.result.commandId !== command.commandId
+                || !cached || !hasExactKeys(cached, ['digest', 'result'])
+                || !hasExactKeys(cached.result, ['schema', 'commandId', 'idempotencyKey', 'status', 'reason', 'commandDigest',
+                    'revisionBefore', 'revisionAfter', 'articleRevisionBefore', 'articleRevisionAfter', 'ownershipTransactionRef',
+                    'before', 'after', 'contentDigest'])
+                || cached.digest !== command.groupCommandDigest || cached.result.commandId !== command.commandId
                 || cached.result.idempotencyKey !== command.idempotencyKey || cached.result.after.contentDigest !== state.contentDigest
-                || cached.result.commandDigest !== command.groupCommandDigest || cached.result.status !== 'applied'
+                || cached.result.schema !== 'fsusblog.authoring-tab-group-result.v1'
+                || cached.result.commandDigest !== command.groupCommandDigest || cached.result.status !== 'applied' || cached.result.reason !== null
                 || cached.result.ownershipTransactionRef !== command.ownershipTransactionRef
                 || cached.result.revisionBefore !== command.expectedGroupRevision || cached.result.revisionAfter !== state.revision
                 || cached.result.articleRevisionBefore !== this.revision || cached.result.articleRevisionAfter !== state.articleRegistryRevision
+                || cached.result.before.revision !== command.expectedGroupRevision || cached.result.before.articleRegistryRevision !== this.revision
+                || !this.isExactGroupProjection(cached.result.before, this.entriesByTabId, currentActiveTabId)
+                || calculateOpenArticleDocumentDigest(cached.result.before.groups.map(group => group.groupId))
+                    !== calculateOpenArticleDocumentDigest(expected.state.groups.map(group => group.groupId))
+                || calculateOpenArticleDocumentDigest(omitContentDigest(cached.result.before)) !== cached.result.before.contentDigest
+                || calculateOpenArticleDocumentDigest(omitContentDigest(cached.result.after)) !== state.contentDigest
                 || calculateOpenArticleDocumentDigest(omitContentDigest(cached.result)) !== cached.result.contentDigest)
             {
                 return makeRejectedResult(command, 'rejected-state', this.revision, 'group-idempotency-publication-mismatch', commandDigest);
@@ -983,14 +1025,23 @@ export class OpenArticleDocumentRegistry
             const outward = cloneValue(result);
             const nextProcessed = new Map(this.processedCommands);
             nextProcessed.set(command.idempotencyKey, { commandDigest, result: cloneValue(result) });
-            const publication = cloneValue(next);
+            const publication = this.cloneGroupPublication(next);
             const descriptor = Object.getOwnPropertyDescriptor(cell, 'value');
             if (!descriptor?.writable || descriptor.get || descriptor.set)
             {
                 return makeRejectedResult(command, 'rejected-state', this.revision, 'group-publication-cell-not-writable', commandDigest);
             }
+            for (const field of ['entriesByTabId', 'processedCommands', 'revision'])
+            {
+                const property = Object.getOwnPropertyDescriptor(this, field);
+                if (!property?.writable || property.get || property.set)
+                    return makeRejectedResult(command, 'rejected-state', this.revision, 'registry-publication-field-not-writable', commandDigest);
+            }
             // The registered cell is created here as a plain own data property.
             // All fallible work has finished; no publisher callback or await runs.
+            // The actual ratio owner performs its exact-ref CAS before the plain
+            // assignments. Its refusal occurs before any Registry publication.
+            if (ratioChange) authoringWorkspaceRatioOwner.commit(expected.ratioScope, ratioChange);
             this.entriesByTabId = nextEntries;
             this.processedCommands = nextProcessed;
             this.revision = result.revisionAfter;
@@ -1007,14 +1058,18 @@ export class OpenArticleDocumentRegistry
     {
         if (!hasExactKeys(state, ['schema', 'revision', 'articleRegistryRevision', 'layoutState', 'effectiveLayoutState', 'groups',
             'activeGroupId', 'focusedGroupId', 'effectiveFocusedGroupId', 'focusHistory', 'activationHistory', 'historyCapacity',
-            'splitRatioRef', 'collapsedByViewportRef', 'contentDigest'])
+            'splitRatio', 'collapsedByViewportRef', 'contentDigest'])
             || state.schema !== 'fsusblog.authoring-tab-group-registry.v1'
             || !Array.isArray(state.groups) || state.groups.length < 1 || state.groups.length > 2
             || Object.keys(state.groups).length !== state.groups.length
             || new Set(state.groups.map(group => group.groupId)).size !== state.groups.length
             || !state.groups.some(group => group.groupId === state.activeGroupId)
             || !state.groups.some(group => group.groupId === state.focusedGroupId)
-            || !isStableId(state.splitRatioRef) || !isNullableStableId(state.collapsedByViewportRef)
+            || !hasExactKeys(state.splitRatio, ['policySchema', 'revision', 'splitRatioPermille'])
+            || state.splitRatio.policySchema !== authoringWorkspaceRatioPolicy.schema
+            || !Number.isSafeInteger(state.splitRatio.revision) || state.splitRatio.revision < 0
+            || !isAuthoringWorkspaceRatioPermille(state.splitRatio.splitRatioPermille)
+            || !isNullableStableId(state.collapsedByViewportRef)
             || !Number.isSafeInteger(state.historyCapacity) || state.historyCapacity < 1
             || state.layoutState !== (state.groups.length === 2 ? 'horizontal-two-group' : 'single-group')
             || state.effectiveLayoutState !== (state.collapsedByViewportRef ? 'single-group' : state.layoutState)
