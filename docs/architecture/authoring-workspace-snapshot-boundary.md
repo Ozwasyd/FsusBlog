@@ -270,7 +270,7 @@ preserving the owner's requested ratio/ref for later expansion.
 The exported required matrix includes 375/768/1024/1366/1440 viewports,
 100/150/200% browser zoom, Rail/inspector combinations, soft keyboard and
 appearance/input states. It records coverage requirements, not observations.
-`tools/frontend/check-authoring-workspace-layout-source.mjs` parses the four
+`tools/frontend/check-authoring-workspace-layout-source.mjs` parses the five
 delivered product modules without importing them. Its AST guard checks their
 closed layout vocabulary, absence of DOM/storage/editor/group-model dependencies,
 sole private ratio owner and exact-ref CAS source, and canonical snapshot bounds.
@@ -460,3 +460,34 @@ focus command or local overlay is used to conceal it. Host retain/suspend
 admission and the corrected focus projection are required before production
 mounting/collapse. All 30 existing source cases and all host/layout/browser/native/
 receipt/race/security/privacy/IME qualification remain UNRUN.
+
+
+### Original mounted-session provider source
+
+The earlier production-host discovery was superseded by the actual offered
+Blog4210 `cb154e1001f4d45977e1529b6c72cc59d0d02049` and UI914
+`8afe8523b35f296a0131951b55b7e466a7a0f486` source. Original
+`articleWorkspaceEditorSessionComposition.ts` exports the unique
+`installArticleWorkspaceEditorSessions(resolveMountedEditor)` entry: the same
+resolver returns the already installed host; a different resolver is rejected.
+Original `articleWorkspaceMountedEditorResolver.ts` reads Writer-owned mounts and
+document bindings, obtains the public getSession/inspectDocumentState owner,
+and rechecks actual editor/session identity and document revision after reading.
+It does not derive identity from route/component order or echo router entries.
+
+`authoringWorkspaceSessionSource.ts` consumes that exact existing install entry
+with the original stable mounted resolver, and forwards original host.getSession
+and exportState reads. It creates no host/registry, resolver cache, editor state,
+ready flag, attachment or lifecycle action. It is only source composition: no
+installation or product import was executed in this task. Original Writer must
+supply its genuine mount/document read callbacks; this consumer does not modify
+shared .vue/session files or fabricate those callbacks.
+
+The offered full factory still explicitly throws
+public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,
+draft,crash-journal from captureSnapshot, and restoreSnapshot returns blocked.
+The composition source does not conceal those refusals. Panel/draft/journal,
+resource controls and retained-DOM/restore admission remain original owner work.
+Until complete admission exists, this source connection cannot make hidden
+sessions or production two-group layout ready. Existing 30 cases do not execute
+this provider or the genuine group connection; all runtime holds remain.

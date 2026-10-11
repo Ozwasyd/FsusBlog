@@ -17,7 +17,8 @@ const ownerPath = 'src/frontend/src/services/authoring/authoringWorkspaceRatioOw
 const geometryPath = 'src/frontend/src/services/authoring/authoringWorkspaceGeometryPolicy.ts';
 const separatorPath = 'src/frontend/src/services/authoring/authoringWorkspaceSeparatorAdapter.ts';
 const groupPortsPath = 'src/frontend/src/services/authoring/authoringWorkspaceGroupLayoutPorts.ts';
-const sources = new Map([ownerPath, geometryPath, separatorPath, groupPortsPath].map(file => [file, readFileSync(path.join(root, file), 'utf8')]));
+const sessionSourcePath = 'src/frontend/src/services/authoring/authoringWorkspaceSessionSource.ts';
+const sources = new Map([ownerPath, geometryPath, separatorPath, groupPortsPath, sessionSourcePath].map(file => [file, readFileSync(path.join(root, file), 'utf8')]));
 const trees = new Map([...sources].map(([file, source]) => [file, ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)]));
 const failures = [];
 const forbiddenIdentifiers = new Set([
@@ -53,7 +54,9 @@ for (const [file, tree] of trees)
             || file === separatorPath && (['./authoringWorkspaceRatioOwner', './authoringWorkspaceGeometryPolicy'].includes(node.moduleSpecifier.text)
                 || node.moduleSpecifier.text === '@ozwasyd/element-plus' && node.importClause?.isTypeOnly)
             || file === groupPortsPath && (['./authoringTabGroupRegistry', './openArticleDocumentRegistry', './authoringWorkspaceRatioOwner'].includes(node.moduleSpecifier.text)
-                || ['./authoringWorkspaceGeometryPolicy', './authoringWorkspaceSeparatorAdapter'].includes(node.moduleSpecifier.text) && node.importClause?.isTypeOnly));
+                || ['./authoringWorkspaceGeometryPolicy', './authoringWorkspaceSeparatorAdapter'].includes(node.moduleSpecifier.text) && node.importClause?.isTypeOnly)
+            || file === sessionSourcePath && (node.moduleSpecifier.text === './articleWorkspaceEditorSessionComposition'
+                || ['./authoringSessionHost', './fsusUiEditorSessionFactory'].includes(node.moduleSpecifier.text) && node.importClause?.isTypeOnly));
         if (ts.isImportDeclaration(node) && !ownedImport)
         {
             failures.push(`${file}: unowned-import`);
@@ -234,6 +237,20 @@ visit(groupPortsTree, node =>
     }
 });
 
+const sessionSourceTree = trees.get(sessionSourcePath);
+visit(sessionSourceTree, node =>
+{
+    if (ts.isNewExpression(node))
+    {
+        failures.push('session-source: alternate-host-or-registry-construction');
+    }
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+        && ['attach', 'activate', 'pauseResources', 'resumeResources', 'restoreSnapshot'].includes(node.expression.name.text))
+    {
+        failures.push('session-source: invented-lifecycle-admission');
+    }
+});
+
 const ratioValues = {};
 visit(ownerTree, node =>
 {
@@ -279,7 +296,7 @@ if (!wireRatio || ratioValues.minimumPermille !== wireRatio.min || ratioValues.m
 const uniqueFailures = [...new Set(failures)];
 console.log(JSON.stringify({
     schema: 'fsusblog.authoring-workspace-layout-source-scan.v1',
-    scope: 'ratio-geometry-separator-and-original-group-ports-source-only',
+    scope: 'ratio-geometry-separator-original-group-and-session-consumers-source-only',
     status: uniqueFailures.length === 0 ? 'source-check-pass' : 'source-check-fail',
     sources: [...sources].map(([file, source]) => ({ path: file, sha256: createHash('sha256').update(source).digest('hex') })),
     failures: uniqueFailures,
