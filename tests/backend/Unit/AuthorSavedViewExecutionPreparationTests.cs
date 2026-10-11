@@ -1,4 +1,10 @@
+using System.Security.Claims;
+
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Authoring;
+
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -315,7 +321,7 @@ public sealed class AuthorSavedViewExecutionPreparationTests
         var source = Reseal(new(Guid.NewGuid(), s_owner, 1, 1, "Private saved view", validated.Query,
             validated.QueryDigest, validated.DependencyDigest, false, 0,
             AuthorSavedViewLifecycleState.Active, DateTime.UnixEpoch, DateTime.UnixEpoch, string.Empty));
-        var boundary = new AuthorSavedViewApplicationFacadeTests.Fixture();
+        var boundary = new PreparationBoundary();
         boundary.Store.View = source;
         return new(source, boundary, provider, validator,
             new AuthorSavedViewExecutionPreparationService(boundary.Facade, validator));
@@ -333,10 +339,134 @@ public sealed class AuthorSavedViewExecutionPreparationTests
 
     private sealed record Fixture(
         AuthorSavedView Source,
-        AuthorSavedViewApplicationFacadeTests.Fixture Boundary,
+        PreparationBoundary Boundary,
         MutableProvider Provider,
         AuthorSavedViewQueryValidator Validator,
         AuthorSavedViewExecutionPreparationService Service);
+
+    private sealed class PreparationBoundary
+    {
+        public CapturingStore Store
+        {
+            get;
+        } = new();
+
+        public AuthorSavedViewApplicationFacade Facade
+        {
+            get;
+        }
+
+        public PreparationBoundary()
+        {
+            var accessor = new RequestContextAccessor
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(
+                    [
+                        new Claim("identity_kind", "admin_principal"),
+                        new Claim("admin_id", "42"),
+                        new Claim("admin_sid", "session-42"),
+                        new Claim(AdminPermissions.PermissionClaimType, AdminPermissions.ArticleWrite)
+                    ], "test"))
+                }
+            };
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["SITE_BASEURL"] = " https://site.test/ "
+                }).Build();
+            Facade = new(Store, accessor, configuration);
+        }
+    }
+
+    private sealed class RequestContextAccessor : IHttpContextAccessor
+    {
+        public HttpContext? HttpContext
+        {
+            get; set;
+        }
+    }
+
+    private sealed record Call(AuthorSavedViewOwner Owner, object? Input, CancellationToken Token);
+
+    private sealed class CapturingStore : IAuthorSavedViewStore
+    {
+        public AuthorSavedView? View
+        {
+            get; set;
+        }
+
+        public List<Call> Calls
+        {
+            get;
+        } = [];
+
+        public Action? BeforeReturn
+        {
+            get; set;
+        }
+
+        public async Task<AuthorSavedView?> GetAsync(
+            AuthorSavedViewOwner owner,
+            Guid viewId,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add(new(owner, viewId, cancellationToken));
+            await Task.Yield();
+            BeforeReturn?.Invoke();
+            return View;
+        }
+
+        // Preparation may only read individual saved views; an unexpected operation must fail.
+        public Task<AuthorSavedViewPage> ListAsync(
+            AuthorSavedViewOwner owner, AuthorSavedViewPageCursor? cursor, int limit,
+            CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        public Task<AuthorSavedViewVerificationResult> VerifyAsync(
+            AuthorSavedViewOwner owner, CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        public Task<AuthorSavedViewWriteReceipt> CreateAsync(
+            CreateAuthorSavedViewCommand command, CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        public Task<AuthorSavedViewWriteReceipt> UpdateAsync(
+            UpdateAuthorSavedViewCommand command, CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        public Task<AuthorSavedViewWriteReceipt> RenameAsync(
+            RenameAuthorSavedViewCommand command, CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        public Task<AuthorSavedViewWriteReceipt> SetPinnedAsync(
+            SetAuthorSavedViewPinnedCommand command, CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        public Task<AuthorSavedViewWriteReceipt> ReorderPinnedAsync(
+            ReorderAuthorSavedViewsCommand command, CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        public Task<AuthorSavedViewWriteReceipt> MovePinnedAsync(
+            MoveAuthorSavedViewsCommand command, CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        public Task<AuthorSavedViewWriteReceipt> SetDefaultAsync(
+            SetDefaultAuthorSavedViewCommand command, CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        public Task<AuthorSavedViewWriteReceipt> RetireAsync(
+            RetireAuthorSavedViewCommand command, CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        public Task<AuthorSavedViewWriteReceipt> DeleteAsync(
+            DeleteAuthorSavedViewCommand command, CancellationToken cancellationToken = default)
+            => throw UnexpectedOperation();
+
+        private static InvalidOperationException UnexpectedOperation()
+            => new("Preparation fixture admits GetAsync only.");
+    }
 
     private sealed class MutableProvider : IAuthorSavedViewDependencyProvider
     {
