@@ -110,8 +110,9 @@ to the actually tested06d; they cannot be removed with fabricated types/rules.
 
 Parent also resumed original backend #2258 task
 `01a1195b-2e86-72e6-a09d-ebac26f4401e`. Its original preview source66fa8b0e is retained
-in PR4068/4170 and is preparing narrow closure. Facts285 formal manifest, backend
-encoder and actual endpoint remain missing. Read references do not authorize broad
+in PR4068/4170 and is preparing narrow closure. The subsequent original offer7e68bb47 recovers actual facts DTO/handler/encoder.
+Writer already retained formal275/285 manifest and four projections. Source
+gaps are superseded by d27ed27e intake; runtime acceptance remains open. Read references do not authorize broad
 cherry-picks or substitute a frontend decoder for the missing backend producer.
 
 Newer supplied `673c342ae42967b9f505d749b3a91f5d261315e6` was fetched/read only. Its
@@ -144,3 +145,13 @@ Original #2245 accepted prerequisite evidence and the existing full snapshot/ser
 Document binding gaps remain open. All nine execution issues and tracking-only
 #1809 remain OPEN/unaccepted; the previous per-issue accounting is unchanged.
 No issue closure, merge, deployment, package publication or production migration.
+
+## Later exact source intake
+
+Parent supplied original backend offer PR4226 exact7e68bb47. Source d27ed27e
+actually consumes all15 Writer postimages (14 changes), including facts handler,
+DTO, encoder and preview service. See `../chain-2246-upload-source-intake/README.md`.
+The source59/f391 absence table above is historical, not the current Writer state.
+Writer7b/5e already had275/285 canonical entries and all four frame projections;
+the earlier Writer missing-manifest wording was incorrect. No frozen authority
+refresh or runtime/native/asset qualification follows from source intake.

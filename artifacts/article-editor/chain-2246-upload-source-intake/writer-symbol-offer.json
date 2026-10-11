@@ -1,0 +1,30 @@
+{
+  "symbols": {
+    "IFileService.ObserveCommittedUploadAsync": "src/backend/Interfaces/IFileService.cs",
+    "IFileService.ReadCommittedUploadPreviewAsync": "src/backend/Interfaces/IFileService.cs",
+    "UploadAssetObservation": "src/backend/Interfaces/UploadAssetObservation.cs",
+    "UploadAssetPreview": "src/backend/Interfaces/UploadAssetPreview.cs",
+    "HandleUploadAssetPreviewAsync": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+    "MapBinaryUploadAssetFactsEndpoints": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+    "HandleUploadAssetFactsAsync": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+    "UploadAssetPreviewDto": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+    "UploadAssetFactsDto": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+    "UploadAssetPreviewPod": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+    "WriteUploadAssetPreview": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+    "WriteUploadAssetFacts": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+    "ParseFacts": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp"
+  },
+  "targetMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "writerParentSupplied": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+  "writerCurrentRead": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+  "writerHeadDiscrepancy": "current read head5e differs from supplied7b; both exact target offers retained; neither branch merged or incorporated",
+  "ordinarySourceClosure": "15 target-specific files including actual endpoint join, IFileService/original observation reader, shared DTO/POD, C# encoder and native parser source",
+  "requiresBeforeAnyActivation": [
+    "canonical complete current-master frame allocation/source projections if using master",
+    "owner joins through existing real source; no fake OpenAPI/runtime observation",
+    "all held acceptance and original #2258 prerequisites remain necessary"
+  ],
+  "existingSourceCorrection": "Writer actual7b/5e manifests and four generated source enums already contain275/285; stale missing-manifest text is not current source evidence",
+  "consumerBoundary": "Writer/layout must retain their existing DTO/decoder/API callsite source via canonical owners; this offer does not overwrite frontend products or compose Writer",
+  "qualification": false
+}

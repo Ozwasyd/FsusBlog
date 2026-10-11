@@ -1,0 +1,153 @@
+{
+  "sourceOffer": "7e68bb47f1d11723b57b045649ca5fc510ed3ea5",
+  "actualBase": "dc98ae399932efa5445b6d4b4781e6ca17b37cd7",
+  "offerTarget": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+  "applyCheckExit": 0,
+  "applyExit": 0,
+  "reverseCheckExit": 0,
+  "postimages": [
+    {
+      "path": "src/backend/Interfaces/IFileService.cs",
+      "bytes": 1422,
+      "sha256": "460456b8e25b965320c2d521c7b9fa1c97723bee2622d57fbff9b1e42eab2011",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+      "bytes": 593,
+      "sha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/backend/Interfaces/UploadAssetPreview.cs",
+      "bytes": 260,
+      "sha256": "f552ea8ea9105e3e3afb9ff4acbc8e5cb962cc0197fab7d2de8fa51c027428ab",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "bytes": 3578,
+      "sha256": "39c5984bd01463b3e2deb6316608dffe84842e0eb772694e9f8e22ebfafbfd16",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "bytes": 13323,
+      "sha256": "5f5b6ae7b575ad3d1d1118c3f8e5d60f5b881859b394547fbdced5f922421ab6",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/backend/Services/FileService.AssetObservation.cs",
+      "bytes": 11245,
+      "sha256": "a2f2dd87425efb41d35a4ee2ccce276e52c05e746c7b3265fa52d9df447921a9",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+      "bytes": 8846,
+      "sha256": "5fcec4dbcd394698d06a9be30f33d66b0a512ea871bb4c8bfe1738bb29fd3800",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+      "bytes": 1206,
+      "sha256": "47927b6490f4313653f1f130bd1f3bac54d3332aea894a023ecf7e062197a678",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+      "bytes": 4169,
+      "sha256": "f6108a331c46b39da4988ef35f9e0a083c02cd46c2500064a92702887f89de1e",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+      "bytes": 6279,
+      "sha256": "574481057235df8c98a1a839ecd7cac7888eeb50db50cc2a9a17e45bddf2ceaf",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+      "bytes": 900,
+      "sha256": "242f88d0fe7eb0f123f903f9a58cbf5434d87608d7a4d56108404aeabb176453",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+      "bytes": 1068,
+      "sha256": "dc209c3b6e33f9fbfa9d5ca486863cdd1d49157c26fcb618a52def823262b10f",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+      "bytes": 1394,
+      "sha256": "87401200b84260f049960413330d1be87aecdcc781c9e09a25f7d137ab6c4d01",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/PodContractValidation.cs",
+      "bytes": 9480,
+      "sha256": "d9eb9a6e2bdf7d9f8b648d5a7a490aae195a4b7c2655310c357e4e7ecd49e413",
+      "postimageMatches": true
+    },
+    {
+      "path": "src/shared/Contracts/Validation/PodSizeCatalog.cs",
+      "bytes": 18596,
+      "sha256": "62fc06644ad7d957241ec3cd203c1092b075f2c048a5f9c2e6e50e1da78f4f6b",
+      "postimageMatches": true
+    }
+  ],
+  "unchangedSourceSha256": {
+    "src/shared/Contracts/Validation/aeds-protocol.json": "34556f6c878fcf16ccca736fdc48f82fe8e6e26196d25f8d8efaa207b095bb0e",
+    "src/shared/AedsFrameHeader.cs": "39524201ef934914fb09881328ee70ad02ef65de81898842ab1d498622835fab",
+    "src/core/Algorithms/AedsFrameType.cs": "030eccdf191d1edcd418dcdd3bf510af0ddf18f28d26139dc8d0065460aa6684",
+    "src/frontend/wasm/aeds/include/aeds_frame.hpp": "b2e54bb8e7f94a2580e7aa45303d13ec75df2751f5d032ba782df4f9571cac49",
+    "src/frontend/wasm/web/protocol/frame.ts": "12e04883266c5b546d6cb48c2b3f9772867d97ab1485dc391daa1b01369a5360",
+    "src/frontend/src/generated/fsusBinaryRoutes.ts": "820b6ebdc049405181e6f839f7eddc772a53c78b851d52e709edf5e49f08ce8c",
+    "src/shared/Contracts/Validation/fsusblog.openapi.json": "bd4f337f8b7e15f3c84a6f56de7e1e09cf276ed63ae8080088d2ca4fabd55343",
+    "src/shared/Contracts/Validation/aeds-endpoint-contracts.json": "0a823191299fff708b220042a55e33522dda679f98bbe830a677c635ba4396f0",
+    "src/frontend/src/composables/useAdminArticleWrite.ts": "b2b9de04072096d5b46465b191b5b650946fc3b3f67bd61c14719f885654f697",
+    "src/frontend/src/services/articleRecoveryJournal.ts": "60ec7b50ef0aa76e328727c7073817ac3f14064f3124a0c7032cfe298f3a9050"
+  },
+  "productExecution": false,
+  "frozenAuthorityRefreshed": false,
+  "commands": {
+    "applyCheck": [
+      "git",
+      "apply",
+      "--check",
+      "--index",
+      "/workspace/.tmp/chain2246-upload-source-intake/source.patch"
+    ],
+    "apply": [
+      "git",
+      "apply",
+      "--index",
+      "/workspace/.tmp/chain2246-upload-source-intake/source.patch"
+    ],
+    "reverseCheck": [
+      "git",
+      "apply",
+      "--reverse",
+      "--check",
+      "--index",
+      "/workspace/.tmp/chain2246-upload-source-intake/source.patch"
+    ]
+  },
+  "changedPaths": [
+    "src/backend/Interfaces/IFileService.cs",
+    "src/backend/Interfaces/UploadAssetPreview.cs",
+    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+    "src/backend/Services/FileService.AssetObservation.cs",
+    "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+    "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+    "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+    "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+    "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+    "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+    "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+    "src/shared/Contracts/Validation/PodContractValidation.cs",
+    "src/shared/Contracts/Validation/PodSizeCatalog.cs"
+  ]
+}

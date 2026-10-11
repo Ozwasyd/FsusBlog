@@ -1,0 +1,31 @@
+{
+  "originalObservation": {
+    "pr": 3813,
+    "implementationCommit": "982430c1c696e51715e1fb9587acbc2f61ec8902",
+    "serviceBlob": "a0f3cb9feb998efe39418673ba8ff293319e7022",
+    "schema": "fsusblog.upload-asset-observation.v1",
+    "contract": "original owner/token/expiry session, completed status, AssetId1779 lock, original native bytes/media/digest and canonical asset/reference ledger; no article grant/Vault receipt"
+  },
+  "preview": {
+    "pr": 4068,
+    "head": "61d686739fca17aa3f3fad3840de315c4d35eabe",
+    "transportCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+    "allocationCommit": "77d5a0602692da09a37ead6f544b1f09322b597a",
+    "recordAndTransportBoundToSameObservation": true,
+    "existingAt4170": "c6fb31f1cef6953cbe210ce23c8c281b9e0ff16f"
+  },
+  "facts": {
+    "originalImplementationCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+    "savedOwnBranch": "codex/chain-1975-provider-facts-only",
+    "savedHead": "de10f195911ec945da11537986911209f25b3fb6",
+    "endpoint": "POST /api/binary/upload/{uploadId}/facts",
+    "request": "UploadCompleteRequest:64 payload bytes",
+    "response": "UploadAssetFacts285/fsusblog.upload-asset-facts.v1:760 payload bytes, no image bytes",
+    "service": "original ObserveCommittedUploadAsync",
+    "encoder": "original WriteUploadAssetFacts",
+    "notNewlyInvented": true
+  },
+  "excluded": "ReadCommittedUploadInputAsync and cleanup business, commit/promotion integrity modifications, unrelated Canvas/workspace/writing-aid definitions and inherited branches",
+  "oldHistoricalTestReceipts": "not consumed, rerun, refreshed or promoted",
+  "qualification": false
+}

@@ -594,7 +594,21 @@
       4170
     ],
     "narrowClosurePending": true,
-    "facts285FormalManifestEncoderEndpointPresent": false,
-    "broadCherryPickAuthorized": false
+    "facts285FormalManifestEncoderEndpointPresent": true,
+    "broadCherryPickAuthorized": false,
+    "statusAsOfSourceCommit": "d27ed27e0e998955466ae2c4f70b599446f4d613",
+    "actualBackendSourceClosureConsumed": true,
+    "runtimeQualification": false,
+    "olderAbsenceRowsHistorical": true
+  },
+  "laterSourceIntake": {
+    "source": "d27ed27e0e998955466ae2c4f70b599446f4d613",
+    "originalOffer": "7e68bb47f1d11723b57b045649ca5fc510ed3ea5",
+    "target": "dc98ae399932efa5445b6d4b4781e6ca17b37cd7",
+    "postimages": 15,
+    "changedFiles": 14,
+    "writerManifestWasAlreadyPresent": true,
+    "sourceEvidence": "artifacts/article-editor/chain-2246-upload-source-intake/README.md",
+    "qualification": false
   }
 }

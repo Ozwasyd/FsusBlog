@@ -1,0 +1,148 @@
+{
+  "sourceCommit": "d27ed27e0e998955466ae2c4f70b599446f4d613",
+  "originalOffer": "7e68bb47f1d11723b57b045649ca5fc510ed3ea5",
+  "actualIntakeBase": "dc98ae399932efa5445b6d4b4781e6ca17b37cd7",
+  "symbols": [
+    {
+      "symbol": "IFileService.ObserveCommittedUploadAsync",
+      "path": "src/backend/Interfaces/IFileService.cs",
+      "blob": "633219159538ab98df5fefb6498b7134b8ae6f89",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "IFileService.ReadCommittedUploadPreviewAsync",
+      "path": "src/backend/Interfaces/IFileService.cs",
+      "blob": "633219159538ab98df5fefb6498b7134b8ae6f89",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "UploadAssetObservation",
+      "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+      "blob": "37afe9d22327903e50340b36484a07595ef6f76d",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "UploadAssetPreview",
+      "path": "src/backend/Interfaces/UploadAssetPreview.cs",
+      "blob": "540231e608cdf2c09c9c69fc24e6c90e34b59bb2",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "HandleUploadAssetPreviewAsync",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "blob": "78030e466fde3fcafbdf51f9d17c58b6eaa93192",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "MapBinaryUploadAssetFactsEndpoints",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "blob": "5fc20128d595d3374d8c3c2d9623009a1fe2ab3c",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "HandleUploadAssetFactsAsync",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "blob": "5fc20128d595d3374d8c3c2d9623009a1fe2ab3c",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "UploadAssetPreviewDto",
+      "path": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+      "blob": "000bc0b3b7fbcc84575d580b5fb18c514d091ac8",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "UploadAssetFactsDto",
+      "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+      "blob": "3048857d1f2ee97402b49e5a57bbc49b216b25e8",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "UploadAssetPreviewPod",
+      "path": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+      "blob": "50f1b80af5aa6c9ed2fdd7c106257fc50217911d",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "WriteUploadAssetPreview",
+      "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+      "blob": "a76d4e8aa327e2bf4cab692fe46dd8a5179111c8",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "WriteUploadAssetFacts",
+      "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+      "blob": "a76d4e8aa327e2bf4cab692fe46dd8a5179111c8",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    },
+    {
+      "symbol": "ParseFacts",
+      "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+      "blob": "ede77a09a2ddda855026ffcf38e720a7e20dda33",
+      "sourcePresent": true,
+      "runtimeQualification": false
+    }
+  ],
+  "manifestFrameCount": 263,
+  "existingWriterFrames": [
+    {
+      "name": "UploadAssetPreview",
+      "value": 275,
+      "goldenFamily": "upload-response",
+      "goldenOrder": 261
+    },
+    {
+      "name": "UploadAssetFacts",
+      "value": 285,
+      "goldenFamily": "upload-response",
+      "goldenOrder": 262
+    }
+  ],
+  "consumerSource": [
+    {
+      "path": "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts",
+      "blob": "d69ac837c70ebe97cae5061b9403aef631498606",
+      "unchangedFromDc98": true
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "blob": "b166ef18ef6cb7ce8c48a0aab75d0cff9fa98296",
+      "unchangedFromDc98": true
+    },
+    {
+      "path": "src/frontend/src/api/uploadFacts.ts",
+      "blob": "9d26121b7a191923e3a5f3555e85481b936a631d",
+      "unchangedFromDc98": true
+    },
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "blob": "3307348190f5aee7c64cf50945a085f039b3bc70",
+      "unchangedFromDc98": true
+    },
+    {
+      "path": "src/frontend/src/composition/binaryDecoderRegistry.ts",
+      "blob": "f9d6076322578e42cda78ab4605b1bc5ba89e671",
+      "unchangedFromDc98": true
+    },
+    {
+      "path": "src/frontend/src/adapters/binary/uploadAdapter.ts",
+      "blob": "981e816ba993c9e0e9ec4111d829b8c6445937af",
+      "unchangedFromDc98": true
+    }
+  ],
+  "noGeneratorRun": true,
+  "noFrozenAuthorityRefresh": true,
+  "noRuntimeQualification": true
+}

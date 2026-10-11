@@ -1,0 +1,107 @@
+[
+  {
+    "path": "src/backend/Interfaces/IFileService.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "460456b8e25b965320c2d521c7b9fa1c97723bee2622d57fbff9b1e42eab2011",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f",
+    "postEqualsCurrent": true
+  },
+  {
+    "path": "src/backend/Interfaces/UploadAssetPreview.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "f552ea8ea9105e3e3afb9ff4acbc8e5cb962cc0197fab7d2de8fa51c027428ab",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "39c5984bd01463b3e2deb6316608dffe84842e0eb772694e9f8e22ebfafbfd16",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "5f5b6ae7b575ad3d1d1118c3f8e5d60f5b881859b394547fbdced5f922421ab6",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/backend/Services/FileService.AssetObservation.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "a2f2dd87425efb41d35a4ee2ccce276e52c05e746c7b3265fa52d9df447921a9",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "5fcec4dbcd394698d06a9be30f33d66b0a512ea871bb4c8bfe1738bb29fd3800",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "47927b6490f4313653f1f130bd1f3bac54d3332aea894a023ecf7e062197a678",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "f6108a331c46b39da4988ef35f9e0a083c02cd46c2500064a92702887f89de1e",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "574481057235df8c98a1a839ecd7cac7888eeb50db50cc2a9a17e45bddf2ceaf",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "242f88d0fe7eb0f123f903f9a58cbf5434d87608d7a4d56108404aeabb176453",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "dc209c3b6e33f9fbfa9d5ca486863cdd1d49157c26fcb618a52def823262b10f",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "87401200b84260f049960413330d1be87aecdcc781c9e09a25f7d137ab6c4d01",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/shared/Contracts/Validation/PodContractValidation.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "d9eb9a6e2bdf7d9f8b648d5a7a490aae195a4b7c2655310c357e4e7ecd49e413",
+    "postEqualsCurrent": false
+  },
+  {
+    "path": "src/shared/Contracts/Validation/PodSizeCatalog.cs",
+    "currentMatchesOfferBase": true,
+    "changedByDc98": false,
+    "postSha256": "62fc06644ad7d957241ec3cd203c1092b075f2c048a5f9c2e6e50e1da78f4f6b",
+    "postEqualsCurrent": false
+  }
+]

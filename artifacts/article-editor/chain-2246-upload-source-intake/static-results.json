@@ -1,0 +1,69 @@
+{
+  "source": "d27ed27e0e998955466ae2c4f70b599446f4d613",
+  "runs": {
+    "type": {
+      "kind": "type",
+      "command": [
+        "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "--application"
+      ],
+      "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+      "exitCode": 2,
+      "seconds": 33.374,
+      "log": "/workspace/.tmp/chain2246-upload-source-intake/actual-main-type.log",
+      "actualSource": "d27ed27e0e998955466ae2c4f70b599446f4d613",
+      "oldJournalSourceRetained": true,
+      "canonicalConfigOverlay": "69992a0769a896434028d2b16776423f31c6c7d0",
+      "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+      "runtimeQualification": false,
+      "diagnosticCount": 234,
+      "logSha256": "27596834359a83ff3e434519e423763f73e8f6542ba9a7fb8e7732af31a20183"
+    },
+    "style": {
+      "kind": "style",
+      "command": [
+        "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "strict-full",
+        "--file",
+        "src/frontend/src/services/authoring/articleAttachmentUploadProvider.ts",
+        "--file",
+        "src/frontend/src/api/upload.ts",
+        "--file",
+        "src/frontend/src/api/uploadFacts.ts",
+        "--file",
+        "src/frontend/src/contracts/binaryApi.ts",
+        "--file",
+        "src/frontend/src/composition/binaryDecoderRegistry.ts",
+        "--file",
+        "src/frontend/src/adapters/binary/uploadAdapter.ts"
+      ],
+      "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+      "exitCode": 1,
+      "seconds": 13.756,
+      "log": "/workspace/.tmp/chain2246-upload-source-intake/actual-main-style.log",
+      "actualSource": "d27ed27e0e998955466ae2c4f70b599446f4d613",
+      "oldJournalSourceRetained": true,
+      "canonicalConfigOverlay": "69992a0769a896434028d2b16776423f31c6c7d0",
+      "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+      "runtimeQualification": false,
+      "findingCount": 2,
+      "preexistingUnchangedLocaleFindingsIssue": 1706,
+      "logSha256": "b1b0e96d82ba07a58e9921e74bb2807fece0573c0ffe1ff87b78fcc750c7ca57"
+    }
+  },
+  "journalApiMissing": [
+    "ArticleRecoveryJournalCheckpointBinding",
+    "ArticleRecoveryJournalCheckpointSource",
+    "bindCheckpointSource"
+  ],
+  "journalMissingDirectDiagnostics": 3,
+  "journalMissingCascadingImplicitAny": 4,
+  "backendBuild": "NOT RUN / HELD",
+  "nativeBuild": "NOT RUN / HELD",
+  "testsListCollectionMountRuntime": "NOT RUN / HELD",
+  "frozenAuthorityRefresh": false,
+  "preparationFailure": "Initial evidence inventory used frames rather than actual frameTypes key; corrected without product/source/authority change"
+}
