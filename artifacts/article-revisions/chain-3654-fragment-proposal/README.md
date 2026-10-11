@@ -77,8 +77,13 @@ All current results in `evidence.json` bind to source `24b351cee936e681a18016efe
   not a whole frontend typecheck pass. No casts or rules in those owners changed.
 - Original matrix preflight: exit 1 before matrix parse completed. It rejects
   independent release-final parser identity and owner/content/dependency closure.
-- Lifecycle capability: `systemctl is-system-running` exits 1 with `offline`.
-  No durable canonical process owner or zero-members receipt was established.
+- The default system-manager state probe `systemctl is-system-running` exits 1
+  with `offline`. It is an environment hint, not the original runner guard and
+  not a blanket ban on pure unit tests. The original canonical matrix CLI does
+  register a managed process and uses `systemd-run --user` on Linux. A separate
+  read-only `systemctl --user show --property=Version --value` probe exits 1
+  because DBUS_SESSION_BUS_ADDRESS and XDG_RUNTIME_DIR are unset. This is not
+  a lifecycle execution receipt; matrix parsing already failed before that path.
 
 The source unit file includes positive byte-preservation/base-side selection and
 negative identity, package/plan, hunk/range, UTF-8, document/selection drift,
@@ -96,13 +101,47 @@ The original matrix physical command is `tools/test/lanes/frontend-unit-shard.sh
 which consumes the original `src/frontend/package.json` `test:unit:fast` script and
 `vitest.config.ts`. The exact new file is
 `tests/frontend/unit/services/revisionFragmentProposal.test.ts`.
-Do not launch a direct Vitest process to bypass matrix admission, scheduler,
-process containment, lifetime cleanup or FsusUI baseline requirements. The
-canonical authority owner must supply reviewed parser/closure admission and the
-original runtime must establish its lifecycle capability before test execution.
+The existing ordinary debug entry is `npm run test:unit:fast` in `src/frontend`,
+which accepts the existing file selector as a trailing argument. Its script has
+no systemctl pre-guard. This observation does not authorize bypassing the original
+selected entry admission or qualify a different entry as canonical execution.
+The canonical matrix entry has a managed Linux user-service lifecycle; default
+system-manager state alone cannot prove whether that user manager is available.
+Keep original guard and setup/configuration requirements, and distinguish pure
+unit regression results from held transaction/permission/package qualification.
 
 The master-targeted draft inherits ninety-three existing PR3828 paths; the new
 source review is the two-file `d1f8a4e..24b351ce` increment plus this handoff.
 Keep the inherited Vault/security/qualification holds. No source WIP or draft
 review accepts #2275 or the chain; no merge, auto-merge, issue closure or deploy is
 performed.
+
+
+## Static clarification of the ordinary unit scope
+
+AST inspection with the real TypeScript 6.0.3 parser reports zero parse diagnostics:
+15 declarations, eleven ordinary `it` cases and four literal `it.each` groups
+expanding to twenty cases, total **31 statically declared ordinary cases**. The
+`for` loops inside tests are assertions within a case, not additional cases.
+`evidence.json` includes every template/data combination. This is source expansion,
+not runtime discovery or execution; all thirty-one remain NOT RUN.
+
+The original configuration is `src/frontend/vitest.config.ts`, environment `node`,
+include `../../tests/frontend/unit/**/*.test.ts`, and setup
+`tests/frontend/support/unit/setup.ts` resolved by `vitest.shared.mjs`. The setup
+retains Happy DOM globals, animation-frame lifecycle, existing Wasm mocks and its
+actual locale-domain/runtime imports in `beforeAll`. Test API imports are type-only;
+proposal runtime imports are the original context/digest/source-range helpers.
+No configuration, setup, guard or test entry is changed.
+
+The thirty retained TypeScript diagnostics remain in eight unchanged dependency
+files. New proposal module diagnostics: zero. New unit source diagnostics: zero.
+The source control uses the complete no-emit diagnostic result and exits 1; it
+never filters those failures into a green frontend typecheck.
+
+`scopeAccounting` records the full four-path owned increment and all ninety-three
+inherited PR3828 paths against merge-base 3bc9bacd. All chain execution and tracking
+issue identities are listed separately. This clarification changes handoff text
+only; source blobs 99199b5c286dc7be8b29ee4d4da4cb1980dbc811 and
+2959550796d99e69001e57428308ca3e42daf212 remain exact. No additional proposal-source
+error was found by this static review, and no unrelated dependency owner is patched.
