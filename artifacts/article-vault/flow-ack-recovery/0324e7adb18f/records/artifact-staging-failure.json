@@ -1,0 +1,17 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--cached",
+    "--check"
+  ],
+  "exitCode": 2,
+  "paths": [
+    "controls/added-five.txt",
+    "controls/original-nine.txt"
+  ],
+  "reason": "verbatim archived source blocks have blank EOF lines; no original bytes or oracles trimmed",
+  "correction": "lossless deterministic gzip; original decompressed bytes and SHA256 preserved",
+  "sourceUnchanged": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "qualification": false
+}

@@ -1,0 +1,22 @@
+{
+  "label": "prefix-five-proven",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "--testNamePattern",
+    "Flow ACK handoff",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/flow-ack-recovery-20261011/prefix-five-proven-report.json"
+  ],
+  "cwd": "/workspace/chain1975-flow-ack-negative/src/frontend",
+  "startUtc": "2026-10-11T11:40:15.394407+00:00",
+  "head": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+  "runId": "chain1975-flow-ack-prefix-five-proven-20261011",
+  "qualification": false,
+  "exitCode": 1,
+  "stopUtc": "2026-10-11T11:40:25.529429+00:00"
+}

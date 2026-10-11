@@ -1,0 +1,42 @@
+{
+  "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "timeUtc": "2026-10-11T11:44:11.495252+00:00",
+  "attemptHistory": [
+    {
+      "attempt": 1,
+      "result": "three application links removed; assertion rejected UI helper target prefix; all24 UI links remained"
+    },
+    {
+      "attempt": 2,
+      "result": "validated and removed all24 own UI links and own negative worktree; nonempty own prerequisite temp stopped final empty-directory assertion"
+    },
+    {
+      "attempt": 3,
+      "result": "removed exactly own prerequisite temp containing two disposable node-test fixture files; final absence verified"
+    }
+  ],
+  "totalOwnLinksRemoved": 27,
+  "verifiedAbsentPaths": [
+    "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules",
+    "/workspace/chain1975-runtime-borrow-type-baseline/src/frontend/node_modules",
+    "/workspace/chain1975-flow-ack-negative",
+    "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules",
+    "/workspace/chain-1975-evidence/flow-ack-recovery-20261011/prerequisite-tmp"
+  ],
+  "disposedNodeTestFixtureFiles": [
+    {
+      "path": "fsusblog-local-artifacts-4znGI8/.tmp/evidence/nested/screenshot.png",
+      "bytes": 7,
+      "sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+    },
+    {
+      "path": "fsusblog-local-artifacts-4znGI8/.tmp/evidence/result.json",
+      "bytes": 21,
+      "sha256": "9a14b700bc2581383cfae352c91f00fc65439392344a2f823a9645e8546a3bde"
+    }
+  ],
+  "sharedLockedCachePreserved": true,
+  "ownFsusUiSourcePreserved": true,
+  "allRecordedWorkersExited": true,
+  "qualification": false
+}

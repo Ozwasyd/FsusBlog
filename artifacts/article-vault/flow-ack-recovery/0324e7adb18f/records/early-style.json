@@ -1,0 +1,20 @@
+{
+  "label": "early-style",
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--file",
+    "src/frontend/src/composables/useImageUploadRuntime.ts",
+    "--file",
+    "src/frontend/src/composables/useImageUploadFlow.ts",
+    "--file",
+    "src/frontend/src/api/upload.ts"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T11:34:56.187483+00:00",
+  "head": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T11:35:03.597466+00:00"
+}

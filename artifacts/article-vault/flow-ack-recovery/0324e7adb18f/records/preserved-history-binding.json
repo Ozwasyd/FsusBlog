@@ -1,0 +1,45 @@
+{
+  "receipts": [
+    {
+      "originalCommit": "0c1576c37d75e69e2b6425e245fd3f47eee25367",
+      "originalPath": "artifacts/article-vault/upload-init-boundaries/c93c4c37a58d/records/prefix-negative.json",
+      "copiedTo": "preserved-history/records/prefix-negative.json",
+      "sha256": "9dd2b8e10bcb6c39741352c1f81bba88fbdbe95e58e687c69e322bd128e16f90",
+      "bytes": 979,
+      "rerunInThisStage": false
+    },
+    {
+      "originalCommit": "0c1576c37d75e69e2b6425e245fd3f47eee25367",
+      "originalPath": "artifacts/article-vault/upload-init-boundaries/c93c4c37a58d/records/prefix-report.json",
+      "copiedTo": "preserved-history/records/prefix-report.json",
+      "sha256": "cd15affe782497073873fc9f1d45eeb2ee6f3f605eec468e75b5191949ee1adf",
+      "bytes": 78493,
+      "rerunInThisStage": false
+    },
+    {
+      "originalCommit": "0c1576c37d75e69e2b6425e245fd3f47eee25367",
+      "originalPath": "artifacts/article-vault/upload-init-boundaries/c93c4c37a58d/records/prefix-boundaries.json",
+      "copiedTo": "preserved-history/records/prefix-boundaries.json",
+      "sha256": "734d845a583684d132e157266991101d0f1d5e8a3a71c2b9637dca3b8509dac3",
+      "bytes": 978,
+      "rerunInThisStage": false
+    },
+    {
+      "originalCommit": "0c1576c37d75e69e2b6425e245fd3f47eee25367",
+      "originalPath": "artifacts/article-vault/upload-init-boundaries/c93c4c37a58d/prefix-boundaries/report.json",
+      "copiedTo": "preserved-history/prefix-boundaries/report.json",
+      "sha256": "e4be64e2fe81d17ff071c019a102cb536328d11927f0971e588a26cf33ab9284",
+      "bytes": 56261,
+      "rerunInThisStage": false
+    },
+    {
+      "originalCommit": "0c1576c37d75e69e2b6425e245fd3f47eee25367",
+      "originalPath": "artifacts/article-vault/upload-init-boundaries/c93c4c37a58d/prefix-boundaries/topology.jsonl",
+      "copiedTo": "preserved-history/prefix-boundaries/topology.jsonl",
+      "sha256": "1352c5b8ccc26296d0c5219713a8b0b181e71b8deb47f9589ecf8a6ae01d9390",
+      "bytes": 5787,
+      "rerunInThisStage": false
+    }
+  ],
+  "qualification": false
+}

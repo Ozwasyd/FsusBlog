@@ -1,0 +1,23 @@
+{
+  "label": "prefix-negative",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts",
+    "--testNamePattern",
+    "(rejects uncorrelated init|rejects uncorrelated part ACK|retains unknown completion on uncorrelated complete ACK|carries the original token through the real GET|retains original obligations through the actual)",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/upload-init-boundaries-20261011/prefix-report.json"
+  ],
+  "cwd": "/workspace/chain1975-init-boundaries-prefix/src/frontend",
+  "startUtc": "2026-10-11T10:19:41.238711+00:00",
+  "head": "734f8925d41c3d089cc039989292c352e0ee741b",
+  "runId": "chain1975-init-boundaries-original28-prefix-20261011",
+  "qualification": false,
+  "exitCode": 1,
+  "stopUtc": "2026-10-11T10:20:02.656777+00:00"
+}

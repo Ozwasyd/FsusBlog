@@ -1,0 +1,113 @@
+{
+  "source": "0324e7adb18f8aecfa870e86dec1153046a9f782",
+  "qualification": false,
+  "authorOrdinaryOnly": true,
+  "focused": {
+    "runtime": 138,
+    "api": 16,
+    "passed": 154,
+    "failed": 0,
+    "skipped": 0
+  },
+  "uniqueDiscoveryNames": 154,
+  "original140UnchangedNames": true,
+  "original139Included": true,
+  "nineBefore": {
+    "source": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+    "failed": 9,
+    "passed": 0,
+    "outsideSelector": 124
+  },
+  "nineAfter": {
+    "passed": 9,
+    "failed": 0,
+    "outsideSelector": 129,
+    "sameNames": true
+  },
+  "newFiveBefore": {
+    "failed": 4,
+    "passed": 1,
+    "outsideSelector": 133,
+    "source": "22813e9b81db72a0d01b1a0752551a1f96ab9c89"
+  },
+  "newFiveAfter": {
+    "passed": 5,
+    "failed": 0,
+    "includedInFocused": true
+  },
+  "originalTwoPositives": {
+    "passed": 2,
+    "outsideSelector": 136
+  },
+  "original37Prerequisites": {
+    "passed": 37,
+    "failed": 0
+  },
+  "old28Before": {
+    "failed": 28,
+    "source": "734f8925d41c3d089cc039989292c352e0ee741b",
+    "immutableHistoryOnlyNotRerunThisStage": true
+  },
+  "old17Before": {
+    "passed": 8,
+    "failed": 9,
+    "source": "60e46fcbc738a855ed2f78d62ad088ae5dde75f9",
+    "immutableHistoryOnlyNotRerunThisStage": true
+  },
+  "all45CurrentPassed": true,
+  "topologies": {
+    "focused-proven": {
+      "starts": 154,
+      "finishes": 154,
+      "paired": true,
+      "pids": [
+        93227,
+        93370
+      ],
+      "workersExited": true
+    },
+    "positive-proven": {
+      "starts": 2,
+      "finishes": 2,
+      "paired": true,
+      "pids": [
+        93627
+      ],
+      "workersExited": true
+    },
+    "prefix-five-proven": {
+      "starts": 5,
+      "finishes": 5,
+      "paired": true,
+      "pids": [
+        93287
+      ],
+      "workersExited": true
+    },
+    "prefix-correct-setup": {
+      "starts": 9,
+      "finishes": 9,
+      "paired": true,
+      "pids": [
+        83540
+      ],
+      "workersExited": true
+    }
+  },
+  "preflight": "PASS",
+  "style": "PASS",
+  "newRange": "PASS",
+  "fullTypes": "FAIL;244/244;0 added/removed",
+  "wholeHistory": "FAIL;old9defbeRefsFooter",
+  "independentCurrentReview": "PENDING same original reviewer",
+  "firstFrozenRunsWithoutTopology": {
+    "labels": [
+      "focused",
+      "positive",
+      "nine-after"
+    ],
+    "status": "PASS executable results, no topology claimed; proven focused/positive reruns supply real hooks"
+  },
+  "invalidFirstPrefixSetup": "prefix-nine setup failure is not admissible nine-test reproduction; prefix-correct-setup actually reproduced all9",
+  "exploratoryExtraFailure": "153PASS/1FAIL; newly added replacement-source fixture expected empty instead of actual paragraph; corrected new test only"
+}

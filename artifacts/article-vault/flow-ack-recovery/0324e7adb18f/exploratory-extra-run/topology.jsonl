@@ -1,0 +1,308 @@
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_0","name":"Flow execution guard retains the original File context while a cancelled consumer is still awaited"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_0","name":"Flow execution guard retains the original File context while a cancelled consumer is still awaited"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_1","name":"Flow ACK handoff uses only the immutable validated original ACK URL"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_1","name":"Flow ACK handoff uses only the immutable validated original ACK URL"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_2","name":"Flow ACK handoff never writes an old late result into a replacement document owner"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_2","name":"Flow ACK handoff never writes an old late result into a replacement document owner"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_3","name":"Flow ACK handoff rejects reentrant replacement while preserving a normal fulfilled void consumer"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_3","name":"Flow ACK handoff rejects reentrant replacement while preserving a normal fulfilled void consumer"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_4","name":"Flow ACK handoff retains an original session observer error before invoking the file consumer"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_4","name":"Flow ACK handoff retains an original session observer error before invoking the file consumer"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_5","name":"Flow ACK handoff revokes finite access without claiming to physically terminate a pending consumer"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_5","name":"Flow ACK handoff revokes finite access without claiming to physically terminate a pending consumer"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_6","name":"Flow consumer recovery retains the original ACK snapshot error and File when the consumer fails"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_6","name":"Flow consumer recovery retains the original ACK snapshot error and File when the consumer fails"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_7","name":"Flow consumer recovery refuses duplicate start resume and reupload while the original consumer is pending"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_7","name":"Flow consumer recovery refuses duplicate start resume and reupload while the original consumer is pending"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_8","name":"Flow consumer recovery keeps the original obligation after cancel-resolve and rejects late completion"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_8","name":"Flow consumer recovery keeps the original obligation after cancel-resolve and rejects late completion"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_9","name":"Flow consumer recovery keeps the original obligation after cancel-reject and rejects late completion"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_9","name":"Flow consumer recovery keeps the original obligation after cancel-reject and rejects late completion"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_10","name":"Flow consumer recovery keeps the original obligation after intent-cancel and rejects late completion"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_10","name":"Flow consumer recovery keeps the original obligation after intent-cancel and rejects late completion"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_11","name":"Flow consumer recovery keeps the original obligation after dispose and rejects late completion"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_11","name":"Flow consumer recovery keeps the original obligation after dispose and rejects late completion"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_12","name":"Flow consumer recovery keeps the original obligation after abandon and rejects late completion"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_12","name":"Flow consumer recovery keeps the original obligation after abandon and rejects late completion"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_13","name":"Flow consumer recovery keeps the ACK when a consumer settles after the original loan deadline"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_13","name":"Flow consumer recovery keeps the ACK when a consumer settles after the original loan deadline"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_14","name":"Flow consumer recovery does not persist a new token or accept mutable public state as release acknowledgement"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_14","name":"Flow consumer recovery does not persist a new token or accept mutable public state as release acknowledgement"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_15","name":"refuses unrepresentable upload filename reviewer-258-byte before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_15","name":"refuses unrepresentable upload filename reviewer-258-byte before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_16","name":"refuses unrepresentable upload filename ascii-257-byte before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_16","name":"refuses unrepresentable upload filename ascii-257-byte before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_17","name":"refuses unrepresentable upload filename split-codepoint before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_17","name":"refuses unrepresentable upload filename split-codepoint before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_18","name":"refuses unrepresentable upload filename four-byte-overflow before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_18","name":"refuses unrepresentable upload filename four-byte-overflow before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_19","name":"refuses unrepresentable upload filename unpaired-surrogate before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_19","name":"refuses unrepresentable upload filename unpaired-surrogate before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_20","name":"refuses unrepresentable upload filename embedded-nul before init and leaves no cancellation obligation"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_20","name":"refuses unrepresentable upload filename embedded-nul before init and leaves no cancellation obligation"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_21","name":"accepts a lossless 256-byte upload filename ascii without changing its identity"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_21","name":"accepts a lossless 256-byte upload filename ascii without changing its identity"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_22","name":"accepts a lossless 256-byte upload filename two-byte without changing its identity"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_22","name":"accepts a lossless 256-byte upload filename two-byte without changing its identity"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_23","name":"accepts a lossless 256-byte upload filename four-byte without changing its identity"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_23","name":"accepts a lossless 256-byte upload filename four-byte without changing its identity"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_24","name":"checks the actual compressed filename before creating an init obligation"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_24","name":"checks the actual compressed filename before creating an init obligation"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_25","name":"cancels a lossless boundary filename using only the original late init ID and token"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_25","name":"cancels a lossless boundary filename using only the original late init ID and token"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_26","name":"rejects a zero GUID init before snapshot or part IO and cannot grant cancellation authority"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_26","name":"rejects a zero GUID init before snapshot or part IO and cannot grant cancellation authority"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_27","name":"rejects a zero GUID stored identity without status lookup or replacement init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_27","name":"rejects a zero GUID stored identity without status lookup or replacement init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_28","name":"runs compression and hashing before init, uploads every required part, then completes once"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_28","name":"runs compression and hashing before init, uploads every required part, then completes once"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_29","name":"pauses after part retry exhaustion while retaining the resumable attempt and snapshot"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_29","name":"pauses after part retry exhaustion while retaining the resumable attempt and snapshot"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_30","name":"resumes the same file and options with the stored identity and uploads only missing parts"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_30","name":"resumes the same file and options with the stored identity and uploads only missing parts"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_31","name":"initializes a new identity when a stored snapshot is tampered"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_31","name":"initializes a new identity when a stored snapshot is tampered"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_32","name":"initializes a new identity when stored-session status lookup fails"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_32","name":"initializes a new identity when stored-session status lookup fails"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_33","name":"clears local state and calls abort once even when abort fails"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_33","name":"clears local state and calls abort once even when abort fails"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_34","name":"shares an in-flight abort and blocks replacement until server cleanup is acknowledged"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_34","name":"shares an in-flight abort and blocks replacement until server cleanup is acknowledged"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_35","name":"a late part failure cannot resurrect a cancelled recovery snapshot"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_35","name":"a late part failure cannot resurrect a cancelled recovery snapshot"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_36","name":"does not call the API when abandoning without an active session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_36","name":"does not call the API when abandoning without an active session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_37","name":"does not let a late part acknowledgement overwrite a new upload attempt"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_37","name":"does not let a late part acknowledgement overwrite a new upload attempt"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_38","name":"borrows actual compressed facts and retains a bound handle after public session and original lease clear"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_38","name":"borrows actual compressed facts and retains a bound handle after public session and original lease clear"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_39","name":"refuses a clone pending handle before creating a session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_39","name":"refuses a clone pending handle before creating a session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_40","name":"refuses a foreign pending handle before creating a session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_40","name":"refuses a foreign pending handle before creating a session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_41","name":"refuses a clone document lease through the real original registry"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_41","name":"refuses a clone document lease through the real original registry"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_42","name":"refuses a foreign document lease through the real original registry"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_42","name":"refuses a foreign document lease through the real original registry"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_43","name":"refuses to mint a borrow from a localStorage-only resumed session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_43","name":"refuses to mint a borrow from a localStorage-only resumed session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_44","name":"expires a completed borrow without refreshing it from public state or storage"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_44","name":"expires a completed borrow without refreshing it from public state or storage"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_45","name":"waits for a cancelled original initialization and real cleanup acknowledgement before replacement"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_45","name":"waits for a cancelled original initialization and real cleanup acknowledgement before replacement"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_46","name":"keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_46","name":"keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_47","name":"retains true completion history and unknown cleanup after a cancelled completion without deleting it"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_47","name":"retains true completion history and unknown cleanup after a cancelled completion without deleting it"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_48","name":"uses the existing flow original lease and caller cancellation without creating a second upload"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_48","name":"uses the existing flow original lease and caller cancellation without creating a second upload"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_49","name":"grants no loan on scope disposal and waits for the original part before settling"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_49","name":"grants no loan on scope disposal and waits for the original part before settling"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_50","name":"rereads original document and intent ownership after an asynchronous borrow callback"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_50","name":"rereads original document and intent ownership after an asynchronous borrow callback"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_51","name":"does not grant a legacy attempt a new deletion action on scope disposal"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_51","name":"does not grant a legacy attempt a new deletion action on scope disposal"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_52","name":"invalidates a completed original borrow when a new attempt starts"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_52","name":"invalidates a completed original borrow when a new attempt starts"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_53","name":"revokes returned and captured access immediately after each callback settles"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_53","name":"revokes returned and captured access immediately after each callback settles"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_54","name":"revokes concurrent access scopes independently while awaited use remains valid"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_54","name":"revokes concurrent access scopes independently while awaited use remains valid"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_55","name":"bounds a completed callback and aborts its access signal at the fixed loan deadline"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_55","name":"bounds a completed callback and aborts its access signal at the fixed loan deadline"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_56","name":"grants no loan after raw part failure and cannot mint one from retained state"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_56","name":"grants no loan after raw part failure and cannot mint one from retained state"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_57","name":"grants no loan after raw complete failure and cannot mint one from retained state"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_57","name":"grants no loan after raw complete failure and cannot mint one from retained state"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_58","name":"does not remint an explicitly released loan during the active completed operation"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_58","name":"does not remint an explicitly released loan during the active completed operation"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_59","name":"revokes a newly acquired loan when the original completion callback fails"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_59","name":"revokes a newly acquired loan when the original completion callback fails"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_60","name":"grants no precompletion loan during a slow chunk and expires 30 seconds from actual acquisition"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_60","name":"grants no precompletion loan during a slow chunk and expires 30 seconds from actual acquisition"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_61","name":"captures real per-file handles and consumes slow same-name batch files before advancing"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_61","name":"captures real per-file handles and consumes slow same-name batch files before advancing"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_62","name":"grants no loan during original compression, initialization, part or pending completion"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_62","name":"grants no loan during original compression, initialization, part or pending completion"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_63","name":"cannot acquire a first loan after the original successful operation is inactive"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_63","name":"cannot acquire a first loan after the original successful operation is inactive"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_64","name":"does not refresh the acquisition deadline when a later access scope starts"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_64","name":"does not refresh the acquisition deadline when a later access scope starts"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_65","name":"revokes a granted completion loan when its active original lease is cancelled"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_65","name":"revokes a granted completion loan when its active original lease is cancelled"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_66","name":"releases the per-file loan and stops a batch when its completion consumer fails"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_66","name":"releases the per-file loan and stops a batch when its completion consumer fails"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_67","name":"keeps ACK recovery after disposal of the callback operation without aborting"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_67","name":"keeps ACK recovery after disposal of the callback operation without aborting"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_68","name":"keeps ACK recovery after disposal of the returned operation without aborting"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_68","name":"keeps ACK recovery after disposal of the returned operation without aborting"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_69","name":"retains ACK history after original intent invalidation and repeated abandon"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_69","name":"retains ACK history after original intent invalidation and repeated abandon"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_70","name":"retains ACK history after original document invalidation and repeated abandon"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_70","name":"retains ACK history after original document invalidation and repeated abandon"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_71","name":"rejects a cloned capture owner before capture or upload IO"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_71","name":"rejects a cloned capture owner before capture or upload IO"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_72","name":"retains the genuine cancellation obligation on invalid ACK 'other-generation'/'aborted'"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_72","name":"retains the genuine cancellation obligation on invalid ACK 'other-generation'/'aborted'"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_73","name":"retains the genuine cancellation obligation on invalid ACK '11111111111111111111111111111111'/'uploading'"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_73","name":"retains the genuine cancellation obligation on invalid ACK '11111111111111111111111111111111'/'uploading'"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_74","name":"retains the genuine cancellation obligation on invalid ACK '11111111111111111111111111111111'/undefined"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_74","name":"retains the genuine cancellation obligation on invalid ACK '11111111111111111111111111111111'/undefined"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_75","name":"ignores public session and copied snapshot authority while retaining the original cleanup retry"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_75","name":"ignores public session and copied snapshot authority while retaining the original cleanup retry"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_76","name":"retains actual original init authority across a genuine resume generation without reminting it"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_76","name":"retains actual original init authority across a genuine resume generation without reminting it"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_77","name":"retains an original init with missing credentials instead of sending an unbound abort"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_77","name":"retains an original init with missing credentials instead of sending an unbound abort"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_78","name":"keeps old cancellation references from acquiring a replacement generation token"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_78","name":"keeps old cancellation references from acquiring a replacement generation token"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_79","name":"awaits only the original unbound init and authenticates cancellation before its ACK"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_79","name":"awaits only the original unbound init and authenticates cancellation before its ACK"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_80","name":"refuses abort for an unbound in-flight completion and retains its unknown obligation"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_80","name":"refuses abort for an unbound in-flight completion and retains its unknown obligation"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_81","name":"retains a rejected completion with bound=false before any cancellation or replacement"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_81","name":"retains a rejected completion with bound=false before any cancellation or replacement"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_82","name":"retains a rejected completion with bound=true before any cancellation or replacement"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_82","name":"retains a rejected completion with bound=true before any cancellation or replacement"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_83","name":"uses the actual abort transport for api-error and retains failure evidence until genuine ACK"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_83","name":"uses the actual abort transport for api-error and retains failure evidence until genuine ACK"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_84","name":"uses the actual abort transport for network and retains failure evidence until genuine ACK"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_84","name":"uses the actual abort transport for network and retains failure evidence until genuine ACK"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_85","name":"uses the actual abort transport for same-id-aborted and retains failure evidence until genuine ACK"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_85","name":"uses the actual abort transport for same-id-aborted and retains failure evidence until genuine ACK"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_86","name":"rejects uncorrelated init id before part IO or completion access"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_86","name":"rejects uncorrelated init id before part IO or completion access"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_87","name":"rejects uncorrelated init empty-id before part IO or completion access"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_87","name":"rejects uncorrelated init empty-id before part IO or completion access"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_88","name":"rejects uncorrelated init file before part IO or completion access"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_88","name":"rejects uncorrelated init file before part IO or completion access"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_89","name":"rejects uncorrelated init mime before part IO or completion access"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_89","name":"rejects uncorrelated init mime before part IO or completion access"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_90","name":"rejects uncorrelated init format before part IO or completion access"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_90","name":"rejects uncorrelated init format before part IO or completion access"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_91","name":"rejects uncorrelated init bytes before part IO or completion access"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_91","name":"rejects uncorrelated init bytes before part IO or completion access"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_92","name":"rejects uncorrelated init chunk before part IO or completion access"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_92","name":"rejects uncorrelated init chunk before part IO or completion access"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_93","name":"rejects uncorrelated init parts before part IO or completion access"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_93","name":"rejects uncorrelated init parts before part IO or completion access"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_94","name":"rejects uncorrelated init fraction before part IO or completion access"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_94","name":"rejects uncorrelated init fraction before part IO or completion access"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_95","name":"rejects uncorrelated init token before part IO or completion access"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_95","name":"rejects uncorrelated init token before part IO or completion access"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_96","name":"retains the original session on uncorrelated status id without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_96","name":"retains the original session on uncorrelated status id without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_97","name":"retains the original session on uncorrelated status status without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_97","name":"retains the original session on uncorrelated status status without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_98","name":"retains the original session on uncorrelated status bytes without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_98","name":"retains the original session on uncorrelated status bytes without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_99","name":"retains the original session on uncorrelated status chunk without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_99","name":"retains the original session on uncorrelated status chunk without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_100","name":"retains the original session on uncorrelated status parts without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_100","name":"retains the original session on uncorrelated status parts without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_101","name":"retains the original session on uncorrelated status negative without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_101","name":"retains the original session on uncorrelated status negative without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_102","name":"retains the original session on uncorrelated status overflow without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_102","name":"retains the original session on uncorrelated status overflow without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_103","name":"retains the original session on uncorrelated status count without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_103","name":"retains the original session on uncorrelated status count without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_104","name":"retains the original session on uncorrelated status fraction without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_104","name":"retains the original session on uncorrelated status fraction without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_105","name":"retains the original session on uncorrelated status hint without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_105","name":"retains the original session on uncorrelated status hint without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_106","name":"retains the original session on uncorrelated status state without fresh init"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_106","name":"retains the original session on uncorrelated status state without fresh init"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_107","name":"rejects invalid part-map id before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_107","name":"rejects invalid part-map id before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_108","name":"rejects invalid part-map negative before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_108","name":"rejects invalid part-map negative before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_109","name":"rejects invalid part-map fraction before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_109","name":"rejects invalid part-map fraction before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_110","name":"rejects invalid part-map unbounded before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_110","name":"rejects invalid part-map unbounded before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_111","name":"rejects invalid part-map reversed before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_111","name":"rejects invalid part-map reversed before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_112","name":"rejects invalid part-map out-of-bounds before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_112","name":"rejects invalid part-map out-of-bounds before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_113","name":"rejects invalid part-map overlap before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_113","name":"rejects invalid part-map overlap before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_114","name":"rejects invalid part-map unsorted before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_114","name":"rejects invalid part-map unsorted before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_115","name":"rejects invalid part-map missing before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_115","name":"rejects invalid part-map missing before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_116","name":"rejects invalid part-map wrong-count before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_116","name":"rejects invalid part-map wrong-count before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_117","name":"rejects invalid part-map wrong-bytes before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_117","name":"rejects invalid part-map wrong-bytes before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_118","name":"rejects invalid part-map absent-ranges before skipping any part or minting a new session"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_118","name":"rejects invalid part-map absent-ranges before skipping any part or minting a new session"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_119","name":"rejects uncorrelated part ACK id without publishing progress or completing"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_119","name":"rejects uncorrelated part ACK id without publishing progress or completing"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_120","name":"rejects uncorrelated part ACK index without publishing progress or completing"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_120","name":"rejects uncorrelated part ACK index without publishing progress or completing"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_121","name":"rejects uncorrelated part ACK offset without publishing progress or completing"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_121","name":"rejects uncorrelated part ACK offset without publishing progress or completing"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_122","name":"rejects uncorrelated part ACK size without publishing progress or completing"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_122","name":"rejects uncorrelated part ACK size without publishing progress or completing"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_123","name":"rejects uncorrelated part ACK bytes without publishing progress or completing"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_123","name":"rejects uncorrelated part ACK bytes without publishing progress or completing"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_124","name":"rejects uncorrelated part ACK count without publishing progress or completing"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_124","name":"rejects uncorrelated part ACK count without publishing progress or completing"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_125","name":"rejects uncorrelated part ACK fraction without publishing progress or completing"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_125","name":"rejects uncorrelated part ACK fraction without publishing progress or completing"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_126","name":"retains unknown completion on uncorrelated complete ACK id without a loan or abort"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_126","name":"retains unknown completion on uncorrelated complete ACK id without a loan or abort"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_127","name":"retains unknown completion on uncorrelated complete ACK bytes without a loan or abort"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_127","name":"retains unknown completion on uncorrelated complete ACK bytes without a loan or abort"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_128","name":"retains unknown completion on uncorrelated complete ACK mime without a loan or abort"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_128","name":"retains unknown completion on uncorrelated complete ACK mime without a loan or abort"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_129","name":"retains unknown completion on uncorrelated complete ACK url without a loan or abort"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_129","name":"retains unknown completion on uncorrelated complete ACK url without a loan or abort"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_130","name":"retains unknown completion on uncorrelated complete ACK relative-url without a loan or abort"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_130","name":"retains unknown completion on uncorrelated complete ACK relative-url without a loan or abort"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_131","name":"refuses abort when an authenticated resumed status reports completion without the original complete ACK"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_131","name":"refuses abort when an authenticated resumed status reports completion without the original complete ACK"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_132","name":"keeps malformed cold storage unresolved after public fields are erased and repeated abandon"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_132","name":"keeps malformed cold storage unresolved after public fields are erased and repeated abandon"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_133","name":"retains original obligations through the actual status transport on 404"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_133","name":"retains original obligations through the actual status transport on 404"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_134","name":"retains original obligations through the actual status transport on network"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_134","name":"retains original obligations through the actual status transport on network"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_135","name":"retains original obligations through the actual map transport on 404"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_135","name":"retains original obligations through the actual map transport on 404"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_0_136","name":"retains original obligations through the actual map transport on network"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_0_136","name":"retains original obligations through the actual map transport on network"}}
+{"event":"start","workerProcessId":85198,"task":{"id":"-298466997_1_0","name":"shows resume and abandon only for the corresponding runtime state and wires both actions"}}
+{"event":"finish","workerProcessId":85198,"task":{"id":"-298466997_1_0","name":"shows resume and abandon only for the corresponding runtime state and wires both actions"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_0_0","name":"initUploadSession sends an UploadInitRequest AEDS frame"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_0_0","name":"initUploadSession sends an UploadInitRequest AEDS frame"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_0_1","name":"encodes the actual 256-byte init filename field for ascii-boundary"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_0_1","name":"encodes the actual 256-byte init filename field for ascii-boundary"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_0_2","name":"encodes the actual 256-byte init filename field for unicode-boundary"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_0_2","name":"encodes the actual 256-byte init filename field for unicode-boundary"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_0_3","name":"encodes the actual 256-byte init filename field for reviewer-258-byte"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_0_3","name":"encodes the actual 256-byte init filename field for reviewer-258-byte"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_0_4","name":"encodes the actual 256-byte init filename field for split-codepoint"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_0_4","name":"encodes the actual 256-byte init filename field for split-codepoint"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_0_5","name":"uploadPart sends raw bytes with binary metadata headers"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_0_5","name":"uploadPart sends raw bytes with binary metadata headers"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_0_6","name":"abort forwards the optional third token without changing its existing signal contract"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_0_6","name":"abort forwards the optional third token without changing its existing signal contract"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_0_7","name":"forwards the original token and existing signal for status"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_0_7","name":"forwards the original token and existing signal for status"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_0_8","name":"forwards the original token and existing signal for status/parts"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_0_8","name":"forwards the original token and existing signal for status/parts"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_0_9","name":"completeUpload sends an UploadCompleteRequest AEDS frame"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_0_9","name":"completeUpload sends an UploadCompleteRequest AEDS frame"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_1_0","name":"forwards the original token to DELETE and decodes the actual aborted response"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_1_0","name":"forwards the original token to DELETE and decodes the actual aborted response"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_1_1","name":"forwards the original token to DELETE and decodes the actual uploading response"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_1_1","name":"forwards the original token to DELETE and decodes the actual uploading response"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_1_2","name":"carries the original token through the real GET status transport and decoder"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_1_2","name":"carries the original token through the real GET status transport and decoder"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_1_3","name":"carries the original token through the real GET status/parts transport and decoder"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_1_3","name":"carries the original token through the real GET status/parts transport and decoder"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_1_4","name":"propagates a genuinely decoded ApiError instead of an abort acknowledgement"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_1_4","name":"propagates a genuinely decoded ApiError instead of an abort acknowledgement"}}
+{"event":"start","workerProcessId":85283,"task":{"id":"1154655295_1_5","name":"propagates an actual intercepted DELETE network failure"}}
+{"event":"finish","workerProcessId":85283,"task":{"id":"1154655295_1_5","name":"propagates an actual intercepted DELETE network failure"}}

@@ -1,0 +1,7 @@
+{
+  "head": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+  "master": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "approvedSignature": "onSessionReady?: (borrow: ImageUploadSessionBorrow, completionUrl: string) => void | Promise<void>",
+  "publicExpansionLimit": "existing callback second readonly actual-ACK URL only",
+  "qualification": false
+}

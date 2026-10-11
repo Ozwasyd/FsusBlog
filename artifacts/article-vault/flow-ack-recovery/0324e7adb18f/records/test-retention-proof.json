@@ -1,0 +1,14 @@
+{
+  "qualification": false,
+  "baselineSource": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+  "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+  "original140TestsUnchanged": true,
+  "originalRuntimeTestBytes": 94137,
+  "originalRuntimeTestSha256": "bb33e9d866a2ed9bab33c24f8e3463deb04b97c7d1e6f9ab8cf3df722162fce1",
+  "testBytesAfterRemovingOnlyInserted14CasesMatchOriginal": true,
+  "originalNineSha256": "692dffe3770e3998dfbc6a5bd52bc84a22f86d775a318dca09414afaa645d83e",
+  "originalNineBytes": 9764,
+  "nineOccurrences": 1,
+  "currentTestSha256": "1b10603188171b217729fb281361ac536acb80482732ecf15757a1c7c010405d",
+  "apiTestUnchanged": true
+}

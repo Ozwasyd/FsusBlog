@@ -1,0 +1,21 @@
+{
+  "label": "exploratory-extra",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/flow-ack-recovery-20261011/exploratory-extra-report.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T11:30:52.207559+00:00",
+  "head": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+  "runId": "chain1975-flow-ack-exploratory-extra-20261011",
+  "qualification": false,
+  "exitCode": 1,
+  "stopUtc": "2026-10-11T11:31:04.227227+00:00"
+}

@@ -1,0 +1,25 @@
+{
+  "head": "22813e9b81db72a0d01b1a0752551a1f96ab9c89",
+  "sourcePaths": {
+    "src/frontend/src/composables/useImageUploadRuntime.ts": {
+      "sha256": "4199012d17729718730ed0b7f28d7c0145b24aa1b82988b5dec6220deec9eb8a",
+      "bytes": 44265,
+      "matchesOriginalCommit": true
+    },
+    "src/frontend/src/composables/useImageUploadFlow.ts": {
+      "sha256": "b706c5a382bd20ff0e857892e80671d352d80581f14e6da5d521911ae45fe834",
+      "bytes": 15358,
+      "matchesOriginalCommit": true
+    },
+    "src/frontend/src/api/upload.ts": {
+      "sha256": "d7255b1419eaf086041fcedec645cc35017a95813b74867a30baf3952513f0e4",
+      "bytes": 5459,
+      "matchesOriginalCommit": true
+    }
+  },
+  "changedPaths": [
+    "tests/frontend/unit/composables/useImageUploadRuntime.test.ts"
+  ],
+  "currentTestEqualsFrozenSource": true,
+  "qualification": false
+}
