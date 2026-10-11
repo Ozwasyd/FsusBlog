@@ -590,3 +590,60 @@ positive retry expectation conflicts with current unknown-settlement refusal.
 That case needs original actor alignment before execution; no retry gate is relaxed
 and historical135/16 PASS evidence is not integrated-head acceptance. Full factory
 continues to refuse the absent original panel/draft/journal/full renderer refset.
+
+### Original Writer reference binding joined to actual native retained capture
+
+The reviewed original journal `02cfd1a9919d6008ff203fe377e01d29abb236cc`
+and private-storage cleanup postimages are consumed exactly, preserving the same
+storage, privacy, invalidation and asynchronous persistence owners. Original Writer
+`4fb995cbf11be6cab84299c321a6a3ce6a9079d3` forwards `validateContent`,
+`inspectReference`, `validateReference` and `restoreReference` on that SAME issued
+binding, with original creation reservation, context/principal subscriptions and
+independent release. Its product/composable remains with its original owner;
+this branch does not copy or replace that caller. Native/File caller source is
+`1400e677752e5c18f1b76b0d0d0ce78518a36ddc`, published with source evidence
+`de6df11110b5d060a001fad36bb604627323e32a`; its independent review remains a
+separate prerequisite and its retained second-owner issuance/lifecycle is absent.
+
+The same installed factory now implements
+`captureArticleWorkspaceRetainedRecoverySnapshot(entry, binding, checkpointRef)`.
+The original Writer supplies its actual `bindRecoveryCheckpoint(editorSessionRef)`
+binding and, after awaiting original `prepare`, the reference returned by original
+`inspect(token)`. No object token is serialized or converted to a reference here.
+Capture synchronously checks original reference custody, actual identity, document
+epoch, native numeric revision, nullable source/draft revisions and association
+revision. Factory delegates the actual original Writer `captureRetainedSnapshot(reference)`
+port from reviewed-reference consumer4fb plus native source1400/de6. That original
+implementation passes expected document id/epoch/native revision to the sole UI
+session; inside its native callback, original `validateReference` verifies the actual
+native source before `calculateOpenArticleDocumentDigest(nativeSource)` supplies
+the canonical digest. Factory rechecks actual owner/context and returned snapshot
+identity/revision. It does not implement a competing native callback or binding.
+Native capture owns all transaction/history/selection custody. Callback refusal preserves the prior
+native checkpoint. The returned process-local bundle holds the actual original
+binding, original opaque native snapshot and original crashJournalRef, with a
+canonical digest of these actual retained refs. It retains no article body, second
+history, checkpoint producer, host or session index. The ref string alone grants
+no authority; original binding invalidation, replacement, expiry and release revoke
+the bundle's admission.
+
+`restoreArticleWorkspaceRetainedRecoverySnapshot(entry, bundle)` awaits original
+`restoreReference`, rechecks the same installed native/session/document owners and
+composition admission across the await, validates original journal content and
+its canonical digest against the original native snapshot, then delegates the
+original native same-owner/same-revision restore. It never applies journal body
+outside that owner or recaptures native state during validation. Original journal
+storage restore does not apply content. Any stale, released, mismatched or retired
+owner refuses; native restore's blocked proof remains blocked. The original Writer
+owns release/subscriptions; this composition neither releases nor rebinds its port.
+
+This is an implemented partial retained checkpoint join, not a full
+AuthoringSessionSnapshotRefs or complete restoration. The Writer's product call
+site must consume these functions through the original bootstrap once its own
+source is integrated; this branch supplies the concrete factory/composition API.
+Full host capture still refuses BEFORE native capture because actual panel,
+draftStateRef, full renderer restoration and complete original resource controls
+remain unavailable. No partial viewStateRef aliases those missing references.
+Original immediate guard, host/router, registry/group, typography and qualification
+holds remain unchanged. All runtime, storage, discovery/list, native/worker,
+security/privacy/receipt/race/backuprestore/IME acceptance is UNRUN.

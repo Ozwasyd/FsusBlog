@@ -1,4 +1,9 @@
 import {
+    calculateRetainedRecoveryRefsDigest,
+    type ArticleWorkspaceRetainedRecoveryCheckpoint,
+    type ArticleWorkspaceRetainedRecoverySnapshot
+} from './articleWorkspaceRetainedRecoverySnapshot';
+import {
     type AuthoringSessionSnapshotContext,
     type FsusUiPublicEditorSession,
     type FsusUiPublicEditorSessionFactory
@@ -10,6 +15,7 @@ import {
     type OpenArticleDocumentEntry
 } from './openArticleDocumentRegistry';
 
+import type { ArticleRecoveryJournalCheckpointReferenceBinding } from '../articleRecoveryJournal';
 import type {
     MarkdownEditorSession,
     MarkdownEditorSessionAttachmentResourceSource,
@@ -44,6 +50,8 @@ export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublic
     inspectResourceSources(entry: OpenArticleDocumentEntry): ArticleWorkspaceEditorResourceSources;
     captureRetainedSnapshot(entry: OpenArticleDocumentEntry): MarkdownEditorSessionSnapshot;
     restoreRetainedSnapshot(entry: OpenArticleDocumentEntry, snapshot: MarkdownEditorSessionSnapshot): MarkdownEditorSessionRestoreProof;
+    captureRetainedRecoverySnapshot(entry: OpenArticleDocumentEntry, recoveryCheckpoint: ArticleWorkspaceRetainedRecoveryCheckpoint, checkpointRef: string): ArticleWorkspaceRetainedRecoverySnapshot;
+    restoreRetainedRecoverySnapshot(entry: OpenArticleDocumentEntry, snapshot: ArticleWorkspaceRetainedRecoverySnapshot): Promise<MarkdownEditorSessionRestoreProof>;
     captureLastValidRender(entry: OpenArticleDocumentEntry): MarkdownEditorSessionLastValidRender | null;
     restoreLastValidRender(entry: OpenArticleDocumentEntry, render: MarkdownEditorSessionLastValidRender): Promise<MarkdownEditorSessionRenderRestoreProof>;
 }
@@ -128,7 +136,111 @@ export function createFsusUiEditorSessionFactory(
         }
     }
 
+    function assertRecoveryReference(
+        entry: OpenArticleDocumentEntry,
+        binding: ArticleWorkspaceMountedEditorBinding,
+        recoveryCheckpoint: ArticleRecoveryJournalCheckpointReferenceBinding,
+        checkpointRef: string
+    ): void
+    {
+        const info = recoveryCheckpoint.inspectReference(checkpointRef);
+        if (info?.checkpointRef !== checkpointRef
+            || info.editorSessionRef !== entry.editorSessionRef
+            || info.articleId !== binding.identity.articleId
+            || info.draftId !== binding.identity.draftId
+            || info.documentId !== binding.identity.documentId
+            || info.documentEpoch !== binding.documentContext.documentEpoch
+            || info.editorRevision !== binding.editorRevision
+            || info.sourceRevision !== binding.documentContext.sourceRevision
+            || info.draftRevision !== binding.documentContext.draftRevision
+            || info.associationRevision !== entry.lifecycleRevision)
+        {
+            throw new Error('public-editor-recovery-reference-owner-mismatch');
+        }
+    }
+
     return {
+        captureRetainedRecoverySnapshot(entry, recoveryCheckpoint, checkpointRef)
+        {
+            const { binding, session } = resolveSession(entry);
+            const identity = Object.freeze({ ...binding.identity });
+            const documentContext = Object.freeze({ ...binding.documentContext });
+            const revision = binding.editorRevision;
+            const editor = binding.editor;
+            const assertOwner = (): void =>
+            {
+                const current = resolveSession(entry);
+                assertBinding(current.binding, identity, documentContext);
+                if (current.session !== session || current.binding.editor !== editor
+                    || current.binding.editorRevision !== revision)
+                {
+                    throw new Error('public-editor-recovery-snapshot-owner-stale');
+                }
+                assertRecoveryReference(entry, current.binding, recoveryCheckpoint, checkpointRef);
+            };
+            assertOwner();
+            // Original Writer supplies expected native context and validates the actual body
+            // inside its genuine native digest callback. Do not create a second binding/producer.
+            const nativeSnapshot = recoveryCheckpoint.captureRetainedSnapshot(checkpointRef);
+            assertOwner();
+            if (nativeSnapshot.editorSessionRef !== entry.editorSessionRef
+                || nativeSnapshot.documentIdentity.id !== identity.documentId
+                || nativeSnapshot.documentIdentity.epoch !== documentContext.documentEpoch
+                || nativeSnapshot.revision !== revision)
+            {
+                throw new Error('public-editor-recovery-snapshot-context-mismatch');
+            }
+            const refs = {
+                schema: 'fsusblog.article-workspace-retained-recovery.v1' as const,
+                identity,
+                documentContext,
+                nativeSnapshot,
+                recoveryCheckpoint,
+                crashJournalRef: checkpointRef
+            };
+            return Object.freeze({ ...refs, refsDigest: calculateRetainedRecoveryRefsDigest(refs) });
+        },
+        async restoreRetainedRecoverySnapshot(entry, snapshot)
+        {
+            const { binding, session } = resolveSession(entry);
+            const identity = Object.freeze({ ...binding.identity });
+            const context = Object.freeze({ ...binding.documentContext });
+            const revision = binding.editorRevision;
+            const editor = binding.editor;
+            const assertOwner = (): void =>
+            {
+                const current = resolveSession(entry);
+                assertBinding(current.binding, identity, context);
+                assertBinding(current.binding, snapshot.identity, snapshot.documentContext);
+                if (current.session !== session || current.binding.editor !== editor
+                    || current.binding.editorRevision !== revision
+                    || snapshot.schema !== 'fsusblog.article-workspace-retained-recovery.v1'
+                    || snapshot.nativeSnapshot.editorSessionRef !== entry.editorSessionRef
+                    || snapshot.nativeSnapshot.documentIdentity.id !== identity.documentId
+                    || snapshot.nativeSnapshot.documentIdentity.epoch !== context.documentEpoch
+                    || snapshot.nativeSnapshot.revision !== revision
+                    || calculateRetainedRecoveryRefsDigest(snapshot) !== snapshot.refsDigest)
+                {
+                    throw new Error('public-editor-recovery-restore-owner-stale');
+                }
+                assertRecoveryReference(entry, current.binding, snapshot.recoveryCheckpoint, snapshot.crashJournalRef);
+            };
+            assertOwner();
+            // Original async storage integrity check never applies content or replaces native custody.
+            const record = await snapshot.recoveryCheckpoint.restoreReference(snapshot.crashJournalRef);
+            assertOwner();
+            if (!record || !snapshot.recoveryCheckpoint.validateReference(snapshot.crashJournalRef, record.content)
+                || calculateOpenArticleDocumentDigest(record.content) !== snapshot.nativeSnapshot.editorContentDigest)
+            {
+                throw new Error('public-editor-recovery-restore-content-mismatch');
+            }
+            assertOwner();
+            const proof = session.restoreSnapshot(snapshot.nativeSnapshot, {
+                documentIdentity: { id: identity.documentId, epoch: context.documentEpoch }, revision
+            });
+            assertOwner();
+            return proof;
+        },
         inspectResourceSources(entry)
         {
             const { binding, session } = resolveSession(entry);
@@ -266,9 +378,10 @@ export function createFsusUiEditorSessionFactory(
                     assertCurrent(entry, session, context);
                     // Upstream exposes an actual nullable full-document render
                     // ref and same-mounted projection restoration, but complete panel state and
-                    // application draft/journal checkpoint owners remain absent.
+                    // application draft and complete recovery ref admission remain absent.
+                    // The separate retained API uses the actual original Writer journal binding.
                     // Refuse before capture so an existing snapshot is preserved.
-                    throw new Error('public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,crash-journal');
+                    throw new Error('public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,full-recovery-refset');
                 },
                 inspectResources: () => observeResources(() => session.inspectResources()),
                 pauseResources: () => observeResources(() => session.pauseResources()),
@@ -282,7 +395,7 @@ export function createFsusUiEditorSessionFactory(
                         snapshotDigest: snapshot.snapshotDigest,
                         identityValidated: false,
                         refsValidated: false,
-                        reason: 'public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,crash-journal'
+                        reason: 'public-editor-full-snapshot-owner-unavailable:panel-state,renderer-restoration,draft,full-recovery-refset'
                     };
                 },
                 disposeAfterSnapshot(snapshotRef)

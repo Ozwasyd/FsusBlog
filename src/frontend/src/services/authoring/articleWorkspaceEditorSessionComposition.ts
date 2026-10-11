@@ -10,6 +10,7 @@ import {
     type ArticleWorkspaceEditorResourceSources
 } from './fsusUiEditorSessionFactory';
 
+import type { ArticleWorkspaceRetainedRecoveryCheckpoint, ArticleWorkspaceRetainedRecoverySnapshot } from './articleWorkspaceRetainedRecoverySnapshot';
 import type { OpenArticleDocumentEntry } from './openArticleDocumentRegistry';
 import type { MarkdownEditorSessionRestoreProof, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
 
@@ -128,4 +129,33 @@ export function restoreArticleWorkspaceRetainedEditorSnapshot(
     }
     installed.assertActive();
     return installed.factory.restoreRetainedSnapshot(entry, snapshot);
+}
+
+/** Pass the actual original Writer binding and its prepared inspect(token).checkpointRef. */
+export function captureArticleWorkspaceRetainedRecoverySnapshot(
+    entry: OpenArticleDocumentEntry,
+    recoveryCheckpoint: ArticleWorkspaceRetainedRecoveryCheckpoint,
+    checkpointRef: string
+): ArticleWorkspaceRetainedRecoverySnapshot
+{
+    if (!installed)
+    {
+        throw new Error('article-workspace-session-composition-not-installed');
+    }
+    installed.assertActive();
+    return installed.factory.captureRetainedRecoverySnapshot(entry, recoveryCheckpoint, checkpointRef);
+}
+
+/** Reuses captured original custody; retirement is rechecked by the SAME factory after await. */
+export function restoreArticleWorkspaceRetainedRecoverySnapshot(
+    entry: OpenArticleDocumentEntry,
+    snapshot: ArticleWorkspaceRetainedRecoverySnapshot
+): Promise<MarkdownEditorSessionRestoreProof>
+{
+    if (!installed)
+    {
+        throw new Error('article-workspace-session-composition-not-installed');
+    }
+    installed.assertActive();
+    return installed.factory.restoreRetainedRecoverySnapshot(entry, snapshot);
 }

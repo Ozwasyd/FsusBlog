@@ -5,3 +5,4 @@ export * from './articleDocumentContext';
 export * from './fsusUiEditorSessionFactory';
 export * from './articleWorkspaceEditorSessionComposition';
 export * from './articleWorkspaceMountedEditorResolver';
+export * from './articleWorkspaceRetainedRecoverySnapshot';
