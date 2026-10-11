@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { resolveLocalFsusUiRepositoryRoot } from './fsusui-root.mjs';
+import { prepareLocalFsusUiSourceCopy, resolveLocalFsusUiRepositoryRoot } from './fsusui-root.mjs';
 
 const packageName = '@ozwasyd/element-plus';
 const packageLocation = `node_modules/${packageName}`;
@@ -183,7 +183,11 @@ export function projectLocalFsusUiInstall({ manifest, lockfile })
 
 function validateLocalSource(frontend, fsusui)
 {
-    const root = resolveLocalFsusUiRepositoryRoot({ override: fsusui, repositoryRoot: path.resolve(frontend, '../..') });
+    const root = resolveLocalFsusUiRepositoryRoot({
+        override: fsusui,
+        repositoryRoot: path.resolve(frontend, '../..'),
+        preferSourceCopy: false
+    });
     assert.ok(fsusui && root, 'explicit FsusUI source is required');
     const canonical = fs.realpathSync(root);
     for (const asset of [
@@ -262,8 +266,6 @@ export function verifyLocalFsusUiInstall({ frontend, fsusui })
         assert.equal(installed.version, locked.version, `installed locked dependency version differs: ${name}`);
         assert.equal(installed.name, locked.name ?? name, `installed locked dependency identity differs: ${name}`);
     }
-    const destination = path.join(root, 'vue/packages/node_modules');
-    assert.equal(fs.existsSync(destination), false, 'source package dependency directory already exists');
     // Link each original import name to the verified public install, including
     // version-conflicting dependencies installed under dedicated npm aliases.
     for (const binding of bindings)
@@ -273,12 +275,21 @@ export function verifyLocalFsusUiInstall({ frontend, fsusui })
         assert.equal(installed.version, binding.locked.version, `installed locked dependency version differs: ${binding.name}`);
         assert.equal(installed.name, binding.locked.name ?? binding.name, `installed locked dependency identity differs: ${binding.name}`);
     }
-    for (const binding of bindings)
-    {
-        const link = path.join(destination, binding.name);
-        fs.mkdirSync(path.dirname(link), { recursive: true });
-        fs.symlinkSync(path.join(frontend, binding.location), link, 'dir');
-    }
+    return prepareLocalFsusUiSourceCopy({
+        repositoryRoot: path.resolve(frontend, '../..'),
+        sourceRoot: root,
+        frontend,
+        initialize(copy)
+        {
+            const destination = path.join(copy, 'vue/packages/node_modules');
+            for (const binding of bindings)
+            {
+                const link = path.join(destination, binding.name);
+                fs.mkdirSync(path.dirname(link), { recursive: true });
+                fs.symlinkSync(fs.realpathSync(path.join(frontend, binding.location)), link, 'dir');
+            }
+        }
+    });
 }
 
 function main(args)
