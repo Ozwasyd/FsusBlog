@@ -1,0 +1,234 @@
+{
+  "sourceCommit": "54ef3efee2ec7f2fff8e6dbcdfa6385a79e933ab",
+  "baselineSource": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+  "sourceBlob": "49822a978e9f53e8b95f7476592fdc60d55f1c45",
+  "producerSource": "61c156009ee7b2bc540b5efd84071adf171d679e",
+  "producerBlob": "e7265075e8afac1417d028cd42065903ddbd5745",
+  "mainProducerConsumed": false,
+  "mainApplicationPass": false,
+  "projectionOnly": true,
+  "rawLogsDirectory": "/workspace/.tmp/chain2246-writer-checkpoint",
+  "runs": {
+    "baseline": {
+      "type": {
+        "label": "baseline",
+        "kind": "type",
+        "command": [
+          "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+          "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+          "--application"
+        ],
+        "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+        "exitCode": 2,
+        "seconds": 31.971,
+        "log": "/workspace/.tmp/chain2246-writer-checkpoint/baseline-type.log",
+        "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+        "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+        "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+        "projectionOnly": true,
+        "logSha256": "cd1b85e2599b23c12b3bab508fef476abaff0ac71d6c3411cf6708621d6b5023",
+        "diagnosticCount": 227
+      },
+      "style": {
+        "label": "baseline",
+        "kind": "style",
+        "command": [
+          "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "strict-full",
+          "--file",
+          "src/frontend/src/composables/useAdminArticleWrite.ts"
+        ],
+        "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+        "exitCode": 0,
+        "seconds": 13.744,
+        "log": "/workspace/.tmp/chain2246-writer-checkpoint/baseline-style.log",
+        "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+        "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+        "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+        "projectionOnly": true,
+        "logSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+        "findings": 1
+      }
+    },
+    "candidate": {
+      "type": {
+        "label": "candidate",
+        "kind": "type",
+        "command": [
+          "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+          "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+          "--application"
+        ],
+        "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+        "exitCode": 2,
+        "seconds": 31.281,
+        "log": "/workspace/.tmp/chain2246-writer-checkpoint/candidate-type.log",
+        "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+        "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+        "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+        "projectionOnly": true,
+        "logSha256": "9c64ea34ef052416f6f2b66e97b877fc045da3f5340e57d70a2cc2887c54f75e",
+        "diagnosticCount": 228
+      },
+      "style": {
+        "label": "candidate",
+        "kind": "style",
+        "command": [
+          "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "strict-full",
+          "--file",
+          "src/frontend/src/composables/useAdminArticleWrite.ts"
+        ],
+        "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+        "exitCode": 1,
+        "seconds": 12.992,
+        "log": "/workspace/.tmp/chain2246-writer-checkpoint/candidate-style.log",
+        "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+        "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+        "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+        "projectionOnly": true,
+        "logSha256": "cbec258d42aeec7c8d7cd45ef7a762b4c622631ac455f86dc460a246cc78e016",
+        "findings": 7
+      }
+    },
+    "final": {
+      "type": {
+        "label": "final",
+        "kind": "type",
+        "command": [
+          "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+          "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+          "--application"
+        ],
+        "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+        "exitCode": 2,
+        "seconds": 30.645,
+        "log": "/workspace/.tmp/chain2246-writer-checkpoint/final-type.log",
+        "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+        "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+        "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+        "projectionOnly": true,
+        "logSha256": "9c64ea34ef052416f6f2b66e97b877fc045da3f5340e57d70a2cc2887c54f75e",
+        "diagnosticCount": 228
+      },
+      "style": {
+        "label": "final",
+        "kind": "style",
+        "command": [
+          "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "strict-full",
+          "--file",
+          "src/frontend/src/composables/useAdminArticleWrite.ts"
+        ],
+        "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+        "exitCode": 0,
+        "seconds": 13.2,
+        "log": "/workspace/.tmp/chain2246-writer-checkpoint/final-style.log",
+        "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+        "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+        "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+        "projectionOnly": true,
+        "logSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+        "findings": 1
+      }
+    },
+    "corrected": {
+      "type": {
+        "label": "corrected",
+        "kind": "type",
+        "command": [
+          "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+          "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+          "--application"
+        ],
+        "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+        "exitCode": 2,
+        "seconds": 31.822,
+        "log": "/workspace/.tmp/chain2246-writer-checkpoint/corrected-type.log",
+        "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+        "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+        "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+        "projectionOnly": true,
+        "logSha256": "cd1b85e2599b23c12b3bab508fef476abaff0ac71d6c3411cf6708621d6b5023",
+        "diagnosticCount": 227
+      },
+      "style": {
+        "label": "corrected",
+        "kind": "style",
+        "command": [
+          "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "strict-full",
+          "--file",
+          "src/frontend/src/composables/useAdminArticleWrite.ts"
+        ],
+        "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+        "exitCode": 0,
+        "seconds": 13.189,
+        "log": "/workspace/.tmp/chain2246-writer-checkpoint/corrected-style.log",
+        "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+        "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+        "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+        "projectionOnly": true,
+        "logSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+        "findings": 1
+      }
+    },
+    "principal": {
+      "type": {
+        "label": "principal",
+        "kind": "type",
+        "command": [
+          "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+          "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+          "--application"
+        ],
+        "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+        "exitCode": 2,
+        "seconds": 32.329,
+        "log": "/workspace/.tmp/chain2246-writer-checkpoint/principal-type.log",
+        "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+        "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+        "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+        "projectionOnly": true,
+        "logSha256": "cd1b85e2599b23c12b3bab508fef476abaff0ac71d6c3411cf6708621d6b5023",
+        "diagnosticCount": 227
+      },
+      "style": {
+        "label": "principal",
+        "kind": "style",
+        "command": [
+          "/workspace/.toolchains/chain2246-node2416/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "strict-full",
+          "--file",
+          "src/frontend/src/composables/useAdminArticleWrite.ts"
+        ],
+        "cwd": "/workspace/FsusBlog-static-candidate-c808-2246",
+        "exitCode": 0,
+        "seconds": 13.852,
+        "log": "/workspace/.tmp/chain2246-writer-checkpoint/principal-style.log",
+        "ui": "06d6303f98c0d3f915a19cb777028b2fd9d914d4",
+        "config": "69992a0769a896434028d2b16776423f31c6c7d0",
+        "journalProducer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+        "projectionOnly": true,
+        "logSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+        "findings": 1
+      }
+    }
+  },
+  "normalizedTypeAdded": [],
+  "normalizedTypeRemoved": [],
+  "finalTypeCount": 227,
+  "finalOwnedStyleExit": 0,
+  "producerIndependentReview": "Lifecycle P2 found: stale async restore/list can invalidate a newer token; original owner fix pending exact source",
+  "runtimeQualification": false
+}

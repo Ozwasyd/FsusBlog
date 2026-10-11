@@ -100,3 +100,12 @@ This audit adds no product port until the exact original producer contract exist
 No application/frontend type rerun is needed for this evidence-only increment.
 No tests, listing/collection, mount, browser, native, backend/DB or runtime acceptance
 were executed. No source acceptance or full factory qualification is asserted.
+
+## Later caller source offer
+
+The earlier API absence findings describe the d547/parent114 source graphs. Parent
+subsequently supplied original journal PR4225 exact61c15600. Caller source54ef3efe
+adds the real reader/invalidation/release binding, documented in the historical
+`../chain-2246-writer-checkpoint-source/README.md` source offer. The whole producer
+intake was aborted on a docs conflict, so dependency integration, full factory refs,
+draft custody and server Document binding remain open. No runtime acceptance follows.

@@ -1,0 +1,19 @@
+{
+  "producer": "61c156009ee7b2bc540b5efd84071adf171d679e",
+  "attemptedImplementationCommits": [
+    "97e9177ddad479f01e96b58128d4cae690b31724",
+    "c77c4b573389ec0252f0ae1d24bbca21808ba7e8"
+  ],
+  "base": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+  "applyCheck": "failed; individual exit code not captured in combined shell",
+  "attemptedCherryPick": "failed; individual exit code not captured in combined shell",
+  "combinedShellExitCode": 0,
+  "errors": [
+    "error: patch failed: docs/security/private-surface-runtime.md:34",
+    "CONFLICT (content): Merge conflict in docs/security/private-surface-runtime.md"
+  ],
+  "abortExitCode": 0,
+  "conflictResolved": false,
+  "producerConsumedOnBranch": false,
+  "continuedOwnSourceInStaticProjection": true
+}
