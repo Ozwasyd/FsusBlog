@@ -541,7 +541,7 @@
       "MarkdownAttachmentCaptureObservation",
       "MarkdownAttachmentFileConsumer",
       "withAttachmentFile public native loan",
-      "attachment-capture public native event"
+      "capture observation second argument of upload-image(batch, capture?)"
     ],
     "actualSourceReference": "8f69342eb0ce7b02a38d0669b38794728161a53a at prior b4ce (read only, not substituted)",
     "implementationOwners": [
@@ -559,7 +559,24 @@
     "trackingIssue": 275,
     "closedStateIsNotCurrentApiAcceptance": true,
     "newSession673ReadOnly": "673c342ae42967b9f505d749b3a91f5d261315e6",
-    "newSessionMeaning": "Honest actual renderer/attachment resource observations; full qualification not established"
+    "newSessionMeaning": "Honest actual renderer/attachment resource observations; full qualification not established",
+    "nativeEventAlreadyPresent": "upload-image(batch)",
+    "eventCorrection": "attachment-capture is the Blog wrapper application event, not an FsusUI native event",
+    "suppliedProducer": {
+      "sourceCommit": "971e73839896940f8af21b92a1363188a3180c4a",
+      "pr": "https://github.com/Ozwasyd/FsusUI/pull/892",
+      "task": "01a12481-c8e6-7728-bfbc-81f0a7ebc00c",
+      "sourceOnlyRead": true,
+      "consumed": false,
+      "runtimeQualification": false,
+      "verifiedPublicEvent": "upload-image(batch, capture?)",
+      "verifiedFileLoan": "withAttachmentFile(originalBatch, originalItem, consumer): boolean",
+      "sourceBlobs": {
+        "vue/packages/components/markdown-editor/src/markdown-editor.vue": "0458bc38cc2a431a98a001d29463807140781811",
+        "vue/packages/components/markdown-editor/src/markdown-editor-attachment.ts": "a2b9b1dfdb52615f0387f2abf03913fa44b76bf1",
+        "vue/packages/components/markdown-editor/src/markdown-editor.ts": "5b8ad2a4950f87e47744bb037854990ee7868f12"
+      }
+    }
   },
   "canonicalProducers": {
     "protocol": "node tools/frontend/generate-aeds-protocol.mjs (after original protocol owner supplies manifest)",
@@ -567,5 +584,17 @@
     "frontendRoutes": "node tools/contracts/generate-frontend-routes.mjs (only from actual authoritative endpoint observation)",
     "endpointContracts": "node tools/contracts/generate-cross-stack-contract.mjs (same actual observation)"
   },
-  "allTestsListMountNative": "NOT RUN / HELD"
+  "allTestsListMountNative": "NOT RUN / HELD",
+  "resumedBackendProducer": {
+    "issue": 2258,
+    "task": "01a1195b-2e86-72e6-a09d-ebac26f4401e",
+    "historicalPreviewSource": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+    "historicalPRs": [
+      4068,
+      4170
+    ],
+    "narrowClosurePending": true,
+    "facts285FormalManifestEncoderEndpointPresent": false,
+    "broadCherryPickAuthorized": false
+  }
 }

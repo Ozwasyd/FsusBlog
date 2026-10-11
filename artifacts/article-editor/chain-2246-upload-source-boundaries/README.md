@@ -86,13 +86,33 @@ and lock are identical to the previous8afe graph. No private selector, public AP
 stub or alternate parser was introduced.
 
 The actual06d source still lacks public `MarkdownAttachmentCaptureObservation`,
-`MarkdownAttachmentFileConsumer`, native `withAttachmentFile` loan and accepted
-`attachment-capture` event. Their original prior source is8f69342e at the historical
-b4ce graph; it was read only and was not substituted into06d. **FsusUI #375** owns
-picker/paste/drop capture and anchors; **#376** owns native attachment lifecycle;
-**#275** is their tracking parent. Closed states do not prove these APIs are in
-this actual intended source. The four Blog cascading implicit-any diagnostics and
-five owning style findings cannot be fixed with fabricated types or weakened rules.
+`MarkdownAttachmentFileConsumer`, native `withAttachmentFile` loan and the accepted
+capture argument of `upload-image(batch, capture?)`. It does have a batch-only
+`upload-image` event. `attachment-capture` is the Blog wrapper's application event,
+not an FsusUI native event; the earlier inventory wording was incorrect. The
+existing Blog wrapper already listens to native `upload-image` and passes its
+optional capture to that application event, so no product event rename is needed.
+
+Parent supplied original producer PR892 exact
+`971e73839896940f8af21b92a1363188a3180c4a`, with original source
+`8f69342eb0ce7b02a38d0669b38794728161a53a`. Exact971 was fetched/read only. It has the
+two actual exported types, native `withAttachmentFile(originalBatch, originalItem,
+consumer): boolean` and `upload-image(batch, capture?)`. The loan validates original
+batch/item custody, signals, current document identity/epoch and original pending
+job revision/attempt before synchronously lending the File and actual observation.
+Those facts are source evidence, not native execution or qualification. Producer
+task `01a12481-c8e6-7728-bfbc-81f0a7ebc00c` is preparing a narrow offer for the actual
+shared Vue owner to join carefully with UI914. No donor was substituted into06d.
+**FsusUI #375** owns picker/paste/drop capture and anchors; **#376** owns native
+attachment lifecycle; **#275** is tracking. Closed states do not prove the API join.
+The four cascading implicit-any diagnostics and five style findings remain scoped
+to the actually tested06d; they cannot be removed with fabricated types/rules.
+
+Parent also resumed original backend #2258 task
+`01a1195b-2e86-72e6-a09d-ebac26f4401e`. Its original preview source66fa8b0e is retained
+in PR4068/4170 and is preparing narrow closure. Facts285 formal manifest, backend
+encoder and actual endpoint remain missing. Read references do not authorize broad
+cherry-picks or substitute a frontend decoder for the missing backend producer.
 
 Newer supplied `673c342ae42967b9f505d749b3a91f5d261315e6` was fetched/read only. Its
 honest actual renderer/attachment resource observations are not full snapshot,
