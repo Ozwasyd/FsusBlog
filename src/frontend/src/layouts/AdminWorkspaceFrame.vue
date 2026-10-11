@@ -42,6 +42,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
+import { defaultWorkspaceSnapshotLayout } from '@/api/authoringWorkspaceSnapshot';
 import type { ArticleLibraryGroup, ArticleLibraryPresentation } from '@/components/admin/article/articleLibraryPresentation';
 import ArticleLibraryRail from '@/components/admin/article/ArticleLibraryRail.vue';
 import ArticleWorkspaceTabStrip from '@/components/admin/article/ArticleWorkspaceTabStrip.vue';
@@ -57,7 +58,7 @@ import {
     type AccountContentMode,
     type AccountPageKind
 } from '@/router/accountRouteMeta';
-import { retireArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
+import { installArticleWorkspaceEditorSessions, retireArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
 import { createArticleWorkspaceMountedEditorResolver, type ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
 import {
     articleWorkspaceTabRouter,
@@ -66,11 +67,12 @@ import {
     type ArticleWorkspaceTabPresentation,
     type ArticleWorkspaceRouterReceipt
 } from '@/services/authoring/articleWorkspaceTabRouter';
-import { AuthoringTabGroupRegistry, type AuthoringTabGroupOptions, type AuthoringGroupCommandIdentity } from '@/services/authoring/authoringTabGroupRegistry';
+import { AuthoringTabGroupRegistry, type AuthoringTabGroupOptions, type AuthoringGroupCommandIdentity, type AuthoringTabGroupStartupCustody } from '@/services/authoring/authoringTabGroupRegistry';
 import { connectAuthoringWorkspaceSessionSource, type AuthoringWorkspaceSessionSource } from '@/services/authoring/authoringWorkspaceSessionSource';
 import { prepareAuthoringWorkspaceSnapshotBootstrap, bindAuthoringWorkspaceSnapshotBootstrapGroups } from '@/services/authoring/authoringWorkspaceSnapshotBootstrap';
 import { applyAuthoringWorkspaceSnapshotRestore, type AuthoringWorkspaceSnapshotRestoreCommands, type AuthoringWorkspaceSnapshotRestorePlan } from '@/services/authoring/authoringWorkspaceSnapshotRestore';
 import type { AuthoringWorkspaceSnapshotSync } from '@/services/authoring/authoringWorkspaceSnapshotSync';
+import type { ArticleWorkspaceMountedEditorResolver } from '@/services/authoring/fsusUiEditorSessionFactory';
 
 /** Original-owner capabilities only; no null factory, local batch facts or fabricated receipts. */
 export interface AdminArticleWorkspaceStartupPorts {
@@ -92,9 +94,13 @@ let workspaceInstallation: {
     readonly ports: AdminArticleWorkspaceStartupPorts;
     failed: boolean;
     retirementFailure?: unknown;
-    /** Preserve exact original objects for the original lifecycle owner's pending custody API. */
+    groupRetirementFailure?: unknown;
+    stopObservingCancellation?: () => void;
+    /** Retain the exact original owners, their custody handle and the actual in-flight task. */
     readonly resources: {
         groups: AuthoringTabGroupRegistry | null;
+        custody: AuthoringTabGroupStartupCustody | null;
+        resolver: ArticleWorkspaceMountedEditorResolver | null;
         sessions: AuthoringWorkspaceSessionSource | null;
     };
     readonly task: Promise<{
@@ -134,7 +140,8 @@ async function startArticleWorkspace(
     signal.throwIfAborted();
     ports.assertRuntimeCapability();
     signal.throwIfAborted();
-    if (articleWorkspaceTabRouter.getRegistry().listEntries().length !== 0)
+    const registry = articleWorkspaceTabRouter.getRegistry();
+    if (registry.getRevision() !== 0 || registry.listEntries().length !== 0)
     {
         throw new Error('article-workspace-startup-requires-empty-registry');
     }
@@ -142,15 +149,37 @@ async function startArticleWorkspace(
     {
         await ports.sync.start(typeof navigator !== 'undefined' && navigator.onLine);
     }
-    const plan = await prepareAuthoringWorkspaceSnapshotBootstrap(ports.sync, ports.resolutionPort, ports.operationEpoch, signal);
-    const groupOwner = new AuthoringTabGroupRegistry(articleWorkspaceTabRouter.getRegistry(), {
+    signal.throwIfAborted();
+    const observation = ports.sync.getServerObservation();
+    const state = ports.sync.getState();
+    if (!observation || state.dirty || state.resetting)
+    {
+        throw new Error('article-workspace-startup-current-source-unavailable');
+    }
+    if (articleWorkspaceTabRouter.getRegistry() !== registry || registry.getRevision() !== 0 || registry.listEntries().length !== 0)
+    {
+        throw new Error('article-workspace-startup-requires-empty-registry');
+    }
+    // Only the authentic server layout (or the original missing-server default) supplies group IDs.
+    const layout = observation.snapshot?.layout ?? defaultWorkspaceSnapshotLayout();
+    const groupOwner = new AuthoringTabGroupRegistry(registry, {
         ...ports.groupOptions,
-        initialGroupId: plan.layout.activeGroupId,
-        initialGroupIds: plan.layout.groups.map((group: AuthoringWorkspaceSnapshotRestorePlan['layout']['groups'][number]) => group.groupId)
+        initialGroupId: layout.activeGroupId,
+        initialGroupIds: layout.groups.map(group => group.groupId)
     });
     resources.groups = groupOwner;
+    resources.custody = groupOwner.beginStartupCustody();
+    signal.throwIfAborted();
+    if (ports.sync.getServerObservation() !== observation)
+    {
+        throw new Error('article-workspace-startup-current-source-unavailable');
+    }
+    // Claim original custody before the first asynchronous restore preparation/mutation.
+    const plan = await prepareAuthoringWorkspaceSnapshotBootstrap(ports.sync, ports.resolutionPort, ports.operationEpoch, signal);
     const groupAdapter = bindAuthoringWorkspaceSnapshotBootstrapGroups(plan, articleWorkspaceTabRouter, groupOwner, ports.createGroupIdentity);
-    const sessions = connectAuthoringWorkspaceSessionSource(groupOwner, createArticleWorkspaceMountedEditorResolver(ports.mountedEditors));
+    const resolver = createArticleWorkspaceMountedEditorResolver(ports.mountedEditors);
+    resources.resolver = resolver;
+    const sessions = connectAuthoringWorkspaceSessionSource(groupOwner, resolver);
     resources.sessions = sessions;
     await applyAuthoringWorkspaceSnapshotRestore(plan, {
         router: articleWorkspaceTabRouter,
@@ -184,7 +213,12 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
             return result;
         });
     }
-    const resources: NonNullable<typeof workspaceInstallation>['resources'] = { groups: null, sessions: null };
+    const resources: NonNullable<typeof workspaceInstallation>['resources'] = {
+        groups: null,
+        custody: null,
+        resolver: null,
+        sessions: null
+    };
     // Reserve the sole installation before any original capability callback can re-enter it.
     const task = Promise.resolve().then(() => startArticleWorkspace(ports, resources)).catch((error: unknown) =>
     {
@@ -193,7 +227,9 @@ function installArticleWorkspaceStartup(ports: AdminArticleWorkspaceStartupPorts
     });
     workspaceInstallation = { ports, resources, failed: false, task };
     // Observe the original operation lifetime even after its current view unmounts.
-    ports.signal.addEventListener('abort', () => markWorkspaceInstallationFailed(ports), { once: true });
+    const onCancellation = () => markWorkspaceInstallationFailed(ports);
+    ports.signal.addEventListener('abort', onCancellation, { once: true });
+    workspaceInstallation.stopObservingCancellation = () => ports.signal.removeEventListener('abort', onCancellation);
     if (ports.signal.aborted)
     {
         markWorkspaceInstallationFailed(ports);
@@ -206,6 +242,23 @@ function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPort
     if (workspaceInstallation?.ports === ports)
     {
         workspaceInstallation.failed = true;
+        const custody = workspaceInstallation.resources.custody;
+        if (custody?.inspect().status === 'handed-off')
+        {
+            // Successful startup transferred admission custody; do not retire its ongoing owner.
+            return;
+        }
+        if (custody)
+        {
+            try
+            {
+                custody.retire(ports.signal.aborted ? 'restore-cancelled' : 'restore-failed');
+            }
+            catch (error: unknown)
+            {
+                workspaceInstallation.groupRetirementFailure = error;
+            }
+        }
         const sessions = workspaceInstallation.resources.sessions;
         if (sessions)
         {
@@ -268,6 +321,15 @@ if (startupPorts)
             throw new Error('article-workspace-startup-owner-changed');
         }
         requireCurrentStartup(startupPorts, plan);
+        startupPorts.assertRuntimeCapability();
+        const resources = workspaceInstallation.resources;
+        if (!resources.custody || !resources.groups || !resources.resolver || resources.sessions !== sessions
+            || sessions.groups !== resources.groups || !resources.groups.verifyBinding(articleWorkspaceTabRouter.getRegistry())
+            || installArticleWorkspaceEditorSessions(resources.resolver) !== sessions.host)
+        {
+            throw new Error('article-workspace-startup-original-session-owner-unavailable');
+        }
+        requireCurrentStartup(startupPorts, plan);
         // Recheck after the original guard callback, immediately before local publication.
         if (!mounted || props.workspaceStartup !== startupPorts || startupPorts.signal.aborted
             || workspaceInstallation.failed)
@@ -275,6 +337,8 @@ if (startupPorts)
             markWorkspaceStartupUnavailable();
             return;
         }
+        resources.custody.sealHandoff();
+        workspaceInstallation.stopObservingCancellation?.();
         workspaceStartupState.value = 'started';
         // Hand the layout owner the same original group/host, never a reconstructed projection.
         emit('workspaceStarted', sessions);
