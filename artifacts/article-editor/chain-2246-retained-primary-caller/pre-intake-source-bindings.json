@@ -1,0 +1,64 @@
+{
+  "actualMain": "9932613b500476d6921283200aedfe705b5f4e04",
+  "offer": "8769b17d93056e63657447a2b5771e6beddbd738",
+  "canonicalBase": "a27a5c1922d681d9796a05acdd7f424362f26869",
+  "postimages": [
+    {
+      "path": "src/frontend/src/services/authoring/articleDocumentContext.ts",
+      "actualMainExists": true,
+      "offeredBlob": "43fd33ea94c5c2140fc1c19aeac81a883413a9bf",
+      "offeredSha256": "97ff44c00e897374a97fd612b9b8559d9f7524c77348091734d0a35433a1214f",
+      "a27Blob": "734104e53f9efa1dc4342277bfd6e5e9e6794c04",
+      "sameAsA27": false
+    },
+    {
+      "path": "src/frontend/src/services/authoring/openArticleDocumentRegistry.ts",
+      "actualMainExists": true,
+      "offeredBlob": "2b67ae4f0c6785a3373ae38e044c7bc42fda720b",
+      "offeredSha256": "fcd9535511f2363d00ff5b594207bbc66bbbfeb6d8d27fa2524608ab9602c6ef",
+      "a27Blob": "fa6147bfb29a100cbe672097db3e2d930563c5a6",
+      "sameAsA27": false
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringTabGroupRegistry.ts",
+      "actualMainExists": false,
+      "offeredBlob": "4e78c48bd891a856c6f19c2a3492b9920e3c01da",
+      "offeredSha256": "5fe81ea4d8bcc0a4b172f82d6c4aa794768b49e8938a2c5ea4548382e8d6295b",
+      "a27Blob": "4e78c48bd891a856c6f19c2a3492b9920e3c01da",
+      "sameAsA27": true
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceRatioOwner.ts",
+      "actualMainExists": false,
+      "offeredBlob": "16261cbd3d0cf1b9ab519eec18b934e29e87c288",
+      "offeredSha256": "6ede2f9aef40d949547cd82fa4a4dc37eabba375e9211501e36e7d9d277c9551",
+      "a27Blob": "16261cbd3d0cf1b9ab519eec18b934e29e87c288",
+      "sameAsA27": true
+    },
+    {
+      "path": "src/frontend/src/api/authoringWorkspaceSnapshot.ts",
+      "actualMainExists": false,
+      "offeredBlob": "28a32bc18b328f71084f85eeb66ca447a1269e79",
+      "offeredSha256": "fe7fee07355387276d9542109b89f360d2173149f1ee237506eb44dc5a256ce7",
+      "a27Blob": "28a32bc18b328f71084f85eeb66ca447a1269e79",
+      "sameAsA27": true
+    },
+    {
+      "path": "tests/frontend/unit/authoring/retainedArticleDocumentHandle.test.ts",
+      "actualMainExists": false,
+      "offeredBlob": "72988ca66c6bb256ace5db7dd2d594b7a79d6c31",
+      "offeredSha256": "e7eb9b0a3fc66f2e9dba669d00cebedf792a28f34625c375238951cd257c122f",
+      "a27Blob": null
+    },
+    {
+      "path": "tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts",
+      "actualMainExists": false,
+      "offeredBlob": "1d62c23e66d5972f0a7a1718175cdf197251b786",
+      "offeredSha256": "9078cdaa605572b1c28ab4a83d5dd081481bfb33740e0437b578ef362099f63e",
+      "a27Blob": null
+    }
+  ],
+  "productionIntakeApplied": false,
+  "dependencyIdentityEvidenceRequestedFromParent": true,
+  "runtimeQualification": false
+}
