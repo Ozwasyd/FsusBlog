@@ -78,6 +78,44 @@ function move(groups: AuthoringTabGroupRegistry): AuthoringTabGroupCommand
 }
 
 describe('AuthoringTabGroupRegistry ordinary source controls (#2298)', () => {
+    it('binds only its actual canonical Registry instance despite identical exported state', () => {
+        const owned = fixture();
+        const foreign = fixture();
+        expect(owned.articles.exportState()).toEqual(foreign.articles.exportState());
+        expect(owned.groups.verifyBinding(owned.articles)).toBe(true);
+        expect(owned.groups.verifyBinding(foreign.articles)).toBe(false);
+        expect(foreign.groups.verifyBinding(owned.articles)).toBe(false);
+        expect(owned.groups.verifyBinding(new Proxy(owned.articles, {}))).toBe(false);
+    });
+
+    it('refuses a foreign empty Registry binding even when both owners genuinely commit exact +1', () => {
+        const firstRegistry = new OpenArticleDocumentRegistry();
+        const secondRegistry = new OpenArticleDocumentRegistry();
+        const firstOwner = new AuthoringTabGroupRegistry(firstRegistry, ratioOptions());
+        const secondOwner = new AuthoringTabGroupRegistry(secondRegistry, ratioOptions());
+        const proposal = (groups: AuthoringTabGroupRegistry, splitRatioPermille: number): AuthoringTabGroupCommand => {
+            const state = groups.exportState();
+            return { ...commandBase(state), kind: 'apply-group-references',
+                groups: [{ groupId: 'group-primary', expectedRevision: state.groups[0].revision, tabs: [], activeTabId: null }],
+                activeGroupId: 'group-primary', expectedRatioRevision: state.splitRatio.revision, splitRatioPermille };
+        };
+        const firstCommand = proposal(firstOwner, 600);
+        const secondCommand = proposal(secondOwner, 700);
+        const firstReceipt = executeWithRatio(firstOwner, firstCommand);
+        const secondReceipt = executeWithRatio(secondOwner, secondCommand);
+        expect(firstReceipt.status).toBe('applied');
+        expect(secondReceipt.status).toBe('applied');
+        expect(firstRegistry.getRevision()).toBe(1);
+        expect(secondRegistry.getRevision()).toBe(1);
+        expect(firstOwner.exportState().splitRatio.splitRatioPermille).toBe(600);
+        expect(secondOwner.exportState().splitRatio.splitRatioPermille).toBe(700);
+        expect(secondOwner.verifyCommittedTransition({ schema: 'fsusblog.authoring-snapshot-group-transition.v1',
+            command: secondCommand, receipt: secondReceipt })).toBe(true);
+        expect(secondOwner.verifyBinding(secondRegistry)).toBe(true);
+        expect(secondOwner.verifyBinding(firstRegistry)).toBe(false);
+        expect(firstOwner.verifyBinding(secondRegistry)).toBe(false);
+    });
+
     it.each(['create-second-group', 'focus-group', 'move-tab', 'activate-tab-in-group', 'merge-groups',
         'close-empty-group', 'set-effective-single', 'set-split-ratio-ref', 'apply-group-references'] as const)(
         'rejects a resealed but semantically different %s receipt', kind => {
