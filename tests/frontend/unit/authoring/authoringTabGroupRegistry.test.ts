@@ -78,6 +78,99 @@ function move(groups: AuthoringTabGroupRegistry): AuthoringTabGroupCommand
 }
 
 describe('AuthoringTabGroupRegistry ordinary source controls (#2298)', () => {
+    it.each(['restore-failed', 'restore-cancelled'] as const)(
+        'retains exact terminal custody after %s and refuses new operations and stale callbacks', async reason => {
+            const articles = new OpenArticleDocumentRegistry();
+            const groups = new AuthoringTabGroupRegistry(articles, ratioOptions());
+            const custody = groups.beginStartupCustody();
+            expect(Object.isFrozen(custody)).toBe(true);
+            expect(custody.inspect()).toEqual({ status: 'pending', reason: null });
+            expect(() => groups.beginStartupCustody()).toThrow('startup-already-claimed');
+            const identity = vi.fn(() => ({ commandId: 'retired-startup-operation', idempotencyKey: 'retired-startup-operation' }));
+            const adapter = groups.createSnapshotAdapter(identity);
+            expect(articles.execute(open(1, 0)).status).toBe('applied');
+            const state = groups.exportState();
+            const command: AuthoringTabGroupCommand = { ...commandBase(state), kind: 'apply-group-references',
+                groups: [{ groupId: 'group-primary', expectedRevision: state.groups[0].revision,
+                    tabs: state.groups[0].tabs, activeTabId: 'tab-1' }], activeGroupId: 'group-primary',
+                expectedRatioRevision: state.splitRatio.revision, splitRatioPermille: 600 };
+            const receipt = executeWithRatio(groups, command);
+            expect(receipt.status).toBe('applied');
+            const transition = { schema: 'fsusblog.authoring-snapshot-group-transition.v1' as const, command, receipt };
+            const before = groups.exportProjection();
+            const articleBefore = articles.exportState();
+            const retired = custody.retire(reason);
+            expect(retired).toEqual({ status: 'retired', reason });
+            expect(Object.isFrozen(retired)).toBe(true);
+            expect(custody.retire('restore-failed')).toBe(retired);
+            expect(custody.retire('restore-cancelled')).toBe(retired);
+            expect(() => custody.sealHandoff()).toThrow('startup-retired');
+            expect(() => groups.beginStartupCustody()).toThrow('startup-already-claimed');
+            expect(() => new AuthoringTabGroupRegistry(articles, ratioOptions())).toThrow('owner-already-exists');
+            expect(() => groups.execute({ ...commandBase(before.state), kind: 'focus-group', groupId: 'group-primary' })).toThrow('startup-retired');
+            expect(() => groups.createSnapshotAdapter(identity)).toThrow('startup-retired');
+            await expect(adapter.applyGroupsWithReceipt([{ groupId: 'group-primary', tabIds: ['tab-1'], activeTabId: 'tab-1' }],
+                'group-primary', 700, new AbortController().signal)).rejects.toThrow('startup-retired');
+            expect(identity).not.toHaveBeenCalled();
+            expect(groups.exportState()).toEqual(before.state);
+            expect(groups.exportProjection().ratioScope).toBe(before.ratioScope);
+            expect(groups.exportProjection().splitRatioRef).toBe(before.splitRatioRef);
+            expect(authoringWorkspaceRatioOwner.resolve(before.ratioScope, before.splitRatioRef).splitRatioPermille).toBe(600);
+            expect(articles.exportState()).toEqual(articleBefore);
+            expect(groups.verifyBinding(articles)).toBe(true);
+            expect(groups.verifyCommittedTransition(transition)).toBe(true);
+        }
+    );
+
+    it('seals successful startup custody once and rejects late retirement without changing normal ownership', () => {
+        const articles = new OpenArticleDocumentRegistry();
+        const groups = new AuthoringTabGroupRegistry(articles, ratioOptions());
+        const custody = groups.beginStartupCustody();
+        expect(articles.execute(open(1, 0)).status).toBe('applied');
+        const before = articles.exportState();
+        const handedOff = custody.sealHandoff();
+        expect(handedOff).toEqual({ status: 'handed-off', reason: null });
+        expect(custody.sealHandoff()).toBe(handedOff);
+        expect(() => custody.retire('restore-cancelled')).toThrow('startup-already-handed-off');
+        expect(() => groups.beginStartupCustody()).toThrow('startup-already-claimed');
+        expect(articles.exportState()).toEqual(before);
+        expect(groups.verifyBinding(articles)).toBe(true);
+        expect(addSecond(groups).status).toBe('applied');
+        expect(articles.exportState().entries).toEqual(before.entries);
+    });
+
+    it('cannot claim failed-startup custody over an already used shared canonical Registry', () => {
+        const { articles, groups } = fixture();
+        const before = articles.exportState();
+        const groupBefore = groups.exportState();
+        expect(() => groups.beginStartupCustody()).toThrow('startup-requires-unstarted-owner');
+        expect(articles.exportState()).toEqual(before);
+        expect(groups.exportState()).toEqual(groupBefore);
+        expect(groups.verifyBinding(articles)).toBe(true);
+        expect(addSecond(groups).status).toBe('applied');
+        expect(articles.exportState().entries).toEqual(before.entries);
+    });
+
+    it('cannot resurrect retirement if cancellation reenters during final handoff validation', () => {
+        const articles = new OpenArticleDocumentRegistry();
+        const groups = new AuthoringTabGroupRegistry(articles, ratioOptions());
+        const custody = groups.beginStartupCustody();
+        const read = groups.exportState.bind(groups);
+        const before = articles.exportState();
+        const observation = vi.spyOn(groups, 'exportState').mockImplementationOnce(() => {
+            custody.retire('restore-cancelled');
+            return read();
+        });
+        try
+        {
+            expect(() => custody.sealHandoff()).toThrow('startup-handoff-superseded');
+        }
+        finally { observation.mockRestore(); }
+        expect(custody.inspect()).toEqual({ status: 'retired', reason: 'restore-cancelled' });
+        expect(() => groups.execute({ ...commandBase(groups.exportState()), kind: 'focus-group', groupId: 'group-primary' })).toThrow('startup-retired');
+        expect(articles.exportState()).toEqual(before);
+    });
+
     it('collapses active A and focused B to visual B while preserving canonical entries and replay', () => {
         const { articles, groups } = fixture();
         const create: AuthoringTabGroupCommand = { ...commandBase(groups.exportState()), kind: 'create-second-group', groupId: 'group-secondary' };
