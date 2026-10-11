@@ -15,6 +15,7 @@ import type {
     MarkdownEditorSessionExpose,
     MarkdownEditorSessionLastValidRender,
     MarkdownEditorSessionRenderRestoreProof,
+    MarkdownEditorSessionRendererResourceSource,
     MarkdownEditorSessionSnapshot
 } from '@ozwasyd/element-plus';
 
@@ -30,7 +31,14 @@ export type ArticleWorkspaceMountedEditorResolver = (
     entry: OpenArticleDocumentEntry
 ) => ArticleWorkspaceMountedEditorBinding | null;
 
+/** Observations from original owners; never a ready/paused receipt or aggregate. */
+export interface ArticleWorkspaceEditorResourceSources {
+    readonly census: ReturnType<MarkdownEditorSession['inspectResourceParticipants']>;
+    readonly renderer: MarkdownEditorSessionRendererResourceSource | null;
+}
+
 export interface ArticleWorkspaceFsusUiEditorSessionFactory extends FsusUiPublicEditorSessionFactory {
+    inspectResourceSources(entry: OpenArticleDocumentEntry): ArticleWorkspaceEditorResourceSources;
     captureRetainedSnapshot(entry: OpenArticleDocumentEntry): MarkdownEditorSessionSnapshot;
     captureLastValidRender(entry: OpenArticleDocumentEntry): MarkdownEditorSessionLastValidRender | null;
     restoreLastValidRender(entry: OpenArticleDocumentEntry, render: MarkdownEditorSessionLastValidRender): Promise<MarkdownEditorSessionRenderRestoreProof>;
@@ -117,6 +125,20 @@ export function createFsusUiEditorSessionFactory(
     }
 
     return {
+        inspectResourceSources(entry)
+        {
+            const { binding, session } = resolveSession(entry);
+            const census = session.inspectResourceParticipants();
+            const renderer = session.inspectRendererResourceSource();
+            const current = resolveSession(entry);
+            assertBinding(current.binding, binding.identity, binding.documentContext);
+            if (current.session !== session
+                || current.binding.editorRevision !== binding.editorRevision)
+            {
+                throw new Error('public-editor-resource-source-owner-stale');
+            }
+            return Object.freeze({ census, renderer });
+        },
         captureLastValidRender(entry)
         {
             const { binding, session } = resolveSession(entry);

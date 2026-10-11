@@ -284,3 +284,22 @@ once in AdminWorkspaceFrame before workspace open operations. AccountRouteFrame
 then hosts Write with its existing before-content tabs/separator. No layout, Write,
 registry/group or second index is added here. Production binding and bootstrap must
 use those actual owners; full snapshot/resource guards remain even after wiring.
+
+
+The same installed composition now retains its original factory for readonly
+`inspectArticleWorkspaceEditorResourceSources(entry)` calls. No extra factory,
+host, mount cache or lifecycle state is created by this read. Before installation
+it refuses explicitly, without falling back to immediate readiness. Its factory
+`inspectResourceSources(entry)` reads the actual public owner census and renderer
+measured source, then re-resolves the original binding and rejects replacement or
+document/revision drift. Renderer complete:false, nullable network and unknown
+fields remain source observations; language keeps its actual registered
+non-recoverable controller. No observation signs ready/paused/eviction receipts.
+
+Renderer UI916439ad560207b6cde1a6641c41d35c73714b45ad8 source is consumed in the
+UI dependency, including actual pending control transitions; its cleanup-exception
+P1 remains under original-owner repair. Attachment UI9155be7dcee904c4ea90db6835abf97a1e7319bd6a4 is not consumed or
+admitted and its review flag remains false. Writer supplies the original actual
+mount/document callbacks; layout4213 already has a consumer of the sole installer.
+Their files and production host placement remain outside this session lane.
+Full snapshot/refset and complete resource admission are still BLOCKED.

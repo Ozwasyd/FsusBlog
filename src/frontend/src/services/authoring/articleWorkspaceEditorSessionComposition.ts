@@ -5,12 +5,17 @@ import {
 import { AuthoringSessionHost } from './authoringSessionHost';
 import {
     createFsusUiEditorSessionFactory,
-    type ArticleWorkspaceMountedEditorResolver
+    type ArticleWorkspaceMountedEditorResolver,
+    type ArticleWorkspaceFsusUiEditorSessionFactory,
+    type ArticleWorkspaceEditorResourceSources
 } from './fsusUiEditorSessionFactory';
+
+import type { OpenArticleDocumentEntry } from './openArticleDocumentRegistry';
 
 let installed: {
     readonly resolveMountedEditor: ArticleWorkspaceMountedEditorResolver;
     readonly host: AuthoringSessionHost;
+    readonly factory: ArticleWorkspaceFsusUiEditorSessionFactory;
 } | null = null;
 
 /**
@@ -34,6 +39,18 @@ export function installArticleWorkspaceEditorSessions(
     const factory = createFsusUiEditorSessionFactory(resolveMountedEditor);
     const host = new AuthoringSessionHost(factory);
     articleWorkspaceTabRouter.setSessionPort(createArticleWorkspaceSessionPort(host));
-    installed = { resolveMountedEditor, host };
+    installed = { resolveMountedEditor, host, factory };
     return host;
+}
+
+/** Read from the same installed factory/owners; do not install a fallback host. */
+export function inspectArticleWorkspaceEditorResourceSources(
+    entry: OpenArticleDocumentEntry
+): ArticleWorkspaceEditorResourceSources
+{
+    if (!installed)
+    {
+        throw new Error('article-workspace-session-composition-not-installed');
+    }
+    return installed.factory.inspectResourceSources(entry);
 }
