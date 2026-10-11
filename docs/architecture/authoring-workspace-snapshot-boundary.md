@@ -564,10 +564,12 @@ epoch refuse reentry and invalidation. Component configuration/disposal has its
 own generation fence. A source invalidation disables input synchronously and
 defers rereading until the next Vue tick; before-change callbacks cannot
 synchronously re-admit. Own frame/footprint DOM measurements must be positive
-and contain the proposed geometry. The source retains genuine prior render
-observations while blocked to preserve DOM identity; these cached observations
-are not a new current layout or retention receipt. Blocked recovery and overflow
-behavior still need actual host/native qualification.
+and contain the proposed geometry. Revocation and every blocked refresh clear
+projection/geometry/separator presentation and offsets; with no render projection,
+the leading default editor is visible and usable, trailing is hidden/inert, and
+the public separator is unavailable. Stable region DOM does not depend on a
+cached authority observation. Blocked recovery and overflow behavior still need
+actual host/native qualification.
 
 For a real geometry change, the controller stages an original operation identity,
 checks live host/mount/measurement/group state, then calls only the original
@@ -656,3 +658,27 @@ ArticleWriteEditor would acquire/bind another owner rather than render the same
 retained session. No new mount map, editor state copy, factory or synthetic outlet
 contract is introduced. The original mounted-owner must supply its genuine
 persistent host/outlet source before the trailing slot can be connected.
+
+The independent review of 76850 found two new presentation defects, now corrected
+in source. P1 counterexample: collapse to focused trailing B, then replace/revoke
+source (including source=null). The old blocked branch carried B's projection and
+geometry forward, leaving the Write default leading editor hidden/inert. Both
+invalidation and blocked refresh now select one empty frozen fallback render
+state, before public cancellation or other callbacks; no old widths/offsets/ref
+markers remain. Both region containers stay mounted. A new authority must supply
+a newly admitted planned observation before its presentation is used.
+
+P2 counterexample: an observation listener or group slot writes group IDs, focus,
+layout or arrays in projection.state after planned publication, thereby changing
+the component's shared render object without any original-owner publication.
+The controller now freezes the original exportProjection value state's complete
+mutable graph before lending it: tab refs, tab arrays, groups/group array,
+activation refs/history, focus history, split ratio coordinate and state root.
+The original producer already clones state on export; its canonical storage is
+not mutated. Public observation and slot consumers receive separate frozen value
+copies, and the public projection type is deeply readonly. Only state is cloned;
+ratioScope/splitRatioRef stay the exact opaque owner-issued objects. These views
+issue no model, owner, command, CAS capability, ready flag or receipt. The geometry
+and separator graphs already consist of frozen records. Both counterexamples are
+source-reasoned, not executed regressions or qualification results; all 30 cases
+and runtime qualifications remain UNRUN.

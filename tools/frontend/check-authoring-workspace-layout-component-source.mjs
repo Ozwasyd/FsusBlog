@@ -110,6 +110,33 @@ if (!component.includes('satisfies AuthoringWorkspaceLayoutPort')
 {
     failures.push('missing-actual-layout-public-port-forwarding');
 }
+for (const previous of ['previous.projection', 'previous.geometry', 'previous.separatorProps', '...renderState.value'])
+{
+    if (component.includes(previous))
+    {
+        failures.push(`retained-revoked-render-state:${previous}`);
+    }
+}
+for (const required of ['renderState.value = fallbackRenderState();', ': fallbackRenderState(value)',
+    'projection: null, geometry: null', 'emit(\'observation\', copyAuthoringWorkspaceLayoutObservation(value))',
+    ':group="slotProjection?.state.groups[0] ?? null"', ':group="slotProjection?.state.groups[1] ?? null"'])
+{
+    if (!component.includes(required))
+    {
+        failures.push(`missing-revocation-or-external-isolation:${required}`);
+    }
+}
+for (const required of ['Object.freeze(tab)', 'Object.freeze(group.tabs)', 'Object.freeze(group)',
+    'Object.freeze(activation)', 'Object.freeze(state.groups)', 'Object.freeze(state.focusHistory)',
+    'Object.freeze(state.activationHistory)', 'Object.freeze(state.splitRatio)', 'Object.freeze(state)',
+    'freezeProjection(groups.exportProjection())', 'structuredClone(projection.state)',
+    'ratioScope: projection.ratioScope, splitRatioRef: projection.splitRatioRef'])
+{
+    if (!controller.includes(required))
+    {
+        failures.push(`missing-frozen-original-projection-member:${required}`);
+    }
+}
 const styles = descriptor.styles.map(style => style.content).join('\n');
 if (/font-size|font-stretch|scale\s*\(|(?:transition|animation)\s*:|(?:^|[\s,])(?:body|html)\s*[{,]/mu.test(styles))
 {

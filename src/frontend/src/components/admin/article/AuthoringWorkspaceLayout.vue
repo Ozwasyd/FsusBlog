@@ -22,7 +22,7 @@
             >
                 <slot
                     name="leading"
-                    :group="projection?.state.groups[0] ?? null"
+                    :group="slotProjection?.state.groups[0] ?? null"
                     :status="observation.status"
                 >
                     <slot />
@@ -60,7 +60,7 @@
             >
                 <slot
                     name="trailing"
-                    :group="projection?.state.groups[1] ?? null"
+                    :group="slotProjection?.state.groups[1] ?? null"
                     :status="observation.status"
                 />
             </section>
@@ -77,11 +77,10 @@
 import { FsusResizeSeparator } from '@ozwasyd/element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, watch } from 'vue';
 
-import type { AuthoringTabGroupProjection } from '@/services/authoring/authoringTabGroupRegistry';
 import type { AuthoringWorkspaceGeometryPlan } from '@/services/authoring/authoringWorkspaceGeometryPolicy';
 import type { AuthoringWorkspaceLayoutPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
-import { createAuthoringWorkspaceLayoutController, unavailableAuthoringWorkspaceLayout } from '@/services/authoring/authoringWorkspaceLayoutController';
-import type { AuthoringWorkspaceLayoutObservation, AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
+import { copyAuthoringWorkspaceLayoutObservation, copyAuthoringWorkspaceLayoutProjection, createAuthoringWorkspaceLayoutController, unavailableAuthoringWorkspaceLayout } from '@/services/authoring/authoringWorkspaceLayoutController';
+import type { AuthoringWorkspaceLayoutObservation, AuthoringWorkspaceLayoutProjection, AuthoringWorkspaceLayoutSource } from '@/services/authoring/authoringWorkspaceLayoutController';
 import type { AuthoringWorkspaceSeparatorProps } from '@/services/authoring/authoringWorkspaceSeparatorAdapter';
 
 import type { ResizeSeparatorCancelPayload, ResizeSeparatorPayload } from '@ozwasyd/element-plus';
@@ -102,18 +101,24 @@ const emit = defineEmits<{
 const frameElement = shallowRef<HTMLElement | null>(null);
 const separatorRegion = shallowRef<HTMLElement | null>(null);
 const separatorHandle = shallowRef<unknown>(null);
-// Retain only genuine original observations while unavailable. They keep mounted DOM
-// identity stable; blocked output never becomes a fresh layout/retention receipt.
-const renderState = shallowRef<Readonly<{
+type RenderState = Readonly<{
     observation: AuthoringWorkspaceLayoutObservation;
-    projection: AuthoringTabGroupProjection | null;
+    projection: AuthoringWorkspaceLayoutProjection | null;
     geometry: AuthoringWorkspaceGeometryPlan | null;
     separatorProps: AuthoringWorkspaceSeparatorProps | null;
     localOffset: Readonly<{ left: number; top: number; }>;
-}>>({ observation: unavailableAuthoringWorkspaceLayout(), projection: null, geometry: null,
-      separatorProps: null, localOffset: { left: 0, top: 0 } });
+}>;
+// Region DOM remains mounted independently of observations. Revocation clears all
+// authority-bound presentation so the leading default editor becomes available again.
+function fallbackRenderState(value: AuthoringWorkspaceLayoutObservation = unavailableAuthoringWorkspaceLayout()): RenderState
+{
+    return Object.freeze({ observation: value, projection: null, geometry: null,
+                           separatorProps: null, localOffset: Object.freeze({ left: 0, top: 0 }) });
+}
+const renderState = shallowRef<RenderState>(fallbackRenderState());
 const observation = computed(() => renderState.value.observation);
 const projection = computed(() => renderState.value.projection);
+const slotProjection = computed(() => projection.value ? copyAuthoringWorkspaceLayoutProjection(projection.value) : null);
 const geometry = computed(() => renderState.value.geometry);
 const separatorProps = computed(() => renderState.value.separatorProps);
 let controller: ReturnType<typeof createAuthoringWorkspaceLayoutController> | null = null;
@@ -168,25 +173,23 @@ function refresh(): void
     {
         return;
     }
-    const previous = renderState.value;
-    renderState.value = Object.freeze({ observation: value,
-                                        projection: value.status === 'planned' ? value.projection : previous.projection,
-                                        geometry: value.status === 'planned' ? value.geometry : previous.geometry,
-                                        separatorProps: value.status === 'planned'
-                                            ? value.separator.status === 'planned' ? value.separator.props : null : previous.separatorProps,
-                                        localOffset: value.status === 'planned' && frame && available
-                                            ? Object.freeze({ left: available.left - frame.left, top: available.top - frame.top }) : previous.localOffset });
+    renderState.value = value.status === 'planned'
+        ? Object.freeze({ observation: value, projection: value.projection, geometry: value.geometry,
+                          separatorProps: value.separator.status === 'planned' ? value.separator.props : null,
+                          localOffset: frame && available
+                              ? Object.freeze({ left: available.left - frame.left, top: available.top - frame.top }) : Object.freeze({ left: 0, top: 0 }) })
+        : fallbackRenderState(value);
     if (disposed || generation !== expected)
     {
         return;
     }
-    emit('observation', value);
+    emit('observation', copyAuthoringWorkspaceLayoutObservation(value));
 }
 
 function invalidate(): void
 {
     generation++;
-    renderState.value = Object.freeze({ ...renderState.value, observation: unavailableAuthoringWorkspaceLayout() });
+    renderState.value = fallbackRenderState();
     if (invalidating)
     {
         return;
