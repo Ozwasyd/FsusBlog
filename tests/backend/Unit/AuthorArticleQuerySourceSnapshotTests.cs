@@ -680,6 +680,7 @@ public sealed class AuthorArticleQuerySourceSnapshotTests
         {
             OriginalDb.Ado.Returns(OriginalAdo);
             SnapshotDb.Ado.Returns(SnapshotAdo);
+            OriginalAdo.Transaction.Returns((IDbTransaction?)null);
             OriginalDb.CurrentConnectionConfig.Returns(new ConnectionConfig { DbType = SqlSugar.DbType.PostgreSQL });
             SnapshotDb.CurrentConnectionConfig.Returns(new ConnectionConfig { DbType = SqlSugar.DbType.PostgreSQL });
             OriginalAdo.Connection.Returns(OriginalConnection);
