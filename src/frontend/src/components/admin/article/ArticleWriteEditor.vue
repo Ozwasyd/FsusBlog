@@ -8,6 +8,8 @@
         <ArticleWriteOutlineRail
             :active-heading-id="activeHeadingId"
             :snapshot="outline.snapshot.value"
+            :panel-id="outlinePanelId"
+            :title-id="outlineTitleId"
             @reveal-heading="handleOutlineReveal"
             @reveal-range="handleOutlineDiagnosticReveal"
         />
@@ -15,9 +17,9 @@
         <MarkdownEditorAdapter
             ref="adapterRef"
             v-model="content"
-            textarea-id="article-content"
+            :textarea-id="textareaId"
             textarea-name="articleContent"
-            labelled-by="article-body-heading"
+            :labelled-by="labelledBy"
             accessible-name="正文"
             placeholder="从这里开始写正文。"
             chrome="embedded"
@@ -130,6 +132,10 @@ const props = withDefaults(defineProps<{
     modelValue: string;
     loading?: boolean;
     saving?: boolean;
+    textareaId?: string;
+    labelledBy?: string;
+    outlinePanelId?: string;
+    outlineTitleId?: string;
     layoutMode?: EditorLayoutMode;
     authoringCommands?: readonly FsusUiAuthoringCommand[];
     commandSurfaces?: FsusUiAuthoringSurfaceOptions;
@@ -139,6 +145,8 @@ const props = withDefaults(defineProps<{
     documentContext?: ArticleDocumentContext | null;
 }>(), {
     layoutMode: 'standard',
+    textareaId: 'article-content',
+    labelledBy: 'article-body-heading',
     authoringCommands: () => [],
     commandSurfaces: () => ({
         toolbar: true,

@@ -64,6 +64,8 @@ import {
     type ArticleRecoveryDivergence,
     type ArticleRecoveryFlushResult,
     type ArticleRecoveryJournalRecord,
+    type ArticleRecoveryJournalCheckpointReferenceBinding,
+    type ArticleRecoveryJournalCheckpointSource,
     type ArticleRecoveryJournalWriteResult,
     type ArticleRecoveryOperationKind
 } from '@/services/articleRecoveryJournal';
@@ -92,7 +94,7 @@ import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
 
-import type { FormItemProp, FormValidateCallback, FormValidationResult } from '@ozwasyd/element-plus';
+import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
 
 interface ArticleParams {
     title: string;
@@ -840,7 +842,8 @@ export function useAdminArticleWrite()
     });
     // Canonical author endpoints resolve the primary site; a browser host is not its authority.
     const documentSiteScope = 'primary-site';
-    const documentUserScope = `user:${adminStore.adminPrincipal?.id?.trim() ?? 'unknown'}`
+    const documentPrincipalIdentityId = adminStore.adminPrincipal?.id?.trim() ?? null;
+    const documentUserScope = `user:${documentPrincipalIdentityId ?? 'unknown'}`
         .replace(/[^a-zA-Z0-9._:-]/gu, '-');
     const articleDocumentContextBinding = articleDocumentContextAuthority.acquire({
         articleId: articleId.value,
@@ -1013,12 +1016,15 @@ export function useAdminArticleWrite()
             }
             editorRuntimeBinding = binding;
             let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
+            let recoveryCheckpoint: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
+            let recoveryCheckpointCreating = false;
             const release = (): void =>
             {
                 if (editorRuntimeBinding !== binding)
                 {
                     return;
                 }
+                recoveryCheckpoint?.release();
                 editorRuntimeBinding = null;
                 releaseEditorRuntime = null;
                 if (previewOwners.value?.binding === binding)
@@ -1082,7 +1088,164 @@ export function useAdminArticleWrite()
                 ? createArticleWriterMountedEditorSource(articleDocumentContextAdapter, articleWorkspaceTabRouter.getRegistry(),
                     editor, readMountedEditor, () => active && editorRuntimeBinding === binding)
                 : null;
-            return Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, search: searchRuntime, mountedSource });
+            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointReferenceBinding & {
+                /** Native retained snapshot only; complete application factory custody remains unavailable. */
+                captureRetainedSnapshot(reference: string): MarkdownEditorSessionSnapshot;
+            } =>
+            {
+                const identityId = recoveryIdentityId();
+                if (!active || editorRuntimeBinding !== binding || !mountedSource || recoveryCheckpoint || recoveryCheckpointCreating || !identityId
+                    || identityId !== documentPrincipalIdentityId)
+                {
+                    throw new Error('article-recovery-checkpoint-mounted-owner-unavailable');
+                }
+                const registry = articleWorkspaceTabRouter.getRegistry();
+                const readSource = (): ArticleRecoveryJournalCheckpointSource | null =>
+                {
+                    const document = articleDocumentContextAdapter.context;
+                    const clientRevision = activeRecoveryClientRevision;
+                    const entry = registry.getEntryByIdentity({ articleId: document.articleId,
+                        draftId: document.draftId, documentId: document.documentId });
+                    if (!active || editorRuntimeBinding !== binding || recoveryIdentityId() !== identityId
+                        || articleId.value !== document.articleId
+                        || document.userScope !== documentUserScope || document.siteScope !== documentSiteScope
+                        || suppressDraftSave || !clientRevision || entry?.editorSessionRef !== editorSessionRef
+                        || entry.status.permission !== 'allowed' || entry.status.lifecycle !== 'current')
+                    {
+                        return null;
+                    }
+                    const registryRevision = registry.getRevision();
+                    const mountedEditor = mountedSource.readMountedEditor(editorSessionRef);
+                    const observed = mountedSource.readDocumentBinding(editorSessionRef);
+                    const current = registry.getEntry(entry.tabId);
+                    // The original mounted source already checks object equality with this editor.
+                    if (!mountedEditor || !observed || !active || editorRuntimeBinding !== binding
+                        || recoveryIdentityId() !== identityId || !articleDocumentContextAdapter.isCurrentContext(document)
+                        || activeRecoveryClientRevision !== clientRevision || registry.getRevision() !== registryRevision
+                        || current?.lifecycleRevision !== entry.lifecycleRevision
+                        || current.editorSessionRef !== editorSessionRef
+                        || observed.identity.articleId !== document.articleId || observed.identity.draftId !== document.draftId
+                        || observed.identity.documentId !== document.documentId
+                        || entry.documentContext.documentEpoch !== observed.documentContext.documentEpoch
+                        || entry.documentContext.sourceRevision !== observed.documentContext.sourceRevision
+                        || entry.documentContext.draftRevision !== observed.documentContext.draftRevision)
+                    {
+                        return null;
+                    }
+                    return Object.freeze({ owner: binding, mountedEditor, identityId, siteScope: document.siteScope,
+                        draftKey: draftKey.value, registryRevision, associationRevision: entry.lifecycleRevision,
+                        editorSessionRef, documentId: document.documentId, draftId: document.draftId,
+                        documentEpoch: document.documentEpoch, editorRevision: document.sourceRevision,
+                        sourceRevision: observed.documentContext.sourceRevision, draftRevision: document.draftRevision,
+                        articleId: document.articleId, tabId: recoveryCoordinator.tabId,
+                        baseRevisionId: isEdit.value ? currentRevisionId.value : null,
+                        serverRevision: serverDraftRevision.value, clientRevision, content: articleForm.content });
+                };
+                // Reserve before the first caller-held mounted read can reenter this method.
+                recoveryCheckpointCreating = true;
+                let journal: ArticleRecoveryJournalCheckpointReferenceBinding | null = null;
+                let unsubscribe: (() => void) | null = null;
+                let stopIdentityWatch: (() => void) | null = null;
+                let checkpoint: ReturnType<typeof bindRecoveryCheckpoint> | null = null;
+                let released = false;
+                const releaseCheckpoint = (): void =>
+                {
+                    if (released)
+                    {
+                        return;
+                    }
+                    released = true;
+                    if (recoveryCheckpoint === checkpoint)
+                    {
+                        recoveryCheckpoint = null;
+                    }
+                    try
+                    {
+                        unsubscribe?.();
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            stopIdentityWatch?.();
+                        }
+                        finally
+                        {
+                            journal?.release();
+                        }
+                    }
+                };
+                try
+                {
+                    if (!readSource())
+                    {
+                        throw new Error('article-recovery-checkpoint-context-unavailable');
+                    }
+                    const issued = articleRecoveryJournal.bindCheckpointSource(readSource);
+                    journal = issued;
+                    unsubscribe = articleDocumentContextAdapter.subscribeContext(() => issued.invalidate());
+                    stopIdentityWatch = watch(() => adminStore.adminPrincipal?.id, () => issued.invalidate(), { flush: 'sync' });
+                    checkpoint = Object.freeze<ReturnType<typeof bindRecoveryCheckpoint>>({
+                        prepare: signal => issued.prepare(signal),
+                        inspect: token => issued.inspect(token),
+                        validate: token => issued.validate(token),
+                        validateContent: (token, content) => issued.validateContent(token, content),
+                        inspectReference: reference => issued.inspectReference(reference),
+                        validateReference: (reference, content) => issued.validateReference(reference, content),
+                        restoreReference: reference => issued.restoreReference(reference),
+                        captureRetainedSnapshot: reference =>
+                        {
+                            const source = readSource();
+                            const mounted = mountedSource.readMountedEditor(editorSessionRef);
+                            const info = issued.inspectReference(reference);
+                            if (released || !source || !mounted || source.mountedEditor !== mounted
+                                || info?.editorSessionRef !== editorSessionRef || info.documentId !== source.documentId
+                                || info.documentEpoch !== source.documentEpoch || info.editorRevision !== source.editorRevision)
+                            {
+                                throw new Error('article-recovery-native-snapshot-owner-unavailable');
+                            }
+                            const session = mounted.getSession(editorSessionRef);
+                            const snapshot = session.captureSnapshot(nativeSource =>
+                            {
+                                if (!issued.validateReference(reference, nativeSource))
+                                {
+                                    throw new Error('article-recovery-native-source-checkpoint-mismatch');
+                                }
+                                return calculateOpenArticleDocumentDigest(nativeSource);
+                            }, { documentIdentity: { id: source.documentId, epoch: source.documentEpoch }, revision: source.editorRevision });
+                            if (mountedSource.readMountedEditor(editorSessionRef) !== mounted
+                                || mounted.getSession(editorSessionRef) !== session || !issued.inspectReference(reference)
+                                || snapshot.documentIdentity.id !== source.documentId
+                                || snapshot.documentIdentity.epoch !== source.documentEpoch || snapshot.revision !== source.editorRevision)
+                            {
+                                throw new Error('article-recovery-native-snapshot-stale');
+                            }
+                            return snapshot;
+                        },
+                        restore: token => issued.restore(token),
+                        invalidate: () => issued.invalidate(),
+                        release: releaseCheckpoint
+                    });
+                    // Allocation/subscription may have synchronously released the original owner.
+                    if (!readSource())
+                    {
+                        throw new Error('article-recovery-checkpoint-context-unavailable');
+                    }
+                    recoveryCheckpoint = checkpoint;
+                    return checkpoint;
+                }
+                catch (error)
+                {
+                    releaseCheckpoint();
+                    throw error;
+                }
+                finally
+                {
+                    recoveryCheckpointCreating = false;
+                }
+            };
+            return Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
+                search: searchRuntime, mountedSource });
         }
     });
     const initTask = useAbortableTask({
