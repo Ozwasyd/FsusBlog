@@ -209,19 +209,28 @@ function updateFormat(value: string | number | boolean): void
     }
 }
 
-function updateQuality(value: string | number | boolean): void
+function updateQuality(value: number | number[]): void
 {
-    updateOption('quality', Number(value));
+    if (typeof value === 'number')
+    {
+        updateOption('quality', value);
+    }
 }
 
-function updateScaleRatio(value: string | number | boolean): void
+function updateScaleRatio(value: number | number[]): void
 {
-    updateOption('scaleRatio', Number(value));
+    if (typeof value === 'number')
+    {
+        updateOption('scaleRatio', value);
+    }
 }
 
-function updateMaxEdge(value: string | number | boolean): void
+function updateMaxEdge(value: number | number[]): void
 {
-    updateOption('maxEdge', Number(value));
+    if (typeof value === 'number')
+    {
+        updateOption('maxEdge', value);
+    }
 }
 
 function updatePreserveAlpha(value: string | number | boolean): void
