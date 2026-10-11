@@ -1,5 +1,28 @@
 # Authoring workspace snapshot source handoff
 
+## Retained document authority source boundary
+
+The original `OpenArticleDocumentRegistry.issueRetainedDocumentHandle(tabId)`
+issues an opaque process-local handle from its actual canonical membership.
+`inspectRetainedArticleDocumentHandle` reads that same Registry's current facts;
+a copied entry, matching string, copied handle or foreign Registry is not handle
+provenance. Normal activation, pinning and joint Group/ratio publication preserve
+the original membership. Final detach and preview replacement revoke before an
+equal-ID reopen; changed document/draft/session/epoch invalidates the old handle.
+Permission and lifecycle blocking preserve the canonical entry and recovery
+obligations. Scope retirement prevents reissuing a handle for that same member.
+
+Handle notifications run outside the original command preparation/publication
+and history/CAS transaction. A failing listener is retained as a failed
+notification in inspection; it cannot turn a committed command into a rejected
+receipt. Reentrant notification commands refuse. Handles are not permission,
+snapshot-restore or safe-eviction grants. No body/history/cache, second article
+index, Host, persistence or server DocumentId contract is introduced here.
+Document-authority acquisition and primary Writer adoption remain source WIP
+until their genuine original-owner implementation is supplied. Runtime, original
+test/list/discovery/import, browser/native, security, receipt, race and database
+qualification remain unrun in this lane.
+
 This source capability implements #2302–#2305 domain code under #1856. It is not
 terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
 migration registration, article/session/router/group owners and the live shell.

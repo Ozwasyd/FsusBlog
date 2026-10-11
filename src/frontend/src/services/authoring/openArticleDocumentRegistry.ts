@@ -57,6 +57,104 @@ export interface OpenArticleDocumentEntry {
     contentDigest: string;
 }
 
+declare const retainedDocumentHandleBrand: unique symbol;
+
+/** A selector or a copied entry cannot construct this original Registry capability. */
+export interface RetainedArticleDocumentHandle {
+    readonly [retainedDocumentHandleBrand]: true;
+}
+
+export type RetainedArticleDocumentRevocation = 'final-close' | 'identity-replaced' | 'scope-revoked';
+
+export interface RetainedArticleDocumentInspection {
+    readonly state: 'live' | 'blocked' | 'revoked';
+    readonly reason: RetainedArticleDocumentRevocation | null;
+    readonly registryRevision: number;
+    readonly entry: OpenArticleDocumentEntry | null;
+    readonly notificationFailed: boolean;
+}
+
+interface RetainedArticleDocumentCell {
+    readonly registry: OpenArticleDocumentRegistry;
+    readonly handle: RetainedArticleDocumentHandle;
+    readonly tabId: string;
+    readonly initial: OpenArticleDocumentEntry;
+    readonly read: () => RetainedArticleDocumentInspection;
+    readonly listeners: Set<() => void>;
+    reason: RetainedArticleDocumentRevocation | null;
+    notificationFailed: boolean;
+    notifiedRevision: number;
+    notifiedReason: RetainedArticleDocumentRevocation | null;
+}
+
+// Provenance is keyed by the opaque object, never article identity or a public ref.
+const retainedArticleDocumentCells = new WeakMap<RetainedArticleDocumentHandle, RetainedArticleDocumentCell>();
+
+export function retainedArticleDocumentHandleBelongsTo(handle: RetainedArticleDocumentHandle, registry: OpenArticleDocumentRegistry): boolean
+{
+    return retainedArticleDocumentCells.get(handle)?.registry === registry;
+}
+
+export function inspectRetainedArticleDocumentHandle(handle: RetainedArticleDocumentHandle): RetainedArticleDocumentInspection
+{
+    const cell = retainedArticleDocumentCells.get(handle);
+    if (!cell)
+    {
+        throw new Error('retained-article-document-handle-invalid');
+    }
+    return cell.read();
+}
+
+export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDocumentHandle, listener: () => void): () => void
+{
+    const cell = retainedArticleDocumentCells.get(handle);
+    if (!cell || typeof listener !== 'function')
+    {
+        throw new Error('retained-article-document-handle-invalid');
+    }
+    cell.listeners.add(listener);
+    return () =>
+    {
+        cell.listeners.delete(listener);
+    };
+}
+
+/** Only scope retirement is an explicit revocation; close follows canonical removal. */
+export function revokeRetainedArticleDocumentScope(handle: RetainedArticleDocumentHandle): void
+{
+    const cell = retainedArticleDocumentCells.get(handle);
+    if (!cell)
+    {
+        throw new Error('retained-article-document-handle-invalid');
+    }
+    cell.reason ??= 'scope-revoked';
+    notifyRetainedArticleDocumentCell(cell);
+}
+
+function notifyRetainedArticleDocumentCell(cell: RetainedArticleDocumentCell): void
+{
+    const observation = cell.read();
+    if (cell.notifiedRevision === observation.registryRevision && cell.notifiedReason === observation.reason)
+    {
+        return;
+    }
+    cell.notifiedRevision = observation.registryRevision;
+    cell.notifiedReason = observation.reason;
+    for (const listener of [...cell.listeners])
+    {
+        try
+        {
+            listener();
+        }
+        catch
+        {
+            // The original command already committed. Keep custody and report failed
+            // notification rather than return a rejection for a successful command.
+            cell.notificationFailed = true;
+        }
+    }
+}
+
 interface RegistryCommandBase {
     schema: typeof openArticleDocumentCommandSchema;
     commandId: string;
@@ -642,6 +740,95 @@ export class OpenArticleDocumentRegistry
     private revision = 0;
     #ownershipTransactionPending = false;
     #groupOwnershipCell: ArticleGroupOwnershipCell | null = null;
+    private readonly retainedDocumentCells = new Set<RetainedArticleDocumentCell>();
+    private retainedNotificationPending = false;
+
+    public issueRetainedDocumentHandle(tabId: string): RetainedArticleDocumentHandle
+    {
+        const entry = this.entriesByTabId.get(tabId);
+        if (!entry || this.#ownershipTransactionPending || this.retainedNotificationPending)
+        {
+            throw new Error('retained-article-document-member-unavailable');
+        }
+        const existing = [...this.retainedDocumentCells].find(cell => cell.tabId === tabId && cell.reason === null);
+        if (existing)
+        {
+            const observation = existing.read();
+            if (observation.state !== 'revoked')
+            {
+                return existing.handle;
+            }
+        }
+        // A scope-retired member cannot mint a replacement handle before final close.
+        if ([...this.retainedDocumentCells].some(cell => cell.tabId === tabId
+            && cell.reason === 'scope-revoked' && cell.initial.editorSessionRef === entry.editorSessionRef
+            && cell.initial.identity.documentId === entry.identity.documentId))
+        {
+            throw new Error('retained-article-document-scope-revoked');
+        }
+        const handle = Object.freeze({}) as RetainedArticleDocumentHandle;
+        const cell: RetainedArticleDocumentCell = {
+            registry: this,
+            handle,
+            tabId,
+            initial: cloneValue(entry),
+            reason: null,
+            notificationFailed: false,
+            notifiedRevision: this.revision,
+            notifiedReason: null,
+            listeners: new Set(),
+            read: () =>
+            {
+                const current = this.entriesByTabId.get(tabId);
+                if (!cell.reason)
+                {
+                    if (!current)
+                    {
+                        cell.reason = 'final-close';
+                    }
+                    else if (current.editorSessionRef !== cell.initial.editorSessionRef
+                        || current.identity.articleId !== cell.initial.identity.articleId
+                        || current.identity.draftId !== cell.initial.identity.draftId
+                        || current.identity.documentId !== cell.initial.identity.documentId
+                        || current.documentContext.documentEpoch !== cell.initial.documentContext.documentEpoch)
+                    {
+                        cell.reason = 'identity-replaced';
+                    }
+                }
+                return Object.freeze({
+                    state: cell.reason ? 'revoked' : current?.status.permission === 'allowed'
+                        && current.status.lifecycle === 'current' && !cell.notificationFailed ? 'live' : 'blocked',
+                    reason: cell.reason,
+                    registryRevision: this.revision,
+                    entry: !current || cell.reason === 'final-close' || cell.reason === 'identity-replaced' ? null : cloneValue(current),
+                    notificationFailed: cell.notificationFailed
+                });
+            }
+        };
+        this.retainedDocumentCells.add(cell);
+        retainedArticleDocumentCells.set(handle, cell);
+        return handle;
+    }
+
+    private notifyRetainedDocuments(): void
+    {
+        if (this.retainedNotificationPending)
+        {
+            return;
+        }
+        this.retainedNotificationPending = true;
+        try
+        {
+            for (const cell of this.retainedDocumentCells)
+            {
+                notifyRetainedArticleDocumentCell(cell);
+            }
+        }
+        finally
+        {
+            this.retainedNotificationPending = false;
+        }
+    }
 
     public createGroupOwnershipCell(initial: ArticleGroupOwnershipPublication): ArticleGroupOwnershipCell
     {
@@ -677,7 +864,9 @@ export class OpenArticleDocumentRegistry
         expected: ArticleGroupOwnershipPublication, next: ArticleGroupOwnershipPublication,
         ratioChange?: AuthoringWorkspaceRatioChange): OpenArticleDocumentCommandResult
     {
-        return this.executeCore(command, { expected, next, ratioChange });
+        const result = this.executeCore(command, { expected, next, ratioChange });
+        this.notifyRetainedDocuments();
+        return result;
     }
 
     private cloneGroupPublication(publication: ArticleGroupOwnershipPublication): ArticleGroupOwnershipPublication
@@ -717,13 +906,15 @@ export class OpenArticleDocumentRegistry
 
     public execute(command: unknown): OpenArticleDocumentCommandResult
     {
-        return this.executeCore(command);
+        const result = this.executeCore(command);
+        this.notifyRetainedDocuments();
+        return result;
     }
 
     private executeCore(command: unknown, groupPublication?: { expected: ArticleGroupOwnershipPublication;
         next: ArticleGroupOwnershipPublication; ratioChange?: AuthoringWorkspaceRatioChange; }): OpenArticleDocumentCommandResult
     {
-        if (this.#ownershipTransactionPending)
+        if (this.#ownershipTransactionPending || this.retainedNotificationPending)
         {
             return makeRejectedResult(command, 'rejected-state', this.revision, 'ownership-transaction-pending');
         }
@@ -1409,6 +1600,13 @@ export class OpenArticleDocumentRegistry
 
     private removeEntry(entry: OpenArticleDocumentEntry): void
     {
+        for (const cell of this.retainedDocumentCells)
+        {
+            if (cell.tabId === entry.tabId && !cell.reason)
+            {
+                cell.reason = 'final-close';
+            }
+        }
         this.entriesByTabId.delete(entry.tabId);
         this.tabIdByIdentity.delete(identityKey(entry.identity));
         this.tabIdBySessionRef.delete(entry.editorSessionRef);
