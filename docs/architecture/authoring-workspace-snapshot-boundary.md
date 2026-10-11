@@ -1,5 +1,35 @@
 # Authoring workspace snapshot source handoff
 
+## Registered HTTP composition source
+
+The 2026-10-11 increment consumes the existing #3839 transport and registrations
+at `1c7be6f8c1fdea9a60460e17ddf54bec5f66527c`. Backend DI, endpoint mapping,
+270/271 wire roots, decoder registration and migration catalog already belong
+to the integration owner; this increment does not add a second registration.
+`createAuthoringWorkspaceSnapshotHttpApi(scope, sourceDigest)` constructs the
+existing sole API with the existing HTTP transport. Read and mutation URLs come
+from the generated operation IDs. The caller must supply its current scoped
+source binding; this factory neither derives it from cache nor supplies a new
+bootstrap authority. Construction performs no read, restore or readiness grant.
+
+Ordinary full-app compilation binds FsusUI
+`8db0ac8f49749e3e5f28be5051bb3d3ed71ada71` and preserves the parent project's
+strict/unused/erasable checks. Parent and source increment each exit 2 with the
+same 256 diagnostics; the changed HTTP module has none. This source union has
+not consumed upstream `39cd7913eb55b46bd665f82f746df940810f1590`, so its seventeen
+snapshot parameter-property diagnostics remain. It also has not consumed
+`f7d6a4b43e155fa151d253d46d838c3626dada62`; the existing transport still refuses
+an unqualified open-outline default on reset. Neither failure is bypassed.
+
+The old 57-unit result is historical and not inherited by this increment.
+Database/migration execution, backup/restore, native/race/security/privacy,
+receipt and real permission-endpoint qualification remain UNRUN. The wire
+generator check is UNRUN because its registered ESLint toolchain is unavailable.
+No new test runner entry is added around those holds. Official group restore
+still requires the original #2298 adapter with the existing
+`applyGroups(groups, activeGroupId, splitRatioPermille, signal): Promise<string>`
+signature; the article-side ownership-set command alone cannot replace it.
+
 This source capability implements #2302–#2305 domain code under #1856. It is not
 terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
 migration registration, article/session/router/group owners and the live shell.
