@@ -403,3 +403,66 @@ runtime/acceptance holds remain. The upstream owner's reported 233 type failures
 are not a fragment test result or a successful prerequisite; our original 30
 dependency diagnostics and original matrix identity failure stay at their own
 source identities.
+
+## 2026-10-11 v1 compatibility and real callsite audit
+
+The coordinator reports that independent exact-a977 source review closes the
+prior conditional original-record association P2 under normal original server
+JSON/canonical host custody, with no new bounded P1/P2. Public digests remain
+unauthenticated; the proposal/preflight output is unexecuted. Independent source
+review also closes the original Writer cancellation P2 at exact e6995b3b. These
+are bounded source conclusions, not whole PR/issue/runtime acceptance. The
+unrelated mounted-source association correction remains with its original owner;
+it was not consumed. Query nullable-slug v2 and its owner files are unchanged.
+
+The actual tracked repository was audited at
+`fb3766dee5cf26d6da62a758a9ab61fbefe59d99`. Its producer/consumer/regression blobs
+are the exact a977 reviewed source. A tracked-tree search of all symbols, module
+stems, versioned schema, original-receipt field and fragment-byte field matches
+only six paths: the two production service modules, their two unit-source files,
+this handoff and historical evidence.json. Imports, aliased/barrel/dynamic module
+references, named types and literal schema references are included in that search.
+
+Reproducible exact production-ingress query (exit 1 = no matches):
+
+```sh
+git grep -n -I -E 'RevisionFragmentProposal|RevisionFragmentPreflight|RevisionFragmentCompareCaller|createRevisionFragmentProposal|recheckRevisionFragmentProposal|revisionFragmentProposal|revisionFragmentPreflight|fsusblog[.]revision-fragment-proposal|comparePlanReceiptDigest|fragmentUtf8' fb3766dee5cf26d6da62a758a9ab61fbefe59d99 -- src ':!src/frontend/src/services/revisionFragmentProposal.ts' ':!src/frontend/src/services/revisionFragmentPreflight.ts'
+```
+
+Running that same query without the two path exclusions matches the two service
+modules only. TypeScript AST inspection of those exact Git blobs finds zero
+calls in the producer module and exactly two calls to
+`createRevisionFragmentProposal` in the preflight module, at lines 90 and 110.
+They rebuild an already supplied proposal for validation, not application
+construction/entry points. There are zero application callers of the producer
+and zero production callers of `recheckRevisionFragmentProposal`; no in-repository
+route, Writer, inspector, cache, storage reader/writer or service constructor
+imports/consumes these records. The two unit files contain 26 and 14 syntactic
+call expressions respectively, not executed calls or case/run discovery. Their
+52 authored controls remain UNRUN/unlisted.
+
+The literal-v1 query is separately exhaustive over the tracked tree:
+
+```sh
+git grep -n -I -F 'fsusblog.revision-fragment-proposal.v1' fb3766dee5cf26d6da62a758a9ab61fbefe59d99
+```
+
+Its only match is the controlled legacy-refusal input at
+`tests/frontend/unit/services/revisionFragmentPreflight.test.ts:110`. Historical
+handoff/evidence files are not an application cache or a serialized record store.
+The same complete symbol/schema/module query over the supplied upstream PR4153
+source snapshot `c8087a02ca1ffa8d809382122aa69530d4bc51ef -- src` returns no matches
+(exit 1): the loan source provides an interface, not a fragment application
+consumer. This does not audit unknown external callers or browser memory, and
+it grants no runtime/storage acceptance.
+
+No real in-repository v1 constructor/cache/consumer migration or invalidation
+path exists to modify. The existing original consumer already rejects v1 or
+unbound records with `compare_record_stale` before capture/API reread and releases
+the loan in finally. No old record is silently upgraded, resealed or backfilled;
+no authority/cache/cancellation owner is created. A future real consumer must
+keep that rejection and acquire a new proposal through the existing producer
+from the original authorized compare read/canonical native capture, not promote
+a serialized record by changing its schema/digest. No migration feature or new
+regression execution was invented for zero callsites. All authority, native,
+receipt, runtime and fifteen-issue acceptance holds remain in force.
