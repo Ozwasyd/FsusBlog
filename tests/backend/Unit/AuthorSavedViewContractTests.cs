@@ -420,10 +420,10 @@ public sealed class AuthorSavedViewContractTests
 
         AuthorSavedViewOperatorDescriptor missing = AuthorSavedViewContract.Operators["value.is-missing"];
         AuthorSavedViewOperatorDescriptor present = AuthorSavedViewContract.Operators["value.is-present"];
-        Assert.Equal(AuthorSavedViewNullSemantic.MissingOnly, missing.NullSemantics);
-        Assert.Equal(AuthorSavedViewNullSemantic.PresentOnly, present.NullSemantics);
-        Assert.Equal(AuthorSavedViewDefaultSemantic.DistinctFromMissing, missing.DefaultSemantics);
-        Assert.Equal(AuthorSavedViewDefaultSemantic.DistinctFromMissing, present.DefaultSemantics);
+        Assert.Equal(AuthorSavedViewNullSemantics.MissingOnly, missing.NullSemantics);
+        Assert.Equal(AuthorSavedViewNullSemantics.PresentOnly, present.NullSemantics);
+        Assert.Equal(AuthorSavedViewDefaultSemantics.DistinctFromMissing, missing.DefaultSemantics);
+        Assert.Equal(AuthorSavedViewDefaultSemantics.DistinctFromMissing, present.DefaultSemantics);
         Assert.Equal(AuthorSavedViewOperatorCardinality.None, missing.Cardinality);
         Assert.Equal(AuthorSavedViewOperatorCardinality.None, present.Cardinality);
 
