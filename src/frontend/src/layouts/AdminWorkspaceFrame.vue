@@ -57,6 +57,7 @@ import {
     type AccountContentMode,
     type AccountPageKind
 } from '@/router/accountRouteMeta';
+import { retireArticleWorkspaceEditorSessions } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
 import { createArticleWorkspaceMountedEditorResolver, type ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
 import {
     articleWorkspaceTabRouter,
@@ -90,6 +91,7 @@ export interface AdminArticleWorkspaceStartupPorts {
 let workspaceInstallation: {
     readonly ports: AdminArticleWorkspaceStartupPorts;
     failed: boolean;
+    retirementFailure?: unknown;
     /** Preserve exact original objects for the original lifecycle owner's pending custody API. */
     readonly resources: {
         groups: AuthoringTabGroupRegistry | null;
@@ -191,6 +193,20 @@ function markWorkspaceInstallationFailed(ports: AdminArticleWorkspaceStartupPort
     if (workspaceInstallation?.ports === ports)
     {
         workspaceInstallation.failed = true;
+        const sessions = workspaceInstallation.resources.sessions;
+        if (sessions)
+        {
+            // The original owner revokes admission and retains its actual Host/factory; no disposal claim.
+            try
+            {
+                retireArticleWorkspaceEditorSessions(sessions.host);
+            }
+            catch (error: unknown)
+            {
+                // Keep failure/resources observable in this installation; never reopen admission.
+                workspaceInstallation.retirementFailure = error;
+            }
+        }
     }
 }
 </script>
@@ -217,11 +233,11 @@ const startupPorts = props.workspaceStartup;
 let mounted = true;
 function markWorkspaceStartupUnavailable(): void
 {
+    workspaceStartupState.value = 'unavailable';
     if (startupPorts)
     {
         markWorkspaceInstallationFailed(startupPorts);
     }
-    workspaceStartupState.value = 'unavailable';
 }
 if (startupPorts)
 {
