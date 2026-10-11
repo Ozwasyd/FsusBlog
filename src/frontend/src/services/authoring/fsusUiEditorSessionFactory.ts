@@ -83,6 +83,13 @@ export function createFsusUiEditorSessionFactory(
         {
             throw new Error('public-editor-session-ref-mismatch');
         }
+        const document = session.inspectDocumentState();
+        if (document.documentIdentity.id !== binding.identity.documentId
+            || document.documentIdentity.epoch !== binding.documentContext.documentEpoch
+            || document.revision !== binding.editorRevision)
+        {
+            throw new Error('public-editor-mounted-document-owner-mismatch');
+        }
         return { binding, session };
     }
 

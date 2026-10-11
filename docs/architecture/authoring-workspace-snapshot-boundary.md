@@ -266,3 +266,21 @@ UI916 source `21c9e8769c005ffbc1fbd0a09a7ccc463211984e` remains WIP with
 `complete:false`; full lifecycle admission and all runtime holds remain unchanged.
 The legacy upload event/callback path supplies no actual service Promise to the UI
 attachment owner; no Promise is fabricated from the event or terminal label.
+
+
+Writer/layout source handoff: `ArticleWorkspaceMountedEditorSource` supplies
+`readMountedEditor(editorSessionRef)` from its actual retained mount custody and
+`readDocumentBinding(editorSessionRef)` from its original article/document owner.
+`createArticleWorkspaceMountedEditorResolver(source)` reads the actual upstream
+`inspectDocumentState()` before first edit/render; it does not trust adapter event
+caches or echo the registry request. It checks editor instance, original identity,
+epoch and document context across its reads and owns no extra mount registry.
+The factory independently checks that actual upstream document state on resolve.
+
+Ownership remains: this session lane supplies the public source/adapter/factory/
+resolver/one installer; Writer/#2246 owner supplies actual mount/document reads
+and original per-session mount lifetime; layout #4213 owner calls the one installer
+once in AdminWorkspaceFrame before workspace open operations. AccountRouteFrame
+then hosts Write with its existing before-content tabs/separator. No layout, Write,
+registry/group or second index is added here. Production binding and bootstrap must
+use those actual owners; full snapshot/resource guards remain even after wiring.

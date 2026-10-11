@@ -4,3 +4,4 @@ export * from './articleWorkspaceTabRouter';
 export * from './articleDocumentContext';
 export * from './fsusUiEditorSessionFactory';
 export * from './articleWorkspaceEditorSessionComposition';
+export * from './articleWorkspaceMountedEditorResolver';
