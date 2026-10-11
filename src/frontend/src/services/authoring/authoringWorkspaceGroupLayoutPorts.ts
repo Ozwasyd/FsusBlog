@@ -1,3 +1,4 @@
+import { articleWorkspaceTabRouter } from './articleWorkspaceTabRouter';
 import { authoringTabGroupCommandSchema } from './authoringTabGroupRegistry';
 import { authoringWorkspaceRatioOwner, authoringWorkspaceRatioPolicy } from './authoringWorkspaceRatioOwner';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
@@ -39,11 +40,19 @@ function hasUntamperedState(projection: AuthoringTabGroupProjection): boolean
 export function createAuthoringWorkspaceGroupLayoutPorts(source: AuthoringWorkspaceGroupLayoutSource): AuthoringWorkspaceSeparatorPorts<AuthoringTabGroupProjection>
 {
     const groups = source.groups;
+    if (!groups.verifyBinding(articleWorkspaceTabRouter.getRegistry()))
+    {
+        throw new Error('authoring-workspace-group-session-registry-mismatch');
+    }
     const identities = new WeakMap<AuthoringTabGroupProjection, AuthoringGroupCommandIdentity>();
     const isCurrentProjection = (expected: AuthoringTabGroupProjection): boolean =>
     {
         try
         {
+            if (!groups.verifyBinding(articleWorkspaceTabRouter.getRegistry()))
+            {
+                return false;
+            }
             const current = groups.exportProjection();
             return current.ratioScope === expected.ratioScope && current.splitRatioRef === expected.splitRatioRef
                 && current.state.revision === expected.state.revision

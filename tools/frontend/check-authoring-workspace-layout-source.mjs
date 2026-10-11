@@ -53,10 +53,10 @@ for (const [file, tree] of trees)
             && node.moduleSpecifier.text === './authoringWorkspaceRatioOwner'
             || file === separatorPath && (['./authoringWorkspaceRatioOwner', './authoringWorkspaceGeometryPolicy'].includes(node.moduleSpecifier.text)
                 || node.moduleSpecifier.text === '@ozwasyd/element-plus' && node.importClause?.isTypeOnly)
-            || file === groupPortsPath && (['./authoringTabGroupRegistry', './openArticleDocumentRegistry', './authoringWorkspaceRatioOwner'].includes(node.moduleSpecifier.text)
+            || file === groupPortsPath && (['./authoringTabGroupRegistry', './articleWorkspaceTabRouter', './openArticleDocumentRegistry', './authoringWorkspaceRatioOwner'].includes(node.moduleSpecifier.text)
                 || ['./authoringWorkspaceGeometryPolicy', './authoringWorkspaceSeparatorAdapter'].includes(node.moduleSpecifier.text) && node.importClause?.isTypeOnly)
-            || file === sessionSourcePath && (node.moduleSpecifier.text === './articleWorkspaceEditorSessionComposition'
-                || ['./authoringSessionHost', './fsusUiEditorSessionFactory'].includes(node.moduleSpecifier.text) && node.importClause?.isTypeOnly));
+            || file === sessionSourcePath && (['./articleWorkspaceEditorSessionComposition', './articleWorkspaceTabRouter'].includes(node.moduleSpecifier.text)
+                || ['./authoringTabGroupRegistry', './authoringSessionHost', './fsusUiEditorSessionFactory'].includes(node.moduleSpecifier.text) && node.importClause?.isTypeOnly));
         if (ts.isImportDeclaration(node) && !ownedImport)
         {
             failures.push(`${file}: unowned-import`);
@@ -238,9 +238,15 @@ visit(groupPortsTree, node =>
 });
 
 const sessionSourceTree = trees.get(sessionSourcePath);
+let exactBindingChecks = 0;
 visit(sessionSourceTree, node =>
 {
-    if (ts.isNewExpression(node))
+    if (ts.isCallExpression(node) && node.expression.getText(sessionSourceTree) === 'groups.verifyBinding'
+        && node.arguments.length === 1 && node.arguments[0].getText(sessionSourceTree) === 'articleWorkspaceTabRouter.getRegistry()')
+    {
+        exactBindingChecks++;
+    }
+    if (ts.isNewExpression(node) && node.expression.getText(sessionSourceTree) !== 'Error')
     {
         failures.push('session-source: alternate-host-or-registry-construction');
     }
@@ -250,6 +256,38 @@ visit(sessionSourceTree, node =>
         failures.push('session-source: invented-lifecycle-admission');
     }
 });
+const connectDeclaration = sessionSourceTree.statements.find(node => ts.isFunctionDeclaration(node)
+    && node.name?.text === 'connectAuthoringWorkspaceSessionSource');
+const connectStatements = connectDeclaration?.body?.statements ?? [];
+const bindingIndex = connectStatements.findIndex(node => ts.isExpressionStatement(node)
+    && node.expression.getText(sessionSourceTree) === 'assertBinding()');
+const installIndex = connectStatements.findIndex(node => ts.isVariableStatement(node)
+    && node.declarationList.declarations.some(declaration => declaration.initializer
+        && ts.isCallExpression(declaration.initializer)
+        && declaration.initializer.expression.getText(sessionSourceTree) === 'installArticleWorkspaceEditorSessions'));
+if (exactBindingChecks !== 1 || bindingIndex < 0 || installIndex <= bindingIndex)
+{
+    failures.push('session-source: missing-exact-registry-binding-before-sole-installer');
+}
+
+for (const file of ['authoringTabGroupRegistry.ts', 'openArticleDocumentRegistry.ts',
+    'articleWorkspaceEditorSessionComposition.ts', 'articleWorkspaceMountedEditorResolver.ts', 'fsusUiEditorSessionFactory.ts'])
+{
+    const dependencyPath = path.join(root, 'src/frontend/src/services/authoring', file);
+    try
+    {
+        const source = readFileSync(dependencyPath, 'utf8');
+        const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+        if (tree.parseDiagnostics.length)
+        {
+            failures.push(`real-dependency:${file}:parse-error`);
+        }
+    }
+    catch
+    {
+        failures.push(`real-dependency:${file}:missing-source`);
+    }
+}
 
 const ratioValues = {};
 visit(ownerTree, node =>

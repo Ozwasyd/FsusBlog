@@ -397,8 +397,8 @@ approval before any execution or listing.
 `authoringWorkspaceGroupLayoutPorts.ts` is the concrete #2298 consumer for
 `createAuthoringWorkspaceSeparatorAdapter`. It imports the original group
 projection/class/command schema and article digest producer, not reconstructed
-interfaces. The inspected owning source is Group68e4
-`68e4cdd4cdaa5c97f05d5323e88998397bf3dac7`. The caller supplies its actual existing
+interfaces. The current consumed owning source is Group418
+`418611fa6bedf623823b33c415b491215b746c7d`. The caller supplies its actual existing
 group instance, original operation identity allocator, measurements and public
 separator cancel. The factory creates no registry, scope, editor, session or
 additional group model.
@@ -420,7 +420,7 @@ joint commit. Only an applied result with the actual exported next scope/ref and
 expected revisions/value is returned to the adapter. This is concrete source
 consumption, not a new atomic implementation or an acceptance receipt.
 
-Static checking uses the exact original source/import graph extracted without
+The earlier bounded static checking used the exact original source/import graph extracted without
 changes, with this task's modules added. No original group interface is virtualized.
 The source graph currently has five diagnostics also observed when checking only
 the exact original group entry: snapshot constructor parameter properties at
@@ -476,7 +476,7 @@ and rechecks actual editor/session identity and document revision after reading.
 It does not derive identity from route/component order or echo router entries.
 
 `authoringWorkspaceSessionSource.ts` consumes that exact existing install entry
-with the original stable mounted resolver, and forwards original host.getSession
+with the original stable mounted resolver and actual group instance, and forwards original host.getSession
 and exportState reads. It creates no host/registry, resolver cache, editor state,
 ready flag, attachment or lifecycle action. It is only source composition: no
 installation or product import was executed in this task. Original Writer must
@@ -491,3 +491,51 @@ resource controls and retained-DOM/restore admission remain original owner work.
 Until complete admission exists, this source connection cannot make hidden
 sessions or production two-group layout ready. Existing 30 cases do not execute
 this provider or the genuine group connection; all runtime holds remain.
+
+### Actual candidate dependency integration and pairing
+
+The candidate now contains the necessary original product dependencies, instead
+of relying on their presence in a temporary review overlay. These files are
+copied byte-for-byte from their original owners; this task authors no changes
+inside them and does not take over either registry or editor/session ownership.
+
+| Original repository / exact source | Candidate file under src/frontend/src/services/authoring/ | SHA-256 |
+| --- | --- | --- |
+| FsusBlog `418611fa6bedf623823b33c415b491215b746c7d` | authoringTabGroupRegistry.ts | `3060b76ac4fae0e81f25fad30834b44debbde41e6093bc3b3d2a57d9e5dd1ced` |
+| FsusBlog `418611fa6bedf623823b33c415b491215b746c7d` | openArticleDocumentRegistry.ts | `e05f8fa46686e1778cea889e0666de04fd5349b6fde37a637d0d08ea0018a41d` |
+| FsusBlog `cb154e1001f4d45977e1529b6c72cc59d0d02049` | articleWorkspaceEditorSessionComposition.ts | `83b6e9dc3018d84917ad447d5db7e6a2e35a33bd931600043eb0626ee3e6429c` |
+| FsusBlog `cb154e1001f4d45977e1529b6c72cc59d0d02049` | articleWorkspaceMountedEditorResolver.ts | `b24a3d5bc1f1c71caf9f1cdfe690330e430292cac676bc7a8accc4d26a7be247` |
+| FsusBlog `cb154e1001f4d45977e1529b6c72cc59d0d02049` | fsusUiEditorSessionFactory.ts | `5553fd87dbc83e4a704de7719cc82e935f32ec0281a5bedc2a754734cf3ee657` |
+
+Before the sole session installer can modify the router port, the consumer calls
+the original `groups.verifyBinding(articleWorkspaceTabRouter.getRegistry())`.
+That verifies exact article-registry object identity and its unique owning group;
+matching receipt coordinates/digests cannot replace it. A foreign group throws
+authoring-workspace-group-session-registry-mismatch before installation. The
+consumer rechecks after installation and before forwarding host reads. Group
+ports also check the same exact canonical binding on construction and each
+current-projection validation. No alternate installer/host/router is introduced.
+The source guard checks real dependency presence/parsing and the binding check
+before installation; it is not a runtime pairing qualification.
+
+Actual-source static resolution uses the existing local FsusUI alias producer
+against an isolated UI914 source checkout at
+`06d6303f98c0d3f915a19cb777028b2fd9d914d4`, with the exact UI921 Vue source patch
+from `8db0ac8f49749e3e5f28be5051bb3d3ed71ada71` to
+`a775a075785b8fec580b6c44eb19a72116773ae4`. All 14 UI921 Vue files match the
+offered head byte-for-byte. The checkout uses existing frontend dependencies for
+static resolution, has no UI build/publication, and does not replace the active
+product baseline. UI914 is still under independent review. No ambient SDK or
+registry interfaces substitute for actual source in this check.
+
+The actual candidate focused graph has **26 TS diagnostics**, with none in the
+five owned modules. It remains FAIL: four snapshot TS1294 parameter-property
+diagnostics; host TS2322 resource-policy tuple inference at 80:14 plus TS1294 at
+589:9/590:9; original article registry TS2345 at 1759:31; and 18 actual FsusUI
+graph diagnostics (15 TS1294, two TS7031 and one missing type-fest TS2307).
+The host bytes are unchanged and also byte-identical to Blog4210. These are
+reported dependency/configuration blockers, not waived checks or proof of full
+application/bundle readiness. Repository-config ESLint and bounded AST checks
+cover the changed consumer source only. Tests/list, product imports, installation,
+mounted DOM and all browser/receipt/race/security/privacy/IME/native qualification
+remain UNRUN. The existing 30 source cases do not exercise the new pairing.
