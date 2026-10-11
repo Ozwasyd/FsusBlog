@@ -627,6 +627,7 @@ export class ArticleRecoveryJournal
             {
                 this.invalidateCheckpointBinding(state);
                 this.#checkpointBindings.delete(state);
+                state.readSource = () => null;
                 if (this.#checkpointBindings.size === 0)
                 {
                     this.#checkpointDatabase?.close();
