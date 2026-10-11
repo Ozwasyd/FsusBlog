@@ -343,3 +343,53 @@ Composition exposes paired `captureArticleWorkspaceRetainedEditorSnapshot` and
 `restoreArticleWorkspaceRetainedEditorSnapshot` calls through its SAME installed
 factory. Both refuse before installation. They never install a fallback factory,
 retain another checkpoint/history slot or modify the original session-port receipt.
+
+### Failed installation custody and original producer gaps
+
+`retireArticleWorkspaceEditorSessions(host)` revokes only the current original
+composition's admission. It checks exact host identity and is idempotent for that
+host. The original factory resolver checks the same lifetime before and after the
+real Writer resolver; the original port uses its existing nextUsedTick callback to
+refuse before attach/activate. Composition reads/capture/restore and even a same-
+resolver reinstall refuse after retirement. Setter failure also retires custody.
+The original host/factory/native references remain retained; no immediate fallback,
+replacement host, successful disposal or released-resource acknowledgment is made.
+Rail owns calling this on restore failure/cancellation, stopping its host use and
+settling its actual installation task. Original Group attachedRegistry retirement
+is a separate original-owner dependency; this module does not mutate Group/registry.
+A new installation stays blocked while unsupported host/native retirement prevents
+safe release. This is admission retirement, not disposal, suspend or recovery.
+
+Actual inspected checkpoint producers at the original039fd source:
+
+- `useAdminArticleWrite.ts` owns private ArticleDraftSnapshot/buildDraftSnapshot,
+  applyDraftToForm, articleRecoveryFlushOwner and serverDraftRevision. Its public
+  return exposes saveDraftNow:void, restoreLocalDraft and articleForm/context, not
+  an immutable draft/checkpoint token or synchronous capture/validate/restore API.
+  saveDraftNow starts genuine async journal/server work; a void return cannot be a
+  settled snapshot. Writer/#2246 must expose the original settled draft/session
+  custody bound to native owner, principal, documentId/epoch and source/draft refs.
+- `articleRecoveryJournal.ts` (#3413) owns ArticleRecoveryFlushOwner.stage/flush/
+  drain/markConfirmed/clear and ArticleRecoveryJournal.write/list/confirm. flush is
+  async; pendingClientRevision is not storage confirmation. Record identity is
+  principal-hash/article-key/recovery-tab and lacks editorSessionRef/documentId/
+  documentEpoch. write updates that same id, confirm deletes matching stored data;
+  neither id nor mutable latest result is an immutable retained crash checkpoint.
+  The original recovery owner must supply settled checkpoint custody/validation
+  with document/session binding and confirmation/clear/expiry invalidation before
+  synchronous #2294 capture can consume it. No new journal is created here.
+- `authoringPanelSnapshotAdapter.ts` binds extension panel reads to current server
+  workspace observations/package grants. It owns read deadline/abort/subscriptions,
+  not editor active-node/scroll/outline/search/attachment checkpoints, and cannot
+  issue those refs. It is not an editor panel-state producer.
+- UI MarkdownEditor captureViewState currently owns partial mode/search/caret-
+  scroll state. Outline navigation uses pure model/reveal planners; attachment
+  owner exposes resource/provenance operations but no recoverable state checkpoint.
+  Full original UI panel checkpoint capture/validation/restore remains #2294/#2295
+  work coordinated with the original editor/typography and language/attachment
+  owners. Ref aliases or a reconstructed second panel/history owner cannot fill it.
+
+Existing native panel partial restore and actual server-draft/journal APIs are not
+replaced or executed. No independently usable full draft/journal/panel checkpoint
+adapter can be wired from these current producer APIs. Full factory refusal and
+reviewed gates remain; runtime/list/discovery/mount/native remain UNRUN.
