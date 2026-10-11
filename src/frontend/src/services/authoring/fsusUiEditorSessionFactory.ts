@@ -84,7 +84,8 @@ function assertBinding(
  * The retained upstream API currently cannot issue the complete #2294 snapshot.
  */
 export function createFsusUiEditorSessionFactory(
-    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver
+    resolveMountedEditor: ArticleWorkspaceMountedEditorResolver,
+    assertAdmission: () => void
 ): ArticleWorkspaceFsusUiEditorSessionFactory
 {
     function resolveSession(entry: OpenArticleDocumentEntry): {
@@ -92,6 +93,7 @@ export function createFsusUiEditorSessionFactory(
         session: MarkdownEditorSession;
     }
     {
+        assertAdmission();
         const binding = resolveMountedEditor(entry);
         if (!binding)
         {
@@ -110,6 +112,7 @@ export function createFsusUiEditorSessionFactory(
         {
             throw new Error('public-editor-mounted-document-owner-mismatch');
         }
+        assertAdmission();
         return { binding, session };
     }
 
@@ -139,11 +142,11 @@ export function createFsusUiEditorSessionFactory(
     function assertRecoveryReference(
         entry: OpenArticleDocumentEntry,
         binding: ArticleWorkspaceMountedEditorBinding,
-        recoveryCheckpoint: ArticleRecoveryJournalCheckpointReferenceBinding,
+        inspectReference: ArticleRecoveryJournalCheckpointReferenceBinding['inspectReference'],
         checkpointRef: string
     ): void
     {
-        const info = recoveryCheckpoint.inspectReference(checkpointRef);
+        const info = inspectReference(checkpointRef);
         if (info?.checkpointRef !== checkpointRef
             || info.editorSessionRef !== entry.editorSessionRef
             || info.articleId !== binding.identity.articleId
@@ -157,11 +160,14 @@ export function createFsusUiEditorSessionFactory(
         {
             throw new Error('public-editor-recovery-reference-owner-mismatch');
         }
+        assertAdmission();
     }
 
     return {
         captureRetainedRecoverySnapshot(entry, recoveryCheckpoint, checkpointRef)
         {
+            const inspectReference = recoveryCheckpoint.inspectReference.bind(recoveryCheckpoint);
+            const captureNative = recoveryCheckpoint.captureRetainedSnapshot.bind(recoveryCheckpoint);
             const { binding, session } = resolveSession(entry);
             const identity = Object.freeze({ ...binding.identity });
             const documentContext = Object.freeze({ ...binding.documentContext });
@@ -176,12 +182,12 @@ export function createFsusUiEditorSessionFactory(
                 {
                     throw new Error('public-editor-recovery-snapshot-owner-stale');
                 }
-                assertRecoveryReference(entry, current.binding, recoveryCheckpoint, checkpointRef);
+                assertRecoveryReference(entry, current.binding, inspectReference, checkpointRef);
             };
             assertOwner();
             // Original Writer supplies expected native context and validates the actual body
             // inside its genuine native digest callback. Do not create a second binding/producer.
-            const nativeSnapshot = recoveryCheckpoint.captureRetainedSnapshot(checkpointRef);
+            const nativeSnapshot = captureNative(checkpointRef, assertOwner);
             assertOwner();
             if (nativeSnapshot.editorSessionRef !== entry.editorSessionRef
                 || nativeSnapshot.documentIdentity.id !== identity.documentId
@@ -209,56 +215,78 @@ export function createFsusUiEditorSessionFactory(
         },
         async restoreRetainedRecoverySnapshot(entry, snapshot)
         {
+            // Read caller-held getters ONCE before any original owner operation.
+            const recoveryCheckpoint = snapshot.recoveryCheckpoint;
+            const nativeSnapshot = snapshot.nativeSnapshot;
+            const inputIdentity = snapshot.identity;
+            const inputContext = snapshot.documentContext;
+            const pinned = Object.freeze({
+                schema: snapshot.schema,
+                identity: Object.freeze({ articleId: inputIdentity.articleId,
+                    draftId: inputIdentity.draftId, documentId: inputIdentity.documentId }),
+                documentContext: Object.freeze({ documentEpoch: inputContext.documentEpoch,
+                    sourceRevision: inputContext.sourceRevision, draftRevision: inputContext.draftRevision }),
+                nativeSnapshot,
+                recoveryCheckpoint,
+                crashJournalRef: snapshot.crashJournalRef,
+                refsDigest: snapshot.refsDigest
+            });
+            const inspectReference = recoveryCheckpoint.inspectReference.bind(recoveryCheckpoint);
+            const restoreReference = recoveryCheckpoint.restoreReference.bind(recoveryCheckpoint);
+            const validateReference = recoveryCheckpoint.validateReference.bind(recoveryCheckpoint);
+            assertAdmission();
             const { binding, session } = resolveSession(entry);
             const identity = Object.freeze({ ...binding.identity });
             const context = Object.freeze({ ...binding.documentContext });
             const revision = binding.editorRevision;
             const editor = binding.editor;
+            const validateNative = session.validateRetainedSnapshot.bind(session);
+            const restoreNative = session.restoreSnapshot.bind(session);
+            const expected = Object.freeze({
+                documentIdentity: Object.freeze({ id: identity.documentId, epoch: context.documentEpoch }), revision,
+                assertAdmission: (): void => assertOwner()
+            });
             const assertOwner = (): void =>
             {
                 const current = resolveSession(entry);
                 assertBinding(current.binding, identity, context);
-                assertBinding(current.binding, snapshot.identity, snapshot.documentContext);
+                assertBinding(current.binding, pinned.identity, pinned.documentContext);
                 if (current.session !== session || current.binding.editor !== editor
                     || current.binding.editorRevision !== revision
-                    || snapshot.schema !== 'fsusblog.article-workspace-retained-recovery.v1'
-                    || snapshot.nativeSnapshot.editorSessionRef !== entry.editorSessionRef
-                    || snapshot.nativeSnapshot.documentIdentity.id !== identity.documentId
-                    || snapshot.nativeSnapshot.documentIdentity.epoch !== context.documentEpoch
-                    || snapshot.nativeSnapshot.revision !== revision
-                    || calculateRetainedRecoveryRefsDigest(snapshot) !== snapshot.refsDigest)
+                    || pinned.schema !== 'fsusblog.article-workspace-retained-recovery.v1'
+                    || nativeSnapshot.editorSessionRef !== entry.editorSessionRef
+                    || nativeSnapshot.documentIdentity.id !== identity.documentId
+                    || nativeSnapshot.documentIdentity.epoch !== context.documentEpoch
+                    || nativeSnapshot.revision !== revision
+                    || calculateRetainedRecoveryRefsDigest(pinned) !== pinned.refsDigest)
                 {
                     throw new Error('public-editor-recovery-restore-owner-stale');
                 }
-                assertRecoveryReference(entry, current.binding, snapshot.recoveryCheckpoint, snapshot.crashJournalRef);
+                assertRecoveryReference(entry, current.binding, inspectReference, pinned.crashJournalRef);
             };
             assertOwner();
-            if (!session.validateRetainedSnapshot(snapshot.nativeSnapshot, {
-                documentIdentity: { id: identity.documentId, epoch: context.documentEpoch }, revision
-            }))
+            if (!validateNative(nativeSnapshot, expected))
             {
                 throw new Error('public-editor-recovery-native-custody-mismatch');
             }
             assertOwner();
             // Original async storage integrity check never applies content or replaces native custody.
-            const record = await snapshot.recoveryCheckpoint.restoreReference(snapshot.crashJournalRef);
+            const record = await restoreReference(pinned.crashJournalRef);
             assertOwner();
-            if (!record || !snapshot.recoveryCheckpoint.validateReference(snapshot.crashJournalRef, record.content)
-                || calculateOpenArticleDocumentDigest(record.content) !== snapshot.nativeSnapshot.editorContentDigest)
+            const restoredContent = record?.content;
+            if (restoredContent === undefined || !validateReference(pinned.crashJournalRef, restoredContent)
+                || calculateOpenArticleDocumentDigest(restoredContent) !== nativeSnapshot.editorContentDigest)
             {
                 throw new Error('public-editor-recovery-restore-content-mismatch');
             }
             assertOwner();
-            if (!session.validateRetainedSnapshot(snapshot.nativeSnapshot, {
-                documentIdentity: { id: identity.documentId, epoch: context.documentEpoch }, revision
-            }))
+            if (!validateNative(nativeSnapshot, expected))
             {
                 throw new Error('public-editor-recovery-native-custody-mismatch');
             }
-            assertOwner();
-            const proof = session.restoreSnapshot(snapshot.nativeSnapshot, {
-                documentIdentity: { id: identity.documentId, epoch: context.documentEpoch }, revision
-            });
+            // No caller getter or recovery callback remains between this real guard and mutation.
+            assertAdmission();
+            const proof = restoreNative(nativeSnapshot, expected);
             assertOwner();
             return proof;
         },

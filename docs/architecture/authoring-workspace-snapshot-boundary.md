@@ -653,3 +653,47 @@ remain unavailable. No partial viewStateRef aliases those missing references.
 Original immediate guard, host/router, registry/group, typography and qualification
 holds remain unchanged. All runtime, storage, discovery/list, native/worker,
 security/privacy/receipt/race/backuprestore/IME acceptance is UNRUN.
+
+### Real Writer source consumption and final admission before mutation
+
+The session branch now consumes the original Writer de6 eight postimages and 22
+actual existing dependency postimages, including original DocContext subscribeContext.
+Every source maps to its exact original Git blob. Actual wrappers, Writer/composable,
+native/File runtime and mounted-source producer bodies exist in the production tree.
+Six additional original upload/preview/markdown helper versions are needed by those
+published modules and are consumed separately, without semantic edits. Generated
+UploadAssetFacts DTO/route/response-kind producer artifacts are absent from this fixed
+baseline; no declarations, route literals, privacy/receipt bypass or authority refresh
+substitute them. Original full application compilation stays RED until real dependency
+closure and inherited source findings are resolved by the appropriate owners.
+
+Factory restore pins every caller-held bundle field and original checkpoint/native
+method before owner operations. The same composition passes its actual assertActive
+closure into the factory; after final external getter/reference/content reads and
+real native token validation, that admission is checked immediately before the pinned
+original native restore call. A recoveryCheckpoint getter, method getter, restored
+content getter or original reference callback that synchronously retires the host
+therefore cannot make a post-mutation refusal stand in for pre-mutation authorization.
+No callback/input getter is read between the final guard and native mutation.
+The native validator additionally checks original transaction-store token/history
+custody, so document-coordinate ABA cannot revive a released checkpoint. Actual
+mutating native/store restore semantics and blocked proofs remain original.
+The actual Writer capture port forwards the supplied original factory guard to
+the native expected context. Native retain/restore invoke it after their final
+renderer/view callbacks, before original store mutation; it revalidates full
+original owner/reference/admission, rather than checking a copied boolean. This
+small consumer adapter hunk is separate from the exact de6 source intake, and
+original transaction mutating restore bytes are unchanged.
+
+createArticleWorkspaceRetainedRecoveryPort borrows the original Layout/Write journal
+reader, checks the canonical original registry association and same original port
+before/after awaits, and exposes explicit prepareSnapshot/restoreSnapshot through the
+SAME installed factory. Creation never binds a journal, persists, captures or installs
+a host. The minimal patch in artifacts/article-editor/issue-2295-layout-caller-source
+is anchored to original Layout e6bb1b6c and exposes this concrete partial port from
+its existing original binding. Product Write.vue is not privately modified here;
+Layout consumes its patch, and Rail supplies its exact published ref/installer source
+for the consumer hunk. No replacement installation path or automatic prepare on
+mount/geometry/document publication is introduced. Missing original caller/native
+binding/composition still refuses. Full host/resource and second-owner gates remain
+open; all runtime/tests/list/mount/native/kernel qualification remains UNRUN.

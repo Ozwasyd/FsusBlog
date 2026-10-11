@@ -1,13 +1,24 @@
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
 
 import type { ArticleRecoveryJournalCheckpointReferenceBinding } from '../articleRecoveryJournal';
-import type { ArticleDocumentContextRef, ArticleDocumentIdentity } from './openArticleDocumentRegistry';
-import type { MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
+import type { ArticleDocumentContextRef, ArticleDocumentIdentity, OpenArticleDocumentEntry } from './openArticleDocumentRegistry';
+import type { MarkdownEditorSessionRestoreProof, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
 
 /** Exact actual port returned by original Writer 1400e677; no additional binding is created here. */
 export type ArticleWorkspaceRetainedRecoveryCheckpoint = ArticleRecoveryJournalCheckpointReferenceBinding & {
-    captureRetainedSnapshot(reference: string): MarkdownEditorSessionSnapshot;
+    captureRetainedSnapshot(reference: string, assertAdmission?: () => void): MarkdownEditorSessionSnapshot;
 };
+
+/** Borrowed original Write/registry owner reader; null never creates an association or binding. */
+export interface ArticleWorkspaceRetainedRecoverySource {
+    readCurrent(): { entry: OpenArticleDocumentEntry; checkpoint: ArticleWorkspaceRetainedRecoveryCheckpoint; } | null;
+}
+
+/** Explicit partial-checkpoint operations; not the complete host/router session admission port. */
+export interface ArticleWorkspaceRetainedRecoveryPort {
+    prepareSnapshot(signal?: AbortSignal): Promise<ArticleWorkspaceRetainedRecoverySnapshot>;
+    restoreSnapshot(snapshot: ArticleWorkspaceRetainedRecoverySnapshot): Promise<MarkdownEditorSessionRestoreProof>;
+}
 
 /** Process-local retained capability; neither a full host snapshot nor persisted authority. */
 export interface ArticleWorkspaceRetainedRecoverySnapshot {
