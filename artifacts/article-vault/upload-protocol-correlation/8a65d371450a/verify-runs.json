@@ -1,0 +1,14 @@
+{
+  "label": "verify-runs",
+  "command": [
+    "python3",
+    "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/verify-runs.py"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T09:38:39.908561+00:00",
+  "head": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T09:38:40.002279+00:00"
+}

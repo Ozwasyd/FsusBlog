@@ -1,0 +1,14 @@
+{
+  "label": "type-delta",
+  "command": [
+    "python3",
+    "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/compare-types.py"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T09:37:32.898614+00:00",
+  "head": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T09:37:32.922010+00:00"
+}

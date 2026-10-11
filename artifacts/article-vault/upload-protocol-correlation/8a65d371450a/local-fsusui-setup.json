@@ -1,0 +1,19 @@
+{
+  "label": "local-fsusui-setup",
+  "command": [
+    "node",
+    "src/frontend/scripts/prepare-local-fsusui-install.mjs",
+    "verify",
+    "--frontend-root",
+    "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+    "--fsusui-root",
+    "/workspace/chain1975-runtime-borrow-fsusui"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T09:21:45.346982+00:00",
+  "head": "5d1b82763d67af6fbcb4abc5908fe465c09d7149",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T09:21:45.469371+00:00"
+}

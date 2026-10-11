@@ -1,0 +1,5 @@
+fix(frontend): validate upload recovery and response correlation
+
+Forward original credentials for status and part-map reads. Preserve uncertain recovery instead of reinitializing, and validate response identity and geometry before progress or completion admission.
+
+Refs: #1975

@@ -1,0 +1,74 @@
+{
+  "source": "74cf0bc81c97946303e0b21fe78c9745a0fee3f8",
+  "purpose": "Retain initial122/2/37/preflight PASS and style FAIL; no receipt relabeling",
+  "paths": [
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/preflight.json",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/preflight.json"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/preflight.log",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/preflight.log"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/discovery.json",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/discovery.json"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/discovery.log",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/discovery.log"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/positive.json",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/positive.json"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/positive.log",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/positive.log"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/prerequisites.json",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/prerequisites.json"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/prerequisites.log",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/prerequisites.log"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/focused.json",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/focused.json"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/focused.log",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/focused.log"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/source-style.json",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/source-style.json"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/source-style.log",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/source-style.log"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/discovery-roster.json",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/discovery-roster.json"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/positive-report.json",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/positive-report.json"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/focused-report.json",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/focused-report.json"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/positive-run",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/positive-run"
+    },
+    {
+      "original": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/focused-run",
+      "retained": "/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/initial74/focused-run"
+    }
+  ]
+}

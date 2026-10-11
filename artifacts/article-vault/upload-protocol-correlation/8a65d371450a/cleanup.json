@@ -1,0 +1,119 @@
+{
+  "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "observedUtc": "2026-10-11T09:43:21.711541+00:00",
+  "removedOwnLinks": [
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/gsap",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/gsap"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/katex",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/fsusui-local-katex"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/lodash",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/lodash"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/shiki",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/shiki"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/lodash-unified",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/lodash-unified"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/mermaid",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/mermaid"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/dayjs",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/dayjs"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/escape-html",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/escape-html"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/motion-dom",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/motion-dom"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/memoize-one",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/memoize-one"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/normalize-wheel-es",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/normalize-wheel-es"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/lodash-es",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/lodash-es"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/async-validator",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/async-validator"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/vue",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/vue"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@element-plus/icons-vue",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@element-plus/icons-vue"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@types/lodash",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@types/lodash"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@types/lodash-es",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@types/lodash-es"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/runtime-core",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/runtime-core"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/shared",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/shared"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/reactivity",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/reactivity"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@vue/runtime-dom",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@vue/runtime-dom"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@floating-ui/dom",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@floating-ui/dom"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@popperjs/core",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@popperjs/core"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-fsusui/vue/packages/node_modules/@ctrl/tinycolor",
+      "target": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules/@ctrl/tinycolor"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-attempt-borrow/src/frontend/node_modules",
+      "target": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules"
+    },
+    {
+      "path": "/workspace/chain1975-runtime-borrow-type-baseline/src/frontend/node_modules",
+      "target": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules"
+    },
+    {
+      "path": "/workspace/chain1975-protocol-negative/src/frontend/node_modules",
+      "target": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules"
+    }
+  ],
+  "negativeWorktreeRemoved": "/workspace/chain1975-protocol-negative",
+  "exit": 0,
+  "cachePreserved": "/workspace/chain1975-intent-source-alias-verification/src/frontend/node_modules",
+  "cacheExists": true,
+  "qualification": false
+}

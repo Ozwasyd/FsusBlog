@@ -1,0 +1,21 @@
+{
+  "label": "focused",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/focused-report.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T09:34:32.272157+00:00",
+  "head": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "runId": "chain1975-protocol-8a65d371-focused",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T09:34:48.788755+00:00"
+}

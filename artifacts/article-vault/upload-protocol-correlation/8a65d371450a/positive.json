@@ -1,0 +1,22 @@
+{
+  "label": "positive",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "-t",
+    "(runs compression and hashing before init, uploads every required part, then completes once|borrows actual compressed facts and retains a bound handle after public session and original lease clear)$",
+    "--reporter=json",
+    "--outputFile=/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/positive-report.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T09:35:29.957718+00:00",
+  "head": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "runId": "chain1975-protocol-8a65d371-positive",
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T09:35:37.719841+00:00"
+}

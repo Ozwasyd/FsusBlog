@@ -1,0 +1,56 @@
+{"event":"start","workerProcessId":10160,"task":{"id":"1154655295_1_2","name":"carries the original token through the real GET status transport and decoder"}}
+{"event":"finish","workerProcessId":10160,"task":{"id":"1154655295_1_2","name":"carries the original token through the real GET status transport and decoder"}}
+{"event":"start","workerProcessId":10160,"task":{"id":"1154655295_1_3","name":"carries the original token through the real GET status/parts transport and decoder"}}
+{"event":"finish","workerProcessId":10160,"task":{"id":"1154655295_1_3","name":"carries the original token through the real GET status/parts transport and decoder"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_58","name":"rejects uncorrelated init id before part IO or completion access"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_58","name":"rejects uncorrelated init id before part IO or completion access"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_59","name":"rejects uncorrelated init empty-id before part IO or completion access"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_59","name":"rejects uncorrelated init empty-id before part IO or completion access"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_60","name":"rejects uncorrelated init file before part IO or completion access"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_60","name":"rejects uncorrelated init file before part IO or completion access"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_61","name":"rejects uncorrelated init mime before part IO or completion access"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_61","name":"rejects uncorrelated init mime before part IO or completion access"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_62","name":"rejects uncorrelated init format before part IO or completion access"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_62","name":"rejects uncorrelated init format before part IO or completion access"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_63","name":"rejects uncorrelated init bytes before part IO or completion access"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_63","name":"rejects uncorrelated init bytes before part IO or completion access"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_64","name":"rejects uncorrelated init chunk before part IO or completion access"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_64","name":"rejects uncorrelated init chunk before part IO or completion access"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_65","name":"rejects uncorrelated init parts before part IO or completion access"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_65","name":"rejects uncorrelated init parts before part IO or completion access"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_66","name":"rejects uncorrelated init fraction before part IO or completion access"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_66","name":"rejects uncorrelated init fraction before part IO or completion access"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_67","name":"rejects uncorrelated init token before part IO or completion access"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_67","name":"rejects uncorrelated init token before part IO or completion access"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_91","name":"rejects uncorrelated part ACK id without publishing progress or completing"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_91","name":"rejects uncorrelated part ACK id without publishing progress or completing"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_92","name":"rejects uncorrelated part ACK index without publishing progress or completing"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_92","name":"rejects uncorrelated part ACK index without publishing progress or completing"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_93","name":"rejects uncorrelated part ACK offset without publishing progress or completing"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_93","name":"rejects uncorrelated part ACK offset without publishing progress or completing"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_94","name":"rejects uncorrelated part ACK size without publishing progress or completing"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_94","name":"rejects uncorrelated part ACK size without publishing progress or completing"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_95","name":"rejects uncorrelated part ACK bytes without publishing progress or completing"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_95","name":"rejects uncorrelated part ACK bytes without publishing progress or completing"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_96","name":"rejects uncorrelated part ACK count without publishing progress or completing"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_96","name":"rejects uncorrelated part ACK count without publishing progress or completing"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_97","name":"rejects uncorrelated part ACK fraction without publishing progress or completing"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_97","name":"rejects uncorrelated part ACK fraction without publishing progress or completing"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_98","name":"retains unknown completion on uncorrelated complete ACK id without a loan or abort"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_98","name":"retains unknown completion on uncorrelated complete ACK id without a loan or abort"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_99","name":"retains unknown completion on uncorrelated complete ACK bytes without a loan or abort"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_99","name":"retains unknown completion on uncorrelated complete ACK bytes without a loan or abort"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_100","name":"retains unknown completion on uncorrelated complete ACK mime without a loan or abort"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_100","name":"retains unknown completion on uncorrelated complete ACK mime without a loan or abort"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_101","name":"retains unknown completion on uncorrelated complete ACK url without a loan or abort"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_101","name":"retains unknown completion on uncorrelated complete ACK url without a loan or abort"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_102","name":"retains unknown completion on uncorrelated complete ACK relative-url without a loan or abort"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_102","name":"retains unknown completion on uncorrelated complete ACK relative-url without a loan or abort"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_105","name":"retains original obligations through the actual status transport on 404"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_105","name":"retains original obligations through the actual status transport on 404"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_106","name":"retains original obligations through the actual status transport on network"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_106","name":"retains original obligations through the actual status transport on network"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_107","name":"retains original obligations through the actual map transport on 404"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_107","name":"retains original obligations through the actual map transport on 404"}}
+{"event":"start","workerProcessId":10161,"task":{"id":"-298466997_0_108","name":"retains original obligations through the actual map transport on network"}}
+{"event":"finish","workerProcessId":10161,"task":{"id":"-298466997_0_108","name":"retains original obligations through the actual map transport on network"}}

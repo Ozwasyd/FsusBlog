@@ -1,0 +1,14 @@
+{
+  "currentSource": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "baselineSource": "04195f8a0d2ad16d14c8d66a2f876c428e606f3e",
+  "currentCommandRecord": "types-current.json",
+  "baselineCommandRecord": "types-baseline.json",
+  "currentExit": 2,
+  "baselineExit": 2,
+  "currentCount": 244,
+  "baselineCount": 244,
+  "added": [],
+  "removed": [],
+  "fullTypecheckPassed": false,
+  "qualification": false
+}

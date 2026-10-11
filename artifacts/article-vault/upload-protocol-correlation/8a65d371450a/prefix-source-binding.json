@@ -1,0 +1,27 @@
+{
+  "baselineSource": "734f8925d41c3d089cc039989292c352e0ee741b",
+  "testOverlayOnly": true,
+  "inputs": [
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "source": "74cf0bc81c97946303e0b21fe78c9745a0fee3f8",
+      "sha256": "696634fafc320b27e2e92160f6e182d88ea6a62bdf6d445bf692f5a1c81ddfd3"
+    },
+    {
+      "path": "tests/frontend/unit/api/upload.test.ts",
+      "source": "74cf0bc81c97946303e0b21fe78c9745a0fee3f8",
+      "sha256": "2205b2f9ee9a6b5be399dc126522cdf799b69d6b87f9b644cefda752a6b6362f"
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "source": "734f8925d41c3d089cc039989292c352e0ee741b",
+      "sha256": "1d6bec6a812447d0020339724f11287348a4573317528a30e839d5e1bf351144"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "source": "734f8925d41c3d089cc039989292c352e0ee741b",
+      "sha256": "83a05f99050bea4e2d63ac1a646df218cab845b00e0e94adf630bd0650d41207"
+    }
+  ],
+  "qualification": false
+}

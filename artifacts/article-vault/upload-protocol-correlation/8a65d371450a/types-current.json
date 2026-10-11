@@ -1,0 +1,15 @@
+{
+  "label": "types-current",
+  "command": [
+    "node",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "--application"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow",
+  "startUtc": "2026-10-11T09:34:32.271049+00:00",
+  "head": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 2,
+  "stopUtc": "2026-10-11T09:35:02.392323+00:00"
+}

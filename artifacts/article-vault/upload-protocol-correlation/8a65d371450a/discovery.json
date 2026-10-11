@@ -1,0 +1,20 @@
+{
+  "label": "discovery",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "list",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+    "../../tests/frontend/unit/api/upload.test.ts",
+    "--json=/workspace/chain-1975-evidence/upload-protocol-correlation-20261011/discovery-roster.json"
+  ],
+  "cwd": "/workspace/chain1975-runtime-attempt-borrow/src/frontend",
+  "startUtc": "2026-10-11T09:32:39.335841+00:00",
+  "head": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "runId": null,
+  "qualification": false,
+  "exitCode": 0,
+  "stopUtc": "2026-10-11T09:32:52.183376+00:00"
+}

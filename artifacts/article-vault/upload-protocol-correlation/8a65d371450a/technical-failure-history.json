@@ -1,0 +1,31 @@
+{
+  "qualification": false,
+  "currentSource": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "priorArtifacts": [
+    "artifacts/article-vault/runtime-review-repair/9461d18fb5fd",
+    "artifacts/article-vault/completion-only-loan/b8723dc2baed",
+    "artifacts/article-vault/post-ack-local-reset/01636576e8f9",
+    "artifacts/article-vault/preack-abort-binding/734f8925d41c"
+  ],
+  "exploratory": [
+    {
+      "label": "exploratory1",
+      "uncommitted": true,
+      "passed": 59,
+      "failed": 8,
+      "result": "Full DTO fixture/canonical GUID migration exposed incomplete old positive ACKs and stale diagnostic ID assertions; fixture changes recorded in source patch."
+    },
+    {
+      "label": "exploratory2",
+      "uncommitted": true,
+      "passed": 121,
+      "failed": 1,
+      "result": "Real gap: AOT decoder returns null for corrupt stored evidence, initially still allowed fresh init; corrected original reader to distinguish missing key from invalid existing content."
+    }
+  ],
+  "initialFrozenSource": "74cf0bc81c97946303e0b21fe78c9745a0fee3f8",
+  "initial74": "122/2/37/preflight PASS; source-style FAIL13; no type receipt. All relocated records retained in initial74/ with explicit relocation map. Final two-line refinement preserves readonly range type after Array.isArray and removes unused snapshot initial assignment; test blobs unchanged.",
+  "prefix": "Frozen pre-fix734 source with exact current test bytes:28 selected failures,94 outside selector, no setup/compile failures; no unsafe unbounded pre-fix loop selected. Current source executes every range negative including Infinity.",
+  "currentTypecheck": "FAIL2/2,244/244, zero added/removed; baseline04195",
+  "wholeHistoryFormat": "FAIL1: original9defbe367fc3ce869eef7a41aa29d9be3d1d5c37 footer untouched"
+}

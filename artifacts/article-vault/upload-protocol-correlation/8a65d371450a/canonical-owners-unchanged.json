@@ -1,0 +1,46 @@
+{
+  "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "inputs": [
+    {
+      "path": "src/frontend/src/composition/binaryTransport.ts",
+      "blob": "380e4e934ce0ce87eeccdc10cf9be1c4c226bded",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/services/binaryTransport.ts",
+      "blob": "de61b5928f8b8a511fde96cdab9fabd0f91f8994",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/api/binaryApiClient.ts",
+      "blob": "e95d8e87eacffa03e1e8479e89ccf7fc1362a579",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "blob": "47c67ec55408d10af0a858ccd133c0ea5658c100",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/composables/useImageUploadFlow.ts",
+      "blob": "a602b084979ffa33e7eeef5191d770ecbf92ebbb",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/views/admin/article/Write.vue",
+      "blob": "59ca26d630b74748d7426bfc2bc17ffe9bbf2d76",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Services/FileService.cs",
+      "blob": "7b8d15af9b46292b0b1f808e5598f7f4d03da380",
+      "unchanged": true
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "blob": "9070d076b8b3c5d94051c436497f5eb5f63d003f",
+      "unchanged": true
+    }
+  ],
+  "qualification": false
+}

@@ -1,0 +1,5 @@
+fix(frontend): preserve typed upload range validation
+
+Retain declared range types across the array guard and assign recovery snapshots only when read. Preserve runtime validation and all regression oracles.
+
+Refs: #1975

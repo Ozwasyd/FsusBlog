@@ -1,0 +1,476 @@
+{
+  "source": "8a65d371450a48ff344f4ec42462e6d602b66c66",
+  "parser": "6.0.3",
+  "comparisons": [
+    {
+      "source": "04195f8a0d2ad16d14c8d66a2f876c428e606f3e",
+      "originalItCount": 11,
+      "rows": [
+        {
+          "kind": "beforeEach",
+          "name": "beforeEach",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "837a392d9d1620e2346495c70a0418c94d52c5d971bcd287f3ea845e7040fcbc"
+        },
+        {
+          "kind": "afterEach",
+          "name": "afterEach",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "3a46694d5e55f4eefecbab20fa6a91de76911ffa07d4e71e2d6d4fad88e765c6"
+        },
+        {
+          "kind": "it",
+          "name": "runs compression and hashing before init, uploads every required part, then completes once",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "fe9aa190b99fa5e96b47c8227cbcd2d7814b73f64f0a9a976591db5abbc1a278"
+        },
+        {
+          "kind": "it",
+          "name": "pauses after part retry exhaustion while retaining the resumable attempt and snapshot",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "872dd29d77ad5847404b9c30f00cfba571eb2ad21fc392fad1183e337e4c61e9"
+        },
+        {
+          "kind": "it",
+          "name": "resumes the same file and options with the stored identity and uploads only missing parts",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "b20188a19926c4b0de69fd30a6319e2f5ed254b814cfe440c5bbc46cc2e1ee04"
+        },
+        {
+          "kind": "it",
+          "name": "initializes a new identity when a stored snapshot is tampered",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "7518fc20e182107a82cd6d34945d0709ba37fc9a18131fd86c5547853ecff414"
+        },
+        {
+          "kind": "it",
+          "name": "initializes a new identity when stored-session status lookup fails",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "f0177d54f92c1f97c3dd4b1de4adc5ef35a0f29efdf2d2b637fef9b6d403e655"
+        },
+        {
+          "kind": "it",
+          "name": "clears local state and calls abort once even when abort fails",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "a77f59de81590d1e44442aa81043e6f42a55678bc05bea89006608e6a99bd618"
+        },
+        {
+          "kind": "it",
+          "name": "shares an in-flight abort and blocks replacement until server cleanup is acknowledged",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "ec6fd1b221cf730bdf540ed27137fc2fae2fc31f0542900705bd079e0aceb28f"
+        },
+        {
+          "kind": "it",
+          "name": "a late part failure cannot resurrect a cancelled recovery snapshot",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "6ecac382704e8b57c3eff1a980ccbf59844fc4b658ca91a08dd3a279cf24bc2c"
+        },
+        {
+          "kind": "it",
+          "name": "does not call the API when abandoning without an active session",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "56394373c2e086c56bc3019f88859402139921169ef7e60723a9fbdce2ce02ec"
+        },
+        {
+          "kind": "it",
+          "name": "does not let a late part acknowledgement overwrite a new upload attempt",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "e4fe6a70a803597912d5843ad729886c05d34f52436d2fc34ad7dbf22b1621c1"
+        },
+        {
+          "kind": "it",
+          "name": "shows resume and abandon only for the corresponding runtime state and wires both actions",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "6edc147334b3698281bdfa1149af48971197b233cd662b3e6a899b8bfb4f15f5"
+        }
+      ]
+    },
+    {
+      "source": "734f8925d41c3d089cc039989292c352e0ee741b",
+      "originalItCount": 41,
+      "rows": [
+        {
+          "kind": "afterEach",
+          "name": "afterEach",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "805e4f848491897277e6d978ca4bac98f9d77eee42211480496c53b7e8a2beb6"
+        },
+        {
+          "kind": "beforeEach",
+          "name": "beforeEach",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "4edf06b619f28db4941cc3e49c31e274b703137e7e4b2caf247ae03dc5f32095"
+        },
+        {
+          "kind": "afterEach",
+          "name": "afterEach",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "3a46694d5e55f4eefecbab20fa6a91de76911ffa07d4e71e2d6d4fad88e765c6"
+        },
+        {
+          "kind": "it",
+          "name": "runs compression and hashing before init, uploads every required part, then completes once",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "fe9aa190b99fa5e96b47c8227cbcd2d7814b73f64f0a9a976591db5abbc1a278"
+        },
+        {
+          "kind": "it",
+          "name": "pauses after part retry exhaustion while retaining the resumable attempt and snapshot",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "872dd29d77ad5847404b9c30f00cfba571eb2ad21fc392fad1183e337e4c61e9"
+        },
+        {
+          "kind": "it",
+          "name": "resumes the same file and options with the stored identity and uploads only missing parts",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "b20188a19926c4b0de69fd30a6319e2f5ed254b814cfe440c5bbc46cc2e1ee04"
+        },
+        {
+          "kind": "it",
+          "name": "initializes a new identity when a stored snapshot is tampered",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "7518fc20e182107a82cd6d34945d0709ba37fc9a18131fd86c5547853ecff414"
+        },
+        {
+          "kind": "it",
+          "name": "initializes a new identity when stored-session status lookup fails",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "f0177d54f92c1f97c3dd4b1de4adc5ef35a0f29efdf2d2b637fef9b6d403e655"
+        },
+        {
+          "kind": "it",
+          "name": "clears local state and calls abort once even when abort fails",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "f52a194f24777f443aba9feaf0ca4ccf1d7382d1ea9395c3015d6aae3e8fea06"
+        },
+        {
+          "kind": "it",
+          "name": "shares an in-flight abort and blocks replacement until server cleanup is acknowledged",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "2d509403b2fcd3b54587c3ab97e44311a6f36adc7db81005f4bb1ab96c2dfddc"
+        },
+        {
+          "kind": "it",
+          "name": "a late part failure cannot resurrect a cancelled recovery snapshot",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "6ecac382704e8b57c3eff1a980ccbf59844fc4b658ca91a08dd3a279cf24bc2c"
+        },
+        {
+          "kind": "it",
+          "name": "does not call the API when abandoning without an active session",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "56394373c2e086c56bc3019f88859402139921169ef7e60723a9fbdce2ce02ec"
+        },
+        {
+          "kind": "it",
+          "name": "does not let a late part acknowledgement overwrite a new upload attempt",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "e4fe6a70a803597912d5843ad729886c05d34f52436d2fc34ad7dbf22b1621c1"
+        },
+        {
+          "kind": "it",
+          "name": "borrows actual compressed facts and retains a bound handle after public session and original lease clear",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "52c0218593d3a32b957029064d68fe681d092c211972ba2f3399910760a0ea1f"
+        },
+        {
+          "kind": "it.each",
+          "name": "refuses a %s pending handle before creating a session",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "6e98efde26e743fff433952cea227252c846b5746b4e7a755673255087e37e96"
+        },
+        {
+          "kind": "it.each",
+          "name": "refuses a %s document lease through the real original registry",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "2e3778e7341996d63a4513b7cbd5289d8b7b4910a491645ccbd4789fb881249d"
+        },
+        {
+          "kind": "it",
+          "name": "refuses to mint a borrow from a localStorage-only resumed session",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "1acca445abcd2ffdd8d7b173903e52b44c909684fe07164d59652a6291f9ff21"
+        },
+        {
+          "kind": "it",
+          "name": "expires a completed borrow without refreshing it from public state or storage",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "43a8090919197f4982f8196dcf7ffe1f674b818533ceb4ea49d017f7ee94ae17"
+        },
+        {
+          "kind": "it",
+          "name": "waits for a cancelled original initialization and real cleanup acknowledgement before replacement",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "0f2c501e658320aefa9599e6f5d4d98985d6d29b6535fb6c2728dae49d9052a9"
+        },
+        {
+          "kind": "it",
+          "name": "keeps unknown initialization cleanup blocked instead of fabricating an abort acknowledgement",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "464e1760d8e58b7f673319f15d18301aeb36ea01b2842c02410c3e0f9d9b8c9f"
+        },
+        {
+          "kind": "it",
+          "name": "retains true completion history and unknown cleanup after a cancelled completion without deleting it",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "8749d54034d6870ae5c0c7089602ae68a2c2b7e1c1d95c58dbfb0acd7920bb88"
+        },
+        {
+          "kind": "it",
+          "name": "uses the existing flow original lease and caller cancellation without creating a second upload",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "ed7aec39142e2a2e2678d9040ffcccd14c39a48b8643859701df73cfe4574551"
+        },
+        {
+          "kind": "it",
+          "name": "grants no loan on scope disposal and waits for the original part before settling",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "30c2499d0c6e8cc651bebc4b270d71304d45099e03819423544a4fc53aa0d402"
+        },
+        {
+          "kind": "it",
+          "name": "rereads original document and intent ownership after an asynchronous borrow callback",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "cd162e5ebfd17fd64dd5cb4a77ea792e5de0832584773232b9bd07ed44c8f2a5"
+        },
+        {
+          "kind": "it",
+          "name": "does not grant a legacy attempt a new deletion action on scope disposal",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "4d8fdeee59629b78e0d06c74e1728c031752a11cdb80568721d0f18977c9b3e2"
+        },
+        {
+          "kind": "it",
+          "name": "invalidates a completed original borrow when a new attempt starts",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "fedfd6d8e3e5c5346f7090dd2fddabacbf5bcccf4ac9d2e780e99d422767b5b6"
+        },
+        {
+          "kind": "it",
+          "name": "revokes returned and captured access immediately after each callback settles",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "90fcc59d052cdec8f61c79561cb438f806f5f1dc90d7e0720b5bb496528ae8de"
+        },
+        {
+          "kind": "it",
+          "name": "revokes concurrent access scopes independently while awaited use remains valid",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "4cf76970becacb298d26c94a9cede2183651091be29170d4d5d869d20dc51453"
+        },
+        {
+          "kind": "it",
+          "name": "bounds a completed callback and aborts its access signal at the fixed loan deadline",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "3c10a8b392c0a80bafbed1a90e57d13e81062df8098a565180bd171e83d48718"
+        },
+        {
+          "kind": "it.each",
+          "name": "grants no loan after raw %s failure and cannot mint one from retained state",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "ba6ce331e19b6137a984312bb8d711ed30d13e2eb4c0ccc7a1e19b03c3329315"
+        },
+        {
+          "kind": "it",
+          "name": "does not remint an explicitly released loan during the active completed operation",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "58989e08542f8a1f5018db6ad0e8acc234e727a32f107b62888233dc1babbb24"
+        },
+        {
+          "kind": "it",
+          "name": "revokes a newly acquired loan when the original completion callback fails",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "ca2aa331c61631be44834f6292b2749a8788ffe34eaf2345d6cde550c5df0a88"
+        },
+        {
+          "kind": "it",
+          "name": "grants no precompletion loan during a slow chunk and expires 30 seconds from actual acquisition",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "1dc4d3accfbab31f5bec662e8297b24018e4f93cba395749eb208f8d820efe1e"
+        },
+        {
+          "kind": "it",
+          "name": "captures real per-file handles and consumes slow same-name batch files before advancing",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "bfd28f025d1557147efd566ee7ffade93fc904f4c94aae288b090d392ddde419"
+        },
+        {
+          "kind": "it",
+          "name": "grants no loan during original compression, initialization, part or pending completion",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "49849fc870e17f5601f864548c896faf75de7829b54fba03e4a9bef1c8e416a1"
+        },
+        {
+          "kind": "it",
+          "name": "cannot acquire a first loan after the original successful operation is inactive",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "1c8ab3b157374d02d51d756aff4f1a75605d603b89894a446c5e4d20b27ae344"
+        },
+        {
+          "kind": "it",
+          "name": "does not refresh the acquisition deadline when a later access scope starts",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "b0244bcf0dd8eba15b74a2e05b9d522b543424b04023a6de66d4a0803bb8b2b3"
+        },
+        {
+          "kind": "it",
+          "name": "revokes a granted completion loan when its active original lease is cancelled",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "2a262646d1a60a81aae49bf6864d630b152abae0becae316c4ad5a8039166c47"
+        },
+        {
+          "kind": "it",
+          "name": "releases the per-file loan and stops a batch when its completion consumer fails",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "2bace12b2dc55cf92f2c7480ecd23600204b5de114c34cf8cae236ea0d0a6d20"
+        },
+        {
+          "kind": "it.each",
+          "name": "keeps ACK recovery after disposal of the %s operation without aborting",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "ee7960dde480786eea46f2388b4ae9d12cd14b343b8983a5b0f7863fbd8928e5"
+        },
+        {
+          "kind": "it.each",
+          "name": "retains ACK history after original %s invalidation and repeated abandon",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "8d46df974e6ddaf2e92b5083dcfd88b9c2c27271b9c90f48c46ceec28f6baf1d"
+        },
+        {
+          "kind": "it",
+          "name": "rejects a cloned capture owner before capture or upload IO",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "78298b4921ed2e7dd23ecd2fdf4c97e55fa8b59a49ea342a0628e9dac1e0532a"
+        },
+        {
+          "kind": "it.each",
+          "name": "retains the genuine cancellation obligation on invalid ACK $uploadId/$status",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "0640d6bb31bbc9111ac7bd3ccf4598f6d8b814792979c3ad4d6600035c90720b"
+        },
+        {
+          "kind": "it",
+          "name": "ignores public session and copied snapshot authority while retaining the original cleanup retry",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "7d5653e705dbec1befac34482605db6f849d547fe76f0d7fae5d5b41314547ad"
+        },
+        {
+          "kind": "it",
+          "name": "retains actual original init authority across a genuine resume generation without reminting it",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "d41d96de42a9edb7cf10c68e55fff624eb405f83e20a35e08d525c7811263dda"
+        },
+        {
+          "kind": "it",
+          "name": "retains an original init with missing credentials instead of sending an unbound abort",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "18a2d4b6bcccc183b4c4dc41c6cb4acd369cbc4e224f2de849cf621a2e844f6d"
+        },
+        {
+          "kind": "it",
+          "name": "keeps old cancellation references from acquiring a replacement generation token",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "df344353e7eec008e894d43c8e7d45182ea12ef80cb64fa49a119f9c09825f28"
+        },
+        {
+          "kind": "it",
+          "name": "awaits only the original unbound init and authenticates cancellation before its ACK",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "fab3b775de166f8a98a4f46b9cb4bb35a68ac6130fa95cb56e389e9d1f7565fe"
+        },
+        {
+          "kind": "it",
+          "name": "refuses abort for an unbound in-flight completion and retains its unknown obligation",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "4cc0cd1535bd40e38a75388d24f77bfa0aa5158a9b45ba7bc5a1113083b741e1"
+        },
+        {
+          "kind": "it.each",
+          "name": "retains a rejected completion with bound=%s before any cancellation or replacement",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "4cd65f6e5340f8c83a3cc3aa1d42731ffe8006f5c7ca5187c6b455ecbe7a5700"
+        },
+        {
+          "kind": "it.each",
+          "name": "uses the actual abort transport for %s and retains failure evidence until genuine ACK",
+          "identityRetained": true,
+          "byteIdentical": false,
+          "sha256": "d0ab662fdd03410be2d293b435f6673b3057c801942c7df2dede8dc33ea429c6"
+        },
+        {
+          "kind": "it",
+          "name": "shows resume and abandon only for the corresponding runtime state and wires both actions",
+          "identityRetained": true,
+          "byteIdentical": true,
+          "sha256": "6edc147334b3698281bdfa1149af48971197b233cd662b3e6a899b8bfb4f15f5"
+        }
+      ]
+    }
+  ],
+  "publicInterfacesUnchanged": true,
+  "qualification": false,
+  "changes": "Existing regression identities and lifecycle setup/hooks retained. Canonical GUID/full wire DTO fixtures are explicit, with no production response patching. Two original fresh-init expectations intentionally changed to fail-closed recovery under the current authorization. Third GET token arguments and matching valid IDs reflected in existing assertions. Full preimages/patch permit review; byte-identical oracle preservation is not claimed."
+}

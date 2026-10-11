@@ -1,0 +1,32 @@
+{
+  "source": "734f8925d41c3d089cc039989292c352e0ee741b",
+  "startingHead": "5d1b82763d67af6fbcb4abc5908fe465c09d7149",
+  "originMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "paths": [
+    {
+      "path": "src/frontend/src/composables/useImageUploadRuntime.ts",
+      "blob": "ebe292ab80707afd97ccdc6b6eb1c8271c89d3a2",
+      "sha256": "1d6bec6a812447d0020339724f11287348a4573317528a30e839d5e1bf351144"
+    },
+    {
+      "path": "src/frontend/src/api/upload.ts",
+      "blob": "58bb3f06fced57162c348ad261d81c234a00f79c",
+      "sha256": "83a05f99050bea4e2d63ac1a646df218cab845b00e0e94adf630bd0650d41207"
+    },
+    {
+      "path": "tests/frontend/unit/composables/useImageUploadRuntime.test.ts",
+      "blob": "f88a945c19197c11b84199869a269d8957797e01",
+      "sha256": "923e578c8e56b1dc55a1bfd878f0e01d8f0934648e1d9413efaf2f27c0091095"
+    },
+    {
+      "path": "tests/frontend/unit/api/upload.test.ts",
+      "blob": "6f77e2e5cc4e18ae9da4a4434002028a0ff83351",
+      "sha256": "be9f4a37b17b91d48b6020dbfb6724d205bab17635bebc752e862468ea5d23b5"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "blob": "22bae415c8473ce6d34c202c1bc27eca370d7094",
+      "sha256": "a54a38bea70d397a4d2e90ee1f11abf80c815928b3dbadee5830e3a3322d5f6f"
+    }
+  ]
+}
