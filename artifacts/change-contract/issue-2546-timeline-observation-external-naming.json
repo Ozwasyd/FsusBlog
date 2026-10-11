@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/CommentFixtureTimelineVerifier.cs",
+                "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphFactory.TimelineObservation.cs"
+            ],
+            "reason": "Preserve original verifier and diagnostic contract identifiers while consuming supplied full timeline observations without generating moderation events or copying production continuity rules."
+        }
+    ]
+}

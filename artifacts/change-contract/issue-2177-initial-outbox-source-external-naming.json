@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/CommentService.cs",
+                "src/backend/Services/CommentAuthorManagementService.cs"
+            ],
+            "reason": "Preserve existing production configuration names while sharing initial outbox construction and the same create/edit/delete revision constructor."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/comment-command-boundary.md"
+            ],
+            "reason": "Preserve canonical configuration and generated-section identifiers while documenting the production initial outbox source API."
+        }
+    ]
+}
