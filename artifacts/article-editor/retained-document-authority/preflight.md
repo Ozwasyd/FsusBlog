@@ -192,20 +192,22 @@ running envelope; queued cancellation can publish a terminal, and real producer
 settlement remains explicit. Source反例 are written only:23 authority +10 Registry
 cases, no tests/list/discovery or candidate module execution.
 
-Writer160913cf40242f7ad603e080bb49871f584d1ce4's four canonical API constructor
-diagnostics were identified exactly in original api/authoringWorkspaceSnapshot.
-Only explicit fields/assignments replace parameter properties. Whole emitted
-ES2022 JavaScript is byte-identical before/after under erasableSyntaxOnly=true;
-no transport/source/scope/clock/wire/DB/storage behavior changes. No compiler
-configuration or cast hides these findings.
+Writer160913cf40242f7ad603e080bb49871f584d1ce4's four constructor diagnostics
+were identified exactly in the original api/authoringWorkspaceSnapshot owner.
+Parent corrected ownership after intermediate691d: original owner
+1df8314c8000130448d798e7bf5d38f50e7f1ecd supplies the complete fix and Writer
+consumes it. This lane removes its intermediate Snapshot edit entirely from the
+final net diff against a27a, preserving the intermediate emitted-JS equality
+observation as historical evidence only. Consume this lane's final NET changes,
+not the intermediate Snapshot hunks; no Snapshot postimage is supplied here.
 
-Original strict-full style checks both owners plus this API:3 files,0 violations.
-Original full application compiler remains RED exit2, fixed8769 baseline249 versus
-repair245 diagnostics:0 added complete headline messages, precisely4 canonical
-API TS1294 findings removed. Versus original a27a baseline255,10 original findings
-are removed,6 already belonging to de6df repairs. Own production diagnostics0.
-Raw current results and initial failures remain in task-owned review evidence.
+Original strict-full style checks the two owned production owners. Original
+full application compiler remains baseline RED with Snapshot's four TS1294
+findings still in this producer checkout; they are an original-owner dependency,
+not waived or reclassified. The intermediate 245 result included Snapshot edits
+and is historical. Final restored-scope results must be recorded separately;
+no previous source acceptance is inherited. All held execution remains UNRUN.
 Original Group startup cell/guard, joint ownership/ratio publication, ownership-set
-and exact projection method texts were compared byte-for-byte with8769 and are
-unchanged; a27a is the original source they preserve. Runtime and full acceptance
-remain HOLD; exact repaired-head independent review is required anew.
+and exact projection method texts compare byte-for-byte with8769 and remain
+unchanged, preserving a27a. Runtime and independent repaired-head review remain
+required.
