@@ -2409,6 +2409,18 @@ false/null decision，不带 title/category/tag、count 或替代 slug。取消�
 或 receipt。原 history provider 仍拒绝 Archived 的 project/write；原 source inspection 仍返回
 `ArchivedReadGrantUnavailable`。不得把该观察转成成功 query response、cursor binding 或 verified cache 写入。
 
+原 `IAuthorArticleQuerySourceReader.ReadInSnapshotAsync` 为内部 callback 提供独立的数据读事务。
+ArticleService 在原 AdminHeavyRead gate 内用 `CopyNew()` 创建独立 client，拒绝非 PostgreSQL、ambient
+或共享 connection，验证实际 RepeatableRead transaction/connection，并在任何 source SELECT 前执行
+`SET TRANSACTION READ ONLY`。callback 的 coordinates、exact-ID 与 admitted-ID fields 全部复用原
+ArticleService SQL；单次读取仍受原 1000+1／1000-ID 边界限制，多页在同一事务内观察，不创建第二 index。
+live permission authority 留在原 client 上，不受这个历史数据快照冻结；其检查在数据 callback 外进行，
+避免持有数据 connection 时再占用第二个 main-pool connection。事务本身不是权限过滤或 read grant。
+scope 与逐次读取取消必须共同生效；并行读取、事务漂移、未 await 的读取与 scope 退出后复用均拒绝。
+退出等待 reader cleanup，取消不得跳过 owned rollback，且不 commit、写数据库或保留 snapshot lease。
+缺失该 capability 的 adapter 明确 unsupported。该数据读能力不计算或签发 v1 SourceDigest：真实 Slug、
+完整 permission/history binding、Archived query grant 和 successful query response/cache/receipt 仍未就绪。
+
 `AuthorArticleQueryHistoryIdentityReader` 独立消费原规范 history projection，最多 1000 entries、每页 100。
 全部页面必须绑定同一 user/site、collection revision、permission/site/session identity、projection/cache references
 和完整 projection digest，再经原 `TryValidateProjectionPage` 重算每个 entry 和完整有序集合。失败时不返回 ordinal；

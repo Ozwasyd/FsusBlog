@@ -30,6 +30,14 @@ public sealed record AuthorArticleQuerySourceBatch(
 /// <summary>Minimal projection on the canonical article owner; never a second article index.</summary>
 public interface IAuthorArticleQuerySourceReader
 {
+    /// <summary>Runs internal bounded reads in one owned data-only snapshot, not a query admission.</summary>
+    /// <remarks>The callback must await data reads; live permission checks stay outside its connection reservation.</remarks>
+    Task<TResult> ReadInSnapshotAsync<TResult>(
+        Func<IAuthorArticleQuerySourceReader, CancellationToken, Task<TResult>> read,
+        CancellationToken cancellationToken)
+        => Task.FromException<TResult>(
+            new NotSupportedException("author_article_query_source_snapshot_unavailable"));
+
     Task<AuthorArticleQuerySourceBatch> ReadCoordinatesAsync(
         IReadOnlyList<AuthorArticleQueryStatus> statuses,
         CancellationToken cancellationToken);
